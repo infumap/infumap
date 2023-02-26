@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (C) 2022 The Infumap Authors
+# Copyright (C) 2023 The Infumap Authors
 # This file is part of Infumap.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -16,11 +16,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pushd "$(dirname "$0")"
-if [ -z $1 ]
-  then
-    cargo build --release
-  else
-    cargo build --release --target $1
-fi
-popd
+./build.sh x86_64-apple-darwin
+./build.sh aarch64-apple-darwin
+./build.sh x86_64-unknown-linux-musl

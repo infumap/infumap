@@ -18,5 +18,5 @@
 
 pushd "$(dirname "$0")"
 ./web/build.sh
-./infumap/build.sh
+./infumap/build.sh $1
 popd
