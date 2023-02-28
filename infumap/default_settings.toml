@@ -14,13 +14,36 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# data_dir = "~/.infumap/data"
-# cache_dir = "~/.infumap/cache"
+#data_dir = "~/.infumap/data"
+#cache_dir = "~/.infumap/cache"
 
-# maximum aggregate size (in megabytes) of all files in the cache.
-# cache_max_mb = 500
+# Maximum aggregate size (in megabytes) of all files in the cache.
+#cache_max_mb = 500
 
-# max_image_size_deviation_smaller_percent = 30
-# max_image_size_deviation_larger_percent = 5
+#max_image_size_deviation_smaller_percent = 30
+#max_image_size_deviation_larger_percent = 5
 
-# enable_prometheus_metrics = false
+#enable_prometheus_metrics = false
+
+# Whether or not to use the local filesystem to store file and image data.
+# You will want to disable this if you are running on a cloud server with
+# limited or expensive disk.
+#enable_local_object_storage = true
+
+# Primary external object store configuration. If enabled, file and image
+# data will be maintained in this AWS S3 compatible object store (in addition
+# to other configured object stores). If you are using AWS, you don't need to
+# specify an endpoint, only region. If you are using a compatible service, you
+# usually only need to specify the endpoint.
+#enable_s3_1_object_storage = false
+#s3_1_region = 
+#s3_1_endpoint = 
+#s3_1_key = 
+#s3_1_secret = 
+
+# Secondary external object store configuration.
+#enable_s3_2_object_storage = false
+#s3_2_region = 
+#s3_2_endpoint = 
+#s3_2_key = 
+#s3_2_secret = 

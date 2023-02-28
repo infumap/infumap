@@ -27,7 +27,7 @@ use crate::util::uid::Uid;
 use crate::util::fs::{expand_tilde, construct_store_subpath, ensure_256_subdirs};
 
 
-/// Manage files for all users, assuming the mandated data folder hierarchy.
+/// Manage files on disk for all users, assuming the mandated data folder hierarchy.
 /// Not threadsafe.
 pub struct FileStore {
   data_dir: PathBuf,
@@ -42,7 +42,7 @@ impl FileStore {
 
   fn ensure_files_dir(&mut self, user_id: &Uid) -> InfuResult<PathBuf> {
     let mut files_dir = self.data_dir.clone();
-    files_dir.push(String::from("user_") + user_id);
+    files_dir.push(format!("{}{}", String::from("user_"), user_id));
     files_dir.push("files");
 
     if !self.user_existence_checked.contains(user_id) {

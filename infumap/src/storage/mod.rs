@@ -17,3 +17,5 @@
 pub mod cache;
 pub mod db;
 pub mod file;
+pub mod object;
+pub mod s3;

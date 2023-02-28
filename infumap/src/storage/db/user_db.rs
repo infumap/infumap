@@ -109,7 +109,7 @@ impl UserDb {
     }
 
     let mut dir = self.data_dir.clone();
-    dir.push(String::from("user_") + &user.id);
+    dir.push(format!("{}{}", String::from("user_"), &user.id));
     fs::create_dir(&dir)?;
 
     dir.push("user.json");
@@ -133,6 +133,15 @@ impl UserDb {
             store.get(uid)
           }
         }
+      }
+    }
+  }
+
+  pub fn get(&self, uid: &Uid) -> Option<&User> {
+    match self.store_by_id.get(uid) {
+      None => None,
+      Some(store) => {
+        store.get(uid)
       }
     }
   }

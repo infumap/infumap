@@ -29,7 +29,7 @@ use crate::config::{ConfigAndPath, CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCE
 use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
-use crate::storage::file::FileStore;
+use crate::storage::object::ObjectStore;
 use crate::web::responders::FileResponse;
 use crate::util::infu::InfuError;
 use crate::web::session::get_and_validate_session;
@@ -59,7 +59,7 @@ const JPEG_QUALITY: u8 = 80;
 pub fn get(
     config: &State<Mutex<ConfigAndPath>>,
     db: &State<Mutex<Db>>,
-    file_store: &State<Mutex<FileStore>>,
+    object_store: &State<Mutex<ObjectStore>>,
     cache: &State<Mutex<FileCache>>,
     cookies: &CookieJar,
     name: &str) -> Result<FileResponse<Vec<u8>>, InfuError> {
@@ -71,9 +71,9 @@ pub fn get(
   }
 
   if name.contains("_") {
-    get_cached_resized_img(config, db, file_store, cache, &session, name)
+    get_cached_resized_img(config, db, object_store, cache, &session, name)
   } else {
-    get_file(db, file_store, &session, name)
+    get_file(db, object_store, &session, name)
   }
 }
 
@@ -81,7 +81,7 @@ pub fn get(
 fn get_cached_resized_img(
     config: &State<Mutex<ConfigAndPath>>,
     db: &State<Mutex<Db>>,
-    file_store: &State<Mutex<FileStore>>,
+    object_store: &State<Mutex<ObjectStore>>,
     cache: &State<Mutex<FileCache>>,
     session: &Session,
     name: &str) -> Result<FileResponse<Vec<u8>>, InfuError> {
@@ -103,6 +103,7 @@ fn get_cached_resized_img(
     max_image_size_deviation_smaller_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?;
   }
 
+  let object_encryption_key;
   let original_dimensions_px;
   let original_mime_type;
   {
@@ -111,6 +112,7 @@ fn get_cached_resized_img(
     if item.owner_id != session.user_id {
       return Err(format!("File owner {} does match session user '{}'.", item.owner_id, session.user_id).into());
     }
+    object_encryption_key = db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     original_dimensions_px = item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
     let original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime tyoe set.")?;
     original_mime_type = match ContentType::parse_flexible(&original_mime_type_string) {
@@ -184,7 +186,7 @@ fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = file_store.lock().unwrap().get(&session.user_id, &String::from(&uid))?;
+  let original_file_bytes = object_store.lock().unwrap().get(&session.user_id, &String::from(&uid), &object_encryption_key)?;
 
   if respond_with_cached_original {
     let cache_key= format!("{}_{}", uid, "original");
@@ -283,12 +285,12 @@ fn get_cached_resized_img(
 
 fn get_file(
     db: &State<Mutex<Db>>,
-    file_store: &State<Mutex<FileStore>>,
+    object_store: &State<Mutex<ObjectStore>>,
     session: &Session,
     uid: &str) -> Result<FileResponse<Vec<u8>>, InfuError> {
 
   let db = db.lock().unwrap();
-  let mut file_store = file_store.lock().unwrap();
+  let mut object_store = object_store.lock().unwrap();
 
   let item = db.item.get(&String::from(uid))?;
   if item.owner_id != session.user_id {
@@ -301,5 +303,7 @@ fn get_file(
     None => ContentType::Binary
   };
 
-  Ok(FileResponse { data: file_store.get(&session.user_id, &String::from(uid))?, mime_type})
+  let object_encryption_key = &db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key;
+
+  Ok(FileResponse { data: object_store.get(&session.user_id, &String::from(uid), object_encryption_key)?, mime_type})
 }

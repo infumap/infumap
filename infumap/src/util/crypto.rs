@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::time::{SystemTime, UNIX_EPOCH};
-
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aead::{Aead, KeyInit, OsRng, rand_core::RngCore, Payload};
 use base64::{Engine as _, engine::general_purpose};
@@ -62,13 +61,13 @@ fn generate_nonce() -> [u8; 12] {
 }
 
 
-fn generate_key() -> String {
+pub fn generate_key() -> String {
   let key = Aes256Gcm::generate_key(&mut OsRng);
   general_purpose::STANDARD.encode(key)
 }
 
 
-fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
+pub fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
   let key = general_purpose::STANDARD.decode(key)
     .map_err(|e| format!("Invalid base64 encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
@@ -84,7 +83,7 @@ fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u
 }
 
 
-fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
+pub fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
   let key = general_purpose::STANDARD.decode(key)
     .map_err(|e| format!("Invalid base64 encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
@@ -99,7 +98,7 @@ fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u
   if String::from(str) != String::from_utf8(INFUMAP_ENCRYPTED_FILE_IDENTIFIER.as_slice().into()).unwrap() {
     return Err("Unexpected encrypted file identifier (expecting 'infu').".into());
   }
-  
+
   let mut version = [0u8; 1];
   databuf.read_exact(&mut version)?;
   let mut nonce = [0u8; 12];

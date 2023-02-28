@@ -40,6 +40,28 @@ pub const CONFIG_ENV_ONLY_DEFAULT: bool = false;
 pub const CONFIG_ENABLE_PROMETHEUS_METRICS: &'static str = "enable_prometheus_metrics";
 pub const CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT: bool = false;
 
+pub const CONFIG_ENABLE_LOCAL_OBJECT_STORAGE: &'static str = "enable_local_object_storage";
+pub const CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT: bool = true;
+
+pub const CONFIG_ENABLE_S3_1_OBJECT_STORAGE: &'static str = "enable_s3_1_object_storage";
+pub const CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT: bool = false;
+
+pub const CONFIG_S3_1_REGION: &'static str = "s3_1_region";
+pub const CONFIG_S3_1_ENDPOINT: &'static str = "s3_1_endpoint";
+pub const CONFIG_S3_1_BUCKET: &'static str = "s3_1_bucket";
+pub const CONFIG_S3_1_KEY: &'static str = "s3_1_key";
+pub const CONFIG_S3_1_SECRET: &'static str = "s3_1_secret";
+
+pub const CONFIG_ENABLE_S3_2_OBJECT_STORAGE: &'static str = "enable_s3_2_object_storage";
+pub const CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT: bool = false;
+
+pub const CONFIG_S3_2_REGION: &'static str = "s3_2_region";
+pub const CONFIG_S3_2_ENDPOINT: &'static str = "s3_2_endpoint";
+pub const CONFIG_S3_2_BUCKET: &'static str = "s3_2_bucket";
+pub const CONFIG_S3_2_KEY: &'static str = "s3_2_key";
+pub const CONFIG_S3_2_SECRET: &'static str = "s3_2_secret";
+
+
 // TODO (LOW): This struct should be deprecated - settings_path_maybe is no longer needed.
 pub struct ConfigAndPath {
   pub settings_path_maybe: Option<String>,

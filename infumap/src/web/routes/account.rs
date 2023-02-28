@@ -24,11 +24,11 @@ use std::time::SystemTime;
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, RelationshipToParent};
 use crate::storage::db::user::User;
+use crate::util::crypto::generate_key;
 use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, new_uid};
 use crate::web::responders::RateLimitResponse;
-
 
 const TOTP_ALGORITHM: Algorithm = Algorithm::SHA1; // The most broadly compatible algo & SHA1 is just fine for 2FA.
 const TOTP_NUM_DIGETS: usize = 6; // 6 digit OTP is pretty standard.
@@ -236,7 +236,8 @@ pub fn register(db: &State<Mutex<Db>>, payload: Json<RegisterRequest>) -> Json<R
     totp_secret: payload.totp_secret.clone(),
     root_page_id: root_page_id.clone(),
     default_page_width_bl: 60,
-    default_page_natural_aspect: 2.0
+    default_page_natural_aspect: 2.0,
+    object_encryption_key: generate_key()
   };
 
   if payload.username == "root" {

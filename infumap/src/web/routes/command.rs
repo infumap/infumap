@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, is_data_item, is_image_item};
-use crate::storage::file::FileStore;
+use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 use crate::web::session::get_and_validate_session;
 use super::WebApiJsonSerializable;
@@ -62,7 +62,7 @@ pub struct SendResponse {
 #[post("/command", data = "<request>")]
 pub fn command(
     db: &State<Mutex<Db>>,
-    file_store: &State<Mutex<FileStore>>,
+    object_store: &State<Mutex<ObjectStore>>,
     cache: &State<Mutex<FileCache>>,
     request: Json<SendRequest>,
     cookies: &CookieJar) -> Json<SendResponse> {
@@ -91,9 +91,9 @@ pub fn command(
   // handle
   let response_data_maybe = match request.command.as_str() {
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(&mut db, &request.json_data),
-    "add-item" => handle_add_item(&mut db, &file_store, &request.json_data, &request.base64_data, &session.user_id),
-    "update-item" => handle_update_item(&mut db, &request.json_data),
-    "delete-item" => handle_delete_item(&mut db, &file_store, &cache, &request.json_data, &session.user_id),
+    "add-item" => handle_add_item(&mut db, &object_store, &request.json_data, &request.base64_data, &session.user_id),
+    "update-item" => handle_update_item(&mut db, &request.json_data, &session.user_id),
+    "delete-item" => handle_delete_item(&mut db, &object_store, &cache, &request.json_data, &session.user_id),
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
       return Json(SendResponse { success: false, json_data: None });
@@ -154,7 +154,7 @@ fn handle_get_children_with_their_attachments(db: &mut MutexGuard<Db>, json_data
 
 fn handle_add_item(
     db: &mut MutexGuard<Db>,
-    file_store: &State<Mutex<FileStore>>,
+    object_store: &State<Mutex<ObjectStore>>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
     user_id: &String) -> InfuResult<Option<String>> {
@@ -164,6 +164,10 @@ fn handle_add_item(
   let item_map_maybe = iterator.next().ok_or("Add item request has no item data.")??;
   let item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?;
   let mut item: Item = Item::from_api_json(item_map)?;
+
+  if &item.owner_id != user_id {
+    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, user_id, item.id).into());
+  }
 
   if db.item.get(&item.id).is_ok() {
     return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
@@ -175,7 +179,8 @@ fn handle_add_item(
     if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
-    file_store.lock().unwrap().put(user_id, &item.id, &decoded)?;
+    let object_encryption_key = &db.user.get(user_id).ok_or(format!("User '{}' not found.", user_id))?.object_encryption_key;
+    object_store.lock().unwrap().put(user_id, &item.id, &decoded, object_encryption_key)?;
 
     if is_image_item(&item.item_type) {
       let file_cursor = Cursor::new(decoded);
@@ -206,13 +211,19 @@ fn handle_add_item(
 
 fn handle_update_item(
     db: &mut MutexGuard<Db>,
-    json_data: &str) -> InfuResult<Option<String>> {
+    json_data: &str,
+    user_id: &String) -> InfuResult<Option<String>> {
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
   let item_map_maybe = iterator.next().ok_or("Update item request has no item.")??;
   let item_map = item_map_maybe.as_object().ok_or("Update item request body is not a JSON object.")?;
   let item: Item = Item::from_api_json(item_map)?;
+
+  if &db.item.get(&item.id)?.owner_id != user_id {
+    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, user_id, item.id).into());
+  }
+
   db.item.update(&item)?;
   Ok(None)
 }
@@ -226,7 +237,7 @@ pub struct DeleteItemRequest {
 
 fn handle_delete_item(
     db: &mut MutexGuard<Db>,
-    file_store: &State<Mutex<FileStore>>,
+    object_store: &State<Mutex<ObjectStore>>,
     cache: &State<Mutex<FileCache>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
@@ -241,9 +252,9 @@ fn handle_delete_item(
   debug!("Deleting item '{}' from database.", request.id);
 
   if is_data_item(&item.item_type) {
-    let mut file_store = file_store.lock().unwrap();
-    file_store.delete(user_id, &request.id)?;
-    debug!("Deleted item '{}' from filestore.", request.id);
+    let mut object_store = object_store.lock().unwrap();
+    object_store.delete(user_id, &request.id)?;
+    debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
     let mut cache = cache.lock().unwrap();

@@ -23,9 +23,10 @@ use crate::util::json;
 use super::kv_store::JsonLogSerializable;
 
 
-const ALL_JSON_FIELDS: [&'static str; 9] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 10] = ["__recordType",
   "id", "username", "passwordHash", "passwordSalt", "totpSecret",
-  "rootPageId", "defaultPageWidthBl", "defaultPageNaturalAspect"];
+  "rootPageId", "defaultPageWidthBl", "defaultPageNaturalAspect",
+  "objectEncryptionKey"];
 
 pub struct User {
   pub id: String,
@@ -35,7 +36,8 @@ pub struct User {
   pub totp_secret: Option<String>,
   pub root_page_id: String,
   pub default_page_width_bl: i64,
-  pub default_page_natural_aspect: f64
+  pub default_page_natural_aspect: f64,
+  pub object_encryption_key: String,
 }
 
 impl User {
@@ -56,7 +58,8 @@ impl Clone for User {
       totp_secret: self.totp_secret.clone(),
       root_page_id: self.root_page_id.clone(),
       default_page_width_bl: self.default_page_width_bl,
-      default_page_natural_aspect: self.default_page_natural_aspect
+      default_page_natural_aspect: self.default_page_natural_aspect,
+      object_encryption_key: self.object_encryption_key.clone()
     }
   }
 }
@@ -86,6 +89,7 @@ impl JsonLogSerializable<User> for User {
       String::from("defaultPageNaturalAspect"),
       Value::Number(Number::from_f64(self.default_page_natural_aspect)
         .ok_or(format!("default_page_natural_aspect for user '{}' is not a number", self.id))?));
+    result.insert(String::from("objectEncryptionKey"), Value::String(self.object_encryption_key.clone()));
     Ok(result)
   }
 
@@ -107,7 +111,9 @@ impl JsonLogSerializable<User> for User {
       default_page_width_bl: json::get_integer_field(map, "defaultPageWidthBl")?
         .ok_or(format!("'defaultPageWidthBl' field was missing in an entry for user '{}'.", id))?,
       default_page_natural_aspect: json::get_float_field(map, "defaultPageNaturalAspect")?
-        .ok_or(format!("'defaultPageNaturalAspect' field was missing in an entry for user '{}'.", id))?
+        .ok_or(format!("'defaultPageNaturalAspect' field was missing in an entry for user '{}'.", id))?,
+      object_encryption_key: json::get_string_field(map, "objectEncryptionKey")?
+        .ok_or(format!("'objectEncryptionKey' was missing in entry for user '{}'.", id))?
     })
   }
 
@@ -137,6 +143,9 @@ impl JsonLogSerializable<User> for User {
     if old.default_page_natural_aspect != new.default_page_natural_aspect {
       result.insert(String::from("defaultPageNaturalAspect"), Value::Number(new.default_page_width_bl.into()));
     }
+    if old.object_encryption_key != new.object_encryption_key {
+      return Err(format!("Attempt was made to update ojbect encryption key for item '{}', but this is not allowed.", old.id).into());
+    }
     Ok(result)
   }
 
@@ -149,6 +158,9 @@ impl JsonLogSerializable<User> for User {
     if let Some(u) = json::get_string_field(map, "rootPageId")? { self.root_page_id = u; }
     if let Some(u) = json::get_integer_field(map, "defaultPageWidthBl")? { self.default_page_width_bl = u; }
     if let Some(u) = json::get_float_field(map, "defaultPageNaturalAspect")? { self.default_page_natural_aspect = u; }
+    if let Some(_) = json::get_string_field(map, "objectEncryptionKey")? {
+      return Err(format!("Encounterd an update record for user '{}' with an object encryption key specified, but this is not allowed.", self.id).into());
+    }
     Ok(())
   }
 }
