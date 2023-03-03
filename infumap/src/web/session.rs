@@ -14,14 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::MutexGuard;
-use rocket::http::CookieJar;
+use hyper::Request;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use crate::{storage::db::{Db, session::Session}, util::infu::InfuResult};
-use super::cookie::get_session_cookie;
+
+use super::cookie::get_session_cookie_maybe;
 
 
-pub fn get_and_validate_session<'a >(cookies: &'a CookieJar, db: &mut MutexGuard<Db>) -> InfuResult<Session> {
-  let session_cookie = get_session_cookie(cookies)?;
+pub async fn get_and_validate_session<'a >(request: &Request<hyper::body::Incoming>, db: &Arc<Mutex<Db>>) -> InfuResult<Session> {
+  let mut db = db.lock().await;
+  let session_cookie = get_session_cookie_maybe(request).ok_or("Session cookie not available")?;
 
   let session = match db.session.get_session(&session_cookie.session_id)? {
     Some(s) => s,

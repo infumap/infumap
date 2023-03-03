@@ -20,7 +20,7 @@ use std::fs::{self, OpenOptions};
 use std::fs::File;
 use std::io::{Read, Write};
 
-use log::info;
+use log::{info, warn};
 
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;

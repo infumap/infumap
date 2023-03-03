@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 
+use log::info;
 use serde_json::{Map, Value};
 
 use crate::util::geometry::GRID_SIZE;

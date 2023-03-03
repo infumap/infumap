@@ -14,13 +14,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use rocket::State;
-use rocket::serde::json::Json;
+use bytes::Bytes;
+use http_body_util::combinators::BoxBody;
+use hyper::{Request, Response, Method};
+use log::{info, error};
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
+use std::str;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::time::{sleep, Duration};
 use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
-use std::sync::Mutex;
-use std::time::SystemTime;
+
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, RelationshipToParent};
 use crate::storage::db::user::User;
@@ -28,13 +34,24 @@ use crate::util::crypto::generate_key;
 use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, new_uid};
-use crate::web::responders::RateLimitResponse;
+use crate::web::serve::{json_response, not_found_response, incoming_json};
+
 
 const TOTP_ALGORITHM: Algorithm = Algorithm::SHA1; // The most broadly compatible algo & SHA1 is just fine for 2FA.
 const TOTP_NUM_DIGETS: usize = 6; // 6 digit OTP is pretty standard.
 const TOTP_SKEW: u8 = 1; // OTP is valid for this number of time intervals in the past/future.
 const TOTP_STEP: u64 = 30; // Time step interval of 30 seconds is pretty standard.
 
+
+pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  match (req.method(), req.uri().path()) {
+    (&Method::POST, "/account/login") => login(db, req).await,
+    (&Method::POST, "/account/logout") => logout(db, req).await,
+    (&Method::POST, "/account/register") => register(db, req).await,
+    (&Method::POST, "/account/totp") => totp(),
+    _ => not_found_response()
+  }
+}
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -56,29 +73,38 @@ pub struct LoginResponse {
   root_page_id: Option<String>,
 }
 
-#[post("/account/login", data = "<payload>")]
-pub fn login(db: &State<Mutex<Db>>, payload: Json<LoginRequest>) -> RateLimitResponse<Json<LoginResponse>> {
-  let mut db = db.lock().unwrap();
+pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut db = db.lock().await;
 
-  fn failed_response(msg: &str) -> RateLimitResponse<Json<LoginResponse>> {
-    RateLimitResponse(Json(LoginResponse {
+  async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
+    // Rate limit failed login attempts.
+    sleep(Duration::from_millis(250)).await;
+    return json_response(&LoginResponse {
       success: false, session_id: None, user_id: None, root_page_id: None,
       err: Some(String::from(msg))
-    }))
+    });
   }
+
+  let payload: LoginRequest = match incoming_json(req).await {
+    Ok(p) => p,
+    Err(e) => {
+      error!("Could not parse login request: {}", e);
+      return failed_response("server error").await;
+    }
+  };
 
   let user = match db.user.get_by_username(&payload.username) {
     Some(user) => user,
     None => {
       info!("A login was attempted for a user '{}' that does not exist.", payload.username);
-      return failed_response("credentials incorrect");
+      return failed_response("credentials incorrect").await;
     }
   }.clone();
 
   let test_hash = User::compute_password_hash(&user.password_salt, &payload.password);
   if test_hash != user.password_hash {
     info!("A login attempt for user '{}' failed due to incorrect password.", payload.username);
-    return failed_response("credentials incorrect");
+    return failed_response("credentials incorrect").await;
   }
 
   if let Some(totp_secret) = &user.totp_secret {
@@ -86,23 +112,23 @@ pub fn login(db: &State<Mutex<Db>>, payload: Json<LoginRequest>) -> RateLimitRes
       match validate_totp(totp_secret, totp_token) {
         Err(e) => {
           info!("An eror occured whilst trying to validate a TOTP token for user '{}': {}", payload.username, e);
-          return failed_response("server error");
+          return failed_response("server error").await;
         },
         Ok(v) => {
           if !v {
             info!("A login attempt for user '{}' failed due to an incorrect TOTP.", payload.username);
-            return failed_response("credentials incorrect");
+            return failed_response("credentials incorrect").await;
           }
         }
       };
     } else {
       info!("A login attempt for user '{}' failed because a TOTP was not specified.", payload.username);
-      return failed_response("credentials incorrect");
+      return failed_response("credentials incorrect").await;
     }
   } else {
     if payload.totp_token.is_some() {
       info!("A login attempt for user '{}' failed because a TOTP token was specified, but this is not expected.", payload.username);
-      return failed_response("credentials incorrect");
+      return failed_response("credentials incorrect").await;
     }
   }
 
@@ -115,11 +141,11 @@ pub fn login(db: &State<Mutex<Db>>, payload: Json<LoginRequest>) -> RateLimitRes
         root_page_id: Some(user.root_page_id.clone()),
         err: None
       };
-      RateLimitResponse(Json(result))
+      return json_response(&result);
     },
     Err(e) => {
       error!("Failed to create session for user '{}': {}.", payload.username, e);
-      return failed_response("server error");
+      return failed_response("server error").await;
     }
   }
 }
@@ -138,28 +164,35 @@ pub struct LogoutResponse {
   success: bool,
 }
 
-#[post("/account/logout", data = "<payload>")]
-pub fn logout(db: &State<Mutex<Db>>, payload: Json<LogoutRequest>) -> Json<LogoutResponse> {
-  let mut db = db.lock().unwrap();
+pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut db = db.lock().await;
+
+  let payload: LogoutRequest = match incoming_json(req).await {
+    Ok(p) => p,
+    Err(e) => {
+      error!("Could not parse logout request: {}", e);
+      return json_response(&LogoutResponse { success: false });
+    }
+  };
 
   match db.session.delete_session(&payload.session_id) {
     Err(e) => {
       error!(
         "Could not delete session '{}' for user '{}': {}",
         payload.session_id, payload.user_id, e);
-      return Json(LogoutResponse { success: false });
+      return json_response(&LogoutResponse { success: false });
     },
     Ok(user_id) => {
       if user_id != payload.user_id {
         error!(
           "Unexpected user_id '{}' deleting session '{}'. Session is associated with user: '{}'",
           payload.user_id, payload.session_id, user_id);
-        return Json(LogoutResponse { success: false });
+        return json_response(&LogoutResponse { success: false });
       }
     }
   };
 
-  Json(LogoutResponse { success: true })
+  json_response(&LogoutResponse { success: true })
 }
 
 
@@ -188,14 +221,21 @@ const RESERVED_NAMES: [&'static str; 16] = [
   "item", "items", "page", "table", "image", "text", "rating", "file", "blob",
   "about"];
 
-#[post("/account/register", data = "<payload>")]
-pub fn register(db: &State<Mutex<Db>>, payload: Json<RegisterRequest>) -> Json<RegisterResponse> {
-  let mut db = db.lock().unwrap();
+pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut db = db.lock().await;
+
+  let payload: RegisterRequest = match incoming_json(req).await {
+    Ok(p) => p,
+    Err(e) => {
+      error!("Could not parse register request: {}", e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("application error")) } );
+    }
+  };
 
   if db.user.get_by_username(&payload.username).is_some() ||
      db.pending_user.get_by_username(&payload.username).is_some() ||
      RESERVED_NAMES.contains(&payload.username.as_str()) {
-    return Json(RegisterResponse { success: false, err: Some(String::from("username not available")) } )
+    return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) } )
   }
 
   const NATURAL_BLOCK_SIZE_PX: i64 = 24;
@@ -203,24 +243,24 @@ pub fn register(db: &State<Mutex<Db>>, payload: Json<RegisterRequest>) -> Json<R
   let page_width_bl = page_size_px.w / NATURAL_BLOCK_SIZE_PX;
   let natural_aspect = (page_size_px.w as f64) / (page_size_px.h as f64);
   if payload.username.len() < 3 {
-    return Json(RegisterResponse { success: false, err: Some(String::from("username must be 3 or more characters")) } )
+    return json_response(&RegisterResponse { success: false, err: Some(String::from("username must be 3 or more characters")) } )
   }
   if payload.password.len() < 4 {
-    return Json(RegisterResponse { success: false, err: Some(String::from("password must be 4 or more characters")) } )
+    return json_response(&RegisterResponse { success: false, err: Some(String::from("password must be 4 or more characters")) } )
   }
   if let Some(totp_secret) = &payload.totp_secret {
     if let Some(totp_token) = &payload.totp_token {
       match validate_totp(totp_secret, totp_token) {
         Err(e) => {
           error!("Error occurred validating TOTP token: {}", e);
-          return Json(RegisterResponse { success: false, err: Some(String::from("server error")) } );
+          return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } );
         },
         Ok(v) => {
-          if !v { return Json(RegisterResponse { success: false, err: Some(String::from("incorrect OTP")) } ); }
+          if !v { return json_response(&RegisterResponse { success: false, err: Some(String::from("incorrect OTP")) } ); }
         }
       }
     } else {
-      return Json(RegisterResponse { success: false, err: Some(String::from("application error")) } );
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("application error")) } );
     }
   }
 
@@ -243,25 +283,25 @@ pub fn register(db: &State<Mutex<Db>>, payload: Json<RegisterRequest>) -> Json<R
   if payload.username == "root" {
     if let Err(e) = db.user.add(user.clone()) {
       error!("Error adding user: {}", e);
-      return Json(RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
     if let Err(e) = db.item.load_user_items(&user.id, true) {
       error!("Error initializing item store for user '{}': {}", user.id, e);
-      return Json(RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
     let page = default_page(user_id.as_str(), &payload.username, root_page_id, page_width_bl, natural_aspect);
     if let Err(e) = db.item.add(page) {
       error!("Error adding default page: {}", e);
-      return Json(RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
   } else {
     if let Err(e) = db.pending_user.add(user.clone()) {
       error!("Error adding user to pending user db: {}", e);
-      return Json(RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
   }
 
-  Json(RegisterResponse { success: true, err: None })
+  json_response(&RegisterResponse { success: true, err: None })
 }
 
 fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
@@ -342,8 +382,7 @@ pub struct TotpResponse {
   pub secret: Option<String>
 }
 
-#[post("/account/totp")]
-pub fn totp() -> Json<TotpResponse> {
+pub fn totp() -> Response<BoxBody<Bytes, hyper::Error>> {
   // A 160 bit secret is recommended by https://www.rfc-editor.org/rfc/rfc4226.
   // Construct this from the non-deterministic parts of two new v4 uuids (we require a dependency on Uuid elsewhere anyway).
   // xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx
@@ -359,7 +398,7 @@ pub fn totp() -> Json<TotpResponse> {
     None, "infumap".to_string()
   ).unwrap();
 
-  Json(TotpResponse {
+  json_response(&TotpResponse {
     success: true,
     qr: Some(totp.get_qr().unwrap()),
     url: Some(totp.get_url()),

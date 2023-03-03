@@ -14,10 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use rocket::http::CookieJar;
+use hyper::header::COOKIE;
+use hyper::Request;
 use serde::Deserialize;
+
 use crate::util::uid::Uid;
-use crate::util::infu::InfuResult;
 
 
 pub const SESSION_COOKIE_NAME: &'static str = "infusession";
@@ -33,13 +34,41 @@ pub struct InfuSession {
   pub root_page_id: Uid
 }
 
-pub fn get_session_cookie<'a>(cookies: &'a CookieJar) -> InfuResult<InfuSession> {
-  let cookie = match cookies.get(SESSION_COOKIE_NAME) {
-    Some(cookie) => cookie,
-    None => { return Err("Session cookie was not present.".into()); }
-  };
-  Ok(match serde_json::from_str::<InfuSession>(cookie.value()) {
-    Ok(s) => s,
-    Err(e) => { return Err(format!("Session cookie could not be parsed: {}", e).into()); }
-  })
+pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Option<InfuSession> {
+  match request.headers().get(COOKIE) {
+    Some(cookies) => {
+      match cookies.to_str() {
+        Ok(cookies) => {
+          let sc = cookie::Cookie::split_parse(cookies);
+          for cookie_maybe in sc.into_iter() {
+            match cookie_maybe {
+              Ok(cookie) => {
+                let (name, val) = cookie.name_value();
+                if name == SESSION_COOKIE_NAME {
+                  return match serde_json::from_str::<InfuSession>(val) {
+                    Ok(s) => Some(s),
+                    Err(_e) => {
+                      // Err(format!("Session cookie could not be parsed: {}", e).into());
+                      return None;
+                    }
+                  }
+                }
+              },
+              Err(_) => {}
+            }
+          }
+          // Err("A valid session cookie not available.".into())
+          None
+        },
+        Err(_e) => {
+          // Err("Cookies http header is not a valid string.".into())
+          None
+        }
+      }
+    },
+    None => {
+      // Err("Cookie http header not present.".into())
+      None
+    }
+  }
 }

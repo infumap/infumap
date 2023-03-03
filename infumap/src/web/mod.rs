@@ -15,25 +15,30 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 mod dist_handlers;
-mod responders;
 mod prometheus;
-mod rocket_config;
-pub mod routes;
+mod serve;
+
 pub mod cookie;
+pub mod routes;
 pub mod session;
 
-use std::sync::Mutex;
-
-use rocket::response::content::RawHtml;
-use rocket::{Rocket, Build};
-use rocket::fairing::AdHoc;
 use clap::ArgMatches;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use log::{error, info};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio::sync::Mutex;
+
 use crate::config::*;
 use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::setup::init_fs_and_config;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
+
+use self::serve::http_serve;
 
 
 pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
@@ -42,16 +47,15 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let config = config_and_path.config.clone();
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;
-  let init_db = |rocket: Rocket<Build>| async move {
-    rocket.manage(Mutex::new(
-      match Db::new( &data_dir) {
-        Ok(db) => db,
-        Err(e) => {
-          println!("{}", e);
-          panic!();
-        }
-      }))
-  };
+  let db = Arc::new(Mutex::new(
+    match Db::new( &data_dir) {
+      Ok(db) => db,
+      Err(e) => {
+        error!("Failed to initialize database: {}", e);
+        panic!();
+      }
+    }
+  ));
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;
   let enable_local_object_storage = config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)?;
@@ -67,54 +71,53 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
-  let init_file_store = move |rocket: Rocket<Build>| async move {
-    rocket.manage(Mutex::new(
-      match ObjectStore::new(&data_dir, enable_local_object_storage,
-                             enable_s3_1_object_storage, s3_1_region, s3_1_endpoint, s3_1_bucket, s3_1_key, s3_1_secret,
-                             enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
-        Ok(object_store) => object_store,
-        Err(e) => {
-          println!("Failed to initialize object store: {}", e);
-          panic!();
-        }
+  let object_store = Arc::new(Mutex::new(
+    match ObjectStore::new(&data_dir, enable_local_object_storage,
+                           enable_s3_1_object_storage, s3_1_region, s3_1_endpoint, s3_1_bucket, s3_1_key, s3_1_secret,
+                           enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
+      Ok(object_store) => object_store,
+      Err(e) => {
+        error!("Failed to initialize object store: {}", e);
+        panic!();
       }
-    ))
-  };
+    }
+  ));
 
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
-  let init_cache = move |rocket: Rocket<Build>| async move {
-    rocket.manage(Mutex::new(
-      match FileCache::new(&cache_dir, cache_max_mb) {
-        Ok(file_cache) => file_cache,
-        Err(e) => {
-          println!("Failed to initialize config: {}", e);
-          panic!();
-        }
-      }))
-  };
+  let cache = Arc::new(Mutex::new(
+    match FileCache::new(&cache_dir, cache_max_mb) {
+      Ok(file_cache) => file_cache,
+      Err(e) => {
+        error!("Failed to initialize config: {}", e);
+        panic!();
+      }
+    }
+  ));
 
-  let init_config = move |rocket: Rocket<Build>| async move {
-    rocket.manage(Mutex::new(config_and_path))
-  };
+  let config = Arc::new(Mutex::new(config_and_path));
 
-  #[get("/<_..>")]
-  fn catchall() -> RawHtml<&'static str> { RawHtml(include_str!("../../../web/dist/index.html")) }
+  let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+  let listener = TcpListener::bind(addr).await?;
 
-  _ = dist_handlers::mount(prometheus::mount(&config, rocket_config::update(&config, rocket::build())))
-      .mount("/", routes![
-        routes::files::get,
-        routes::command::command,
-        routes::account::login, routes::account::logout,
-        routes::account::register, routes::account::totp,
-        routes::admin::installation_state,
-      ])
-      .attach(AdHoc::on_ignite("Initialize Config", init_config))
-      .attach(AdHoc::on_ignite("Initialize Db", init_db))
-      .attach(AdHoc::on_ignite("Initialize Cache", init_cache))
-      .attach(AdHoc::on_ignite("Initialize File Store", init_file_store))
-      .mount("/", routes![catchall])
-      .launch().await;
+  loop {
+    let (stream, _) = listener.accept().await?;
 
-  Ok(())
+    let db = db.clone();
+    let object_store = object_store.clone();
+    let cache = cache.clone();
+    let config = config.clone();
+
+    tokio::task::spawn(async move {
+      if let Err(err) = http1::Builder::new()
+        .serve_connection(
+          stream,
+          service_fn(move |req| http_serve(db.clone(), object_store.clone(), cache.clone(), config.clone(), req))
+        ).await
+      {
+        info!("Error serving connection: {:?}", err);
+      }
+    });
+  }
+
 }

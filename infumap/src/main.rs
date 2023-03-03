@@ -20,15 +20,12 @@ mod util;
 mod web;
 mod cli;
 mod setup;
-
-#[macro_use] extern crate rocket;
 use clap::{App, Arg};
 
 
-#[rocket::main]
+#[tokio::main]
 async fn main() {
-  // TODO (MEDIUM): Initialize logging like this when not using rocket.
-  // pretty_env_logger::init();
+  pretty_env_logger::init();
 
   let arg_matches = App::new("Infumap")
     .version("0.1.0")

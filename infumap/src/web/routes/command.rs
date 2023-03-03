@@ -14,32 +14,38 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Cursor;
-use std::sync::{Mutex, MutexGuard};
 use base64::{Engine as _, engine::general_purpose};
+use bytes::Bytes;
+use http_body_util::combinators::BoxBody;
+use hyper::{Request, Response};
 use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
-use log::{error, warn, debug};
+use log::{debug, error, warn};
 use once_cell::sync::Lazy;
-use rocket::http::CookieJar;
-use rocket::State;
-use rocket::serde::json::{Json, Value};
-use rocket_prometheus::prometheus::{IntCounterVec, opts};
+use prometheus::{IntCounterVec, opts};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::str;
+use std::io::Cursor;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, is_data_item, is_image_item};
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
+use crate::web::serve::{json_response, incoming_json};
 use crate::web::session::get_and_validate_session;
+
 use super::WebApiJsonSerializable;
 
 
 pub static METRIC_COMMANDS_HANDLED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(opts!(
     "commands_handled_total",
-    "Total number of times a command has been called."), &["name", "success"])
+    "Total number of times a command type has been called."), &["name", "success"])
       .expect("Could not create METRIC_COMMANDS_HANDLED_TOTAL")
 });
 
@@ -59,59 +65,66 @@ pub struct SendResponse {
   json_data: Option<String>,
 }
 
-#[post("/command", data = "<request>")]
-pub fn command(
-    db: &State<Mutex<Db>>,
-    object_store: &State<Mutex<ObjectStore>>,
-    cache: &State<Mutex<FileCache>>,
-    request: Json<SendRequest>,
-    cookies: &CookieJar) -> Json<SendResponse> {
+pub async fn serve_command_route(
+    db: &Arc<Mutex<Db>>,
+    object_store: &Arc<Mutex<ObjectStore>>,
+    cache: &Arc<Mutex<FileCache>>,
+    request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
-  let mut db = db.lock().unwrap();
-
-  let session = match get_and_validate_session(cookies, &mut db) {
+  let session = match get_and_validate_session(&request, db).await {
     Ok(s) => s,
     Err(e) => {
-      error!("An error occured retrieving user session: {}", e);
-      return Json(SendResponse { success: false, json_data: None });
+      warn!("An error occurred retrieving user session: {}", e);
+      return json_response(&SendResponse { success: false, json_data: None });
     }
   };
 
-  // load user items if required
-  if !db.item.user_items_loaded(&session.user_id) {
-    match db.item.load_user_items(&session.user_id, false) {
-      Ok(_) => {},
-      Err(e) => {
-        error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
-        return Json(SendResponse { success: false, json_data: None });
+  {
+    // Load user items if required
+    let mut db = db.lock().await;
+    if !db.item.user_items_loaded(&session.user_id) {
+      match db.item.load_user_items(&session.user_id, false) {
+        Ok(_) => {},
+        Err(e) => {
+          error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
+          return json_response(&SendResponse { success: false, json_data: None });
+        }
       }
     }
   }
 
-  // handle
+  let request: SendRequest = match incoming_json(request).await {
+    Ok(r) => r,
+    Err(e) => {
+      error!("An error occurred parsing command payload for user '{}': {}", session.user_id, e);
+      return json_response(&SendResponse { success: false, json_data: None });
+    }
+  };
+
   let response_data_maybe = match request.command.as_str() {
-    "get-children-with-their-attachments" => handle_get_children_with_their_attachments(&mut db, &request.json_data),
-    "add-item" => handle_add_item(&mut db, &object_store, &request.json_data, &request.base64_data, &session.user_id),
-    "update-item" => handle_update_item(&mut db, &request.json_data, &session.user_id),
-    "delete-item" => handle_delete_item(&mut db, &object_store, &cache, &request.json_data, &session.user_id),
+    "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
+    "add-item" => handle_add_item(db, &object_store, &request.json_data, &request.base64_data, &session.user_id).await,
+    "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
+    "delete-item" => handle_delete_item(db, &object_store, &cache, &request.json_data, &session.user_id).await,
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
-      return Json(SendResponse { success: false, json_data: None });
+      return json_response(&SendResponse { success: false, json_data: None });
     }
   };
 
   let response_data = match response_data_maybe {
     Ok(r) => r,
     Err(e) => {
-      error!("An error occurred servicing a '{}' command for user '{}': {}.", request.command, session.user_id, e);
+      warn!("An error occurred servicing a '{}' command for user '{}': {}.", request.command, session.user_id, e);
       METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "false"]).inc();
-      return Json(SendResponse { success: false, json_data: None });
+      return json_response(&SendResponse { success: false, json_data: None });
     }
   };
 
   METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "true"]).inc();
   let r = SendResponse { success: true, json_data: response_data };
-  Json(r)
+
+  json_response(&r)
 }
 
 
@@ -121,7 +134,9 @@ pub struct GetChildrenRequest {
   parent_id: String,
 }
 
-fn handle_get_children_with_their_attachments(db: &mut MutexGuard<Db>, json_data: &str) -> InfuResult<Option<String>> {
+async fn handle_get_children_with_their_attachments(db: &Arc<Mutex<Db>>, json_data: &str) -> InfuResult<Option<String>> {
+  let db = db.lock().await;
+
   let request: GetChildrenRequest = serde_json::from_str(json_data)?;
   let child_items = db.item
     .get_children(&request.parent_id)?;
@@ -152,12 +167,13 @@ fn handle_get_children_with_their_attachments(db: &mut MutexGuard<Db>, json_data
 }
 
 
-fn handle_add_item(
-    db: &mut MutexGuard<Db>,
-    object_store: &State<Mutex<ObjectStore>>,
+async fn handle_add_item(
+    db: &Arc<Mutex<Db>>,
+    object_store: &Arc<Mutex<ObjectStore>>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
     user_id: &String) -> InfuResult<Option<String>> {
+  let mut db = db.lock().await;
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -180,7 +196,7 @@ fn handle_add_item(
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
     let object_encryption_key = &db.user.get(user_id).ok_or(format!("User '{}' not found.", user_id))?.object_encryption_key;
-    object_store.lock().unwrap().put(user_id, &item.id, &decoded, object_encryption_key)?;
+    object_store.lock().await.put(user_id, &item.id, &decoded, object_encryption_key)?;
 
     if is_image_item(&item.item_type) {
       let file_cursor = Cursor::new(decoded);
@@ -209,10 +225,11 @@ fn handle_add_item(
 }
 
 
-fn handle_update_item(
-    db: &mut MutexGuard<Db>,
+async fn handle_update_item(
+    db: &Arc<Mutex<Db>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
+  let mut db = db.lock().await;
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -235,12 +252,13 @@ pub struct DeleteItemRequest {
   id: String,
 }
 
-fn handle_delete_item(
-    db: &mut MutexGuard<Db>,
-    object_store: &State<Mutex<ObjectStore>>,
-    cache: &State<Mutex<FileCache>>,
+async fn handle_delete_item<'a>(
+    db: &Arc<Mutex<Db>>,
+    object_store: &Arc<Mutex<ObjectStore>>,
+    cache: &Arc<Mutex<FileCache>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
+  let mut db = db.lock().await;
 
   let request: DeleteItemRequest = serde_json::from_str(json_data)?;
 
@@ -252,12 +270,12 @@ fn handle_delete_item(
   debug!("Deleting item '{}' from database.", request.id);
 
   if is_data_item(&item.item_type) {
-    let mut object_store = object_store.lock().unwrap();
+    let mut object_store = object_store.lock().await;
     object_store.delete(user_id, &request.id)?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
-    let mut cache = cache.lock().unwrap();
+    let mut cache = cache.lock().await;
     let num_removed = cache.delete_all_with_prefix(user_id, &request.id)?;
     debug!("Deleted all {} entries related to item '{}' from cache.", num_removed, request.id);
   }

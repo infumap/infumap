@@ -16,6 +16,8 @@
 
 
 use core::panic;
+use log::error;
+
 use crate::util::crypto::{encrypt_file_data, decrypt_file_data};
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
@@ -46,7 +48,7 @@ impl ObjectStore {
       Some(match FileStore::new(&data_dir) {
         Ok(file_store) => file_store,
         Err(e) => {
-          println!("Failed to initialize file store: {}", e);
+          error!("Failed to initialize file store: {}", e);
           panic!();
         }
       })
@@ -61,7 +63,7 @@ impl ObjectStore {
       Some(match S3Store::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket, &s3_1_key, &s3_1_secret) {
         Ok(s3_store) => s3_store,
         Err(e) => {
-          println!("Failed to initialize primary s3 store: {}", e);
+          error!("Failed to initialize primary s3 store: {}", e);
           panic!();
         }
       })
@@ -76,7 +78,7 @@ impl ObjectStore {
       Some(match S3Store::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket, &s3_2_key, &s3_2_secret) {
         Ok(s3_store) => s3_store,
         Err(e) => {
-          println!("Failed to initialize secondary s3 store: {}", e);
+          error!("Failed to initialize secondary s3 store: {}", e);
           panic!();
         }
       })

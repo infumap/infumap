@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use config::ConfigError;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::num::{TryFromIntError, ParseIntError};
+use std::string::FromUtf8Error;
 use std::time::SystemTimeError;
-use config::ConfigError;
-use rocket::response::{self, Responder};
-use rocket::request::Request;
+
 
 pub type InfuResult<T> = Result<T, InfuError>;
 
@@ -45,12 +45,6 @@ impl Display for InfuError {
 impl Error for InfuError {
   fn source(&self) -> Option<&(dyn Error + 'static)> {
     None
-  }
-}
-
-impl<'r> Responder<'r, 'static> for InfuError {
-  fn respond_to(self, request: &'r Request<'_>) -> response::Result<'static> {
-    rocket::response::status::BadRequest(Some(self.message)).respond_to(request)
   }
 }
 
@@ -85,4 +79,8 @@ impl From<TryFromIntError> for InfuError {
 
 impl From<ParseIntError> for InfuError {
   fn from(err: ParseIntError) -> Self { Self::new(&err.to_string()) }
+}
+
+impl From<FromUtf8Error> for InfuError {
+  fn from(err: FromUtf8Error) -> Self { Self::new(&err.to_string()) }
 }

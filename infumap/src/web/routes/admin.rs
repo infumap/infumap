@@ -14,10 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Mutex;
-use rocket::{State, serde::json::Json};
+use bytes::Bytes;
+use http_body_util::combinators::BoxBody;
+use hyper::{Request, Response, Method};
 use serde::Serialize;
-use crate::storage::db::Db;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+use crate::{storage::db::Db, web::serve::{json_response, not_found_response}};
 
 
 #[derive(Serialize)]
@@ -26,10 +30,9 @@ pub struct InstallationStateResponse {
   pub has_root_user: bool
 }
 
-#[post("/admin/installation-state")]
-pub fn installation_state(db: &State<Mutex<Db>>) -> Json<InstallationStateResponse> {
-  let db = db.lock().unwrap();
-  Json(InstallationStateResponse {
-    has_root_user: db.user.get_by_username("root").is_some()
-  })
+pub async fn serve_admin_route(db: &Arc<Mutex<Db>>, req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  match (req.method(), req.uri().path()) {
+    (&Method::POST, "/admin/installation-state") => json_response(&InstallationStateResponse { has_root_user: db.lock().await.user.get_by_username("root").is_some() }),
+    _ => not_found_response(),
+  }
 }

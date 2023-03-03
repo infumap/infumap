@@ -1,4 +1,4 @@
-# Copyright (C) 2022 The Infumap Authors
+# Copyright (C) 2022-2023 The Infumap Authors
 # This file is part of Infumap.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -38,7 +38,7 @@ for filename in os.listdir(directory):
     else:
         raise Exception("unknown filetype: " + filename)
 
-output = """// Copyright (C) 2022 The Infumap Authors
+output = """// Copyright (C) 2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -56,49 +56,31 @@ output = """// Copyright (C) 2022 The Infumap Authors
 
 // this file was auto-generated on """ + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """ - do not modify.
 
-use rocket::http::ContentType;
-use rocket::{Build, Rocket};
-use rocket::response::content::{RawJavaScript, RawCss, RawHtml};
-use super::responders::FileResponse;
+use bytes::Bytes;
+use http_body_util::combinators::BoxBody;
+use hyper::{Request, Response, Method};
+use super::serve::full_response;
 
-
-#[get("/")] fn index() -> RawHtml<&'static str> { RawHtml(include_str!("../../../web/dist/index.html")) }
-"""
-
-def fn_name(filename):
-    return filename.replace(".", "_").replace("-", "_")
-
-for f in js_files:
-    output += "#[get(\"/" + f + "\")] fn " + fn_name(f) + "() -> RawJavaScript<&'static str> { RawJavaScript(include_str!(\"../../../web/dist/assets/" + f + "\")) }\n"
-
-for f in css_files:
-    output += "#[get(\"/" + f + "\")] fn " + fn_name(f) + "() -> RawCss<&'static str> { RawCss(include_str!(\"../../../web/dist/assets/" + f + "\")) }\n"
-
-for f in png_files:
-    output += "#[get(\"/" + f + "\")] fn " + fn_name(f) + "() -> FileResponse<&'static [u8]> { FileResponse { mime_type: ContentType::PNG, data: include_bytes!(\"../../../web/dist/assets/" + f + "\") } }\n"
-
-for f in ico_files:
-    output += "#[get(\"/" + f + "\")] fn " + fn_name(f) + "() -> FileResponse<&'static [u8]> { FileResponse { mime_type: ContentType::Icon, data: include_bytes!(\"../../../web/dist/assets/" + f + "\") } }\n"
-
-output += """
-pub fn mount(build: Rocket<Build>) -> Rocket<Build> {
-  build
-    .mount("/", routes![index])
+pub fn handle_dist_response_maybe(req: &Request<hyper::body::Incoming>) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
+  match (req.method(), req.uri().path()) {
+    (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, "text/html").body(full_response(include_str!("../../../web/dist/index.html"))).unwrap()),
 """
 
 for f in js_files:
-    output += "    .mount(\"/assets\", routes![" + fn_name(f) + "])\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_response(include_str!(\"../../../web/dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in css_files:
-    output += "    .mount(\"/assets\", routes![" + fn_name(f) + "])\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_response(include_str!(\"../../../web/dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in png_files:
-    output += "    .mount(\"/assets\", routes![" + fn_name(f) + "])\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_response(include_bytes!(\"../../../web/dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 for f in ico_files:
-    output += "    .mount(\"/assets\", routes![" + fn_name(f) + "])\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_response(include_bytes!(\"../../../web/dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
-output += """}
+output += """    _ => None
+  }
+}
 """
 
 with open("../infumap/src/web/dist_handlers.rs", "w") as rs_file:

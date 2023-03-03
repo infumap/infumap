@@ -20,6 +20,8 @@ use std::io::{self, Read, Write};
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use log::{warn, info};
+
 use crate::util::fs::{expand_tilde, ensure_256_subdirs, construct_store_subpath};
 use crate::util::infu::InfuResult;
 use crate::util::uid::{uid_chars, Uid};

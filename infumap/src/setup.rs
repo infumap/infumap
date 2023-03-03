@@ -16,6 +16,7 @@
 
 use std::os::unix::prelude::FileExt;
 use config::{Config, FileFormat};
+use log::{info, warn};
 use crate::config::*;
 use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde};
@@ -60,7 +61,7 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
         if !pb.as_path().exists() {
           match std::fs::create_dir(pb.as_path()) {
             Ok(_) => {
-              println!("Settings file was not specified, creating .infumap in home directory.");
+              info!("Settings file was not specified, creating .infumap in home directory.");
             },
             Err(e) => {
               return Err(format!("Could not create .infumap in home directory: {e}").into());
@@ -74,12 +75,12 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
             if let Err(e) = std::fs::create_dir(pb.as_path()) {
               return Err(format!("Could not create cache directory: '{e}'").into());
             } else {
-              println!("Created cache directory: '~/.infumap/cache'");
+              info!("Created cache directory: '~/.infumap/cache'");
             }
           }
           let num_created = ensure_256_subdirs(&pb)?;
           if num_created > 0 {
-            println!("Created {} sub cache directories", num_created);
+            info!("Created {} sub cache directories", num_created);
           }
           pb.pop();
         }
@@ -90,7 +91,7 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
             if let Err(e) = std::fs::create_dir(pb.as_path()) {
               return Err(format!("Could not create data directory: '{e}'").into());
             } else {
-              println!("Created data directory: '~/.infumap/data'");
+              info!("Created data directory: '~/.infumap/data'");
             }
           }
           pb.pop();
@@ -107,7 +108,7 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
           let buf = include_bytes!("../default_settings.toml");
           match f.write_all_at(buf, 0) {
             Ok(_) => {
-              println!("Created default settings file at ~/.infumap/settings.toml");
+              info!("Created default settings file at ~/.infumap/settings.toml");
             },
             Err(e) => {
               return Err(format!("Could not create default settings file at ~/.infumap/settings.toml: '{e}'").into());
@@ -122,11 +123,11 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
 
   let config_builder =
     if let Some(path) = &settings_path_maybe {
-      println!("Using settings from path: {path}, and overriding with env vars if set.");
+      info!("Reading config from: {path} + overriding with env vars where set.");
       Config::builder()
         .add_source(config::File::new(&path, FileFormat::Toml))
     } else {
-      println!("Not using settings file - taking all settings from env vars.");
+      info!("Not using settings file - taking all settings from env vars.");
       Config::builder()
     }
     .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
@@ -157,20 +158,20 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
   }
   let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR)?).unwrap())?;
   if num_created > 0 {
-    println!("WARN: created {} cache subdirectories.", num_created);
+    warn!("Created {} cache subdirectories.", num_created);
   }
 
-  println!("Config:");
-  println!("  {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY)?);
-  println!("  {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR)?);
-  println!("  {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR)?);
-  println!("  {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB)?);
-  println!("  {} = {}", CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, config.get_int(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?);
-  println!("  {} = {}", CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, config.get_int(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?);
-  println!("  {} = {}", CONFIG_ENABLE_PROMETHEUS_METRICS, config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)?);
-  println!("  {} = {}", CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)?);
-  println!("  {} = {}", CONFIG_ENABLE_S3_1_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)?);
-  println!("  {} = {}", CONFIG_ENABLE_S3_2_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)?);
+  info!("Config:");
+  info!(" {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY)?);
+  info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR)?);
+  info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR)?);
+  info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB)?);
+  info!(" {} = {}", CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, config.get_int(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?);
+  info!(" {} = {}", CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, config.get_int(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?);
+  info!(" {} = {}", CONFIG_ENABLE_PROMETHEUS_METRICS, config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)?);
+  info!(" {} = {}", CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)?);
+  info!(" {} = {}", CONFIG_ENABLE_S3_1_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)?);
+  info!(" {} = {}", CONFIG_ENABLE_S3_2_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)?);
 
   Ok(ConfigAndPath { config, settings_path_maybe })
 }

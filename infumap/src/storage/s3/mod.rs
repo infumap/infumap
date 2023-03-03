@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use rocket::tokio::runtime::Runtime;
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
 use crate::util::infu::InfuResult;
@@ -45,9 +44,9 @@ impl S3Store {
     Ok(S3Store { bucket })
   }
 
-  pub fn get(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
+  pub async fn get(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
     let s3_path = format!("{}_{}", user_id, id);
-    let result = Runtime::new().unwrap().block_on(self.bucket.get_object(s3_path))
+    let result = self.bucket.get_object(s3_path).await
       .map_err(|e| format!("Error occured getting S3 object: {}", e))?;
     if result.status_code() != 200 {
       return Err(format!("Unexpected status code getting S3 object: {}", result.status_code()).into());
@@ -55,9 +54,9 @@ impl S3Store {
     Ok(result.into())
   }
 
-  pub fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>) -> InfuResult<()> {
+  pub async fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>) -> InfuResult<()> {
     let s3_path = format!("{}_{}", user_id, id);
-    let result = Runtime::new().unwrap().block_on(self.bucket.put_object(s3_path, val.as_slice()))
+    let result = self.bucket.put_object(s3_path, val.as_slice()).await
       .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
     if result.status_code() != 200 {
       return Err(format!("Unexpected status code putting S3 object: {}", result.status_code()).into());
@@ -65,9 +64,9 @@ impl S3Store {
     Ok(())
   }
 
-  pub fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+  pub async fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
     let s3_path = format!("{}_{}", user_id, id);
-    let result = Runtime::new().unwrap().block_on(self.bucket.delete_object(s3_path))
+    let result = self.bucket.delete_object(s3_path).await
       .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
     if result.status_code() != 200 {
       return Err(format!("Unexpected status code deleting S3 object: {}", result.status_code()).into());

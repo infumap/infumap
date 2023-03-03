@@ -14,24 +14,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Cursor;
-use std::sync::Mutex;
+use bytes::Bytes;
 use exif::Tag;
+use http_body_util::combinators::BoxBody;
+use hyper::{Request, Response};
 use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
+use log::{warn, debug};
 use once_cell::sync::Lazy;
-use rocket::{State, http::ContentType};
-use rocket_prometheus::prometheus::{IntCounterVec, opts};
-use rocket::http::CookieJar;
+use prometheus::{IntCounterVec, opts};
+use std::io::Cursor;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::config::{ConfigAndPath, CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT};
 use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::object::ObjectStore;
-use crate::web::responders::FileResponse;
-use crate::util::infu::InfuError;
+use crate::util::infu::InfuResult;
+use crate::web::serve::{full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
 
 
@@ -55,40 +58,46 @@ const LABEL_MISS_CREATE: &'static str = "miss";
 const JPEG_QUALITY: u8 = 80;
 
 
-#[get("/files/<name>")]
-pub fn get(
-    config: &State<Mutex<ConfigAndPath>>,
-    db: &State<Mutex<Db>>,
-    object_store: &State<Mutex<ObjectStore>>,
-    cache: &State<Mutex<FileCache>>,
-    cookies: &CookieJar,
-    name: &str) -> Result<FileResponse<Vec<u8>>, InfuError> {
+pub async fn serve_files_route(
+    db: &Arc<Mutex<Db>>,
+    object_store: &Arc<Mutex<ObjectStore>>,
+    cache: &Arc<Mutex<FileCache>>,
+    config: &Arc<Mutex<ConfigAndPath>>,
+    req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
-  let session;
-  {
-    let mut db = db.lock().unwrap();
-    session = get_and_validate_session(cookies, &mut db)?;
-  }
+  let session = match get_and_validate_session(&req, &db).await {
+    Ok(s) => s,
+    Err(e) => { return internal_server_error_response(&format!("Invalid session: {}", e)); }
+  };
+
+  let name = &req.uri().path()[7..];
 
   if name.contains("_") {
-    get_cached_resized_img(config, db, object_store, cache, &session, name)
+    match get_cached_resized_img(config, db, object_store, cache, &session, name).await {
+      Ok(img_response) => img_response,
+      Err(e) => internal_server_error_response(&format!("{}", e))
+    }
   } else {
-    get_file(db, object_store, &session, name)
+    match get_file(db, object_store, &session, name).await {
+      Ok(file_response) => file_response,
+      Err(e) => internal_server_error_response(&format!("{}", e))
+    }
   }
 }
 
 
-fn get_cached_resized_img(
-    config: &State<Mutex<ConfigAndPath>>,
-    db: &State<Mutex<Db>>,
-    object_store: &State<Mutex<ObjectStore>>,
-    cache: &State<Mutex<FileCache>>,
+async fn get_cached_resized_img(
+    config: &Arc<Mutex<ConfigAndPath>>,
+    db: &Arc<Mutex<Db>>,
+    object_store: &Arc<Mutex<ObjectStore>>,
+    cache: &Arc<Mutex<FileCache>>,
     session: &Session,
-    name: &str) -> Result<FileResponse<Vec<u8>>, InfuError> {
+    name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
   let name_parts = name.split('_').collect::<Vec<&str>>();
   if name_parts.len() != 2 {
-    return Err(format!("Unexpected filename '{}'.", name).into());
+    // return Err(format!("Unexpected filename '{}'.", name).into());
+    return Ok(not_found_response());
   }
 
   let uid = name_parts.get(0).unwrap().to_string();
@@ -98,34 +107,30 @@ fn get_cached_resized_img(
   let max_image_size_deviation_smaller_percent;
   let max_image_size_deviation_larger_percent;
   {
-    let config = &config.lock().unwrap().config;
+    let config = &config.lock().await.config;
     max_image_size_deviation_larger_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?;
     max_image_size_deviation_smaller_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?;
   }
 
   let object_encryption_key;
   let original_dimensions_px;
-  let original_mime_type;
+  let original_mime_type_string; // TODO (LOW): validation.
   {
-    let db = db.lock().unwrap();
+    let db = db.lock().await;
     let item = db.item.get(&String::from(&uid))?;
     if item.owner_id != session.user_id {
       return Err(format!("File owner {} does match session user '{}'.", item.owner_id, session.user_id).into());
     }
     object_encryption_key = db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     original_dimensions_px = item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
-    let original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime tyoe set.")?;
-    original_mime_type = match ContentType::parse_flexible(&original_mime_type_string) {
-      Some(s) => s,
-      None => ContentType::Binary // TODO (LOW): something better?
-    };
+    original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime tyoe set.")?.clone();
   }
 
   // Never want to upscale. Instead, want to respond with the original image without modification.
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
-    let cache = cache.lock().unwrap();
+    let cache = cache.lock().await;
     if let Some(candidates) = cache.keys_with_prefix(&session.user_id, &uid) {
       let mut best_candidate_maybe = None;
       for candidate in candidates {
@@ -139,7 +144,7 @@ fn get_cached_resized_img(
             debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
             let data = cache.get(&session.user_id, &candidate)?.unwrap();
-            return Ok(FileResponse { data, mime_type: original_mime_type });
+            return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(data)).unwrap());
           } else {
             // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
             continue;
@@ -177,7 +182,7 @@ fn get_cached_resized_img(
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
           let data = cache.get(&session.user_id, &best_candidate.0)?.unwrap();
-          return Ok(FileResponse { data, mime_type: ContentType::JPEG });
+          return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap());
         },
         None => {
           debug!("Cached image(s) for '{}' exist, but none are close enough to the required size.", uid);
@@ -186,14 +191,14 @@ fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = object_store.lock().unwrap().get(&session.user_id, &String::from(&uid), &object_encryption_key)?;
+  let original_file_bytes = object_store.lock().await.get(&session.user_id, &String::from(&uid), &object_encryption_key)?;
 
   if respond_with_cached_original {
     let cache_key= format!("{}_{}", uid, "original");
     debug!("Caching then returning image '{}' (unmodified original) to respond to request for '{}'.", cache_key, name);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    cache.lock().unwrap().put(&session.user_id, &cache_key, original_file_bytes.clone())?;
-    return Ok(FileResponse { data: original_file_bytes, mime_type: original_mime_type });
+    cache.lock().await.put(&session.user_id, &cache_key, original_file_bytes.clone())?;
+    return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(original_file_bytes)).unwrap());
   }
 
   // get orientation
@@ -269,10 +274,10 @@ fn get_cached_resized_img(
 
       debug!("Inserting image '{}' into cache", name);
       let data = cursor.get_ref().to_vec();
-      cache.lock().unwrap().put(&session.user_id, name, data.clone())?;
+      cache.lock().await.put(&session.user_id, name, data.clone())?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
-      Ok(FileResponse { data, mime_type: ContentType::JPEG })
+      Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap())
     },
 
     Err(e) => {
@@ -283,14 +288,14 @@ fn get_cached_resized_img(
 }
 
 
-fn get_file(
-    db: &State<Mutex<Db>>,
-    object_store: &State<Mutex<ObjectStore>>,
+async fn get_file(
+    db: &Arc<Mutex<Db>>,
+    object_store: &Arc<Mutex<ObjectStore>>,
     session: &Session,
-    uid: &str) -> Result<FileResponse<Vec<u8>>, InfuError> {
+    uid: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
-  let db = db.lock().unwrap();
-  let mut object_store = object_store.lock().unwrap();
+  let db = db.lock().await;
+  let mut object_store = object_store.lock().await;
 
   let item = db.item.get(&String::from(uid))?;
   if item.owner_id != session.user_id {
@@ -298,12 +303,9 @@ fn get_file(
   }
 
   let mime_type_string = item.mime_type.as_ref().ok_or(format!("Mime type is not available for item '{}'.", uid))?;
-  let mime_type = match ContentType::parse_flexible(mime_type_string) {
-    Some(s) => s,
-    None => ContentType::Binary
-  };
 
   let object_encryption_key = &db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key;
 
-  Ok(FileResponse { data: object_store.get(&session.user_id, &String::from(uid), object_encryption_key)?, mime_type})
+  let data = object_store.get(&session.user_id, &String::from(uid), object_encryption_key)?;
+  Ok(Response::builder().header(hyper::header::CONTENT_TYPE, mime_type_string).body(full_body(data)).unwrap())
 }

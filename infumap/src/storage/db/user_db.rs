@@ -17,6 +17,8 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use log::warn;
+
 use crate::util::fs::expand_tilde;
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, is_uid};
