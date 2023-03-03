@@ -25,7 +25,7 @@ pub mod session;
 use clap::ArgMatches;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use log::{error, info};
+use log::info;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -50,8 +50,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     match Db::new( &data_dir) {
       Ok(db) => db,
       Err(e) => {
-        error!("Failed to initialize database: {}", e);
-        panic!();
+        return Err(format!("Failed to initialize database: {}", e).into());
       }
     }
   ));
@@ -76,8 +75,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
                            enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
       Ok(object_store) => object_store,
       Err(e) => {
-        error!("Failed to initialize object store: {}", e);
-        panic!();
+        return Err(format!("Failed to initialize object store: {}", e).into());
       }
     }
   ));
@@ -88,25 +86,28 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     match FileCache::new(&cache_dir, cache_max_mb) {
       Ok(file_cache) => file_cache,
       Err(e) => {
-        error!("Failed to initialize config: {}", e);
-        panic!();
+        return Err(format!("Failed to initialize config: {}", e).into());
       }
     }
   ));
 
+  let addr_str = format!("{}:{}", config.get_string(CONFIG_ADDRESS)?, config.get_int(CONFIG_PORT)?);
+  let addr: SocketAddr = match addr_str.parse() {
+    Ok(addr) => addr,
+    Err(e) => {
+      return Err(format!("Invalid socket address: {} ({})", addr_str, e).into());
+    }
+  };
+
   let config = Arc::new(Mutex::new(config));
 
-  let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
   let listener = TcpListener::bind(addr).await?;
-
   loop {
     let (stream, _) = listener.accept().await?;
-
     let db = db.clone();
     let object_store = object_store.clone();
     let cache = cache.clone();
     let config = config.clone();
-
     tokio::task::spawn(async move {
       if let Err(err) = http1::Builder::new()
         .serve_connection(

@@ -17,6 +17,13 @@
 
 pub const ENV_CONFIG_PREFIX: &'static str = "INFUMAP";
 
+
+pub const CONFIG_ADDRESS: &'static str = "address";
+pub const CONFIG_ADDRESS_DEFAULT: &'static str = "127.0.0.1";
+
+pub const CONFIG_PORT: &'static str = "port";
+pub const CONFIG_PORT_DEFAULT: &'static str = "8000";
+
 pub const CONFIG_DATA_DIR: &'static str = "data_dir";
 pub const CONFIG_DATA_DIR_DEFAULT: &'static str = "~/.infumap/data";
 
@@ -34,9 +41,6 @@ pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT_DEFAULT: u64 = 5;
 
 pub const CONFIG_ENV_ONLY: &'static str = "env_only";
 pub const CONFIG_ENV_ONLY_DEFAULT: bool = false;
-
-pub const CONFIG_ENABLE_PROMETHEUS_METRICS: &'static str = "enable_prometheus_metrics";
-pub const CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT: bool = false;
 
 pub const CONFIG_ENABLE_LOCAL_OBJECT_STORAGE: &'static str = "enable_local_object_storage";
 pub const CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT: bool = true;

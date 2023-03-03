@@ -14,6 +14,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#address = 0.0.0.0
+#port = 8000
+
+#prometheus_address = 127.0.0.1
+#prometheus_port = 9090
+
 #data_dir = "~/.infumap/data"
 #cache_dir = "~/.infumap/cache"
 
@@ -22,8 +28,6 @@
 
 #max_image_size_deviation_smaller_percent = 30
 #max_image_size_deviation_larger_percent = 5
-
-#enable_prometheus_metrics = false
 
 # Whether or not to use the local filesystem to store file and image data.
 # You will want to disable this if you are running on a cloud server with
@@ -34,10 +38,11 @@
 # data will be maintained in this AWS S3 compatible object store (in addition
 # to other configured object stores). If you are using AWS, you don't need to
 # specify an endpoint, only region. If you are using a compatible service, you
-# usually only need to specify the endpoint.
+# usually only need to specify the endpoint, not region.
 #enable_s3_1_object_storage = false
 #s3_1_region = 
 #s3_1_endpoint = 
+#s3_1_bucket = 
 #s3_1_key = 
 #s3_1_secret = 
 
@@ -45,5 +50,6 @@
 #enable_s3_2_object_storage = false
 #s3_2_region = 
 #s3_2_endpoint = 
+#s3_2_bucket = 
 #s3_2_key = 
 #s3_2_secret = 

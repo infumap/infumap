@@ -1,4 +1,4 @@
-// Copyright (C) 2022 The Infumap Authors
+// Copyright (C) 2022-2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -21,6 +21,7 @@ mod web;
 mod cli;
 mod setup;
 use clap::{App, Arg};
+use log::error;
 
 
 #[tokio::main]
@@ -59,6 +60,6 @@ async fn main() {
 
   match command_result {
     Ok(_) => {},
-    Err(e) => { println!("{}", e); }
+    Err(e) => { error!("{}", e); }
   }
 }

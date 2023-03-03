@@ -132,12 +132,13 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
     }
     .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
     .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT)?
+    .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT)?
+    .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)?
     .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)?
     .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)?
     .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)?
     .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT_DEFAULT)?
     .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT_DEFAULT)?
-    .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT)?
     .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT)?
     .set_default(CONFIG_ENABLE_S3_1_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT)?
     .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT)?;
@@ -163,15 +164,60 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
 
   info!("Config:");
   info!(" {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY)?);
+  info!(" {} = '{}'", CONFIG_ADDRESS, config.get_string(CONFIG_ADDRESS)?);
+  info!(" {} = '{}'", CONFIG_PORT, config.get_string(CONFIG_PORT)?);
   info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR)?);
   info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR)?);
   info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB)?);
   info!(" {} = {}", CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, config.get_int(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?);
   info!(" {} = {}", CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, config.get_int(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?);
-  info!(" {} = {}", CONFIG_ENABLE_PROMETHEUS_METRICS, config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)?);
   info!(" {} = {}", CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)?);
   info!(" {} = {}", CONFIG_ENABLE_S3_1_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)?);
+  if config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)? {
+    match config.get_string(CONFIG_S3_1_REGION) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_1_REGION, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_1_REGION, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_1_ENDPOINT) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_1_ENDPOINT, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_1_ENDPOINT, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_1_BUCKET) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_1_BUCKET, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_1_BUCKET, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_1_KEY) {
+      Ok(_) => { info!("  {} = {}", CONFIG_S3_1_KEY, "<redacted>"); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_1_KEY, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_1_SECRET) {
+      Ok(_) => { info!("  {} = {}", CONFIG_S3_1_SECRET, "<redacted>"); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_1_SECRET, "<not set>"); }
+    }
+  }
   info!(" {} = {}", CONFIG_ENABLE_S3_2_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)?);
+  if config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)? {
+    match config.get_string(CONFIG_S3_2_REGION) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_2_REGION, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_2_REGION, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_2_ENDPOINT) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_2_ENDPOINT, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_2_ENDPOINT, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_2_BUCKET) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_2_BUCKET, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_2_BUCKET, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_2_KEY) {
+      Ok(_) => { info!("  {} = {}", CONFIG_S3_2_KEY, "<redacted>"); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_2_KEY, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_2_SECRET) {
+      Ok(_) => { info!("  {} = {}", CONFIG_S3_2_SECRET, "<redacted>"); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_2_SECRET, "<not set>"); }
+    }
+  }
 
   Ok(config)
 }
