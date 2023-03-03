@@ -35,7 +35,7 @@ use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
-use crate::web::serve::{full_body, internal_server_error_response, not_found_response};
+use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
 use crate::web::session::get_and_validate_session;
 
 
@@ -67,8 +67,8 @@ pub async fn serve_files_route(
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
   let session = match get_and_validate_session(&req, &db).await {
-    Ok(s) => s,
-    Err(e) => { return internal_server_error_response(&format!("Invalid session: {}", e)); }
+    Some(s) => s,
+    None => { return forbidden_response(); }
   };
 
   let name = &req.uri().path()[7..];

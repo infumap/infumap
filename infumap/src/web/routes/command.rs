@@ -72,11 +72,8 @@ pub async fn serve_command_route(
     request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
   let session = match get_and_validate_session(&request, db).await {
-    Ok(s) => s,
-    Err(e) => {
-      warn!("An error occurred retrieving user session: {}", e);
-      return json_response(&SendResponse { success: false, json_data: None });
-    }
+    Some(session) => session,
+    None => { return json_response(&SendResponse { success: false, json_data: None }); }
   };
 
   {

@@ -15,41 +15,64 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use hyper::Request;
+use log::{debug, error, warn};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::{storage::db::{Db, session::Session}, util::infu::InfuResult};
+use crate::storage::db::{Db, session::Session};
 
 use super::cookie::get_session_cookie_maybe;
 
 
-pub async fn get_and_validate_session<'a >(request: &Request<hyper::body::Incoming>, db: &Arc<Mutex<Db>>) -> InfuResult<Session> {
+pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, db: &Arc<Mutex<Db>>) -> Option<Session> {
   let mut db = db.lock().await;
-  let session_cookie = get_session_cookie_maybe(request).ok_or("Session cookie not available")?;
-
-  let session = match db.session.get_session(&session_cookie.session_id)? {
+  let session_cookie = match get_session_cookie_maybe(request) {
     Some(s) => s,
     None => {
-      return Err(format!("Session '{}' for user '{}' is not availble on the server. It may have expired.",
-                         session_cookie.session_id, session_cookie.user_id).into());
+      debug!("No session cookie sent from client.");
+      return None;
+    }
+  };
+
+  let session = match db.session.get_session(&session_cookie.session_id) {
+    Ok(session_maybe) => match session_maybe {
+      Some(s) => s,
+      None => {
+        debug!("Session '{}' for user '{}' is not availble on the server. This can happen if the server is restarted or the session has expired.",
+              session_cookie.session_id, session_cookie.user_id);
+        return None;
+      }
+    },
+    Err(e) => {
+      error!("Error occurred getting user session: {}", e);
+      return None;
     }
   };
 
   // All data in the session cookie aside from the session id is supurfluous - it is there for client side convenience.
-  // TOOD (LOW): just use the session cookie.
+  // TODO (LOW): just use the session cookie.
 
   if session_cookie.user_id != session.user_id {
-    return Err(format!("Session '{}' is for user '{}' not user '{}'.", session_cookie.session_id, session.user_id, session_cookie.user_id).into());
+    warn!("Error validating session '{}': Session is for user '{}' not user '{}'.", session_cookie.session_id, session.user_id, session_cookie.user_id);
+    return None;
   }
 
-  let user = db.user.get_by_username(&session_cookie.username).ok_or(format!("No user exists with username '{}'.", session_cookie.username))?;
+  let user = match db.user.get_by_username(&session_cookie.username).ok_or(format!("No user exists with username '{}'.", session_cookie.username)) {
+    Ok(user) => user,
+    Err(e) => {
+      error!("Error occurred getting user to validate session: {}", e);
+      return None;
+    }
+  };
   if user.id != session_cookie.user_id {
-    return Err(format!("Id for user '{}' is '{}' not '{}'.", session_cookie.username, user.id, session_cookie.user_id).into());
+    warn!("Error validating session '{}': Id for user '{}' is '{}' not '{}'.", session_cookie.session_id, session_cookie.username, user.id, session_cookie.user_id);
+    return None;
   }
 
   if user.root_page_id != session_cookie.root_page_id {
-    return Err(format!("User root page '{}' does not match that in session cookie '{}'.", user.root_page_id, session_cookie.root_page_id).into());
+    warn!("Error validating session '{}': User root page '{}' does not match that in session cookie '{}'.", session_cookie.session_id, user.root_page_id, session_cookie.root_page_id);
+    return None
   }
 
-  Ok(session)
+  Some(session)
 }

@@ -16,6 +16,7 @@
 
 use hyper::header::COOKIE;
 use hyper::Request;
+use log::{debug, warn};
 use serde::Deserialize;
 
 use crate::util::uid::Uid;
@@ -47,8 +48,8 @@ pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Opt
                 if name == SESSION_COOKIE_NAME {
                   return match serde_json::from_str::<InfuSession>(val) {
                     Ok(s) => Some(s),
-                    Err(_e) => {
-                      // Err(format!("Session cookie could not be parsed: {}", e).into());
+                    Err(e) => {
+                      warn!("Session cookie could not be parsed: {}", e);
                       return None;
                     }
                   }
@@ -57,17 +58,17 @@ pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Opt
               Err(_) => {}
             }
           }
-          // Err("A valid session cookie not available.".into())
+          debug!("A valid session cookie not available.");
           None
         },
         Err(_e) => {
-          // Err("Cookies http header is not a valid string.".into())
+          warn!("Cookies http header is not a valid string.");
           None
         }
       }
     },
     None => {
-      // Err("Cookie http header not present.".into())
+      debug!("Cookie http header not present.");
       None
     }
   }

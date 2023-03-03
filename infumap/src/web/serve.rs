@@ -45,9 +45,9 @@ pub async fn http_serve(
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, &cache, req).await }
-    else if req.uri().path().starts_with("/account") { serve_account_route(&db, req).await }
-    else if req.uri().path().starts_with("/files") { serve_files_route(&db, &object_store, &cache, &config, &req).await }
-    else if req.uri().path().starts_with("/admin") { serve_admin_route(&db, &req).await }
+    else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
+    else if req.uri().path().starts_with("/files/") { serve_files_route(&db, &object_store, &cache, &config, &req).await }
+    else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, &req).await }
     else if let Some(response) = handle_dist_response_maybe(&req) { response }
     else { not_found_response() }
   )
@@ -73,6 +73,10 @@ pub fn json_response<T>(v: &T) -> Response<BoxBody<Bytes, hyper::Error>> where T
       Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(empty_body()).unwrap()
     }
   }
+}
+
+pub fn forbidden_response() -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder().status(StatusCode::FORBIDDEN).body(empty_body()).unwrap()
 }
 
 pub fn internal_server_error_response(reason: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
