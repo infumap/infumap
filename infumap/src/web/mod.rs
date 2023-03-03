@@ -42,9 +42,8 @@ use self::serve::http_serve;
 
 
 pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
-  let config_and_path = init_fs_and_config(
+  let config = init_fs_and_config(
     arg_matches.value_of("settings_path").map(|a| a.to_string()))?;
-  let config = config_and_path.config.clone();
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;
   let db = Arc::new(Mutex::new(
@@ -95,7 +94,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     }
   ));
 
-  let config = Arc::new(Mutex::new(config_and_path));
+  let config = Arc::new(Mutex::new(config));
 
   let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
   let listener = TcpListener::bind(addr).await?;

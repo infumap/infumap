@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use config::Config;
-
 
 pub const ENV_CONFIG_PREFIX: &'static str = "INFUMAP";
 
@@ -60,10 +58,3 @@ pub const CONFIG_S3_2_ENDPOINT: &'static str = "s3_2_endpoint";
 pub const CONFIG_S3_2_BUCKET: &'static str = "s3_2_bucket";
 pub const CONFIG_S3_2_KEY: &'static str = "s3_2_key";
 pub const CONFIG_S3_2_SECRET: &'static str = "s3_2_secret";
-
-
-// TODO (LOW): This struct should be deprecated - settings_path_maybe is no longer needed.
-pub struct ConfigAndPath {
-  pub settings_path_maybe: Option<String>,
-  pub config: Config
-}

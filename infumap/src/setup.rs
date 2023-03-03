@@ -22,7 +22,7 @@ use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde};
 
 
-pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<ConfigAndPath> {
+pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   let settings_path_maybe = match settings_path_maybe {
     Some(path) => {
       if !std::path::Path::new(path.as_str()).exists() {
@@ -173,5 +173,5 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
   info!(" {} = {}", CONFIG_ENABLE_S3_1_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)?);
   info!(" {} = {}", CONFIG_ENABLE_S3_2_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)?);
 
-  Ok(ConfigAndPath { config, settings_path_maybe })
+  Ok(config)
 }

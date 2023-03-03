@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use bytes::Bytes;
+use config::Config;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::{Request, Response, StatusCode};
 use log::error;
@@ -24,7 +25,6 @@ use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::config::ConfigAndPath;
 use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
@@ -41,7 +41,7 @@ pub async fn http_serve(
     db: Arc<Mutex<Db>>,
     object_store: Arc<Mutex<ObjectStore>>,
     cache: Arc<Mutex<FileCache>>,
-    config: Arc<Mutex<ConfigAndPath>>,
+    config: Arc<Mutex<Config>>,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, &cache, req).await }
