@@ -15,12 +15,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::collections::HashMap;
-use std::fs::{OpenOptions, File, self};
-use std::io::{self, Read, Write};
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use log::{warn, info};
+use tokio::fs::{File, OpenOptions};
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
 
 use crate::util::fs::{expand_tilde, ensure_256_subdirs, construct_store_subpath};
 use crate::util::infu::InfuResult;
@@ -46,11 +47,11 @@ pub struct FileCache {
 }
 
 impl FileCache {
-  pub fn new(cache_dir: &str, max_mb: usize) -> InfuResult<FileCache> {
+  pub async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<FileCache> {
     let cache_dir = expand_tilde(cache_dir)
       .ok_or(format!("File cache path '{}' is not valid.", cache_dir))?;
 
-    let cache = Self::traverse_files(&cache_dir)?;
+    let cache = Self::traverse_files(&cache_dir).await?;
     let current_total_bytes = cache.iter().fold(0, |a, (_k, v)| a + v.size_bytes) as u64;
     if current_total_bytes > max_mb as u64 * ONE_MEGABYTE {
       warn!("Total bytes in cache {} exceeds maximum {}.", current_total_bytes, max_mb as u64 * ONE_MEGABYTE);
@@ -69,12 +70,12 @@ impl FileCache {
     Ok(FileCache { cache_dir, cache_file_info: cache, _max_mb: max_mb, current_total_bytes, by_prefix })
   }
 
-  pub fn get(&self, user_id: &Uid, key: &str) -> InfuResult<Option<Vec<u8>>> {
+  pub async fn get(&self, user_id: &Uid, key: &str) -> InfuResult<Option<Vec<u8>>> {
     let filename = format!("{}_{}", key, &user_id[..8]);
     if let Some(fi) = self.cache_file_info.get(&filename) {
-      let mut f = File::open(construct_store_subpath(&self.cache_dir, &filename)?)?;
+      let mut f = File::open(construct_store_subpath(&self.cache_dir, &filename)?).await?;
       let mut buffer = vec![0; fi.size_bytes];
-      f.read(&mut buffer)?;
+      f.read(&mut buffer).await?;
       return Ok(Some(buffer))
     }
     Ok(None)
@@ -93,13 +94,13 @@ impl FileCache {
     }
   }
 
-  pub fn put(&mut self, user_id: &Uid, key: &str, val: Vec<u8>) -> InfuResult<()> {
+  pub async fn put(&mut self, user_id: &Uid, key: &str, val: Vec<u8>) -> InfuResult<()> {
     let filename = format!("{}_{}", key, &user_id[..8]);
     let mut file = OpenOptions::new()
       .create_new(true)
       .write(true)
-      .open(construct_store_subpath(&self.cache_dir, &filename)?)?;
-    file.write_all(&val)?;
+      .open(construct_store_subpath(&self.cache_dir, &filename)?).await?;
+    file.write_all(&val).await?;
 
     let file_info = FileInfo {
       size_bytes: val.len(),
@@ -118,7 +119,7 @@ impl FileCache {
     Ok(())
   }
 
-  pub fn delete_all_with_prefix(&mut self, user_id: &Uid, prefix: &str) -> InfuResult<usize> {
+  pub async fn delete_all_with_prefix(&mut self, user_id: &Uid, prefix: &str) -> InfuResult<usize> {
     let keys = if let Some(keys_ref) = self.keys_with_prefix(user_id, prefix) {
       keys_ref.clone()
     } else {
@@ -126,7 +127,7 @@ impl FileCache {
     };
 
     for key in &keys {
-      fs::remove_file(construct_store_subpath(&self.cache_dir, &key)?)?;
+      tokio::fs::remove_file(construct_store_subpath(&self.cache_dir, &key)?).await?;
       let fi = self.cache_file_info.remove(key).ok_or(format!("File info for '{}' is not cached.", key))?;
       self.current_total_bytes -= fi.size_bytes as u64;
     }
@@ -134,8 +135,8 @@ impl FileCache {
     Ok(keys.len())
   }
 
-  fn traverse_files(cache_file_dir: &PathBuf) -> InfuResult<HashMap<String, FileInfo>> {
-    let num_created = ensure_256_subdirs(&cache_file_dir)?;
+  async fn traverse_files(cache_file_dir: &PathBuf) -> InfuResult<HashMap<String, FileInfo>> {
+    let num_created = ensure_256_subdirs(&cache_file_dir).await?;
     if num_created > 0 {
       warn!("Created {} missing cache subdirectories in '{}'.", num_created, &cache_file_dir.as_path().display());
     }
@@ -145,13 +146,13 @@ impl FileCache {
     for i in 0..uid_chars().len() {
       for j in 0..uid_chars().len() {
         path.push(format!("{}{}", uid_chars().get(i).unwrap(), uid_chars().get(j).unwrap()));
-        for entry in fs::read_dir(&path)? {
-          let entry = entry?;
-          if !entry.file_type()?.is_file() {
+        let mut iter = tokio::fs::read_dir(&path).await?;
+        while let Some(entry) = iter.next_entry().await? {
+          if !entry.file_type().await?.is_file() {
             warn!("'{}' is not a file.", entry.path().display());
             continue;
           }
-          let md = entry.metadata()?;
+          let md = entry.metadata().await?;
           let file_name = entry.file_name().to_str()
             .ok_or(format!("Invalid filename '{}' in cache", &path.display()))?.to_string();
           let file_info = FileInfo {
@@ -171,9 +172,9 @@ impl FileCache {
 
 
 // TODO (MEDIUM): required? accessed should be enough.
-fn _touch_file(path: &Path) -> io::Result<()> {
-  match OpenOptions::new().write(true).open(path) {
-      Ok(_) => Ok(()),
-      Err(e) => Err(e),
-  }
-}
+// fn async _touch_file(path: &Path) -> io::Result<()> {
+//   match OpenOptions::new().write(true).open(path) {
+//       Ok(_) => Ok(()),
+//       Err(e) => Err(e),
+//   }
+// }

@@ -14,19 +14,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
 use log::info;
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 
+use crate::util::fs::{expand_tilde, path_exists};
 use crate::util::geometry::GRID_SIZE;
 use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::uid::Uid;
+
 use super::item::{RelationshipToParent, TableColumn};
 use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
-use crate::util::fs::expand_tilde;
 
 
 const CURRENT_ITEM_LOG_VERSION: i64 = 2;
@@ -58,7 +58,7 @@ impl ItemDb {
     self.store_by_user_id.contains_key(user_id)
   }
 
-  pub fn load_user_items(&mut self, user_id: &str, creating: bool) -> InfuResult<()> {
+  pub async fn load_user_items(&mut self, user_id: &str, creating: bool) -> InfuResult<()> {
     info!("Loading items for user {}{}.", user_id, if creating { " (creating)" } else { "" });
 
     let mut log_path = expand_tilde(&self.store_dir).ok_or("Could not interpret path.")?;
@@ -67,16 +67,16 @@ impl ItemDb {
 
     let log_path_str = log_path.as_path().to_str().unwrap();
     if creating {
-      if std::path::Path::new(&log_path).exists() {
+      if path_exists(&log_path).await {
         return Err(format!("Items log file '{}' already exists for user '{}'.", log_path_str, user_id).into());
       }
     } else {
-      if !std::path::Path::new(&log_path).exists() {
+      if !path_exists(&log_path).await {
         return Err(format!("Items log file '{}' does not exist for user '{}'.", log_path_str, user_id).into());
       }
     }
 
-    let store: KVStore<Item> = KVStore::init(log_path_str, CURRENT_ITEM_LOG_VERSION)?;
+    let store: KVStore<Item> = KVStore::init(log_path_str, CURRENT_ITEM_LOG_VERSION).await?;
     for (_id, item) in store.get_iter() {
       self.add_to_indexes(item)?;
     }
@@ -170,19 +170,19 @@ impl ItemDb {
     Ok(())
   }
 
-  pub fn add(&mut self, item: Item) -> InfuResult<()> {
+  pub async fn add(&mut self, item: Item) -> InfuResult<()> {
     self.store_by_user_id.get_mut(&item.owner_id)
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
-      .add(item.clone())?;
+      .add(item.clone()).await?;
     self.add_to_indexes(&item)
   }
 
-  pub fn remove(&mut self, id: &Uid) -> InfuResult<Item> {
+  pub async fn remove(&mut self, id: &Uid) -> InfuResult<Item> {
     let owner_id = self.owner_id_by_item_id.get(id)
       .ok_or(format!("Unknown item '{}' - corresponding user item store may not be loaded.", id))?;
     let store = self.store_by_user_id.get_mut(owner_id)
       .ok_or(format!("Item store is not loaded for user '{}'.", owner_id))?;
-    let item = store.remove(id)?;
+    let item = store.remove(id).await?;
     if item.relationship_to_parent == RelationshipToParent::NoParent {
       return Err(format!("Cannot remove item '{}' because it is the root page for user '{}'.", id, owner_id).into());
     }
@@ -200,7 +200,7 @@ impl ItemDb {
     Ok(item)
   }
 
-  pub fn update(&mut self, item: &Item) -> InfuResult<()> {
+  pub async fn update(&mut self, item: &Item) -> InfuResult<()> {
     // TODO (LOW): implementation of PartialEq would be better.
     let old_item = self.store_by_user_id.get(&item.owner_id)
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
@@ -214,7 +214,7 @@ impl ItemDb {
     self.remove_from_indexes(&old_item)?;
     self.store_by_user_id.get_mut(&item.owner_id)
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
-      .update(item.clone())?;
+      .update(item.clone()).await?;
     self.add_to_indexes(item)
   }
 

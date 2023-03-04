@@ -281,21 +281,21 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   };
 
   if payload.username == "root" {
-    if let Err(e) = db.user.add(user.clone()) {
+    if let Err(e) = db.user.add(user.clone()).await {
       error!("Error adding user: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
-    if let Err(e) = db.item.load_user_items(&user.id, true) {
+    if let Err(e) = db.item.load_user_items(&user.id, true).await {
       error!("Error initializing item store for user '{}': {}", user.id, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
     let page = default_page(user_id.as_str(), &payload.username, root_page_id, page_width_bl, natural_aspect);
-    if let Err(e) = db.item.add(page) {
+    if let Err(e) = db.item.add(page).await {
       error!("Error adding default page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
   } else {
-    if let Err(e) = db.pending_user.add(user.clone()) {
+    if let Err(e) = db.pending_user.add(user.clone()).await {
       error!("Error adding user to pending user db: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }

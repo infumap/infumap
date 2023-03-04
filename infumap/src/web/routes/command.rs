@@ -80,7 +80,7 @@ pub async fn serve_command_route(
     // Load user items if required
     let mut db = db.lock().await;
     if !db.item.user_items_loaded(&session.user_id) {
-      match db.item.load_user_items(&session.user_id, false) {
+      match db.item.load_user_items(&session.user_id, false).await {
         Ok(_) => {},
         Err(e) => {
           error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
@@ -193,7 +193,7 @@ async fn handle_add_item(
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
     let object_encryption_key = &db.user.get(user_id).ok_or(format!("User '{}' not found.", user_id))?.object_encryption_key;
-    object_store.lock().await.put(user_id, &item.id, &decoded, object_encryption_key)?;
+    object_store.lock().await.put(user_id, &item.id, &decoded, object_encryption_key).await?;
 
     if is_image_item(&item.item_type) {
       let file_cursor = Cursor::new(decoded);
@@ -216,7 +216,7 @@ async fn handle_add_item(
   }
 
   let serialized_item = serde_json::to_string(&item.to_api_json()?)?;
-  db.item.add(item)?;
+  db.item.add(item).await?;
 
   Ok(Some(serialized_item))
 }
@@ -238,7 +238,7 @@ async fn handle_update_item(
     return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, user_id, item.id).into());
   }
 
-  db.item.update(&item)?;
+  db.item.update(&item).await?;
   Ok(None)
 }
 
@@ -263,17 +263,17 @@ async fn handle_delete_item<'a>(
     return Err(format!("Cannot delete item '{}' because it has one or more associated child or attachment item.", request.id).into());
   }
 
-  let item = db.item.remove(&request.id)?;
+  let item = db.item.remove(&request.id).await?;
   debug!("Deleting item '{}' from database.", request.id);
 
   if is_data_item(&item.item_type) {
     let mut object_store = object_store.lock().await;
-    object_store.delete(user_id, &request.id)?;
+    object_store.delete(user_id, &request.id).await?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
     let mut cache = cache.lock().await;
-    let num_removed = cache.delete_all_with_prefix(user_id, &request.id)?;
+    let num_removed = cache.delete_all_with_prefix(user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from cache.", num_removed, request.id);
   }
   Ok(None)

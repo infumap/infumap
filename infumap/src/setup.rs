@@ -19,13 +19,13 @@ use config::{Config, FileFormat};
 use log::{info, warn};
 use crate::config::*;
 use crate::util::infu::InfuResult;
-use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde};
+use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
 
-pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   let settings_path_maybe = match settings_path_maybe {
     Some(path) => {
-      if !std::path::Path::new(path.as_str()).exists() {
+      if !path_exists(&std::path::PathBuf::from(&path)).await {
         return Err(format!("The specified settings file path '{path}' does not exist.").into());
       }
       Some(String::from(path))
@@ -58,7 +58,7 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
         };
 
         pb.push(".infumap");
-        if !pb.as_path().exists() {
+        if !path_exists(&pb).await {
           match std::fs::create_dir(pb.as_path()) {
             Ok(_) => {
               info!("Settings file was not specified, creating .infumap in home directory.");
@@ -71,14 +71,14 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
 
         if let Err(_) = env_only_config.get_string(CONFIG_CACHE_DIR) {
           pb.push("cache");
-          if !pb.as_path().exists() {
+          if !path_exists(&pb).await {
             if let Err(e) = std::fs::create_dir(pb.as_path()) {
               return Err(format!("Could not create cache directory: '{e}'").into());
             } else {
               info!("Created cache directory: '~/.infumap/cache'");
             }
           }
-          let num_created = ensure_256_subdirs(&pb)?;
+          let num_created = ensure_256_subdirs(&pb).await?;
           if num_created > 0 {
             info!("Created {} sub cache directories", num_created);
           }
@@ -87,7 +87,7 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
 
         if let Err(_) = env_only_config.get_string(CONFIG_DATA_DIR) {
           pb.push("data");
-          if !pb.as_path().exists() {
+          if !path_exists(&pb).await {
             if let Err(e) = std::fs::create_dir(pb.as_path()) {
               return Err(format!("Could not create data directory: '{e}'").into());
             } else {
@@ -98,7 +98,7 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
         }
 
         pb.push("settings.toml");
-        if !pb.as_path().exists() {
+        if !path_exists(&pb).await {
           let f = match std::fs::File::create(pb.as_path()) {
             Ok(f) => f,
             Err(e) => {
@@ -150,14 +150,14 @@ pub fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Con
     }
   };
 
-  if !expand_tilde_path_exists(config.get_string(CONFIG_DATA_DIR)?) {
+  if !expand_tilde_path_exists(config.get_string(CONFIG_DATA_DIR)?).await {
     return Err(format!("Data dir '{}' does not exist.", config.get_string(CONFIG_DATA_DIR)?).into());
   }
 
-  if !expand_tilde_path_exists(config.get_string(CONFIG_CACHE_DIR)?) {
+  if !expand_tilde_path_exists(config.get_string(CONFIG_CACHE_DIR)?).await {
     return Err(format!("Cache dir '{}' does not exist.", config.get_string(CONFIG_CACHE_DIR)?).into());
   }
-  let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR)?).unwrap())?;
+  let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR)?).unwrap()).await?;
   if num_created > 0 {
     warn!("Created {} cache subdirectories.", num_created);
   }

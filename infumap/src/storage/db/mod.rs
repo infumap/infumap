@@ -38,11 +38,11 @@ pub struct Db {
 }
 
 impl Db {
-  pub fn new(data_dir: &str) -> InfuResult<Db> {
+  pub async fn new(data_dir: &str) -> InfuResult<Db> {
     Ok(Db {
-      user: UserDb::init(data_dir)
+      user: UserDb::init(data_dir).await
         .map_err(|e| format!("Failed to initialize UserDb: {}", e))?,
-      pending_user: PendingUserDb::init(data_dir)
+      pending_user: PendingUserDb::init(data_dir).await
         .map_err(|e| format!("Failed to initialize Pending UserDb: {}", e))?,
       session: SessionDb::init(),
       item: ItemDb::init(data_dir),

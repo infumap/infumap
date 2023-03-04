@@ -17,15 +17,14 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
-use std::fs::OpenOptions;
-use std::io::{BufWriter, Write};
-use std::fs::File;
-use std::io::BufReader;
+use tokio::fs::{File, OpenOptions};
 
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 use serde_json::{self, Value, Map};
 use serde_json::Value::Object;
+use tokio::io::{BufWriter, BufReader, AsyncBufReadExt};
+use tokio::io::AsyncWriteExt;
 
 use crate::util::infu::{InfuError, InfuResult};
 use crate::util::uid::Uid;
@@ -84,56 +83,56 @@ pub struct KVStore<T> where T: JsonLogSerializable<T> {
 }
 
 impl<T> KVStore<T> where T: JsonLogSerializable<T> {
-  pub fn init(path: &str, version: i64) -> InfuResult<KVStore<T>> {
+  pub async fn init(path: &str, version: i64) -> InfuResult<KVStore<T>> {
     if !std::path::Path::new(path).exists() {
-      let file = File::create(path)?;
+      let file = File::create(path).await?;
       let mut writer = BufWriter::new(file);
       let descriptor = DescriptorRecord { value_type: String::from(T::value_type_identifier()), version };
-      writer.write_all(serde_json::to_string(&descriptor)?.as_bytes())?;
-      writer.write_all("\n".as_bytes())?;
+      writer.write_all(serde_json::to_string(&descriptor)?.as_bytes()).await?;
+      writer.write_all("\n".as_bytes()).await?;
     }
-    let map = Self::read_log(path, version)?;
+    let map = Self::read_log(path, version).await?;
     Ok(Self { log_path: String::from(path), map })
   }
 
-  pub fn add(&mut self, entry: T) -> InfuResult<()> {
+  pub async fn add(&mut self, entry: T) -> InfuResult<()> {
     if self.map.contains_key(entry.get_id()) {
       return Err(format!("Entry with id {} already exists.", entry.get_id()).into());
     }
-    let file = OpenOptions::new().append(true).open(&self.log_path)?;
+    let file = OpenOptions::new().append(true).open(&self.log_path).await?;
     let mut writer = BufWriter::new(file);
-    writer.write_all(serde_json::to_string(&entry.to_json()?)?.as_bytes())?;
-    writer.write_all("\n".as_bytes())?;
+    writer.write_all(serde_json::to_string(&entry.to_json()?)?.as_bytes()).await?;
+    writer.write_all("\n".as_bytes()).await?;
     self.map.insert(entry.get_id().clone(), entry);
     Ok(())
   }
 
-  pub fn remove(&mut self, id: &str) -> InfuResult<T> {
+  pub async fn remove(&mut self, id: &str) -> InfuResult<T> {
     let itm = self.map.remove(id).ok_or(format!("Entry with id {} does not exist.", id))?;
-    let file = OpenOptions::new().append(true).open(&self.log_path)?;
+    let file = OpenOptions::new().append(true).open(&self.log_path).await?;
     let mut writer = BufWriter::new(file);
     let delete_record = DeleteRecord { id: String::from(id) };
-    writer.write_all(serde_json::to_string(&delete_record)?.as_bytes())?;
-    writer.write_all("\n".as_bytes())?;
+    writer.write_all(serde_json::to_string(&delete_record)?.as_bytes()).await?;
+    writer.write_all("\n".as_bytes()).await?;
     Ok(itm)
   }
 
   pub fn get_iter(&self) -> Iter<String, T> {
     self.map.iter()
   }
-  
+
   pub fn get(&self, id: &str) -> Option<&T> {
     self.map.get(id)
   }
 
-  pub fn update(&mut self, updated: T) -> InfuResult<()> {
+  pub async fn update(&mut self, updated: T) -> InfuResult<()> {
     let update_record = T::create_json_update(
       self.map.get(updated.get_id()).ok_or(format!("Entry with id {} does not exist.",
       updated.get_id()))?, &updated)?;
-    let file = OpenOptions::new().append(true).open(&self.log_path)?;
+    let file = OpenOptions::new().append(true).open(&self.log_path).await?;
     let mut writer = BufWriter::new(file);
-    writer.write_all(serde_json::to_string(&update_record)?.as_bytes())?;
-    writer.write_all("\n".as_bytes())?;
+    writer.write_all(serde_json::to_string(&update_record)?.as_bytes()).await?;
+    writer.write_all("\n".as_bytes()).await?;
     self.map.insert(updated.get_id().clone(), updated);
     Ok(())
   }
@@ -209,15 +208,13 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     Ok(())
   }
 
-  fn read_log(path: &str, expected_version: i64) -> InfuResult<HashMap<String, T>> {
-    let f = BufReader::new(File::open(path)?);
-    let deserializer = serde_json::Deserializer::from_reader(f);
-    let iterator = deserializer.into_iter::<serde_json::Value>();
-
+  async fn read_log(path: &str, expected_version: i64) -> InfuResult<HashMap<String, T>> {
     let mut result: HashMap<String, T> = HashMap::new();
 
-    // TODO (LOW): ensure descriptor record is read first and validate version.
-    for item in iterator {
+    let f = BufReader::new(File::open(path).await?);
+    let mut lines = f.lines();
+    while let Some(line) = lines.next_line().await? {
+      let item = serde_json::from_str::<serde_json::Value>(&line);
       match item? {
         Object(kvs) => { Self::read_log_record(&mut result, &kvs, expected_version)?; },
         unexpected_type => {

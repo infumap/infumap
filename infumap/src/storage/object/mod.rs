@@ -14,14 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-use core::panic;
-use log::error;
-
 use crate::util::crypto::{encrypt_file_data, decrypt_file_data};
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
 use crate::storage::file::FileStore;
+
 use super::s3::S3Store;
 
 
@@ -30,7 +27,6 @@ pub struct ObjectStore {
   s3_1_store: Option<S3Store>,
   s3_2_store: Option<S3Store>,
 }
-
 
 impl ObjectStore {
   pub fn new(
@@ -47,10 +43,7 @@ impl ObjectStore {
     let file_store = if enable_local_object_storage {
       Some(match FileStore::new(&data_dir) {
         Ok(file_store) => file_store,
-        Err(e) => {
-          error!("Failed to initialize file store: {}", e);
-          panic!();
-        }
+        Err(e) => { return Err(e); }
       })
     } else {
       None
@@ -62,10 +55,7 @@ impl ObjectStore {
       let s3_1_bucket = s3_1_bucket.ok_or("s3_1_bucket field is required when primary s3 store is enabled.")?;
       Some(match S3Store::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket, &s3_1_key, &s3_1_secret) {
         Ok(s3_store) => s3_store,
-        Err(e) => {
-          error!("Failed to initialize primary s3 store: {}", e);
-          panic!();
-        }
+        Err(e) => { return Err(e); }
       })
     } else {
       None
@@ -74,13 +64,10 @@ impl ObjectStore {
     let s3_2_store = if enable_s3_2_object_storage {
       let s3_2_key = s3_2_key.ok_or("s3_2_key field is required when secondary s3 store is enabled.")?;
       let s3_2_secret = s3_2_secret.ok_or("s3_2_secret field is required when secondary s3 store is enabled.")?;
-      let s3_2_bucket = s3_2_bucket.ok_or("s3_2_bucket field is required when primary s3 store is enabled.")?;
+      let s3_2_bucket = s3_2_bucket.ok_or("s3_2_bucket field is required when secondary s3 store is enabled.")?;
       Some(match S3Store::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket, &s3_2_key, &s3_2_secret) {
         Ok(s3_store) => s3_store,
-        Err(e) => {
-          error!("Failed to initialize secondary s3 store: {}", e);
-          panic!();
-        }
+        Err(e) => { return Err(e); }
       })
     } else {
       None
@@ -93,43 +80,53 @@ impl ObjectStore {
     format!("{}_{}", user_id, id)
   }
 
-  pub fn get(&mut self, user_id: &Uid, id: &Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
+  pub async fn get(&mut self, user_id: &Uid, id: &Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
+    // If there is a problem reading from any one of the sources, take the view that it is better to
+    // error out than try from another source so as to alert the user there is a problem.
     if let Some(fs) = &mut self.file_store {
-      return fs.get(user_id, id);
+      return fs.get(user_id, id).await;
     }
-    // if let Some(s3_1_store) = &mut self.s3_1_store {
-    //   let ciphertext = s3_1_store.get(user_id, id)?;
-    //   return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), Self::filename(user_id, id).as_str())?);
-    // }
-    panic!();
+    // Assume that store #1 is the most cost effective to read from, and always use it in preference
+    // to store #2 if available.
+    if let Some(s3_1_store) = &mut self.s3_1_store {
+      let ciphertext = s3_1_store.get(user_id, id).await?;
+      return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), Self::filename(user_id, id).as_str())?);
+    }
+    if let Some(s3_2_store) = &mut self.s3_2_store {
+      let ciphertext = s3_2_store.get(user_id, id).await?;
+      return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), Self::filename(user_id, id).as_str())?);
+    }
+    Err("No object store configured".into())
   }
 
-  pub fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>, encryption_key: &str) -> InfuResult<()> {
+  pub async fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>, encryption_key: &str) -> InfuResult<()> {
     if let Some(fs) = &mut self.file_store {
-      fs.put(user_id, id, val)?;
+      fs.put(user_id, id, val).await?;
     }
-    // if self.s3_1_store.is_some() || self.s3_2_store.is_some() {
-    //   let encrypted_val = encrypt_file_data(encryption_key, val, Self::filename(user_id, id).as_str())?;
-    //   if let Some(s3_1_store) = &mut self.s3_1_store {
-    //     s3_1_store.put(user_id, id, &encrypted_val)?;
-    //   }
-    //   if let Some(s3_2_store) = &mut self.s3_2_store {
-    //     s3_2_store.put(user_id, id, &encrypted_val)?;
-    //   }
-    // }
+    if self.s3_1_store.is_some() || self.s3_2_store.is_some() {
+      let encrypted_val = encrypt_file_data(encryption_key, val, Self::filename(user_id, id).as_str())?;
+      // fix.
+      if let Some(s3_1_store) = &mut self.s3_1_store {
+        s3_1_store.put(user_id, id, &encrypted_val).await?;
+      }
+      if let Some(s3_2_store) = &mut self.s3_2_store {
+        s3_2_store.put(user_id, id, &encrypted_val).await?;
+      }
+    }
     Ok(())
   }
 
-  pub fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+  pub async fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+    // fix.
     if let Some(fs) = &mut self.file_store {
-      return fs.delete(user_id, id);
+      return fs.delete(user_id, id).await;
     }
-    // if let Some(s3_1_store) = &mut self.s3_1_store {
-    //   s3_1_store.delete(user_id, id)?;
-    // }
-    // if let Some(s3_2_store) = &mut self.s3_2_store {
-    //   s3_2_store.delete(user_id, id)?;
-    // }
+    if let Some(s3_1_store) = &mut self.s3_1_store {
+      s3_1_store.delete(user_id, id).await?;
+    }
+    if let Some(s3_2_store) = &mut self.s3_2_store {
+      s3_2_store.delete(user_id, id).await?;
+    }
     Ok(())
   }
 }

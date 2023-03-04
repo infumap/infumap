@@ -16,6 +16,7 @@
 
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
+
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
 
@@ -40,7 +41,6 @@ impl S3Store {
       },
       credentials
     ).map_err(|e| format!("Could not construct S3 bucket instance: {}", e))?;
-
     Ok(S3Store { bucket })
   }
 

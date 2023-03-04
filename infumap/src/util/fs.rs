@@ -14,11 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::{path::{Path, PathBuf}, fs};
+use std::path::{Path, PathBuf};
 use log::warn;
+use tokio::fs;
 
 use super::{infu::InfuResult, uid::uid_chars};
 
+pub async fn path_exists(path: &PathBuf) -> bool {
+  tokio::fs::metadata(path).await.is_ok()
+}
 
 /// Taken from: https://stackoverflow.com/questions/54267608/expand-tilde-in-rust-path-idiomatically
 pub fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
@@ -42,21 +46,21 @@ pub fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
 }
 
 
-pub fn expand_tilde_path_exists<P: AsRef<Path>>(path: P) -> bool {
+pub async fn expand_tilde_path_exists<P: AsRef<Path>>(path: P) -> bool {
   match expand_tilde(path) {
     None => false,
-    Some(pb) => { pb.as_path().exists() }
+    Some(pb) => { path_exists(&pb).await }
   }
 }
 
 
-pub fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
+pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
   let mut num_created = 0;
   let mut path = path.clone();
   for i in 0..uid_chars().len() {
     for j in 0..uid_chars().len() {
       path.push(format!("{}{}", uid_chars().get(i).unwrap(), uid_chars().get(j).unwrap()));
-      if !path.exists() {
+      if !path_exists(&path).await {
         std::fs::create_dir(&path)?;
         num_created += 1;
       }
@@ -64,9 +68,9 @@ pub fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
     }
   }
 
-  for entry in fs::read_dir(&path)? {
-    let entry = entry?;
-    if !entry.file_type()?.is_dir() {
+  let mut iter = fs::read_dir(&path).await?;
+  while let Some(entry) = iter.next_entry().await? {
+    if !entry.file_type().await?.is_dir() {
       warn!("Cache directory should only contain directories, but a file was found: '{}'", path.display());
       continue;
     }

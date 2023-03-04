@@ -16,15 +16,15 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::fs::{self, OpenOptions};
-use std::fs::File;
-use std::io::{Read, Write};
+use tokio::fs::{File, OpenOptions};
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
 
 use log::{info, warn};
 
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
-use crate::util::fs::{expand_tilde, construct_store_subpath, ensure_256_subdirs};
+use crate::util::fs::{expand_tilde, construct_store_subpath, ensure_256_subdirs, path_exists};
 
 
 /// Manage files on disk for all users, assuming the mandated data folder hierarchy.
@@ -40,20 +40,20 @@ impl FileStore {
     Ok(FileStore { data_dir, user_existence_checked: HashSet::new() })
   }
 
-  fn ensure_files_dir(&mut self, user_id: &Uid) -> InfuResult<PathBuf> {
+  async fn ensure_files_dir(&mut self, user_id: &Uid) -> InfuResult<PathBuf> {
     let mut files_dir = self.data_dir.clone();
     files_dir.push(format!("{}{}", String::from("user_"), user_id));
     files_dir.push("files");
 
     if !self.user_existence_checked.contains(user_id) {
-      if !files_dir.as_path().exists() {
-        if let Err(e) = std::fs::create_dir(files_dir.as_path()) {
+      if !path_exists(&files_dir).await {
+        if let Err(e) = tokio::fs::create_dir(files_dir.as_path()).await {
           return Err(format!("Could not create files directory: '{e}'").into());
         } else {
           info!("Created file store directory: '{}',", files_dir.as_path().to_str().unwrap());
         }
       }
-      let num_created = ensure_256_subdirs(&files_dir)?;
+      let num_created = ensure_256_subdirs(&files_dir).await?;
       if num_created > 0 {
         warn!("Created {} file store sub directories", num_created);
       }
@@ -63,27 +63,27 @@ impl FileStore {
     Ok(files_dir)
   }
 
-  pub fn get(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
-    let path = construct_store_subpath(&self.ensure_files_dir(user_id)?, id)?;
-    let mut f = File::open(&path)?;
-    let mut buffer = vec![0; fs::metadata(&path)?.len() as usize];
-    f.read(&mut buffer)?;
+  pub async fn get(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
+    let path = construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?;
+    let mut f = File::open(&path).await?;
+    let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
+    f.read(&mut buffer).await?;
     Ok(buffer)
   }
 
-  pub fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>) -> InfuResult<()> {
+  pub async fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>) -> InfuResult<()> {
     let mut file = OpenOptions::new()
       .create_new(true)
       .write(true)
       .open(
-        construct_store_subpath(&self.ensure_files_dir(user_id)?, id)?)?;
-    file.write_all(&val)?;
+        construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?).await?;
+    file.write_all(&val).await?;
     Ok(())
   }
 
-  pub fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
-    fs::remove_file(
-      construct_store_subpath(&self.ensure_files_dir(user_id)?, id)?)?;
+  pub async fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+    tokio::fs::remove_file(
+      construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?).await?;
     Ok(())
   }
 }

@@ -38,11 +38,11 @@ pub struct PendingUserDb {
 }
 
 impl PendingUserDb {
-  pub fn init(db_dir: &str) -> InfuResult<PendingUserDb> {
+  pub async fn init(db_dir: &str) -> InfuResult<PendingUserDb> {
     let mut log_path = expand_tilde(db_dir).ok_or("Could not interpret path.")?;
     log_path.push("pending_users.json");
 
-    let store: KVStore<User> = KVStore::init(log_path.as_path().to_str().unwrap(), CURRENT_USER_LOG_VERSION)?;
+    let store: KVStore<User> = KVStore::init(log_path.as_path().to_str().unwrap(), CURRENT_USER_LOG_VERSION).await?;
     let mut id_by_username = HashMap::new();
     for (id, user) in store.get_iter() {
       id_by_username.insert(user.username.clone(), id.clone());
@@ -50,13 +50,13 @@ impl PendingUserDb {
     Ok(PendingUserDb { store, id_by_username })
   }
 
-  pub fn add(&mut self, user: User) -> InfuResult<()> {
+  pub async fn add(&mut self, user: User) -> InfuResult<()> {
     if self.id_by_username.contains_key(&user.username) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
     } else {
       self.id_by_username.insert(String::from(&user.username), String::from(&user.id));
     }
-    self.store.add(user)
+    self.store.add(user).await
   }
 
   pub fn _get_iter(&self) -> Iter<String, User> {

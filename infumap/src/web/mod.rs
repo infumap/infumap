@@ -43,11 +43,11 @@ use self::serve::http_serve;
 
 pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let config = init_fs_and_config(
-    arg_matches.value_of("settings_path").map(|a| a.to_string()))?;
+    arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;
   let db = Arc::new(Mutex::new(
-    match Db::new( &data_dir) {
+    match Db::new( &data_dir).await {
       Ok(db) => db,
       Err(e) => {
         return Err(format!("Failed to initialize database: {}", e).into());
@@ -83,7 +83,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
   let cache = Arc::new(Mutex::new(
-    match FileCache::new(&cache_dir, cache_max_mb) {
+    match FileCache::new(&cache_dir, cache_max_mb).await {
       Ok(file_cache) => file_cache,
       Err(e) => {
         return Err(format!("Failed to initialize config: {}", e).into());

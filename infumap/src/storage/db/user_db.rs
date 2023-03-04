@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 use log::warn;
 
@@ -37,14 +36,14 @@ pub struct UserDb {
 }
 
 impl UserDb {
-  pub fn init(data_dir: &str) -> InfuResult<UserDb> {
+  pub async fn init(data_dir: &str) -> InfuResult<UserDb> {
     let mut user_id_by_username = HashMap::new();
     let mut store_by_user_id = HashMap::new();
 
     let expanded_data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-    for entry in fs::read_dir(&expanded_data_path)? {
-      let entry = entry?;
-      if !entry.file_type()?.is_dir() {
+    let mut iter = tokio::fs::read_dir(&expanded_data_path).await?;
+    while let Some(entry) = iter.next_entry().await? {
+      if !entry.file_type().await?.is_dir() {
         // pending users log is in the data directory as well.
         continue;
       }
@@ -66,7 +65,7 @@ impl UserDb {
         log_path.push(dirname.clone());
         log_path.push("user.json");
         let log_path_str = log_path.as_path().to_str().unwrap();
-        let store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION)?;
+        let store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION).await?;
         let mut iter = store.get_iter();
         let username;
         match iter.next() {
@@ -103,7 +102,7 @@ impl UserDb {
     })
   }
 
-  pub fn add(&mut self, user: User) -> InfuResult<()> {
+  pub async fn add(&mut self, user: User) -> InfuResult<()> {
     if self.id_by_username.contains_key(&user.username) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
     } else {
@@ -112,14 +111,14 @@ impl UserDb {
 
     let mut dir = self.data_dir.clone();
     dir.push(format!("{}{}", String::from("user_"), &user.id));
-    fs::create_dir(&dir)?;
+    tokio::fs::create_dir(&dir).await?;
 
     dir.push("user.json");
     let log_path_str = dir.as_path().to_str().unwrap();
-    let mut store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION)?;
+    let mut store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION).await?;
 
     let user_id = user.id.clone();
-    store.add(user)?;
+    store.add(user).await?;
     self.store_by_id.insert(user_id, store);
 
     Ok(())

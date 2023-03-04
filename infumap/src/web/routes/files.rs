@@ -144,7 +144,7 @@ async fn get_cached_resized_img(
           if respond_with_cached_original {
             debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-            let data = cache.get(&session.user_id, &candidate)?.unwrap();
+            let data = cache.get(&session.user_id, &candidate).await?.unwrap();
             return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(data)).unwrap());
           } else {
             // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
@@ -182,7 +182,7 @@ async fn get_cached_resized_img(
           else {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
-          let data = cache.get(&session.user_id, &best_candidate.0)?.unwrap();
+          let data = cache.get(&session.user_id, &best_candidate.0).await?.unwrap();
           return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap());
         },
         None => {
@@ -192,13 +192,13 @@ async fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = object_store.lock().await.get(&session.user_id, &String::from(&uid), &object_encryption_key)?;
+  let original_file_bytes = object_store.lock().await.get(&session.user_id, &String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
     let cache_key= format!("{}_{}", uid, "original");
     debug!("Caching then returning image '{}' (unmodified original) to respond to request for '{}'.", cache_key, name);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    cache.lock().await.put(&session.user_id, &cache_key, original_file_bytes.clone())?;
+    cache.lock().await.put(&session.user_id, &cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(original_file_bytes)).unwrap());
   }
 
@@ -275,7 +275,7 @@ async fn get_cached_resized_img(
 
       debug!("Inserting image '{}' into cache", name);
       let data = cursor.get_ref().to_vec();
-      cache.lock().await.put(&session.user_id, name, data.clone())?;
+      cache.lock().await.put(&session.user_id, name, data.clone()).await?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap())
@@ -307,6 +307,6 @@ async fn get_file(
 
   let object_encryption_key = &db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key;
 
-  let data = object_store.get(&session.user_id, &String::from(uid), object_encryption_key)?;
+  let data = object_store.get(&session.user_id, &String::from(uid), object_encryption_key).await?;
   Ok(Response::builder().header(hyper::header::CONTENT_TYPE, mime_type_string).body(full_body(data)).unwrap())
 }
