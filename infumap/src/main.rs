@@ -31,6 +31,7 @@ async fn main() {
   let arg_matches = App::new("Infumap")
     .version("0.1.0")
     .subcommand(cli::migrate::make_clap_subcommand())
+    .subcommand(cli::validate::make_clap_subcommand())
     .about("Infumap")
     .arg(Arg::new("settings_path")
       .short('s')
@@ -43,12 +44,13 @@ async fn main() {
       .required(false))
     .get_matches();
 
-  // test();
-
   let command_result = match arg_matches.subcommand() {
     Some(("migrate", arg_sub_matches)) => {
       cli::migrate::execute(arg_sub_matches)
     },
+    Some(("validate", arg_sub_matches)) => {
+      cli::validate::execute(arg_sub_matches)
+    }
     Some((_, _arg_sub_matches)) => {
       println!(".. --help for help.");
       Ok(())

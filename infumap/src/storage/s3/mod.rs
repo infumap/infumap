@@ -73,4 +73,10 @@ impl S3Store {
     }
     Ok(())
   }
+
+  pub async fn list(&mut self) -> Vec<String> {
+    // let lbr = self.bucket.list("".to_owned(), None).await.unwrap();
+    // let a = lbr.first().unwrap();
+    vec![]
+  }
 }

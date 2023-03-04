@@ -1,4 +1,4 @@
-// Copyright (C) 2022 The Infumap Authors
+// Copyright (C) 2022-2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -30,6 +30,11 @@ use super::item::Item;
 
 
 const CURRENT_ITEM_LOG_VERSION: i64 = 2;
+
+pub struct UserAndItemId {
+  pub user_id: Uid,
+  pub item_id: Uid
+}
 
 /// Db for Item instances for all users, assuming the mandated data folder hierarchy.
 /// Not threadsafe.
@@ -254,6 +259,15 @@ impl ItemDb {
 
   pub fn has_children_or_attachments(&self, parent_id: &Uid) -> InfuResult<bool> {
     Ok(self.get_children(parent_id)?.len() > 0 || self.get_attachments(parent_id)?.len() > 0)
+  }
+
+  pub fn _all_items(&self) -> Vec<UserAndItemId> {
+    // TODO (LOW): This is very quick and dirty...
+    let mut result = vec![];
+    for v in self.owner_id_by_item_id.iter() {
+      result.push(UserAndItemId { item_id: v.0.clone(), user_id: v.1.clone() });
+    }
+    result
   }
 
 }

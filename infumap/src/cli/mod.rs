@@ -1,4 +1,4 @@
-// Copyright (C) 2022 The Infumap Authors
+// Copyright (C) 2022-2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -15,3 +15,4 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod migrate;
+pub mod validate;
