@@ -71,19 +71,19 @@ impl FileStore {
     Ok(buffer)
   }
 
-  pub async fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>) -> InfuResult<()> {
+  pub async fn put(&mut self, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
     let mut file = OpenOptions::new()
       .create_new(true)
       .write(true)
       .open(
-        construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?).await?;
+        construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &id)?).await?;
     file.write_all(&val).await?;
     Ok(())
   }
 
-  pub async fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+  pub async fn delete(&mut self, user_id: Uid, id: Uid) -> InfuResult<()> {
     tokio::fs::remove_file(
-      construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?).await?;
+      construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &id)?).await?;
     Ok(())
   }
 }

@@ -54,7 +54,7 @@ impl S3Store {
     Ok(result.into())
   }
 
-  pub async fn put(&mut self, user_id: &Uid, id: &Uid, val: &Vec<u8>) -> InfuResult<()> {
+  pub async fn put(&mut self, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
     let s3_path = format!("{}_{}", user_id, id);
     let result = self.bucket.put_object(s3_path, val.as_slice()).await
       .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
@@ -64,7 +64,7 @@ impl S3Store {
     Ok(())
   }
 
-  pub async fn delete(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+  pub async fn delete(&mut self, user_id: Uid, id: Uid) -> InfuResult<()> {
     let s3_path = format!("{}_{}", user_id, id);
     let result = self.bucket.delete_object(s3_path).await
       .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
