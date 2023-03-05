@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -36,8 +37,45 @@ struct FileInfo {
   pub _last_accessed: u64,
 }
 
+
+/// Enumeration representing an image size - either
+/// "original", or a specific width.
+pub enum ImageSize {
+  Width(u32),
+  Original
+}
+
+impl Display for ImageSize {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match &self {
+      Self::Width(w) => f.write_str(&w.to_string()),
+      Self::Original => f.write_str("original")
+    }    
+  }
+}
+
+
+/// Struct for the cache key, which is the item_id
+/// of the image, together with the size.
+pub struct ImageCacheKey {
+  pub item_id: Uid,
+  pub size: ImageSize,
+}
+
+impl Display for ImageCacheKey {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_str(format!("{}_{}", &self.item_id, self.size).as_str())
+  }
+}
+
+
 /// Simple fs based image cache.
-/// Work in progress. Expiry/eviction not implemented.
+/// Work in progress.
+/// TODO (MEDIUM):
+///   - Expiry/eviction not implemented. This should employ a weighting algorithm that favors keeping
+///     more smaller files around than slightly newer large files.
+///   - When a user is resizing an image, it is not a good idea to create lots of different sized cached
+///     images. Fix this on the FE.
 pub struct ImageCache {
   cache_dir: PathBuf,
   _max_mb: usize,
@@ -46,7 +84,10 @@ pub struct ImageCache {
   filenames_by_item_id: HashMap<String, Vec<String>>,
 }
 
+
 impl ImageCache {
+
+  /// Instantiate an image cache instance.
   pub async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<ImageCache> {
     let cache_dir = expand_tilde(cache_dir)
       .ok_or(format!("Image cache path '{}' is not valid.", cache_dir))?;
@@ -54,11 +95,11 @@ impl ImageCache {
     let fileinfo_by_filename = Self::traverse_files(&cache_dir).await?;
     let current_total_bytes = fileinfo_by_filename.iter().fold(0, |a, (_k, v)| a + v.size_bytes) as u64;
     if current_total_bytes > max_mb as u64 * ONE_MEGABYTE {
-      warn!("Total bytes in image cache {} exceeds maximum {}.", current_total_bytes, max_mb as u64 * ONE_MEGABYTE);
+      warn!("Total size of cached images {} exceeds maximum {}.", current_total_bytes, max_mb as u64 * ONE_MEGABYTE);
     }
 
     let mut filenames_by_item_id = HashMap::new();
-    for (filename, _v) in &fileinfo_by_filename {
+    for (filename, _) in &fileinfo_by_filename {
       let item_id = filename.split("_").nth(0).ok_or(format!("Invalid image cache filename '{}'", filename))?;
       if !filenames_by_item_id.contains_key(item_id) {
         filenames_by_item_id.insert(String::from(item_id), vec![]);
@@ -66,15 +107,17 @@ impl ImageCache {
       filenames_by_item_id.get_mut(item_id).unwrap().push(filename.clone());
     }
 
-    info!("Image cache '{}' state initialized. There are {} files with a total of {} bytes.", cache_dir.display(), fileinfo_by_filename.len(), current_total_bytes);
+    info!("Image cache '{}' state initialized. There are {} files totalling {} bytes.", cache_dir.display(), fileinfo_by_filename.len(), current_total_bytes);
     Ok(ImageCache { cache_dir, _max_mb: max_mb, current_total_bytes, fileinfo_by_filename, filenames_by_item_id })
   }
 
-  /**
-   * key: is of the form {item_id}_{size}
-   */
-  pub async fn get(&self, user_id: &Uid, key: &str) -> InfuResult<Option<Vec<u8>>> {
-    let filename = format!("{}_{}", key, &user_id[..8]);
+
+  /// Get the cached image specified by key.
+  ///
+  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+  /// to be extra sure items for one user are not returned to another.
+  pub async fn get(&self, user_id: &Uid, key: ImageCacheKey) -> InfuResult<Option<Vec<u8>>> {
+    let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
     if let Some(fi) = self.fileinfo_by_filename.get(&filename) {
       let mut f = File::open(construct_store_subpath(&self.cache_dir, &filename)?).await?;
       let mut buffer = vec![0; fi.size_bytes];
@@ -84,26 +127,47 @@ impl ImageCache {
     Ok(None)
   }
 
-  pub fn keys_for_item_id(&self, user_id: &Uid, item_id: &str) -> InfuResult<Option<Vec<String>>> {
+
+  /// Get all cached images corresponding to item_id.
+  ///
+  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+  /// to be extra sure items for one user are not returned to another.
+  pub fn keys_for_item_id(&self, user_id: &Uid, item_id: &str) -> InfuResult<Option<Vec<ImageCacheKey>>> {
     match self.filenames_by_item_id.get(item_id) {
       None => Ok(None),
-      Some(vs) => {
-        if vs.iter().filter(|v| !v.ends_with(&user_id[..8])).collect::<Vec<&String>>().len() > 0 {
+      Some(filenames) => {
+        if filenames.iter().filter(|v| !v.ends_with(&user_id[..8])).collect::<Vec<&String>>().len() > 0 {
           return Err(format!("User '{}' does not own a cached file for item '{}'.", user_id, item_id).into());
         }
-        let result = vs.iter()
+        let result = filenames.iter()
           .map(|v| String::from(&v[..(v.len()-9)]))
-          .collect::<Vec<String>>();
+          .map(|v| {
+            let parts = v.split("_").into_iter().map(|s| String::from(s)).collect::<Vec<String>>();
+            if parts.len() != 2 { 
+              return Err(format!("Unexpected image cache filename prefix '{}'.", v).into())
+            }
+            Ok(ImageCacheKey {
+              item_id: parts.get(0).unwrap().clone(),
+              size: if parts.get(1).unwrap() == "original" {
+                ImageSize::Original
+              } else {
+                ImageSize::Width(parts.get(1).unwrap().parse::<u32>()?)
+              }
+            })
+          })
+          .collect::<InfuResult<Vec<ImageCacheKey>>>()?;
         Ok(if result.len() == 0 { None } else { Some(result) })
       }
     }
   }
 
-  /**
-   * key: is of the form {item_id}_{size}
-   */
-  pub async fn put(&mut self, user_id: &Uid, key: &str, val: Vec<u8>) -> InfuResult<()> {
-    let filename = format!("{}_{}", key, &user_id[..8]);
+
+  /// Put an image into the cache, corresponding to the provided key.
+  ///
+  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+  /// to be extra sure items for one user are not returned to another.
+  pub async fn put(&mut self, user_id: &Uid, key: ImageCacheKey, val: Vec<u8>) -> InfuResult<()> {
+    let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
     let mut file = OpenOptions::new()
       .create_new(true)
       .write(true)
@@ -116,11 +180,10 @@ impl ImageCache {
       _last_accessed: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
     };
 
-    let item_id = key.split("_").nth(0).ok_or(format!("Invalid key '{}'.", key))?;
-    if !self.filenames_by_item_id.contains_key(item_id) {
-      self.filenames_by_item_id.insert(String::from(item_id), vec![]);
+    if !self.filenames_by_item_id.contains_key(&key.item_id) {
+      self.filenames_by_item_id.insert(String::from(&key.item_id), vec![]);
     }
-    self.filenames_by_item_id.get_mut(item_id).unwrap().push(filename.clone());
+    self.filenames_by_item_id.get_mut(&key.item_id).unwrap().push(filename.clone());
 
     self.current_total_bytes += file_info.size_bytes as u64;
     self.fileinfo_by_filename.insert(filename, file_info);
@@ -128,23 +191,28 @@ impl ImageCache {
     Ok(())
   }
 
+  /// Delete all images in the cache corresponding to the given item_id.
+  ///
+  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+  /// to be extra sure items for one user are not returned to another.
   pub async fn delete_all(&mut self, user_id: &Uid, item_id: &str) -> InfuResult<usize> {
-    let keys = if let Some(keys_ref) = self.keys_for_item_id(user_id, item_id)? {
-      keys_ref.clone()
-    } else {
-      return Err(format!("No keys for item_id '{}' in cache.", item_id).into());
-    };
+    let keys =
+      if let Some(keys_ref) = self.keys_for_item_id(user_id, item_id)? { keys_ref }
+      else { return Ok(0) };
 
     for key in &keys {
-      let filename = format!("{}_{}", key, &user_id[..8]);
+      let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
       let path = construct_store_subpath(&self.cache_dir, &filename)?;
       tokio::fs::remove_file(&path).await
-        .map_err(|e| format!("An error occurred removing image cache file '{:?}': {}", path, e))?;
+        .map_err(|e| format!("An error occurred removing file '{:?}' in image cache: {}", path, e))?;
       let fi = self.fileinfo_by_filename.remove(&filename)
-        .ok_or(format!("File info for '{}' is not cached.", key))?;
+        .ok_or(format!("File info for '{}_{}' is expected, but not found.", key.item_id, key.size))?;
       self.current_total_bytes -= fi.size_bytes as u64;
     }
-    self.filenames_by_item_id.remove(item_id).ok_or(format!("Files for prefix collection entry for '{}' is missing.", item_id))?;
+
+    self.filenames_by_item_id.remove(item_id)
+      .ok_or(format!("Filenames collection for '{}' is missing from image cache.", item_id))?;
+
     Ok(keys.len())
   }
 
@@ -162,12 +230,12 @@ impl ImageCache {
         let mut iter = tokio::fs::read_dir(&path).await?;
         while let Some(entry) = iter.next_entry().await? {
           if !entry.file_type().await?.is_file() {
-            warn!("'{}' is not a file.", entry.path().display());
+            warn!("'{}' in image cache is not a file.", entry.path().display());
             continue;
           }
           let md = entry.metadata().await?;
           let filename = entry.file_name().to_str()
-            .ok_or(format!("Invalid cached item filename '{}'.", &path.display()))?.to_string();
+            .ok_or(format!("Invalid cached image filename '{}'.", &path.display()))?.to_string();
           let file_info = FileInfo {
             size_bytes: md.len() as usize,
             _last_accessed: md.accessed()?.duration_since(UNIX_EPOCH)?.as_secs()

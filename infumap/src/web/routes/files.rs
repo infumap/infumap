@@ -22,7 +22,7 @@ use hyper::{Request, Response};
 use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
-use log::{warn, debug};
+use log::debug;
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use std::io::Cursor;
@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT};
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
-use crate::storage::image_cache::ImageCache;
+use crate::storage::image_cache::{ImageCache, ImageSize, ImageCacheKey};
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
@@ -97,7 +97,6 @@ async fn get_cached_resized_img(
 
   let name_parts = name.split('_').collect::<Vec<&str>>();
   if name_parts.len() != 2 {
-    // return Err(format!("Unexpected filename '{}'.", name).into());
     return Ok(not_found_response());
   }
 
@@ -135,55 +134,59 @@ async fn get_cached_resized_img(
     if let Some(candidates) = cache.keys_for_item_id(&session.user_id, &uid)? {
       let mut best_candidate_maybe = None;
       for candidate in candidates {
-        let candidate_name_parts = candidate.split('_').collect::<Vec<&str>>();
-        if candidate_name_parts.len() < 2 {
-          warn!("Cached item encountered without postfix: '{}'", candidate);
-          continue;
-        }
-        if candidate_name_parts.get(1).unwrap().eq(&"original") {
-          if respond_with_cached_original {
-            debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
-            METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-            let data = cache.get(&session.user_id, &candidate).await?.unwrap();
-            return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(data)).unwrap());
-          } else {
-            // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
-            continue;
-          }
-        } else if respond_with_cached_original {
-          continue;
-        }
-        let candidate_width = candidate_name_parts.get(1).unwrap().to_string().parse::<u32>()?;
-        if candidate_width as f64 / requested_width as f64 > (1.0 + max_image_size_deviation_larger_percent / 100.0) {
-          continue;
-        }
-        if (candidate_width as f64 / requested_width as f64) < (1.0 - max_image_size_deviation_smaller_percent / 100.0) {
-          continue;
-        }
-        best_candidate_maybe = match best_candidate_maybe {
-          None => Some((candidate, candidate_width)),
-          Some(current_best_candidate) => {
-            let current_deviation = (current_best_candidate.1 as i32 - requested_width as i32).abs();
-            let new_deviation = (candidate_width as i32 - requested_width as i32).abs();
-            if new_deviation < current_deviation {
-              Some((candidate, candidate_width))
+        match &candidate.size {
+          ImageSize::Original => {
+            if respond_with_cached_original {
+              debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
+              METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
+              let data = cache.get(&session.user_id, candidate).await?.unwrap();
+              return Ok(Response::builder()
+                .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
+                .body(full_body(data)).unwrap());
             } else {
-              Some(current_best_candidate)
+              // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
+              continue;
             }
+          },
+          ImageSize::Width(candidate_width) => {
+            let candidate_width = *candidate_width;
+            if respond_with_cached_original {
+              continue;
+            }
+            if candidate_width as f64 / requested_width as f64 > (1.0 + max_image_size_deviation_larger_percent / 100.0) {
+              continue;
+            }
+            if (candidate_width as f64 / requested_width as f64) < (1.0 - max_image_size_deviation_smaller_percent / 100.0) {
+              continue;
+            }
+            best_candidate_maybe = match best_candidate_maybe {
+              None => Some((candidate, candidate_width)),
+              Some(current_best_candidate) => {
+                let current_deviation = (current_best_candidate.1 as i32 - requested_width as i32).abs();
+                let new_deviation = (candidate_width as i32 - requested_width as i32).abs();
+                if new_deviation < current_deviation {
+                  Some((candidate, candidate_width))
+                } else {
+                  Some(current_best_candidate)
+                }
+              }
+            };
           }
-        };
+        }
       }
       match best_candidate_maybe {
         Some(best_candidate) => {
           debug!("Using cached image '{}' to respond to request for '{}'.", best_candidate.0, name);
-          if best_candidate.0 == name {
+          if format!("{}_{}", best_candidate.0.item_id, best_candidate.0.size) == name {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_EXACT]).inc();
           }
           else {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
-          let data = cache.get(&session.user_id, &best_candidate.0).await?.unwrap();
-          return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap());
+          let data = cache.get(&session.user_id, best_candidate.0).await?.unwrap();
+          return Ok(Response::builder()
+            .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+            .body(full_body(data)).unwrap());
         },
         None => {
           debug!("Cached image(s) for '{}' exist, but none are close enough to the required size.", uid);
@@ -195,11 +198,13 @@ async fn get_cached_resized_img(
   let original_file_bytes = object_store.lock().await.get(&session.user_id, &String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
-    let cache_key= format!("{}_{}", uid, "original");
+    let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
     debug!("Caching then returning image '{}' (unmodified original) to respond to request for '{}'.", cache_key, name);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    image_cache.lock().await.put(&session.user_id, &cache_key, original_file_bytes.clone()).await?;
-    return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(original_file_bytes)).unwrap());
+    image_cache.lock().await.put(&session.user_id, cache_key, original_file_bytes.clone()).await?;
+    return Ok(Response::builder()
+      .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
+      .body(full_body(original_file_bytes)).unwrap());
   }
 
   // get orientation
@@ -274,11 +279,15 @@ async fn get_cached_resized_img(
         .map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
 
       debug!("Inserting image '{}' into cache", name);
+
+      let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Width(requested_width) };
       let data = cursor.get_ref().to_vec();
-      image_cache.lock().await.put(&session.user_id, name, data.clone()).await?;
+      image_cache.lock().await.put(&session.user_id, cache_key, data.clone()).await?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
-      Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap())
+      Ok(Response::builder()
+        .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+        .body(full_body(data)).unwrap())
     },
 
     Err(e) => {
