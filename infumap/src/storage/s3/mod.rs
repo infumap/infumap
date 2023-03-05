@@ -68,7 +68,7 @@ impl S3Store {
     let s3_path = format!("{}_{}", user_id, id);
     let result = self.bucket.delete_object(s3_path).await
       .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
-    if result.status_code() != 200 {
+    if result.status_code() != 204 {
       return Err(format!("Unexpected status code deleting S3 object: {}", result.status_code()).into());
     }
     Ok(())

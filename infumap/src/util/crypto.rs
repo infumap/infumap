@@ -70,7 +70,7 @@ pub fn generate_key() -> String {
 
 pub fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
   let key = decode_hex(key)
-    .map_err(|e| format!("Invalid base64 encoded encryption key: {}.", e))?;
+    .map_err(|e| format!("Invalid hex encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
   let nonce = generate_nonce();
   let ciphertext = cipher.encrypt(&nonce.into(), Payload { msg: data, aad: filename.as_bytes() })

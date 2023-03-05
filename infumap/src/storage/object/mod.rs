@@ -141,6 +141,7 @@ impl ObjectStore {
 
     let mut errors = vec![];
     while let Some(res) = set.join_next().await {
+      let res = res.map_err(|e| format!("Async join error: {}", e))?;
       match res {
         Err(e) => errors.push(e),
         Ok(_) => {}
@@ -182,6 +183,7 @@ impl ObjectStore {
 
     let mut errors = vec![];
     while let Some(res) = set.join_next().await {
+      let res = res.map_err(|e| format!("Async join error: {}", e))?;
       match res {
         Err(e) => errors.push(e),
         Ok(_) => {}

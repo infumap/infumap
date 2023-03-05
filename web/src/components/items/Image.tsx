@@ -62,6 +62,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
                     `top: -${Math.round((imageWidthToRequestPx()/imageAspect() - boundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
              width={imageWidthToRequestPx()}
              src={props.visualElement.isTopLevel
+              // TODO (MEDIUM): keep this constant whilst the user is resizing.
               ? "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx()
               : "data:image/png;base64, " + imageItem().thumbnail} />
       </div>
