@@ -30,9 +30,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT};
-use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
+use crate::storage::image_cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
@@ -62,7 +62,7 @@ const JPEG_QUALITY: u8 = 80;
 pub async fn serve_files_route(
     db: &Arc<Mutex<Db>>,
     object_store: &Arc<Mutex<ObjectStore>>,
-    cache: &Arc<Mutex<FileCache>>,
+    image_cache: &Arc<Mutex<ImageCache>>,
     config: &Arc<Mutex<Config>>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
@@ -74,7 +74,7 @@ pub async fn serve_files_route(
   let name = &req.uri().path()[7..];
 
   if name.contains("_") {
-    match get_cached_resized_img(config, db, object_store, cache, &session, name).await {
+    match get_cached_resized_img(config, db, object_store, image_cache, &session, name).await {
       Ok(img_response) => img_response,
       Err(e) => internal_server_error_response(&format!("{}", e))
     }
@@ -91,7 +91,7 @@ async fn get_cached_resized_img(
     config: &Arc<Mutex<Config>>,
     db: &Arc<Mutex<Db>>,
     object_store: &Arc<Mutex<ObjectStore>>,
-    cache: &Arc<Mutex<FileCache>>,
+    image_cache: &Arc<Mutex<ImageCache>>,
     session: &Session,
     name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
@@ -102,7 +102,7 @@ async fn get_cached_resized_img(
   }
 
   let uid = name_parts.get(0).unwrap().to_string();
-  // Second part in request name is always a number, though we may respond with '{uid}_original' from the cache.
+  // Second part in request name is always a number, though we may respond with '{uid}_original' from the image cache.
   let requested_width = name_parts.get(1).unwrap().to_string().parse::<u32>()?;
 
   let max_image_size_deviation_smaller_percent;
@@ -131,8 +131,8 @@ async fn get_cached_resized_img(
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
-    let cache = cache.lock().await;
-    if let Some(candidates) = cache.keys_with_prefix(&session.user_id, &uid) {
+    let cache = image_cache.lock().await;
+    if let Some(candidates) = cache.keys_for_item_id(&session.user_id, &uid)? {
       let mut best_candidate_maybe = None;
       for candidate in candidates {
         let candidate_name_parts = candidate.split('_').collect::<Vec<&str>>();
@@ -198,7 +198,7 @@ async fn get_cached_resized_img(
     let cache_key= format!("{}_{}", uid, "original");
     debug!("Caching then returning image '{}' (unmodified original) to respond to request for '{}'.", cache_key, name);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    cache.lock().await.put(&session.user_id, &cache_key, original_file_bytes.clone()).await?;
+    image_cache.lock().await.put(&session.user_id, &cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder().header(hyper::header::CONTENT_TYPE, original_mime_type_string).body(full_body(original_file_bytes)).unwrap());
   }
 
@@ -275,7 +275,7 @@ async fn get_cached_resized_img(
 
       debug!("Inserting image '{}' into cache", name);
       let data = cursor.get_ref().to_vec();
-      cache.lock().await.put(&session.user_id, name, data.clone()).await?;
+      image_cache.lock().await.put(&session.user_id, name, data.clone()).await?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder().header(hyper::header::CONTENT_TYPE, "image/jpeg").body(full_body(data)).unwrap())

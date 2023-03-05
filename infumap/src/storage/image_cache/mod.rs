@@ -36,43 +36,46 @@ struct FileInfo {
   pub _last_accessed: u64,
 }
 
-/// Simple fs based cache.
+/// Simple fs based image cache.
 /// Work in progress. Expiry/eviction not implemented.
-pub struct FileCache {
+pub struct ImageCache {
   cache_dir: PathBuf,
   _max_mb: usize,
   current_total_bytes: u64,
-  cache_file_info: HashMap<String, FileInfo>,
-  by_prefix: HashMap<String, Vec<String>>,
+  fileinfo_by_filename: HashMap<String, FileInfo>,
+  filenames_by_item_id: HashMap<String, Vec<String>>,
 }
 
-impl FileCache {
-  pub async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<FileCache> {
+impl ImageCache {
+  pub async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<ImageCache> {
     let cache_dir = expand_tilde(cache_dir)
-      .ok_or(format!("File cache path '{}' is not valid.", cache_dir))?;
+      .ok_or(format!("Image cache path '{}' is not valid.", cache_dir))?;
 
-    let cache = Self::traverse_files(&cache_dir).await?;
-    let current_total_bytes = cache.iter().fold(0, |a, (_k, v)| a + v.size_bytes) as u64;
+    let fileinfo_by_filename = Self::traverse_files(&cache_dir).await?;
+    let current_total_bytes = fileinfo_by_filename.iter().fold(0, |a, (_k, v)| a + v.size_bytes) as u64;
     if current_total_bytes > max_mb as u64 * ONE_MEGABYTE {
-      warn!("Total bytes in cache {} exceeds maximum {}.", current_total_bytes, max_mb as u64 * ONE_MEGABYTE);
+      warn!("Total bytes in image cache {} exceeds maximum {}.", current_total_bytes, max_mb as u64 * ONE_MEGABYTE);
     }
 
-    let mut by_prefix = HashMap::new();
-    for (k, _v) in &cache {
-      let prefix = k.split("_").nth(0).unwrap();
-      if !by_prefix.contains_key(prefix) {
-        by_prefix.insert(String::from(prefix), vec![]);
+    let mut filenames_by_item_id = HashMap::new();
+    for (filename, _v) in &fileinfo_by_filename {
+      let item_id = filename.split("_").nth(0).ok_or(format!("Invalid image cache filename '{}'", filename))?;
+      if !filenames_by_item_id.contains_key(item_id) {
+        filenames_by_item_id.insert(String::from(item_id), vec![]);
       }
-      by_prefix.get_mut(prefix).unwrap().push(k.clone());
+      filenames_by_item_id.get_mut(item_id).unwrap().push(filename.clone());
     }
 
-    info!("File cache '{}' state initialized. There are {} files with a total of {} bytes.", cache_dir.display(), cache.len(), current_total_bytes);
-    Ok(FileCache { cache_dir, cache_file_info: cache, _max_mb: max_mb, current_total_bytes, by_prefix })
+    info!("Image cache '{}' state initialized. There are {} files with a total of {} bytes.", cache_dir.display(), fileinfo_by_filename.len(), current_total_bytes);
+    Ok(ImageCache { cache_dir, _max_mb: max_mb, current_total_bytes, fileinfo_by_filename, filenames_by_item_id })
   }
 
+  /**
+   * key: is of the form {item_id}_{size}
+   */
   pub async fn get(&self, user_id: &Uid, key: &str) -> InfuResult<Option<Vec<u8>>> {
     let filename = format!("{}_{}", key, &user_id[..8]);
-    if let Some(fi) = self.cache_file_info.get(&filename) {
+    if let Some(fi) = self.fileinfo_by_filename.get(&filename) {
       let mut f = File::open(construct_store_subpath(&self.cache_dir, &filename)?).await?;
       let mut buffer = vec![0; fi.size_bytes];
       f.read_exact(&mut buffer).await?;
@@ -81,19 +84,24 @@ impl FileCache {
     Ok(None)
   }
 
-  pub fn keys_with_prefix(&self, user_id: &Uid, prefix: &str) -> Option<Vec<String>> {
-    match self.by_prefix.get(prefix) {
-      None => None,
+  pub fn keys_for_item_id(&self, user_id: &Uid, item_id: &str) -> InfuResult<Option<Vec<String>>> {
+    match self.filenames_by_item_id.get(item_id) {
+      None => Ok(None),
       Some(vs) => {
+        if vs.iter().filter(|v| !v.ends_with(&user_id[..8])).collect::<Vec<&String>>().len() > 0 {
+          return Err(format!("User '{}' does not own a cached file for item '{}'.", user_id, item_id).into());
+        }
         let result = vs.iter()
-          .filter(|v| v.ends_with(&user_id[..8]))
           .map(|v| String::from(&v[..(v.len()-9)]))
           .collect::<Vec<String>>();
-        if result.len() == 0 { None } else { Some(result) }
+        Ok(if result.len() == 0 { None } else { Some(result) })
       }
     }
   }
 
+  /**
+   * key: is of the form {item_id}_{size}
+   */
   pub async fn put(&mut self, user_id: &Uid, key: &str, val: Vec<u8>) -> InfuResult<()> {
     let filename = format!("{}_{}", key, &user_id[..8]);
     let mut file = OpenOptions::new()
@@ -108,38 +116,42 @@ impl FileCache {
       _last_accessed: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
     };
 
-    let prefix = key.split("_").nth(0).unwrap();
-    if !self.by_prefix.contains_key(prefix) {
-      self.by_prefix.insert(String::from(prefix), vec![]);
+    let item_id = key.split("_").nth(0).ok_or(format!("Invalid key '{}'.", key))?;
+    if !self.filenames_by_item_id.contains_key(item_id) {
+      self.filenames_by_item_id.insert(String::from(item_id), vec![]);
     }
-    self.by_prefix.get_mut(prefix).unwrap().push(key.to_string());
+    self.filenames_by_item_id.get_mut(item_id).unwrap().push(filename.clone());
 
     self.current_total_bytes += file_info.size_bytes as u64;
-    self.cache_file_info.insert(key.to_string(), file_info);
+    self.fileinfo_by_filename.insert(filename, file_info);
 
     Ok(())
   }
 
-  pub async fn delete_all_with_prefix(&mut self, user_id: &Uid, prefix: &str) -> InfuResult<usize> {
-    let keys = if let Some(keys_ref) = self.keys_with_prefix(user_id, prefix) {
+  pub async fn delete_all(&mut self, user_id: &Uid, item_id: &str) -> InfuResult<usize> {
+    let keys = if let Some(keys_ref) = self.keys_for_item_id(user_id, item_id)? {
       keys_ref.clone()
     } else {
-      return Err(format!("no keys with prefix {}", prefix).into());
+      return Err(format!("No keys for item_id '{}' in cache.", item_id).into());
     };
 
     for key in &keys {
-      tokio::fs::remove_file(construct_store_subpath(&self.cache_dir, &key)?).await?;
-      let fi = self.cache_file_info.remove(key).ok_or(format!("File info for '{}' is not cached.", key))?;
+      let filename = format!("{}_{}", key, &user_id[..8]);
+      let path = construct_store_subpath(&self.cache_dir, &filename)?;
+      tokio::fs::remove_file(&path).await
+        .map_err(|e| format!("An error occurred removing image cache file '{:?}': {}", path, e))?;
+      let fi = self.fileinfo_by_filename.remove(&filename)
+        .ok_or(format!("File info for '{}' is not cached.", key))?;
       self.current_total_bytes -= fi.size_bytes as u64;
     }
-    self.by_prefix.remove(prefix).ok_or(format!("Files for prefix collection entry for '{}' is missing.", prefix))?;
+    self.filenames_by_item_id.remove(item_id).ok_or(format!("Files for prefix collection entry for '{}' is missing.", item_id))?;
     Ok(keys.len())
   }
 
   async fn traverse_files(cache_file_dir: &PathBuf) -> InfuResult<HashMap<String, FileInfo>> {
     let num_created = ensure_256_subdirs(&cache_file_dir).await?;
     if num_created > 0 {
-      warn!("Created {} missing cache subdirectories in '{}'.", num_created, &cache_file_dir.as_path().display());
+      warn!("Created {} missing image cache subdirectories in '{}'.", num_created, &cache_file_dir.as_path().display());
     }
 
     let mut cache = HashMap::new();
@@ -154,13 +166,13 @@ impl FileCache {
             continue;
           }
           let md = entry.metadata().await?;
-          let file_name = entry.file_name().to_str()
-            .ok_or(format!("Invalid filename '{}' in cache", &path.display()))?.to_string();
+          let filename = entry.file_name().to_str()
+            .ok_or(format!("Invalid cached item filename '{}'.", &path.display()))?.to_string();
           let file_info = FileInfo {
             size_bytes: md.len() as usize,
             _last_accessed: md.accessed()?.duration_since(UNIX_EPOCH)?.as_secs()
           };
-          cache.insert(file_name, file_info);
+          cache.insert(filename, file_info);
         }
         path.pop();
       }

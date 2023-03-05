@@ -32,8 +32,8 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 use crate::config::*;
-use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
+use crate::storage::image_cache::ImageCache;
 use crate::setup::init_fs_and_config;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
@@ -82,9 +82,9 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
-  let cache = Arc::new(Mutex::new(
-    match FileCache::new(&cache_dir, cache_max_mb).await {
-      Ok(file_cache) => file_cache,
+  let image_cache = Arc::new(Mutex::new(
+    match ImageCache::new(&cache_dir, cache_max_mb).await {
+      Ok(image_cache) => image_cache,
       Err(e) => {
         return Err(format!("Failed to initialize config: {}", e).into());
       }
@@ -106,13 +106,13 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     let (stream, _) = listener.accept().await?;
     let db = db.clone();
     let object_store = object_store.clone();
-    let cache = cache.clone();
+    let image_cache = image_cache.clone();
     let config = config.clone();
     tokio::task::spawn(async move {
       if let Err(err) = http1::Builder::new()
         .serve_connection(
           stream,
-          service_fn(move |req| http_serve(db.clone(), object_store.clone(), cache.clone(), config.clone(), req))
+          service_fn(move |req| http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), req))
         ).await
       {
         info!("Error serving connection: {:?}", err);

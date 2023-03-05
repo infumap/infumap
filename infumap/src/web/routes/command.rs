@@ -31,9 +31,9 @@ use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::storage::cache::FileCache;
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, is_data_item, is_image_item};
+use crate::storage::image_cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{json_response, incoming_json};
@@ -68,7 +68,7 @@ pub struct SendResponse {
 pub async fn serve_command_route(
     db: &Arc<Mutex<Db>>,
     object_store: &Arc<Mutex<ObjectStore>>,
-    cache: &Arc<Mutex<FileCache>>,
+    image_cache: &Arc<Mutex<ImageCache>>,
     request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
   let session = match get_and_validate_session(&request, db).await {
@@ -102,7 +102,7 @@ pub async fn serve_command_route(
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
     "add-item" => handle_add_item(db, &object_store, &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
-    "delete-item" => handle_delete_item(db, &object_store, &cache, &request.json_data, &session.user_id).await,
+    "delete-item" => handle_delete_item(db, &object_store, &image_cache, &request.json_data, &session.user_id).await,
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
       return json_response(&SendResponse { success: false, json_data: None });
@@ -252,7 +252,7 @@ pub struct DeleteItemRequest {
 async fn handle_delete_item<'a>(
     db: &Arc<Mutex<Db>>,
     object_store: &Arc<Mutex<ObjectStore>>,
-    cache: &Arc<Mutex<FileCache>>,
+    image_cache: &Arc<Mutex<ImageCache>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
@@ -264,7 +264,7 @@ async fn handle_delete_item<'a>(
   }
 
   let item = db.item.remove(&request.id).await?;
-  debug!("Deleting item '{}' from database.", request.id);
+  debug!("Deleted item '{}' from database.", request.id);
 
   if is_data_item(&item.item_type) {
     let mut object_store = object_store.lock().await;
@@ -272,9 +272,9 @@ async fn handle_delete_item<'a>(
     debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
-    let mut cache = cache.lock().await;
-    let num_removed = cache.delete_all_with_prefix(user_id, &request.id).await?;
-    debug!("Deleted all {} entries related to item '{}' from cache.", num_removed, request.id);
+    let mut cache = image_cache.lock().await;
+    let num_removed = cache.delete_all(user_id, &request.id).await?;
+    debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }
   Ok(None)
 }

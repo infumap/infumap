@@ -100,7 +100,6 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     if self.map.contains_key(entry.get_id()) {
       return Err(format!("Entry with id {} already exists.", entry.get_id()).into());
     }
-    println!("{}", self.log_path);
     let file = OpenOptions::new().append(true).open(&self.log_path).await?;
     let mut writer = BufWriter::new(file);
     writer.write_all(serde_json::to_string(&entry.to_json()?)?.as_bytes()).await?;
