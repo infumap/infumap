@@ -272,7 +272,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     id: user_id.clone(),
     username: payload.username.clone(),
     password_hash: User::compute_password_hash(&password_salt, &payload.password),
-    password_salt: password_salt,
+    password_salt,
     totp_secret: payload.totp_secret.clone(),
     root_page_id: root_page_id.clone(),
     default_page_width_bl: 60,
@@ -294,11 +294,13 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
       error!("Error adding default page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
+    info!("Created root user.");
   } else {
     if let Err(e) = db.pending_user.add(user.clone()).await {
       error!("Error adding user to pending user db: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
     }
+    info!("Added pending user '{}'.", payload.username);
   }
 
   json_response(&RegisterResponse { success: true, err: None })

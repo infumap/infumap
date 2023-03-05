@@ -90,6 +90,7 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
       let descriptor = DescriptorRecord { value_type: String::from(T::value_type_identifier()), version };
       writer.write_all(serde_json::to_string(&descriptor)?.as_bytes()).await?;
       writer.write_all("\n".as_bytes()).await?;
+      writer.flush().await?;
     }
     let map = Self::read_log(path, version).await?;
     Ok(Self { log_path: String::from(path), map })
@@ -99,10 +100,12 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     if self.map.contains_key(entry.get_id()) {
       return Err(format!("Entry with id {} already exists.", entry.get_id()).into());
     }
+    println!("{}", self.log_path);
     let file = OpenOptions::new().append(true).open(&self.log_path).await?;
     let mut writer = BufWriter::new(file);
     writer.write_all(serde_json::to_string(&entry.to_json()?)?.as_bytes()).await?;
     writer.write_all("\n".as_bytes()).await?;
+    writer.flush().await?;
     self.map.insert(entry.get_id().clone(), entry);
     Ok(())
   }
@@ -114,6 +117,7 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     let delete_record = DeleteRecord { id: String::from(id) };
     writer.write_all(serde_json::to_string(&delete_record)?.as_bytes()).await?;
     writer.write_all("\n".as_bytes()).await?;
+    writer.flush().await?;
     Ok(itm)
   }
 
@@ -133,6 +137,7 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
     let mut writer = BufWriter::new(file);
     writer.write_all(serde_json::to_string(&update_record)?.as_bytes()).await?;
     writer.write_all("\n".as_bytes()).await?;
+    writer.flush().await?;
     self.map.insert(updated.get_id().clone(), updated);
     Ok(())
   }

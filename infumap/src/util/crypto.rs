@@ -17,9 +17,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aead::{Aead, KeyInit, OsRng, rand_core::RngCore, Payload};
-use base64::{Engine as _, engine::general_purpose};
 use std::io::{Read, Write};
 use super::infu::InfuResult;
+use super::str::{encode_hex, decode_hex};
 
 
 const INFUMAP_ENCRYPTED_FILE_VERSION: u8 = 0;
@@ -63,12 +63,13 @@ fn generate_nonce() -> [u8; 12] {
 
 pub fn generate_key() -> String {
   let key = Aes256Gcm::generate_key(&mut OsRng);
-  general_purpose::STANDARD.encode(key)
+  let key_slice = key.as_slice();
+  encode_hex(key_slice)
 }
 
 
 pub fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
-  let key = general_purpose::STANDARD.decode(key)
+  let key = decode_hex(key)
     .map_err(|e| format!("Invalid base64 encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
   let nonce = generate_nonce();
@@ -84,8 +85,8 @@ pub fn encrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<V
 
 
 pub fn decrypt_file_data(key: &str, data: &[u8], filename: &str) -> InfuResult<Vec<u8>> {
-  let key = general_purpose::STANDARD.decode(key)
-    .map_err(|e| format!("Invalid base64 encoded encryption key: {}.", e))?;
+  let key = decode_hex(key)
+    .map_err(|e| format!("Invalid hex encoded encryption key: {}.", e))?;
   let cipher = Aes256Gcm::new(key.as_slice().into());
 
   use std::io::Cursor;

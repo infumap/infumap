@@ -52,6 +52,7 @@ pub fn execute<'a>(_sub_matches: &ArgMatches) -> InfuResult<()> {
           let migrated = crate::storage::db::pending_user_db::migrate_record_v1_to_v2(&kvs)?;
           writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
           writer.write_all("\n".as_bytes())?;
+          writer.flush()?;
         },
         unexpected_type => {
           return Err(format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into());
@@ -77,6 +78,7 @@ pub fn execute<'a>(_sub_matches: &ArgMatches) -> InfuResult<()> {
           let migrated = crate::storage::db::item_db::migrate_record_v1_to_v2(&kvs)?;
           writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
           writer.write_all("\n".as_bytes())?;
+          writer.flush()?;
         },
         unexpected_type => {
           return Err(format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into());

@@ -18,6 +18,7 @@ use serde_json::{Map, Value, Number};
 use sha2::{Sha256, Digest};
 
 use crate::util::infu::InfuResult;
+use crate::util::str::encode_hex;
 use crate::util::uid::Uid;
 use crate::util::json;
 use super::kv_store::JsonLogSerializable;
@@ -44,7 +45,7 @@ impl User {
   pub fn compute_password_hash(password_salt: &str, password: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(format!("{}-{}", password, password_salt));
-    String::from(format!("{:x}", hasher.finalize()))
+    encode_hex(hasher.finalize().as_slice())
   }
 }
 

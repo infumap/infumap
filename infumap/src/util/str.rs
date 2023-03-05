@@ -1,4 +1,4 @@
-// Copyright (C) 2022 The Infumap Authors
+// Copyright (C) 2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,11 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod crypto;
-pub mod fs;
-pub mod geometry;
-pub mod infu;
-pub mod json;
-pub mod lang;
-pub mod str;
-pub mod uid;
+use std::{fmt::Write, num::ParseIntError};
+
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+  (0..s.len())
+    .step_by(2)
+    .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+    .collect()
+}
+
+pub fn encode_hex(bytes: &[u8]) -> String {
+  let mut s = String::with_capacity(bytes.len() * 2);
+  for &b in bytes {
+    write!(&mut s, "{:02x}", b).unwrap();
+  }
+  s
+}

@@ -75,7 +75,7 @@ impl FileCache {
     if let Some(fi) = self.cache_file_info.get(&filename) {
       let mut f = File::open(construct_store_subpath(&self.cache_dir, &filename)?).await?;
       let mut buffer = vec![0; fi.size_bytes];
-      f.read(&mut buffer).await?;
+      f.read_exact(&mut buffer).await?;
       return Ok(Some(buffer))
     }
     Ok(None)
@@ -101,6 +101,7 @@ impl FileCache {
       .write(true)
       .open(construct_store_subpath(&self.cache_dir, &filename)?).await?;
     file.write_all(&val).await?;
+    file.flush().await?;
 
     let file_info = FileInfo {
       size_bytes: val.len(),

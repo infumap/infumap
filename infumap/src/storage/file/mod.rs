@@ -67,7 +67,7 @@ impl FileStore {
     let path = construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?;
     let mut f = File::open(&path).await?;
     let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
-    f.read(&mut buffer).await?;
+    f.read_exact(&mut buffer).await?;
     Ok(buffer)
   }
 
@@ -78,6 +78,7 @@ impl FileStore {
       .open(
         construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &id)?).await?;
     file.write_all(&val).await?;
+    file.flush().await?;
     Ok(())
   }
 
