@@ -26,7 +26,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
-use crate::storage::image_cache::ImageCache;
+use crate::storage::cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 

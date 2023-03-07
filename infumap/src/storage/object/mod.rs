@@ -96,12 +96,12 @@ impl ObjectStore {
     // Assume that store #1 is the most cost effective to read from, and always use it in preference
     // to store #2 if available.
     if let Some(s3_1_store) = &mut self.s3_1_store {
-      let mut s3_1_store = s3_1_store.lock().await;
+      let s3_1_store = s3_1_store.lock().await;
       let ciphertext = s3_1_store.get(user_id, id).await?;
       return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), Self::filename(user_id, id).as_str())?);
     }
     if let Some(s3_2_store) = &mut self.s3_2_store {
-      let mut s3_2_store = s3_2_store.lock().await;
+      let s3_2_store = s3_2_store.lock().await;
       let ciphertext = s3_2_store.get(user_id, id).await?;
       return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), Self::filename(user_id, id).as_str())?);
     }
@@ -126,7 +126,7 @@ impl ObjectStore {
     };
 
     async fn s3_put(fs: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
-      let mut s3 = fs.lock().await;
+      let s3 = fs.lock().await;
       s3.put(user_id.clone(), id.clone(), val.clone()).await
     }
 
@@ -169,7 +169,7 @@ impl ObjectStore {
     }
 
     async fn s3_delete(fs: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid) -> InfuResult<()> {
-      let mut s3 = fs.lock().await;
+      let s3 = fs.lock().await;
       s3.delete(user_id.clone(), id.clone()).await
     }
 

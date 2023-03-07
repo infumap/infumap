@@ -31,7 +31,7 @@ use super::item::Item;
 
 const CURRENT_ITEM_LOG_VERSION: i64 = 2;
 
-pub struct UserAndItemId {
+pub struct ItemAndUserId {
   pub user_id: Uid,
   pub item_id: Uid
 }
@@ -261,11 +261,11 @@ impl ItemDb {
     Ok(self.get_children(parent_id)?.len() > 0 || self.get_attachments(parent_id)?.len() > 0)
   }
 
-  pub fn _all_items(&self) -> Vec<UserAndItemId> {
-    // TODO (LOW): This is very quick and dirty...
+  pub fn all_loaded(&self) -> Vec<ItemAndUserId> {
+    // TODO (LOW): Proper use of iterators...
     let mut result = vec![];
     for v in self.owner_id_by_item_id.iter() {
-      result.push(UserAndItemId { item_id: v.0.clone(), user_id: v.1.clone() });
+      result.push(ItemAndUserId { item_id: v.0.clone(), user_id: v.1.clone() });
     }
     result
   }

@@ -16,25 +16,27 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
-use tokio::fs::{File, OpenOptions};
+use tokio::fs::{File, OpenOptions, self};
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 
 use log::{info, warn};
 
 use crate::util::infu::InfuResult;
-use crate::util::uid::Uid;
+use crate::util::uid::{Uid, uid_chars};
 use crate::util::fs::{expand_tilde, construct_store_subpath, ensure_256_subdirs, path_exists};
 
 
-/// Manage files on disk for all users, assuming the mandated data folder hierarchy.
-/// Not threadsafe.
 pub struct FileStore {
   data_dir: PathBuf,
   user_existence_checked: HashSet<String>,
 }
 
 impl FileStore {
+
+  /// Create a new FileStore instance.
+  /// Manage files on disk for all users, assuming the mandated data folder hierarchy.
+  /// Not threadsafe.
   pub fn new(data_dir: &str) -> InfuResult<FileStore> {
     let data_dir = expand_tilde(data_dir).ok_or(format!("Data path '{}' is not valid.", data_dir))?;
     Ok(FileStore { data_dir, user_existence_checked: HashSet::new() })
@@ -63,28 +65,62 @@ impl FileStore {
     Ok(files_dir)
   }
 
-  pub async fn get(&mut self, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
-    let path = construct_store_subpath(&self.ensure_files_dir(user_id).await?, id)?;
+  /// Get data associated with the specified item for the specified user.
+  pub async fn get(&mut self, user_id: &Uid, item_id: &Uid) -> InfuResult<Vec<u8>> {
+    let path = construct_store_subpath(&self.ensure_files_dir(user_id).await?, item_id)?;
     let mut f = File::open(&path).await?;
     let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
     f.read_exact(&mut buffer).await?;
     Ok(buffer)
   }
 
-  pub async fn put(&mut self, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
+  /// Set data for the specified item for the specified user.
+  pub async fn put(&mut self, user_id: Uid, item_id: Uid, val: Vec<u8>) -> InfuResult<()> {
     let mut file = OpenOptions::new()
       .create_new(true)
       .write(true)
       .open(
-        construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &id)?).await?;
+        construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &item_id)?).await?;
     file.write_all(&val).await?;
     file.flush().await?;
     Ok(())
   }
 
-  pub async fn delete(&mut self, user_id: Uid, id: Uid) -> InfuResult<()> {
+  /// Delete data for the specified item for the specified user.
+  pub async fn delete(&mut self, user_id: Uid, item_id: Uid) -> InfuResult<()> {
     tokio::fs::remove_file(
-      construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &id)?).await?;
+      construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &item_id)?).await?;
     Ok(())
   }
+
+  /// List the ids of all items with stored data for the specified user.
+  pub async fn list(&mut self, user_id: &Uid) -> InfuResult<Vec<String>> {
+    let mut path = self.data_dir.clone();
+    path.push(format!("{}{}", String::from("user_"), user_id));
+    path.push("files");
+
+    let mut result = vec![];
+    for i in 0..uid_chars().len() {
+      for j in 0..uid_chars().len() {
+        path.push(format!("{}{}", uid_chars().get(i).unwrap(), uid_chars().get(j).unwrap()));
+        if !path_exists(&path).await {
+          return Err(format!("Files directory for user {} does not contain all expected subdirs.", user_id).into());
+        }
+        let mut iter = fs::read_dir(&path).await?;
+        while let Some(entry) = iter.next_entry().await? {
+          if !entry.file_type().await?.is_file() {
+            return Err(format!("File directory should only contain files: '{}'", path.display()).into());
+          }
+          if let Some(filename) = entry.file_name().to_str() {
+            result.push(String::from(filename));
+          } else {
+            return Err(format!("Unexpected file: {:?}", entry.file_name()).into())
+          }
+        }
+        path.pop();
+      }
+    }
+    Ok(result)
+  }
+
 }

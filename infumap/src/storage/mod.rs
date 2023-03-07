@@ -16,6 +16,6 @@
 
 pub mod db;
 pub mod file;
-pub mod image_cache;
+pub mod cache;
 pub mod object;
 pub mod s3;

@@ -33,7 +33,7 @@ use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, is_data_item, is_image_item};
-use crate::storage::image_cache::ImageCache;
+use crate::storage::cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{json_response, incoming_json};

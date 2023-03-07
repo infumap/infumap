@@ -33,7 +33,7 @@ use tokio::sync::Mutex;
 
 use crate::config::*;
 use crate::storage::db::Db;
-use crate::storage::image_cache::ImageCache;
+use crate::storage::cache::ImageCache;
 use crate::setup::init_fs_and_config;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;

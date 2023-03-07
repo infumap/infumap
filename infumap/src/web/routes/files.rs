@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT};
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
-use crate::storage::image_cache::{ImageCache, ImageSize, ImageCacheKey};
+use crate::storage::cache::{ImageCache, ImageSize, ImageCacheKey};
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
