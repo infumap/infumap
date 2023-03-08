@@ -76,12 +76,12 @@ pub async fn serve_files_route(
   if name.contains("_") {
     match get_cached_resized_img(config, db, object_store, image_cache, &session, name).await {
       Ok(img_response) => img_response,
-      Err(e) => internal_server_error_response(&format!("{}", e))
+      Err(e) => internal_server_error_response(&format!("get_cached_resized_img failed: {}", e))
     }
   } else {
     match get_file(db, object_store, &session, name).await {
       Ok(file_response) => file_response,
-      Err(e) => internal_server_error_response(&format!("{}", e))
+      Err(e) => internal_server_error_response(&format!("get_file failed: {}", e))
     }
   }
 }

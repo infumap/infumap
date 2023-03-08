@@ -236,14 +236,17 @@ export function mouseMoveHandler(
 
   const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.get().itemId)!;
 
-  if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
-    if (mouseActionState.action == MouseAction.Ambiguous) {
+  if (mouseActionState.action == MouseAction.Ambiguous) {
+    if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
       if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
         mouseActionState.startPosBl = null;
         mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
         if (isYSizableItem(activeItem)) {
           mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
         }
+        mouseActionState.activeVisualElement.update(ve => {
+          ve.resizingFromBoundsPx = ve.boundsPx;
+        });
         mouseActionState.action = MouseAction.Resizing;
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         if (isTable(desktopStore.getItem(activeItem.parentId)!)) {
@@ -421,6 +424,10 @@ export function mouseUpHandler(
          (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
         server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
       }
+
+      mouseActionState.activeVisualElement.update(ve => {
+        ve.resizingFromBoundsPx = null;
+      });
       break;
 
     case MouseAction.Ambiguous:

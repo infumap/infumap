@@ -38,7 +38,7 @@ struct FileInfo {
 }
 
 
-/// Enumeration representing an image size - either
+/// Enumeration to represent an image size - either
 /// "original", or a specific width.
 pub enum ImageSize {
   Width(u32),

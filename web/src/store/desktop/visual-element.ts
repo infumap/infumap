@@ -28,6 +28,7 @@ import { ItemTypeMixin } from "./items/base/item";
 export interface VisualElement extends ItemTypeMixin {
   itemId: Uid,
   boundsPx: BoundingBox, // relative to containing visual element childAreaBoundsPx.
+  resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
   childAreaBoundsPx: BoundingBox | null,
   hitboxes: Array<Hitbox>, // higher index => takes precedence.
   children: Array<VisualElementSignal>,

@@ -29,21 +29,29 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => quantizeBoundingBox(props.visualElement.boundsPx);
+  const quantizedBoundsPx = () => quantizeBoundingBox(props.visualElement.boundsPx);
+  const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
+  const imgUrl = () => {
+    if (!props.visualElement.isTopLevel) {
+      return "data:image/png;base64, " + imageItem().thumbnail;
+    }
+    return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
+  };
 
-  const imageWidthToRequestPx = () => {
-    let boundsAspect = boundsPx().w / boundsPx().h;
+  const imageWidthToRequestPx = (lockToResizinFromBounds: boolean) => {
+    let boundsPx = (resizingFromBoundsPx() == null || !lockToResizinFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
+    let boundsAspect = boundsPx.w / boundsPx.h;
     if (boundsAspect > imageAspect()) {
       // Bounds is flatter than the image, so:
       //   - Image needs to be cropped top and bottom.
       //   - Bounds width determines width of image to request.
-      return boundsPx().w;
+      return boundsPx.w;
     } else {
       // Image is flatter than bounds, so:
       //   - Image needs to be cropped left and right.
       //   - Bounds height determines width of image to request.
-      return Math.round(boundsPx().w / (boundsAspect/imageAspect()));
+      return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
 
@@ -54,17 +62,14 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const BORDER_WIDTH_PX = 1;
 
   return (
-    <Show when={boundsPx().w > 5}>
+    <Show when={quantizedBoundsPx().w > 5}>
       <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+           style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <img class="max-w-none absolute"
-             style={`left: -${Math.round((imageWidthToRequestPx() - boundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                    `top: -${Math.round((imageWidthToRequestPx()/imageAspect() - boundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
-             width={imageWidthToRequestPx()}
-             src={props.visualElement.isTopLevel
-              // TODO (MEDIUM): keep this constant whilst the user is resizing.
-              ? "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx()
-              : "data:image/png;base64, " + imageItem().thumbnail} />
+             style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                    `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
+             width={imageWidthToRequestPx(false)}
+             src={imgUrl()} />
       </div>
       <For each={props.visualElement.attachments}>{attachmentSignal =>
         <VisualElementOnDesktop visualElement={attachmentSignal.get()} />
