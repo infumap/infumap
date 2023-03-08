@@ -24,7 +24,7 @@ use log::{info, warn};
 
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, uid_chars};
-use crate::util::fs::{expand_tilde, construct_store_subpath, ensure_256_subdirs, path_exists};
+use crate::util::fs::{expand_tilde, construct_file_subpath, ensure_256_subdirs, path_exists};
 
 
 pub struct FileStore {
@@ -67,7 +67,7 @@ impl FileStore {
 
   /// Get data associated with the specified item for the specified user.
   pub async fn get(&mut self, user_id: &Uid, item_id: &Uid) -> InfuResult<Vec<u8>> {
-    let path = construct_store_subpath(&self.ensure_files_dir(user_id).await?, item_id)?;
+    let path = construct_file_subpath(&self.ensure_files_dir(user_id).await?, item_id)?;
     let mut f = File::open(&path).await?;
     let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
     f.read_exact(&mut buffer).await?;
@@ -80,7 +80,7 @@ impl FileStore {
       .create_new(true)
       .write(true)
       .open(
-        construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &item_id)?).await?;
+        construct_file_subpath(&self.ensure_files_dir(&user_id).await?, &item_id)?).await?;
     file.write_all(&val).await?;
     file.flush().await?;
     Ok(())
@@ -89,7 +89,7 @@ impl FileStore {
   /// Delete data for the specified item for the specified user.
   pub async fn delete(&mut self, user_id: Uid, item_id: Uid) -> InfuResult<()> {
     tokio::fs::remove_file(
-      construct_store_subpath(&self.ensure_files_dir(&user_id).await?, &item_id)?).await?;
+      construct_file_subpath(&self.ensure_files_dir(&user_id).await?, &item_id)?).await?;
     Ok(())
   }
 

@@ -130,7 +130,7 @@ async fn get_cached_resized_img(
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
-    let cache = image_cache.lock().await;
+    let mut cache = image_cache.lock().await;
     if let Some(candidates) = cache.keys_for_item_id(&session.user_id, &uid)? {
       let mut best_candidate_maybe = None;
       for candidate in candidates {

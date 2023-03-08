@@ -11,6 +11,7 @@ clap = "3.0.10"
 config = "0.13.1"
 cookie = "0.17.0"
 dirs = "4.0"
+filetime = "0.2.20"
 http-body-util = "0.1.0-rc.2"
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
 image = "0.24.5"

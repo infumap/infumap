@@ -551,7 +551,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       let geometry = calcGeometryOfItemInCell(item, cellBoundsPx, getItem);
       let ve: VisualElement = {
         itemType: item.itemType,
-        isTopLevel: false,
+        isTopLevel: true,
         itemId: item.id,
         boundsPx: geometry.boundsPx,
         resizingFromBoundsPx: null,

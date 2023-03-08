@@ -98,7 +98,7 @@ pub async fn ensure_256_subdirs(path: &PathBuf) -> InfuResult<usize> {
 }
 
 
-pub fn construct_store_subpath(store_dir: &PathBuf, filename: &str) -> InfuResult<PathBuf> {
+pub fn construct_file_subpath(store_dir: &PathBuf, filename: &str) -> InfuResult<PathBuf> {
   if filename.len() < 2 {
     return Err(format!("Filename '{}' is too short to store.", filename).into());
   }

@@ -59,24 +59,24 @@ output = """// Copyright (C) 2023 The Infumap Authors
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
-use super::serve::full_response;
+use super::serve::full_body;
 
 pub fn handle_dist_response_maybe(req: &Request<hyper::body::Incoming>) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
   match (req.method(), req.uri().path()) {
-    (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, "text/html").body(full_response(include_str!("../../../web/dist/index.html"))).unwrap()),
+    (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../../web/dist/index.html"))).unwrap()),
 """
 
 for f in js_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_response(include_str!(\"../../../web/dist/assets/" + f + "\"))).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_body(include_str!(\"../../../web/dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in css_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_response(include_str!(\"../../../web/dist/assets/" + f + "\"))).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_body(include_str!(\"../../../web/dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in png_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_response(include_bytes!(\"../../../web/dist/assets/" + f + "\").as_slice())).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_body(include_bytes!(\"../../../web/dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 for f in ico_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_response(include_bytes!(\"../../../web/dist/assets/" + f + "\").as_slice())).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_body(include_bytes!(\"../../../web/dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 output += """    _ => None
   }
