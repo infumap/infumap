@@ -98,7 +98,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     }
   };
 
-  let config = Arc::new(tokio::sync::Mutex::new(config));
+  let config = Arc::new(config);
 
   let listener = TcpListener::bind(addr).await?;
   loop {

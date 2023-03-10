@@ -63,7 +63,7 @@ pub async fn serve_files_route(
     db: &Arc<Mutex<Db>>,
     object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
     image_cache: &Arc<Mutex<ImageCache>>,
-    config: &Arc<Mutex<Config>>,
+    config: Arc<Config>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
   let session = match get_and_validate_session(&req, &db).await {
@@ -88,7 +88,7 @@ pub async fn serve_files_route(
 
 
 async fn get_cached_resized_img(
-    config: &Arc<Mutex<Config>>,
+    config: Arc<Config>,
     db: &Arc<Mutex<Db>>,
     object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
     image_cache: &Arc<Mutex<ImageCache>>,
@@ -107,7 +107,6 @@ async fn get_cached_resized_img(
   let max_image_size_deviation_smaller_percent;
   let max_image_size_deviation_larger_percent;
   {
-    let config = &config.lock().await;
     max_image_size_deviation_larger_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?;
     max_image_size_deviation_smaller_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?;
   }
