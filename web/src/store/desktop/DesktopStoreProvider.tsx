@@ -549,19 +549,23 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       };
 
       let geometry = calcGeometryOfItemInCell(item, cellBoundsPx, getItem);
-      let ve: VisualElement = {
-        itemType: item.itemType,
-        isTopLevel: true,
-        itemId: item.id,
-        boundsPx: geometry.boundsPx,
-        resizingFromBoundsPx: null,
-        hitboxes: geometry.hitboxes,
-        children: [],
-        attachments: [],
-        childAreaBoundsPx: null,
-        parent: getTopLevelVisualElementSignalNotNull()
-      };
-      topLevelChildren.push(createVisualElementSignal(ve));
+      if (!isContainer(item)) {
+        let ve: VisualElement = {
+          itemType: item.itemType,
+          isTopLevel: true,
+          itemId: item.id,
+          boundsPx: geometry.boundsPx,
+          resizingFromBoundsPx: null,
+          hitboxes: geometry.hitboxes,
+          children: [],
+          attachments: [],
+          childAreaBoundsPx: null,
+          parent: getTopLevelVisualElementSignalNotNull()
+        };
+        topLevelChildren.push(createVisualElementSignal(ve));
+      } else {
+        console.log("TODO: child containers in grid pages.");
+      }
     }
 
     const numRows = Math.ceil(children.length / numCols);

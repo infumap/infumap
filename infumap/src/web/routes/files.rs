@@ -33,7 +33,7 @@ use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::cache::{ImageCache, ImageSize, ImageCacheKey};
-use crate::storage::object::ObjectStore;
+use crate::storage::object;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
 use crate::web::session::get_and_validate_session;
@@ -61,7 +61,7 @@ const JPEG_QUALITY: u8 = 80;
 
 pub async fn serve_files_route(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<Mutex<ObjectStore>>,
+    object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
     image_cache: &Arc<Mutex<ImageCache>>,
     config: &Arc<Mutex<Config>>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -90,7 +90,7 @@ pub async fn serve_files_route(
 async fn get_cached_resized_img(
     config: &Arc<Mutex<Config>>,
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<Mutex<ObjectStore>>,
+    object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
     image_cache: &Arc<Mutex<ImageCache>>,
     session: &Session,
     name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
@@ -130,8 +130,8 @@ async fn get_cached_resized_img(
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
-    let mut cache = image_cache.lock().await;
-    if let Some(candidates) = cache.keys_for_item_id(&session.user_id, &uid)? {
+    let mut image_cache = image_cache.lock().await;
+    if let Some(candidates) = image_cache.keys_for_item_id(&session.user_id, &uid)? {
       let mut best_candidate_maybe = None;
       for candidate in candidates {
         match &candidate.size {
@@ -139,7 +139,7 @@ async fn get_cached_resized_img(
             if respond_with_cached_original {
               debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-              let data = cache.get(&session.user_id, candidate).await?.unwrap();
+              let data = image_cache.get(&session.user_id, candidate).await?.unwrap();
               return Ok(Response::builder()
                 .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
                 .body(full_body(data)).unwrap());
@@ -183,7 +183,7 @@ async fn get_cached_resized_img(
           else {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
-          let data = cache.get(&session.user_id, best_candidate.0).await?.unwrap();
+          let data = image_cache.get(&session.user_id, best_candidate.0).await?.unwrap();
           return Ok(Response::builder()
             .header(hyper::header::CONTENT_TYPE, "image/jpeg")
             .body(full_body(data)).unwrap());
@@ -195,7 +195,7 @@ async fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = object_store.lock().await.get(&session.user_id, &String::from(&uid), &object_encryption_key).await?;
+  let original_file_bytes = object::get(object_store, &session.user_id, &String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
     let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
@@ -300,12 +300,10 @@ async fn get_cached_resized_img(
 
 async fn get_file(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<Mutex<ObjectStore>>,
+    object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
     session: &Session,
     uid: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
-
   let db = db.lock().await;
-  let mut object_store = object_store.lock().await;
 
   let item = db.item.get(&String::from(uid))?;
   if item.owner_id != session.user_id {
@@ -316,6 +314,6 @@ async fn get_file(
 
   let object_encryption_key = &db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key;
 
-  let data = object_store.get(&session.user_id, &String::from(uid), object_encryption_key).await?;
+  let data = object::get(object_store, &session.user_id, &String::from(uid), object_encryption_key).await?;
   Ok(Response::builder().header(hyper::header::CONTENT_TYPE, mime_type_string).body(full_body(data)).unwrap())
 }

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::sync::{Mutex, Arc};
 use std::time::Duration;
 
 use s3::creds::Credentials;
@@ -48,67 +49,75 @@ impl S3Store {
     bucket.set_request_timeout(Some(Duration::from_secs(120)));
     Ok(S3Store { bucket })
   }
+}
 
-  pub async fn get(&self, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
-    let s3_path = format!("{}_{}", user_id, id);
-    let result = self.bucket.get_object(s3_path).await
-      .map_err(|e| format!("Error occured getting S3 object: {}", e))?;
-    if result.status_code() != 200 {
-      return Err(format!("Unexpected status code getting S3 object: {}", result.status_code()).into());
-    }
-    Ok(result.into())
+
+pub async fn get(s3_store: Arc<Mutex<S3Store>>, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
+  let bucket = s3_store.lock().unwrap().bucket.clone();
+  let s3_path = format!("{}_{}", user_id, id);
+  let result = bucket.get_object(s3_path).await
+    .map_err(|e| format!("Error occured getting S3 object: {}", e))?;
+  if result.status_code() != 200 {
+    return Err(format!("Unexpected status code getting S3 object: {}", result.status_code()).into());
   }
+  Ok(result.into())
+}
 
-  pub async fn put(&self, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
-    let s3_path = format!("{}_{}", user_id, id);
-    let result = self.bucket.put_object(s3_path, val.as_slice()).await
-      .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
-    if result.status_code() != 200 {
-      return Err(format!("Unexpected status code putting S3 object: {}", result.status_code()).into());
-    }
-    Ok(())
+
+pub async fn put(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
+  let bucket = s3_store.lock().unwrap().bucket.clone();
+  let s3_path = format!("{}_{}", user_id, id);
+  let result = bucket.put_object(s3_path, val.as_slice()).await
+    .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
+  if result.status_code() != 200 {
+    return Err(format!("Unexpected status code putting S3 object: {}", result.status_code()).into());
   }
+  Ok(())
+}
 
-  pub async fn delete(&self, user_id: Uid, id: Uid) -> InfuResult<()> {
-    let s3_path = format!("{}_{}", user_id, id);
-    let result = self.bucket.delete_object(s3_path).await
-      .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
-    if result.status_code() != 204 {
-      return Err(format!("Unexpected status code deleting S3 object: {}", result.status_code()).into());
-    }
-    Ok(())
+
+pub async fn delete(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid) -> InfuResult<()> {
+  let bucket = s3_store.lock().unwrap().bucket.clone();
+  let s3_path = format!("{}_{}", user_id, id);
+  let result = bucket.delete_object(s3_path).await
+    .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
+  if result.status_code() != 204 {
+    return Err(format!("Unexpected status code deleting S3 object: {}", result.status_code()).into());
   }
+  Ok(())
+}
 
-  pub async fn list(&self) -> InfuResult<Vec<ItemAndUserId>> {
-    let mut result = vec![];
-    let mut lbrs = self.bucket.list_page("".to_owned(), None, None, None, None).await
-      .map_err(|e| format!("S3 list_page server request failed: {}", e))?;
-    if lbrs.1 != 200 { // status code.
-      return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
-    }
-    loop {
-      for c in lbrs.0.contents {
-        let mut parts = c.key.split("_");
-        let user_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
-        let item_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
-        if parts.next().is_some() { return Err(format!("Unexpected object filename {}", c.key).into()); }
-        result.push(
-          ItemAndUserId {
-            user_id: String::from(user_id),
-            item_id: String::from(item_id)
-          }
-        );
-      }
-      if let Some(ct) = lbrs.0.next_continuation_token {
-        lbrs = self.bucket.list_page("".to_owned(), None, Some(ct), None, None).await
-          .map_err(|e| format!("S3 list_page server request (continuation) failed: {}", e))?;
-        if lbrs.1 != 200 { // status code.
-          return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
+
+pub async fn list(s3_store: Arc<Mutex<S3Store>>) -> InfuResult<Vec<ItemAndUserId>> {
+  let bucket = s3_store.lock().unwrap().bucket.clone();
+  let mut result = vec![];
+  let mut lbrs = bucket.list_page("".to_owned(), None, None, None, None).await
+    .map_err(|e| format!("S3 list_page server request failed: {}", e))?;
+  if lbrs.1 != 200 { // status code.
+    return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
+  }
+  loop {
+    for c in lbrs.0.contents {
+      let mut parts = c.key.split("_");
+      let user_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
+      let item_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
+      if parts.next().is_some() { return Err(format!("Unexpected object filename {}", c.key).into()); }
+      result.push(
+        ItemAndUserId {
+          user_id: String::from(user_id),
+          item_id: String::from(item_id)
         }
-      } else {
-        break;
-      }
+      );
     }
-    Ok(result)
+    if let Some(ct) = lbrs.0.next_continuation_token {
+      lbrs = bucket.list_page("".to_owned(), None, Some(ct), None, None).await
+        .map_err(|e| format!("S3 list_page server request (continuation) failed: {}", e))?;
+      if lbrs.1 != 200 { // status code.
+        return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
+      }
+    } else {
+      break;
+    }
   }
+  Ok(result)
 }

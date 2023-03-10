@@ -29,7 +29,6 @@ use log::info;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 
 use crate::config::*;
 use crate::storage::db::Db;
@@ -46,7 +45,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;
-  let db = Arc::new(Mutex::new(
+  let db = Arc::new(tokio::sync::Mutex::new(
     match Db::new( &data_dir).await {
       Ok(db) => db,
       Err(e) => {
@@ -69,7 +68,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
-  let object_store = Arc::new(Mutex::new(
+  let object_store = Arc::new(std::sync::Mutex::new(
     match ObjectStore::new(&data_dir, enable_local_object_storage,
                            enable_s3_1_object_storage, s3_1_region, s3_1_endpoint, s3_1_bucket, s3_1_key, s3_1_secret,
                            enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
@@ -82,7 +81,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
-  let image_cache = Arc::new(Mutex::new(
+  let image_cache = Arc::new(tokio::sync::Mutex::new(
     match ImageCache::new(&cache_dir, cache_max_mb).await {
       Ok(image_cache) => image_cache,
       Err(e) => {
@@ -99,7 +98,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     }
   };
 
-  let config = Arc::new(Mutex::new(config));
+  let config = Arc::new(tokio::sync::Mutex::new(config));
 
   let listener = TcpListener::bind(addr).await?;
   loop {

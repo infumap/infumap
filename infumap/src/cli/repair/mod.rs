@@ -15,11 +15,18 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::collections::{HashSet, HashMap};
+use std::sync::{Mutex, Arc};
 
 use clap::{App, Arg, ArgMatches};
 use config::Config;
 
-use crate::{util::{infu::InfuResult, crypto::encrypt_file_data}, setup::init_fs_and_config, config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET}, storage::{db::{Db, item::{is_data_item}}, s3::S3Store, file::FileStore}};
+use crate::config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET};
+use crate::setup::init_fs_and_config;
+use crate::storage::db::Db;
+use crate::storage::db::item::is_data_item;
+use crate::storage::file as storage_file;
+use crate::storage::s3 as storage_s3;
+use crate::util::{infu::InfuResult, crypto::encrypt_file_data};
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
@@ -34,29 +41,29 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .required(false))
 }
 
-async fn create_s3_1_store_maybe(config: &Config) -> InfuResult<Option<S3Store>> {
+fn create_s3_1_store_maybe(config: &Config) -> InfuResult<Option<storage_s3::S3Store>> {
   let s3_1_region = config.get_string(CONFIG_S3_1_REGION).ok();
   let s3_1_endpoint = config.get_string(CONFIG_S3_1_ENDPOINT).ok();
   let s3_1_bucket = config.get_string(CONFIG_S3_1_BUCKET).ok();
   let s3_1_key = config.get_string(CONFIG_S3_1_KEY).ok();
   let s3_1_secret = config.get_string(CONFIG_S3_1_SECRET).ok();
   if s3_1_key.is_none() { return Ok(None); }
-  Ok(Some(S3Store::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
+  Ok(Some(storage_s3::S3Store::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
 }
 
-async fn create_s3_2_store_maybe(config: &Config) -> InfuResult<Option<S3Store>> {
+fn create_s3_2_store_maybe(config: &Config) -> InfuResult<Option<storage_s3::S3Store>> {
   let s3_2_region = config.get_string(CONFIG_S3_2_REGION).ok();
   let s3_2_endpoint = config.get_string(CONFIG_S3_2_ENDPOINT).ok();
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
   if s3_2_key.is_none() { return Ok(None); }
-  Ok(Some(S3Store::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
+  Ok(Some(storage_s3::S3Store::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
 }
 
-async fn list_s3_files(s3: &S3Store) -> InfuResult<HashSet<String>> {
+async fn list_s3_files(s3_store: Arc<Mutex<storage_s3::S3Store>>) -> InfuResult<HashSet<String>> {
   let mut files_in_s3 = HashSet::new();
-  for o in s3.list().await? { files_in_s3.insert(format!("{}_{}", o.user_id, o.item_id)); }
+  for o in storage_s3::list(s3_store).await? { files_in_s3.insert(format!("{}_{}", o.user_id, o.item_id)); }
   Ok(files_in_s3)
 }
 
@@ -87,10 +94,10 @@ async fn list_desired_files(db: &mut Db) -> InfuResult<HashMap<String, (String, 
   Ok(desired_files)
 }
 
-async fn list_filesystem_files(db: &Db, file_store: &mut FileStore) -> InfuResult<HashSet<String>> {
+async fn list_filesystem_files(db: &Db, file_store: Arc<Mutex<storage_file::FileStore>>) -> InfuResult<HashSet<String>> {
   let mut result = HashSet::new();
   for user_id in &db.user.all_ids() {
-    let files = file_store.list(user_id).await?;
+    let files = storage_file::list(file_store.clone(), user_id).await?;
     for file in &files {
       result.insert(format!("{}_{}", user_id, file));
     }
@@ -102,13 +109,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let config = init_fs_and_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
   let mut db = create_db(&config).await?;
 
-  let mut file_store = FileStore::new(&config.get_string(CONFIG_DATA_DIR)?)?;
+  let file_store = Arc::new(Mutex::new(storage_file::FileStore::new(&config.get_string(CONFIG_DATA_DIR)?)?));
 
-  let s3_1_maybe = create_s3_1_store_maybe(&config).await?;
-  let _s3_2_maybe = create_s3_2_store_maybe(&config).await?;
+  let s3_1_maybe = Arc::new(Mutex::new(create_s3_1_store_maybe(&config)?.unwrap()));
+  let _s3_2_maybe = create_s3_2_store_maybe(&config)?;
 
-  let files_in_s3 = list_s3_files(s3_1_maybe.as_ref().unwrap()).await?;
-  let filesystem_files = list_filesystem_files(&db, &mut file_store).await?;
+  let files_in_s3 = list_s3_files(s3_1_maybe.clone()).await?;
+  let filesystem_files = list_filesystem_files(&db, file_store.clone()).await?;
   let desired_files = list_desired_files(&mut db).await?;
 
   let mut have_fs = vec![];
@@ -158,7 +165,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   for hn in have_not {
     let user_id = &hn.1.0;
     let item_id = &hn.1.1;
-    let file = match file_store.get(user_id, item_id).await {
+    let file = match storage_file::get(file_store.clone(), user_id, item_id).await {
       Ok(file) => file,
       Err(e) => {
         println!("Couldn't get file from filestore: {} {}", e, item_id);
@@ -167,7 +174,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     };
     let user = db.user.get(user_id).unwrap();
     let encrypted_data = encrypt_file_data(&user.object_encryption_key, &file, hn.0)?;
-    match s3_1_maybe.as_ref().unwrap().put(user_id.clone(), item_id.clone(), encrypted_data).await {
+    match storage_s3::put(s3_1_maybe.clone(), user_id.clone(), item_id.clone(), encrypted_data).await {
       Ok(_) => {},
       Err(e) => {
         println!("Could not write to s3, continuing {}", e);

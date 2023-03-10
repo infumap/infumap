@@ -34,7 +34,7 @@ use tokio::sync::Mutex;
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, is_data_item, is_image_item};
 use crate::storage::cache::ImageCache;
-use crate::storage::object::ObjectStore;
+use crate::storage::object;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{json_response, incoming_json};
 use crate::web::session::get_and_validate_session;
@@ -67,7 +67,7 @@ pub struct SendResponse {
 
 pub async fn serve_command_route(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<Mutex<ObjectStore>>,
+    object_store: &Arc<std::sync::Mutex<object::ObjectStore>>,
     image_cache: &Arc<Mutex<ImageCache>>,
     request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
@@ -100,7 +100,7 @@ pub async fn serve_command_route(
 
   let response_data_maybe = match request.command.as_str() {
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
-    "add-item" => handle_add_item(db, &object_store, &request.json_data, &request.base64_data, &session.user_id).await,
+    "add-item" => handle_add_item(db, &object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
     "delete-item" => handle_delete_item(db, &object_store, &image_cache, &request.json_data, &session.user_id).await,
     _ => {
@@ -166,7 +166,7 @@ async fn handle_get_children_with_their_attachments(db: &Arc<Mutex<Db>>, json_da
 
 async fn handle_add_item(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<Mutex<ObjectStore>>,
+    object_store: &Arc<std::sync::Mutex<object::ObjectStore>>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
     user_id: &String) -> InfuResult<Option<String>> {
@@ -193,7 +193,7 @@ async fn handle_add_item(
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
     let object_encryption_key = &db.user.get(user_id).ok_or(format!("User '{}' not found.", user_id))?.object_encryption_key;
-    object_store.lock().await.put(user_id, &item.id, &decoded, object_encryption_key).await?;
+    object::put(object_store.clone(), user_id, &item.id, &decoded, object_encryption_key).await?;
 
     if is_image_item(&item.item_type) {
       let file_cursor = Cursor::new(decoded);
@@ -251,7 +251,7 @@ pub struct DeleteItemRequest {
 
 async fn handle_delete_item<'a>(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<Mutex<ObjectStore>>,
+    object_store: &Arc<std::sync::Mutex<object::ObjectStore>>,
     image_cache: &Arc<Mutex<ImageCache>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
@@ -267,8 +267,7 @@ async fn handle_delete_item<'a>(
   debug!("Deleted item '{}' from database.", request.id);
 
   if is_data_item(&item.item_type) {
-    let mut object_store = object_store.lock().await;
-    object_store.delete(user_id, &request.id).await?;
+    object::delete(object_store.clone(), user_id, &request.id).await?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
