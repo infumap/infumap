@@ -44,6 +44,9 @@ impl FileStore {
   }
 }
 
+pub fn new(data_dir: &str) -> InfuResult<Arc<Mutex<FileStore>>> {
+  Ok(Arc::new(Mutex::new(FileStore::new(data_dir)?)))
+}
 
 /// Get data associated with the specified item for the specified user.
 pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: &Uid, item_id: &Uid) -> InfuResult<Vec<u8>> {

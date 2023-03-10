@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::{Mutex, Arc};
+use std::sync::Arc;
 use std::time::Duration;
 
 use s3::creds::Credentials;
@@ -51,9 +51,12 @@ impl S3Store {
   }
 }
 
+pub fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Arc<S3Store>> {
+  Ok(Arc::new(S3Store::new(region, endpoint, bucket, key, secret)?))
+}
 
-pub async fn get(s3_store: Arc<Mutex<S3Store>>, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
-  let bucket = s3_store.lock().unwrap().bucket.clone();
+pub async fn get(s3_store: Arc<S3Store>, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
+  let bucket = s3_store.bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
   let result = bucket.get_object(s3_path).await
     .map_err(|e| format!("Error occured getting S3 object: {}", e))?;
@@ -64,8 +67,8 @@ pub async fn get(s3_store: Arc<Mutex<S3Store>>, user_id: &Uid, id: &Uid) -> Infu
 }
 
 
-pub async fn put(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
-  let bucket = s3_store.lock().unwrap().bucket.clone();
+pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
+  let bucket = s3_store.bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
   let result = bucket.put_object(s3_path, val.as_slice()).await
     .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
@@ -76,8 +79,8 @@ pub async fn put(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid, val: Arc<
 }
 
 
-pub async fn delete(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid) -> InfuResult<()> {
-  let bucket = s3_store.lock().unwrap().bucket.clone();
+pub async fn delete(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<()> {
+  let bucket = s3_store.bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
   let result = bucket.delete_object(s3_path).await
     .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
@@ -88,8 +91,8 @@ pub async fn delete(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid) -> Inf
 }
 
 
-pub async fn list(s3_store: Arc<Mutex<S3Store>>) -> InfuResult<Vec<ItemAndUserId>> {
-  let bucket = s3_store.lock().unwrap().bucket.clone();
+pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
+  let bucket = s3_store.bucket.clone();
   let mut result = vec![];
   let mut lbrs = bucket.list_page("".to_owned(), None, None, None, None).await
     .map_err(|e| format!("S3 list_page server request failed: {}", e))?;

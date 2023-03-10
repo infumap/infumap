@@ -41,27 +41,27 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .required(false))
 }
 
-fn create_s3_1_store_maybe(config: &Config) -> InfuResult<Option<storage_s3::S3Store>> {
+fn create_s3_1_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
   let s3_1_region = config.get_string(CONFIG_S3_1_REGION).ok();
   let s3_1_endpoint = config.get_string(CONFIG_S3_1_ENDPOINT).ok();
   let s3_1_bucket = config.get_string(CONFIG_S3_1_BUCKET).ok();
   let s3_1_key = config.get_string(CONFIG_S3_1_KEY).ok();
   let s3_1_secret = config.get_string(CONFIG_S3_1_SECRET).ok();
   if s3_1_key.is_none() { return Ok(None); }
-  Ok(Some(storage_s3::S3Store::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
+  Ok(Some(storage_s3::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
 }
 
-fn create_s3_2_store_maybe(config: &Config) -> InfuResult<Option<storage_s3::S3Store>> {
+fn create_s3_2_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
   let s3_2_region = config.get_string(CONFIG_S3_2_REGION).ok();
   let s3_2_endpoint = config.get_string(CONFIG_S3_2_ENDPOINT).ok();
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
   if s3_2_key.is_none() { return Ok(None); }
-  Ok(Some(storage_s3::S3Store::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
+  Ok(Some(storage_s3::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
 }
 
-async fn list_s3_files(s3_store: Arc<Mutex<storage_s3::S3Store>>) -> InfuResult<HashSet<String>> {
+async fn list_s3_files(s3_store: Arc<storage_s3::S3Store>) -> InfuResult<HashSet<String>> {
   let mut files_in_s3 = HashSet::new();
   for o in storage_s3::list(s3_store).await? { files_in_s3.insert(format!("{}_{}", o.user_id, o.item_id)); }
   Ok(files_in_s3)
@@ -109,9 +109,9 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let config = init_fs_and_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
   let mut db = create_db(&config).await?;
 
-  let file_store = Arc::new(Mutex::new(storage_file::FileStore::new(&config.get_string(CONFIG_DATA_DIR)?)?));
+  let file_store = storage_file::new(&config.get_string(CONFIG_DATA_DIR)?)?;
 
-  let s3_1_maybe = Arc::new(Mutex::new(create_s3_1_store_maybe(&config)?.unwrap()));
+  let s3_1_maybe = create_s3_1_store_maybe(&config)?.unwrap();
   let _s3_2_maybe = create_s3_2_store_maybe(&config)?;
 
   let files_in_s3 = list_s3_files(s3_1_maybe.clone()).await?;
@@ -183,15 +183,6 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     };
     println!("put: {}", hn.0);
   }
-
-  // db.item.load_user_items(user_id, creating)
-
-  // println!("{:?} {:?} {:?}", config, target, other_store);
-
-  // 1. get all the files we expect to see.
-  // 2. go through all the object stores and get lists of:
-  // 3.   all the files we have but don't want.
-  // 4.   all the files we want but don't have.
 
   Ok(())
 }

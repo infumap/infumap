@@ -28,8 +28,8 @@ use crate::storage::s3 as storage_s3;
 
 pub struct ObjectStore {
   file_store: Option<Arc<Mutex<storage_file::FileStore>>>,
-  s3_1_store: Option<Arc<Mutex<storage_s3::S3Store>>>,
-  s3_2_store: Option<Arc<Mutex<storage_s3::S3Store>>>,
+  s3_1_store: Option<Arc<storage_s3::S3Store>>,
+  s3_2_store: Option<Arc<storage_s3::S3Store>>,
 }
 
 impl ObjectStore {
@@ -45,8 +45,8 @@ impl ObjectStore {
       s3_2_key: Option<String>, s3_2_secret: Option<String>) -> InfuResult<ObjectStore> {
 
     let file_store = if enable_local_object_storage {
-      Some(match storage_file::FileStore::new(&data_dir) {
-        Ok(file_store) => Arc::new(Mutex::new(file_store)),
+      Some(match storage_file::new(&data_dir) {
+        Ok(file_store) => file_store,
         Err(e) => { return Err(e); }
       })
     } else {
@@ -57,8 +57,8 @@ impl ObjectStore {
       let s3_1_key = s3_1_key.ok_or("s3_1_key field is required when primary s3 store is enabled.")?;
       let s3_1_secret = s3_1_secret.ok_or("s3_1_secret field is required when primary s3 store is enabled.")?;
       let s3_1_bucket = s3_1_bucket.ok_or("s3_1_bucket field is required when primary s3 store is enabled.")?;
-      Some(match storage_s3::S3Store::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket, &s3_1_key, &s3_1_secret) {
-        Ok(s3_store) => Arc::new(Mutex::new(s3_store)),
+      Some(match storage_s3::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket, &s3_1_key, &s3_1_secret) {
+        Ok(s3_store) => s3_store,
         Err(e) => { return Err(e); }
       })
     } else {
@@ -69,8 +69,8 @@ impl ObjectStore {
       let s3_2_key = s3_2_key.ok_or("s3_2_key field is required when secondary s3 store is enabled.")?;
       let s3_2_secret = s3_2_secret.ok_or("s3_2_secret field is required when secondary s3 store is enabled.")?;
       let s3_2_bucket = s3_2_bucket.ok_or("s3_2_bucket field is required when secondary s3 store is enabled.")?;
-      Some(match storage_s3::S3Store::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket, &s3_2_key, &s3_2_secret) {
-        Ok(s3_store) => Arc::new(Mutex::new(s3_store)),
+      Some(match storage_s3::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket, &s3_2_key, &s3_2_secret) {
+        Ok(s3_store) => s3_store,
         Err(e) => { return Err(e); }
       })
     } else {
