@@ -68,7 +68,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
-  let object_store = Arc::new(std::sync::Mutex::new(
+  let object_store = Arc::new(
     match ObjectStore::new(&data_dir, enable_local_object_storage,
                            enable_s3_1_object_storage, s3_1_region, s3_1_endpoint, s3_1_bucket, s3_1_key, s3_1_secret,
                            enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
@@ -77,7 +77,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
         return Err(format!("Failed to initialize object store: {}", e).into());
       }
     }
-  ));
+  );
 
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;

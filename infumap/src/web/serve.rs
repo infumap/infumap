@@ -39,7 +39,7 @@ use super::routes::files::serve_files_route;
 
 pub async fn http_serve(
     db: Arc<Mutex<Db>>,
-    object_store: Arc<std::sync::Mutex<ObjectStore>>,
+    object_store: Arc<ObjectStore>,
     image_cache: Arc<Mutex<ImageCache>>,
     config: Arc<Config>,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {

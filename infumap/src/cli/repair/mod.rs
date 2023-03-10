@@ -173,7 +173,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
     };
     let user = db.user.get(user_id).unwrap();
-    let encrypted_data = encrypt_file_data(&user.object_encryption_key, &file, hn.0)?;
+    let encrypted_data = Arc::new(encrypt_file_data(&user.object_encryption_key, &file, hn.0)?);
     match storage_s3::put(s3_1_maybe.clone(), user_id.clone(), item_id.clone(), encrypted_data).await {
       Ok(_) => {},
       Err(e) => {

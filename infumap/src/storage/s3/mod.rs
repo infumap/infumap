@@ -64,7 +64,7 @@ pub async fn get(s3_store: Arc<Mutex<S3Store>>, user_id: &Uid, id: &Uid) -> Infu
 }
 
 
-pub async fn put(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
+pub async fn put(s3_store: Arc<Mutex<S3Store>>, user_id: Uid, id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
   let bucket = s3_store.lock().unwrap().bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
   let result = bucket.put_object(s3_path, val.as_slice()).await

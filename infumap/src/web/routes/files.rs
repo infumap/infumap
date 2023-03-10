@@ -61,7 +61,7 @@ const JPEG_QUALITY: u8 = 80;
 
 pub async fn serve_files_route(
     db: &Arc<Mutex<Db>>,
-    object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
+    object_store: Arc<object::ObjectStore>,
     image_cache: &Arc<Mutex<ImageCache>>,
     config: Arc<Config>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -90,7 +90,7 @@ pub async fn serve_files_route(
 async fn get_cached_resized_img(
     config: Arc<Config>,
     db: &Arc<Mutex<Db>>,
-    object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
+    object_store: Arc<object::ObjectStore>,
     image_cache: &Arc<Mutex<ImageCache>>,
     session: &Session,
     name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
@@ -299,7 +299,7 @@ async fn get_cached_resized_img(
 
 async fn get_file(
     db: &Arc<Mutex<Db>>,
-    object_store: Arc<std::sync::Mutex<object::ObjectStore>>,
+    object_store: Arc<object::ObjectStore>,
     session: &Session,
     uid: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
   let db = db.lock().await;

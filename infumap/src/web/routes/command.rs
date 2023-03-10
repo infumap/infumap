@@ -67,7 +67,7 @@ pub struct SendResponse {
 
 pub async fn serve_command_route(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<std::sync::Mutex<object::ObjectStore>>,
+    object_store: &Arc<object::ObjectStore>,
     image_cache: &Arc<Mutex<ImageCache>>,
     request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
@@ -100,9 +100,9 @@ pub async fn serve_command_route(
 
   let response_data_maybe = match request.command.as_str() {
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
-    "add-item" => handle_add_item(db, &object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
+    "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
-    "delete-item" => handle_delete_item(db, &object_store, &image_cache, &request.json_data, &session.user_id).await,
+    "delete-item" => handle_delete_item(db, object_store.clone(), &image_cache, &request.json_data, &session.user_id).await,
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
       return json_response(&SendResponse { success: false, json_data: None });
@@ -166,7 +166,7 @@ async fn handle_get_children_with_their_attachments(db: &Arc<Mutex<Db>>, json_da
 
 async fn handle_add_item(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<std::sync::Mutex<object::ObjectStore>>,
+    object_store: Arc<object::ObjectStore>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
     user_id: &String) -> InfuResult<Option<String>> {
@@ -251,7 +251,7 @@ pub struct DeleteItemRequest {
 
 async fn handle_delete_item<'a>(
     db: &Arc<Mutex<Db>>,
-    object_store: &Arc<std::sync::Mutex<object::ObjectStore>>,
+    object_store: Arc<object::ObjectStore>,
     image_cache: &Arc<Mutex<ImageCache>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {

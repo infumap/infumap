@@ -82,20 +82,20 @@ impl ObjectStore {
 }
 
 
-pub async fn get(object_store: Arc<Mutex<ObjectStore>>, user_id: &Uid, id: &Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
+pub async fn get(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
   // If there is a problem reading from any one of the sources, take the view (for the moment)
   // that it is better to error out than try from another source so as to alert the user there
   // is a problem. TODO (MEDIUM): probably something else is better.
-  if let Some(file_store) = &object_store.lock().unwrap().file_store {
+  if let Some(file_store) = &object_store.file_store {
     return storage_file::get(file_store.clone(), user_id, id).await;
   }
   // Assume that store #1 is the most cost effective to read from, and always use it in preference
   // to store #2 if available.
-  if let Some(s3_1_store) = &object_store.lock().unwrap().s3_1_store {
+  if let Some(s3_1_store) = &object_store.s3_1_store {
     let ciphertext = storage_s3::get(s3_1_store.clone(), user_id, id).await?;
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(user_id, id).as_str())?);
   }
-  if let Some(s3_2_store) = &object_store.lock().unwrap().s3_2_store {
+  if let Some(s3_2_store) = &object_store.s3_2_store {
     let ciphertext = storage_s3::get(s3_2_store.clone(), user_id, id).await?;
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(user_id, id).as_str())?);
   }
@@ -103,33 +103,28 @@ pub async fn get(object_store: Arc<Mutex<ObjectStore>>, user_id: &Uid, id: &Uid,
 }
 
 
-pub async fn put(object_store: Arc<Mutex<ObjectStore>>, user_id: &Uid, id: &Uid, val: &Vec<u8>, encryption_key: &str) -> InfuResult<()> {
+pub async fn put(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, val: &Vec<u8>, encryption_key: &str) -> InfuResult<()> {
   let mut set = JoinSet::new();
 
-  if let Some(file_store) = &object_store.lock().unwrap().file_store {
+  if let Some(file_store) = &object_store.file_store {
     async fn fs_put(file_store: Arc<Mutex<storage_file::FileStore>>, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
       storage_file::put(file_store, user_id.clone(), id.clone(), val.clone()).await
     }
     set.spawn(fs_put(file_store.clone(), user_id.clone(), id.clone(), val.clone()));
   }
 
-  let encrypted_val = if object_store.lock().unwrap().s3_1_store.is_some() || object_store.lock().unwrap().s3_2_store.is_some() {
+  let encrypted_val = Arc::new(if object_store.s3_1_store.is_some() || object_store.s3_2_store.is_some() {
     encrypt_file_data(encryption_key, val, filename(user_id, id).as_str())?
   } else {
     vec![]
-  };
+  });
 
-  async fn s3_put(s3_store: Arc<Mutex<storage_s3::S3Store>>, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
-    storage_s3::put(s3_store, user_id.clone(), id.clone(), val.clone()).await
+  if let Some(s3_1_store) = &object_store.s3_1_store {
+    set.spawn(storage_s3::put(s3_1_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
   }
 
-  if let Some(s3_1_store) = &object_store.lock().unwrap().s3_1_store {
-    // TODO (LOW): Should be possible to avoid the val clone here.
-    set.spawn(s3_put(s3_1_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
-  }
-
-  if let Some(s3_2_store) = &object_store.lock().unwrap().s3_2_store {
-    set.spawn(s3_put(s3_2_store.clone(), user_id.clone(), id.clone(), encrypted_val));
+  if let Some(s3_2_store) = &object_store.s3_2_store {
+    set.spawn(storage_s3::put(s3_2_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
   }
 
   let mut errors = vec![];
@@ -151,26 +146,19 @@ pub async fn put(object_store: Arc<Mutex<ObjectStore>>, user_id: &Uid, id: &Uid,
 }
 
 
-pub async fn delete(object_store: Arc<Mutex<ObjectStore>>, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+pub async fn delete(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid) -> InfuResult<()> {
   let mut set = JoinSet::new();
 
-  if let Some(file_store) = &object_store.lock().unwrap().file_store {
-    async fn fs_delete(file_store: Arc<Mutex<storage_file::FileStore>>, user_id: Uid, id: Uid) -> InfuResult<()> {
-      storage_file::delete(file_store, user_id.clone(), id.clone()).await
-    }
-    set.spawn(fs_delete(file_store.clone(), user_id.clone(), id.clone()));
+  if let Some(file_store) = &object_store.file_store {
+    set.spawn(storage_file::delete(file_store.clone(), user_id.clone(), id.clone()));
   }
 
-  async fn s3_delete(s3_store: Arc<Mutex<storage_s3::S3Store>>, user_id: Uid, id: Uid) -> InfuResult<()> {
-    storage_s3::delete(s3_store, user_id.clone(), id.clone()).await
+  if let Some(s3_1_store) = &object_store.s3_1_store {
+    set.spawn(storage_s3::delete(s3_1_store.clone(), user_id.clone(), id.clone()));
   }
 
-  if let Some(s3_1_store) = &object_store.lock().unwrap().s3_1_store {
-    set.spawn(s3_delete(s3_1_store.clone(), user_id.clone(), id.clone()));
-  }
-
-  if let Some(s3_2_store) = &object_store.lock().unwrap().s3_2_store {
-    set.spawn(s3_delete(s3_2_store.clone(), user_id.clone(), id.clone()));
+  if let Some(s3_2_store) = &object_store.s3_2_store {
+    set.spawn(storage_s3::delete(s3_2_store.clone(), user_id.clone(), id.clone()));
   }
 
   let mut errors = vec![];
