@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Copyright (C) 2022 The Infumap Authors
 # This file is part of Infumap.
