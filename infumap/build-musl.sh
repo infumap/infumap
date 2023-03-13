@@ -17,6 +17,5 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pushd "$(dirname "$0")"
-alias rust-musl-builder='docker run --rm -it -v "$(pwd)":/home/rust/src rust-musl-builder'
-rust-musl-builder cargo build --release
+docker run --rm -it -v "$(pwd)":/home/rust/src rust-musl-builder cargo build --release
 popd

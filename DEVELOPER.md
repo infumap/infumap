@@ -27,6 +27,15 @@ For simplicity, we will take the approach of doing only a musl build for release
 
 #### Creating a `x86_64-unknown-linux-musl` Build On Debian 11
 
+Get the latest infumap source:
+
+```
+cd ~
+mkdir git
+cd git
+git clone https://github.com/infumap/infumap
+```
+
 Follow the instructions [here](https://docs.docker.com/engine/install/debian/) to install docker:
 
 ```
@@ -62,6 +71,25 @@ Explicitly build it rather than use the image on docker hub to:
 1. Ensure the latest version of rust is used.
 2. Ensure it's malware free.
 
+Install node:
+
+```
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+
+nvm install node
+```
+
+```
+cd ~/git/infumap/web
+npm install
+```
+
+Build infumap:
+
+```
+cd ~/git/infumap
+./build-musl.sh
+```
 
 
 # Iterative Development
