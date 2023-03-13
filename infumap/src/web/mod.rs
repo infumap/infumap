@@ -32,9 +32,9 @@ use tokio::net::TcpListener;
 
 use crate::config::*;
 use crate::storage::db::Db;
-use crate::storage::cache::ImageCache;
+use crate::storage::cache as storage_cache;
 use crate::setup::init_fs_and_config;
-use crate::storage::object::ObjectStore;
+use crate::storage::object as storage_object;
 use crate::util::infu::InfuResult;
 
 use self::serve::http_serve;
@@ -68,27 +68,25 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
-  let object_store = Arc::new(
-    match ObjectStore::new(&data_dir, enable_local_object_storage,
-                           enable_s3_1_object_storage, s3_1_region, s3_1_endpoint, s3_1_bucket, s3_1_key, s3_1_secret,
-                           enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
+  let object_store = 
+    match storage_object::new(&data_dir, enable_local_object_storage,
+                              enable_s3_1_object_storage, s3_1_region, s3_1_endpoint, s3_1_bucket, s3_1_key, s3_1_secret,
+                              enable_s3_2_object_storage, s3_2_region, s3_2_endpoint, s3_2_bucket, s3_2_key, s3_2_secret) {
       Ok(object_store) => object_store,
       Err(e) => {
         return Err(format!("Failed to initialize object store: {}", e).into());
       }
-    }
-  );
+    };
 
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
-  let image_cache = Arc::new(tokio::sync::Mutex::new(
-    match ImageCache::new(&cache_dir, cache_max_mb).await {
+  let image_cache =
+    match storage_cache::new(&cache_dir, cache_max_mb).await {
       Ok(image_cache) => image_cache,
       Err(e) => {
         return Err(format!("Failed to initialize config: {}", e).into());
       }
-    }
-  ));
+    };
 
   let addr_str = format!("{}:{}", config.get_string(CONFIG_ADDRESS)?, config.get_int(CONFIG_PORT)?);
   let addr: SocketAddr = match addr_str.parse() {

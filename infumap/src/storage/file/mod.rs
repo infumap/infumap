@@ -34,19 +34,21 @@ pub struct FileStore {
 }
 
 impl FileStore {
-  /// Create a new FileStore instance.
-  /// One instance is designed to manage files on disk for all users.
-  /// Assumes the mandated data folder hierarchy.
-  /// Not threadsafe.
-  pub fn new(data_dir: &str) -> InfuResult<FileStore> {
+  fn new(data_dir: &str) -> InfuResult<FileStore> {
     let data_dir = expand_tilde(data_dir).ok_or(format!("Data path '{}' is not valid.", data_dir))?;
     Ok(FileStore { data_dir, user_existence_checked: HashSet::new() })
   }
 }
 
+
+/// Create a new FileStore instance.
+/// One instance is designed to manage files on disk for all users.
+/// Assumes the mandated data folder hierarchy.
+/// Not threadsafe, on a per item basis.
 pub fn new(data_dir: &str) -> InfuResult<Arc<Mutex<FileStore>>> {
   Ok(Arc::new(Mutex::new(FileStore::new(data_dir)?)))
 }
+
 
 /// Get data associated with the specified item for the specified user.
 pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: &Uid, item_id: &Uid) -> InfuResult<Vec<u8>> {

@@ -12,45 +12,51 @@ The `build.sh` script generates the various client side artifacts as well as Rus
 
 The `build.sh` script takes an optional argument which is the rust platform target. See the [Platform Support](https://doc.rust-lang.org/rustc/platform-support.html) page for a discussion of the supported platorms.
 
-There is an additional script `build-all.sh` in the repo which builds Infumap on all platforms that we do a binary release for (`x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-unknown-linux-gnu` and `x86_64-unknown-linux-musl`). Generally, you will need to install additional dependencies on your system for this script to successfully complete.
-
-If you are developing on Apple Silicon, install the standard libraries:
-
-```
-rustup target add x86_64-apple-darwin
-rustup target add x86_64-unknown-linux-gnu
-rustup target add x86_64-unknown-linux-musl
-```
-
-Then install the linux linkers:
-
-```
-brew install SergioBenitez/osxct/x86_64-unknown-linux-gnu
-brew install FiloSottile/musl-cross/musl-cross
-```
-
-Then configure cargo to use them by adding the following to `~/.cargo/config.toml`:
-
-```
-[target.x86_64-unknown-linux-gnu]
-linker = "x86_64-unknown-linux-gnu-gcc"
-
-[target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
-```
+Sadly, [it seems](https://github.com/libp2p/rust-libp2p/discussions/1975) that support for TLS in Rust depends on a platform specific build chain (specifically because of [ring](https://github.com/briansmith/ring)). Further, when I attempt to build Infumap using [this popular](https://github.com/emk/rust-musl-builder) Docker image on my M1 mac, it panics. So this is all very inconvenient for setting up a multi-target build process.
 
 ### `x86_64-unknown-linux-gnu` (glibc) vs `x86_64-unknown-linux-musl`
 
 I'm unsure which is better, I need to do more research.
 
 Notes:
-- The glibc version has a dynamic dependency on glibc and will not work on platforms that don't use this (e.g. Alpine).
+- A glibc build has a dynamic dependency on glibc and will not work on platforms that don't use this (e.g. Alpine).
 - The musl version statically links the runtime, so will work on pretty much any modern linux distro.
 - The glibc target is a 'tier 1' supported Rust target, the musl target is not. However, the probability of problems seems very low.
 - There are conflicting reports on the relative performance.
 - The musl implementation is "leaner" and "cleaner".
 
 For now, if you are on a platform that uses glibc (e.g. Ubuntu, Debian), I suggest that using the glibc build is a better bet. If not, use the musl build. I doubt it matters much.
+
+For simplicity, I will take the approach of only providing musl build for Infumap releases, and it's what I use myself.
+
+
+### Creating a `x86_64-unknown-linux-musl` Build On Debian 11
+
+Follow the instructions [here](https://docs.docker.com/engine/install/debian/) to install docker:
+
+```
+sudo apt-get update
+
+sudo apt-get install \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+
+sudo mkdir -m 0755 -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo docker run hello-world
+```
+
 
 # Iterative Development
 

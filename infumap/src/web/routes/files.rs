@@ -32,7 +32,8 @@ use tokio::sync::Mutex;
 use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT};
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
-use crate::storage::cache::{ImageCache, ImageSize, ImageCacheKey};
+use crate::storage::cache as storage_cache;
+use crate::storage::cache::{ImageSize, ImageCacheKey};
 use crate::storage::object;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
@@ -62,7 +63,7 @@ const JPEG_QUALITY: u8 = 80;
 pub async fn serve_files_route(
     db: &Arc<Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
-    image_cache: &Arc<Mutex<ImageCache>>,
+    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     config: Arc<Config>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
@@ -91,7 +92,7 @@ async fn get_cached_resized_img(
     config: Arc<Config>,
     db: &Arc<Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
-    image_cache: &Arc<Mutex<ImageCache>>,
+    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     session: &Session,
     name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
@@ -129,8 +130,7 @@ async fn get_cached_resized_img(
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
-    let mut image_cache = image_cache.lock().await;
-    if let Some(candidates) = image_cache.keys_for_item_id(&session.user_id, &uid)? {
+    if let Some(candidates) = storage_cache::keys_for_item_id(image_cache.clone(), &session.user_id, &uid)? {
       let mut best_candidate_maybe = None;
       for candidate in candidates {
         match &candidate.size {
@@ -138,7 +138,7 @@ async fn get_cached_resized_img(
             if respond_with_cached_original {
               debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-              let data = image_cache.get(&session.user_id, candidate).await?.unwrap();
+              let data = storage_cache::get(image_cache, &session.user_id, candidate).await?.unwrap();
               return Ok(Response::builder()
                 .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
                 .body(full_body(data)).unwrap());
@@ -182,7 +182,7 @@ async fn get_cached_resized_img(
           else {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
-          let data = image_cache.get(&session.user_id, best_candidate.0).await?.unwrap();
+          let data = storage_cache::get(image_cache, &session.user_id, best_candidate.0).await?.unwrap();
           return Ok(Response::builder()
             .header(hyper::header::CONTENT_TYPE, "image/jpeg")
             .body(full_body(data)).unwrap());
@@ -200,7 +200,7 @@ async fn get_cached_resized_img(
     let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
     debug!("Caching then returning image '{}' (unmodified original) to respond to request for '{}'.", cache_key, name);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    image_cache.lock().await.put(&session.user_id, cache_key, original_file_bytes.clone()).await?;
+    storage_cache::put(image_cache, &session.user_id, cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder()
       .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
       .body(full_body(original_file_bytes)).unwrap());
@@ -281,7 +281,7 @@ async fn get_cached_resized_img(
 
       let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Width(requested_width) };
       let data = cursor.get_ref().to_vec();
-      image_cache.lock().await.put(&session.user_id, cache_key, data.clone()).await?;
+      storage_cache::put(image_cache, &session.user_id, cache_key, data.clone()).await?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder()

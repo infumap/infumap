@@ -19,11 +19,11 @@ use std::sync::Mutex;
 
 use tokio::task::JoinSet;
 
+use crate::storage::file as storage_file;
+use crate::storage::s3 as storage_s3;
 use crate::util::crypto::{encrypt_file_data, decrypt_file_data};
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
-use crate::storage::file as storage_file;
-use crate::storage::s3 as storage_s3;
 
 
 pub struct ObjectStore {
@@ -33,7 +33,7 @@ pub struct ObjectStore {
 }
 
 impl ObjectStore {
-  pub fn new(
+  fn new(
       data_dir: &str, enable_local_object_storage: bool,
       enable_s3_1_object_storage: bool,
       s3_1_region: Option<String>, s3_1_endpoint: Option<String>,
@@ -81,6 +81,28 @@ impl ObjectStore {
   }
 }
 
+
+pub fn new(data_dir: &str, enable_local_object_storage: bool,
+    enable_s3_1_object_storage: bool,
+    s3_1_region: Option<String>, s3_1_endpoint: Option<String>,
+    s3_1_bucket: Option<String>,
+    s3_1_key: Option<String>, s3_1_secret: Option<String>,
+    enable_s3_2_object_storage: bool,
+    s3_2_region: Option<String>, s3_2_endpoint: Option<String>,
+    s3_2_bucket: Option<String>,
+    s3_2_key: Option<String>, s3_2_secret: Option<String>) -> InfuResult<Arc<ObjectStore>> {
+  Ok(Arc::new(ObjectStore::new(
+    data_dir, enable_local_object_storage,
+    enable_s3_1_object_storage,
+    s3_1_region, s3_1_endpoint,
+    s3_1_bucket,
+    s3_1_key, s3_1_secret,
+    enable_s3_2_object_storage,
+    s3_2_region, s3_2_endpoint,
+    s3_2_bucket,
+    s3_2_key, s3_2_secret
+  )?))
+}
 
 pub async fn get(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
   // If there is a problem reading from any one of the sources, take the view (for the moment)

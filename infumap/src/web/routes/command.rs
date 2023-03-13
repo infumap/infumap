@@ -29,11 +29,10 @@ use serde_json::Value;
 use std::str;
 use std::io::Cursor;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, is_data_item, is_image_item};
-use crate::storage::cache::ImageCache;
+use crate::storage::cache as storage_cache;
 use crate::storage::object;
 use crate::util::infu::InfuResult;
 use crate::web::serve::{json_response, incoming_json};
@@ -66,9 +65,9 @@ pub struct SendResponse {
 }
 
 pub async fn serve_command_route(
-    db: &Arc<Mutex<Db>>,
+    db: &Arc<tokio::sync::Mutex<Db>>,
     object_store: &Arc<object::ObjectStore>,
-    image_cache: &Arc<Mutex<ImageCache>>,
+    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
   let session = match get_and_validate_session(&request, db).await {
@@ -102,7 +101,7 @@ pub async fn serve_command_route(
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
-    "delete-item" => handle_delete_item(db, object_store.clone(), &image_cache, &request.json_data, &session.user_id).await,
+    "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session.user_id).await,
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
       return json_response(&SendResponse { success: false, json_data: None });
@@ -131,7 +130,7 @@ pub struct GetChildrenRequest {
   parent_id: String,
 }
 
-async fn handle_get_children_with_their_attachments(db: &Arc<Mutex<Db>>, json_data: &str) -> InfuResult<Option<String>> {
+async fn handle_get_children_with_their_attachments(db: &Arc<tokio::sync::Mutex<Db>>, json_data: &str) -> InfuResult<Option<String>> {
   let db = db.lock().await;
 
   let request: GetChildrenRequest = serde_json::from_str(json_data)?;
@@ -165,7 +164,7 @@ async fn handle_get_children_with_their_attachments(db: &Arc<Mutex<Db>>, json_da
 
 
 async fn handle_add_item(
-    db: &Arc<Mutex<Db>>,
+    db: &Arc<tokio::sync::Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
@@ -223,7 +222,7 @@ async fn handle_add_item(
 
 
 async fn handle_update_item(
-    db: &Arc<Mutex<Db>>,
+    db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
@@ -250,9 +249,9 @@ pub struct DeleteItemRequest {
 }
 
 async fn handle_delete_item<'a>(
-    db: &Arc<Mutex<Db>>,
+    db: &Arc<tokio::sync::Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
-    image_cache: &Arc<Mutex<ImageCache>>,
+    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     json_data: &str,
     user_id: &String) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
@@ -271,8 +270,7 @@ async fn handle_delete_item<'a>(
     debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
-    let mut cache = image_cache.lock().await;
-    let num_removed = cache.delete_all(user_id, &request.id).await?;
+    let num_removed = storage_cache::delete_all(image_cache, user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }
   Ok(None)

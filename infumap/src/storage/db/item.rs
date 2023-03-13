@@ -78,7 +78,7 @@ impl ArrangeAlgorithm {
       ArrangeAlgorithm::SpatialStretch => "spatial-stretch",
       // ArrangeAlgorithm::SpatialFit => "spatial-fit",
       ArrangeAlgorithm::Grid => "grid",
-      // ArrangeAlgorithm::Justified => "justivied",
+      // ArrangeAlgorithm::Justified => "justified",
       // ArrangeAlgorithm::Gallery => "gallery",
     }
   }

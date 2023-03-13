@@ -40,13 +40,13 @@ use super::routes::files::serve_files_route;
 pub async fn http_serve(
     db: Arc<Mutex<Db>>,
     object_store: Arc<ObjectStore>,
-    image_cache: Arc<Mutex<ImageCache>>,
+    image_cache: Arc<std::sync::Mutex<ImageCache>>,
     config: Arc<Config>,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   Ok(
-    if req.uri().path() == "/command" { serve_command_route(&db, &object_store, &image_cache, req).await }
+    if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
-    else if req.uri().path().starts_with("/files/") { serve_files_route(&db, object_store, &image_cache, config, &req).await }
+    else if req.uri().path().starts_with("/files/") { serve_files_route(&db, object_store, image_cache.clone(), config, &req).await }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, &req).await }
     else if let Some(response) = handle_dist_response_maybe(&req) { response }
     else { not_found_response() }

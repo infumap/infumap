@@ -20,10 +20,9 @@ use std::time::Duration;
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
 
+use crate::storage::db::item_db::ItemAndUserId;
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
-
-use super::db::item_db::ItemAndUserId;
 
 
 pub struct S3Store {
@@ -31,7 +30,7 @@ pub struct S3Store {
 }
 
 impl S3Store {
-  pub fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<S3Store> {
+  fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<S3Store> {
     let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
       .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
     let mut bucket = Bucket::new(
@@ -51,14 +50,15 @@ impl S3Store {
   }
 }
 
+
 pub fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Arc<S3Store>> {
   Ok(Arc::new(S3Store::new(region, endpoint, bucket, key, secret)?))
 }
 
+
 pub async fn get(s3_store: Arc<S3Store>, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
-  let bucket = s3_store.bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
-  let result = bucket.get_object(s3_path).await
+  let result = s3_store.bucket.get_object(s3_path).await
     .map_err(|e| format!("Error occured getting S3 object: {}", e))?;
   if result.status_code() != 200 {
     return Err(format!("Unexpected status code getting S3 object: {}", result.status_code()).into());
@@ -68,9 +68,8 @@ pub async fn get(s3_store: Arc<S3Store>, user_id: &Uid, id: &Uid) -> InfuResult<
 
 
 pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
-  let bucket = s3_store.bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
-  let result = bucket.put_object(s3_path, val.as_slice()).await
+  let result = s3_store.bucket.put_object(s3_path, val.as_slice()).await
     .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
   if result.status_code() != 200 {
     return Err(format!("Unexpected status code putting S3 object: {}", result.status_code()).into());
@@ -80,9 +79,8 @@ pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>
 
 
 pub async fn delete(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<()> {
-  let bucket = s3_store.bucket.clone();
   let s3_path = format!("{}_{}", user_id, id);
-  let result = bucket.delete_object(s3_path).await
+  let result = s3_store.bucket.delete_object(s3_path).await
     .map_err(|e| format!("Error occured deleting S3 object: {}", e))?;
   if result.status_code() != 204 {
     return Err(format!("Unexpected status code deleting S3 object: {}", result.status_code()).into());
@@ -92,9 +90,8 @@ pub async fn delete(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult
 
 
 pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
-  let bucket = s3_store.bucket.clone();
   let mut result = vec![];
-  let mut lbrs = bucket.list_page("".to_owned(), None, None, None, None).await
+  let mut lbrs = s3_store.bucket.list_page("".to_owned(), None, None, None, None).await
     .map_err(|e| format!("S3 list_page server request failed: {}", e))?;
   if lbrs.1 != 200 { // status code.
     return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
@@ -113,7 +110,7 @@ pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
       );
     }
     if let Some(ct) = lbrs.0.next_continuation_token {
-      lbrs = bucket.list_page("".to_owned(), None, Some(ct), None, None).await
+      lbrs = s3_store.bucket.list_page("".to_owned(), None, Some(ct), None, None).await
         .map_err(|e| format!("S3 list_page server request (continuation) failed: {}", e))?;
       if lbrs.1 != 200 { // status code.
         return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());

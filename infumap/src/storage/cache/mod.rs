@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use filetime::{set_file_atime, FileTime};
@@ -82,9 +83,7 @@ pub struct ImageCache {
 
 
 impl ImageCache {
-
-  /// Instantiate an image cache instance.
-  pub async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<ImageCache> {
+  async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<ImageCache> {
     let cache_dir = expand_tilde(cache_dir)
       .ok_or(format!("Image cache path '{}' is not valid.", cache_dir))?;
 
@@ -106,132 +105,6 @@ impl ImageCache {
     info!("Image cache '{}' state initialized. There are {} files totalling {} bytes.",
           cache_dir.display(), fileinfo_by_filename.len(), current_total_bytes);
     Ok(ImageCache { cache_dir, max_mb, current_total_bytes, fileinfo_by_filename, filenames_by_item_id })
-  }
-
-
-  /// Get the cached image specified by key and updates it's last access time.
-  ///
-  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
-  /// to be extra sure items for one user are not returned to another.
-  pub async fn get(&mut self, user_id: &Uid, key: ImageCacheKey) -> InfuResult<Option<Vec<u8>>> {
-    let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
-    if let Some(fi) = self.fileinfo_by_filename.get(&filename) {
-      let p = construct_file_subpath(&self.cache_dir, &filename)?;
-      // Setting the atime on every access is generally unnecessarily inefficient (given it's
-      // never used most of the time), so is disabled by default on most modern systems. Hence
-      // we make sure to do it explicitly.
-      set_file_atime(&p, FileTime::now())?;
-      let mut f = File::open(p).await?;
-      let mut buffer = vec![0; fi.size_bytes];
-      f.read_exact(&mut buffer).await?;
-      let fi = self.fileinfo_by_filename.get(&filename)
-        .ok_or(format!("File '{}' is not cached", filename))?;
-      self.fileinfo_by_filename.insert(filename,
-        FileInfo { size_bytes: fi.size_bytes, last_accessed: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() });
-      return Ok(Some(buffer))
-    }
-    Ok(None)
-  }
-
-
-  /// Get keys for all cached images corresponding to item_id.
-  ///
-  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
-  /// to be extra sure items for one user are not returned to another.
-  pub fn keys_for_item_id(&self, user_id: &Uid, item_id: &str) -> InfuResult<Option<Vec<ImageCacheKey>>> {
-    match self.filenames_by_item_id.get(item_id) {
-      None => Ok(None),
-      Some(filenames) => {
-        if filenames.iter().filter(|v| !v.ends_with(&user_id[..8])).collect::<Vec<&String>>().len() > 0 {
-          return Err(format!("User '{}' does not own a cached file for item '{}'.", user_id, item_id).into());
-        }
-        let result = filenames.iter()
-          .map(|v| String::from(&v[..(v.len()-9)]))
-          .map(|v| {
-            let parts = v.split("_").into_iter().map(|s| String::from(s)).collect::<Vec<String>>();
-            if parts.len() != 2 { 
-              return Err(format!("Unexpected image cache filename prefix '{}'.", v).into())
-            }
-            Ok(ImageCacheKey {
-              item_id: parts.get(0).unwrap().clone(),
-              size: if parts.get(1).unwrap() == "original" {
-                ImageSize::Original
-              } else {
-                ImageSize::Width(parts.get(1).unwrap().parse::<u32>()?)
-              }
-            })
-          })
-          .collect::<InfuResult<Vec<ImageCacheKey>>>()?;
-        Ok(if result.len() == 0 { None } else { Some(result) })
-      }
-    }
-  }
-
-
-  /// Put an image into the cache, corresponding to the provided key.
-  ///
-  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
-  /// to be extra sure items for one user are not returned to another.
-  pub async fn put(&mut self, user_id: &Uid, key: ImageCacheKey, val: Vec<u8>) -> InfuResult<()> {
-    let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
-    let mut file = OpenOptions::new()
-      .create_new(true)
-      .write(true)
-      .open(construct_file_subpath(&self.cache_dir, &filename)?).await?;
-    file.write_all(&val).await?;
-    file.flush().await?;
-
-    let file_info = FileInfo {
-      size_bytes: val.len(),
-      last_accessed: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
-    };
-
-    if !self.filenames_by_item_id.contains_key(&key.item_id) {
-      self.filenames_by_item_id.insert(String::from(&key.item_id), vec![]);
-    }
-    self.filenames_by_item_id.get_mut(&key.item_id).unwrap().push(filename.clone());
-
-    self.current_total_bytes += file_info.size_bytes as u64;
-    self.fileinfo_by_filename.insert(filename, file_info);
-
-    self.purge_maybe().await?;
-
-    Ok(())
-  }
-
-
-  /// Delete all images in the cache corresponding to the given item_id.
-  ///
-  /// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
-  /// to be extra sure items for one user are not returned to another.
-  pub async fn delete_all(&mut self, user_id: &Uid, item_id: &str) -> InfuResult<usize> {
-    let keys =
-      if let Some(keys_ref) = self.keys_for_item_id(user_id, item_id)? { keys_ref }
-      else { return Ok(0) };
-
-    for key in &keys {
-      let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
-      let path = construct_file_subpath(&self.cache_dir, &filename)?;
-      tokio::fs::remove_file(&path).await
-        .map_err(|e| format!("An error occurred removing file '{:?}' in image cache: {}", path, e))?;
-      let fi = self.fileinfo_by_filename.remove(&filename)
-        .ok_or(format!("File info for '{}_{}' is expected, but not found.", key.item_id, key.size))?;
-      self.current_total_bytes -= fi.size_bytes as u64;
-    }
-
-    self.filenames_by_item_id.remove(item_id)
-      .ok_or(format!("Filenames collection for '{}' is missing from image cache.", item_id))?;
-
-    Ok(keys.len())
-  }
-
-
-  pub fn _print_summary(&self) {
-    let mut ordered: Vec<(&std::string::String, &FileInfo)> = self.fileinfo_by_filename.iter().collect();
-    ordered.sort_by(|a, b| Self::score(a.1).partial_cmp(&Self::score(&b.1)).unwrap());
-    for entry in ordered {
-      println!("{} - {}", entry.0, Self::score(entry.1));
-    }
   }
 
   async fn traverse_files(cache_file_dir: &PathBuf) -> InfuResult<HashMap<String, FileInfo>> {
@@ -266,87 +139,257 @@ impl ImageCache {
 
     Ok(cache)
   }
+}
 
-  fn score(fi: &FileInfo) -> f64 {
-    let size = if fi.size_bytes > 1000 { fi.size_bytes } else { 1000 };
-    let size_factor = (size as f64 / 1000.0).powf(1.0/4.0);
 
-    let now_unix = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
-    let seconds_ago = if now_unix < fi.last_accessed { 0 } else { now_unix - fi.last_accessed };
-    let days_ago = seconds_ago as f64 / (24.0*60.0*60.0);
+/// Instantiate an image cache instance.
+pub async fn new(cache_dir: &str, max_mb: usize) -> InfuResult<Arc<Mutex<ImageCache>>> {
+  Ok(Arc::new(Mutex::new(ImageCache::new(cache_dir, max_mb).await?)))
+}
 
-    size_factor * days_ago
+
+/// Get the cached image specified by key and updates it's last access time.
+///
+/// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+/// to be extra sure items for one user are not returned to another.
+pub async fn get(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageCacheKey) -> InfuResult<Option<Vec<u8>>> {
+  let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
+
+  let cache_dir;
+  let file_info;
+  {
+    let mut image_cache = image_cache.lock().unwrap();
+    cache_dir = image_cache.cache_dir.clone();
+    if let Some(fi) = image_cache.fileinfo_by_filename.get(&filename) {
+      file_info = fi.clone();
+      image_cache.fileinfo_by_filename.insert(filename.clone(),
+        FileInfo { size_bytes: file_info.size_bytes, last_accessed: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() });
+    } else {
+      return Ok(None);
+    }
   }
 
-  async fn purge_maybe(&mut self) -> InfuResult<()> {
-    let max_bytes = (self.max_mb * (1024 * 1024)) as u64;
-    if self.current_total_bytes < max_bytes {
-      return Ok(());
-    }
+  let p = construct_file_subpath(&cache_dir, &filename)?;
+  // Setting the atime on every access is generally unnecessarily inefficient (given it's
+  // never used most of the time), so is disabled by default on most modern systems. Hence
+  // we make sure to do it explicitly.
+  set_file_atime(&p, FileTime::now())?;
+  let mut f = File::open(p).await?;
+  let mut buffer = vec![0; file_info.size_bytes];
+  f.read_exact(&mut buffer).await?;
+  return Ok(Some(buffer))
+}
 
-    let start_time = SystemTime::now();
 
-    // If maximum cached bytes has been exceeded, purge up to 10% below maximum.
-    let max_bytes = (self.max_mb as f64 * ONE_MEGABYTE as f64 * 0.9) as u64;
+/// Get keys for all cached images corresponding to item_id.
+///
+/// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+/// to be extra sure items for one user are not returned to another.
+pub fn keys_for_item_id(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, item_id: &str) -> InfuResult<Option<Vec<ImageCacheKey>>> {
+  keys_for_item_id_impl(&image_cache.lock().unwrap(), user_id, item_id)
+}
 
-    let mut ordered: Vec<(std::string::String, FileInfo)> = self.fileinfo_by_filename.iter()
-      .map(|v: (&String, &FileInfo)| (v.0.clone(), v.1.clone()))
-      .collect();
-    ordered.sort_by(|a, b| Self::score(&a.1).partial_cmp(&Self::score(&b.1)).unwrap());
-    let mut i = 0;
-    let mut accum = 0;
-    let mut highest_score = 0.0;
-    loop {
-      if i >= ordered.len() { break; }
-      let file_and_info = ordered.get(i).unwrap();
-      if accum + file_and_info.1.size_bytes > max_bytes.try_into().unwrap() {
-        break;
+fn keys_for_item_id_impl(image_cache: &MutexGuard<ImageCache>, user_id: &Uid, item_id: &str) -> InfuResult<Option<Vec<ImageCacheKey>>> {
+  match image_cache.filenames_by_item_id.get(item_id) {
+    None => Ok(None),
+    Some(filenames) => {
+      if filenames.iter().filter(|v| !v.ends_with(&user_id[..8])).collect::<Vec<&String>>().len() > 0 {
+        return Err(format!("User '{}' does not own a cached file for item '{}'.", user_id, item_id).into());
       }
-      accum += file_and_info.1.size_bytes;
-      i += 1;
-      highest_score = Self::score(&file_and_info.1);
-      // debug!("Keeping {} - {}", file_and_info.0, Self::score(&file_and_info.1));
+      let result = filenames.iter()
+        .map(|v| String::from(&v[..(v.len()-9)]))
+        .map(|v| {
+          let parts = v.split("_").into_iter().map(|s| String::from(s)).collect::<Vec<String>>();
+          if parts.len() != 2 {
+            return Err(format!("Unexpected image cache filename prefix '{}'.", v).into())
+          }
+          Ok(ImageCacheKey {
+            item_id: parts.get(0).unwrap().clone(),
+            size: if parts.get(1).unwrap() == "original" {
+              ImageSize::Original
+            } else {
+              ImageSize::Width(parts.get(1).unwrap().parse::<u32>()?)
+            }
+          })
+        })
+        .collect::<InfuResult<Vec<ImageCacheKey>>>()?;
+      Ok(if result.len() == 0 { None } else { Some(result) })
+    }
+  }
+}
+
+
+/// Put an image into the cache, corresponding to the provided key.
+///
+/// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+/// to be extra sure items for one user are not returned to another.
+pub async fn put(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, key: ImageCacheKey, val: Vec<u8>) -> InfuResult<()> {
+  let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
+
+  let cache_dir;
+  {
+    let mut image_cache = image_cache.lock().unwrap();
+    cache_dir = image_cache.cache_dir.clone();
+    if !image_cache.filenames_by_item_id.contains_key(&key.item_id) {
+      image_cache.filenames_by_item_id.insert(String::from(&key.item_id), vec![]);
+    }
+    image_cache.filenames_by_item_id.get_mut(&key.item_id).unwrap().push(filename.clone());
+
+    let file_info = FileInfo {
+      size_bytes: val.len(),
+      last_accessed: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+    };
+    image_cache.current_total_bytes += file_info.size_bytes as u64;
+    image_cache.fileinfo_by_filename.insert(filename.clone(), file_info);
+  }
+
+  let mut file = OpenOptions::new()
+    .create_new(true)
+    .write(true)
+    .open(construct_file_subpath(&cache_dir, &filename)?).await?;
+  file.write_all(&val).await?;
+  file.flush().await?;
+
+  purge_maybe(image_cache).await?;
+
+  Ok(())
+}
+
+
+/// Delete all images in the cache corresponding to the given item_id.
+///
+/// user_id is not required to disambiguate, but is supplied as a paranoid safety mechanism
+/// to be extra sure items for one user are not returned to another.
+pub async fn delete_all(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, item_id: &str) -> InfuResult<usize> {
+  let keys;
+  {
+    let mut image_cache = image_cache.lock().unwrap();
+    keys =
+      if let Some(keys_ref) = keys_for_item_id_impl(&image_cache, user_id, item_id)? { keys_ref }
+      else { return Ok(0) };
+
+    for key in &keys {
+      let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
+      let file_info = image_cache.fileinfo_by_filename.remove(&filename)
+        .ok_or(format!("File info for '{}_{}' is expected, but not found.", key.item_id, key.size))?;
+      image_cache.current_total_bytes -= file_info.size_bytes as u64;
     }
 
-    let num_purged = ordered.len() - i;
-    debug!("About to purge {} files from cache.", num_purged);
-    loop {
-      if i >= ordered.len() { break; }
-      let file_and_info = ordered.get(i).unwrap();
-      self.delete_file(&file_and_info.0).await?;
-      i += 1;
-      debug!("Purging {} - {}", file_and_info.0, Self::score(&file_and_info.1));
-    }
+    image_cache.filenames_by_item_id.remove(item_id)
+      .ok_or(format!("Filenames collection for '{}' is missing from image cache.", item_id))?;
+  }
 
-    let end_time = SystemTime::now();
+  for key in &keys {
+    let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
+    let path = construct_file_subpath(&image_cache.lock().unwrap().cache_dir, &filename)?;
+    tokio::fs::remove_file(&path).await
+      .map_err(|e| format!("An error occurred removing file '{:?}' in image cache: {}", path, e))?;
+  }
+
+  Ok(keys.len())
+}
+
+
+pub fn _print_summary(image_cache: Arc<Mutex<ImageCache>>) {
+  let image_cache = image_cache.lock().unwrap();
+  let mut ordered: Vec<(&std::string::String, &FileInfo)> = image_cache.fileinfo_by_filename.iter().collect();
+  ordered.sort_by(|a, b| score(a.1).partial_cmp(&score(&b.1)).unwrap());
+  for entry in ordered {
+    println!("{} - {}", entry.0, score(entry.1));
+  }
+}
+
+
+fn score(fi: &FileInfo) -> f64 {
+  let size = if fi.size_bytes > 1000 { fi.size_bytes } else { 1000 };
+  let size_factor = (size as f64 / 1000.0).powf(1.0/4.0);
+
+  let now_unix = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+  let seconds_ago = if now_unix < fi.last_accessed { 0 } else { now_unix - fi.last_accessed };
+  let days_ago = seconds_ago as f64 / (24.0*60.0*60.0);
+
+  size_factor * days_ago
+}
+
+
+async fn purge_maybe(image_cache: Arc<Mutex<ImageCache>>) -> InfuResult<()> {
+  let max_bytes = (image_cache.lock().unwrap().max_mb * (1024 * 1024)) as u64;
+  if image_cache.lock().unwrap().current_total_bytes < max_bytes {
+    return Ok(());
+  }
+
+  let start_time = SystemTime::now();
+
+  // If maximum cached bytes has been exceeded, purge up to 10% below maximum.
+  let max_bytes = (image_cache.lock().unwrap().max_mb as f64 * ONE_MEGABYTE as f64 * 0.9) as u64;
+
+  let mut ordered: Vec<(std::string::String, FileInfo)> = image_cache.lock().unwrap().fileinfo_by_filename.iter()
+    .map(|v: (&String, &FileInfo)| (v.0.clone(), v.1.clone()))
+    .collect();
+  ordered.sort_by(|a, b| score(&a.1).partial_cmp(&score(&b.1)).unwrap());
+  let mut i = 0;
+  let mut accum = 0;
+  let mut highest_score = 0.0;
+  loop {
+    if i >= ordered.len() { break; }
+    let file_and_info = ordered.get(i).unwrap();
+    if accum + file_and_info.1.size_bytes > max_bytes.try_into().unwrap() {
+      break;
+    }
+    accum += file_and_info.1.size_bytes;
+    i += 1;
+    highest_score = score(&file_and_info.1);
+    // debug!("Keeping {} - {}", file_and_info.0, Self::score(&file_and_info.1));
+  }
+
+  let num_purged = ordered.len() - i;
+  debug!("About to purge {} files from cache.", num_purged);
+  loop {
+    if i >= ordered.len() { break; }
+    let file_and_info = ordered.get(i).unwrap();
+    delete_file(image_cache.clone(), &file_and_info.0).await?;
+    i += 1;
+    debug!("Purging {} - {}", file_and_info.0, score(&file_and_info.1));
+  }
+
+  let end_time = SystemTime::now();
+  {
+    let image_cache = image_cache.lock().unwrap();
     match end_time.duration_since(start_time) {
       Ok(duration) => {
         info!("Purged {} files from cache in {:?} seconds. There are now {} files totalling {} bytes in the cache. Highest score of any remaining file: {}",
-              num_purged, duration.as_secs(), self.fileinfo_by_filename.len(), self.current_total_bytes, highest_score);
+              num_purged, duration.as_secs(), image_cache.fileinfo_by_filename.len(), image_cache.current_total_bytes, highest_score);
       },
       Err(_) => {
         info!("Purged {} files from cache. System time went backwards from {:?} to {:?}! There are now {} files totalling {} bytes in the cache. Highest score of any remaining file: {}",
-               num_purged, start_time, end_time, self.fileinfo_by_filename.len(), self.current_total_bytes, highest_score);
+              num_purged, start_time, end_time, image_cache.fileinfo_by_filename.len(), image_cache.current_total_bytes, highest_score);
       }
     }
-
-    Ok(())
   }
 
-  async fn delete_file(&mut self, filename: &str) -> InfuResult<()> {
+  Ok(())
+}
+
+
+async fn delete_file(image_cache: Arc<Mutex<ImageCache>>, filename: &str) -> InfuResult<()> {
+  let path;
+  {
+    let mut image_cache = image_cache.lock().unwrap();
     let item_id = filename.split('_').next().ok_or(format!("Unexpected image cache filename: {}.", filename))?;
-    let path = construct_file_subpath(&self.cache_dir, &filename)?;
-    tokio::fs::remove_file(&path).await
-      .map_err(|e| format!("An error occurred removing a single file '{:?}' in image cache: {}", path, e))?;
-    let fi = self.fileinfo_by_filename.remove(filename)
+    path = construct_file_subpath(&image_cache.cache_dir, &filename)?;
+    let fi = image_cache.fileinfo_by_filename.remove(filename)
       .ok_or(format!("Info for file '{}' is expected, but not found.", filename))?;
-    let filenames = self.filenames_by_item_id.get(item_id)
+    let filenames = image_cache.filenames_by_item_id.get(item_id)
       .ok_or(format!("Unexpected item_id deleting file from item cache: {}", item_id))?;
     let filenames: Vec<String> = filenames.iter().filter(|f| f != &filename).map(|f| f.clone()).collect();
-    if self.filenames_by_item_id.insert(String::from(item_id), filenames).is_none() {
+    if image_cache.filenames_by_item_id.insert(String::from(item_id), filenames).is_none() {
       return Err(format!("No filenames for item_id {}, deleting file from image cache.", item_id).into());
     }
-    self.current_total_bytes -= fi.size_bytes as u64;
-    Ok(())
+    image_cache.current_total_bytes -= fi.size_bytes as u64;
   }
+
+  tokio::fs::remove_file(&path).await
+    .map_err(|e| format!("An error occurred removing a single file '{:?}' in image cache: {}", path, e))?;
+
+  Ok(())
 }
