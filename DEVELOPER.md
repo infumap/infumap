@@ -14,9 +14,7 @@ The `build.sh` script takes an optional argument which is the rust platform targ
 
 Sadly, [it seems](https://github.com/libp2p/rust-libp2p/discussions/1975) that support for TLS in Rust depends on a platform specific build chain (specifically because of [ring](https://github.com/briansmith/ring)). Further, when I attempt to build Infumap using [this popular](https://github.com/emk/rust-musl-builder) Docker image on my M1 mac, it panics. So this is all very inconvenient for setting up a multi-target build process.
 
-### `x86_64-unknown-linux-gnu` (glibc) vs `x86_64-unknown-linux-musl`
-
-I'm unsure which is better, I need to do more research.
+#### `x86_64-unknown-linux-gnu` (glibc) vs `x86_64-unknown-linux-musl`
 
 Notes:
 - A glibc build has a dynamic dependency on glibc and will not work on platforms that don't use this (e.g. Alpine).
@@ -25,12 +23,9 @@ Notes:
 - There are conflicting reports on the relative performance.
 - The musl implementation is "leaner" and "cleaner".
 
-For now, if you are on a platform that uses glibc (e.g. Ubuntu, Debian), I suggest that using the glibc build is a better bet. If not, use the musl build. I doubt it matters much.
+For simplicity, we will take the approach of doing only a musl build for releases because it is the most portable.
 
-For simplicity, I will take the approach of only providing musl build for Infumap releases, and it's what I use myself.
-
-
-### Creating a `x86_64-unknown-linux-musl` Build On Debian 11
+#### Creating a `x86_64-unknown-linux-musl` Build On Debian 11
 
 Follow the instructions [here](https://docs.docker.com/engine/install/debian/) to install docker:
 
