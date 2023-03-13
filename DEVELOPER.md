@@ -57,6 +57,17 @@ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin 
 sudo docker run hello-world
 ```
 
+Create the rust-musl-builder docker image:
+
+```
+docker build -t rust-musl-builder .
+```
+
+Explicitly build it rather than use the image on docker hub to:
+1. Ensure the latest version of rust is used.
+2. Ensure it's malware free.
+
+
 
 # Iterative Development
 

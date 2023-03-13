@@ -97,40 +97,40 @@ RUN ln -s "/usr/bin/g++" "/usr/bin/musl-g++"
 # necessarily the right ones) in an effort to compile OpenSSL 1.1's "engine"
 # component. It's possible that this will cause bizarre and terrible things to
 # happen. There may be "sanitized" header
-RUN echo "Building OpenSSL" && \
-    ls /usr/include/linux && \
-    mkdir -p /usr/local/musl/include && \
-    ln -s /usr/include/linux /usr/local/musl/include/linux && \
-    ln -s /usr/include/x86_64-linux-gnu/asm /usr/local/musl/include/asm && \
-    ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic && \
-    cd /tmp && \
-    short_version="$(echo "$OPENSSL_VERSION" | sed s'/[a-z]$//' )" && \
-    curl -fLO "https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz" || \
-        curl -fLO "https://www.openssl.org/source/old/$short_version/openssl-$OPENSSL_VERSION.tar.gz" && \
-    tar xvzf "openssl-$OPENSSL_VERSION.tar.gz" && cd "openssl-$OPENSSL_VERSION" && \
-    env CC=musl-gcc ./Configure no-shared no-zlib -fPIC --prefix=/usr/local/musl -DOPENSSL_NO_SECURE_MEMORY linux-x86_64 && \
-    env C_INCLUDE_PATH=/usr/local/musl/include/ make depend && \
-    env C_INCLUDE_PATH=/usr/local/musl/include/ make && \
-    make install && \
-    rm /usr/local/musl/include/linux /usr/local/musl/include/asm /usr/local/musl/include/asm-generic && \
-    rm -r /tmp/*
+# RUN echo "Building OpenSSL" && \
+#     ls /usr/include/linux && \
+#     mkdir -p /usr/local/musl/include && \
+#     ln -s /usr/include/linux /usr/local/musl/include/linux && \
+#     ln -s /usr/include/x86_64-linux-gnu/asm /usr/local/musl/include/asm && \
+#     ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic && \
+#     cd /tmp && \
+#     short_version="$(echo "$OPENSSL_VERSION" | sed s'/[a-z]$//' )" && \
+#     curl -fLO "https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz" || \
+#         curl -fLO "https://www.openssl.org/source/old/$short_version/openssl-$OPENSSL_VERSION.tar.gz" && \
+#     tar xvzf "openssl-$OPENSSL_VERSION.tar.gz" && cd "openssl-$OPENSSL_VERSION" && \
+#     env CC=musl-gcc ./Configure no-shared no-zlib -fPIC --prefix=/usr/local/musl -DOPENSSL_NO_SECURE_MEMORY linux-x86_64 && \
+#     env C_INCLUDE_PATH=/usr/local/musl/include/ make depend && \
+#     env C_INCLUDE_PATH=/usr/local/musl/include/ make && \
+#     make install && \
+#     rm /usr/local/musl/include/linux /usr/local/musl/include/asm /usr/local/musl/include/asm-generic && \
+#     rm -r /tmp/*
 
-RUN echo "Building zlib" && \
-    cd /tmp && \
-    curl -fLO "http://zlib.net/zlib-$ZLIB_VERSION.tar.gz" && \
-    tar xzf "zlib-$ZLIB_VERSION.tar.gz" && cd "zlib-$ZLIB_VERSION" && \
-    CC=musl-gcc ./configure --static --prefix=/usr/local/musl && \
-    make && make install && \
-    rm -r /tmp/*
+# RUN echo "Building zlib" && \
+#     cd /tmp && \
+#     curl -fLO "http://zlib.net/zlib-$ZLIB_VERSION.tar.gz" && \
+#     tar xzf "zlib-$ZLIB_VERSION.tar.gz" && cd "zlib-$ZLIB_VERSION" && \
+#     CC=musl-gcc ./configure --static --prefix=/usr/local/musl && \
+#     make && make install && \
+#     rm -r /tmp/*
 
-RUN echo "Building libpq" && \
-    cd /tmp && \
-    curl -fLO "https://ftp.postgresql.org/pub/source/v$POSTGRESQL_VERSION/postgresql-$POSTGRESQL_VERSION.tar.gz" && \
-    tar xzf "postgresql-$POSTGRESQL_VERSION.tar.gz" && cd "postgresql-$POSTGRESQL_VERSION" && \
-    CC=musl-gcc CPPFLAGS=-I/usr/local/musl/include LDFLAGS=-L/usr/local/musl/lib ./configure --with-openssl --without-readline --prefix=/usr/local/musl && \
-    cd src/interfaces/libpq && make all-static-lib && make install-lib-static && \
-    cd ../../bin/pg_config && make && make install && \
-    rm -r /tmp/*
+# RUN echo "Building libpq" && \
+#     cd /tmp && \
+#     curl -fLO "https://ftp.postgresql.org/pub/source/v$POSTGRESQL_VERSION/postgresql-$POSTGRESQL_VERSION.tar.gz" && \
+#     tar xzf "postgresql-$POSTGRESQL_VERSION.tar.gz" && cd "postgresql-$POSTGRESQL_VERSION" && \
+#     CC=musl-gcc CPPFLAGS=-I/usr/local/musl/include LDFLAGS=-L/usr/local/musl/lib ./configure --with-openssl --without-readline --prefix=/usr/local/musl && \
+#     cd src/interfaces/libpq && make all-static-lib && make install-lib-static && \
+#     cd ../../bin/pg_config && make && make install && \
+#     rm -r /tmp/*
 
 # (Please feel free to submit pull requests for musl-libc builds of other C
 # libraries needed by the most popular and common Rust crates, to avoid
