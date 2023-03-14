@@ -57,19 +57,18 @@ echo \
 sudo apt-get update
 
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-sudo docker run hello-world
 ```
 
 Create the rust-musl-builder docker image:
 
 ```
+cd ~/git/infumap/rust-musl-builder
 docker build -t rust-musl-builder .
 ```
 
 Explicitly build it rather than use the image on docker hub to:
 1. Ensure the latest version of rust is used.
-2. Ensure it's malware free.
+2. Be extra confident it's malware free.
 
 Install node:
 
@@ -79,9 +78,18 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
 nvm install node
 ```
 
+Install web project dependencies:
+
 ```
 cd ~/git/infumap/web
 npm install
+```
+
+Set permissions so the docker image can write the release build:
+
+```
+ce ~/git/infumap
+chmod a+w infumap
 ```
 
 Build infumap:
@@ -89,6 +97,12 @@ Build infumap:
 ```
 cd ~/git/infumap
 ./build-musl.sh
+```
+
+Copy the release build to the home directory for convenience:
+
+```
+cp ~/git/infumap/infumap/target/x86_64-unknown-linux-musl/release/infumap ~/
 ```
 
 
@@ -109,3 +123,31 @@ npm run start
 ```
 
 This will start a vite development server listening on port `3000`, serving the current state of `web`, with hot reload. Requests to the API (but not requests for client resources) will be forwarded to port `8000`.
+
+
+# Simple Deployment on Debian 11
+
+```
+ufw allow 443
+```
+
+Install caddy:
+
+```
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+Edit the Caddyfile in `/etc/caddy/Caddyfile`.
+- change `:80` to your domain name.
+- uncomment the `reverse_proxy` line.
+- comment out the `root` line.
+
+Then reload:
+
+```
+systemctl reload caddy
+```
