@@ -18,7 +18,7 @@ use log::info;
 use serde_json::{Map, Value};
 use tokio::fs::File;
 use tokio::io::{BufReader, AsyncReadExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use crate::util::fs::{expand_tilde, path_exists};
@@ -44,6 +44,7 @@ pub struct ItemAndUserId {
 pub struct ItemDb {
   data_dir: String,
   store_by_user_id: HashMap<Uid, KVStore<Item>>,
+  dirty_user_ids: HashSet<Uid>,
 
   // indexes
   owner_id_by_item_id: HashMap<Uid, Uid>,
@@ -56,6 +57,7 @@ impl ItemDb {
     ItemDb {
       data_dir: String::from(data_dir),
       store_by_user_id: HashMap::new(),
+      dirty_user_ids: HashSet::new(),
       owner_id_by_item_id: HashMap::new(),
       children_of: HashMap::new(),
       attachments_of: HashMap::new()
@@ -177,6 +179,7 @@ impl ItemDb {
   }
 
   pub async fn add(&mut self, item: Item) -> InfuResult<()> {
+    self.dirty_user_ids.insert(item.owner_id.clone());
     self.store_by_user_id.get_mut(&item.owner_id)
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
       .add(item.clone()).await?;
@@ -186,6 +189,7 @@ impl ItemDb {
   pub async fn remove(&mut self, id: &Uid) -> InfuResult<Item> {
     let owner_id = self.owner_id_by_item_id.get(id)
       .ok_or(format!("Unknown item '{}' - corresponding user item store may not be loaded.", id))?;
+    self.dirty_user_ids.insert(owner_id.clone());
     let store = self.store_by_user_id.get_mut(owner_id)
       .ok_or(format!("Item store is not loaded for user '{}'.", owner_id))?;
     let item = store.remove(id).await?;
@@ -221,6 +225,7 @@ impl ItemDb {
     self.store_by_user_id.get_mut(&item.owner_id)
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
       .update(item.clone()).await?;
+    self.dirty_user_ids.insert(item.owner_id.clone());
     self.add_to_indexes(item)
   }
 
@@ -271,8 +276,12 @@ impl ItemDb {
     result
   }
 
-  pub fn all_loaded_users(&self) -> Vec<String> {
-    self.store_by_user_id.iter().map(|s| s.0.clone()).collect::<Vec<String>>()
+  pub fn all_dirty_user_ids(&mut self) -> Vec<String> {
+    let result = self.store_by_user_id.iter()
+      .filter(|kv| self.dirty_user_ids.contains(kv.0))
+      .map(|s| s.0.clone()).collect::<Vec<String>>();
+    self.dirty_user_ids.clear();
+    result
   }
 
   pub async fn get_backup_size_for_user(&self, user_id: &str) -> InfuResult<u32> {

@@ -80,7 +80,7 @@ async fn create_db(config: &Config) -> InfuResult<Db> {
 }
 
 async fn list_desired_files(db: &mut Db) -> InfuResult<HashMap<String, (String, String)>> {
-  for user_id in db.user.all_ids().iter() {
+  for user_id in db.user.all_user_ids().iter() {
     db.item.load_user_items(user_id, false).await?;
   }
 
@@ -96,7 +96,7 @@ async fn list_desired_files(db: &mut Db) -> InfuResult<HashMap<String, (String, 
 
 async fn list_filesystem_files(db: &Db, file_store: Arc<Mutex<storage_file::FileStore>>) -> InfuResult<HashSet<String>> {
   let mut result = HashSet::new();
-  for user_id in &db.user.all_ids() {
+  for user_id in &db.user.all_user_ids() {
     let files = storage_file::list(file_store.clone(), user_id).await?;
     for file in &files {
       result.insert(format!("{}_{}", user_id, file));

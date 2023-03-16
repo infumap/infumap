@@ -60,8 +60,8 @@
 # removed from the object store as new ones are added, unless this would cause
 # a gap between historic backups greater than s3_backup_retention_period_days.
 #enable_s3_backup = false
-#s3_backup_period_minutes = 60
-#s3_backup_retention_period_days = 30
+#backup_period_minutes = 60
+#backup_retention_period_days = 30
 #s3_backup_region = 
 #s3_backup_endpoint = 
 #s3_backup_bucket = 

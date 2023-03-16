@@ -25,28 +25,33 @@ use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
 
 
+pub fn create_bucket(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
+  let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
+    .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
+  let mut bucket = Bucket::new(
+    bucket,
+    if let Some(region) = region {
+      region.parse().map_err(|e| format!("Could not parse S3 region: {}", e))?
+    } else {
+      Region::Custom {
+        region: if let Some(region) = region { region.to_owned() } else { "global".to_owned() },
+        endpoint: endpoint.clone().ok_or("Expecting S3 endpoint to be specified when S3 region is not specified.")?
+      }
+    },
+    credentials
+  ).map_err(|e| format!("Could not construct S3 bucket instance: {}", e))?;
+  bucket.set_request_timeout(Some(Duration::from_secs(120)));
+  Ok(bucket)
+}
+
+
 pub struct S3Store {
   bucket: Bucket
 }
 
 impl S3Store {
   fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<S3Store> {
-    let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
-      .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
-    let mut bucket = Bucket::new(
-      bucket, 
-      if let Some(region) = region {
-        region.parse().map_err(|e| format!("Could not parse S3 region: {}", e))?
-      } else {
-        Region::Custom {
-          region: if let Some(region) = region { region.to_owned() } else { "global".to_owned() },
-          endpoint: endpoint.clone().ok_or("Expecting S3 endpoint to be specified when S3 region is not specified.")?
-        }
-      },
-      credentials
-    ).map_err(|e| format!("Could not construct S3 bucket instance: {}", e))?;
-    bucket.set_request_timeout(Some(Duration::from_secs(120)));
-    Ok(S3Store { bucket })
+    Ok(S3Store { bucket: create_bucket(region, endpoint, bucket, key, secret)? })
   }
 }
 

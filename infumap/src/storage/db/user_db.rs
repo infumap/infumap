@@ -149,7 +149,7 @@ impl UserDb {
     }
   }
 
-  pub fn all_ids(&self) -> Vec<String> {
+  pub fn all_user_ids(&self) -> Vec<String> {
     self.store_by_id.iter().map(|u| u.0.clone()).collect::<Vec<String>>()
   }
 

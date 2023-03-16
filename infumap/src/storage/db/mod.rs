@@ -15,17 +15,15 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::Cursor;
-use std::sync::Arc;
 use byteorder::{WriteBytesExt, BigEndian};
 use log::info;
 
+use crate::util::crypto::encrypt_file_data;
 use crate::util::infu::InfuResult;
 use self::item_db::ItemDb;
 use self::session_db::SessionDb;
 use self::user_db::UserDb;
 use self::pending_user_db::PendingUserDb;
-
-use super::backup::BackupStore;
 
 pub mod user;
 pub mod user_db;
@@ -35,26 +33,6 @@ pub mod session_db;
 pub mod item;
 pub mod item_db;
 pub mod kv_store;
-
-// pub struct BackupIterator {
-//   users: Vec<String>,
-//   index: usize,
-// }
-
-// impl Iterator for BackupIterator {
-//   type Item = Vec<u8>;
-//   fn next(&mut self) -> Option<i8> {
-//       let result = match self.index {
-//           0 => self.pixel.r,
-//           1 => self.pixel.g,
-//           2 => self.pixel.b,
-//           _ => return None,
-//       };
-//       self.index += 1;
-//       Some(result)
-//   }
-// }
-
 
 
 pub struct Db {
@@ -76,30 +54,42 @@ impl Db {
     })
   }
 
-  pub async fn backup_iter(&self, _object_store: Arc<BackupStore>) -> InfuResult<()> {
-    for user_id in self.item.all_loaded_users() {
-      let isize = self.item.get_backup_size_for_user(&user_id).await? as usize;
-      let usize = self.user.get_backup_size_for_user(&user_id).await? as usize;
-      let buf_size = isize + usize + 8 * 2;
-      let mut buf = vec![0; buf_size];
-      info!("Backup size for user {}: {}", user_id, buf_size);
-
-      let mut wtr = Cursor::new(&mut buf[0..8]);
-      wtr.write_u64::<BigEndian>(isize as u64)?;
-      self.item.backup_user(&user_id, &mut buf[8..(8+isize)]).await
-        .map_err(|e| format!("Failed to get user log backup for user {}: {}", user_id, e))?;
-
-      let mut wtr = Cursor::new(&mut buf[(8+isize)..(16+isize)]);
-      wtr.write_u64::<BigEndian>(usize as u64)?;
-      self.user.backup_user(&user_id, &mut buf[(16+isize)..(16+isize+usize)]).await
-        .map_err(|e| format!("Failed to get item log backup for user {}: {}", user_id, e))?;
-
-      let mut compressed = Vec::with_capacity(buf_size);
-      brotli::BrotliCompress(&mut &buf[..], &mut compressed, &Default::default())
-        .map_err(|e| format!("Failed to compress backup data for user {}: {}", user_id, e))?;
-
-      println!("Backup compressed size for user {}: {}", user_id, compressed.len());
-    }
-    Ok(())
+  pub fn all_dirty_user_ids(&mut self) -> Vec<String> {
+    self.item.all_dirty_user_ids()
   }
+
+  pub async fn create_user_backup(&self, user_id: &str) -> InfuResult<Vec<u8>> {
+    let isize = self.item.get_backup_size_for_user(&user_id).await? as usize;
+    let usize = self.user.get_backup_size_for_user(&user_id).await? as usize;
+    let buf_size = isize + usize + 8 * 2;
+    let mut buf = vec![0; buf_size];
+    info!("Backup size for user {}: {}", user_id, buf_size);
+
+    let mut wtr = Cursor::new(&mut buf[0..8]);
+    wtr.write_u64::<BigEndian>(isize as u64)?;
+    self.item.backup_user(&user_id, &mut buf[8..(8+isize)]).await
+      .map_err(|e| format!("Failed to get user log backup for user {}: {}", user_id, e))?;
+
+    let mut wtr = Cursor::new(&mut buf[(8+isize)..(16+isize)]);
+    wtr.write_u64::<BigEndian>(usize as u64)?;
+    self.user.backup_user(&user_id, &mut buf[(16+isize)..(16+isize+usize)]).await
+      .map_err(|e| format!("Failed to get item log backup for user {}: {}", user_id, e))?;
+
+    let mut compressed = Vec::with_capacity(buf_size);
+    brotli::BrotliCompress(&mut &buf[..], &mut compressed, &Default::default())
+      .map_err(|e| format!("Failed to compress backup data for user {}: {}", user_id, e))?;
+
+    println!("Backup compressed size for user {}: {}", user_id, compressed.len());
+
+    let user = self.user.get(&String::from(user_id))
+      .ok_or(format!("Unknown user {}", user_id))?;
+    let encrypted = encrypt_file_data(&user.object_encryption_key, &compressed, user_id)?;
+
+    Ok(encrypted)
+  }
+
+  pub async fn _restore_user_backup() {
+    // TODO.
+  }
+
 }

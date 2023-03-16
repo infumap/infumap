@@ -25,7 +25,7 @@ pub mod session;
 use clap::ArgMatches;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use log::{info, error};
+use log::{info, error, warn, debug};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 use std::net::SocketAddr;
@@ -127,31 +127,42 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
 
 fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
-
-  // let _forever = task::spawn(async move {
-  //   let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
-  //   loop {
-  //     interval.tick().await;
-  //     {
-  //       let db = db.lock().await;
-  //       match db.backup(backup_store.clone()).await {
-  //         Ok(_) => {},
-  //         Err(e) => {
-  //           error!("Db backup failed: {}", e);
-  //         }
-  //       }
-  //     }
-  //   }
-  // });
+  let _forever = task::spawn(async move {
+    let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
+    loop {
+      interval.tick().await;
+      {
+        let mut db = db.lock().await;
+        let dirty_user_ids = db.all_dirty_user_ids();
+        debug!("Backing up db logs for {} users.", dirty_user_ids.len());
+        for user_id in dirty_user_ids {
+          match db.create_user_backup(&user_id).await {
+            Ok(backup_bytes) => {
+              match storage_backup::put(backup_store.clone(), &user_id, backup_bytes).await {
+                Ok(s3_filename) => {
+                  info!("Backed up db logs for user '{}' to '{}'.", user_id, s3_filename);
+                },
+                Err(e) => {
+                  error!("Put db backup failed for user '{}': {}", user_id, e);
+                }
+              }
+            },
+            Err(e) => {
+              error!("Create db backup failed for user '{}': {}", user_id, e);
+            }
+          }
+        }
+      }
+    }
+  });
 
   let _forever = task::spawn(async move {
     let mut interval = time::interval(Duration::from_secs((backup_retention_period_days * 24 * 60 * 60) as u64));
     loop {
       interval.tick().await;
-      // TODO: cleanup backup store.
+      warn!("TODO: cleanup backup store");
     }
   });
-
 }
 
 
