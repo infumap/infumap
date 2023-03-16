@@ -141,7 +141,10 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
     .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT_DEFAULT)?
     .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT)?
     .set_default(CONFIG_ENABLE_S3_1_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT)?;
+    .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT)?
+    .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT)?
+    .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT)?
+    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT)?;
 
   let config = match config_builder.build() {
     Ok(c) => c,
@@ -160,6 +163,28 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
   let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR)?).unwrap()).await?;
   if num_created > 0 {
     warn!("Created {} cache subdirectories.", num_created);
+  }
+
+  match config.get_string(CONFIG_S3_BACKUP_BUCKET) {
+    Ok(backup_bucket) => {
+      match config.get_string(CONFIG_S3_1_BUCKET) {
+        Ok(s3_1_bucket) => {
+          if backup_bucket == s3_1_bucket {
+            return Err(format!("Backup bucket name '{}' must be different from s3_1 bucket name '{}'.", backup_bucket, s3_1_bucket).into());
+          }
+        },
+        Err(_) => {}
+      }
+      match config.get_string(CONFIG_S3_2_BUCKET) {
+        Ok(s3_2_bucket) => {
+          if backup_bucket == s3_2_bucket {
+            return Err(format!("Backup bucket name '{}' must be different from s3_2 bucket name '{}'.", backup_bucket, s3_2_bucket).into());
+          }
+        },
+        Err(_) => {}
+      }
+    },
+    Err(_) => {}
   }
 
   info!("Config:");
@@ -218,6 +243,30 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
       Err(_) => { info!("  {} = {}", CONFIG_S3_2_SECRET, "<not set>"); }
     }
   }
-
+  info!(" {} = {}", CONFIG_ENABLE_S3_BACKUP, config.get_bool(CONFIG_ENABLE_S3_BACKUP)?);
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
+    info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)?);
+    info!("  {} = {}", CONFIG_BACKUP_RETENTION_PERIOD_DAYS, config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)?);
+    match config.get_string(CONFIG_S3_BACKUP_REGION) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_BACKUP_ENDPOINT) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_ENDPOINT, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_ENDPOINT, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_BACKUP_BUCKET) {
+      Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_BUCKET, v); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_BUCKET, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_BACKUP_KEY) {
+      Ok(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_KEY, "<redacted>"); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_KEY, "<not set>"); }
+    }
+    match config.get_string(CONFIG_S3_BACKUP_SECRET) {
+      Ok(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_SECRET, "<redacted>"); },
+      Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_SECRET, "<not set>"); }
+    }
+  }
   Ok(config)
 }

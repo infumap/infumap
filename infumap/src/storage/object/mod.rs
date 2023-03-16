@@ -28,8 +28,8 @@ use crate::util::uid::Uid;
 
 pub struct ObjectStore {
   file_store: Option<Arc<Mutex<storage_file::FileStore>>>,
-  s3_1_store: Option<Arc<storage_s3::S3Store>>,
-  s3_2_store: Option<Arc<storage_s3::S3Store>>,
+  s3_1_data_store: Option<Arc<storage_s3::S3Store>>,
+  s3_2_data_store: Option<Arc<storage_s3::S3Store>>,
 }
 
 impl ObjectStore {
@@ -53,9 +53,9 @@ impl ObjectStore {
       None
     };
 
-    let s3_1_store = if enable_s3_1_object_storage {
-      let s3_1_key = s3_1_key.ok_or("s3_1_key field is required when primary s3 store is enabled.")?;
-      let s3_1_secret = s3_1_secret.ok_or("s3_1_secret field is required when primary s3 store is enabled.")?;
+    let s3_1_data_store = if enable_s3_1_object_storage {
+      let s3_1_key = s3_1_key.as_ref().ok_or("s3_1_key field is required when primary s3 store is enabled.")?.clone();
+      let s3_1_secret = s3_1_secret.as_ref().ok_or("s3_1_secret field is required when primary s3 store is enabled.")?.clone();
       let s3_1_bucket = s3_1_bucket.ok_or("s3_1_bucket field is required when primary s3 store is enabled.")?;
       Some(match storage_s3::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket, &s3_1_key, &s3_1_secret) {
         Ok(s3_store) => s3_store,
@@ -65,9 +65,9 @@ impl ObjectStore {
       None
     };
 
-    let s3_2_store = if enable_s3_2_object_storage {
-      let s3_2_key = s3_2_key.ok_or("s3_2_key field is required when secondary s3 store is enabled.")?;
-      let s3_2_secret = s3_2_secret.ok_or("s3_2_secret field is required when secondary s3 store is enabled.")?;
+    let s3_2_data_store = if enable_s3_2_object_storage {
+      let s3_2_key = s3_2_key.as_ref().ok_or("s3_2_key field is required when secondary s3 store is enabled.")?.clone();
+      let s3_2_secret = s3_2_secret.as_ref().ok_or("s3_2_secret field is required when secondary s3 store is enabled.")?.clone();
       let s3_2_bucket = s3_2_bucket.ok_or("s3_2_bucket field is required when secondary s3 store is enabled.")?;
       Some(match storage_s3::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket, &s3_2_key, &s3_2_secret) {
         Ok(s3_store) => s3_store,
@@ -77,7 +77,7 @@ impl ObjectStore {
       None
     };
 
-    Ok(ObjectStore { file_store, s3_1_store, s3_2_store })
+    Ok(ObjectStore { file_store, s3_1_data_store, s3_2_data_store })
   }
 }
 
@@ -113,11 +113,11 @@ pub async fn get(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, encryp
   }
   // Assume that store #1 is the most cost effective to read from, and always use it in preference
   // to store #2 if available.
-  if let Some(s3_1_store) = &object_store.s3_1_store {
+  if let Some(s3_1_store) = &object_store.s3_1_data_store {
     let ciphertext = storage_s3::get(s3_1_store.clone(), user_id, id).await?;
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(user_id, id).as_str())?);
   }
-  if let Some(s3_2_store) = &object_store.s3_2_store {
+  if let Some(s3_2_store) = &object_store.s3_2_data_store {
     let ciphertext = storage_s3::get(s3_2_store.clone(), user_id, id).await?;
     return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(user_id, id).as_str())?);
   }
@@ -135,17 +135,17 @@ pub async fn put(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, val: &
     set.spawn(fs_put(file_store.clone(), user_id.clone(), id.clone(), val.clone()));
   }
 
-  let encrypted_val = Arc::new(if object_store.s3_1_store.is_some() || object_store.s3_2_store.is_some() {
+  let encrypted_val = Arc::new(if object_store.s3_1_data_store.is_some() || object_store.s3_2_data_store.is_some() {
     encrypt_file_data(encryption_key, val, filename(user_id, id).as_str())?
   } else {
     vec![]
   });
 
-  if let Some(s3_1_store) = &object_store.s3_1_store {
+  if let Some(s3_1_store) = &object_store.s3_1_data_store {
     set.spawn(storage_s3::put(s3_1_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
   }
 
-  if let Some(s3_2_store) = &object_store.s3_2_store {
+  if let Some(s3_2_store) = &object_store.s3_2_data_store {
     set.spawn(storage_s3::put(s3_2_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
   }
 
@@ -175,11 +175,11 @@ pub async fn delete(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid) -> 
     set.spawn(storage_file::delete(file_store.clone(), user_id.clone(), id.clone()));
   }
 
-  if let Some(s3_1_store) = &object_store.s3_1_store {
+  if let Some(s3_1_store) = &object_store.s3_1_data_store {
     set.spawn(storage_s3::delete(s3_1_store.clone(), user_id.clone(), id.clone()));
   }
 
-  if let Some(s3_2_store) = &object_store.s3_2_store {
+  if let Some(s3_2_store) = &object_store.s3_2_data_store {
     set.spawn(storage_s3::delete(s3_2_store.clone(), user_id.clone(), id.clone()));
   }
 

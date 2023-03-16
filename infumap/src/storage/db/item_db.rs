@@ -16,7 +16,10 @@
 
 use log::info;
 use serde_json::{Map, Value};
+use tokio::fs::File;
+use tokio::io::{BufReader, AsyncReadExt};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::util::fs::{expand_tilde, path_exists};
 use crate::util::geometry::GRID_SIZE;
@@ -39,7 +42,7 @@ pub struct ItemAndUserId {
 /// Db for Item instances for all users, assuming the mandated data folder hierarchy.
 /// Not threadsafe.
 pub struct ItemDb {
-  store_dir: String,
+  data_dir: String,
   store_by_user_id: HashMap<Uid, KVStore<Item>>,
 
   // indexes
@@ -49,9 +52,9 @@ pub struct ItemDb {
 }
 
 impl ItemDb {
-  pub fn init(store_dir: &str) -> ItemDb {
+  pub fn init(data_dir: &str) -> ItemDb {
     ItemDb {
-      store_dir: String::from(store_dir),
+      data_dir: String::from(data_dir),
       store_by_user_id: HashMap::new(),
       owner_id_by_item_id: HashMap::new(),
       children_of: HashMap::new(),
@@ -66,11 +69,9 @@ impl ItemDb {
   pub async fn load_user_items(&mut self, user_id: &str, creating: bool) -> InfuResult<()> {
     info!("Loading items for user {}{}.", user_id, if creating { " (creating)" } else { "" });
 
-    let mut log_path = expand_tilde(&self.store_dir).ok_or("Could not interpret path.")?;
-    log_path.push(String::from("user_") + user_id);
-    log_path.push("items.json");
-
+    let log_path = self.log_path(user_id)?;
     let log_path_str = log_path.as_path().to_str().unwrap();
+
     if creating {
       if path_exists(&log_path).await {
         return Err(format!("Items log file '{}' already exists for user '{}'.", log_path_str, user_id).into());
@@ -261,7 +262,7 @@ impl ItemDb {
     Ok(self.get_children(parent_id)?.len() > 0 || self.get_attachments(parent_id)?.len() > 0)
   }
 
-  pub fn all_loaded(&self) -> Vec<ItemAndUserId> {
+  pub fn all_loaded_items(&self) -> Vec<ItemAndUserId> {
     // TODO (LOW): Proper use of iterators...
     let mut result = vec![];
     for v in self.owner_id_by_item_id.iter() {
@@ -270,6 +271,28 @@ impl ItemDb {
     result
   }
 
+  pub fn all_loaded_users(&self) -> Vec<String> {
+    self.store_by_user_id.iter().map(|s| s.0.clone()).collect::<Vec<String>>()
+  }
+
+  pub async fn get_backup_size_for_user(&self, user_id: &str) -> InfuResult<u32> {
+    let log_path = self.log_path(user_id)?;
+    Ok(tokio::fs::metadata(log_path).await?.len() as u32)
+  }
+
+  pub async fn backup_user(&self, user_id: &str, buf: &mut [u8]) -> InfuResult<()> {
+    let log_path = self.log_path(user_id)?;
+    let mut f = BufReader::new(File::open(&log_path).await?);
+    f.read_exact(buf).await?;
+    Ok(())
+  }
+
+  fn log_path(&self, user_id: &str) -> InfuResult<PathBuf> {
+    let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
+    log_path.push(String::from("user_") + user_id);
+    log_path.push("items.json");
+    Ok(log_path)
+  }
 }
 
 

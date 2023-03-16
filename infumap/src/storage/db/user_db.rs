@@ -17,6 +17,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use log::warn;
+use tokio::fs::File;
+use tokio::io::{BufReader, AsyncReadExt};
 
 use crate::util::fs::expand_tilde;
 use crate::util::infu::InfuResult;
@@ -149,5 +151,24 @@ impl UserDb {
 
   pub fn all_ids(&self) -> Vec<String> {
     self.store_by_id.iter().map(|u| u.0.clone()).collect::<Vec<String>>()
+  }
+
+  pub async fn get_backup_size_for_user(&self, user_id: &str) -> InfuResult<u32> {
+    let log_path = self.log_path(user_id)?;
+    Ok(tokio::fs::metadata(log_path).await?.len() as u32)
+  }
+
+  pub async fn backup_user(&self, user_id: &str, buf: &mut [u8]) -> InfuResult<()> {
+    let log_path = self.log_path(user_id)?;
+    let mut f = BufReader::new(File::open(&log_path).await?);
+    f.read_exact(buf).await?;
+    Ok(())
+  }
+
+  fn log_path(&self, user_id: &str) -> InfuResult<PathBuf> {
+    let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
+    log_path.push(String::from("user_") + user_id);
+    log_path.push("user.json");
+    Ok(log_path)
   }
 }

@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 aes-gcm = "0.10.1"
 base64 = "0.21.0"
+brotli = "3.3.4"
+byteorder = "1.4.3"
 bytes = "1"
 clap = "3.0.10"
 config = "0.13.1"

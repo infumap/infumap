@@ -25,16 +25,20 @@ pub mod session;
 use clap::ArgMatches;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use log::info;
+use log::{info, error};
+use tokio::sync::Mutex;
+use tokio::{task, time};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpListener;
 
 use crate::config::*;
-use crate::storage::db::Db;
-use crate::storage::cache as storage_cache;
 use crate::setup::init_fs_and_config;
-use crate::storage::object as storage_object;
+use crate::storage::backup::{self as storage_backup, BackupStore};
+use crate::storage::db::Db;
+use crate::storage::cache::{self as storage_cache, ImageCache};
+use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::infu::InfuResult;
 
 use self::serve::http_serve;
@@ -78,6 +82,26 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
       }
     };
 
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
+    let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
+    let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
+    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET)?;
+    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY)?;
+    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET)?;
+    let backup_store =
+      match storage_backup::new(s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret) {
+        Ok(backup_store) => backup_store,
+        Err(e) => {
+          return Err(format!("Failed to initialize backup store: {}", e).into());
+        }
+      };
+
+    init_db_backup(
+      config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)? as u32,
+      config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)? as u32,
+      db.clone(), backup_store.clone());
+  }
+
   let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
   let image_cache =
@@ -98,6 +122,40 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
   let config = Arc::new(config);
 
+  listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await
+}
+
+
+fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
+
+  // let _forever = task::spawn(async move {
+  //   let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
+  //   loop {
+  //     interval.tick().await;
+  //     {
+  //       let db = db.lock().await;
+  //       match db.backup(backup_store.clone()).await {
+  //         Ok(_) => {},
+  //         Err(e) => {
+  //           error!("Db backup failed: {}", e);
+  //         }
+  //       }
+  //     }
+  //   }
+  // });
+
+  let _forever = task::spawn(async move {
+    let mut interval = time::interval(Duration::from_secs((backup_retention_period_days * 24 * 60 * 60) as u64));
+    loop {
+      interval.tick().await;
+      // TODO: cleanup backup store.
+    }
+  });
+
+}
+
+
+async fn listen(addr: SocketAddr, db: Arc<Mutex<Db>>, object_store: Arc<ObjectStore>, image_cache: Arc<std::sync::Mutex<ImageCache>>, config: Arc<config::Config>) -> InfuResult<()> {
   let listener = TcpListener::bind(addr).await?;
   loop {
     let (stream, _) = listener.accept().await?;
@@ -116,5 +174,4 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
       }
     });
   }
-
 }

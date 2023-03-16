@@ -14,9 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod backup;
-pub mod db;
-pub mod file;
-pub mod cache;
-pub mod object;
-pub mod s3;
+use std::sync::Arc;
+
+use crate::{storage::s3 as storage_s3, util::infu::InfuResult};
+
+
+pub struct BackupStore {
+  s3_store: Arc<storage_s3::S3Store>,
+}
+
+impl BackupStore {
+  fn new(
+      s3_region: Option<String>, s3_endpoint: Option<String>, s3_bucket: String,
+      s3_key: String, s3_secret: String) -> InfuResult<BackupStore> {
+    Ok(BackupStore { s3_store: storage_s3::new(&s3_region, &s3_endpoint, &s3_bucket, &s3_key, &s3_secret)? })
+  }
+}
+
+
+pub fn new(
+    s3_region: Option<String>, s3_endpoint: Option<String>,
+    s3_bucket: String, s3_key: String, s3_secret: String) -> InfuResult<Arc<BackupStore>> {
+  Ok(Arc::new(BackupStore::new(
+    s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret)?))
+}
+
+
+pub fn put() {
+
+}

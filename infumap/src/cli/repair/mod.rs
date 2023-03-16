@@ -41,7 +41,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .required(false))
 }
 
-fn create_s3_1_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
+fn create_s3_1_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
   let s3_1_region = config.get_string(CONFIG_S3_1_REGION).ok();
   let s3_1_endpoint = config.get_string(CONFIG_S3_1_ENDPOINT).ok();
   let s3_1_bucket = config.get_string(CONFIG_S3_1_BUCKET).ok();
@@ -51,7 +51,7 @@ fn create_s3_1_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3:
   Ok(Some(storage_s3::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
 }
 
-fn create_s3_2_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
+fn create_s3_2_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
   let s3_2_region = config.get_string(CONFIG_S3_2_REGION).ok();
   let s3_2_endpoint = config.get_string(CONFIG_S3_2_ENDPOINT).ok();
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
@@ -85,7 +85,7 @@ async fn list_desired_files(db: &mut Db) -> InfuResult<HashMap<String, (String, 
   }
 
   let mut desired_files = HashMap::new();
-  for iu in db.item.all_loaded() {
+  for iu in db.item.all_loaded_items() {
     let item = db.item.get(&iu.item_id)?;
     if !is_data_item(&item.item_type) { continue; }
     desired_files.insert(format!("{}_{}", iu.user_id, iu.item_id), (iu.user_id, iu.item_id));
@@ -111,8 +111,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   let file_store = storage_file::new(&config.get_string(CONFIG_DATA_DIR)?)?;
 
-  let s3_1_maybe = create_s3_1_store_maybe(&config)?.unwrap();
-  let _s3_2_maybe = create_s3_2_store_maybe(&config)?;
+  let s3_1_maybe = create_s3_1_data_store_maybe(&config)?.unwrap();
+  let _s3_2_maybe = create_s3_2_data_store_maybe(&config)?;
 
   let files_in_s3 = list_s3_files(s3_1_maybe.clone()).await?;
   let filesystem_files = list_filesystem_files(&db, file_store.clone()).await?;

@@ -62,3 +62,18 @@ pub const CONFIG_S3_2_ENDPOINT: &'static str = "s3_2_endpoint";
 pub const CONFIG_S3_2_BUCKET: &'static str = "s3_2_bucket";
 pub const CONFIG_S3_2_KEY: &'static str = "s3_2_key";
 pub const CONFIG_S3_2_SECRET: &'static str = "s3_2_secret";
+
+pub const CONFIG_ENABLE_S3_BACKUP: &'static str = "enable_s3_backup";
+pub const CONFIG_ENABLE_S3_BACKUP_DEFAULT: bool = false;
+
+pub const CONFIG_BACKUP_PERIOD_MINUTES: &'static str = "backup_period_minutes";
+pub const CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT: u32 = 60;
+
+pub const CONFIG_BACKUP_RETENTION_PERIOD_DAYS: &'static str = "backup_retention_period_days";
+pub const CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT: u32 = 30;
+
+pub const CONFIG_S3_BACKUP_REGION: &'static str = "s3_2_region";
+pub const CONFIG_S3_BACKUP_ENDPOINT: &'static str = "s3_2_endpoint";
+pub const CONFIG_S3_BACKUP_BUCKET: &'static str = "s3_2_bucket";
+pub const CONFIG_S3_BACKUP_KEY: &'static str = "s3_2_key";
+pub const CONFIG_S3_BACKUP_SECRET: &'static str = "s3_2_secret";
