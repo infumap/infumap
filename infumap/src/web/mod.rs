@@ -99,6 +99,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     init_db_backup(
       config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)? as u32,
       config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)? as u32,
+      config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY)?.clone(),
       db.clone(), backup_store.clone());
   }
 
@@ -126,7 +127,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 }
 
 
-fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
+fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
   let _forever = task::spawn(async move {
     let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
     loop {
@@ -134,21 +135,21 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
       {
         let mut db = db.lock().await;
         let dirty_user_ids = db.all_dirty_user_ids();
-        debug!("Backing up db logs for {} users.", dirty_user_ids.len());
+        debug!("Backing up database logs for {} users.", dirty_user_ids.len());
         for user_id in dirty_user_ids {
-          match db.create_user_backup(&user_id).await {
+          match db.create_user_backup(&user_id, &encryption_key).await {
             Ok(backup_bytes) => {
               match storage_backup::put(backup_store.clone(), &user_id, backup_bytes).await {
                 Ok(s3_filename) => {
-                  info!("Backed up db logs for user '{}' to '{}'.", user_id, s3_filename);
+                  info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
                 },
                 Err(e) => {
-                  error!("Put db backup failed for user '{}': {}", user_id, e);
+                  error!("Database log backup failed for user '{}': {}", user_id, e);
                 }
               }
             },
             Err(e) => {
-              error!("Create db backup failed for user '{}': {}", user_id, e);
+              error!("Failed to create database log backup for user '{}': {}", user_id, e);
             }
           }
         }

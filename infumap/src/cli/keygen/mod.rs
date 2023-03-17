@@ -1,4 +1,4 @@
-// Copyright (C) 2022-2023 The Infumap Authors
+// Copyright (C) 2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod keygen;
-pub mod migrate;
-pub mod repair;
-pub mod restore;
+use clap::{App, ArgMatches};
+
+use crate::util::{infu::InfuResult, crypto::generate_key};
+
+
+pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
+  App::new("keygen")
+    .about("Create a new hex encoded 32 byte key suitable for use as a backup_encryption_key.")
+}
+
+pub fn execute<'a>(_sub_matches: &ArgMatches) -> InfuResult<()> {
+  println!("{}", generate_key());
+  Ok(())
+}

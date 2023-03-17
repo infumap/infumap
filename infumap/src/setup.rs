@@ -18,6 +18,7 @@ use std::os::unix::prelude::FileExt;
 use config::{Config, FileFormat};
 use log::{info, warn};
 use crate::config::*;
+use crate::util::crypto::generate_key;
 use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
@@ -106,7 +107,11 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
             }
           };
           let buf = include_bytes!("../default_settings.toml");
-          match f.write_all_at(buf, 0) {
+          let backup_encryption_key = generate_key();
+          let default_settings = String::from_utf8(buf.to_vec()).unwrap();
+          let default_settings = default_settings.replace("{{encryption_key}}", &backup_encryption_key);
+          
+          match f.write_all_at(default_settings.as_bytes(), 0) {
             Ok(_) => {
               info!("Created default settings file at ~/.infumap/settings.toml");
             },
@@ -163,6 +168,19 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
   let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR)?).unwrap()).await?;
   if num_created > 0 {
     warn!("Created {} cache subdirectories.", num_created);
+  }
+
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
+    match config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY) {
+      Err(_) => {
+        return Err("Backup encryption key must be set when backup is enabled.".into());
+      },
+      Ok(pw) => {
+        if pw.len() != 64 {
+          return Err("Invalid encryption key. You can use the infumap keygen cli command to create a valid one.".into());
+        }
+      }
+    }
   }
 
   match config.get_string(CONFIG_S3_BACKUP_BUCKET) {
@@ -247,6 +265,7 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
     info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)?);
     info!("  {} = {}", CONFIG_BACKUP_RETENTION_PERIOD_DAYS, config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)?);
+    info!("  {} = {}", CONFIG_BACKUP_ENCRYPTION_KEY, config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY)?);
     match config.get_string(CONFIG_S3_BACKUP_REGION) {
       Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, v); },
       Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, "<not set>"); }

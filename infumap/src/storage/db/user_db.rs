@@ -153,7 +153,7 @@ impl UserDb {
     self.store_by_id.iter().map(|u| u.0.clone()).collect::<Vec<String>>()
   }
 
-  pub async fn get_backup_size_for_user(&self, user_id: &str) -> InfuResult<u32> {
+  pub async fn get_log_size_bytes_for_user(&self, user_id: &str) -> InfuResult<u32> {
     let log_path = self.log_path(user_id)?;
     Ok(tokio::fs::metadata(log_path).await?.len() as u32)
   }
