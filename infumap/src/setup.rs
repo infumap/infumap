@@ -265,7 +265,7 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
     info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)?);
     info!("  {} = {}", CONFIG_BACKUP_RETENTION_PERIOD_DAYS, config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)?);
-    info!("  {} = {}", CONFIG_BACKUP_ENCRYPTION_KEY, config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY)?);
+    info!("  {} = {}", CONFIG_BACKUP_ENCRYPTION_KEY, "<redacted>");
     match config.get_string(CONFIG_S3_BACKUP_REGION) {
       Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, v); },
       Err(_) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, "<not set>"); }
