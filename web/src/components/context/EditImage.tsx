@@ -18,15 +18,21 @@
 
 import { Component } from "solid-js";
 import { server } from "../../server";
-import { ImageItem } from "../../store/desktop/items/image-item";
+import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { asImageItem, ImageItem } from "../../store/desktop/items/image-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { InfuButton } from "../library/InfuButton";
+import { InfuTextInput } from "../library/InfuTextInput";
 
 
 export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: ImageItem}) => {
   const userStore = useUserStore();
+  const desktopStore = useDesktopStore();
 
   const imageId = () => props.imageItem.id;
+
+  const handleTitleChange = (v: string) => { desktopStore.updateItem(imageId(), item => asImageItem(item).title = v); };
+  const handleTitleChanged = (v: string) => { server.updateItem(userStore.getUser(), desktopStore.getItem(imageId())!); }
 
   const deleteImage = async () => {
     await server.deleteItem(userStore.getUser(), imageId());
@@ -34,6 +40,7 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
 
   return (
     <div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.imageItem.title} onIncrementalChange={handleTitleChange} onChange={handleTitleChanged} /></div>
       <div><InfuButton text="delete" onClick={deleteImage} /></div>
     </div>
   );
