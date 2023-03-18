@@ -395,7 +395,8 @@ export function mouseUpHandler(
     case MouseAction.Moving:
       const overVes = mouseActionState.moveOverContainerVisualElement!;
       const moveOverContainerId = overVes.get().itemId;
-      if (moveOverContainerId != activeItem.parentId) {
+      const parentChanged = moveOverContainerId != activeItem.parentId;
+      if (parentChanged) {
         const prevParentId = activeItem.parentId;
         batch(() => {
           desktopStore.updateItem(activeItem.id, item => {
@@ -415,16 +416,15 @@ export function mouseUpHandler(
         });
       }
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-          mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-        console.log("move update sent to server");
+          mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y ||
+          parentChanged) {
         server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
       }
       break;
 
     case MouseAction.Resizing:
       if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
-         (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
-        console.log("resize update sent to server");
+          (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
         server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
       }
 
