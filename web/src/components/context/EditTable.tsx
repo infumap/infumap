@@ -18,15 +18,21 @@
 
 import { Component } from "solid-js";
 import { server } from "../../server";
-import { TableItem } from "../../store/desktop/items/table-item";
+import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { asTableItem, TableItem } from "../../store/desktop/items/table-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { InfuButton } from "../library/InfuButton";
+import { InfuTextInput } from "../library/InfuTextInput";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
   const userStore = useUserStore();
+  const desktopStore = useDesktopStore();
 
   let tableId = () => props.tableItem.id;
+
+  const handleTitleChange = (v: string) => { desktopStore.updateItem(tableId(), item => asTableItem(item).title = v); };
+  const handleTitleChanged = (v: string) => { server.updateItem(userStore.getUser(), desktopStore.getItem(tableId())!); }
 
   const deleteTable = async () => {
     await server.deleteItem(userStore.getUser(), tableId());
@@ -34,6 +40,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   return (
     <div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onIncrementalChange={handleTitleChange} onChange={handleTitleChanged} /></div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>
   );
