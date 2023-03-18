@@ -25,11 +25,17 @@ import { useUserStore } from "../../store/UserStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
+import { arrange } from "../../store/desktop/layout/arrange";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
+
+  const screenAspect = (): number => {
+    let aspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
+    return Math.round(aspect * 1000.0) / 1000.0;
+  }
 
   let pageId = () => props.pageItem.id;
 
@@ -37,15 +43,21 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     desktopStore.updateItem(pageId(), item => asPageItem(item).innerSpatialWidthGr = parseInt(v) * GRID_SIZE);
     server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
   };
-  const handleNaturalAspectChange = (v: string) => {
+  const handleNaturalAspectChange = async (v: string) => {
     desktopStore.updateItem(pageId(), item => asPageItem(item).naturalAspect = parseFloat(v));
-    server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
+    await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
   };
   const handleTitleChange = (v: string) => { desktopStore.updateItem(pageId(), item => asPageItem(item).title = v); };
   const handleTitleChanged = (v: string) => { server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!); }
 
   const deletePage = async () => {
     await server.deleteItem(userStore.getUser(), pageId());
+    arrange(desktopStore, userStore.getUser());
+  }
+
+  const setAspectToMatchScreen = async () => {
+    desktopStore.updateItem(pageId(), item => asPageItem(item).naturalAspect = screenAspect());
+    await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
   }
 
   return (
@@ -53,6 +65,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onIncrementalChange={handleTitleChange} onChange={handleTitleChanged} /></div>
       <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr / GRID_SIZE).toString()} onChange={handleBlockWidthChange} /></div>
       <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChange={handleNaturalAspectChange} /></div>
+      <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
       <ColorSelector item={props.pageItem} />
       <div><InfuButton text="delete" onClick={deletePage} /></div>
     </div>
