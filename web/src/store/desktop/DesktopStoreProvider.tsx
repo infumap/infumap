@@ -34,6 +34,7 @@ import { HEADER_HEIGHT_BL } from "../../components/items/Table";
 import { server } from "../../server";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { createVisualElementSignal, VisualElement, VisualElementSignal } from "./visual-element";
+import { initiateLoadChildItemsIfNotLoaded } from "./arrange/toplevel";
 
 
 export interface DesktopStoreContextModel {
@@ -47,18 +48,20 @@ export interface DesktopStoreContextModel {
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
 
   arrangeVisualElement: (visualElement: VisualElementSignal, user: User, updateChildren: boolean) => void,
-  arrange: (user: User) => void,
+  arrange_grid: (currentPage: PageItem, _user: User) => void,
 
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
+  setCurrentPageId: Setter<Uid | null>,
   currentPageId: Accessor<Uid | null>,
-  switchToPage: (id: Uid, user: User) => void,
 
-  childrenLoadInitiatedOrComplete: { [id: Uid]: boolean },
-
+  setTopLevelVisualElement: Setter<VisualElement | null>,
   getTopLevelVisualElement: Accessor<VisualElement | null>,
   getTopLevelVisualElementSignalNotNull: () => VisualElementSignal,
+
+  arrangeItemsInPage: (visualElementSignal: VisualElementSignal) => void,
+  arrangeItemsInTable: (visualElementSignal: VisualElementSignal) => void,
 }
 
 export interface DesktopStoreContextProps {
@@ -242,7 +245,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       if (updateChildren) {
         batch(() => {
           if (asPageItem(item).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-            initiateLoadChildItemsIfNotLoaded(user, item.id);
+            // initiateLoadChildItemsIfNotLoaded(user, item.id);
             arrangeItemsInPage(visualElementSignal);
           } else {
             if (visualElement.children.length != 0) {
@@ -370,148 +373,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     visualElementSignal.update(ve => { ve.children = tableVeChildren; });
   }
 
-
-  const arrange_spatialStretch = (currentPage: PageItem, user: User): void => {
-    let currentPageBoundsPx = desktopBoundsPx();
-
-    const desktopAspect = desktopBoundsPx().w / desktopBoundsPx().h;
-    const pageAspect = currentPage.naturalAspect;
-    // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
-    if (pageAspect / desktopAspect > 1.25) {
-      // page to scroll horizontally.
-      currentPageBoundsPx.w = Math.round(currentPageBoundsPx.h * pageAspect);
-    } else if (pageAspect / desktopAspect < 0.75) {
-      // page needs to scroll vertically.
-      currentPageBoundsPx.h = Math.round(currentPageBoundsPx.w / pageAspect);
-    }
-
-    let topLevelVisualElement: VisualElement = {
-      itemType: ITEM_TYPE_PAGE,
-      isTopLevel: true,
-      itemId: currentPage.id,
-      boundsPx: currentPageBoundsPx,
-      resizingFromBoundsPx: null,
-      childAreaBoundsPx: currentPageBoundsPx,
-      hitboxes: [],
-      children: [],
-      attachments: [],
-      parent: null
-    };
-    setTopLevelVisualElement(topLevelVisualElement);
-    let topLevelChildren: Array<VisualElementSignal> = [];
-
-    let currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage, getItem);
-    currentPage.computed_children.map(childId => getItem(childId)!)
-      .forEach(childItem => {
-        let geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, getItem);
-        let ves: VisualElementSignal;
-
-        // ### page
-        if (isPage(childItem)) {
-          let pageItem = asPageItem(childItem);
-          // This test does not depend on pixel size, so is invariant over display devices.
-          if (pageItem.spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-            initiateLoadChildItemsIfNotLoaded(user, pageItem.id);
-            let pageVe: VisualElement = {
-              itemType: ITEM_TYPE_PAGE,
-              isTopLevel: true,
-              itemId: childItem.id,
-              boundsPx: geometry.boundsPx,
-              resizingFromBoundsPx: null,
-              childAreaBoundsPx: geometry.boundsPx,
-              hitboxes: geometry.hitboxes,
-              children: [],
-              attachments: [],
-              parent: getTopLevelVisualElementSignalNotNull()
-            };
-            ves = createVisualElementSignal(pageVe);
-            arrangeItemsInPage(ves);
-          } else {
-            ves = createVisualElementSignal({
-              itemType: ITEM_TYPE_PAGE,
-              isTopLevel: true,
-              itemId: childItem.id,
-              boundsPx: geometry.boundsPx,
-              resizingFromBoundsPx: null,
-              childAreaBoundsPx: null,
-              hitboxes: geometry.hitboxes,
-              children: [],
-              attachments: [],
-              parent: getTopLevelVisualElementSignalNotNull()
-            });
-          }
-
-        // ### table
-        } else if (isTable(childItem)) {
-          initiateLoadChildItemsIfNotLoaded(user, childItem.id);
-          let tableItem = asTableItem(childItem);
-          const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
-          const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
-          const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-          let tableVe: VisualElement = {
-            itemType: ITEM_TYPE_TABLE,
-            isTopLevel: true,
-            itemId: tableItem.id,
-            boundsPx: geometry.boundsPx,
-            resizingFromBoundsPx: null,
-            childAreaBoundsPx: {
-              x: geometry.boundsPx.x, y: geometry.boundsPx.y + headerHeightPx,
-              w: geometry.boundsPx.w, h: geometry.boundsPx.h - headerHeightPx
-            },
-            hitboxes: geometry.hitboxes,
-            children: [],
-            attachments: [],
-            parent: getTopLevelVisualElementSignalNotNull()
-          }
-          ves = createVisualElementSignal(tableVe);
-          arrangeItemsInTable(ves);
-
-        // ### other
-        } else {
-          ves = createVisualElementSignal({
-            itemType: childItem.itemType,
-            isTopLevel: true,
-            itemId: childItem.id,
-            boundsPx: geometry.boundsPx,
-            resizingFromBoundsPx: null,
-            childAreaBoundsPx: null,
-            hitboxes: geometry.hitboxes,
-            children: [],
-            attachments: [],
-            parent: getTopLevelVisualElementSignalNotNull()
-          });
-        }
-
-        topLevelChildren.push(ves);
-
-        if (isAttachmentsItem(childItem)) {
-          asAttachmentsItem(childItem).computed_attachments.map(attachmentId => getItem(attachmentId)!).forEach(attachmentItem => {
-            const geom = calcGeometryOfAttachmentItem(attachmentItem, geometry.boundsPx, 0, getItem);
-            let aves = createVisualElementSignal({
-              itemType: attachmentItem.itemType,
-              isTopLevel: true,
-              itemId: attachmentItem.id,
-              boundsPx: geom.boundsPx,
-              resizingFromBoundsPx: null,
-              childAreaBoundsPx: null,
-              hitboxes: geom.hitboxes,
-              children: [],
-              attachments: [],
-              parent: ves
-            });
-            ves.update(prev => { prev.attachments.push(aves); });
-          });
-        }
-
-      });
-
-    setTopLevelVisualElement(prev => {
-      prev!.children = topLevelChildren;
-      return prev;
-    });
-  }
-
-
   const arrange_grid = (currentPage: PageItem, _user: User): void => {
     const pageBoundsPx = desktopBoundsPx();
 
@@ -579,44 +440,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     });
   }
 
-
-  const arrange = (user: User): void => {
-    if (currentPageId() == null) { return; }
-    initiateLoadChildItemsIfNotLoaded(user, currentPageId()!);
-    let currentPage = asPageItem(getItem(currentPageId()!)!);
-    if (currentPage.arrangeAlgorithm == "grid") {
-      arrange_grid(currentPage, user);
-    } else {
-      arrange_spatialStretch(currentPage, user);
-    }
-  }
-
-
-  const initiateLoadChildItemsIfNotLoaded = (user: User, containerId: string) => {
-    if (childrenLoadInitiatedOrComplete[containerId]) {
-      return;
-    }
-    childrenLoadInitiatedOrComplete[containerId] = true;
-    server.fetchChildrenWithTheirAttachments(user, containerId)
-      .catch(e => {
-        console.log(`Error occurred feching items for '${containerId}': ${e}.`);
-      })
-      .then(result => {
-        if (result != null) {
-          batch(() => {
-            setChildItems(containerId, result.items);
-            Object.keys(result.attachments).forEach(id => {
-              setAttachmentItems(id, result.attachments[id]);
-            });
-            arrange(user);
-          });
-        } else {
-          console.log(`No items were fetched for '${containerId}'.`);
-        }
-      });
-  }
-
-
   const newOrderingAtEndOfChildren = (parentId: Uid): Uint8Array => {
     let parent = asContainerItem(items[parentId].item());
     let children = parent.computed_children.map(c => items[c].item().ordering);
@@ -637,31 +460,17 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
-  const switchToPage = (id: Uid, user: User) => {
-    batch(() => {
-      setCurrentPageId(id);
-      arrange(user);
-      var page = asPageItem(getItem(id)!);
-      // TODO (HIGH): get rid of this horrible hack!
-      let desktopEl = window.document.getElementById("desktop")!;
-      desktopEl.scrollTop = 0;
-      desktopEl.scrollLeft = 0;
-      // TODO (MEDIUM): retain these.
-      page.setScrollXPx(0);
-      page.setScrollYPx(0);
-    });
-  }
-
   const value: DesktopStoreContextModel = {
-    currentPageId, switchToPage,
+    currentPageId, setCurrentPageId,
     desktopBoundsPx, resetDesktopSizePx,
     setRootId, setChildItems, setAttachmentItems,
     updateItem, updateContainerItem,
     getItem, addItem, newOrderingAtEndOfChildren,
-    arrangeVisualElement, arrange,
-    childrenLoadInitiatedOrComplete,
+    arrangeVisualElement, arrange_grid,
     getTopLevelVisualElement,
     getTopLevelVisualElementSignalNotNull,
+    arrangeItemsInPage, arrangeItemsInTable,
+    setTopLevelVisualElement
   };
 
   return (

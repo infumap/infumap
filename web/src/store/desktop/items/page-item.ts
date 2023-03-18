@@ -34,6 +34,7 @@ import { PositionalMixin } from './base/positional-item';
 import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
+import { arrange, switchToPage } from '../arrange/toplevel';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -220,7 +221,7 @@ export const calcBlockPositionGr = (page: PageItem, desktopPosPx: Vector): Vecto
 
 
 export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  desktopStore.switchToPage(pageItem.id, userStore.getUser());
+  switchToPage(desktopStore, pageItem.id, userStore.getUser());
 }
 
 
@@ -229,9 +230,10 @@ export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopSt
     let li = newLinkItem(pageItem.ownerId, pageItem.parentId, Child, newOrdering(), pageItem.id);
     li.spatialWidthGr = 20 * GRID_SIZE;
     desktopStore.addItem(li);
-    desktopStore.arrange(userStore.getUser());
+    arrange(desktopStore, userStore.getUser());
   });
 }
+
 
 export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable {
   return ({

@@ -33,6 +33,7 @@ import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
 import { findNearestContainerVes, VisualElementSignal } from "./store/desktop/visual-element";
+import { arrange, switchToPage } from "./store/desktop/arrange/toplevel";
 
 
 const MOUSE_LEFT = 0;
@@ -201,7 +202,7 @@ export function mouseRightDownHandler(
     parentId = desktopStore.getItem(parentId)!.parentId;
     if (loopCount++ > 10) { panic(); }
   }
-  desktopStore.switchToPage(parentId, userStore.getUser());
+  switchToPage(desktopStore, parentId, userStore.getUser());
 }
 
 
@@ -410,7 +411,7 @@ export function mouseUpHandler(
           desktopStore.updateContainerItem(prevParentId, item => {
             item.computed_children = item.computed_children.filter(i => i != activeItem.id);
           });
-          desktopStore.arrange(userStore.getUser());
+          arrange(desktopStore, userStore.getUser());
         });
       }
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||

@@ -19,6 +19,7 @@
 import { useNavigate } from "@solidjs/router";
 import { Component, onMount } from "solid-js";
 import { server } from "../server";
+import { childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/arrange/toplevel";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
@@ -44,13 +45,13 @@ export const Main: Component = () => {
     try {
       const rootId = user!.rootPageId!;
       const result = await server.fetchChildrenWithTheirAttachments(user!, rootId);
-      desktopStore.childrenLoadInitiatedOrComplete[rootId] = true;
+      childrenLoadInitiatedOrComplete[rootId] = true;
 
       desktopStore.setChildItems(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {
         desktopStore.setAttachmentItems(id, result.attachments[id]);
       });
-      desktopStore.switchToPage(rootId, userStore.getUser());
+      switchToPage(desktopStore, rootId, userStore.getUser());
 
     } catch (e) {
       console.log("An error occurred loading root page, clearing user session.", e);

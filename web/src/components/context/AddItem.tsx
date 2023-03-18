@@ -28,6 +28,7 @@ import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../store/desktop/items/table-item";
 import { Item } from "../../store/desktop/items/base/item";
+import { arrange } from "../../store/desktop/arrange/toplevel";
 
 
 type ContexMenuProps = {
@@ -46,7 +47,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       newPage.spatialPositionGr = calcBlockPositionGr(asPageItem(props.contextItem!), props.desktopPosPx);
       batch(() => {
         desktopStore.addItem(newPage);
-        desktopStore.arrange(userStore.getUser());
+        arrange(desktopStore, userStore.getUser());
       })
       server.addItem(userStore.getUser(), newPage, null);
       generalStore.setContextMenuInfo(null);
@@ -59,7 +60,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       newNote.spatialPositionGr = calcBlockPositionGr(asPageItem(props.contextItem!), props.desktopPosPx);
       batch(() => {
         desktopStore.addItem(newNote);
-        desktopStore.arrange(userStore.getUser());
+        arrange(desktopStore, userStore.getUser());
       })
       server.addItem(userStore.getUser(), newNote, null);
       generalStore.setContextMenuInfo(null);
@@ -72,7 +73,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       newTable.spatialPositionGr = calcBlockPositionGr(asPageItem(props.contextItem!), props.desktopPosPx);
       batch(() => {
         desktopStore.addItem(newTable);
-        desktopStore.arrange(userStore.getUser());
+        arrange(desktopStore, userStore.getUser());
       });
       server.addItem(userStore.getUser(), newTable, null);
       generalStore.setContextMenuInfo(null);

@@ -30,6 +30,7 @@ import { asPageItem } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { VisualElementOnDesktop } from "./VisualElementOnDesktop";
 import { VisualElementChildren } from "./VisualElementChildren";
+import { arrange } from "../store/desktop/arrange/toplevel";
 
 
 export const Desktop: Component = () => {
@@ -75,7 +76,7 @@ export const Desktop: Component = () => {
 
   const windowResizeListener = () => {
     desktopStore.resetDesktopSizePx();
-    desktopStore.arrange(userStore.getUser());
+    arrange(desktopStore, userStore.getUser());
   }
 
   const contextMenuListener = (ev: Event) => {

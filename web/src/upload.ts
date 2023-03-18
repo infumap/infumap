@@ -30,6 +30,7 @@ import { currentUnixTimeSeconds } from "./util/lang";
 import { newUid } from "./util/uid";
 import { batch } from "solid-js";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
+import { arrange } from "./store/desktop/arrange/toplevel";
 
 
 export async function handleUpload(
@@ -96,7 +97,7 @@ export async function handleUpload(
           // TODO (MEDIUM): immediately put an item in the UI, have image update later.
           batch(() => {
             desktopStore.addItem(returnedItem);
-            desktopStore.arrange(userStore.getUser());
+            arrange(desktopStore, userStore.getUser());
           })
         }
         img.src = reader.result as string;
@@ -129,7 +130,7 @@ export async function handleUpload(
       await server.addItem(userStore.getUser(), fileItem, base64Data);
       batch(() => {
         desktopStore.addItem(fileItem);
-        desktopStore.arrange(userStore.getUser());
+        arrange(desktopStore, userStore.getUser());
       });
     }
   }
