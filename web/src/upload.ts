@@ -30,7 +30,7 @@ import { currentUnixTimeSeconds } from "./util/lang";
 import { newUid } from "./util/uid";
 import { batch } from "solid-js";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
-import { arrange } from "./store/desktop/arrange/toplevel";
+import { arrange } from "./store/desktop/layout/arrange";
 
 
 export async function handleUpload(

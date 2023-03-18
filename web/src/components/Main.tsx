@@ -19,7 +19,7 @@
 import { useNavigate } from "@solidjs/router";
 import { Component, onMount } from "solid-js";
 import { server } from "../server";
-import { childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/arrange/toplevel";
+import { childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/layout/arrange";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";

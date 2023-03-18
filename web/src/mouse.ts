@@ -33,7 +33,7 @@ import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
 import { findNearestContainerVes, VisualElementSignal } from "./store/desktop/visual-element";
-import { arrange, switchToPage } from "./store/desktop/arrange/toplevel";
+import { arrange, arrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
 
 
 const MOUSE_LEFT = 0;
@@ -292,7 +292,7 @@ export function mouseMoveHandler(
         });
       }
 
-      desktopStore.arrangeVisualElement(mouseActionState!.activeVisualElement, userStore.getUser(), true);
+      arrangeVisualElement(desktopStore, mouseActionState!.activeVisualElement, userStore.getUser(), true);
     });
 
   // ### Moving
@@ -328,7 +328,7 @@ export function mouseMoveHandler(
       item.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
     });
 
-    desktopStore.arrangeVisualElement(mouseActionState!.activeVisualElement, userStore.getUser(), false);
+    arrangeVisualElement(desktopStore, mouseActionState!.activeVisualElement, userStore.getUser(), false);
   }
 }
 
@@ -372,8 +372,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel,
       prev.parent = tableParentVes;
     });
     tableParentVes.update(prev => prev.children = [mouseActionState!.activeVisualElement, ...prev.children]);
-    desktopStore.arrangeVisualElement(tableVes, userStore.getUser(), true);
-    desktopStore.arrangeVisualElement(mouseActionState!.activeVisualElement, userStore.getUser(), false);
+    arrangeVisualElement(desktopStore, tableVes, userStore.getUser(), true);
+    arrangeVisualElement(desktopStore, mouseActionState!.activeVisualElement, userStore.getUser(), false);
   });
 }
 

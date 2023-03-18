@@ -34,7 +34,7 @@ import { PositionalMixin } from './base/positional-item';
 import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
-import { arrange, switchToPage } from '../arrange/toplevel';
+import { arrange, switchToPage } from '../layout/arrange';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {

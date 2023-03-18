@@ -19,22 +19,15 @@
 import { Accessor, batch, createSignal, JSX, Setter } from "solid-js";
 import { createContext, useContext } from "solid-js";
 import { panic, throwExpression } from "../../util/lang";
-import { Item, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./items/base/item";
-import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "./items/base/item-polymorphism";
+import { Item } from "./items/base/item";
 import { EMPTY_UID, Uid } from "../../util/uid";
 import { Attachment, Child, NoParent } from "./relationship-to-parent";
 import { asContainerItem, ContainerItem, isContainer } from "./items/base/container-item";
 import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
-import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from "../../util/geometry";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, TOOLBAR_WIDTH } from "../../constants";
-import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage, PageItem } from "./items/page-item";
-import { User } from "../UserStoreProvider";
-import { asTableItem, isTable } from "./items/table-item";
-import { HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { server } from "../../server";
-import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
-import { createVisualElementSignal, VisualElement, VisualElementSignal } from "./visual-element";
-import { initiateLoadChildItemsIfNotLoaded } from "./arrange/toplevel";
+import { BoundingBox, Dimensions } from "../../util/geometry";
+import { TOOLBAR_WIDTH } from "../../constants";
+import { AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
+import { VisualElement, VisualElementSignal } from "./visual-element";
 
 
 export interface DesktopStoreContextModel {
@@ -47,9 +40,6 @@ export interface DesktopStoreContextModel {
   addItem: (item: Item) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
 
-  arrangeVisualElement: (visualElement: VisualElementSignal, user: User, updateChildren: boolean) => void,
-  arrange_grid: (currentPage: PageItem, _user: User) => void,
-
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
@@ -59,9 +49,6 @@ export interface DesktopStoreContextModel {
   setTopLevelVisualElement: Setter<VisualElement | null>,
   getTopLevelVisualElement: Accessor<VisualElement | null>,
   getTopLevelVisualElementSignalNotNull: () => VisualElementSignal,
-
-  arrangeItemsInPage: (visualElementSignal: VisualElementSignal) => void,
-  arrangeItemsInTable: (visualElementSignal: VisualElementSignal) => void,
 }
 
 export interface DesktopStoreContextProps {
@@ -219,227 +206,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
-  /**
-   * (Re)arranges a visual element that is a child of the top level page visual element.
-   * 
-   * @param visualElementSignal the visual element to arrange.
-   * @param user in case a load of the child items of the element needs to be initiated.
-   */
-  const arrangeVisualElement = (visualElementSignal: VisualElementSignal, user: User, updateChildren: boolean) => {
-    const visualElement = visualElementSignal.get();
-    if (visualElement.parent == null) { panic(); }
-    if (visualElement.parent.get().itemId != getTopLevelVisualElement()!.itemId) { panic(); }
-
-    const parentBoundsPx = zeroTopLeft(cloneBoundingBox(visualElement.parent!.get().boundsPx)!);
-    const item = getItem(visualElement.itemId)!;
-    const parentPage = asPageItem(getItem(visualElement.parent!.get().itemId)!);
-    const parentInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage, getItem);
-    const newGeometry = calcGeometryOfItemInPage(item, parentBoundsPx, parentInnerDimensionsBl, true, getItem);
-
-    if (isPage(visualElement)) {
-      visualElementSignal.update(ve => {
-        ve.boundsPx = newGeometry.boundsPx;
-        ve.childAreaBoundsPx = newGeometry.boundsPx;
-        ve.hitboxes = newGeometry.hitboxes;
-      });
-      if (updateChildren) {
-        batch(() => {
-          if (asPageItem(item).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-            // initiateLoadChildItemsIfNotLoaded(user, item.id);
-            arrangeItemsInPage(visualElementSignal);
-          } else {
-            if (visualElement.children.length != 0) {
-              visualElementSignal.update(ve => { ve.children = []; });
-            }
-          }
-        });
-      }
-
-    } else if (isTable(visualElement)) {
-      const tableItem = asTableItem(getItem(visualElement.itemId)!);
-      const boundsPx = visualElement.boundsPx;
-      const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
-      const blockSizePx = { w: boundsPx.w / sizeBl.w, h: boundsPx.h / sizeBl.h };
-      const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-      const childAreaBoundsPx = {
-        x: boundsPx.x, y: boundsPx.y + headerHeightPx,
-        w: boundsPx.w, h: boundsPx.h - headerHeightPx
-      };
-      visualElementSignal.update(ve => {
-        ve.boundsPx = newGeometry.boundsPx;
-        ve.childAreaBoundsPx = childAreaBoundsPx
-        ve.hitboxes = newGeometry.hitboxes;
-      });
-      if (updateChildren) {
-        batch(() => {
-          arrangeItemsInTable(visualElementSignal);
-        });
-      }
-
-    } else {
-      visualElementSignal.update(ve => {
-        ve.boundsPx = newGeometry.boundsPx;
-        ve.hitboxes = newGeometry.hitboxes;
-      });
-    }
-  };
-
-
-  const arrangeItemsInPage = (visualElementSignal: VisualElementSignal) => {
-    const visualElement = visualElementSignal.get();
-    const pageItem = asPageItem(getItem(visualElement.itemId)!);
-
-    let children: Array<VisualElementSignal> = [];
-
-    const innerBoundsPx = zeroTopLeft(cloneBoundingBox(visualElement.boundsPx)!);
-    const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem, getItem);
-
-    pageItem.computed_children.forEach(childId => {
-      const childItem = getItem(childId)!;
-      const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, true, getItem);
-      children.push(createVisualElementSignal({
-        itemType: childItem.itemType,
-        isTopLevel: false,
-        itemId: childItem.id,
-        boundsPx: geometry.boundsPx,
-        resizingFromBoundsPx: null,
-        childAreaBoundsPx: null,
-        hitboxes: geometry.hitboxes,
-        children: [],
-        attachments: [],
-        parent: visualElementSignal
-      }));
-    });
-
-    visualElementSignal.update(ve => { ve.children = children; });
-  }
-
-
-  const arrangeItemsInTable = (visualElementSignal: VisualElementSignal) => {
-    const visualElement = visualElementSignal.get();
-    const tableItem = asTableItem(getItem(visualElement.itemId)!);
-
-    const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
-    const blockSizePx = { w: visualElement.boundsPx.w / sizeBl.w, h: visualElement.boundsPx.h / sizeBl.h };
-
-    let tableVeChildren: Array<VisualElementSignal> = [];
-    for (let idx=0; idx<tableItem.computed_children.length; ++idx) {
-      const childId = tableItem.computed_children[idx];
-      const childItem = getItem(childId)!;
-      const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, getItem);
-
-      let tableItemVe = createVisualElementSignal({
-        itemType: childItem.itemType,
-        isTopLevel: false,
-        itemId: childItem.id,
-        boundsPx: geometry.boundsPx,
-        resizingFromBoundsPx: null,
-        hitboxes: geometry.hitboxes,
-        children: [],
-        attachments: [],
-        childAreaBoundsPx: null,
-        parent: visualElementSignal
-      });
-      tableVeChildren.push(tableItemVe);
-      let attachments: Array<VisualElementSignal> = [];
-
-      if (isAttachmentsItem(childItem)) {
-        asAttachmentsItem(childItem).computed_attachments.map(attachmentId => getItem(attachmentId)!).forEach(attachmentItem => {
-          const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, 8, sizeBl.w, getItem);
-          const boundsPx = {
-            x: geometry.boundsPx.x,
-            y: 0.0,
-            w: geometry.boundsPx.w,
-            h: geometry.boundsPx.h,
-          };
-          let ve = createVisualElementSignal({
-            itemType: attachmentItem.itemType,
-            isTopLevel: false,
-            itemId: attachmentItem.id,
-            boundsPx,
-            resizingFromBoundsPx: null,
-            hitboxes: geometry.hitboxes,
-            children: [],
-            attachments: [],
-            childAreaBoundsPx: null,
-            parent: tableItemVe
-          });
-          attachments.push(ve);
-        });
-      }
-      tableItemVe.update(prev => { prev.attachments = attachments; });
-    }
-
-    visualElementSignal.update(ve => { ve.children = tableVeChildren; });
-  }
-
-  const arrange_grid = (currentPage: PageItem, _user: User): void => {
-    const pageBoundsPx = desktopBoundsPx();
-
-    const numCols = 10;
-    const colAspect = 1.5;
-    const cellWPx = pageBoundsPx.w / numCols;
-    const cellHPx = pageBoundsPx.w / numCols * (1.0/colAspect);
-    const marginPx = cellWPx * 0.01;
-
-    let topLevelVisualElement: VisualElement = {
-      itemType: ITEM_TYPE_PAGE,
-      isTopLevel: true,
-      itemId: currentPage.id,
-      boundsPx: cloneBoundingBox(pageBoundsPx)!,
-      resizingFromBoundsPx: null,
-      childAreaBoundsPx: cloneBoundingBox(pageBoundsPx)!,
-      hitboxes: [],
-      children: [],
-      attachments: [],
-      parent: getTopLevelVisualElementSignalNotNull()
-    };
-    let topLevelChildren: Array<VisualElementSignal> = [];
-    setTopLevelVisualElement(topLevelVisualElement);
-
-    const children = currentPage.computed_children.map(childId => getItem(childId)!);
-    for (let i=0; i<children.length; ++i) {
-      const item = children[i];
-      const col = i % numCols;
-      const row = Math.floor(i / numCols);
-      const cellBoundsPx = {
-        x: col * cellWPx + marginPx,
-        y: row * cellHPx + marginPx,
-        w: cellWPx - marginPx * 2.0,
-        h: cellHPx - marginPx * 2.0
-      };
-
-      let geometry = calcGeometryOfItemInCell(item, cellBoundsPx, getItem);
-      if (!isContainer(item)) {
-        let ve: VisualElement = {
-          itemType: item.itemType,
-          isTopLevel: true,
-          itemId: item.id,
-          boundsPx: geometry.boundsPx,
-          resizingFromBoundsPx: null,
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
-          childAreaBoundsPx: null,
-          parent: getTopLevelVisualElementSignalNotNull()
-        };
-        topLevelChildren.push(createVisualElementSignal(ve));
-      } else {
-        console.log("TODO: child containers in grid pages.");
-      }
-    }
-
-    const numRows = Math.ceil(children.length / numCols);
-    let pageHeightPx = numRows * cellHPx;
-
-    setTopLevelVisualElement(prev => {
-      prev!.children = topLevelChildren;
-      prev!.boundsPx.h = pageHeightPx;
-      prev!.childAreaBoundsPx!.h = pageHeightPx;
-      return prev;
-    });
-  }
-
   const newOrderingAtEndOfChildren = (parentId: Uid): Uint8Array => {
     let parent = asContainerItem(items[parentId].item());
     let children = parent.computed_children.map(c => items[c].item().ordering);
@@ -466,10 +232,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setRootId, setChildItems, setAttachmentItems,
     updateItem, updateContainerItem,
     getItem, addItem, newOrderingAtEndOfChildren,
-    arrangeVisualElement, arrange_grid,
     getTopLevelVisualElement,
     getTopLevelVisualElementSignalNotNull,
-    arrangeItemsInPage, arrangeItemsInTable,
     setTopLevelVisualElement
   };
 

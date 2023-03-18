@@ -28,7 +28,7 @@ import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../store/desktop/items/table-item";
 import { Item } from "../../store/desktop/items/base/item";
-import { arrange } from "../../store/desktop/arrange/toplevel";
+import { arrange } from "../../store/desktop/layout/arrange";
 
 
 type ContexMenuProps = {

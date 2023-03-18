@@ -30,7 +30,7 @@ import { asPageItem } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { VisualElementOnDesktop } from "./VisualElementOnDesktop";
 import { VisualElementChildren } from "./VisualElementChildren";
-import { arrange } from "../store/desktop/arrange/toplevel";
+import { arrange } from "../store/desktop/layout/arrange";
 
 
 export const Desktop: Component = () => {
