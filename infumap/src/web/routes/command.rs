@@ -97,6 +97,8 @@ pub async fn serve_command_route(
     }
   };
 
+  debug!("'{}' command received for user '{}'.", request.command, session.user_id);
+
   let response_data_maybe = match request.command.as_str() {
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
@@ -120,6 +122,7 @@ pub async fn serve_command_route(
   METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "true"]).inc();
   let r = SendResponse { success: true, json_data: response_data };
 
+  debug!("Successfully processed a '{}' command for user '{}'.", request.command, session.user_id);
   json_response(&r)
 }
 

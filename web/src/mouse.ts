@@ -416,6 +416,7 @@ export function mouseUpHandler(
       }
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
           mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+        console.log("move update sent to server");
         server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
       }
       break;
@@ -423,6 +424,7 @@ export function mouseUpHandler(
     case MouseAction.Resizing:
       if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
          (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
+        console.log("resize update sent to server");
         server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
       }
 
