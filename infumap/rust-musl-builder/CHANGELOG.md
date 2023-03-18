@@ -1,3 +1,11 @@
+# **********
+*rust-musl-builder was copied from here: https://github.com/emk/rust-musl-builder*
+
+*Dockerfile was then modified by the Infumap Authors to remove some unnecessary dependencies.*
+
+*For more information on building Infumap, refer to: [DEVELOPER.md](/DEVELOPER.md).*
+# **********
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

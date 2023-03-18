@@ -6,7 +6,9 @@ Execute the build script in the repo root:
 ./build.sh
 ```
 
-### Additional Information
+This will create a fully self-contained `infumap` executable here: `./infumap/target/release/infumap`.
+
+## Additional Information
 
 The `build.sh` script generates the various client side artifacts as well as Rust code for route handlers to serve them (using the `web/generate_dist_handlers.py` script) before building the server executable `./infumap/target/release/infumap`. This executable is fully self contained - to deploy Infumap, you simply need to copy this one file.
 
@@ -14,18 +16,7 @@ The `build.sh` script takes an optional argument which is the rust platform targ
 
 Sadly, [it seems](https://github.com/libp2p/rust-libp2p/discussions/1975) that support for TLS in Rust depends on a platform specific build chain (specifically because of [ring](https://github.com/briansmith/ring)). Further, when I attempt to build Infumap using [this popular](https://github.com/emk/rust-musl-builder) Docker image on my M1 mac, it panics. So this is all very inconvenient for setting up a multi-target build process.
 
-#### `x86_64-unknown-linux-gnu` (glibc) vs `x86_64-unknown-linux-musl`
-
-Notes:
-- A glibc build has a dynamic dependency on glibc and will not work on platforms that don't use this (e.g. Alpine).
-- The musl version statically links the runtime, so will work on pretty much any modern linux distro.
-- The glibc target is a 'tier 1' supported Rust target, the musl target is not. However, the probability of problems seems very low.
-- There are conflicting reports on the relative performance.
-- The musl implementation is "leaner" and "cleaner".
-
-For simplicity, we will take the approach of doing only a musl build for releases because it is the most portable.
-
-#### Creating a `x86_64-unknown-linux-musl` Build On Debian 11
+### Creating a `x86_64-unknown-linux-musl` Build On Debian 11
 
 Get the latest infumap source:
 
@@ -104,6 +95,18 @@ Copy the release build to the home directory for convenience:
 ```
 cp ~/git/infumap/infumap/target/x86_64-unknown-linux-musl/release/infumap ~/
 ```
+
+
+### `x86_64-unknown-linux-gnu` (glibc) vs `x86_64-unknown-linux-musl`
+
+Notes:
+- A glibc build has a dynamic dependency on glibc and will not work on platforms that don't use this (e.g. Alpine).
+- The musl version statically links the runtime, so will work on pretty much any modern linux distro.
+- The glibc target is a 'tier 1' supported Rust target, the musl target is not. However, the probability of problems seems very low.
+- There are conflicting reports on the relative performance.
+- The musl implementation is "leaner" and "cleaner".
+
+For simplicity, we will take the approach of doing only a musl build for releases because it is the most portable.
 
 
 # Iterative Development

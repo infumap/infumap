@@ -97,7 +97,7 @@ pub async fn serve_command_route(
     }
   };
 
-  debug!("'{}' command received for user '{}'.", request.command, session.user_id);
+  debug!("Received '{}' command for user '{}'.", request.command, session.user_id);
 
   let response_data_maybe = match request.command.as_str() {
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
