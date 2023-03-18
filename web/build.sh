@@ -20,5 +20,6 @@ pushd "$(dirname "$0")"
 rm -rf ./dist
 npm run build
 python3 generate_dist_handlers.py
+rm -rf ../infumap/dist
 mv dist ../infumap
 popd
