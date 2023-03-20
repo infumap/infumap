@@ -89,6 +89,8 @@ export const arrange = (desktopStore: DesktopStoreContextModel, user: User): voi
 
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void => {
+  return;
+
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
@@ -256,8 +258,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
 
   const currentPageInnerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(currentPage(), desktopStore.getItem);
 
-  const topLevelChildren = () => {
-    return currentPage().computed_children
+  const topLevelChildren: Array<VisualElementFn> =
+    currentPage().computed_children
       .map(childId => {
         const childItem = () => desktopStore.getItem(childId)!;
         const geometry = () => calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
@@ -382,7 +384,6 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           //         attachments.push(ve);
           //       });
               }
-
             };
             return tableVeChildren;
           }
@@ -407,9 +408,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           return itemVe;
         }
       });
-  };
 
-  topLevelVisualElement.children = topLevelChildren;
+  topLevelVisualElement.children = () => topLevelChildren;
 
   desktopStore.setTopLevelVisualElementFn(topLevelVisualElement);
 }
