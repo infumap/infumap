@@ -30,7 +30,10 @@ import { asTableItem } from "../../store/desktop/items/table-item";
 export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => {
+    console.log(`page boundsPx ${props.visualElement.itemId}`);
+    return props.visualElement.boundsPx();
+  };
   const popupClickBoundsPx = () => {
     return ({
       x: boundsPx().w / 3.0,

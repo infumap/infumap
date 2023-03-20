@@ -208,7 +208,6 @@ export function mouseRightDownHandler(
 
 export function mouseMoveHandler(
     desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel,
     ev: MouseEvent) {
 
   if (desktopStore.currentPageId() == null) { return; }
@@ -248,7 +247,7 @@ export function mouseMoveHandler(
         mouseActionState.action = MouseAction.Resizing;
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         if (isTable(desktopStore.getItem(activeItem.parentId)!)) {
-          moveActiveItemOutOfTable(desktopStore, userStore);
+          moveActiveItemOutOfTable(desktopStore);
         }
         mouseActionState.startWidthBl = null;
         mouseActionState.startPosBl = {
@@ -343,7 +342,7 @@ function findVisualElement(desktopStore: DesktopStoreContextModel, id: Uid): Vis
   return findVisualElementUnder(desktopStore.getTopLevelVisualElement()!, id);
 }
 
-export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
+export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeItemId = mouseActionState!.activeVisualElement!.itemId;
   const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);

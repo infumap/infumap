@@ -64,7 +64,7 @@ export const Desktop: Component = () => {
     ev.stopPropagation();
     ev.preventDefault();
     lastMouseMoveEvent = ev;
-    mouseMoveHandler(desktopStore, userStore, ev);
+    mouseMoveHandler(desktopStore, ev);
   }
 
   const mouseUpListener = (ev: MouseEvent) => {
