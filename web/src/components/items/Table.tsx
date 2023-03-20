@@ -20,15 +20,15 @@ import { Component, For, onMount, Show } from "solid-js";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { VisualElementFn } from "../../store/desktop/visual-element";
-import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
+import { VisualElement } from "../../store/desktop/visual-element";
+import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
 
 
-export const TableFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+export const TableFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
@@ -69,7 +69,7 @@ export const TableFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualE
 }
 
 
-const TableChildItems: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+const TableChildItems: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
 
   let outerDiv: HTMLDivElement | undefined;
@@ -103,7 +103,7 @@ const TableChildItems: Component<VisualElementOnDesktopPropsFn> = (props: Visual
       visibleChildrenIds.push(children[i]);
     }
 
-    const drawChild = (child: VisualElementFn) => {
+    const drawChild = (child: VisualElement) => {
       // const item = desktopStore.getItem(childId)!;
       // let attachments: Array<Item> = [];
       // if (isAttachmentsItem(item)) {
@@ -141,7 +141,7 @@ const TableChildItems: Component<VisualElementOnDesktopPropsFn> = (props: Visual
 }
 
 
-export const TableInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
+export const TableInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

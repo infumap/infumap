@@ -27,7 +27,7 @@ import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
 import { AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
-import { VisualElementFn } from "./visual-element";
+import { VisualElement } from "./visual-element";
 
 
 export interface DesktopStoreContextModel {
@@ -46,8 +46,8 @@ export interface DesktopStoreContextModel {
   setCurrentPageId: Setter<Uid | null>,
   currentPageId: Accessor<Uid | null>,
 
-  setTopLevelVisualElementFn: Setter<VisualElementFn | null>,
-  getTopLevelVisualElementFn: Accessor<VisualElementFn | null>,
+  setTopLevelVisualElement: Setter<VisualElement | null>,
+  getTopLevelVisualElement: Accessor<VisualElement | null>,
 }
 
 export interface DesktopStoreContextProps {
@@ -74,7 +74,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   let items: { [id: Uid]: ItemSignal } = {};
   const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
-  const [getTopLevelVisualElementFn, setTopLevelVisualElementFn] = createSignal<VisualElementFn | null>(null, { equals: false });
+  const [getTopLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement | null>(null, { equals: false });
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
 
   const updateItem = (id: Uid, f: (item: Item) => void): void => {
@@ -208,8 +208,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setRootId, setChildItems, setAttachmentItems,
     updateItem, updateContainerItem,
     getItem, addItem, newOrderingAtEndOfChildren,
-    getTopLevelVisualElementFn,
-    setTopLevelVisualElementFn,
+    getTopLevelVisualElement,
+    setTopLevelVisualElement,
   };
 
   return (

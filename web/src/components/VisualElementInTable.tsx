@@ -24,7 +24,7 @@ import { isNote } from "../store/desktop/items/note-item";
 import { isPage } from "../store/desktop/items/page-item";
 import { isRating } from "../store/desktop/items/rating-item";
 import { isTable } from "../store/desktop/items/table-item";
-import { VisualElementFn } from "../store/desktop/visual-element";
+import { VisualElement } from "../store/desktop/visual-element";
 import { FileInTableFn } from "./items/File";
 import { ImageInTableFn } from "./items/Image";
 import { LinkInTableFn } from "./items/Link";
@@ -34,12 +34,12 @@ import { RatingInTableFn } from "./items/Rating";
 import { TableInTableFn } from "./items/Table";
 
 
-export interface VisualElementInTablePropsFn {
-  visualElement: VisualElementFn,
-  parentVisualElement: VisualElementFn,
+export interface VisualElementInTableProps {
+  visualElement: VisualElement,
+  parentVisualElement: VisualElement,
 }
 
-export const VisualElementInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
+export const VisualElementInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return (
     <Switch fallback={<div>unkown item type '{props.visualElement.itemType}'</div>}>
       <Match when={isPage(props.visualElement)}><PageInTableFn {...props} /></Match>

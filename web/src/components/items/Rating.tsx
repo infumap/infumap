@@ -19,13 +19,13 @@
 import { Component } from "solid-js";
 import { asRatingItem } from "../../store/desktop/items/rating-item";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
-import { VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementInTablePropsFn } from "../VisualElementInTable";
+import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const RatingFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+export const RatingFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
@@ -39,7 +39,7 @@ export const RatingFn: Component<VisualElementOnDesktopPropsFn> = (props: Visual
 }
 
 
-export const RatingInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
+export const RatingInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

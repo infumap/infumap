@@ -22,12 +22,12 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../c
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
-import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const PageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
@@ -145,7 +145,7 @@ export const PageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualEl
 }
 
 
-export const PageInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
+export const PageInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

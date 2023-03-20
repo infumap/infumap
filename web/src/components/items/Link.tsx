@@ -17,8 +17,8 @@
 */
 
 import { Component } from "solid-js";
-import { VisualElementInTablePropsFn } from "../VisualElementInTable";
-import { VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
+import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 // export const Link: Component<ItemOnDesktopProps> = (props: ItemOnDesktopProps) => {
@@ -31,7 +31,7 @@ import { VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
 //   );
 // }
 
-export const LinkFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+export const LinkFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return <></>;
 }
 
@@ -45,6 +45,6 @@ export const LinkFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualEl
 //   );
 // }
 
-export const LinkInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
+export const LinkInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return <></>;
 }

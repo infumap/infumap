@@ -22,12 +22,12 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { quantizeBoundingBox } from "../../util/geometry";
-import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
+import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 
-export const ImageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+export const ImageFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const quantizedBoundsPx = () => quantizeBoundingBox(props.visualElement.boundsPx());
@@ -80,7 +80,7 @@ export const ImageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualE
 }
 
 
-export const ImageInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
+export const ImageInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

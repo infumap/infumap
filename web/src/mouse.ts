@@ -32,7 +32,7 @@ import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { findNearestContainerVe, VisualElementFn } from "./store/desktop/visual-element";
+import { findNearestContainerVe, VisualElement } from "./store/desktop/visual-element";
 import { arrange, switchToPage } from "./store/desktop/layout/arrange";
 
 
@@ -47,7 +47,7 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElement: VisualElementFn
+  visualElement: VisualElement
 }
 
 export function getHitInfo(
@@ -55,7 +55,7 @@ export function getHitInfo(
     posOnDesktopPx: Vector,
     ignore: Array<Uid>): HitInfo {
 
-  const topLevelVisualElement = desktopStore.getTopLevelVisualElementFn()!;
+  const topLevelVisualElement = desktopStore.getTopLevelVisualElement()!;
   const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement.itemId)!);
   const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx(), y: topLevelPage.scrollYPx() });
 
@@ -114,15 +114,15 @@ export function getHitInfo(
 
   return {
     hitboxType: HitboxType.None,
-    visualElement: desktopStore.getTopLevelVisualElementFn()!,
+    visualElement: desktopStore.getTopLevelVisualElement()!,
   };
 }
 
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElement: VisualElementFn,
-  moveOverContainerVisualElement: VisualElementFn | null,
+  activeVisualElement: VisualElement,
+  moveOverContainerVisualElement: VisualElement | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -324,7 +324,7 @@ export function mouseMoveHandler(
   }
 }
 
-function findVisualElementUnder(visualElement: VisualElementFn, id: Uid): VisualElementFn | null {
+function findVisualElementUnder(visualElement: VisualElement, id: Uid): VisualElement | null {
   if (visualElement.itemId == id) { return visualElement; }
   let children = visualElement.children();
   for (let i=0; i<children.length; ++i) {
@@ -339,8 +339,8 @@ function findVisualElementUnder(visualElement: VisualElementFn, id: Uid): Visual
   return null;
 }
 
-function findVisualElement(desktopStore: DesktopStoreContextModel, id: Uid): VisualElementFn | null {
-  return findVisualElementUnder(desktopStore.getTopLevelVisualElementFn()!, id);
+function findVisualElement(desktopStore: DesktopStoreContextModel, id: Uid): VisualElement | null {
+  return findVisualElementUnder(desktopStore.getTopLevelVisualElement()!, id);
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {

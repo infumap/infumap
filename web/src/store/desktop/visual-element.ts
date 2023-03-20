@@ -23,7 +23,7 @@ import { Hitbox } from "./hitbox";
 import { isContainer } from "./items/base/container-item";
 
 
-export interface VisualElementFn {
+export interface VisualElement {
   itemType: string,
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
@@ -31,13 +31,13 @@ export interface VisualElementFn {
   boundsPx: () => BoundingBox, // relative to containing visual element childAreaBoundsPx.
   childAreaBoundsPx: () => BoundingBox | null,
   hitboxes: () => Array<Hitbox>, // higher index => takes precedence.
-  children: () => Array<VisualElementFn>,
-  attachments: () => Array<VisualElementFn>,
-  parent: () => VisualElementFn | null,
+  children: () => Array<VisualElement>,
+  attachments: () => Array<VisualElement>,
+  parent: () => VisualElement | null,
 }
 
 
-export function findNearestContainerVe(visualElement: VisualElementFn): VisualElementFn {
+export function findNearestContainerVe(visualElement: VisualElement): VisualElement {
   if (isContainer(visualElement)) { return visualElement; }
   const parent = visualElement.parent();
   if (parent == null) { panic(); }

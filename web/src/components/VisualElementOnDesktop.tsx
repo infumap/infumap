@@ -31,14 +31,14 @@ import { ImageFn } from "./items/Image";
 import { FileFn } from "./items/File";
 import { LinkFn } from "./items/Link";
 import { isLink } from "../store/desktop/items/link-item";
-import { VisualElementFn } from "../store/desktop/visual-element";
+import { VisualElement } from "../store/desktop/visual-element";
 
 
-export interface VisualElementOnDesktopPropsFn {
-  visualElement: VisualElementFn
+export interface VisualElementOnDesktopProps {
+  visualElement: VisualElement
 }
 
-export const VisualElementOnDesktopFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
+export const VisualElementOnDesktopFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return (
     <Switch fallback={<div>unkown item type '{props.visualElement.itemType}'</div>}>
       <Match when={isPage(props.visualElement)}><PageFn {...props} /></Match>

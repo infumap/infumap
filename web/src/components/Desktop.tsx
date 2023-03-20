@@ -132,18 +132,10 @@ export const Desktop: Component = () => {
     pageItem.setScrollXPx(desktopDiv!.scrollLeft);
   }
 
-  function drawFn() {
-    return (
-      <Show when={desktopStore.getTopLevelVisualElementFn() != null}>
-        <PageFn visualElement={desktopStore.getTopLevelVisualElementFn()!} />
-      </Show>
-    );
-  }
-
   function overflowPolicy() {
     // Child items may extend outside the bounds of the page, even if the page is the same size as the desktop.
     // If it wasn't for this, overflow policy could always be auto.
-    let topLevelVisualElement = desktopStore.getTopLevelVisualElementFn();
+    let topLevelVisualElement = desktopStore.getTopLevelVisualElement();
     if (topLevelVisualElement == null) { return ""; }
 
     let desktopPx = desktopStore.desktopBoundsPx();
@@ -167,7 +159,9 @@ export const Desktop: Component = () => {
          class="absolute top-0 bottom-0 right-0 select-none outline-none"
          style={`left: ${TOOLBAR_WIDTH}px; ${overflowPolicy()}`}
          onscroll={scrollHandler}>
-      {drawFn()}
+      <Show when={desktopStore.getTopLevelVisualElement() != null}>
+        <PageFn visualElement={desktopStore.getTopLevelVisualElement()!} />
+      </Show>
       <ContextMenu />
       <EditDialog />
     </div>

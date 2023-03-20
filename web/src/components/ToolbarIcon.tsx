@@ -18,6 +18,7 @@
 
 import { onCleanup, onMount } from "solid-js";
 
+
 export default function ToolbarIcon(props: { icon: string; margin: number; clickHandler: () => void }) {
   let outerDivElement : HTMLDivElement | undefined;
 
