@@ -16,51 +16,31 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, createSignal, Setter } from "solid-js";
 import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { Hitbox } from "./hitbox";
 import { isContainer } from "./items/base/container-item";
-import { ItemTypeMixin } from "./items/base/item";
 
 
-export interface VisualElement extends ItemTypeMixin {
+export interface VisualElementFn {
+  itemType: string,
   itemId: Uid,
-  boundsPx: BoundingBox, // relative to containing visual element childAreaBoundsPx.
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
-  childAreaBoundsPx: BoundingBox | null,
-  hitboxes: Array<Hitbox>, // higher index => takes precedence.
-  children: Array<VisualElementSignal>,
-  attachments: Array<VisualElementSignal>,
-  parent: VisualElementSignal | null,
   isTopLevel: boolean,
-};
-
-
-export interface VisualElementSignal {
-  get: Accessor<VisualElement>,
-  set: Setter<VisualElement>,
-  update: (f: (visualElement: VisualElement) => void) => void,
+  boundsPx: () => BoundingBox, // relative to containing visual element childAreaBoundsPx.
+  childAreaBoundsPx: () => BoundingBox | null,
+  hitboxes: () => Array<Hitbox>, // higher index => takes precedence.
+  children: () => Array<VisualElementFn>,
+  attachments: () => Array<VisualElementFn>,
+  parent: () => VisualElementFn | null,
 }
 
 
-export function createVisualElementSignal(initialVisualElement: VisualElement) {
-  const [get, set] = createSignal(initialVisualElement, { equals: false });
-  const update = (f: (visualElement: VisualElement) => void) => {
-    set(prev => {
-      f(prev);
-      return prev;
-    })
-  }
-  return ({ get, set, update });
-}
-
-
-export function findNearestContainerVes(visualElementSignal: VisualElementSignal): VisualElementSignal {
-  if (isContainer(visualElementSignal.get())) { return visualElementSignal; }
-  const parent = visualElementSignal.get().parent;
+export function findNearestContainerVe(visualElement: VisualElementFn): VisualElementFn {
+  if (isContainer(visualElement)) { return visualElement; }
+  const parent = visualElement.parent();
   if (parent == null) { panic(); }
-  if (isContainer(parent.get())) { return parent; }
+  if (isContainer(parent)) { return parent; }
   panic();
 }

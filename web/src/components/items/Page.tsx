@@ -22,15 +22,15 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../c
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
+import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const PageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const popupClickBoundsPx = () => {
     return ({
       x: boundsPx().w / 3.0,
@@ -77,8 +77,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
             </div>
           </div>
         </Show>
-        <For each={props.visualElement.attachments}>{attachmentSignal =>
-          <VisualElementOnDesktop visualElement={attachmentSignal.get()} />
+        <For each={props.visualElement.attachments()}>{attachmentVe =>
+          <VisualElementOnDesktopFn visualElement={attachmentVe} />
         }</For>
       </div>
     );
@@ -88,6 +88,9 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     return (
       <div class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <For each={props.visualElement.children()}>{childVe =>
+          <VisualElementOnDesktopFn visualElement={childVe} />
+        }</For>
       </div>
     );
   }
@@ -101,6 +104,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       bg = `background-color: #88000088;`;
     }
     return (
+      <>
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
         <Show when={pageItem().computed_mouseIsOver}>
@@ -112,6 +116,14 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
           </div>
         </div>
       </div>
+      <div class="absolute"
+           style={`left: ${props.visualElement.childAreaBoundsPx()!.x}px; top: ${props.visualElement.childAreaBoundsPx()!.y}px; ` +
+                  `width: ${props.visualElement.childAreaBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx()!.h}px;`}>
+        <For each={props.visualElement.children()}>{childVe =>
+          <VisualElementOnDesktopFn visualElement={childVe} />
+        }</For>
+      </div>
+      </>
     );
   }
 
@@ -131,10 +143,10 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 }
 
 
-export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const PageInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -147,8 +159,8 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
                  `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
                  `transform: scale(${0.7}); transform-origin: center center;`}>
-        <For each={props.visualElement.attachments}>{attachmentSignal =>
-          <VisualElementInTable visualElement={attachmentSignal.get()} parentVisualElement={props.parentVisualElement} />
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

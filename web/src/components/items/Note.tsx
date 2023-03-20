@@ -19,17 +19,17 @@
 import { Component, createMemo, For, Show } from "solid-js";
 import { asNoteItem, calcNoteSizeForSpatialBl } from "../../store/desktop/items/note-item";
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const NoteFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
   const desktopStore = useDesktopStore();
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
-  const hitboxes = () => props.visualElement.hitboxes;
+  const boundsPx = props.visualElement.boundsPx;
+  const hitboxes = props.visualElement.hitboxes;
   const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem(), () => null));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
@@ -48,18 +48,18 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
           <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
         </Show>
       </div>
-      <For each={props.visualElement.attachments}>{attachmentSignal =>
-        <VisualElementOnDesktop visualElement={attachmentSignal.get()} />
+      <For each={props.visualElement.attachments()}>{attachment =>
+        <VisualElementOnDesktopFn visualElement={attachment} />
       }</For>
     </div>
   );
 }
 
 
-export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const NoteInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
   const desktopStore = useDesktopStore();
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -73,8 +73,8 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-sticky-note`} />
-        <For each={props.visualElement.attachments}>{attachmentSignal =>
-          <VisualElementInTable visualElement={attachmentSignal.get()} parentVisualElement={props.parentVisualElement} />
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

@@ -27,7 +27,7 @@ import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
 import { AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
-import { VisualElement, VisualElementSignal } from "./visual-element";
+import { VisualElementFn } from "./visual-element";
 
 
 export interface DesktopStoreContextModel {
@@ -46,9 +46,8 @@ export interface DesktopStoreContextModel {
   setCurrentPageId: Setter<Uid | null>,
   currentPageId: Accessor<Uid | null>,
 
-  setTopLevelVisualElement: Setter<VisualElement | null>,
-  getTopLevelVisualElement: Accessor<VisualElement | null>,
-  getTopLevelVisualElementSignalNotNull: () => VisualElementSignal,
+  setTopLevelVisualElementFn: Setter<VisualElementFn | null>,
+  getTopLevelVisualElementFn: Accessor<VisualElementFn | null>,
 }
 
 export interface DesktopStoreContextProps {
@@ -73,33 +72,10 @@ function createItemSignal(item: Item): ItemSignal {
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [_rootId, setRootId] = createSignal<Uid | null>(null, { equals: false });
   let items: { [id: Uid]: ItemSignal } = {};
-  let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
   const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
-  const [getTopLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement | null>(null, { equals: false });
+  const [getTopLevelVisualElementFn, setTopLevelVisualElementFn] = createSignal<VisualElementFn | null>(null, { equals: false });
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
-
-  const getTopLevelVisualElementSignalNotNull = () => {
-    return {
-      get: () => {
-        const result = getTopLevelVisualElement();
-        if (result == null) { panic(); }
-        return result!;
-      },
-      set: (visualElement: any) => { // TODO (LOW): work out typing.
-        if (visualElement == null) { panic(); }
-        setTopLevelVisualElement(visualElement);
-        return visualElement;
-      },
-      update: (f: (visualElement: VisualElement) => void) => {
-        setTopLevelVisualElement(prev => {
-          if (prev == null) { panic(); }
-          f(prev);
-          return prev;
-        });
-      }
-    };
-  }
 
   const updateItem = (id: Uid, f: (item: Item) => void): void => {
     if (items.hasOwnProperty(id)) {
@@ -232,9 +208,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setRootId, setChildItems, setAttachmentItems,
     updateItem, updateContainerItem,
     getItem, addItem, newOrderingAtEndOfChildren,
-    getTopLevelVisualElement,
-    getTopLevelVisualElementSignalNotNull,
-    setTopLevelVisualElement
+    getTopLevelVisualElementFn,
+    setTopLevelVisualElementFn,
   };
 
   return (

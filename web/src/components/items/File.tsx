@@ -19,16 +19,16 @@
 import { Component, createMemo, For } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../store/desktop/items/file-item";
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const FileFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
   const desktopStore = useDesktopStore();
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem(), () => null));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
@@ -44,18 +44,18 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                   `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
         <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
       </div>
-      <For each={props.visualElement.attachments}>{attachmentSignal =>
-        <VisualElementOnDesktop visualElement={attachmentSignal.get()} />
+      <For each={props.visualElement.attachments()}>{attachment =>
+        <VisualElementOnDesktopFn visualElement={attachment} />
       }</For>
     </div>
   );
 }
 
 
-export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const FileInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
   const desktopStore = useDesktopStore();
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -69,8 +69,8 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-file`} />
-        <For each={props.visualElement.attachments}>{attachmentSignal =>
-          <VisualElementInTable visualElement={attachmentSignal.get()} parentVisualElement={props.parentVisualElement} />
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

@@ -32,8 +32,8 @@ import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { findNearestContainerVes, VisualElementSignal } from "./store/desktop/visual-element";
-import { arrange, arrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
+import { findNearestContainerVe, VisualElementFn } from "./store/desktop/visual-element";
+import { arrange, switchToPage } from "./store/desktop/layout/arrange";
 
 
 const MOUSE_LEFT = 0;
@@ -47,7 +47,7 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElementSignal: VisualElementSignal
+  visualElement: VisualElementFn
 }
 
 export function getHitInfo(
@@ -55,57 +55,57 @@ export function getHitInfo(
     posOnDesktopPx: Vector,
     ignore: Array<Uid>): HitInfo {
 
-  const topLevelVisualElement = desktopStore.getTopLevelVisualElement()!;
+  const topLevelVisualElement = desktopStore.getTopLevelVisualElementFn()!;
   const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement.itemId)!);
   const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx(), y: topLevelPage.scrollYPx() });
 
-  for (let i=0; i<topLevelVisualElement.children.length; ++i) {
-    const child = topLevelVisualElement.children[i].get();
-    if (isInside(posReltiveToTopLevelVisualElementPx, child.boundsPx)) {
-      if (isTable(child) && isInside(posReltiveToTopLevelVisualElementPx, child.childAreaBoundsPx!)) {
+  for (let i=0; i<topLevelVisualElement.children().length; ++i) {
+    const child = topLevelVisualElement.children()[i];
+    if (isInside(posReltiveToTopLevelVisualElementPx, child.boundsPx())) {
+      if (isTable(child) && isInside(posReltiveToTopLevelVisualElementPx, child.childAreaBoundsPx()!)) {
         // resize hitbox of table takes precedence over everything in the child area.
-        let resizeHitbox = child.hitboxes[child.hitboxes.length-1];
+        let resizeHitbox = child.hitboxes()[child.hitboxes().length-1];
         if (resizeHitbox.type != HitboxType.Resize) { panic(); }
-        if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(child.boundsPx!)))) {
+        if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(child.boundsPx()!)))) {
           return ({
             hitboxType: HitboxType.Resize,
-            visualElementSignal: topLevelVisualElement.children[i],
+            visualElement: topLevelVisualElement.children()[i],
           });
         }
 
         let tableItem = asTableItem(desktopStore.getItem(child.itemId)!);
-        for (let j=0; j<child.children.length; ++j) {
-          const tableChild = child.children[j].get();
+        for (let j=0; j<child.children().length; ++j) {
+          const tableChild = child.children()[j];
           const posRelativeToTableChildAreaPx = subtract(
             posReltiveToTopLevelVisualElementPx,
-            { x: child.childAreaBoundsPx!.x, y: child.childAreaBoundsPx!.y - tableItem.scrollYPx() }
+            { x: child.childAreaBoundsPx()!.x, y: child.childAreaBoundsPx()!.y - tableItem.scrollYPx() }
           );
-          if (isInside(posRelativeToTableChildAreaPx, tableChild.boundsPx)) {
+          if (isInside(posRelativeToTableChildAreaPx, tableChild.boundsPx())) {
             let hitboxType = HitboxType.None;
-            for (let k=tableChild.hitboxes.length-1; k>=0; --k) {
-              if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChild.hitboxes[k].boundsPx, getTopLeft(tableChild.boundsPx)))) {
-                hitboxType |= tableChild.hitboxes[k].type;
+            for (let k=tableChild.hitboxes().length-1; k>=0; --k) {
+              if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChild.hitboxes()[k].boundsPx, getTopLeft(tableChild.boundsPx())))) {
+                hitboxType |= tableChild.hitboxes()[k].type;
               }
             }
             if (!ignore.find(a => a == tableChild.itemId)) {
               return ({
                 hitboxType,
-                visualElementSignal: child.children[j]
+                visualElement: child.children()[j]
               });
             }
           }
         }
       } else {
         let hitboxType = HitboxType.None;
-        for (let j=child.hitboxes.length-1; j>=0; --j) {
-          if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(child.hitboxes[j].boundsPx, getTopLeft(child.boundsPx)))) {
-            hitboxType |= child.hitboxes[j].type;
+        for (let j=child.hitboxes().length-1; j>=0; --j) {
+          if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(child.hitboxes()[j].boundsPx, getTopLeft(child.boundsPx())))) {
+            hitboxType |= child.hitboxes()[j].type;
           }
         }
         if (!ignore.find(a => a == child.itemId)) {
           return ({
             hitboxType,
-            visualElementSignal: topLevelVisualElement.children[i],
+            visualElement: topLevelVisualElement.children()[i],
           });
         }
       }
@@ -114,15 +114,15 @@ export function getHitInfo(
 
   return {
     hitboxType: HitboxType.None,
-    visualElementSignal: desktopStore.getTopLevelVisualElementSignalNotNull(),
+    visualElement: desktopStore.getTopLevelVisualElementFn()!,
   };
 }
 
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElement: VisualElementSignal,
-  moveOverContainerVisualElement: VisualElementSignal | null,
+  activeVisualElement: VisualElementFn,
+  moveOverContainerVisualElement: VisualElementFn | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -172,7 +172,7 @@ export function mouseLeftDownHandler(
   let startPx = desktopPxFromMouseEvent(ev);
 
   mouseActionState = {
-    activeVisualElement: hitInfo.visualElementSignal,
+    activeVisualElement: hitInfo.visualElement,
     moveOverContainerVisualElement: null,
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
@@ -215,7 +215,7 @@ export function mouseMoveHandler(
 
   if (mouseActionState == null) {
     let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-    let overItem = desktopStore.getItem(currentHitInfo.visualElementSignal!.get().itemId)!;
+    let overItem = desktopStore.getItem(currentHitInfo.visualElement!.itemId)!;
     if (overItem.id != lastMouseOverId) {
       batch(() => {
         if (lastMouseOverId != null) {
@@ -235,7 +235,7 @@ export function mouseMoveHandler(
 
   const deltaPx = subtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
 
-  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.get().itemId)!;
+  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.itemId)!;
 
   if (mouseActionState.action == MouseAction.Ambiguous) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
@@ -245,9 +245,6 @@ export function mouseMoveHandler(
         if (isYSizableItem(activeItem)) {
           mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
         }
-        mouseActionState.activeVisualElement.update(ve => {
-          ve.resizingFromBoundsPx = ve.boundsPx;
-        });
         mouseActionState.action = MouseAction.Resizing;
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         if (isTable(desktopStore.getItem(activeItem.parentId)!)) {
@@ -268,8 +265,8 @@ export function mouseMoveHandler(
   }
 
   const deltaBl = {
-    x: deltaPx.x * calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState.activeVisualElement.get().boundsPx.w,
-    y: deltaPx.y * calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState.activeVisualElement.get().boundsPx.h
+    x: deltaPx.x * calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState.activeVisualElement.boundsPx().w,
+    y: deltaPx.y * calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState.activeVisualElement.boundsPx().h
   };
 
   // ### Resizing
@@ -291,28 +288,25 @@ export function mouseMoveHandler(
           asYSizableItem(item).spatialHeightGr = newHeightBl * GRID_SIZE;
         });
       }
-
-      arrangeVisualElement(desktopStore, mouseActionState!.activeVisualElement, userStore.getUser(), true);
     });
 
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
     const overHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
-    const overVes = overHitInfo.visualElementSignal;
-    const overContainerVes = findNearestContainerVes(overVes);
-    const overContainerVe = overContainerVes.get();
+    const overVes = overHitInfo.visualElement;
+    const overContainerVe = findNearestContainerVe(overVes);
 
     if (mouseActionState.moveOverContainerVisualElement == null ||
-        mouseActionState.moveOverContainerVisualElement!.get() != overContainerVe) {
+        mouseActionState.moveOverContainerVisualElement! != overContainerVe) {
       if (mouseActionState.moveOverContainerVisualElement != null) {
-        desktopStore.updateContainerItem(mouseActionState.moveOverContainerVisualElement!.get().itemId, item => {
+        desktopStore.updateContainerItem(mouseActionState.moveOverContainerVisualElement!.itemId, item => {
           item.computed_movingItemIsOver = false;
         });
       }
       desktopStore.updateContainerItem(overContainerVe.itemId, item => {
         item.computed_movingItemIsOver = true;
       });
-      mouseActionState.moveOverContainerVisualElement = overContainerVes;
+      mouseActionState.moveOverContainerVisualElement = overContainerVe;
       if (isTable(overContainerVe)) {
         console.log("over table");
         // TODO (HIGH): update table item here with mouse over position.
@@ -327,54 +321,61 @@ export function mouseMoveHandler(
     desktopStore.updateItem(activeItem.id, item => {
       item.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
     });
-
-    arrangeVisualElement(desktopStore, mouseActionState!.activeVisualElement, userStore.getUser(), false);
   }
 }
 
+function findVisualElementUnder(visualElement: VisualElementFn, id: Uid): VisualElementFn | null {
+  if (visualElement.itemId == id) { return visualElement; }
+  let children = visualElement.children();
+  for (let i=0; i<children.length; ++i) {
+    let r = findVisualElementUnder(children[i], id);
+    if (r != null) { return r; }
+  }
+  let attachments = visualElement.attachments();
+  for (let i=0; i<attachments.length; ++i) {
+    let r = findVisualElementUnder(attachments[i], id);
+    if (r != null) { return r; }
+  }
+  return null;
+}
+
+function findVisualElement(desktopStore: DesktopStoreContextModel, id: Uid): VisualElementFn | null {
+  return findVisualElementUnder(desktopStore.getTopLevelVisualElementFn()!, id);
+}
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
-  const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.get().itemId)!;
+  const activeItemId = mouseActionState!.activeVisualElement!.itemId;
+  const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
-  let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.get().boundsPx);
+  let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx());
   itemPosInTablePx.y -= tableItem.scrollYPx();
-  const tableVes = mouseActionState!.activeVisualElement!.get().parent!;
-  const tableParentVes = tableVes.get().parent!;
-  const tablePosInPagePx = getTopLeft(tableVes.get().childAreaBoundsPx!);
+  const tableVe = mouseActionState!.activeVisualElement!.parent()!;
+  const tableParentVe = tableVe.parent()!;
+  const tablePosInPagePx = getTopLeft(tableVe.childAreaBoundsPx()!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVes.get().boundsPx.w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVes.get().boundsPx.h * calcPageInnerSpatialDimensionsBl(tableParentPage, desktopStore.getItem).h * GRID_SIZE
+    x: itemPosInPagePx.x / tableParentVe.boundsPx().w * tableParentPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / tableParentVe.boundsPx().h * calcPageInnerSpatialDimensionsBl(tableParentPage, desktopStore.getItem).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
   };
   batch(() => {
-    // 1. Update the item tree.
-    desktopStore.updateItem(activeItem.id, item => {
-      item.parentId = tableParentPage.id;
-      item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
-      item.spatialPositionGr = itemPosInPageQuantizedGr;
-    });
     desktopStore.updateContainerItem(tableParentPage.id, item => {
       item.computed_children = [activeItem.id, ...item.computed_children];
     });
     desktopStore.updateContainerItem(tableItem.id, item => {
       item.computed_children = item.computed_children.filter(childItem => childItem != activeItem.id);
     });
-    // 2. Update the visual element tree.
-    mouseActionState!.activeVisualElement.get().parent!.update(prev => {
-      prev.children = prev.children.filter(ve => ve.get().itemId != activeItem.id);
+    desktopStore.updateItem(activeItem.id, item => {
+      item.parentId = tableParentPage.id;
+      item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
+      item.spatialPositionGr = itemPosInPageQuantizedGr;
     });
-    mouseActionState!.activeVisualElement.update(prev => {
-      prev.parent = tableParentVes;
-    });
-    tableParentVes.update(prev => prev.children = [mouseActionState!.activeVisualElement, ...prev.children]);
-    arrangeVisualElement(desktopStore, tableVes, userStore.getUser(), true);
-    arrangeVisualElement(desktopStore, mouseActionState!.activeVisualElement, userStore.getUser(), false);
   });
+  mouseActionState!.activeVisualElement = findVisualElement(desktopStore, activeItemId)!;
 }
 
 export function mouseUpHandler(
@@ -383,10 +384,10 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.get().itemId)!;
+  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.itemId)!;
 
   if (mouseActionState.moveOverContainerVisualElement != null) {
-    desktopStore.updateContainerItem(mouseActionState.moveOverContainerVisualElement!.get().itemId, item => {
+    desktopStore.updateContainerItem(mouseActionState.moveOverContainerVisualElement!.itemId, item => {
       item.computed_movingItemIsOver = false;
     });
   }
@@ -394,7 +395,7 @@ export function mouseUpHandler(
   switch (mouseActionState.action) {
     case MouseAction.Moving:
       const overVes = mouseActionState.moveOverContainerVisualElement!;
-      const moveOverContainerId = overVes.get().itemId;
+      const moveOverContainerId = overVes.itemId;
       const parentChanged = moveOverContainerId != activeItem.parentId;
       if (parentChanged) {
         const prevParentId = activeItem.parentId;
@@ -428,9 +429,9 @@ export function mouseUpHandler(
         server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
       }
 
-      mouseActionState.activeVisualElement.update(ve => {
-        ve.resizingFromBoundsPx = null;
-      });
+      // mouseActionState.activeVisualElement.update(ve => {
+      //   ve.resizingFromBoundsPx = null;
+      // });
       break;
 
     case MouseAction.Ambiguous:

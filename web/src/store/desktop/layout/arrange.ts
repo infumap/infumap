@@ -21,29 +21,17 @@ import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
 import { cloneBoundingBox, zeroTopLeft } from "../../../util/geometry";
-import { panic } from "../../../util/lang";
 import { Uid } from "../../../util/uid";
 import { User } from "../../UserStoreProvider";
 import { DesktopStoreContextModel } from "../DesktopStoreProvider";
-import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { isAttachmentsItem } from "../items/base/attachments-item";
 import { isContainer } from "../items/base/container-item";
 import { ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
-import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
-import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage, PageItem } from "../items/page-item";
+import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
+import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { createVisualElementSignal, VisualElement, VisualElementSignal } from "../visual-element";
+import { VisualElementFn } from "../visual-element";
 
-
-export const arrange = (desktopStore: DesktopStoreContextModel, user: User): void => {
-  if (desktopStore.currentPageId() == null) { return; }
-  initiateLoadChildItemsIfNotLoaded(desktopStore, user, desktopStore.currentPageId()!);
-  let currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
-  if (currentPage.arrangeAlgorithm == "grid") {
-    arrange_grid(desktopStore, currentPage, user);
-  } else {
-    arrange_spatialStretch(desktopStore, currentPage, user);
-  }
-}
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, user: User) => {
   batch(() => {
@@ -59,6 +47,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, us
     page.setScrollYPx(0);
   });
 }
+
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
@@ -87,366 +76,340 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 }
 
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, currentPage: PageItem, user: User): void => {
-  let currentPageBoundsPx = desktopStore.desktopBoundsPx();
-
-  const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
-  const pageAspect = currentPage.naturalAspect;
-  // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
-  if (pageAspect / desktopAspect > 1.25) {
-    // page to scroll horizontally.
-    currentPageBoundsPx.w = Math.round(currentPageBoundsPx.h * pageAspect);
-  } else if (pageAspect / desktopAspect < 0.75) {
-    // page needs to scroll vertically.
-    currentPageBoundsPx.h = Math.round(currentPageBoundsPx.w / pageAspect);
-  }
-
-  let topLevelVisualElement: VisualElement = {
-    itemType: ITEM_TYPE_PAGE,
-    isTopLevel: true,
-    itemId: currentPage.id,
-    boundsPx: currentPageBoundsPx,
-    resizingFromBoundsPx: null,
-    childAreaBoundsPx: currentPageBoundsPx,
-    hitboxes: [],
-    children: [],
-    attachments: [],
-    parent: null
-  };
-  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
-  let topLevelChildren: Array<VisualElementSignal> = [];
-
-  let currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage, desktopStore.getItem);
-  currentPage.computed_children.map(childId => desktopStore.getItem(childId)!)
-    .forEach(childItem => {
-      let geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
-      let ves: VisualElementSignal;
-
-      // ### page
-      if (isPage(childItem)) {
-        let pageItem = asPageItem(childItem);
-        // This test does not depend on pixel size, so is invariant over display devices.
-        if (pageItem.spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, pageItem.id);
-          let pageVe: VisualElement = {
-            itemType: ITEM_TYPE_PAGE,
-            isTopLevel: true,
-            itemId: childItem.id,
-            boundsPx: geometry.boundsPx,
-            resizingFromBoundsPx: null,
-            childAreaBoundsPx: geometry.boundsPx,
-            hitboxes: geometry.hitboxes,
-            children: [],
-            attachments: [],
-            parent: desktopStore.getTopLevelVisualElementSignalNotNull()
-          };
-          ves = createVisualElementSignal(pageVe);
-          arrangeItemsInPage(desktopStore, ves);
-        } else {
-          ves = createVisualElementSignal({
-            itemType: ITEM_TYPE_PAGE,
-            isTopLevel: true,
-            itemId: childItem.id,
-            boundsPx: geometry.boundsPx,
-            resizingFromBoundsPx: null,
-            childAreaBoundsPx: null,
-            hitboxes: geometry.hitboxes,
-            children: [],
-            attachments: [],
-            parent: desktopStore.getTopLevelVisualElementSignalNotNull()
-          });
-        }
-
-      // ### table
-      } else if (isTable(childItem)) {
-        initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem.id);
-        let tableItem = asTableItem(childItem);
-        const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
-        const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
-        const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-        let tableVe: VisualElement = {
-          itemType: ITEM_TYPE_TABLE,
-          isTopLevel: true,
-          itemId: tableItem.id,
-          boundsPx: geometry.boundsPx,
-          resizingFromBoundsPx: null,
-          childAreaBoundsPx: {
-            x: geometry.boundsPx.x, y: geometry.boundsPx.y + headerHeightPx,
-            w: geometry.boundsPx.w, h: geometry.boundsPx.h - headerHeightPx
-          },
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
-          parent: desktopStore.getTopLevelVisualElementSignalNotNull()
-        }
-        ves = createVisualElementSignal(tableVe);
-        arrangeItemsInTable(desktopStore, ves);
-
-      // ### other
-      } else {
-        ves = createVisualElementSignal({
-          itemType: childItem.itemType,
-          isTopLevel: true,
-          itemId: childItem.id,
-          boundsPx: geometry.boundsPx,
-          resizingFromBoundsPx: null,
-          childAreaBoundsPx: null,
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
-          parent: desktopStore.getTopLevelVisualElementSignalNotNull()
-        });
-      }
-
-      topLevelChildren.push(ves);
-
-      if (isAttachmentsItem(childItem)) {
-        asAttachmentsItem(childItem).computed_attachments.map(attachmentId => desktopStore.getItem(attachmentId)!).forEach(attachmentItem => {
-          const geom = calcGeometryOfAttachmentItem(attachmentItem, geometry.boundsPx, 0, desktopStore.getItem);
-          let aves = createVisualElementSignal({
-            itemType: attachmentItem.itemType,
-            isTopLevel: true,
-            itemId: attachmentItem.id,
-            boundsPx: geom.boundsPx,
-            resizingFromBoundsPx: null,
-            childAreaBoundsPx: null,
-            hitboxes: geom.hitboxes,
-            children: [],
-            attachments: [],
-            parent: ves
-          });
-          ves.update(prev => { prev.attachments.push(aves); });
-        });
-      }
-
-    });
-
-  desktopStore.setTopLevelVisualElement(prev => {
-    prev!.children = topLevelChildren;
-    return prev;
-  });
-}
-
-
-export const arrange_grid = (destopStore: DesktopStoreContextModel, currentPage: PageItem, _user: User): void => {
-  const pageBoundsPx = destopStore.desktopBoundsPx();
-
-  const numCols = 10;
-  const colAspect = 1.5;
-  const cellWPx = pageBoundsPx.w / numCols;
-  const cellHPx = pageBoundsPx.w / numCols * (1.0/colAspect);
-  const marginPx = cellWPx * 0.01;
-
-  let topLevelVisualElement: VisualElement = {
-    itemType: ITEM_TYPE_PAGE,
-    isTopLevel: true,
-    itemId: currentPage.id,
-    boundsPx: cloneBoundingBox(pageBoundsPx)!,
-    resizingFromBoundsPx: null,
-    childAreaBoundsPx: cloneBoundingBox(pageBoundsPx)!,
-    hitboxes: [],
-    children: [],
-    attachments: [],
-    parent: destopStore.getTopLevelVisualElementSignalNotNull()
-  };
-  let topLevelChildren: Array<VisualElementSignal> = [];
-  destopStore.setTopLevelVisualElement(topLevelVisualElement);
-
-  const children = currentPage.computed_children.map(childId => destopStore.getItem(childId)!);
-  for (let i=0; i<children.length; ++i) {
-    const item = children[i];
-    const col = i % numCols;
-    const row = Math.floor(i / numCols);
-    const cellBoundsPx = {
-      x: col * cellWPx + marginPx,
-      y: row * cellHPx + marginPx,
-      w: cellWPx - marginPx * 2.0,
-      h: cellHPx - marginPx * 2.0
-    };
-
-    let geometry = calcGeometryOfItemInCell(item, cellBoundsPx, destopStore.getItem);
-    if (!isContainer(item)) {
-      let ve: VisualElement = {
-        itemType: item.itemType,
-        isTopLevel: true,
-        itemId: item.id,
-        boundsPx: geometry.boundsPx,
-        resizingFromBoundsPx: null,
-        hitboxes: geometry.hitboxes,
-        children: [],
-        attachments: [],
-        childAreaBoundsPx: null,
-        parent: destopStore.getTopLevelVisualElementSignalNotNull()
-      };
-      topLevelChildren.push(createVisualElementSignal(ve));
-    } else {
-      console.log("TODO: child containers in grid pages.");
-    }
-  }
-
-  const numRows = Math.ceil(children.length / numCols);
-  let pageHeightPx = numRows * cellHPx;
-
-  destopStore.setTopLevelVisualElement(prev => {
-    prev!.children = topLevelChildren;
-    prev!.boundsPx.h = pageHeightPx;
-    prev!.childAreaBoundsPx!.h = pageHeightPx;
-    return prev;
-  });
-}
-
-
-/**
- * (Re)arranges a visual element that is a child of the top level page visual element.
- *
- * @param visualElementSignal the visual element to arrange.
- * @param user in case a load of the child items of the element needs to be initiated.
- */
-export const arrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal, user: User, updateChildren: boolean) => {
-  const visualElement = visualElementSignal.get();
-  if (visualElement.parent == null) { panic(); }
-  if (visualElement.parent.get().itemId != desktopStore.getTopLevelVisualElement()!.itemId) { panic(); }
-
-  const parentBoundsPx = zeroTopLeft(cloneBoundingBox(visualElement.parent!.get().boundsPx)!);
-  const item = desktopStore.getItem(visualElement.itemId)!;
-  const parentPage = asPageItem(desktopStore.getItem(visualElement.parent!.get().itemId)!);
-  const parentInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage, desktopStore.getItem);
-  const newGeometry = calcGeometryOfItemInPage(item, parentBoundsPx, parentInnerDimensionsBl, true, desktopStore.getItem);
-
-  if (isPage(visualElement)) {
-    visualElementSignal.update(ve => {
-      ve.boundsPx = newGeometry.boundsPx;
-      ve.childAreaBoundsPx = newGeometry.boundsPx;
-      ve.hitboxes = newGeometry.hitboxes;
-    });
-    if (updateChildren) {
-      batch(() => {
-        if (asPageItem(item).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, item.id);
-          arrangeItemsInPage(desktopStore, visualElementSignal);
-        } else {
-          if (visualElement.children.length != 0) {
-            visualElementSignal.update(ve => { ve.children = []; });
-          }
-        }
-      });
-    }
-
-  } else if (isTable(visualElement)) {
-    const tableItem = asTableItem(desktopStore.getItem(visualElement.itemId)!);
-    const boundsPx = visualElement.boundsPx;
-    const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
-    const blockSizePx = { w: boundsPx.w / sizeBl.w, h: boundsPx.h / sizeBl.h };
-    const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-    const childAreaBoundsPx = {
-      x: boundsPx.x, y: boundsPx.y + headerHeightPx,
-      w: boundsPx.w, h: boundsPx.h - headerHeightPx
-    };
-    visualElementSignal.update(ve => {
-      ve.boundsPx = newGeometry.boundsPx;
-      ve.childAreaBoundsPx = childAreaBoundsPx
-      ve.hitboxes = newGeometry.hitboxes;
-    });
-    if (updateChildren) {
-      batch(() => {
-        arrangeItemsInTable(desktopStore, visualElementSignal);
-      });
-    }
-
+export const arrange = (desktopStore: DesktopStoreContextModel, user: User): void => {
+  if (desktopStore.currentPageId() == null) { return; }
+  initiateLoadChildItemsIfNotLoaded(desktopStore, user, desktopStore.currentPageId()!);
+  let currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  if (currentPage.arrangeAlgorithm == "grid") {
+    arrange_grid(desktopStore, user);
   } else {
-    visualElementSignal.update(ve => {
-      ve.boundsPx = newGeometry.boundsPx;
-      ve.hitboxes = newGeometry.hitboxes;
-    });
+    arrange_spatialStretch(desktopStore, user);
   }
-};
-
-
-
-export const arrangeItemsInPage = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal) => {
-  const visualElement = visualElementSignal.get();
-  const pageItem = asPageItem(desktopStore.getItem(visualElement.itemId)!);
-
-  let children: Array<VisualElementSignal> = [];
-
-  const innerBoundsPx = zeroTopLeft(cloneBoundingBox(visualElement.boundsPx)!);
-  const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem, desktopStore.getItem);
-
-  pageItem.computed_children.forEach(childId => {
-    const childItem = desktopStore.getItem(childId)!;
-    const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, true, desktopStore.getItem);
-    children.push(createVisualElementSignal({
-      itemType: childItem.itemType,
-      isTopLevel: false,
-      itemId: childItem.id,
-      boundsPx: geometry.boundsPx,
-      resizingFromBoundsPx: null,
-      childAreaBoundsPx: null,
-      hitboxes: geometry.hitboxes,
-      children: [],
-      attachments: [],
-      parent: visualElementSignal
-    }));
-  });
-
-  visualElementSignal.update(ve => { ve.children = children; });
 }
 
 
-export const arrangeItemsInTable = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal) => {
-  const visualElement = visualElementSignal.get();
-  const tableItem = asTableItem(desktopStore.getItem(visualElement.itemId)!);
+const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void => {
+  const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
-  const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
-  const blockSizePx = { w: visualElement.boundsPx.w / sizeBl.w, h: visualElement.boundsPx.h / sizeBl.h };
-
-  let tableVeChildren: Array<VisualElementSignal> = [];
-  for (let idx=0; idx<tableItem.computed_children.length; ++idx) {
-    const childId = tableItem.computed_children[idx];
-    const childItem = desktopStore.getItem(childId)!;
-    const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
-
-    let tableItemVe = createVisualElementSignal({
-      itemType: childItem.itemType,
-      isTopLevel: false,
-      itemId: childItem.id,
-      boundsPx: geometry.boundsPx,
-      resizingFromBoundsPx: null,
-      hitboxes: geometry.hitboxes,
-      children: [],
-      attachments: [],
-      childAreaBoundsPx: null,
-      parent: visualElementSignal
-    });
-    tableVeChildren.push(tableItemVe);
-    let attachments: Array<VisualElementSignal> = [];
-
-    if (isAttachmentsItem(childItem)) {
-      asAttachmentsItem(childItem).computed_attachments.map(attachmentId => desktopStore.getItem(attachmentId)!).forEach(attachmentItem => {
-        const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, 8, sizeBl.w, desktopStore.getItem);
-        const boundsPx = {
-          x: geometry.boundsPx.x,
-          y: 0.0,
-          w: geometry.boundsPx.w,
-          h: geometry.boundsPx.h,
-        };
-        let ve = createVisualElementSignal({
-          itemType: attachmentItem.itemType,
-          isTopLevel: false,
-          itemId: attachmentItem.id,
-          boundsPx,
-          resizingFromBoundsPx: null,
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
-          childAreaBoundsPx: null,
-          parent: tableItemVe
-        });
-        attachments.push(ve);
-      });
-    }
-    tableItemVe.update(prev => { prev.attachments = attachments; });
+  const numCols = () => 10;
+  const numRows = () => Math.ceil(currentPage().computed_children.length / numCols());
+  const colAspect = () => 1.5;
+  const cellWPx = () => pageBoundsPx().w / numCols();
+  const cellHPx = () => pageBoundsPx().w / numCols() * (1.0/colAspect());
+  const marginPx = () => cellWPx() * 0.01;
+  const pageHeightPx = () => numRows() * cellHPx();
+  const boundsPx = () => {
+    const result = pageBoundsPx();
+    result.h = pageHeightPx();
+    return result;
   }
 
-  visualElementSignal.update(ve => { ve.children = tableVeChildren; });
+  const topLevelVisualElement: VisualElementFn = {
+    itemType: ITEM_TYPE_PAGE,
+    itemId: currentPage().id,
+    isTopLevel: true,
+    resizingFromBoundsPx: null,
+    boundsPx: boundsPx,
+    childAreaBoundsPx: boundsPx,
+    hitboxes: () => [],
+    children: () => [], // replaced below.
+    attachments: () => [],
+    parent: () => null
+  };
+
+  topLevelVisualElement.children = () => {
+    const children: Array<VisualElementFn> = [];
+    const childItems = currentPage().computed_children.map(childId => desktopStore.getItem(childId)!);
+    for (let i=0; i<childItems.length; ++i) {
+      const item = childItems[i];
+      const col = () => i % numCols();
+      const row = () => Math.floor(i / numCols());
+      const cellBoundsPx = () => ({
+        x: col() * cellWPx() + marginPx(),
+        y: row() * cellHPx() + marginPx(),
+        w: cellWPx() - marginPx() * 2.0,
+        h: cellHPx() - marginPx() * 2.0
+      });
+
+      let geometry = () => calcGeometryOfItemInCell(item, cellBoundsPx(), desktopStore.getItem);
+      if (!isContainer(item)) {
+        let ve: VisualElementFn = {
+          itemType: item.itemType,
+          itemId: item.id,
+          isTopLevel: true,
+          resizingFromBoundsPx: null,
+          boundsPx: () => geometry().boundsPx,
+          childAreaBoundsPx: () => null,
+          hitboxes: () => geometry().hitboxes,
+          children: () => [],
+          attachments: () => [],
+          parent: () => topLevelVisualElement,
+        };
+        children.push(ve);
+      } else {
+        console.log("TODO: child containers in grid pages.");
+      }
+    }
+    return children;
+  }
+
+}
+
+// export const arrange_grid = (destopStore: DesktopStoreContextModel, currentPage: PageItem, _user: User): void => {
+//   const pageBoundsPx = destopStore.desktopBoundsPx();
+
+//   const numCols = 10;
+//   const colAspect = 1.5;
+//   const cellWPx = pageBoundsPx.w / numCols;
+//   const cellHPx = pageBoundsPx.w / numCols * (1.0/colAspect);
+//   const marginPx = cellWPx * 0.01;
+
+//   let topLevelVisualElement: VisualElement = {
+//     itemType: ITEM_TYPE_PAGE,
+//     isTopLevel: true,
+//     itemId: currentPage.id,
+//     boundsPx: cloneBoundingBox(pageBoundsPx)!,
+//     resizingFromBoundsPx: null,
+//     childAreaBoundsPx: cloneBoundingBox(pageBoundsPx)!,
+//     hitboxes: [],
+//     children: [],
+//     attachments: [],
+//     parent: destopStore.getTopLevelVisualElementSignalNotNull()
+//   };
+//   let topLevelChildren: Array<VisualElementSignal> = [];
+//   destopStore.setTopLevelVisualElement(topLevelVisualElement);
+
+//   const children = currentPage.computed_children.map(childId => destopStore.getItem(childId)!);
+//   for (let i=0; i<children.length; ++i) {
+//     const item = children[i];
+//     const col = i % numCols;
+//     const row = Math.floor(i / numCols);
+//     const cellBoundsPx = {
+//       x: col * cellWPx + marginPx,
+//       y: row * cellHPx + marginPx,
+//       w: cellWPx - marginPx * 2.0,
+//       h: cellHPx - marginPx * 2.0
+//     };
+
+//     let geometry = calcGeometryOfItemInCell(item, cellBoundsPx, destopStore.getItem);
+//     if (!isContainer(item)) {
+//       let ve: VisualElement = {
+//         itemType: item.itemType,
+//         isTopLevel: true,
+//         itemId: item.id,
+//         boundsPx: geometry.boundsPx,
+//         resizingFromBoundsPx: null,
+//         hitboxes: geometry.hitboxes,
+//         children: [],
+//         attachments: [],
+//         childAreaBoundsPx: null,
+//         parent: destopStore.getTopLevelVisualElementSignalNotNull()
+//       };
+//       topLevelChildren.push(createVisualElementSignal(ve));
+//     } else {
+//       console.log("TODO: child containers in grid pages.");
+//     }
+//   }
+
+//   const numRows = Math.ceil(children.length / numCols);
+//   let pageHeightPx = numRows * cellHPx;
+
+//   destopStore.setTopLevelVisualElement(prev => {
+//     prev!.children = topLevelChildren;
+//     prev!.boundsPx.h = pageHeightPx;
+//     prev!.childAreaBoundsPx!.h = pageHeightPx;
+//     return prev;
+//   });
+// }
+
+
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: User): void => {
+  const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  const currentPageBoundsPx = () => {
+    const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
+    const pageAspect = currentPage().naturalAspect;
+    let result = desktopStore.desktopBoundsPx();
+    // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
+    if (pageAspect / desktopAspect > 1.25) {
+      // page to scroll horizontally.
+      result.w = Math.round(result.h * pageAspect);
+    } else if (pageAspect / desktopAspect < 0.75) {
+      // page needs to scroll vertically.
+      result.h = Math.round(result.w / pageAspect);
+    }
+    return result;
+  }
+
+  const topLevelVisualElement: VisualElementFn = {
+    itemType: ITEM_TYPE_PAGE,
+    itemId: currentPage().id,
+    isTopLevel: true,
+    resizingFromBoundsPx: null,
+    boundsPx: currentPageBoundsPx,
+    childAreaBoundsPx: currentPageBoundsPx,
+    hitboxes: () => [],
+    children: () => [], // replaced below.
+    attachments: () => [],
+    parent: () => null
+  };
+
+  const currentPageInnerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(currentPage(), desktopStore.getItem);
+
+  const topLevelChildren = () => {
+    return currentPage().computed_children
+      .map(childId => {
+        const childItem = () => desktopStore.getItem(childId)!;
+        const geometry = () => calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
+
+        // ### Child is a page with children visible.
+        if (isPage(childItem()) &&
+            // This test does not depend on pixel size, so is invariant over display devices.
+            asPageItem(childItem()).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
+          const pageItem = () => asPageItem(childItem());
+          initiateLoadChildItemsIfNotLoaded(desktopStore, user, pageItem().id);
+
+          const pageWithChildrenVe: VisualElementFn = {
+            itemType: ITEM_TYPE_PAGE,
+            itemId: childId,
+            isTopLevel: true,
+            resizingFromBoundsPx: null,
+            boundsPx: () => geometry().boundsPx,
+            childAreaBoundsPx: () => geometry().boundsPx,
+            hitboxes: () => geometry().hitboxes,
+            children: () => [],
+            attachments: () => [],
+            parent: () => topLevelVisualElement,
+          };
+
+          const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem(), desktopStore.getItem);
+
+          pageWithChildrenVe.children = () => {
+            const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);
+            return pageItem().computed_children.map(childId => {
+              const childItem = desktopStore.getItem(childId)!;
+              const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
+              return {
+                itemType: childItem.itemType,
+                itemId: childItem.id,
+                isTopLevel: false,
+                resizingFromBoundsPx: null,
+                boundsPx: () => geometry.boundsPx,
+                childAreaBoundsPx: () => null,
+                hitboxes: () => [],
+                children: () => [],
+                attachments: () => [],
+                parent: () => pageWithChildrenVe
+              };
+            });
+          }
+
+          return pageWithChildrenVe;
+
+        // ### Table
+        } else if (isTable(childItem())) {
+          initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem().id);
+          let tableItem = () => asTableItem(childItem());
+
+          const sizeBl = () => ({ w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE });
+          const blockSizePx = () => ({ w: geometry().boundsPx.w / sizeBl().w, h: geometry().boundsPx.h / sizeBl().h });
+          
+          let childAreaBoundsPx = () => {
+            const headerHeightPx = blockSizePx().h * HEADER_HEIGHT_BL;
+            return {
+              x: geometry().boundsPx.x, y: geometry().boundsPx.y + headerHeightPx,
+              w: geometry().boundsPx.w, h: geometry().boundsPx.h - headerHeightPx
+            };
+          };
+
+          let tableVe: VisualElementFn = {
+            itemType: ITEM_TYPE_TABLE,
+            itemId: tableItem().id,
+            isTopLevel: true,
+            resizingFromBoundsPx: null,
+            boundsPx: () => geometry().boundsPx,
+            childAreaBoundsPx,
+            hitboxes: () => geometry().hitboxes,
+            children: () => [],
+            attachments: () => [],
+            parent: () => topLevelVisualElement
+          }
+
+          tableVe.children = () => {
+            let tableVeChildren: Array<VisualElementFn> = [];
+            for (let idx=0; idx<tableItem().computed_children.length; ++idx) {
+              const childId = () => tableItem().computed_children[idx];
+              const childItem = () => desktopStore.getItem(childId())!;
+              const geometry = () => calcGeometryOfItemInTable(childItem(), blockSizePx(), idx, 0, sizeBl().w, desktopStore.getItem);
+          
+              let tableItemVe: VisualElementFn = {
+                itemType: childItem().itemType,
+                itemId: childItem().id,
+                isTopLevel: false,
+                resizingFromBoundsPx: null,
+                boundsPx: () => geometry().boundsPx,
+                hitboxes: () => geometry().hitboxes,
+                children: () => [],
+                attachments: () => [],
+                childAreaBoundsPx: () => null,
+                parent: () => tableVe
+              };
+              tableVeChildren.push(tableItemVe);
+              let attachments: Array<VisualElementFn> = [];
+
+              if (isAttachmentsItem(childItem())) {
+          // TODO.
+          //       asAttachmentsItem(childItem).computed_attachments.map(attachmentId => desktopStore.getItem(attachmentId)!).forEach(attachmentItem => {
+          //         const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, 8, sizeBl.w, desktopStore.getItem);
+          //         const boundsPx = {
+          //           x: geometry.boundsPx.x,
+          //           y: 0.0,
+          //           w: geometry.boundsPx.w,
+          //           h: geometry.boundsPx.h,
+          //         };
+          //         let ve = createVisualElementSignal({
+          //           itemType: attachmentItem.itemType,
+          //           isTopLevel: false,
+          //           itemId: attachmentItem.id,
+          //           boundsPx,
+          //           resizingFromBoundsPx: null,
+          //           hitboxes: geometry.hitboxes,
+          //           children: [],
+          //           attachments: [],
+          //           childAreaBoundsPx: null,
+          //           parent: tableItemVe
+          //         });
+          //         attachments.push(ve);
+          //       });
+              }
+
+            };
+            return tableVeChildren;
+          }
+
+          return tableVe;
+  
+        // ### Any other item type.
+        } else {
+          const itemVe = {
+            itemType: childItem().itemType,
+            itemId: childItem().id,
+            isTopLevel: true,
+            resizingFromBoundsPx: null,
+            boundsPx: () => geometry().boundsPx,
+            childAreaBoundsPx: () => null,
+            hitboxes: () => geometry().hitboxes,
+            children: () => [],
+            attachments: () => [], // TODO.
+            parent: () => topLevelVisualElement
+          };
+          // if attachments... 
+          return itemVe;
+        }
+      });
+  };
+
+  topLevelVisualElement.children = topLevelChildren;
+
+  desktopStore.setTopLevelVisualElementFn(topLevelVisualElement);
 }

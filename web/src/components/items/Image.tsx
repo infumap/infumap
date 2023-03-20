@@ -22,14 +22,15 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { quantizeBoundingBox } from "../../util/geometry";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementInTableFn, VisualElementInTablePropsFn } from "../VisualElementInTable";
+import { VisualElementOnDesktopFn, VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
 
 
-export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+
+export const ImageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const quantizedBoundsPx = () => quantizeBoundingBox(props.visualElement.boundsPx);
+  const quantizedBoundsPx = () => quantizeBoundingBox(props.visualElement.boundsPx());
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const imgUrl = () => {
@@ -71,18 +72,18 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
              width={imageWidthToRequestPx(false)}
              src={imgUrl()} />
       </div>
-      <For each={props.visualElement.attachments}>{attachmentSignal =>
-        <VisualElementOnDesktop visualElement={attachmentSignal.get()} />
+      <For each={props.visualElement.attachments()}>{attachment =>
+        <VisualElementOnDesktopFn visualElement={attachment} />
       }</For>
     </Show>
   );
 }
 
 
-export const ImageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const ImageInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -96,8 +97,8 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-image`} />
-        <For each={props.visualElement.attachments}>{attachmentSignal =>
-          <VisualElementInTable visualElement={attachmentSignal.get()} parentVisualElement={props.parentVisualElement} />
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

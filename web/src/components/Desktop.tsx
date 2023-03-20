@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, onCleanup, onMount } from "solid-js";
+import { Component, onCleanup, onMount, Show } from "solid-js";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { TOOLBAR_WIDTH } from "../constants";
@@ -28,9 +28,8 @@ import { handleUpload } from "../upload";
 import { HitboxType } from "../store/desktop/hitbox";
 import { asPageItem } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
-import { VisualElementOnDesktop } from "./VisualElementOnDesktop";
-import { VisualElementChildren } from "./VisualElementChildren";
 import { arrange } from "../store/desktop/layout/arrange";
+import { PageFn } from "./items/Page";
 
 
 export const Desktop: Component = () => {
@@ -46,7 +45,7 @@ export const Desktop: Component = () => {
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
     if (ev.code != "Slash" && ev.code != "Backslash") { return; }
     let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(lastMouseMoveEvent!), []);
-    let item = desktopStore.getItem(hbi.visualElementSignal.get().itemId)!;
+    let item = desktopStore.getItem(hbi.visualElement.itemId)!;
     if (ev.code == "Slash") {
       generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item: item });
     }
@@ -93,7 +92,7 @@ export const Desktop: Component = () => {
         console.log("must upload on background.");
         return;
       }
-      let item = desktopStore.getItem(hi.visualElementSignal.get().itemId)!;
+      let item = desktopStore.getItem(hi.visualElement.itemId)!;
       await handleUpload(desktopStore, userStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
     }
   }
@@ -133,37 +132,30 @@ export const Desktop: Component = () => {
     pageItem.setScrollXPx(desktopDiv!.scrollLeft);
   }
 
-  function draw() {
-    if (desktopStore.getTopLevelVisualElement() == null) { return <></>; }
+  function drawFn() {
     return (
-      <>
-        <VisualElementOnDesktop visualElement={desktopStore.getTopLevelVisualElement()!} />
-        <For each={desktopStore.getTopLevelVisualElement()!.children}>{visualElementSignal =>
-          <>
-            <VisualElementOnDesktop visualElement={visualElementSignal.get()} />
-            <VisualElementChildren visualElement={visualElementSignal.get()} parentVisualElement={desktopStore.getTopLevelVisualElement()!} />
-          </>
-        }</For>
-      </>
+      <Show when={desktopStore.getTopLevelVisualElementFn() != null}>
+        <PageFn visualElement={desktopStore.getTopLevelVisualElementFn()!} />
+      </Show>
     );
   }
 
   function overflowPolicy() {
     // Child items may extend outside the bounds of the page, even if the page is the same size as the desktop.
     // If it wasn't for this, overflow policy could always be auto.
-    let topLevelVisualElement = desktopStore.getTopLevelVisualElement();
+    let topLevelVisualElement = desktopStore.getTopLevelVisualElementFn();
     if (topLevelVisualElement == null) { return ""; }
 
     let desktopPx = desktopStore.desktopBoundsPx();
-    if (topLevelVisualElement.childAreaBoundsPx!.w == desktopPx.w &&
-        topLevelVisualElement.childAreaBoundsPx!.h == desktopPx.h) {
+    if (topLevelVisualElement.childAreaBoundsPx()!.w == desktopPx.w &&
+        topLevelVisualElement.childAreaBoundsPx()!.h == desktopPx.h) {
       return "";
     }
-    if (topLevelVisualElement.childAreaBoundsPx!.w != desktopPx.w &&
-        topLevelVisualElement.childAreaBoundsPx!.h != desktopPx.h) {
+    if (topLevelVisualElement.childAreaBoundsPx()!.w != desktopPx.w &&
+        topLevelVisualElement.childAreaBoundsPx()!.h != desktopPx.h) {
       return "overflow: auto;"
     }
-    if (topLevelVisualElement.childAreaBoundsPx!.w != desktopPx.w) {
+    if (topLevelVisualElement.childAreaBoundsPx()!.w != desktopPx.w) {
       return "overflow-x: auto; overflow-y: hidden;"
     }
     return "overflow-y: auto; overflow-x: hidden;";
@@ -175,7 +167,7 @@ export const Desktop: Component = () => {
          class="absolute top-0 bottom-0 right-0 select-none outline-none"
          style={`left: ${TOOLBAR_WIDTH}px; ${overflowPolicy()}`}
          onscroll={scrollHandler}>
-      {draw()}
+      {drawFn()}
       <ContextMenu />
       <EditDialog />
     </div>

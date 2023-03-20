@@ -19,16 +19,16 @@
 import { Component } from "solid-js";
 import { asRatingItem } from "../../store/desktop/items/rating-item";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
-import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktopPropsFn } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTablePropsFn } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const RatingFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualElementOnDesktopPropsFn) => {
   const desktopStore = useDesktopStore();
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
 
   return (
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
@@ -39,10 +39,10 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 }
 
 
-export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const RatingInTableFn: Component<VisualElementInTablePropsFn> = (props: VisualElementInTablePropsFn) => {
   const desktopStore = useDesktopStore();
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => props.visualElement.boundsPx;
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
