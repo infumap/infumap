@@ -116,13 +116,15 @@ export const PageFn: Component<VisualElementOnDesktopPropsFn> = (props: VisualEl
           </div>
         </div>
       </div>
-      <div class="absolute"
-           style={`left: ${props.visualElement.childAreaBoundsPx()!.x}px; top: ${props.visualElement.childAreaBoundsPx()!.y}px; ` +
-                  `width: ${props.visualElement.childAreaBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx()!.h}px;`}>
-        <For each={props.visualElement.children()}>{childVe =>
-          <VisualElementOnDesktopFn visualElement={childVe} />
-        }</For>
-      </div>
+      <Show when={props.visualElement.childAreaBoundsPx() != null}>
+        <div class="absolute"
+            style={`left: ${props.visualElement.childAreaBoundsPx()!.x}px; top: ${props.visualElement.childAreaBoundsPx()!.y}px; ` +
+                    `width: ${props.visualElement.childAreaBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx()!.h}px;`}>
+          <For each={props.visualElement.children()}>{childVe =>
+            <VisualElementOnDesktopFn visualElement={childVe} />
+          }</For>
+        </div>
+      </Show>
       </>
     );
   }
