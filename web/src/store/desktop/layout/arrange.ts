@@ -89,8 +89,6 @@ export const arrange = (desktopStore: DesktopStoreContextModel, user: User): voi
 
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void => {
-  return;
-
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
@@ -156,6 +154,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void 
     return children;
   }
 
+  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
 
 // export const arrange_grid = (destopStore: DesktopStoreContextModel, currentPage: PageItem, _user: User): void => {

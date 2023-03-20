@@ -60,6 +60,13 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
   }
 
+  let checkElement: HTMLInputElement | undefined;
+
+  const changeArrangeAlgo = async () => {
+    desktopStore.updateItem(pageId(), item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"))
+    await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
+  }
+
   return (
     <div class="m-1">
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onIncrementalChange={handleTitleChange} onChange={handleTitleChanged} /></div>
@@ -68,6 +75,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
       <ColorSelector item={props.pageItem} />
       <div><InfuButton text="delete" onClick={deletePage} /></div>
+      <div>is grid: <input ref={checkElement} type="checkbox" checked={props.pageItem.arrangeAlgorithm == "grid"} onClick={changeArrangeAlgo} /></div>
     </div>
   );
 }
