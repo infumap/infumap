@@ -28,7 +28,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { Uid } from "../../../util/uid";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal } from "../../../util/signals";
+import { createBooleanSignal, createUidArraySignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -37,6 +37,59 @@ export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsIte
 
 export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
   imageSizePx: Dimensions,
+}
+
+
+export function imageFromObject(o: any): ImageItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    title: o.title,
+    spatialPositionGr: o.spatialPositionGr,
+
+    spatialWidthGr: o.spatialWidthGr,
+
+    originalCreationDate: o.originalCreationDate,
+    mimeType: o.mimeType,
+    fileSizeBytes: o.fileSizeBytes,
+
+    thumbnail: o.thumbnail,
+    imageSizePx: o.imageSizePx,
+
+    computed_attachments: createUidArraySignal([]),
+    computed_mouseIsOver: createBooleanSignal(false),
+  });
+}
+
+export function imageToObject(i: ImageItem): object {
+  return ({
+    itemType: i.itemType,
+    ownerId: i.ownerId,
+    id: i.id,
+    parentId: i.parentId,
+    relationshipToParent: i.relationshipToParent,
+    creationDate: i.creationDate,
+    lastModifiedDate: i.lastModifiedDate,
+    ordering: Array.from(i.ordering),
+    title: i.title,
+    spatialPositionGr: i.spatialPositionGr,
+
+    spatialWidthGr: i.spatialWidthGr,
+
+    originalCreationDate: i.originalCreationDate,
+    mimeType: i.mimeType,
+    fileSizeBytes: i.fileSizeBytes,
+
+    thumbnail: i.thumbnail,
+    imageSizePx: i.imageSizePx,
+  });
 }
 
 
@@ -133,11 +186,6 @@ export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBounds
   return (
     { boundsPx, hitboxes: [ { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx) } ] }
   );
-}
-
-export function setImageDefaultComputed(item: ImageItem): void {
-  item.computed_attachments = [];
-  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function handleImageClick(imageItem: ImageItem): void {

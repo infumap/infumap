@@ -22,13 +22,13 @@ import { Uid } from '../../../../util/uid';
 import { UserStoreContextModel } from '../../../UserStoreProvider';
 import { DesktopStoreContextModel } from '../../DesktopStoreProvider';
 import { ItemGeometry } from '../../item-geometry';
-import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileAttachmentItem, calcGeometryOfFileItem, calcGeometryOfFileItemInCell, calcGeometryOfFileItemInTable, cloneFileMeasurableFields, handleFileClick, isFile, setFileDefaultComputed } from '../file-item';
-import { asImageItem, asImageMeasurable, calcGeometryOfImageAttachmentItem, calcGeometryOfImageItem, calcGeometryOfImageItemInCell, calcGeometryOfImageItemInTable, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, isImage, setImageDefaultComputed } from '../image-item';
-import { asLinkItem, calcGeometryOfLinkAttachmentItem, calcGeometryOfLinkItem, calcGeometryOfLinkItemInCell, calcGeometryOfLinkItemInTable, calcLinkSizeForSpatialBl, isLink, setLinkDefaultComputed } from '../link-item';
-import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteAttachmentItem, calcGeometryOfNoteItem, calcGeometryOfNoteItemInCell, calcGeometryOfNoteItemInTable, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, setNoteDefaultComputed } from '../note-item';
-import { asPageItem, asPageMeasurable, calcGeometryOfPageAttachmentItem, calcGeometryOfPageItem, calcGeometryOfPageItemInCell, calcGeometryOfPageItemInTable, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, setPageDefaultComputed } from '../page-item';
-import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingAttachmentItem, calcGeometryOfRatingItem, calcGeometryOfRatingItemInCell, calcGeometryOfRatingItemInTable, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, isRating, setRatingDefaultComputed } from '../rating-item';
-import { asTableItem, asTableMeasurable, calcGeometryOfTableAttachmentItem, calcGeometryOfTableItem, calcGeometryOfTableItemInCell, calcGeometryOfTableItemInTable, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, setTableDefaultComputed } from '../table-item';
+import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileAttachmentItem, calcGeometryOfFileItem, calcGeometryOfFileItemInCell, calcGeometryOfFileItemInTable, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile } from '../file-item';
+import { asImageItem, asImageMeasurable, calcGeometryOfImageAttachmentItem, calcGeometryOfImageItem, calcGeometryOfImageItemInCell, calcGeometryOfImageItemInTable, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage } from '../image-item';
+import { asLinkItem, calcGeometryOfLinkAttachmentItem, calcGeometryOfLinkItem, calcGeometryOfLinkItemInCell, calcGeometryOfLinkItemInTable, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject } from '../link-item';
+import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteAttachmentItem, calcGeometryOfNoteItem, calcGeometryOfNoteItemInCell, calcGeometryOfNoteItemInTable, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject } from '../note-item';
+import { asPageItem, asPageMeasurable, calcGeometryOfPageAttachmentItem, calcGeometryOfPageItem, calcGeometryOfPageItemInCell, calcGeometryOfPageItemInTable, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject } from '../page-item';
+import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingAttachmentItem, calcGeometryOfRatingItem, calcGeometryOfRatingItemInCell, calcGeometryOfRatingItemInTable, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, isRating, ratingFromObject, ratingToObject } from '../rating-item';
+import { asTableItem, asTableMeasurable, calcGeometryOfTableAttachmentItem, calcGeometryOfTableItem, calcGeometryOfTableItemInCell, calcGeometryOfTableItemInTable, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject } from '../table-item';
 import { Item, Measurable } from './item';
 
 
@@ -89,14 +89,25 @@ export function calcGeometryOfItemInCell(measurable: Measurable, cellBoundsPx: B
   throw throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function setDefaultComputed(item: Item): void {
-  if (isPage(item)) { setPageDefaultComputed(asPageItem(item)); return; }
-  if (isTable(item)) { setTableDefaultComputed(asTableItem(item)); return; }
-  if (isNote(item)) { setNoteDefaultComputed(asNoteItem(item)); return; }
-  if (isImage(item)) { setImageDefaultComputed(asImageItem(item)); return; }
-  if (isFile(item)) { setFileDefaultComputed(asFileItem(item)); return; }
-  if (isRating(item)) { setRatingDefaultComputed(asRatingItem(item)); return; }
-  if (isLink(item)) { setLinkDefaultComputed(asLinkItem(item)); return; }
+export function itemFromObject(o: any): Item {
+  if (isPage(o)) { return pageFromObject(o); }
+  if (isTable(o)) { return tableFromObject(o); }
+  if (isNote(o)) { return noteFromObject(o); }
+  if (isImage(o)) { return imageFromObject(o); }
+  if (isFile(o)) { return fileFromObject(o); }
+  if (isRating(o)) { return ratingFromObject(o); }
+  if (isLink(o)) { return linkFromObject(o); }
+  throwExpression(`Unknown item type: ${o.itemType}`);
+}
+
+export function itemToObject(item: Item): object {
+  if (isPage(item)) { return pageToObject(asPageItem(item)); }
+  if (isTable(item)) { return tableToObject(asTableItem(item)); }
+  if (isNote(item)) { return noteToObject(asNoteItem(item)); }
+  if (isImage(item)) { return imageToObject(asImageItem(item)); }
+  if (isFile(item)) { return fileToObject(asFileItem(item)); }
+  if (isRating(item)) { return ratingToObject(asRatingItem(item)); }
+  if (isLink(item)) { return linkToObject(asLinkItem(item)); }
   throwExpression(`Unknown item type: ${item.itemType}`);
 }
 

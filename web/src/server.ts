@@ -17,8 +17,7 @@
 */
 
 import { Item } from "./store/desktop/items/base/item";
-import { setDefaultComputed } from "./store/desktop/items/base/item-polymorphism";
-import { User } from "./store/UserStoreProvider";
+import { itemToObject } from "./store/desktop/items/base/item-polymorphism";
 import { throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 
@@ -36,36 +35,29 @@ export async function post(path: string, json: any) {
 }
 
 export interface ItemsAndTheirAttachments {
-  items: Array<Item>,
-  attachments: { [id: string]: Array<Item> }
+  items: Array<object>,
+  attachments: { [id: string]: Array<object> }
 }
 
 export const server = {
   fetchChildrenWithTheirAttachments: async (parentId: Uid): Promise<ItemsAndTheirAttachments> => {
     let r = await send("get-children-with-their-attachments", { parentId }, null);
-    Object.keys(r.attachments).forEach((id: string) => {
-      r.attachments[id].forEach((item: any) => {
-        setDefaultComputed(item);
-      });
-    });
     // Server side, parentId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
-    r.children.forEach((item: Item) => { setDefaultComputed(item); });
     return ({
       items: r.children,
       attachments: r.attachments
     });
   },
 
-  addItem: async (item: Item, base64Data: string | null): Promise<Item> => {
-    let returnedItem = await send("add-item", createItemForSend(item), base64Data);
-    setDefaultComputed(returnedItem);
+  addItem: async (item: Item, base64Data: string | null): Promise<object> => {
+    let returnedItem = await send("add-item", itemToObject(item), base64Data);
     return returnedItem;
   },
 
   updateItem: async (item: Item): Promise<void> => {
-    await send("update-item", createItemForSend(item), null);
+    await send("update-item", itemToObject(item), null);
   },
 
   deleteItem: async (id: Uid): Promise<void> => {
@@ -79,19 +71,4 @@ async function send(command: string, payload: object, base64Data: string | null)
   let r = await post('/command', d);
   if (!r.success) { throwExpression(`'${command}' command failed!`); }
   return JSON.parse(r.jsonData);
-}
-
-function createItemForSend(item: Item): Item {
-  let result: any = {};
-  Object.assign(result, item);
-  // TODO (LOW): check for any others with computed_ (or transient_ ??) prefix & fail fast.
-  delete result.computed_openPopupId;
-  delete result.computed_movingItemIsOver;
-  delete result.computed_mouseIsOver;
-  delete result.computed_children;
-  delete result.computed_attachments;
-  delete result.scrollXPx;
-  delete result.scrollYPx;
-  result.ordering = Array.from(item.ordering);
-  return result;
 }

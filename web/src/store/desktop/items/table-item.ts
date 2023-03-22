@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, createSignal, Setter } from "solid-js";
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
 import { BoundingBox, cloneBoundingBox, zeroTopLeft, cloneVector, Dimensions } from "../../../util/geometry";
@@ -45,6 +44,87 @@ export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, 
 }
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin { }
+
+
+export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem {
+  return {
+    itemType: ITEM_TYPE_TABLE,
+    ownerId,
+    id: newUid(),
+    parentId,
+    relationshipToParent,
+    creationDate: currentUnixTimeSeconds(),
+    lastModifiedDate: currentUnixTimeSeconds(),
+    ordering,
+    title,
+    spatialPositionGr: { x: 0.0, y: 0.0 },
+
+    spatialWidthGr: 8.0 * GRID_SIZE,
+    spatialHeightGr: 6.0 * GRID_SIZE,
+
+    tableColumns: [{
+      name: "Title",
+      widthGr: 8 * GRID_SIZE,
+    }],
+
+    computed_children: createUidArraySignal([]),
+    computed_attachments: createUidArraySignal([]),
+
+    computed_movingItemIsOver: createBooleanSignal(false),
+    computed_mouseIsOver: createBooleanSignal(false),
+
+    scrollYPx: createNumberSignal(0)
+  };
+}
+
+export function tableFromObject(o: any): TableItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    title: o.title,
+    spatialPositionGr: o.spatialPositionGr,
+
+    spatialWidthGr: o.spatialWidthGr,
+    spatialHeightGr: o.spatialHeightGr,
+
+    tableColumns: o.tableColumns,
+
+    computed_children: createUidArraySignal([]),
+    computed_attachments: createUidArraySignal([]),
+
+    computed_movingItemIsOver: createBooleanSignal(false),
+    computed_mouseIsOver: createBooleanSignal(false),
+
+    scrollYPx: createNumberSignal(0),
+  });
+}
+
+export function tableToObject(t: TableItem): object {
+  return ({
+    itemType: t.itemType,
+    ownerId: t.ownerId,
+    id: t.id,
+    parentId: t.parentId,
+    relationshipToParent: t.relationshipToParent,
+    creationDate: t.creationDate,
+    lastModifiedDate: t.lastModifiedDate,
+    ordering: Array.from(t.ordering),
+    title: t.title,
+    spatialPositionGr: t.spatialPositionGr,
+
+    spatialWidthGr: t.spatialWidthGr,
+    spatialHeightGr: t.spatialHeightGr,
+
+    tableColumns: t.tableColumns,
+  });
+}
 
 
 export function calcTableSizeForSpatialBl(table: TableMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
@@ -104,14 +184,6 @@ export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBound
   });
 }
 
-export function setTableDefaultComputed(item: TableItem): void {
-  item.computed_mouseIsOver = createBooleanSignal(false);
-  item.computed_movingItemIsOver = createBooleanSignal(false);
-  item.computed_children = createUidArraySignal([]);
-  item.computed_attachments = [];
-  item.scrollYPx = createNumberSignal(0);
-}
-
 export function isTable(item: Item | ItemTypeMixin): boolean {
   if (item == null) { return false; }
   return item.itemType == ITEM_TYPE_TABLE;
@@ -125,38 +197,6 @@ export function asTableItem(item: ItemTypeMixin): TableItem {
 export function asTableMeasurable(item: ItemTypeMixin): TableMeasurable {
   if (item.itemType == ITEM_TYPE_TABLE) { return item as TableMeasurable; }
   panic();
-}
-
-export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem {
-  return {
-    itemType: ITEM_TYPE_TABLE,
-    ownerId,
-    id: newUid(),
-    parentId,
-    relationshipToParent,
-    creationDate: currentUnixTimeSeconds(),
-    lastModifiedDate: currentUnixTimeSeconds(),
-    ordering,
-    title,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
-
-    spatialWidthGr: 8.0 * GRID_SIZE,
-    spatialHeightGr: 6.0 * GRID_SIZE,
-
-    tableColumns: [{
-      name: "Title",
-      widthGr: 8 * GRID_SIZE,
-    }],
-
-    computed_children: createUidArraySignal([]),
-    computed_attachments: [],
-
-    computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: createBooleanSignal(false),
-
-    // these will be per render area.
-    scrollYPx: createNumberSignal(0)
-  };
 }
 
 export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasurable {

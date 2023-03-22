@@ -34,6 +34,42 @@ export interface RatingItem extends RatingMeasurable, Item {
 export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin {}
 
 
+export function ratingFromObject(o: any): RatingItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    spatialPositionGr: o.spatialPositionGr,
+
+    rating: o.rating,
+
+    computed_mouseIsOver: createBooleanSignal(false),
+  });
+}
+
+export function ratingToObject(r: RatingItem): object {
+  return ({
+    itemType: r.itemType,
+    ownerId: r.ownerId,
+    id: r.id,
+    parentId: r.parentId,
+    relationshipToParent: r.relationshipToParent,
+    creationDate: r.creationDate,
+    lastModifiedDate: r.lastModifiedDate,
+    ordering: Array.from(r.ordering),
+    spatialPositionGr: r.spatialPositionGr,
+
+    rating: r.rating,
+  });
+}
+
+
 export function calcRatingSizeForSpatialBl(_item: RatingMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
   return { w: 1.0, h: 1.0 };
 }
@@ -84,10 +120,6 @@ export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBo
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
   });
-}
-
-export function setRatingDefaultComputed(item: RatingItem): void {
-  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isRating(item: ItemTypeMixin | null): boolean {

@@ -26,14 +26,15 @@ import { asContainerItem, ContainerItem, isContainer } from "./items/base/contai
 import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
-import { AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
+import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { VisualElement } from "./visual-element";
+import { itemFromObject } from "./items/base/item-polymorphism";
 
 
 export interface DesktopStoreContextModel {
   setRootId: Setter<Uid | null>,
-  setChildItems: (parentId: Uid, items: Array<Item>) => void,
-  setAttachmentItems: (parentId: Uid, items: Array<Item>) => void
+  setChildItemsFromServerObjects: (parentId: Uid, items: Array<object>) => void,
+  setAttachmentItemsFromServerObjects: (parentId: Uid, items: Array<object>) => void
   updateItem: (id: Uid, f: (item: Item) => void) => void,
   updateContainerItem: (id: Uid, f: (item: ContainerItem) => void) => void,
   getItem: (id: Uid) => (Item | null) | null,
@@ -63,7 +64,6 @@ interface ItemSignal {
   setItem: Setter<Item>,
 }
 
-
 function createItemSignal(item: Item): ItemSignal {
   let [itemAccessor, itemSetter] = createSignal<Item>(item, { equals: false });
   return { item: itemAccessor, setItem: itemSetter };
@@ -78,6 +78,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [getTopLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement | null>(null, { equals: false });
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
 
+
   const updateItem = (id: Uid, f: (item: Item) => void): void => {
     if (items.hasOwnProperty(id)) {
       let item = items[id].item();
@@ -87,6 +88,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       panic();
     }
   };
+
 
   const updateContainerItem = (id: Uid, f: (item: ContainerItem) => void): void => {
     if (items.hasOwnProperty(id)) {
@@ -98,6 +100,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     }
   }
 
+
   const getItem = (id: Uid): Item | null => {
     if (items.hasOwnProperty(id)) {
       return items[id].item();
@@ -105,11 +108,20 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return null;
   };
 
+
   const getContainerItem = (id: Uid): ContainerItem | null => {
     const item = getItem(id);
     if (item == null) { return null; }
     return asContainerItem(item);
   }
+
+
+  const getAttachmentsItem = (id: Uid): AttachmentsItem | null => {
+    const item = getItem(id);
+    if (item == null) { return null; }
+    return asAttachmentsItem(item);
+  }
+
 
   /**
    * Set all the child items of a container.
@@ -119,7 +131,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
    * @param parentId The id of the parent to set child items of.
    * @param childItems The child items.
    */
-  const setChildItems = (parentId: Uid, childItems: Array<Item>): void => {
+  const setChildItemsFromServerObjects = (parentId: Uid, childItemObjects: Array<object>): void => {
+    let childItems = childItemObjects.map(cio => itemFromObject(cio));
     batch(() => {
       childItems.forEach(childItem => { items[childItem.id] = createItemSignal(childItem); });
       if (!isContainer(getItem(parentId)!)) {
@@ -146,27 +159,26 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
 
-  const setAttachmentItems = (parentId: Uid, attachmentItems: Array<Item>): void => {
+  const setAttachmentItemsFromServerObjects = (parentId: Uid, attachmentItemObject: Array<object>): void => {
+    let attachmentItems = attachmentItemObject.map(aio => itemFromObject(aio));
     batch(() => {
       if (!isAttachmentsItem(getItem(parentId)!)) {
         throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${getItem(parentId)!.itemType}' which does not allow attachments.`);
       }
+      const parent = getAttachmentsItem(parentId)!;
+      let attachments: Array<Uid> = [];
       attachmentItems.forEach(attachmentItem => {
         items[attachmentItem.id] = createItemSignal(attachmentItem);
         if (attachmentItem.parentId != parentId) {
           throwExpression(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
         }
-        updateItem(attachmentItem.parentId, parentItem => {
-          if (attachmentItem.relationshipToParent != Attachment) {
-            throwExpression(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
-          }
-          (parentItem as AttachmentsItem).computed_attachments = [...(parentItem as AttachmentsItem).computed_attachments, attachmentItem.id];
-        });
+        if (attachmentItem.relationshipToParent != Attachment) {
+          throwExpression(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
+        }
+        attachments.push(attachmentItem.id);
       });
-      updateItem(parentId, parentItem => {
-        (parentItem as AttachmentsItem).computed_attachments.sort(
-          (a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
-      });
+      attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+      parent.computed_attachments.set(attachments);
     });
   };
 
@@ -207,7 +219,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const value: DesktopStoreContextModel = {
     currentPageId, setCurrentPageId,
     desktopBoundsPx, resetDesktopSizePx,
-    setRootId, setChildItems, setAttachmentItems,
+    setRootId, setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
     updateItem, updateContainerItem,
     getItem, getContainerItem, addItem, newOrderingAtEndOfChildren,
     getTopLevelVisualElement,

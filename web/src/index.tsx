@@ -27,10 +27,7 @@ import { GeneralStoreProvider } from './store/GeneralStoreProvider';
 import { UserStoreProvider } from './store/UserStoreProvider';
 
 // import { testOrdering } from './util/ordering';
-
-if (false) {
-  // testOrdering();
-}
+// testOrdering();
 
 
 render(() => (

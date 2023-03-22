@@ -27,7 +27,7 @@ import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
-import { Accessor, batch, createSignal, Setter } from 'solid-js';
+import { batch } from 'solid-js';
 import { DesktopStoreContextModel } from '../DesktopStoreProvider';
 import { UserStoreContextModel } from '../../UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
@@ -54,6 +54,100 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
   innerSpatialWidthGr: number;
   naturalAspect: number;
+}
+
+
+export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem {
+  return {
+    itemType: ITEM_TYPE_PAGE,
+    ownerId,
+    id: newUid(),
+    parentId,
+    relationshipToParent,
+    creationDate: currentUnixTimeSeconds(),
+    lastModifiedDate: currentUnixTimeSeconds(),
+    ordering,
+    title,
+    spatialPositionGr: { x: 0.0, y: 0.0 },
+
+    spatialWidthGr: 4.0 * GRID_SIZE,
+
+    innerSpatialWidthGr: 60.0 * GRID_SIZE,
+    naturalAspect: 2.0,
+    backgroundColorIndex: 0,
+    arrangeAlgorithm: "spatial-stretch",
+    popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
+    popupAlignmentPoint: "center",
+    popupWidthGr: 10.0 * GRID_SIZE,
+
+    computed_children: createUidArraySignal([]),
+    computed_attachments: createUidArraySignal([]),
+    computed_movingItemIsOver: createBooleanSignal(false),
+    computed_mouseIsOver: createBooleanSignal(false),
+
+    scrollXPx: createNumberSignal(0),
+    scrollYPx: createNumberSignal(0),
+  };
+}
+
+export function pageFromObject(o: any): PageItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    title: o.title,
+    spatialPositionGr: o.spatialPositionGr,
+
+    spatialWidthGr: o.spatialWidthGr,
+
+    innerSpatialWidthGr: o.innerSpatialWidthGr,
+    naturalAspect: o.naturalAspect,
+    backgroundColorIndex: o.backgroundColorIndex,
+    arrangeAlgorithm: o.arrangeAlgorithm,
+    popupPositionGr: o.popupPositionGr,
+    popupAlignmentPoint: o.popupAlignmentPoint,
+    popupWidthGr: o.popupWidthGr,
+
+    computed_children: createUidArraySignal([]),
+    computed_attachments: createUidArraySignal([]),
+
+    computed_movingItemIsOver: createBooleanSignal(false),
+    computed_mouseIsOver: createBooleanSignal(false),
+
+    scrollXPx: createNumberSignal(0),
+    scrollYPx: createNumberSignal(0),
+  });
+}
+
+export function pageToObject(p: PageItem): object {
+  return ({
+    itemType: p.itemType,
+    ownerId: p.ownerId,
+    id: p.id,
+    parentId: p.parentId,
+    relationshipToParent: p.relationshipToParent,
+    creationDate: p.creationDate,
+    lastModifiedDate: p.lastModifiedDate,
+    ordering: Array.from(p.ordering),
+    title: p.title,
+    spatialPositionGr: p.spatialPositionGr,
+
+    spatialWidthGr: p.spatialWidthGr,
+
+    innerSpatialWidthGr: p.innerSpatialWidthGr,
+    naturalAspect: p.naturalAspect,
+    backgroundColorIndex: p.backgroundColorIndex,
+    arrangeAlgorithm: p.arrangeAlgorithm,
+    popupPositionGr: p.popupPositionGr,
+    popupAlignmentPoint: p.popupAlignmentPoint,
+    popupWidthGr: p.popupWidthGr,
+  });
 }
 
 
@@ -139,16 +233,6 @@ export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx
 }
 
 
-export function setPageDefaultComputed(item: PageItem): void {
-  item.computed_mouseIsOver = createBooleanSignal(false);
-  item.computed_movingItemIsOver = createBooleanSignal(false);
-  item.computed_children = createUidArraySignal([]);
-  item.computed_attachments = [];
-  item.scrollXPx = createNumberSignal(0);
-  item.scrollYPx = createNumberSignal(0);
-}
-
-
 export function isPage(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
   return item.itemType == ITEM_TYPE_PAGE;
@@ -163,39 +247,6 @@ export function asPageItem(item: ItemTypeMixin): PageItem {
 export function asPageMeasurable(item: ItemTypeMixin): PageMeasurable {
   if (item.itemType == ITEM_TYPE_PAGE) { return item as PageMeasurable; }
   panic();
-}
-
-export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem {
-  return {
-    itemType: ITEM_TYPE_PAGE,
-    ownerId,
-    id: newUid(),
-    parentId,
-    relationshipToParent,
-    creationDate: currentUnixTimeSeconds(),
-    lastModifiedDate: currentUnixTimeSeconds(),
-    ordering,
-    title,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
-
-    spatialWidthGr: 4.0 * GRID_SIZE,
-
-    innerSpatialWidthGr: 60.0 * GRID_SIZE,
-    naturalAspect: 2.0,
-    backgroundColorIndex: 0,
-    arrangeAlgorithm: "spatial-stretch",
-    popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
-    popupAlignmentPoint: "center",
-    popupWidthGr: 10.0 * GRID_SIZE,
-
-    computed_children: createUidArraySignal([]),
-    computed_attachments: [],
-    computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: createBooleanSignal(false),
-
-    scrollXPx: createNumberSignal(0),
-    scrollYPx: createNumberSignal(0),
-  };
 }
 
 

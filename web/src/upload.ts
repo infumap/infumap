@@ -31,7 +31,8 @@ import { newUid } from "./util/uid";
 import { batch } from "solid-js";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
 import { arrange } from "./store/desktop/layout/arrange";
-import { createBooleanSignal } from "./util/signals";
+import { createBooleanSignal, createUidArraySignal } from "./util/signals";
+import { itemFromObject } from "./store/desktop/items/base/item-polymorphism";
 
 
 export async function handleUpload(
@@ -90,14 +91,14 @@ export async function handleUpload(
             imageSizePx: { w, h },
             thumbnail: "", // calculated on server.
 
-            computed_attachments: [],
+            computed_attachments: createUidArraySignal([]),
             computed_mouseIsOver: createBooleanSignal(false),
           };
           // includes thumbnail.
           let returnedItem = await server.addItem(imageItem, base64Data);
           // TODO (MEDIUM): immediately put an item in the UI, have image update later.
           batch(() => {
-            desktopStore.addItem(returnedItem);
+            desktopStore.addItem(itemFromObject(returnedItem));
             arrange(desktopStore, userStore.getUser());
           })
         }
@@ -124,7 +125,7 @@ export async function handleUpload(
         mimeType: file.type,
         fileSizeBytes: file.size,
 
-        computed_attachments: [],
+        computed_attachments: createUidArraySignal([]),
         computed_mouseIsOver: createBooleanSignal(false),
       };
 

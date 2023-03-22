@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { BoundingBox, cloneVector, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { createBooleanSignal } from "../../../util/signals";
+import { createBooleanSignal, createUidArraySignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
@@ -37,6 +37,73 @@ import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-
 export interface LinkItem extends XSizableItem, YSizableItem, AttachmentsItem {
   linkToId: Uid,
 }
+
+
+export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkToId: Uid): LinkItem {
+  return {
+    itemType: ITEM_TYPE_LINK,
+    ownerId,
+    id: newUid(),
+    parentId,
+    relationshipToParent,
+    creationDate: currentUnixTimeSeconds(),
+    lastModifiedDate: currentUnixTimeSeconds(),
+    ordering,
+    spatialPositionGr: { x: 0.0, y: 0.0 },
+
+    // possibly unused, depending on linked to type.
+    spatialWidthGr: 4.0 * GRID_SIZE,
+    spatialHeightGr: 4.0 * GRID_SIZE,
+
+    linkToId,
+
+    computed_attachments: createUidArraySignal([]),
+    computed_mouseIsOver: createBooleanSignal(false),
+  };
+}
+
+export function linkFromObject(o: any): LinkItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    spatialPositionGr: o.spatialPositionGr,
+
+    spatialWidthGr: o.spatialWidthGr,
+    spatialHeightGr: o.spatialHeightGr,
+
+    linkToId: o.linkToId,
+
+    computed_attachments: createUidArraySignal([]),
+    computed_mouseIsOver: createBooleanSignal(false),
+  });
+}
+
+export function linkToObject(l: LinkItem): object {
+  return ({
+    itemType: l.itemType,
+    ownerId: l.ownerId,
+    id: l.id,
+    parentId: l.parentId,
+    relationshipToParent: l.relationshipToParent,
+    creationDate: l.creationDate,
+    lastModifiedDate: l.lastModifiedDate,
+    ordering: Array.from(l.ordering),
+    spatialPositionGr: l.spatialPositionGr,
+
+    spatialWidthGr: l.spatialWidthGr,
+    spatialHeightGr: l.spatialHeightGr,
+
+    linkToId: l.linkToId,
+  });
+}
+
 
 function constructLinkToMeasurable(link: LinkItem, getItem: (id: Uid) => (Item | null)): Measurable {
   const linkedToMeasurableFields = cloneMeasurableFields(getItem(link.linkToId)!);
@@ -71,34 +138,6 @@ export function calcGeometryOfLinkItemInTable(link: LinkItem, blockSizePx: Dimen
 
 export function calcGeometryOfLinkItemInCell(link: LinkItem, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfItemInCell(constructLinkToMeasurable(link, getItem), cellBoundsPx, getItem);
-}
-
-export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkToId: Uid): LinkItem {
-  return {
-    itemType: ITEM_TYPE_LINK,
-    ownerId,
-    id: newUid(),
-    parentId,
-    relationshipToParent,
-    creationDate: currentUnixTimeSeconds(),
-    lastModifiedDate: currentUnixTimeSeconds(),
-    ordering,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
-
-    // possibly unused, depending on linked to type.
-    spatialWidthGr: 4.0 * GRID_SIZE,
-    spatialHeightGr: 4.0 * GRID_SIZE,
-
-    linkToId,
-
-    computed_attachments: [],
-    computed_mouseIsOver: createBooleanSignal(false),
-  };
-}
-
-export function setLinkDefaultComputed(item: LinkItem): void {
-  item.computed_attachments = [];
-  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isLink(item: ItemTypeMixin | null): boolean {

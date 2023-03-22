@@ -27,7 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal } from '../../../util/signals';
+import { createBooleanSignal, createUidArraySignal } from '../../../util/signals';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -37,6 +37,71 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem,
 }
 
 export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin { }
+
+
+export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem {
+  return {
+    itemType: ITEM_TYPE_NOTE,
+    ownerId,
+    id: newUid(),
+    parentId,
+    relationshipToParent,
+    creationDate: currentUnixTimeSeconds(),
+    lastModifiedDate: currentUnixTimeSeconds(),
+    ordering,
+    title,
+    spatialPositionGr: { x: 0.0, y: 0.0 },
+
+    spatialWidthGr: 4.0 * GRID_SIZE,
+
+    url: "",
+
+    computed_attachments: createUidArraySignal([]),
+    computed_mouseIsOver: createBooleanSignal(false),
+  };
+}
+
+export function noteFromObject(o: any): NoteItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    title: o.title,
+    spatialPositionGr: o.spatialPositionGr,
+
+    spatialWidthGr: o.spatialWidthGr,
+
+    url: o.url,
+
+    computed_attachments: createUidArraySignal([]),
+    computed_mouseIsOver: createBooleanSignal(false),
+  });
+}
+
+export function noteToObject(n: NoteItem): object {
+  return ({
+    itemType: n.itemType,
+    ownerId: n.ownerId,
+    id: n.id,
+    parentId: n.parentId,
+    relationshipToParent: n.relationshipToParent,
+    creationDate: n.creationDate,
+    lastModifiedDate: n.lastModifiedDate,
+    ordering: Array.from(n.ordering),
+    title: n.title,
+    spatialPositionGr: n.spatialPositionGr,
+
+    spatialWidthGr: n.spatialWidthGr,
+
+    url: n.url,
+  });
+}
 
 
 function measureLineCount(s: string, widthBl: number): number {
@@ -110,11 +175,6 @@ export function calcGeometryOfNoteItemInCell(_note: NoteMeasurable, cellBoundsPx
   });
 }
 
-export function setNoteDefaultComputed(item: NoteItem): void {
-  item.computed_attachments = [];
-  item.computed_mouseIsOver = createBooleanSignal(false);
-}
-
 export function isNote(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
   return item.itemType == ITEM_TYPE_NOTE;
@@ -128,28 +188,6 @@ export function asNoteItem(item: ItemTypeMixin): NoteItem {
 export function asNoteMeasurable(item: ItemTypeMixin): NoteMeasurable {
   if (item.itemType == ITEM_TYPE_NOTE) { return item as NoteMeasurable; }
   panic();
-}
-
-export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem {
-  return {
-    itemType: ITEM_TYPE_NOTE,
-    ownerId,
-    id: newUid(),
-    parentId,
-    relationshipToParent,
-    creationDate: currentUnixTimeSeconds(),
-    lastModifiedDate: currentUnixTimeSeconds(),
-    ordering,
-    title,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
-
-    spatialWidthGr: 4.0 * GRID_SIZE,
-
-    url: "",
-
-    computed_attachments: [],
-    computed_mouseIsOver: createBooleanSignal(false),
-  };
 }
 
 export function handleNoteClick(noteItem: NoteItem): void {

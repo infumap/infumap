@@ -28,12 +28,59 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { Uid } from '../../../util/uid';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal } from '../../../util/signals';
+import { createBooleanSignal, createUidArraySignal } from '../../../util/signals';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
 
 export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin { }
+
+
+export function fileFromObject(o: any): FileItem {
+  // TODO: dynamic type check of o.
+  return ({
+    itemType: o.itemType,
+    ownerId: o.ownerId,
+    id: o.id,
+    parentId: o.parentId,
+    relationshipToParent: o.relationshipToParent,
+    creationDate: o.creationDate,
+    lastModifiedDate: o.lastModifiedDate,
+    ordering: new Uint8Array(o.ordering),
+    title: o.title,
+    spatialPositionGr: o.spatialPositionGr,
+
+    spatialWidthGr: o.spatialWidthGr,
+
+    originalCreationDate: o.originalCreationDate,
+    mimeType: o.mimeType,
+    fileSizeBytes: o.fileSizeBytes,
+
+    computed_attachments: createUidArraySignal([]),
+    computed_mouseIsOver: createBooleanSignal(false),
+  });
+}
+
+export function fileToObject(f: FileItem): object {
+  return ({
+    itemType: f.itemType,
+    ownerId: f.ownerId,
+    id: f.id,
+    parentId: f.parentId,
+    relationshipToParent: f.relationshipToParent,
+    creationDate: f.creationDate,
+    lastModifiedDate: f.lastModifiedDate,
+    ordering: Array.from(f.ordering),
+    title: f.title,
+    spatialPositionGr: f.spatialPositionGr,
+
+    spatialWidthGr: f.spatialWidthGr,
+
+    originalCreationDate: f.originalCreationDate,
+    mimeType: f.mimeType,
+    fileSizeBytes: f.fileSizeBytes,
+  });
+}
 
 
 function measureLineCount(s: string, widthBl: number): number {
@@ -105,11 +152,6 @@ export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
   });
-}
-
-export function setFileDefaultComputed(item: FileItem): void {
-  item.computed_attachments = [];
-  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isFile(item: ItemTypeMixin | null): boolean {
