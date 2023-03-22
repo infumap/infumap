@@ -17,6 +17,7 @@
 */
 
 import { Accessor, createSignal, Setter } from "solid-js";
+import { Uid } from "./uid";
 
 
 export interface NumberSignal {
@@ -38,4 +39,15 @@ export interface BooleanSignal {
 export function createBooleanSignal(v: boolean): BooleanSignal {
   let [booleanAccessor, booleanSetter] = createSignal<boolean>(v, { equals: false });
   return { get: booleanAccessor, set: booleanSetter };
+}
+
+
+export interface UidArraySignal {
+  get: Accessor<Array<Uid>>,
+  set: Setter<Array<Uid>>,
+}
+
+export function createUidArraySignal(array: Array<Uid>): UidArraySignal {
+  let [arrayAccessor, arraySetter] = createSignal<Array<Uid>>([], { equals: false });
+  return { get: arrayAccessor, set: arraySetter };
 }
