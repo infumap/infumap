@@ -43,8 +43,8 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, us
     desktopEl.scrollTop = 0;
     desktopEl.scrollLeft = 0;
     // TODO (MEDIUM): retain these.
-    page.setScrollXPx(0);
-    page.setScrollYPx(0);
+    page.scrollXPx.set(0);
+    page.scrollYPx.set(0);
   });
 }
 

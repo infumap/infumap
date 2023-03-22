@@ -35,6 +35,7 @@ import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { arrange, switchToPage } from '../layout/arrange';
+import { createNumberSignal, NumberSignal } from '../../../util/signals';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -46,10 +47,8 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   popupAlignmentPoint: string;
   popupWidthGr: number;
 
-  scrollXPx: Accessor<number>;
-  setScrollXPx: Setter<number>;
-  scrollYPx: Accessor<number>;
-  setScrollYPx: Setter<number>;
+  scrollXPx: NumberSignal;
+  scrollYPx: NumberSignal;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
@@ -145,12 +144,8 @@ export function setPageDefaultComputed(item: PageItem): void {
   item.computed_movingItemIsOver = false;
   item.computed_children = [];
   item.computed_attachments = [];
-  const [scrollXPx, setScrollXPx] = createSignal<number>(0, { equals: false });
-  item.scrollXPx = scrollXPx;
-  item.setScrollXPx = setScrollXPx;
-  const [scrollYPx, setScrollYPx] = createSignal<number>(0, { equals: false });
-  item.scrollYPx = scrollYPx;
-  item.setScrollYPx = setScrollYPx;
+  item.scrollXPx = createNumberSignal(0);
+  item.scrollYPx = createNumberSignal(0);
 }
 
 
@@ -171,8 +166,6 @@ export function asPageMeasurable(item: ItemTypeMixin): PageMeasurable {
 }
 
 export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem {
-  const [scrollXPx, setScrollXPx] = createSignal<number>(0, { equals: false });
-  const [scrollYPx, setScrollYPx] = createSignal<number>(0, { equals: false });
   return {
     itemType: ITEM_TYPE_PAGE,
     ownerId,
@@ -200,8 +193,8 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     computed_movingItemIsOver: false,
     computed_mouseIsOver: false,
 
-    scrollXPx, setScrollXPx,
-    scrollYPx, setScrollYPx,
+    scrollXPx: createNumberSignal(0),
+    scrollYPx: createNumberSignal(0),
   };
 }
 

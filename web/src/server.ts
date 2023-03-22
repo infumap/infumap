@@ -91,9 +91,7 @@ function createItemForSend(item: Item): Item {
   delete result.computed_children;
   delete result.computed_attachments;
   delete result.scrollXPx;
-  delete result.setScrollXPx;
   delete result.scrollYPx;
-  delete result.setScrollYPx;
   result.ordering = Array.from(item.ordering);
   return result;
 }

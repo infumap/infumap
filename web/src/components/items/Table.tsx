@@ -86,18 +86,18 @@ const TableChildItems: Component<VisualElementOnDesktopProps> = (props: VisualEl
     tableItem().computed_children.length * blockHeightPx();
 
   const scrollHandler = (_ev: Event) => {
-    tableItem().setScrollYPx((outerDiv!)!.scrollTop);
+    tableItem().scrollYPx.set((outerDiv!)!.scrollTop);
   }
 
   onMount(() => {
-    outerDiv!.scrollTop = tableItem().scrollYPx();
+    outerDiv!.scrollTop = tableItem().scrollYPx.get();
   });
 
   const drawVisibleItems = () => {
     const children = props.visualElement.children();
     const visibleChildrenIds = [];
-    const firstItemIdx = Math.floor(tableItem().scrollYPx() / blockHeightPx());
-    let lastItemIdx = Math.ceil((tableItem().scrollYPx() + props.visualElement.childAreaBoundsPx()!.h) / blockHeightPx());
+    const firstItemIdx = Math.floor(tableItem().scrollYPx.get() / blockHeightPx());
+    let lastItemIdx = Math.ceil((tableItem().scrollYPx.get() + props.visualElement.childAreaBoundsPx()!.h) / blockHeightPx());
     if (lastItemIdx > children.length - 1) { lastItemIdx = children.length - 1; }
     for (let i=firstItemIdx; i<=lastItemIdx; ++i) {
       visibleChildrenIds.push(children[i]);

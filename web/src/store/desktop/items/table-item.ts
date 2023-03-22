@@ -30,6 +30,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
+import { createNumberSignal, NumberSignal } from "../../../util/signals";
 
 
 export interface TableColumn {
@@ -40,8 +41,7 @@ export interface TableColumn {
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
   tableColumns: Array<TableColumn>;
 
-  scrollYPx: Accessor<number>;
-  setScrollYPx: Setter<number>;
+  scrollYPx: NumberSignal;
 }
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin { }
@@ -109,9 +109,7 @@ export function setTableDefaultComputed(item: TableItem): void {
   item.computed_movingItemIsOver = false;
   item.computed_children = [];
   item.computed_attachments = [];
-  const [scrollYPx, setScrollYPx] = createSignal<number>(0, { equals: false });
-  item.scrollYPx = scrollYPx;
-  item.setScrollYPx = setScrollYPx;
+  item.scrollYPx = createNumberSignal(0);
 }
 
 export function isTable(item: Item | ItemTypeMixin): boolean {
@@ -130,7 +128,6 @@ export function asTableMeasurable(item: ItemTypeMixin): TableMeasurable {
 }
 
 export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem {
-  const [scrollYPx, setScrollYPx] = createSignal<number>(0, { equals: false });
   return {
     itemType: ITEM_TYPE_TABLE,
     ownerId,
@@ -158,7 +155,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     computed_mouseIsOver: false,
 
     // these will be per render area.
-    scrollYPx, setScrollYPx,
+    scrollYPx: createNumberSignal(0)
   };
 }
 

@@ -128,8 +128,8 @@ export const Desktop: Component = () => {
 
   const scrollHandler = (_ev: Event) => {
     let pageItem = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
-    pageItem.setScrollYPx(desktopDiv!.scrollTop);
-    pageItem.setScrollXPx(desktopDiv!.scrollLeft);
+    pageItem.scrollYPx.set(desktopDiv!.scrollTop);
+    pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
   }
 
   function overflowPolicy() {

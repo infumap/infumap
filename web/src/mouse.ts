@@ -57,7 +57,7 @@ export function getHitInfo(
 
   const topLevelVisualElement = desktopStore.getTopLevelVisualElement()!;
   const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement.itemId)!);
-  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx(), y: topLevelPage.scrollYPx() });
+  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
   for (let i=0; i<topLevelVisualElement.children().length; ++i) {
     const child = topLevelVisualElement.children()[i];
@@ -78,7 +78,7 @@ export function getHitInfo(
           const tableChild = child.children()[j];
           const posRelativeToTableChildAreaPx = subtract(
             posReltiveToTopLevelVisualElementPx,
-            { x: child.childAreaBoundsPx()!.x, y: child.childAreaBoundsPx()!.y - tableItem.scrollYPx() }
+            { x: child.childAreaBoundsPx()!.x, y: child.childAreaBoundsPx()!.y - tableItem.scrollYPx.get() }
           );
           if (isInside(posRelativeToTableChildAreaPx, tableChild.boundsPx())) {
             let hitboxType = HitboxType.None;
@@ -350,7 +350,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
   let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx());
-  itemPosInTablePx.y -= tableItem.scrollYPx();
+  itemPosInTablePx.y -= tableItem.scrollYPx.get();
   const tableVe = mouseActionState!.activeVisualElement!.parent()!;
   const tableParentVe = tableVe.parent()!;
   const tablePosInPagePx = getTopLeft(tableVe.childAreaBoundsPx()!);
