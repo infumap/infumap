@@ -18,6 +18,7 @@
 
 import { Accessor, createSignal, Setter } from "solid-js";
 
+
 export interface NumberSignal {
   get: Accessor<number>,
   set: Setter<number>,
@@ -26,4 +27,15 @@ export interface NumberSignal {
 export function createNumberSignal(number: number): NumberSignal {
   let [numberAccessor, numberSetter] = createSignal<number>(number, { equals: false });
   return { get: numberAccessor, set: numberSetter };
+}
+
+
+export interface BooleanSignal {
+  get: Accessor<boolean>,
+  set: Setter<boolean>,
+}
+
+export function createBooleanSignal(v: boolean): BooleanSignal {
+  let [booleanAccessor, booleanSetter] = createSignal<boolean>(v, { equals: false });
+  return { get: booleanAccessor, set: booleanSetter };
 }

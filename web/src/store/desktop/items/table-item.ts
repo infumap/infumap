@@ -30,7 +30,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createNumberSignal, NumberSignal } from "../../../util/signals";
+import { createBooleanSignal, createNumberSignal, NumberSignal } from "../../../util/signals";
 
 
 export interface TableColumn {
@@ -106,7 +106,7 @@ export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBound
 
 export function setTableDefaultComputed(item: TableItem): void {
   item.computed_mouseIsOver = false;
-  item.computed_movingItemIsOver = false;
+  item.computed_movingItemIsOver = createBooleanSignal(false);
   item.computed_children = [];
   item.computed_attachments = [];
   item.scrollYPx = createNumberSignal(0);
@@ -151,7 +151,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     computed_children: [],
     computed_attachments: [],
 
-    computed_movingItemIsOver: false,
+    computed_movingItemIsOver: createBooleanSignal(false),
     computed_mouseIsOver: false,
 
     // these will be per render area.

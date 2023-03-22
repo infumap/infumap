@@ -35,7 +35,7 @@ import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { arrange, switchToPage } from '../layout/arrange';
-import { createNumberSignal, NumberSignal } from '../../../util/signals';
+import { createBooleanSignal, createNumberSignal, NumberSignal } from '../../../util/signals';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -141,7 +141,7 @@ export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx
 
 export function setPageDefaultComputed(item: PageItem): void {
   item.computed_mouseIsOver = false;
-  item.computed_movingItemIsOver = false;
+  item.computed_movingItemIsOver = createBooleanSignal(false);
   item.computed_children = [];
   item.computed_attachments = [];
   item.scrollXPx = createNumberSignal(0);
@@ -190,7 +190,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     computed_children: [],
     computed_attachments: [],
-    computed_movingItemIsOver: false,
+    computed_movingItemIsOver: createBooleanSignal(false),
     computed_mouseIsOver: false,
 
     scrollXPx: createNumberSignal(0),

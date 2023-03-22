@@ -17,6 +17,7 @@
 */
 
 import { panic } from "../../../../util/lang";
+import { BooleanSignal } from "../../../../util/signals";
 import { Uid } from "../../../../util/uid";
 import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
 
@@ -25,7 +26,7 @@ const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE];
 
 export interface ContainerMixin {
   computed_children: Array<Uid>;
-  computed_movingItemIsOver: boolean;
+  computed_movingItemIsOver: BooleanSignal;
 }
 
 export interface ContainerItem extends ContainerMixin, Item { }

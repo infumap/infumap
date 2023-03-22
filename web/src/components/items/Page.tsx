@@ -63,7 +63,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
     if (pageItem().computed_mouseIsOver) {
       bg = `background-color: #880088`;
     }
-    if (pageItem().computed_movingItemIsOver) {
+    if (pageItem().computed_movingItemIsOver.get()) {
       bg = `background-color: #880000;`;
     }
     return (
@@ -103,7 +103,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
     if (pageItem().computed_mouseIsOver) {
       bg = `background-color: #880088`;
     }
-    if (pageItem().computed_movingItemIsOver) {
+    if (pageItem().computed_movingItemIsOver.get()) {
       bg = `background-color: #88000088;`;
     }
     return (

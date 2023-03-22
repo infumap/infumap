@@ -302,11 +302,11 @@ export function mouseMoveHandler(
         mouseActionState.moveOverContainerVisualElement! != overContainerVe) {
       if (mouseActionState.moveOverContainerVisualElement != null) {
         desktopStore.updateContainerItem(mouseActionState.moveOverContainerVisualElement!.itemId, item => {
-          item.computed_movingItemIsOver = false;
+          item.computed_movingItemIsOver.set(false);
         });
       }
       desktopStore.updateContainerItem(overContainerVe.itemId, item => {
-        item.computed_movingItemIsOver = true;
+        item.computed_movingItemIsOver.set(true);
       });
       mouseActionState.moveOverContainerVisualElement = overContainerVe;
       if (isTable(overContainerVe)) {
@@ -390,7 +390,7 @@ export function mouseUpHandler(
 
   if (mouseActionState.moveOverContainerVisualElement != null) {
     desktopStore.updateContainerItem(mouseActionState.moveOverContainerVisualElement!.itemId, item => {
-      item.computed_movingItemIsOver = false;
+      item.computed_movingItemIsOver.set(false);
     });
   }
 
