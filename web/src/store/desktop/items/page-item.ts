@@ -35,7 +35,7 @@ import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { arrange, switchToPage } from '../layout/arrange';
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal } from '../../../util/signals';
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from '../../../util/signals';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -68,7 +68,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
     title,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
+    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
     spatialWidthGr: 4.0 * GRID_SIZE,
 
@@ -102,7 +102,7 @@ export function pageFromObject(o: any): PageItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     spatialWidthGr: o.spatialWidthGr,
 
@@ -136,7 +136,7 @@ export function pageToObject(p: PageItem): object {
     lastModifiedDate: p.lastModifiedDate,
     ordering: Array.from(p.ordering),
     title: p.title,
-    spatialPositionGr: p.spatialPositionGr,
+    spatialPositionGr: p.spatialPositionGr.get(),
 
     spatialWidthGr: p.spatialWidthGr,
 
@@ -167,8 +167,8 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable, _getItem:
 
 export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const boundsPx = {
-    x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (page.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (page.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcPageSizeForSpatialBl(page, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
@@ -282,7 +282,7 @@ export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopSt
 export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable {
   return ({
     itemType: page.itemType,
-    spatialPositionGr: cloneVector(page.spatialPositionGr)!,
+    spatialPositionGr: page.spatialPositionGr,
     spatialWidthGr: page.spatialWidthGr,
     naturalAspect: page.naturalAspect,
     innerSpatialWidthGr: page.innerSpatialWidthGr,

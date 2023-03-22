@@ -27,7 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createUidArraySignal } from '../../../util/signals';
+import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -50,7 +50,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
     title,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
+    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
     spatialWidthGr: 4.0 * GRID_SIZE,
 
@@ -73,7 +73,7 @@ export function noteFromObject(o: any): NoteItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     spatialWidthGr: o.spatialWidthGr,
 
@@ -95,7 +95,7 @@ export function noteToObject(n: NoteItem): object {
     lastModifiedDate: n.lastModifiedDate,
     ordering: Array.from(n.ordering),
     title: n.title,
-    spatialPositionGr: n.spatialPositionGr,
+    spatialPositionGr: n.spatialPositionGr.get(),
 
     spatialWidthGr: n.spatialWidthGr,
 
@@ -122,8 +122,8 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable, _getItem: (id: Ui
 
 export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const boundsPx = {
-    x: (note.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (note.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (note.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (note.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcNoteSizeForSpatialBl(note, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcNoteSizeForSpatialBl(note, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
@@ -199,7 +199,7 @@ export function handleNoteClick(noteItem: NoteItem): void {
 export function cloneNoteMeasurableFields(note: NoteMeasurable): NoteMeasurable {
   return ({
     itemType: note.itemType,
-    spatialPositionGr: cloneVector(note.spatialPositionGr)!,
+    spatialPositionGr: note.spatialPositionGr,
     spatialWidthGr: note.spatialWidthGr,
     title: note.title,
   });

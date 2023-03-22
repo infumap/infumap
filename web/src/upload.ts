@@ -31,7 +31,7 @@ import { newUid } from "./util/uid";
 import { batch } from "solid-js";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
 import { arrange } from "./store/desktop/layout/arrange";
-import { createBooleanSignal, createUidArraySignal } from "./util/signals";
+import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "./util/signals";
 import { itemFromObject } from "./store/desktop/items/base/item-polymorphism";
 
 
@@ -80,7 +80,7 @@ export async function handleUpload(
             lastModifiedDate: currentUnixTimeSeconds(),
             ordering: desktopStore.newOrderingAtEndOfChildren(parent.id),
             title: file.name,
-            spatialPositionGr: calcBlockPositionGr(parent, desktopPx),
+            spatialPositionGr: createVectorSignal(calcBlockPositionGr(parent, desktopPx)),
 
             spatialWidthGr: 4.0 * GRID_SIZE,
 
@@ -117,7 +117,7 @@ export async function handleUpload(
         lastModifiedDate: currentUnixTimeSeconds(),
         ordering: desktopStore.newOrderingAtEndOfChildren(parent.id),
         title: file.name,
-        spatialPositionGr: calcBlockPositionGr(parent, desktopPx),
+        spatialPositionGr: createVectorSignal(calcBlockPositionGr(parent, desktopPx)),
 
         spatialWidthGr: 8.0 * GRID_SIZE,
 

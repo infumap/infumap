@@ -24,7 +24,7 @@ import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../item-geometry';
 import { Uid } from '../../../util/uid';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal } from '../../../util/signals';
+import { createBooleanSignal, createVectorSignal } from '../../../util/signals';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -45,7 +45,7 @@ export function ratingFromObject(o: any): RatingItem {
     creationDate: o.creationDate,
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     rating: o.rating,
 
@@ -63,7 +63,7 @@ export function ratingToObject(r: RatingItem): object {
     creationDate: r.creationDate,
     lastModifiedDate: r.lastModifiedDate,
     ordering: Array.from(r.ordering),
-    spatialPositionGr: r.spatialPositionGr,
+    spatialPositionGr: r.spatialPositionGr.get(),
 
     rating: r.rating,
   });
@@ -76,8 +76,8 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable, _getItem: (i
 
 export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const boundsPx = {
-    x: (rating.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (rating.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (rating.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (rating.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcRatingSizeForSpatialBl(rating, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcRatingSizeForSpatialBl(rating, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
@@ -140,6 +140,6 @@ export function asRatingMeasurable(item: ItemTypeMixin): RatingMeasurable {
 export function cloneRatingMeasurableFields(rating: RatingMeasurable): RatingMeasurable {
   return ({
     itemType: rating.itemType,
-    spatialPositionGr: cloneVector(rating.spatialPositionGr)!,
+    spatialPositionGr: rating.spatialPositionGr,
   });
 }

@@ -28,7 +28,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { Uid } from '../../../util/uid';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createUidArraySignal } from '../../../util/signals';
+import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -48,7 +48,7 @@ export function fileFromObject(o: any): FileItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     spatialWidthGr: o.spatialWidthGr,
 
@@ -72,7 +72,7 @@ export function fileToObject(f: FileItem): object {
     lastModifiedDate: f.lastModifiedDate,
     ordering: Array.from(f.ordering),
     title: f.title,
-    spatialPositionGr: f.spatialPositionGr,
+    spatialPositionGr: f.spatialPositionGr.get(),
 
     spatialWidthGr: f.spatialWidthGr,
 
@@ -101,8 +101,8 @@ export function calcFileSizeForSpatialBl(file: FileMeasurable, _getItem: (id: Ui
 
 export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const boundsPx = {
-    x: (file.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (file.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (file.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (file.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcFileSizeForSpatialBl(file, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcFileSizeForSpatialBl(file, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
@@ -176,7 +176,7 @@ export function handleFileClick(fileItem: FileItem): void {
 export function cloneFileMeasurableFields(file: FileMeasurable): FileMeasurable {
   return ({
     itemType: file.itemType,
-    spatialPositionGr: cloneVector(file.spatialPositionGr)!,
+    spatialPositionGr: file.spatialPositionGr,
     spatialWidthGr: file.spatialWidthGr,
     title: file.title,
   });

@@ -28,7 +28,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { Uid } from "../../../util/uid";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal, createUidArraySignal } from "../../../util/signals";
+import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -52,7 +52,7 @@ export function imageFromObject(o: any): ImageItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     spatialWidthGr: o.spatialWidthGr,
 
@@ -79,7 +79,7 @@ export function imageToObject(i: ImageItem): object {
     lastModifiedDate: i.lastModifiedDate,
     ordering: Array.from(i.ordering),
     title: i.title,
-    spatialPositionGr: i.spatialPositionGr,
+    spatialPositionGr: i.spatialPositionGr.get(),
 
     spatialWidthGr: i.spatialWidthGr,
 
@@ -116,8 +116,8 @@ export function calcImageSizeForSpatialBl(image: ImageMeasurable, _getItem: (id:
 
 export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const boundsPx = {
-    x: (image.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (image.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (image.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (image.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcImageSizeForSpatialBl(image, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcImageSizeForSpatialBl(image, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
@@ -195,7 +195,7 @@ export function handleImageClick(imageItem: ImageItem): void {
 export function cloneImageMeasurableFields(image: ImageMeasurable): ImageMeasurable {
   return ({
     itemType: image.itemType,
-    spatialPositionGr: cloneVector(image.spatialPositionGr)!,
+    spatialPositionGr: image.spatialPositionGr,
     spatialWidthGr: image.spatialWidthGr,
     imageSizePx: image.imageSizePx
   });

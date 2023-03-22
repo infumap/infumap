@@ -29,7 +29,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal } from "../../../util/signals";
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from "../../../util/signals";
 
 
 export interface TableColumn {
@@ -57,7 +57,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
     title,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
+    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
     spatialWidthGr: 8.0 * GRID_SIZE,
     spatialHeightGr: 6.0 * GRID_SIZE,
@@ -89,7 +89,7 @@ export function tableFromObject(o: any): TableItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     spatialWidthGr: o.spatialWidthGr,
     spatialHeightGr: o.spatialHeightGr,
@@ -117,7 +117,7 @@ export function tableToObject(t: TableItem): object {
     lastModifiedDate: t.lastModifiedDate,
     ordering: Array.from(t.ordering),
     title: t.title,
-    spatialPositionGr: t.spatialPositionGr,
+    spatialPositionGr: t.spatialPositionGr.get(),
 
     spatialWidthGr: t.spatialWidthGr,
     spatialHeightGr: t.spatialHeightGr,
@@ -133,8 +133,8 @@ export function calcTableSizeForSpatialBl(table: TableMeasurable, _getItem: (id:
 
 export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const boundsPx = {
-    x: (table.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (table.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (table.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (table.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcTableSizeForSpatialBl(table, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcTableSizeForSpatialBl(table, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
@@ -202,7 +202,7 @@ export function asTableMeasurable(item: ItemTypeMixin): TableMeasurable {
 export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasurable {
   return ({
     itemType: table.itemType,
-    spatialPositionGr: cloneVector(table.spatialPositionGr)!,
+    spatialPositionGr: table.spatialPositionGr,
     spatialWidthGr: table.spatialWidthGr,
     spatialHeightGr: table.spatialHeightGr,
   });

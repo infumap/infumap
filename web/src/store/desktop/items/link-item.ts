@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { BoundingBox, cloneVector, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { createBooleanSignal, createUidArraySignal } from "../../../util/signals";
+import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
@@ -49,7 +49,7 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     creationDate: currentUnixTimeSeconds(),
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
+    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
     // possibly unused, depending on linked to type.
     spatialWidthGr: 4.0 * GRID_SIZE,
@@ -73,7 +73,7 @@ export function linkFromObject(o: any): LinkItem {
     creationDate: o.creationDate,
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
-    spatialPositionGr: o.spatialPositionGr,
+    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     spatialWidthGr: o.spatialWidthGr,
     spatialHeightGr: o.spatialHeightGr,
@@ -95,7 +95,7 @@ export function linkToObject(l: LinkItem): object {
     creationDate: l.creationDate,
     lastModifiedDate: l.lastModifiedDate,
     ordering: Array.from(l.ordering),
-    spatialPositionGr: l.spatialPositionGr,
+    spatialPositionGr: l.spatialPositionGr.get(),
 
     spatialWidthGr: l.spatialWidthGr,
     spatialHeightGr: l.spatialHeightGr,
@@ -109,7 +109,7 @@ function constructLinkToMeasurable(link: LinkItem, getItem: (id: Uid) => (Item |
   const linkedToMeasurableFields = cloneMeasurableFields(getItem(link.linkToId)!);
   if (isLink(linkedToMeasurableFields)) { panic(); }
   if (isPositionalItem(linkedToMeasurableFields)) {
-    (asPositionalItem(linkedToMeasurableFields)).spatialPositionGr = cloneVector(link.spatialPositionGr)!;
+    (asPositionalItem(linkedToMeasurableFields)).spatialPositionGr = link.spatialPositionGr;
   }
   if (isXSizableItem(linkedToMeasurableFields)) {
     (asXSizableItem(linkedToMeasurableFields)).spatialWidthGr = link.spatialWidthGr;

@@ -255,8 +255,8 @@ export function mouseMoveHandler(
         }
         mouseActionState.startWidthBl = null;
         mouseActionState.startPosBl = {
-          x: activeItem.spatialPositionGr.x / GRID_SIZE,
-          y: activeItem.spatialPositionGr.y / GRID_SIZE
+          x: activeItem.spatialPositionGr.get().x / GRID_SIZE,
+          y: activeItem.spatialPositionGr.get().y / GRID_SIZE
         };
         mouseActionState.action = MouseAction.Moving;
       }
@@ -318,9 +318,7 @@ export function mouseMoveHandler(
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
-    desktopStore.updateItem(activeItem.id, item => {
-      item.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-    });
+    activeItem.spatialPositionGr.set({ x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE });
   }
 }
 
@@ -370,8 +368,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     desktopStore.updateItem(activeItem.id, item => {
       item.parentId = tableParentPage.id;
       item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
-      item.spatialPositionGr = itemPosInPageQuantizedGr;
     });
+    activeItem.spatialPositionGr.set(itemPosInPageQuantizedGr);
   });
   mouseActionState!.activeVisualElement = findVisualElement(desktopStore, activeItemId)!;
 }
@@ -399,9 +397,9 @@ export function mouseUpHandler(
         batch(() => {
           desktopStore.updateItem(activeItem.id, item => {
             item.parentId = moveOverContainerId;
-            item.spatialPositionGr = { x: 0.0, y: 0.0 };
             item.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
           });
+          activeItem.spatialPositionGr.set({ x: 0.0, y: 0.0 });
 
           const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
           const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children.get()];
@@ -413,8 +411,8 @@ export function mouseUpHandler(
           prevParent.computed_children.set(prevParent.computed_children.get().filter(i => i != activeItem.id));
         });
       }
-      if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-          mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y ||
+      if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.get().x ||
+          mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.get().y ||
           parentChanged) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }

@@ -17,6 +17,7 @@
 */
 
 import { Accessor, createSignal, Setter } from "solid-js";
+import { Vector } from "./geometry";
 import { Uid } from "./uid";
 
 
@@ -50,4 +51,15 @@ export interface UidArraySignal {
 export function createUidArraySignal(array: Array<Uid>): UidArraySignal {
   let [arrayAccessor, arraySetter] = createSignal<Array<Uid>>([], { equals: false });
   return { get: arrayAccessor, set: arraySetter };
+}
+
+
+export interface VectorSignal {
+  get: Accessor<Vector>,
+  set: Setter<Vector>,
+}
+
+export function createVectorSignal(v: Vector): VectorSignal {
+  let [vectorAccessor, vectorSetter] = createSignal<Vector>(v, { equals: false });
+  return { get: vectorAccessor, set: vectorSetter };
 }
