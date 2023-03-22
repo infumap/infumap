@@ -220,9 +220,12 @@ export function mouseMoveHandler(
         if (lastMouseOverId != null) {
           desktopStore.updateItem(lastMouseOverId, item => { item.computed_mouseIsOver = false; });
         }
-        desktopStore.updateItem(overItem.id, item => { item.computed_mouseIsOver = true; });
-        lastMouseOverId = overItem.id;
-      })
+        lastMouseOverId = null;
+        if (overItem.id != desktopStore.currentPageId()) {
+          desktopStore.updateItem(overItem.id, item => { item.computed_mouseIsOver = true; });
+          lastMouseOverId = overItem.id;
+        }
+      });
     }
     if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
       document.body.style.cursor = "nwse-resize";
