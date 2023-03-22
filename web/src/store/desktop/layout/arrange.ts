@@ -190,158 +190,163 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
 
   const currentPageInnerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(currentPage(), desktopStore.getItem);
 
-  const topLevelChildren: Array<VisualElement> =
-    currentPage().computed_children
-      .map(childId => {
-        const childItem = () => desktopStore.getItem(childId)!;
-        const geometry = () => calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
+  topLevelVisualElement.children = () => {
+    // unfortunately, this needs to wrap currentPage(), in order to capture changes in children.
 
-        // ### Child is a page with children visible.
-        if (isPage(childItem()) &&
-            // This test does not depend on pixel size, so is invariant over display devices.
-            asPageItem(childItem()).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-          const pageItem = () => asPageItem(childItem());
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, pageItem().id);
+    const topLevelChildren: Array<VisualElement> =
+      currentPage().computed_children
+        .map(childId => {
+          const childItem = () => desktopStore.getItem(childId)!;
+          const geometry = () => calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
 
-          const pageWithChildrenVe: VisualElement = {
-            itemType: ITEM_TYPE_PAGE,
-            itemId: childId,
-            isTopLevel: true,
-            resizingFromBoundsPx: null,
-            boundsPx: () => geometry().boundsPx,
-            childAreaBoundsPx: () => geometry().boundsPx,
-            hitboxes: () => geometry().hitboxes,
-            children: () => [],
-            attachments: () => [],
-            parent: () => topLevelVisualElement,
-          };
+          // ### Child is a page with children visible.
+          if (isPage(childItem()) &&
+              // This test does not depend on pixel size, so is invariant over display devices.
+              asPageItem(childItem()).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
+            const pageItem = () => asPageItem(childItem());
+            initiateLoadChildItemsIfNotLoaded(desktopStore, user, pageItem().id);
 
-          const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem(), desktopStore.getItem);
+            const pageWithChildrenVe: VisualElement = {
+              itemType: ITEM_TYPE_PAGE,
+              itemId: childId,
+              isTopLevel: true,
+              resizingFromBoundsPx: null,
+              boundsPx: () => geometry().boundsPx,
+              childAreaBoundsPx: () => geometry().boundsPx,
+              hitboxes: () => geometry().hitboxes,
+              children: () => [],
+              attachments: () => [],
+              parent: () => topLevelVisualElement,
+            };
 
-          pageWithChildrenVe.children = () => {
-            const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);
-            return pageItem().computed_children.map(childId => {
-              const childItem = desktopStore.getItem(childId)!;
-              const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
+            const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem(), desktopStore.getItem);
+
+            pageWithChildrenVe.children = () => {
+              const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);
+              return pageItem().computed_children.map(childId => {
+                const childItem = desktopStore.getItem(childId)!;
+                const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
+                return {
+                  itemType: childItem.itemType,
+                  itemId: childItem.id,
+                  isTopLevel: false,
+                  resizingFromBoundsPx: null,
+                  boundsPx: () => geometry.boundsPx,
+                  childAreaBoundsPx: () => null,
+                  hitboxes: () => [],
+                  children: () => [],
+                  attachments: () => [],
+                  parent: () => pageWithChildrenVe
+                };
+              });
+            }
+
+            return pageWithChildrenVe;
+
+          // ### Table
+          } else if (isTable(childItem())) {
+            initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem().id);
+            let tableItem = () => asTableItem(childItem());
+
+            const sizeBl = () => ({ w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE });
+            const blockSizePx = () => ({ w: geometry().boundsPx.w / sizeBl().w, h: geometry().boundsPx.h / sizeBl().h });
+            
+            let childAreaBoundsPx = () => {
+              const headerHeightPx = blockSizePx().h * HEADER_HEIGHT_BL;
               return {
-                itemType: childItem.itemType,
-                itemId: childItem.id,
-                isTopLevel: false,
-                resizingFromBoundsPx: null,
-                boundsPx: () => geometry.boundsPx,
-                childAreaBoundsPx: () => null,
-                hitboxes: () => [],
-                children: () => [],
-                attachments: () => [],
-                parent: () => pageWithChildrenVe
+                x: geometry().boundsPx.x, y: geometry().boundsPx.y + headerHeightPx,
+                w: geometry().boundsPx.w, h: geometry().boundsPx.h - headerHeightPx
               };
-            });
-          }
-
-          return pageWithChildrenVe;
-
-        // ### Table
-        } else if (isTable(childItem())) {
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem().id);
-          let tableItem = () => asTableItem(childItem());
-
-          const sizeBl = () => ({ w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE });
-          const blockSizePx = () => ({ w: geometry().boundsPx.w / sizeBl().w, h: geometry().boundsPx.h / sizeBl().h });
-          
-          let childAreaBoundsPx = () => {
-            const headerHeightPx = blockSizePx().h * HEADER_HEIGHT_BL;
-            return {
-              x: geometry().boundsPx.x, y: geometry().boundsPx.y + headerHeightPx,
-              w: geometry().boundsPx.w, h: geometry().boundsPx.h - headerHeightPx
             };
-          };
 
-          let tableVe: VisualElement = {
-            itemType: ITEM_TYPE_TABLE,
-            itemId: tableItem().id,
-            isTopLevel: true,
-            resizingFromBoundsPx: null,
-            boundsPx: () => geometry().boundsPx,
-            childAreaBoundsPx,
-            hitboxes: () => geometry().hitboxes,
-            children: () => [],
-            attachments: () => [],
-            parent: () => topLevelVisualElement
-          }
+            let tableVe: VisualElement = {
+              itemType: ITEM_TYPE_TABLE,
+              itemId: tableItem().id,
+              isTopLevel: true,
+              resizingFromBoundsPx: null,
+              boundsPx: () => geometry().boundsPx,
+              childAreaBoundsPx,
+              hitboxes: () => geometry().hitboxes,
+              children: () => [],
+              attachments: () => [],
+              parent: () => topLevelVisualElement
+            }
 
-          tableVe.children = () => {
-            let tableVeChildren: Array<VisualElement> = [];
-            for (let idx=0; idx<tableItem().computed_children.length; ++idx) {
-              const childId = () => tableItem().computed_children[idx];
-              const childItem = () => desktopStore.getItem(childId())!;
-              const geometry = () => calcGeometryOfItemInTable(childItem(), blockSizePx(), idx, 0, sizeBl().w, desktopStore.getItem);
-          
-              let tableItemVe: VisualElement = {
-                itemType: childItem().itemType,
-                itemId: childItem().id,
-                isTopLevel: false,
-                resizingFromBoundsPx: null,
-                boundsPx: () => geometry().boundsPx,
-                hitboxes: () => geometry().hitboxes,
-                children: () => [],
-                attachments: () => [],
-                childAreaBoundsPx: () => null,
-                parent: () => tableVe
+            tableVe.children = () => {
+              let tableVeChildren: Array<VisualElement> = [];
+              for (let idx=0; idx<tableItem().computed_children.length; ++idx) {
+                const childId = () => tableItem().computed_children[idx];
+                const childItem = () => desktopStore.getItem(childId())!;
+                const geometry = () => calcGeometryOfItemInTable(childItem(), blockSizePx(), idx, 0, sizeBl().w, desktopStore.getItem);
+            
+                let tableItemVe: VisualElement = {
+                  itemType: childItem().itemType,
+                  itemId: childItem().id,
+                  isTopLevel: false,
+                  resizingFromBoundsPx: null,
+                  boundsPx: () => geometry().boundsPx,
+                  hitboxes: () => geometry().hitboxes,
+                  children: () => [],
+                  attachments: () => [],
+                  childAreaBoundsPx: () => null,
+                  parent: () => tableVe
+                };
+                tableVeChildren.push(tableItemVe);
+                let attachments: Array<VisualElement> = [];
+
+                if (isAttachmentsItem(childItem())) {
+            // TODO.
+            //       asAttachmentsItem(childItem).computed_attachments.map(attachmentId => desktopStore.getItem(attachmentId)!).forEach(attachmentItem => {
+            //         const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, 8, sizeBl.w, desktopStore.getItem);
+            //         const boundsPx = {
+            //           x: geometry.boundsPx.x,
+            //           y: 0.0,
+            //           w: geometry.boundsPx.w,
+            //           h: geometry.boundsPx.h,
+            //         };
+            //         let ve = createVisualElementSignal({
+            //           itemType: attachmentItem.itemType,
+            //           isTopLevel: false,
+            //           itemId: attachmentItem.id,
+            //           boundsPx,
+            //           resizingFromBoundsPx: null,
+            //           hitboxes: geometry.hitboxes,
+            //           children: [],
+            //           attachments: [],
+            //           childAreaBoundsPx: null,
+            //           parent: tableItemVe
+            //         });
+            //         attachments.push(ve);
+            //       });
+                }
               };
-              tableVeChildren.push(tableItemVe);
-              let attachments: Array<VisualElement> = [];
+              return tableVeChildren;
+            }
 
-              if (isAttachmentsItem(childItem())) {
-          // TODO.
-          //       asAttachmentsItem(childItem).computed_attachments.map(attachmentId => desktopStore.getItem(attachmentId)!).forEach(attachmentItem => {
-          //         const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, 8, sizeBl.w, desktopStore.getItem);
-          //         const boundsPx = {
-          //           x: geometry.boundsPx.x,
-          //           y: 0.0,
-          //           w: geometry.boundsPx.w,
-          //           h: geometry.boundsPx.h,
-          //         };
-          //         let ve = createVisualElementSignal({
-          //           itemType: attachmentItem.itemType,
-          //           isTopLevel: false,
-          //           itemId: attachmentItem.id,
-          //           boundsPx,
-          //           resizingFromBoundsPx: null,
-          //           hitboxes: geometry.hitboxes,
-          //           children: [],
-          //           attachments: [],
-          //           childAreaBoundsPx: null,
-          //           parent: tableItemVe
-          //         });
-          //         attachments.push(ve);
-          //       });
-              }
+            return tableVe;
+    
+          // ### Any other item type.
+          } else {
+            const itemVe = {
+              itemType: childItem().itemType,
+              itemId: childItem().id,
+              isTopLevel: true,
+              resizingFromBoundsPx: null,
+              boundsPx: () => geometry().boundsPx,
+              childAreaBoundsPx: () => null,
+              hitboxes: () => geometry().hitboxes,
+              children: () => [],
+              attachments: () => [], // TODO.
+              parent: () => topLevelVisualElement
             };
-            return tableVeChildren;
+            // if attachments... 
+            return itemVe;
           }
+        });
 
-          return tableVe;
-  
-        // ### Any other item type.
-        } else {
-          const itemVe = {
-            itemType: childItem().itemType,
-            itemId: childItem().id,
-            isTopLevel: true,
-            resizingFromBoundsPx: null,
-            boundsPx: () => geometry().boundsPx,
-            childAreaBoundsPx: () => null,
-            hitboxes: () => geometry().hitboxes,
-            children: () => [],
-            attachments: () => [], // TODO.
-            parent: () => topLevelVisualElement
-          };
-          // if attachments... 
-          return itemVe;
-        }
-      });
+      return topLevelChildren;
+    }
 
-  topLevelVisualElement.children = () => topLevelChildren;
 
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
