@@ -41,30 +41,30 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const handleBlockWidthChange = (v: string) => {
     desktopStore.updateItem(pageId(), item => asPageItem(item).innerSpatialWidthGr = parseInt(v) * GRID_SIZE);
-    server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
+    server.updateItem(desktopStore.getItem(pageId())!);
   };
   const handleNaturalAspectChange = async (v: string) => {
     desktopStore.updateItem(pageId(), item => asPageItem(item).naturalAspect = parseFloat(v));
-    await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
+    await server.updateItem(desktopStore.getItem(pageId())!);
   };
   const handleTitleChange = (v: string) => { desktopStore.updateItem(pageId(), item => asPageItem(item).title = v); };
-  const handleTitleChanged = (v: string) => { server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!); }
+  const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(pageId())!); }
 
   const deletePage = async () => {
-    await server.deleteItem(userStore.getUser(), pageId());
+    await server.deleteItem(pageId());
     arrange(desktopStore, userStore.getUser());
   }
 
   const setAspectToMatchScreen = async () => {
     desktopStore.updateItem(pageId(), item => asPageItem(item).naturalAspect = screenAspect());
-    await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
+    await server.updateItem(desktopStore.getItem(pageId())!);
   }
 
   let checkElement: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
     desktopStore.updateItem(pageId(), item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"))
-    await server.updateItem(userStore.getUser(), desktopStore.getItem(pageId())!);
+    await server.updateItem(desktopStore.getItem(pageId())!);
   }
 
   return (

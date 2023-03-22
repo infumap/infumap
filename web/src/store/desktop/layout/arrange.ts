@@ -56,7 +56,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
     return;
   }
   childrenLoadInitiatedOrComplete[containerId] = true;
-  server.fetchChildrenWithTheirAttachments(user, containerId)
+  server.fetchChildrenWithTheirAttachments(containerId)
     .catch(e => {
       console.log(`Error occurred feching items for '${containerId}': ${e}.`);
     })
@@ -190,7 +190,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
 
   const currentPageInnerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(currentPage(), desktopStore.getItem);
 
-  const page = currentPage(); // avoid capturing this in children().
+  const page = currentPage(); // avoid capturing this in children() =>.
   topLevelVisualElement.children = () => {
     const topLevelChildren: Array<VisualElement> = page.computed_children.get()
       .map(childId => {
@@ -238,7 +238,6 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
               };
             });
           }
-
           return pageWithChildrenVe;
 
         // ### Table

@@ -416,14 +416,14 @@ export function mouseUpHandler(
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
           mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y ||
           parentChanged) {
-        server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
+        server.updateItem(desktopStore.getItem(activeItem.id)!);
       }
       break;
 
     case MouseAction.Resizing:
       if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
           (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
-        server.updateItem(userStore.getUser(), desktopStore.getItem(activeItem.id)!);
+        server.updateItem(desktopStore.getItem(activeItem.id)!);
       }
 
       // mouseActionState.activeVisualElement.update(ve => {

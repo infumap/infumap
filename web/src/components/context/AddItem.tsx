@@ -49,7 +49,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         desktopStore.addItem(newPage);
         arrange(desktopStore, userStore.getUser());
       })
-      server.addItem(userStore.getUser(), newPage, null);
+      server.addItem(newPage, null);
       generalStore.setContextMenuInfo(null);
     }
   };
@@ -62,7 +62,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         desktopStore.addItem(newNote);
         arrange(desktopStore, userStore.getUser());
       })
-      server.addItem(userStore.getUser(), newNote, null);
+      server.addItem(newNote, null);
       generalStore.setContextMenuInfo(null);
     }
   }
@@ -75,7 +75,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         desktopStore.addItem(newTable);
         arrange(desktopStore, userStore.getUser());
       });
-      server.addItem(userStore.getUser(), newTable, null);
+      server.addItem(newTable, null);
       generalStore.setContextMenuInfo(null);
     }
   }

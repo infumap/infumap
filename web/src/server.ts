@@ -41,8 +41,8 @@ export interface ItemsAndTheirAttachments {
 }
 
 export const server = {
-  fetchChildrenWithTheirAttachments: async (user: User, parentId: Uid): Promise<ItemsAndTheirAttachments> => {
-    let r = await send("get-children-with-their-attachments", user, { parentId }, null);
+  fetchChildrenWithTheirAttachments: async (parentId: Uid): Promise<ItemsAndTheirAttachments> => {
+    let r = await send("get-children-with-their-attachments", { parentId }, null);
     Object.keys(r.attachments).forEach((id: string) => {
       r.attachments[id].forEach((item: any) => {
         setDefaultComputed(item);
@@ -58,22 +58,22 @@ export const server = {
     });
   },
 
-  addItem: async (user: User, item: Item, base64Data: string | null): Promise<Item> => {
-    let returnedItem = await send("add-item", user, createItemForSend(item), base64Data);
+  addItem: async (item: Item, base64Data: string | null): Promise<Item> => {
+    let returnedItem = await send("add-item", createItemForSend(item), base64Data);
     setDefaultComputed(returnedItem);
     return returnedItem;
   },
 
-  updateItem: async (user: User, item: Item): Promise<void> => {
-    await send("update-item", user, createItemForSend(item), null);
+  updateItem: async (item: Item): Promise<void> => {
+    await send("update-item", createItemForSend(item), null);
   },
 
-  deleteItem: async (user: User, id: Uid): Promise<void> => {
-    await send("delete-item", user, { id }, null);
+  deleteItem: async (id: Uid): Promise<void> => {
+    await send("delete-item", { id }, null);
   }
 }
 
-async function send(command: string, user: User, payload: object, base64Data: string | null): Promise<any> {
+async function send(command: string, payload: object, base64Data: string | null): Promise<any> {
   let d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   let r = await post('/command', d);

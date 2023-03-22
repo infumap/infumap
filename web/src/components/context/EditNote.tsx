@@ -20,26 +20,24 @@ import { Component } from "solid-js";
 import { server } from "../../server";
 import { asNoteItem, NoteItem } from "../../store/desktop/items/note-item";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
-  const userStore = useUserStore();
   const desktopStore = useDesktopStore();
 
   let noteId = () => props.noteItem.id;
 
   const handleTextChange = (v: string) => { desktopStore.updateItem(noteId(), item => asNoteItem(item).title = v); };
-  const handleTextChanged = (v: string) => { server.updateItem(userStore.getUser(), desktopStore.getItem(noteId())!); }
+  const handleTextChanged = (v: string) => { server.updateItem(desktopStore.getItem(noteId())!); }
   const handleUrlChange = (v: string) => {
     desktopStore.updateItem(noteId(), item => asNoteItem(item).url = v);
-    server.updateItem(userStore.getUser(), desktopStore.getItem(noteId())!);
+    server.updateItem(desktopStore.getItem(noteId())!);
   };
 
   const deleteNote = async () => {
-    await server.deleteItem(userStore.getUser(), noteId());
+    await server.deleteItem(noteId());
   }
 
   return (

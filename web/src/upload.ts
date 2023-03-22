@@ -94,7 +94,7 @@ export async function handleUpload(
             computed_mouseIsOver: createBooleanSignal(false),
           };
           // includes thumbnail.
-          let returnedItem = await server.addItem(userStore.getUser(), imageItem, base64Data);
+          let returnedItem = await server.addItem(imageItem, base64Data);
           // TODO (MEDIUM): immediately put an item in the UI, have image update later.
           batch(() => {
             desktopStore.addItem(returnedItem);
@@ -128,7 +128,7 @@ export async function handleUpload(
         computed_mouseIsOver: createBooleanSignal(false),
       };
 
-      await server.addItem(userStore.getUser(), fileItem, base64Data);
+      await server.addItem(fileItem, base64Data);
       batch(() => {
         desktopStore.addItem(fileItem);
         arrange(desktopStore, userStore.getUser());
