@@ -27,7 +27,7 @@ import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElem
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
@@ -148,7 +148,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
 }
 
 
-export const PageInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

@@ -25,7 +25,7 @@ import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElem
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const NoteFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
@@ -56,7 +56,7 @@ export const NoteFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
 }
 
 
-export const NoteInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

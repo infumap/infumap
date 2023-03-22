@@ -28,7 +28,7 @@ import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../Visual
 export const HEADER_HEIGHT_BL = 1.0;
 
 
-export const TableFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
@@ -141,7 +141,7 @@ const TableChildItems: Component<VisualElementOnDesktopProps> = (props: VisualEl
 }
 
 
-export const TableInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const TableInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

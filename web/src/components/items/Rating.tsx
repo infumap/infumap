@@ -25,7 +25,7 @@ import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
-export const RatingFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
@@ -39,7 +39,7 @@ export const RatingFn: Component<VisualElementOnDesktopProps> = (props: VisualEl
 }
 
 
-export const RatingInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;

@@ -29,7 +29,7 @@ import { HitboxType } from "../store/desktop/hitbox";
 import { asPageItem } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { arrange } from "../store/desktop/layout/arrange";
-import { PageFn } from "./items/Page";
+import { Page } from "./items/Page";
 
 
 export const Desktop: Component = () => {
@@ -160,7 +160,7 @@ export const Desktop: Component = () => {
          style={`left: ${TOOLBAR_WIDTH}px; ${overflowPolicy()}`}
          onscroll={scrollHandler}>
       <Show when={desktopStore.getTopLevelVisualElement() != null}>
-        <PageFn visualElement={desktopStore.getTopLevelVisualElement()!} />
+        <Page visualElement={desktopStore.getTopLevelVisualElement()!} />
       </Show>
       <ContextMenu />
       <EditDialog />

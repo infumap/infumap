@@ -23,13 +23,13 @@ import { isNote } from "../store/desktop/items/note-item";
 import { isPage } from "../store/desktop/items/page-item";
 import { isRating } from "../store/desktop/items/rating-item";
 import { isTable } from "../store/desktop/items/table-item";
-import { NoteFn } from "./items/Note";
-import { PageFn } from "./items/Page";
-import { RatingFn } from "./items/Rating";
-import { TableFn } from "./items/Table";
-import { ImageFn } from "./items/Image";
-import { FileFn } from "./items/File";
-import { LinkFn } from "./items/Link";
+import { Note } from "./items/Note";
+import { Page } from "./items/Page";
+import { Rating } from "./items/Rating";
+import { Table } from "./items/Table";
+import { Image } from "./items/Image";
+import { File } from "./items/File";
+import { Link } from "./items/Link";
 import { isLink } from "../store/desktop/items/link-item";
 import { VisualElement } from "../store/desktop/visual-element";
 
@@ -41,13 +41,13 @@ export interface VisualElementOnDesktopProps {
 export const VisualElementOnDesktopFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return (
     <Switch fallback={<div>unkown item type '{props.visualElement.itemType}'</div>}>
-      <Match when={isPage(props.visualElement)}><PageFn {...props} /></Match>
-      <Match when={isNote(props.visualElement)}><NoteFn {...props} /></Match>
-      <Match when={isTable(props.visualElement)}><TableFn {...props} /></Match>
-      <Match when={isImage(props.visualElement)}><ImageFn {...props} /></Match>
-      <Match when={isFile(props.visualElement)}><FileFn {...props} /></Match>
-      <Match when={isRating(props.visualElement)}><RatingFn {...props} /></Match>
-      <Match when={isLink(props.visualElement)}><LinkFn {...props} /></Match>
+      <Match when={isPage(props.visualElement)}><Page {...props} /></Match>
+      <Match when={isNote(props.visualElement)}><Note {...props} /></Match>
+      <Match when={isTable(props.visualElement)}><Table {...props} /></Match>
+      <Match when={isImage(props.visualElement)}><Image {...props} /></Match>
+      <Match when={isFile(props.visualElement)}><File {...props} /></Match>
+      <Match when={isRating(props.visualElement)}><Rating {...props} /></Match>
+      <Match when={isLink(props.visualElement)}><Link {...props} /></Match>
     </Switch>
   );
 }

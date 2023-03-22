@@ -31,7 +31,7 @@ import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 //   );
 // }
 
-export const LinkFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Link: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return <></>;
 }
 
@@ -45,6 +45,6 @@ export const LinkFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
 //   );
 // }
 
-export const LinkInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const LinkInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return <></>;
 }

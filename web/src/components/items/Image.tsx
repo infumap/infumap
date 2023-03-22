@@ -26,8 +26,7 @@ import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElem
 import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
-
-export const ImageFn: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const quantizedBoundsPx = () => quantizeBoundingBox(props.visualElement.boundsPx());
@@ -80,7 +79,7 @@ export const ImageFn: Component<VisualElementOnDesktopProps> = (props: VisualEle
 }
 
 
-export const ImageInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const ImageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
