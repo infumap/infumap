@@ -35,7 +35,7 @@ import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { arrange, switchToPage } from '../layout/arrange';
-import { createBooleanSignal, createNumberSignal, NumberSignal } from '../../../util/signals';
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal } from '../../../util/signals';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -142,7 +142,7 @@ export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx
 export function setPageDefaultComputed(item: PageItem): void {
   item.computed_mouseIsOver = createBooleanSignal(false);
   item.computed_movingItemIsOver = createBooleanSignal(false);
-  item.computed_children = [];
+  item.computed_children = createUidArraySignal([]);
   item.computed_attachments = [];
   item.scrollXPx = createNumberSignal(0);
   item.scrollYPx = createNumberSignal(0);
@@ -188,7 +188,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     popupAlignmentPoint: "center",
     popupWidthGr: 10.0 * GRID_SIZE,
 
-    computed_children: [],
+    computed_children: createUidArraySignal([]),
     computed_attachments: [],
     computed_movingItemIsOver: createBooleanSignal(false),
     computed_mouseIsOver: createBooleanSignal(false),

@@ -33,7 +33,7 @@ import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
 import { findNearestContainerVe, VisualElement } from "./store/desktop/visual-element";
-import { arrange, switchToPage } from "./store/desktop/layout/arrange";
+import { switchToPage } from "./store/desktop/layout/arrange";
 import { asContainerItem } from "./store/desktop/items/base/container-item";
 
 
@@ -363,12 +363,10 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
   };
   batch(() => {
-    desktopStore.updateContainerItem(tableParentPage.id, item => {
-      item.computed_children = [activeItem.id, ...item.computed_children];
-    });
-    desktopStore.updateContainerItem(tableItem.id, item => {
-      item.computed_children = item.computed_children.filter(childItem => childItem != activeItem.id);
-    });
+    tableParentPage.computed_children
+      .set([activeItem.id, ...tableParentPage.computed_children.get()]);
+    tableItem.computed_children
+      .set(tableItem.computed_children.get().filter(childItem => childItem != activeItem.id));
     desktopStore.updateItem(activeItem.id, item => {
       item.parentId = tableParentPage.id;
       item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
@@ -404,15 +402,15 @@ export function mouseUpHandler(
             item.spatialPositionGr = { x: 0.0, y: 0.0 };
             item.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
           });
-          desktopStore.updateContainerItem(moveOverContainerId, item => {
-            item.computed_children = [activeItem.id, ...item.computed_children];
-            item.computed_children.sort(
-              (a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-          });
-          desktopStore.updateContainerItem(prevParentId, item => {
-            item.computed_children = item.computed_children.filter(i => i != activeItem.id);
-          });
-          arrange(desktopStore, userStore.getUser());
+
+          const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
+          const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children.get()];
+          moveOverContainerChildren.sort(
+            (a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+          moveOverContainer.computed_children.set(moveOverContainerChildren);
+
+          const prevParent = desktopStore.getContainerItem(prevParentId)!;
+          prevParent.computed_children.set(prevParent.computed_children.get().filter(i => i != activeItem.id));
         });
       }
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||

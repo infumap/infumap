@@ -30,7 +30,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal, createNumberSignal, NumberSignal } from "../../../util/signals";
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal } from "../../../util/signals";
 
 
 export interface TableColumn {
@@ -107,7 +107,7 @@ export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBound
 export function setTableDefaultComputed(item: TableItem): void {
   item.computed_mouseIsOver = createBooleanSignal(false);
   item.computed_movingItemIsOver = createBooleanSignal(false);
-  item.computed_children = [];
+  item.computed_children = createUidArraySignal([]);
   item.computed_attachments = [];
   item.scrollYPx = createNumberSignal(0);
 }
@@ -148,7 +148,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       widthGr: 8 * GRID_SIZE,
     }],
 
-    computed_children: [],
+    computed_children: createUidArraySignal([]),
     computed_attachments: [],
 
     computed_movingItemIsOver: createBooleanSignal(false),

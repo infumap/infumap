@@ -37,6 +37,7 @@ export interface DesktopStoreContextModel {
   updateItem: (id: Uid, f: (item: Item) => void) => void,
   updateContainerItem: (id: Uid, f: (item: ContainerItem) => void) => void,
   getItem: (id: Uid) => (Item | null) | null,
+  getContainerItem: (id: Uid) => (ContainerItem | null) | null,
   addItem: (item: Item) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
 
@@ -104,6 +105,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return null;
   };
 
+  const getContainerItem = (id: Uid): ContainerItem | null => {
+    const item = getItem(id);
+    if (item == null) { return null; }
+    return asContainerItem(item);
+  }
 
   /**
    * Set all the child items of a container.
@@ -119,6 +125,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       if (!isContainer(getItem(parentId)!)) {
         throwExpression(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
       }
+      const parent = getContainerItem(parentId)!;
+      let children: Array<Uid> = [];
       childItems.forEach(childItem => {
         if (childItem.parentId == EMPTY_UID) {
           if (childItem.relationshipToParent != NoParent) { panic(); }
@@ -126,18 +134,14 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
           if (childItem.parentId != parentId) {
             throwExpression(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
           }
-          updateItem(childItem.parentId, parentItem => {
-            if (childItem.relationshipToParent != Child) {
-              throwExpression(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
-            }
-            (parentItem as ContainerItem).computed_children = [...(parentItem as ContainerItem).computed_children, childItem.id];
-          });
+          if (childItem.relationshipToParent != Child) {
+            throwExpression(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
+          }
+          children.push(childItem.id);
         }
       });
-      updateItem(parentId, parentItem => {
-        (parentItem as ContainerItem).computed_children.sort(
-          (a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
-      });
+      children.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+      parent.computed_children.set(children);
     });
   };
 
@@ -171,10 +175,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     batch(() => {
       items[item.id] = createItemSignal(item);
       if (item.relationshipToParent == Child) {
-        updateItem(item.parentId, parentItem => {
-          if (!isContainer(parentItem)) { panic(); }
-          (parentItem as ContainerItem).computed_children = [...(parentItem as ContainerItem).computed_children, item.id];
-        })
+        const parentItem = getContainerItem(item.parentId)!;
+        parentItem.computed_children.set([...parentItem.computed_children.get(), item.id]);
       } else {
         throwExpression("only support child relationships currently");
       }
@@ -184,7 +186,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const newOrderingAtEndOfChildren = (parentId: Uid): Uint8Array => {
     let parent = asContainerItem(items[parentId].item());
-    let children = parent.computed_children.map(c => items[c].item().ordering);
+    let children = parent.computed_children.get().map(c => items[c].item().ordering);
     return newOrderingAtEnd(children);
   }
 
@@ -207,7 +209,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     desktopBoundsPx, resetDesktopSizePx,
     setRootId, setChildItems, setAttachmentItems,
     updateItem, updateContainerItem,
-    getItem, addItem, newOrderingAtEndOfChildren,
+    getItem, getContainerItem, addItem, newOrderingAtEndOfChildren,
     getTopLevelVisualElement,
     setTopLevelVisualElement,
   };

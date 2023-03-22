@@ -83,7 +83,7 @@ const TableChildItems: Component<VisualElementOnDesktopProps> = (props: VisualEl
   }
 
   const totalScrollableHeightPx = () =>
-    tableItem().computed_children.length * blockHeightPx();
+    tableItem().computed_children.get().length * blockHeightPx();
 
   const scrollHandler = (_ev: Event) => {
     tableItem().scrollYPx.set((outerDiv!)!.scrollTop);

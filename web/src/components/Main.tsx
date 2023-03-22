@@ -46,7 +46,6 @@ export const Main: Component = () => {
       const rootId = user!.rootPageId!;
       const result = await server.fetchChildrenWithTheirAttachments(user!, rootId);
       childrenLoadInitiatedOrComplete[rootId] = true;
-
       desktopStore.setChildItems(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {
         desktopStore.setAttachmentItems(id, result.attachments[id]);
