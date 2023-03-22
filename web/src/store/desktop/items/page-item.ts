@@ -140,7 +140,7 @@ export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx
 
 
 export function setPageDefaultComputed(item: PageItem): void {
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
   item.computed_movingItemIsOver = createBooleanSignal(false);
   item.computed_children = [];
   item.computed_attachments = [];
@@ -191,7 +191,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     computed_children: [],
     computed_attachments: [],
     computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: false,
+    computed_mouseIsOver: createBooleanSignal(false),
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),

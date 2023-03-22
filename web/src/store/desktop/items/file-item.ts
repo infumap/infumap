@@ -28,6 +28,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { Uid } from '../../../util/uid';
 import { PositionalMixin } from './base/positional-item';
+import { createBooleanSignal } from '../../../util/signals';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -108,7 +109,7 @@ export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx
 
 export function setFileDefaultComputed(item: FileItem): void {
   item.computed_attachments = [];
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isFile(item: ItemTypeMixin | null): boolean {

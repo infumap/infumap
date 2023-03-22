@@ -60,7 +60,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
 
   const drawAsOpaque = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.986)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)});`;
-    if (pageItem().computed_mouseIsOver) {
+    if (pageItem().computed_mouseIsOver.get()) {
       bg = `background-color: #880088`;
     }
     if (pageItem().computed_movingItemIsOver.get()) {
@@ -69,7 +69,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
-        <Show when={pageItem().computed_mouseIsOver}>
+        <Show when={pageItem().computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
         </Show>
         <Show when={props.visualElement.isTopLevel}>
@@ -100,7 +100,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
 
   const drawAsTranslucent = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)});`;
-    if (pageItem().computed_mouseIsOver) {
+    if (pageItem().computed_mouseIsOver.get()) {
       bg = `background-color: #880088`;
     }
     if (pageItem().computed_movingItemIsOver.get()) {
@@ -110,7 +110,7 @@ export const PageFn: Component<VisualElementOnDesktopProps> = (props: VisualElem
       <>
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
-        <Show when={pageItem().computed_mouseIsOver}>
+        <Show when={pageItem().computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
         </Show>
         <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>

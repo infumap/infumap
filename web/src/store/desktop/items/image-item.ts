@@ -28,6 +28,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { Uid } from "../../../util/uid";
 import { PositionalMixin } from "./base/positional-item";
+import { createBooleanSignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -136,7 +137,7 @@ export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBounds
 
 export function setImageDefaultComputed(item: ImageItem): void {
   item.computed_attachments = [];
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function handleImageClick(imageItem: ImageItem): void {

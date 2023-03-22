@@ -218,11 +218,11 @@ export function mouseMoveHandler(
     if (overItem.id != lastMouseOverId) {
       batch(() => {
         if (lastMouseOverId != null) {
-          desktopStore.updateItem(lastMouseOverId, item => { item.computed_mouseIsOver = false; });
+          desktopStore.updateItem(lastMouseOverId, item => { item.computed_mouseIsOver.set(false); });
         }
         lastMouseOverId = null;
         if (overItem.id != desktopStore.currentPageId()) {
-          desktopStore.updateItem(overItem.id, item => { item.computed_mouseIsOver = true; });
+          desktopStore.updateItem(overItem.id, item => { item.computed_mouseIsOver.set(true); });
           lastMouseOverId = overItem.id;
         }
       });

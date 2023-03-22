@@ -27,6 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
+import { createBooleanSignal } from '../../../util/signals';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -111,7 +112,7 @@ export function calcGeometryOfNoteItemInCell(_note: NoteMeasurable, cellBoundsPx
 
 export function setNoteDefaultComputed(item: NoteItem): void {
   item.computed_attachments = [];
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isNote(item: ItemTypeMixin | null): boolean {
@@ -147,7 +148,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     url: "",
 
     computed_attachments: [],
-    computed_mouseIsOver: false,
+    computed_mouseIsOver: createBooleanSignal(false),
   };
 }
 

@@ -24,6 +24,7 @@ import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../item-geometry';
 import { Uid } from '../../../util/uid';
 import { PositionalMixin } from './base/positional-item';
+import { createBooleanSignal } from '../../../util/signals';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -86,7 +87,7 @@ export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBo
 }
 
 export function setRatingDefaultComputed(item: RatingItem): void {
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isRating(item: ItemTypeMixin | null): boolean {

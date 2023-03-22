@@ -19,6 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { BoundingBox, cloneVector, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
+import { createBooleanSignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
@@ -91,13 +92,13 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     linkToId,
 
     computed_attachments: [],
-    computed_mouseIsOver: false,
+    computed_mouseIsOver: createBooleanSignal(false),
   };
 }
 
 export function setLinkDefaultComputed(item: LinkItem): void {
   item.computed_attachments = [];
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
 }
 
 export function isLink(item: ItemTypeMixin | null): boolean {

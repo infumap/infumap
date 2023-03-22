@@ -31,6 +31,7 @@ import { newUid } from "./util/uid";
 import { batch } from "solid-js";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
 import { arrange } from "./store/desktop/layout/arrange";
+import { createBooleanSignal } from "./util/signals";
 
 
 export async function handleUpload(
@@ -90,7 +91,7 @@ export async function handleUpload(
             thumbnail: "", // calculated on server.
 
             computed_attachments: [],
-            computed_mouseIsOver: false,
+            computed_mouseIsOver: createBooleanSignal(false),
           };
           // includes thumbnail.
           let returnedItem = await server.addItem(userStore.getUser(), imageItem, base64Data);
@@ -124,7 +125,7 @@ export async function handleUpload(
         fileSizeBytes: file.size,
 
         computed_attachments: [],
-        computed_mouseIsOver: false,
+        computed_mouseIsOver: createBooleanSignal(false),
       };
 
       await server.addItem(userStore.getUser(), fileItem, base64Data);

@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { BooleanSignal } from '../../../../util/signals';
 import { Uid } from '../../../../util/uid';
 import { PositionalMixin } from './positional-item';
 
@@ -43,5 +44,5 @@ export interface Item extends ItemTypeMixin, PositionalMixin {
   lastModifiedDate: number,
   ordering: Uint8Array,
 
-  computed_mouseIsOver: boolean,
+  computed_mouseIsOver: BooleanSignal,
 }

@@ -105,7 +105,7 @@ export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBound
 }
 
 export function setTableDefaultComputed(item: TableItem): void {
-  item.computed_mouseIsOver = false;
+  item.computed_mouseIsOver = createBooleanSignal(false);
   item.computed_movingItemIsOver = createBooleanSignal(false);
   item.computed_children = [];
   item.computed_attachments = [];
@@ -152,7 +152,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     computed_attachments: [],
 
     computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: false,
+    computed_mouseIsOver: createBooleanSignal(false),
 
     // these will be per render area.
     scrollYPx: createNumberSignal(0)
