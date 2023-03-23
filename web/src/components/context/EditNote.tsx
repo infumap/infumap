@@ -22,10 +22,12 @@ import { asNoteItem, NoteItem } from "../../store/desktop/items/note-item";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
+import { useGeneralStore } from "../../store/GeneralStoreProvider";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
   const desktopStore = useDesktopStore();
+  const generalStore = useGeneralStore();
 
   let noteId = () => props.noteItem.id;
 
@@ -37,7 +39,9 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   };
 
   const deleteNote = async () => {
-    await server.deleteItem(noteId());
+    await server.deleteItem(noteId()); // throws on failure.
+    desktopStore.deleteItem(noteId());
+    generalStore.setEditDialogInfo(null);
   }
 
   return (

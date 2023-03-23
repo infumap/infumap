@@ -20,12 +20,14 @@ import { Component } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem, ImageItem } from "../../store/desktop/items/image-item";
+import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 
 
 export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: ImageItem}) => {
   const desktopStore = useDesktopStore();
+  const generalStore = useGeneralStore();
 
   const imageId = () => props.imageItem.id;
 
@@ -33,7 +35,9 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
   const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(imageId())!); }
 
   const deleteImage = async () => {
-    await server.deleteItem(imageId());
+    await server.deleteItem(imageId()); // throws on failure.
+    desktopStore.deleteItem(imageId());
+    generalStore.setEditDialogInfo(null);
   }
 
   return (

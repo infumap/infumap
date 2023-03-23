@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { batch, Component } from "solid-js";
+import { Component } from "solid-js";
 import { Child } from "../../store/desktop/relationship-to-parent";
 import { newNoteItem } from "../../store/desktop/items/note-item";
 import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../store/desktop/items/page-item";
@@ -28,7 +28,6 @@ import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../store/desktop/items/table-item";
 import { Item } from "../../store/desktop/items/base/item";
-import { arrange } from "../../store/desktop/layout/arrange";
 
 
 type ContexMenuProps = {

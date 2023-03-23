@@ -21,16 +21,15 @@ import { GRID_SIZE } from "../../constants";
 import { server } from "../../server";
 import { asPageItem, PageItem } from "../../store/desktop/items/page-item";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
-import { arrange } from "../../store/desktop/layout/arrange";
+import { useGeneralStore } from "../../store/GeneralStoreProvider";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
-  const userStore = useUserStore();
   const desktopStore = useDesktopStore();
+  const generalStore = useGeneralStore();
 
   const screenAspect = (): number => {
     let aspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -51,7 +50,9 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(pageId())!); }
 
   const deletePage = async () => {
-    await server.deleteItem(pageId());
+    await server.deleteItem(pageId()); // throws on failure.
+    desktopStore.deleteItem(pageId());
+    generalStore.setEditDialogInfo(null);
   }
 
   const setAspectToMatchScreen = async () => {

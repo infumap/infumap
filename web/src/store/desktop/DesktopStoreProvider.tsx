@@ -40,6 +40,7 @@ export interface DesktopStoreContextModel {
   getItem: (id: Uid) => (Item | null) | null,
   getContainerItem: (id: Uid) => (ContainerItem | null) | null,
   addItem: (item: Item) => void,
+  deleteItem: (id: Uid) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
 
   desktopBoundsPx: () => BoundingBox,
@@ -122,6 +123,32 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return asAttachmentsItem(item);
   }
 
+
+  const deleteItem = (id: Uid): void => {
+    const item = getItem(id)!;
+    if (item.parentId == EMPTY_UID) {
+      panic!();
+    }
+    if (isContainer(item)) {
+      const containerItem = asContainerItem(item);
+      if (containerItem.computed_children.get().length > 0) {
+        panic!();
+      }
+    }
+    const parentItem = getItem(item.parentId)!;
+    if (item.relationshipToParent == Child) {
+      const containerParentItem = asContainerItem(parentItem);
+      containerParentItem.computed_children
+        .set(containerParentItem.computed_children.get().filter(cid => cid != id));
+    } else if (item.relationshipToParent == Attachment) {
+      const attachmentsParentItem = asAttachmentsItem(parentItem);
+      attachmentsParentItem.computed_attachments
+        .set(attachmentsParentItem.computed_attachments.get().filter(aid => aid != id));
+    } else {
+      panic();
+    }
+    delete items[id];
+  }
 
   /**
    * Set all the child items of a container.
@@ -221,7 +248,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     desktopBoundsPx, resetDesktopSizePx,
     setRootId, setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
     updateItem, updateContainerItem,
-    getItem, getContainerItem, addItem, newOrderingAtEndOfChildren,
+    getItem, getContainerItem, addItem,
+    deleteItem, newOrderingAtEndOfChildren,
     getTopLevelVisualElement,
     setTopLevelVisualElement,
   };

@@ -20,22 +20,24 @@ import { Component } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asFileItem, FileItem } from "../../store/desktop/items/file-item";
-import { useUserStore } from "../../store/UserStoreProvider";
+import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 
 
 export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {
-  const userStore = useUserStore();
   const desktopStore = useDesktopStore();
+  const generalStore = useGeneralStore();
 
   const fileId = () => props.fileItem.id;
 
   const handleTextChange = (v: string) => { desktopStore.updateItem(fileId(), item => asFileItem(item).title = v); };
-  const handleTextChanged = (v: string) => { server.updateItem(userStore.getUser(), desktopStore.getItem(fileId())!); }
+  const handleTextChanged = (v: string) => { server.updateItem(desktopStore.getItem(fileId())!); }
 
   const deleteFile = async () => {
-    await server.deleteItem(userStore.getUser(), fileId());
+    await server.deleteItem(fileId()); // throws on failure.
+    desktopStore.deleteItem(fileId());
+    generalStore.setEditDialogInfo(null);
   }
 
   return (

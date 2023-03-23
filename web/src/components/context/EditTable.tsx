@@ -20,12 +20,14 @@ import { Component } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../store/desktop/items/table-item";
+import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
   const desktopStore = useDesktopStore();
+  const generalStore = useGeneralStore();
 
   let tableId = () => props.tableItem.id;
 
@@ -33,7 +35,9 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(tableId())!); }
 
   const deleteTable = async () => {
-    await server.deleteItem(tableId());
+    await server.deleteItem(tableId()); // throws on failure.
+    desktopStore.deleteItem(tableId());
+    generalStore.setEditDialogInfo(null);
   }
 
   return (
