@@ -87,17 +87,6 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     );
   }
 
-  const drawAsTopLevelPage = () => {
-    return (
-      <div class={`absolute`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <For each={props.visualElement.children()}>{childVe =>
-          <VisualElementOnDesktopFn visualElement={childVe} />
-        }</For>
-      </div>
-    );
-  }
-
   const drawAsTranslucent = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)});`;
     if (pageItem().computed_mouseIsOver.get()) {
@@ -129,6 +118,17 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         </div>
       </Show>
       </>
+    );
+  }
+
+  const drawAsTopLevelPage = () => {
+    return (
+      <div class={`absolute`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <For each={props.visualElement.children()}>{childVe =>
+          <VisualElementOnDesktopFn visualElement={childVe} />
+        }</For>
+      </div>
     );
   }
 

@@ -218,17 +218,18 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
 
           const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem(), desktopStore.getItem);
 
+          const page = pageItem();
+          const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);
           pageWithChildrenVe.children = () => {
-            const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);
-            return pageItem().computed_children.get().map(childId => {
+            return page.computed_children.get().map(childId => {
               const childItem = desktopStore.getItem(childId)!;
-              const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
+              const geometry = () => calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
               return {
                 itemType: childItem.itemType,
                 itemId: childItem.id,
                 isTopLevel: false,
                 resizingFromBoundsPx: null,
-                boundsPx: () => geometry.boundsPx,
+                boundsPx: () => geometry().boundsPx,
                 childAreaBoundsPx: () => null,
                 hitboxes: () => [],
                 children: () => [],
