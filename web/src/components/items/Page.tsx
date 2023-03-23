@@ -31,7 +31,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
-    // console.log(`page boundsPx ${props.visualElement.itemId}`);
+    console.log(`page boundsPx ${props.visualElement.itemId}`);
     return props.visualElement.boundsPx();
   };
   const popupClickBoundsPx = () => {

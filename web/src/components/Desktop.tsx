@@ -75,7 +75,6 @@ export const Desktop: Component = () => {
 
   const windowResizeListener = () => {
     desktopStore.resetDesktopSizePx();
-    arrange(desktopStore, userStore.getUser());
   }
 
   const contextMenuListener = (ev: Event) => {

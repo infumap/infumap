@@ -67,7 +67,6 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           Object.keys(result.attachments).forEach(id => {
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
-          arrange(desktopStore, user);
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);

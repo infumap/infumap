@@ -52,7 +52,6 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const deletePage = async () => {
     await server.deleteItem(pageId());
-    arrange(desktopStore, userStore.getUser());
   }
 
   const setAspectToMatchScreen = async () => {

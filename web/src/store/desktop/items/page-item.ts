@@ -274,7 +274,6 @@ export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopSt
     let li = newLinkItem(pageItem.ownerId, pageItem.parentId, Child, newOrdering(), pageItem.id);
     li.spatialWidthGr = 20 * GRID_SIZE;
     desktopStore.addItem(li);
-    arrange(desktopStore, userStore.getUser());
   });
 }
 

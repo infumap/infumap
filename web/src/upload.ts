@@ -97,10 +97,7 @@ export async function handleUpload(
           // includes thumbnail.
           let returnedItem = await server.addItem(imageItem, base64Data);
           // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-          batch(() => {
-            desktopStore.addItem(itemFromObject(returnedItem));
-            arrange(desktopStore, userStore.getUser());
-          })
+          desktopStore.addItem(itemFromObject(returnedItem));
         }
         img.src = reader.result as string;
         document.body.appendChild(img);
@@ -130,10 +127,7 @@ export async function handleUpload(
       };
 
       await server.addItem(fileItem, base64Data);
-      batch(() => {
-        desktopStore.addItem(fileItem);
-        arrange(desktopStore, userStore.getUser());
-      });
+      desktopStore.addItem(fileItem);
     }
   }
 }
