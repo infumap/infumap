@@ -131,16 +131,16 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void 
         h: cellHPx() - marginPx() * 2.0
       });
 
-      let geometry = () => calcGeometryOfItemInCell(item, cellBoundsPx(), desktopStore.getItem);
+      let geometry = calcGeometryOfItemInCell(item, cellBoundsPx(), desktopStore.getItem);
       if (!isContainer(item)) {
         let ve: VisualElement = {
           itemType: item.itemType,
           itemId: item.id,
           isTopLevel: true,
           resizingFromBoundsPx: null,
-          boundsPx: () => geometry().boundsPx,
+          boundsPx: geometry.boundsPx,
           childAreaBoundsPx: () => null,
-          hitboxes: () => geometry().hitboxes,
+          hitboxes: geometry.hitboxes,
           children: () => [],
           attachments: () => [],
           parent: () => topLevelVisualElement,
@@ -194,7 +194,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
     const topLevelChildren: Array<VisualElement> = page.computed_children.get()
       .map(childId => {
         const childItem = () => desktopStore.getItem(childId)!;
-        const geometry = () => calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
+        const geometry = calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
 
         // ### Child is a page with children visible.
         if (isPage(childItem()) &&
@@ -208,9 +208,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             itemId: childId,
             isTopLevel: true,
             resizingFromBoundsPx: null,
-            boundsPx: () => geometry().boundsPx,
-            childAreaBoundsPx: () => geometry().boundsPx,
-            hitboxes: () => geometry().hitboxes,
+            boundsPx: geometry.boundsPx,
+            childAreaBoundsPx: geometry.boundsPx,
+            hitboxes: geometry.hitboxes,
             children: () => [],
             attachments: () => [],
             parent: () => topLevelVisualElement,
@@ -219,17 +219,17 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem());
 
           const page = pageItem();
-          const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);
+          const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry.boundsPx())!);
           pageWithChildrenVe.children = () => {
             return page.computed_children.get().map(childId => {
               const childItem = desktopStore.getItem(childId)!;
-              const geometry = () => calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
+              const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx(), innerDimensionsBl(), false, desktopStore.getItem);
               return {
                 itemType: childItem.itemType,
                 itemId: childItem.id,
                 isTopLevel: false,
                 resizingFromBoundsPx: null,
-                boundsPx: () => geometry().boundsPx,
+                boundsPx: geometry.boundsPx,
                 childAreaBoundsPx: () => null,
                 hitboxes: () => [],
                 children: () => [],
@@ -246,13 +246,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           let tableItem = () => asTableItem(childItem());
 
           const sizeBl = () => ({ w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE });
-          const blockSizePx = () => ({ w: geometry().boundsPx.w / sizeBl().w, h: geometry().boundsPx.h / sizeBl().h });
+          const blockSizePx = () => ({ w: geometry.boundsPx().w / sizeBl().w, h: geometry.boundsPx().h / sizeBl().h });
 
           let childAreaBoundsPx = () => {
             const headerHeightPx = blockSizePx().h * HEADER_HEIGHT_BL;
             return {
-              x: geometry().boundsPx.x, y: geometry().boundsPx.y + headerHeightPx,
-              w: geometry().boundsPx.w, h: geometry().boundsPx.h - headerHeightPx
+              x: geometry.boundsPx().x, y: geometry.boundsPx().y + headerHeightPx,
+              w: geometry.boundsPx().w, h: geometry.boundsPx().h - headerHeightPx
             };
           };
 
@@ -261,9 +261,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             itemId: tableItem().id,
             isTopLevel: true,
             resizingFromBoundsPx: null,
-            boundsPx: () => geometry().boundsPx,
+            boundsPx: geometry.boundsPx,
             childAreaBoundsPx,
-            hitboxes: () => geometry().hitboxes,
+            hitboxes: geometry.hitboxes,
             children: () => [],
             attachments: () => [],
             parent: () => topLevelVisualElement
@@ -274,15 +274,15 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             for (let idx=0; idx<tableItem().computed_children.get().length; ++idx) {
               const childId = () => tableItem().computed_children.get()[idx];
               const childItem = () => desktopStore.getItem(childId())!;
-              const geometry = () => calcGeometryOfItemInTable(childItem(), blockSizePx(), idx, 0, sizeBl().w, desktopStore.getItem);
+              const geometry = calcGeometryOfItemInTable(childItem(), blockSizePx(), idx, 0, sizeBl().w, desktopStore.getItem);
 
               let tableItemVe: VisualElement = {
                 itemType: childItem().itemType,
                 itemId: childItem().id,
                 isTopLevel: false,
                 resizingFromBoundsPx: null,
-                boundsPx: () => geometry().boundsPx,
-                hitboxes: () => geometry().hitboxes,
+                boundsPx: geometry.boundsPx,
+                hitboxes: geometry.hitboxes,
                 children: () => [],
                 attachments: () => [],
                 childAreaBoundsPx: () => null,
@@ -329,9 +329,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             itemId: childItem().id,
             isTopLevel: true,
             resizingFromBoundsPx: null,
-            boundsPx: () => geometry().boundsPx,
+            boundsPx: geometry.boundsPx,
             childAreaBoundsPx: () => null,
-            hitboxes: () => geometry().hitboxes,
+            hitboxes: geometry.hitboxes,
             children: () => [],
             attachments: () => [], // TODO.
             parent: () => topLevelVisualElement

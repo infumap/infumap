@@ -16,19 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
-import { cloneHitbox, Hitbox } from "./hitbox";
+import { BoundingBox } from "../../util/geometry";
+import { Hitbox } from "./hitbox";
 
 
 export interface ItemGeometry {
-  boundsPx: BoundingBox, // relative to containing render area.
-  hitboxes: Array<Hitbox>, // higher index => takes precedence.
-}
-
-export function cloneItemGeometry(g: ItemGeometry | null): ItemGeometry | null {
-  if (g == null) { return null; }
-  return ({
-    boundsPx: cloneBoundingBox(g.boundsPx)!,
-    hitboxes: g.hitboxes.map(hb => cloneHitbox(hb)!)
-  });
+  boundsPx: () => BoundingBox, // relative to containing render area.
+  hitboxes: () => Array<Hitbox>, // higher index => takes precedence.
 }

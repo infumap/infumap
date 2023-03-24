@@ -166,26 +166,26 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 
 
 export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
-  const boundsPx = {
+  const boundsPx = () => ({
     x: (page.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (page.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  };
-  const popupClickBoundsPx = {
-    x: boundsPx.w / 3.0,
-    y: boundsPx.h / 3.0,
-    w: boundsPx.w / 3.0,
-    h: boundsPx.h / 3.0,
-  };
+  });
+  const popupClickBoundsPx = () => ({
+    x: boundsPx().w / 3.0,
+    y: boundsPx().h / 3.0,
+    w: boundsPx().w / 3.0,
+    h: boundsPx().h / 3.0,
+  });
   return {
     boundsPx,
-    hitboxes: !emitHitboxes ? [] : [
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx) },
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx) },
-      { type: HitboxType.OpenPopup, boundsPx: popupClickBoundsPx },
+    hitboxes: () => !emitHitboxes ? [] : [
+      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.OpenPopup, boundsPx: popupClickBoundsPx() },
       { type: HitboxType.Resize,
-        boundsPx: { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: boundsPx().w - RESIZE_BOX_SIZE_PX, y: boundsPx().h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   };
@@ -193,31 +193,31 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
 
 
 export function calcGeometryOfPageAttachmentItem(_page: PageMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
+  const boundsPx = () => ({
     x: containerBoundsPx.w - (20 * index),
     y: -5,
     w: 15,
     h: 10,
-  };
+  });
   return {
     boundsPx,
-    hitboxes: [],
+    hitboxes: () => [],
   }
 }
 
 
 export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
-  const boundsPx = {
+  const boundsPx = () => ({
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  };
+  });
   return {
     boundsPx,
-    hitboxes: [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx) },
+    hitboxes: () => [
+      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) },
     ],
   };
 }
@@ -225,8 +225,8 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
 
 export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
-    boundsPx: cloneBoundingBox(cellBoundsPx)!,
-    hitboxes: [
+    boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
+    hitboxes: () => [
       { type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) },
     ]
   });
