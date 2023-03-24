@@ -151,13 +151,13 @@ export function pageToObject(p: PageItem): object {
 }
 
 
-export function calcPageSizeForSpatialBl(page: PageMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
   return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
 }
 
 
-export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensions {
   return {
     w: page.innerSpatialWidthGr / GRID_SIZE,
     h: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect)
@@ -165,12 +165,12 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable, _getItem:
 }
 
 
-export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
   const boundsPx = {
     x: (page.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (page.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcPageSizeForSpatialBl(page, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcPageSizeForSpatialBl(page, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   const popupClickBoundsPx = {
     x: boundsPx.w / 3.0,
@@ -192,7 +192,7 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
 }
 
 
-export function calcGeometryOfPageAttachmentItem(_page: PageMeasurable, containerBoundsPx: BoundingBox, index: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfPageAttachmentItem(_page: PageMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
@@ -206,7 +206,7 @@ export function calcGeometryOfPageAttachmentItem(_page: PageMeasurable, containe
 }
 
 
-export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -223,7 +223,7 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
 }
 
 
-export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx: BoundingBox, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [

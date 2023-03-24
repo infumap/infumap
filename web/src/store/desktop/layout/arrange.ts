@@ -187,7 +187,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
     parent: () => null
   };
 
-  const currentPageInnerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(currentPage(), desktopStore.getItem);
+  const currentPageInnerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(currentPage());
 
   const page = currentPage(); // avoid capturing this in children() =>.
   topLevelVisualElement.children = () => {
@@ -216,7 +216,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             parent: () => topLevelVisualElement,
           };
 
-          const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem(), desktopStore.getItem);
+          const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem());
 
           const page = pageItem();
           const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry().boundsPx)!);

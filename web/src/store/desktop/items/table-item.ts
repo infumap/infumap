@@ -127,16 +127,16 @@ export function tableToObject(t: TableItem): object {
 }
 
 
-export function calcTableSizeForSpatialBl(table: TableMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
   return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
 }
 
-export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
   const boundsPx = {
     x: (table.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (table.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcTableSizeForSpatialBl(table, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcTableSizeForSpatialBl(table, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcTableSizeForSpatialBl(table).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcTableSizeForSpatialBl(table).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   return {
     boundsPx,
@@ -149,7 +149,7 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
   };
 }
 
-export function calcGeometryOfTableAttachmentItem(_table: TableMeasurable, containerBoundsPx: BoundingBox, index: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfTableAttachmentItem(_table: TableMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
@@ -162,7 +162,7 @@ export function calcGeometryOfTableAttachmentItem(_table: TableMeasurable, conta
   }
 }
 
-export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -177,7 +177,7 @@ export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSiz
   };
 }
 
-export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBoundsPx: BoundingBox, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]

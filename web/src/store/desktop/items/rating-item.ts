@@ -18,7 +18,7 @@
 
 import { GRID_SIZE } from '../../../constants';
 import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, cloneVector, Dimensions, zeroTopLeft } from '../../../util/geometry';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from '../../../util/geometry';
 import { panic } from '../../../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../item-geometry';
@@ -70,16 +70,16 @@ export function ratingToObject(r: RatingItem): object {
 }
 
 
-export function calcRatingSizeForSpatialBl(_item: RatingMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions {
   return { w: 1.0, h: 1.0 };
 }
 
-export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean): ItemGeometry {
   const boundsPx = {
     x: (rating.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (rating.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcRatingSizeForSpatialBl(rating, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcRatingSizeForSpatialBl(rating, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   return {
     boundsPx,
@@ -87,7 +87,7 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
   }
 }
 
-export function calcGeometryOfRatingAttachmentItem(_rating: RatingMeasurable, containerBoundsPx: BoundingBox, index: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfRatingAttachmentItem(_rating: RatingMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
@@ -100,7 +100,7 @@ export function calcGeometryOfRatingAttachmentItem(_rating: RatingMeasurable, co
   }
 }
 
-export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -115,7 +115,7 @@ export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, block
   };
 }
 
-export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]

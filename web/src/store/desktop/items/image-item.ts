@@ -108,18 +108,18 @@ export function asImageMeasurable(item: ItemTypeMixin): ImageMeasurable {
   panic();
 }
 
-export function calcImageSizeForSpatialBl(image: ImageMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
   // half block quantization.
   let heightBl = Math.round(((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w) * 2.0) / 2.0;
   return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
 }
 
-export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
   const boundsPx = {
     x: (image.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (image.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcImageSizeForSpatialBl(image, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcImageSizeForSpatialBl(image, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   return {
     boundsPx,
@@ -133,7 +133,7 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
   }
 }
 
-export function calcGeometryOfImageAttachmentItem(_image: ImageMeasurable, containerBoundsPx: BoundingBox, index: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfImageAttachmentItem(_image: ImageMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
@@ -146,7 +146,7 @@ export function calcGeometryOfImageAttachmentItem(_image: ImageMeasurable, conta
   }
 }
 
-export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -162,7 +162,7 @@ export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSiz
   };
 }
 
-export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBoundsPx: BoundingBox, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   const imageAspect = image.imageSizePx.w / image.imageSizePx.h;
   let boundsPx: BoundingBox;
   if (image.imageSizePx.w / cellBoundsPx.w > image.imageSizePx.h / cellBoundsPx.h) {

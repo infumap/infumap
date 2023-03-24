@@ -94,17 +94,17 @@ function measureLineCount(s: string, widthBl: number): number {
   return Math.floor(lineCount);
 }
 
-export function calcFileSizeForSpatialBl(file: FileMeasurable, _getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
   let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE);
   return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
   const boundsPx = {
     x: (file.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (file.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcFileSizeForSpatialBl(file, getItem).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcFileSizeForSpatialBl(file, getItem).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   return {
     boundsPx,
@@ -118,7 +118,7 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
   }
 }
 
-export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containerBoundsPx: BoundingBox, index: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
@@ -131,7 +131,7 @@ export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containe
   }
 }
 
-export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -147,7 +147,7 @@ export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx
   };
 }
 
-export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx: BoundingBox, _getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
