@@ -219,7 +219,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem());
 
           const page = pageItem();
-          const innerBoundsPx = () => zeroTopLeft(cloneBoundingBox(geometry.boundsPx())!);
+          const innerBoundsPx = geometry.innerBoundsPx;
           pageWithChildrenVe.children = () => {
             return page.computed_children.get().map(childId => {
               const childItem = desktopStore.getItem(childId)!;

@@ -20,6 +20,10 @@ export function panic(): never {
   throw new Error("logic error");
 }
 
+export function notImplemented(): never {
+  throw new Error("not implemented");
+}
+
 export function throwExpression(errorMessage: string): never {
   throw new Error(errorMessage);
 }

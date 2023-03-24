@@ -18,11 +18,11 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, cloneVector, Dimensions, zeroTopLeft } from '../../../util/geometry';
-import { currentUnixTimeSeconds, panic } from '../../../util/lang';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from '../../../util/geometry';
+import { currentUnixTimeSeconds, notImplemented, panic } from '../../../util/lang';
 import { newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
@@ -121,6 +121,12 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
 }
 
 export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h,
+  });
   const boundsPx = () => ({
     x: (note.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (note.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -129,11 +135,12 @@ export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: 
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => !emitHitboxes ? [] : [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
       { type: HitboxType.Resize,
-        boundsPx: { x: boundsPx().w - RESIZE_BOX_SIZE_PX, y: boundsPx().h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: innerBoundsPx().w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx().h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   }
@@ -148,11 +155,18 @@ export function calcGeometryOfNoteAttachmentItem(_note: NoteMeasurable, containe
   });
   return {
     boundsPx,
+    innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [],
   }
 }
 
 export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: blockSizePx.w * widthBl,
+    h: blockSizePx.h
+  });
   const boundsPx = () => ({
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -161,9 +175,10 @@ export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) }
+      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() }
     ],
   };
 }
@@ -171,6 +186,7 @@ export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx
 export function calcGeometryOfNoteItemInCell(_note: NoteMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
+    innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
   });
 }

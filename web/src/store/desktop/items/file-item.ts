@@ -19,14 +19,13 @@
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from '../../../util/geometry';
-import { panic } from '../../../util/lang';
+import { notImplemented, panic } from '../../../util/lang';
 import { AttachmentsItem } from './base/attachments-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
-import { Uid } from '../../../util/uid';
 import { PositionalMixin } from './base/positional-item';
 import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 
@@ -100,6 +99,12 @@ export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
 }
 
 export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
+  });
   const boundsPx = () => ({
     x: (file.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (file.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -108,9 +113,10 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => !emitHitboxes ? [] : [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
       { type: HitboxType.Resize,
         boundsPx: { x: boundsPx().w - RESIZE_BOX_SIZE_PX, y: boundsPx().h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
@@ -127,11 +133,18 @@ export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containe
   });
   return {
     boundsPx,
+    innerBoundsPx: () => { panic(); },
     hitboxes: () => [],
   }
 }
 
 export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: blockSizePx.w * widthBl,
+    h: blockSizePx.h
+  });
   const boundsPx = () => ({
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -140,9 +153,10 @@ export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) }
+      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() }
     ],
   };
 }
@@ -150,6 +164,7 @@ export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx
 export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
+    innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
   });
 }

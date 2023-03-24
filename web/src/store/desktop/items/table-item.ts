@@ -18,8 +18,8 @@
 
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
-import { BoundingBox, cloneBoundingBox, zeroTopLeft, cloneVector, Dimensions } from "../../../util/geometry";
-import { currentUnixTimeSeconds, panic } from "../../../util/lang";
+import { BoundingBox, cloneBoundingBox, zeroTopLeft, Dimensions } from "../../../util/geometry";
+import { currentUnixTimeSeconds, notImplemented, panic } from "../../../util/lang";
 import { newUid, Uid } from "../../../util/uid";
 import { AttachmentsItem } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
@@ -132,6 +132,12 @@ export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
 }
 
 export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: calcTableSizeForSpatialBl(table).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcTableSizeForSpatialBl(table).h / containerInnerSizeBl.h * containerBoundsPx.h,
+  });
   const boundsPx = () => ({
     x: (table.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (table.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -140,10 +146,11 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => !emitHitboxes ? [] : [
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
       { type: HitboxType.Resize,
-        boundsPx: { x: boundsPx().w - RESIZE_BOX_SIZE_PX, y: boundsPx().h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: innerBoundsPx().w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx().h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   };
@@ -158,11 +165,18 @@ export function calcGeometryOfTableAttachmentItem(_table: TableMeasurable, conta
   });
   return {
     boundsPx,
+    innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [],
   }
 }
 
 export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: blockSizePx.w * widthBl,
+    h: blockSizePx.h
+  });
   const boundsPx = () => ({
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -171,8 +185,9 @@ export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSiz
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => [
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) }
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() }
     ],
   };
 }
@@ -180,6 +195,7 @@ export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSiz
 export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
+    innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
   });
 }

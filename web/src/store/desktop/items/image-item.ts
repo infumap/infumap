@@ -18,15 +18,14 @@
 
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
-import { BoundingBox, cloneVector, Dimensions, zeroTopLeft } from "../../../util/geometry";
-import { panic } from "../../../util/lang";
+import { BoundingBox, Dimensions, zeroTopLeft } from "../../../util/geometry";
+import { notImplemented, panic } from "../../../util/lang";
 import { AttachmentsItem } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
+import { ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
-import { Uid } from "../../../util/uid";
 import { PositionalMixin } from "./base/positional-item";
 import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 
@@ -115,6 +114,12 @@ export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
 }
 
 export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w,
+    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h,
+  });
   const boundsPx = () => ({
     x: (image.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (image.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -123,9 +128,10 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => !emitHitboxes ? [] : [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) },
+      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
       { type: HitboxType.Resize,
         boundsPx: { x: boundsPx().w - RESIZE_BOX_SIZE_PX, y: boundsPx().h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
@@ -142,11 +148,18 @@ export function calcGeometryOfImageAttachmentItem(_image: ImageMeasurable, conta
   });
   return {
     boundsPx,
+    innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [],
   }
 }
 
 export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+  const innerBoundsPx = () => ({
+    x: 0.0,
+    y: 0.0,
+    w: blockSizePx.w * widthBl,
+    h: blockSizePx.h
+  });
   const boundsPx = () => ({
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -155,9 +168,10 @@ export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSiz
   });
   return {
     boundsPx,
+    innerBoundsPx,
     hitboxes: () => [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) },
-      { type: HitboxType.Move, boundsPx: zeroTopLeft(boundsPx()) }
+      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx() }
     ],
   };
 }
@@ -186,9 +200,11 @@ export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBounds
     return result;
   };
 
-  return (
-    { boundsPx, hitboxes: () => [ { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) } ] }
-  );
+  return ({
+    boundsPx,
+    innerBoundsPx: () => { notImplemented(); },
+    hitboxes: () => [ { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) } ]
+  });
 }
 
 export function handleImageClick(imageItem: ImageItem): void {

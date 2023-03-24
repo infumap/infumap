@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE } from "../../../constants";
-import { BoundingBox, cloneVector, Dimensions } from "../../../util/geometry";
+import { BoundingBox, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
 import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
