@@ -18,3 +18,4 @@ pub mod keygen;
 pub mod migrate;
 pub mod repair;
 pub mod restore;
+pub mod upload;

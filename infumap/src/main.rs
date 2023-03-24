@@ -34,6 +34,7 @@ async fn main() {
     .subcommand(cli::migrate::make_clap_subcommand())
     .subcommand(cli::repair::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
+    .subcommand(cli::upload::make_clap_subcommand())
     .about("Infumap")
     .arg(Arg::new("settings_path")
       .short('s')
@@ -47,6 +48,9 @@ async fn main() {
     .get_matches();
 
   let command_result = match arg_matches.subcommand() {
+    Some(("keygen", arg_sub_matches)) => {
+      cli::keygen::execute(arg_sub_matches)
+    },
     Some(("migrate", arg_sub_matches)) => {
       cli::migrate::execute(arg_sub_matches)
     },
@@ -56,9 +60,9 @@ async fn main() {
     Some(("restore", arg_sub_matches)) => {
       cli::restore::execute(arg_sub_matches).await
     },
-    Some(("keygen", arg_sub_matches)) => {
-      cli::keygen::execute(arg_sub_matches)
-    }
+    Some(("upload", arg_sub_matches)) => {
+      cli::upload::execute(arg_sub_matches).await
+    },
     Some((_, _arg_sub_matches)) => {
       println!(".. --help for help.");
       Ok(())

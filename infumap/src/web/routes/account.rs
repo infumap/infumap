@@ -53,24 +53,24 @@ pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LoginRequest {
-    username: String,
-    password: String,
+    pub username: String,
+    pub password: String,
     #[serde(rename="totpToken")]
-    totp_token: Option<String>,
+    pub totp_token: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LoginResponse {
-  success: bool,
-  err: Option<String>,
+  pub success: bool,
+  pub err: Option<String>,
   #[serde(rename="sessionId")]
-  session_id: Option<String>,
+  pub session_id: Option<String>,
   #[serde(rename="userId")]
-  user_id: Option<String>,
+  pub user_id: Option<String>,
   #[serde(rename="rootPageId")]
-  root_page_id: Option<String>,
+  pub root_page_id: Option<String>,
 }
 
 pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {

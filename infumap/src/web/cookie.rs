@@ -17,14 +17,14 @@
 use hyper::header::COOKIE;
 use hyper::Request;
 use log::{debug, warn};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::util::uid::Uid;
 
 
 pub const SESSION_COOKIE_NAME: &'static str = "infusession";
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct InfuSession {
   pub username: String,
   #[serde(rename="userId")]

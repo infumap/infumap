@@ -127,30 +127,3 @@ npm run start
 
 This will start a vite development server listening on port `3000`, serving the current state of `web`, with hot reload. Requests to the API (but not requests for client resources) will be forwarded to port `8000`.
 
-
-# Simple Deployment on Debian 11
-
-```
-ufw allow 443
-```
-
-Install caddy:
-
-```
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install caddy
-```
-
-Edit the Caddyfile in `/etc/caddy/Caddyfile`.
-- change `:80` to your domain name.
-- uncomment the `reverse_proxy` line.
-- comment out the `root` line.
-
-Then reload:
-
-```
-systemctl reload caddy
-```
