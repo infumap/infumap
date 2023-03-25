@@ -1,4 +1,4 @@
-// Copyright (C) 2022 The Infumap Authors
+// Copyright (C) 2023 The Infumap Authors
 // This file is part of Infumap.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,13 +14,31 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod crypto;
-pub mod fs;
-pub mod geometry;
-pub mod image;
-pub mod infu;
-pub mod json;
-pub mod lang;
-pub mod ordering;
-pub mod str;
-pub mod uid;
+pub type Ordering = Vec<u8>;
+
+const N: u8 = 1;
+
+
+pub fn new_ordering() -> Ordering {
+  vec![128]
+}
+
+pub fn new_ordering_after(end: &Ordering) -> Ordering {
+  let mut r = vec![];
+
+  for i in 0..end.len() {
+    if *end.get(i).unwrap() == 255 {
+      r.push(255);
+      continue;
+    }
+    if *end.get(i).unwrap() > 255 - N {
+      r.push(end.get(i).unwrap() + 1);
+      return r;
+    }
+    r.push(*end.get(i).unwrap() + N);
+    return r;
+  }
+
+  r.push(N);
+  r
+}

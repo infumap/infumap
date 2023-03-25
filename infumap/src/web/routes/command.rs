@@ -200,7 +200,7 @@ async fn handle_add_item(
     if is_image_item(&item.item_type) {
       let file_cursor = Cursor::new(decoded);
       let file_reader = Reader::new(file_cursor).with_guessed_format()?;
-      let img = file_reader.decode().ok().ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as a image.", item.id))?;
+      let img = file_reader.decode().ok().ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
       let img = img.resize_exact(8, 8, FilterType::Nearest);
       // TODO (LOW): consider EXIF rotation information - the thumbnail may not be oriented correctly. But it's only 8x8, so doesn't matter much.
       let buf = Vec::new();
@@ -248,7 +248,7 @@ async fn handle_update_item(
 #[derive(Deserialize)]
 pub struct DeleteItemRequest {
   #[serde(rename="id")]
-  id: String,
+  pub id: String,
 }
 
 async fn handle_delete_item<'a>(

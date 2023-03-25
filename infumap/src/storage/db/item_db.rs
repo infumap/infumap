@@ -117,7 +117,7 @@ impl ItemDb {
       },
       None => {
         if item.relationship_to_parent != RelationshipToParent::NoParent {
-          return Err(format!("Relationship to parent for root page item '{}' must be 'no-parent', not '{}'.", item.id, item.relationship_to_parent.to_string()).into());
+          return Err(format!("Relationship to parent for root page item '{}' must be 'no-parent', not '{}'.", item.id, item.relationship_to_parent.as_str()).into());
         }
 
         // By convention, root level items are children of themselves.
@@ -162,7 +162,7 @@ impl ItemDb {
       },
       None => {
         if item.relationship_to_parent != RelationshipToParent::NoParent {
-          return Err(format!("Relationship to parent for root page item '{}' must be 'no-parent', not '{}'.", item.id, item.relationship_to_parent.to_string()).into());
+          return Err(format!("Relationship to parent for root page item '{}' must be 'no-parent', not '{}'.", item.id, item.relationship_to_parent.as_str()).into());
         }
         // By convention, root level items are children of themselves.
         let child_list = self.children_of.remove(&item.id)

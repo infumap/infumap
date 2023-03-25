@@ -15,11 +15,16 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::BufRead;
+use std::io::Cursor;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use base64::{Engine as _, engine::general_purpose};
 use clap::{App, Arg, ArgMatches};
+use image::io::Reader;
+use log::debug;
 use reqwest::Url;
 use rpassword::read_password;
 use serde_json::Map;
@@ -28,9 +33,21 @@ use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
+use crate::storage::db::item::ITEM_TYPE_FILE;
+use crate::storage::db::item::ITEM_TYPE_IMAGE;
+use crate::storage::db::item::RelationshipToParent;
 use crate::util::fs::expand_tilde;
+use crate::util::geometry::Dimensions;
+use crate::util::geometry::GRID_SIZE;
+use crate::util::geometry::Vector;
+use crate::util::image::adjust_image_for_exif_orientation;
+use crate::util::image::get_exif_orientation;
 use crate::util::infu::InfuResult;
+use crate::util::json;
+use crate::util::ordering::new_ordering;
+use crate::util::ordering::new_ordering_after;
 use crate::util::uid::is_uid;
+use crate::util::uid::new_uid;
 use crate::web::cookie::InfuSession;
 use crate::web::routes::account::LoginRequest;
 use crate::web::routes::account::LoginResponse;
@@ -59,7 +76,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("url")
       .short('u')
       .long("url")
-      .help("URL of the Infumap instance to upload files to. Should include the protocol (http/https), and not include trailing /.")
+      .help("URL of the Infumap instance to upload files to. Should include the protocol (http/https), and trailing / if the URL path is not empty.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -142,11 +159,12 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     println!("Login failed: {}", login_response.err.unwrap());
     return Ok(());
   }
+  let owner_id = login_response.user_id.unwrap().clone();
 
   // 6. construct the session cookie header.
   let session_cookie_value = serde_json::to_string(&InfuSession {
     username,
-    user_id: login_response.user_id.unwrap(),
+    user_id: owner_id.clone(),
     session_id: login_response.session_id.unwrap(),
     root_page_id: login_response.root_page_id.unwrap(),
   })?;
@@ -164,7 +182,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
   let container_children_response: SendResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
-    .post(command_url)
+    .post(command_url.clone())
     .json(&send_reqest)
     .send()
     .await.map_err(|e| e.to_string())?
@@ -180,19 +198,96 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
   let children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
   if children.len() != 0 {
-    println!("Specified container '{}' is not empty.", container_id);
+    println!("Specified container '{}' is not empty.", container_id.clone());
     return Ok(());
   }
 
   // 9. add items.
+  let mut current_ordering = new_ordering();
   let mut iter = fs::read_dir(&local_path).await?;
   while let Some(entry) = iter.next_entry().await? {
-    let mut f = File::open(&entry.path()).await?;
-    let mut buffer = vec![0; tokio::fs::metadata(&entry.path()).await?.len() as usize];
-    f.read_exact(&mut buffer).await?;
-    let base_64_encoded = general_purpose::STANDARD.encode(buffer);
+    let unix_time_now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
-    println!("{:?} {}", entry.path(), base_64_encoded.len());
+    let os_filename = entry.file_name();
+    let filename = os_filename.to_str().ok_or(format!("Could not interpret filename '{:?}'.", entry.file_name()))?;
+    let mime_type = match mime_guess::from_path(&filename).first_raw() {
+      Some(mime_type) => mime_type,
+      None => "application/octet-stream"
+    };
+
+    let mut f = File::open(&entry.path()).await?;
+    let metadata = tokio::fs::metadata(&entry.path()).await?;
+    let mut buffer = vec![0; metadata.len() as usize];
+    f.read_exact(&mut buffer).await?;
+    let base_64_encoded = general_purpose::STANDARD.encode(&buffer);
+
+    let mut item: Map<String, Value> = Map::new();
+    item.insert("ownerId".to_owned(), Value::String(owner_id.clone()));
+    item.insert("id".to_owned(), Value::String(new_uid()));
+    item.insert("parentId".to_owned(), Value::String(container_id.clone()));
+    item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
+    item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
+    item.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
+    item.insert("ordering".to_owned(),
+      Value::Array(current_ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+    item.insert("title".to_owned(), Value::String(filename.to_owned()));
+    item.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+    item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
+    item.insert("originalCreationDate".to_owned(),
+      Value::Number(metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs().into()));
+    item.insert("mimeType".to_owned(), Value::String(mime_type.to_owned()));
+    item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
+
+    let os_filename = entry.file_name();
+    let filename = os_filename.to_str().ok_or("err")?;
+    if filename.ends_with(".png") || filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
+      let file_cursor = Cursor::new(buffer.clone());
+      let file_reader = Reader::new(file_cursor).with_guessed_format()?;
+      match file_reader.decode() {
+        Ok(img) => {
+          let exif_orientation = get_exif_orientation(buffer.clone(), filename);
+          let img = adjust_image_for_exif_orientation(img, exif_orientation, filename);
+          item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_IMAGE.to_owned()));
+          item.insert("imageSizePx".to_owned(),
+            json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }));
+          item.insert("thumbnail".to_owned(), Value::String("".to_owned())); // set on the server.
+          println!("Adding an item of type image for file '{}'.", filename);
+          if exif_orientation > 1 {
+            debug!("Note: image has exif orientation type of: {}", exif_orientation);
+          }
+        },
+        Err(_e) => {
+          item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
+          println!("Could not interpret file '{}' as an image, adding as an item of type file.", filename);
+        }
+      }
+    } else {
+      item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
+      println!("Adding an item of type file for file '{}'", filename);
+    }
+
+    let add_item_request = serde_json::to_string(&item)?;
+    let send_reqest = SendRequest {
+      command: "add-item".to_owned(),
+      json_data: add_item_request,
+      base64_data: Some(base_64_encoded),
+    };
+
+    let add_item_response: SendResponse = reqwest::ClientBuilder::new()
+      .default_headers(request_headers.clone()).build().unwrap()
+      .post(command_url.clone())
+      .json(&send_reqest)
+      .send()
+      .await.map_err(|e| e.to_string())?
+      .json()
+      .await.map_err(|e| e.to_string())?;
+    if !add_item_response.success {
+      println!("Query for container contents failed.");
+    } else {
+      println!("Success!");
+    }
+
+    current_ordering = new_ordering_after(&current_ordering);
   }
 
   Ok(())

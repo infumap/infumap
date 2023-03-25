@@ -16,7 +16,6 @@
 
 use bytes::Bytes;
 use config::Config;
-use exif::Tag;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::ImageOutputFormat;
@@ -35,6 +34,7 @@ use crate::storage::db::session::Session;
 use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageSize, ImageCacheKey};
 use crate::storage::object;
+use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
 use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
 use crate::web::session::get_and_validate_session;
@@ -206,32 +206,7 @@ async fn get_cached_resized_img(
       .body(full_body(original_file_bytes)).unwrap());
   }
 
-  // get orientation
-  let mut original_file_cursor = Cursor::new(original_file_bytes.clone());
-  let exifreader = exif::Reader::new();
-  let exif_orientation = match exifreader.read_from_container(&mut original_file_cursor) {
-    Ok(exif) => match exif.fields().find(|f| f.tag == Tag::Orientation) {
-      Some(o) => {
-        match &o.value {
-          exif::Value::Short(s) => {
-            match s.get(0) {
-              Some(s) => *s,
-              None => {
-                debug!("EXIF Orientation value present but not present for image '{}', ignoring.", uid);
-                1
-              }
-            }
-          },
-          _ => {
-            debug!("EXIF Orientation value present but does not have type Short for image '{}', ignoring.", uid);
-            1
-          }
-        }
-      }
-      None => 0
-    },
-    Err(_e) => { 1 }
-  };
+  let exif_orientation = get_exif_orientation(original_file_bytes.clone(), &uid);
 
   // decode and resize
   let original_file_cursor = Cursor::new(original_file_bytes.clone());
@@ -239,29 +214,7 @@ async fn get_cached_resized_img(
   let original_img_maybe = original_file_reader.decode();
   match original_img_maybe {
     Ok(mut img) => {
-      // Good overview on exif rotation values here: https://sirv.com/help/articles/rotate-photos-to-be-upright/
-      // 1 = 0 degrees: the correct orientation, no adjustment is required.
-      // 2 = 0 degrees, mirrored: image has been flipped back-to-front.
-      // 3 = 180 degrees: image is upside down.
-      // 4 = 180 degrees, mirrored: image has been flipped back-to-front and is upside down.
-      // 5 = 90 degrees: image has been flipped back-to-front and is on its side.
-      // 6 = 90 degrees, mirrored: image is on its side.
-      // 7 = 270 degrees: image has been flipped back-to-front and is on its far side.
-      // 8 = 270 degrees, mirrored: image is on its far side.
-      match exif_orientation {
-        0 => {}, // Invalid, but silently ignore. It's relatively common.
-        1 => {},
-        2 => { img = img.fliph(); }
-        3 => { img = img.rotate180(); }
-        4 => { img = img.fliph(); img = img.rotate180(); }
-        5 => { img = img.rotate90(); img = img.fliph(); }
-        6 => { img = img.rotate90(); }
-        7 => { img = img.rotate270(); img = img.fliph(); }
-        8 => { img = img.rotate270(); }
-        o => {
-          debug!("Unexpected EXIF orientation {} for image '{}'.", o, uid);
-        }
-      }
+      img = adjust_image_for_exif_orientation(img, exif_orientation, &uid);
 
       // Calculate the height for passing into the image resize method. The resize method makes the image as large as possible
       // whilst preseving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width

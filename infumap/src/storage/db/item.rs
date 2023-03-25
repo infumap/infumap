@@ -34,7 +34,7 @@ pub enum RelationshipToParent {
 }
 
 impl RelationshipToParent {
-  pub fn to_string(&self) -> &'static str {
+  pub fn as_str(&self) -> &'static str {
     match self {
       RelationshipToParent::Attachment => "attachment",
       RelationshipToParent::Child => "child",
@@ -151,9 +151,9 @@ pub struct TableColumn {
 
 const ITEM_TYPE_PAGE: &'static str = "page";
 const ITEM_TYPE_NOTE: &'static str = "note";
-const ITEM_TYPE_FILE: &'static str = "file";
+pub const ITEM_TYPE_FILE: &'static str = "file";
 const ITEM_TYPE_TABLE: &'static str = "table";
-const ITEM_TYPE_IMAGE: &'static str = "image";
+pub const ITEM_TYPE_IMAGE: &'static str = "image";
 const ITEM_TYPE_RATING: &'static str = "rating";
 const ITEM_TYPE_LINK: &'static str = "link";
 
@@ -347,7 +347,7 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
-    if old.relationship_to_parent != new.relationship_to_parent { result.insert(String::from("relationshipToParent"), Value::String(String::from(new.relationship_to_parent.to_string()))); }
+    if old.relationship_to_parent != new.relationship_to_parent { result.insert(String::from("relationshipToParent"), Value::String(String::from(new.relationship_to_parent.as_str()))); }
     if old.creation_date != new.creation_date { cannot_modify_err("creationDate", &old.id)?; }
     if old.last_modified_date != new.last_modified_date { result.insert(String::from("lastModifiedDate"), Value::Number(new.last_modified_date.into())); }
     if old.ordering != new.ordering { result.insert(String::from("ordering"), Value::Array(new.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>())); }
@@ -639,7 +639,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     Some(uid) => { result.insert(String::from("parentId"), Value::String(uid.clone())); },
     None => { result.insert(String::from("parentId"), Value::Null); }
   };
-  result.insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.to_string())));
+  result.insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.as_str())));
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
   result.insert(String::from("ordering"), Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
