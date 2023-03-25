@@ -216,10 +216,11 @@ pub struct RegisterResponse {
   err: Option<String>
 }
 
-const RESERVED_NAMES: [&'static str; 16] = [
+const RESERVED_NAMES: [&'static str; 21] = [
   "login", "logout", "register", "signin", "signup", "settings",
-  "item", "items", "page", "table", "image", "text", "rating", "file", "blob",
-  "about"];
+  "item", "items", "page", "table", "image", "text", "rating",
+  "file", "blob", "about", "add", "delete", "remove", "update",
+  "admin"];
 
 pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   let mut db = db.lock().await;

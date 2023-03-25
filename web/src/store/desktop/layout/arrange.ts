@@ -132,7 +132,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void 
       });
 
       let geometry = calcGeometryOfItemInCell(item, cellBoundsPx(), desktopStore.getItem);
-      if (!isContainer(item)) {
+      if (!isTable(item)) {
         let ve: VisualElement = {
           itemType: item.itemType,
           itemId: item.id,
@@ -147,7 +147,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void 
         };
         children.push(ve);
       } else {
-        console.log("TODO: child containers in grid pages.");
+        console.log("TODO: child tables in grid pages.");
       }
     }
     return children;
