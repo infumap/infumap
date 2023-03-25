@@ -26,6 +26,12 @@ pub fn new_uid() -> Uid {
 }
 
 pub fn is_uid(id_maybe: &str) -> bool {
+  // TODO (LOW): check this is valid v4 uuid.
   if id_maybe.len() != 32 { return false; }
+  for c in id_maybe.chars() {
+    if !c.is_ascii_hexdigit() {
+      return false;
+    }
+  }
   true
 }

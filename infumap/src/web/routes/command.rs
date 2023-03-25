@@ -48,20 +48,20 @@ pub static METRIC_COMMANDS_HANDLED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
       .expect("Could not create METRIC_COMMANDS_HANDLED_TOTAL")
 });
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct SendRequest {
-  command: String,
+  pub command: String,
   #[serde(rename="jsonData")]
-  json_data: String,
+  pub json_data: String,
   #[serde(rename="base64Data")]
-  base64_data: Option<String>,
+  pub base64_data: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct SendResponse {
-  success: bool,
+  pub success: bool,
   #[serde(rename="jsonData")]
-  json_data: Option<String>,
+  pub json_data: Option<String>,
 }
 
 pub async fn serve_command_route(
@@ -127,10 +127,10 @@ pub async fn serve_command_route(
 }
 
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct GetChildrenRequest {
   #[serde(rename="parentId")]
-  parent_id: String,
+  pub parent_id: String,
 }
 
 async fn handle_get_children_with_their_attachments(db: &Arc<tokio::sync::Mutex<Db>>, json_data: &str) -> InfuResult<Option<String>> {

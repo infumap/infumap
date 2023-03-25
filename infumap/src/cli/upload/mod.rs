@@ -19,12 +19,17 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use clap::{App, Arg, ArgMatches};
+use reqwest::Url;
 use rpassword::read_password;
 
 use crate::util::infu::InfuResult;
+use crate::util::uid::is_uid;
 use crate::web::cookie::InfuSession;
 use crate::web::routes::account::LoginRequest;
 use crate::web::routes::account::LoginResponse;
+use crate::web::routes::command::GetChildrenRequest;
+use crate::web::routes::command::SendRequest;
+use crate::web::routes::command::SendResponse;
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
@@ -33,14 +38,14 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
-      .help("The container id to upload files to.")
+      .help("The id of the container to upload files to.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
     .arg(Arg::new("directory")
       .short('d')
       .long("directory")
-      .help("The local directory path from which to source all files to upload.")
+      .help("The path of the directory to upload all files from.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -55,20 +60,35 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
+
   let local_path = match sub_matches.value_of("directory").map(|v| v.to_string()) {
-    Some(p) => p,
-    None => { return Err("Upload directory path must be specified.".into()); }
+    Some(path) => path,
+    None => { return Err("Path to directory to upload contents of must be specified.".into()); }
   };
+  let _local_path = PathBuf::from(local_path);
+
   let container_id = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
-    Some(c) => c,
-    None => { return Err("Container id must be specified.".into()); }
-  };
-  let url = match sub_matches.value_of("url").map(|v| v.to_string()) {
-    Some(c) => c,
-    None => { return Err("Infumap URL must be specified.".into()); }
+    Some(uid_maybe) => {
+      if !is_uid(&uid_maybe) {
+        return Err(format!("Invalid container id: '{}'.", uid_maybe).into());
+      }
+      uid_maybe
+    },
+    None => { return Err("Id of container to upload files into must be specified.".into()); }
   };
 
-  let path = PathBuf::from(local_path);
+  let url = match sub_matches.value_of("url").map(|v| v.to_string()) {
+    Some(url) => url,
+    None => { return Err("Infumap base URL must be specified.".into()); }
+  };
+  let base_url = Url::parse(&url)
+    .map_err(|e| format!("Could not parse URL: {}", e))?;
+  if base_url.path() != "/" && !url.ends_with("/") {
+    return Err("Specified URL must have no path, or the path must end with a '/' to signify it is not a file.".into());
+  }
+  let login_url = base_url.join("/account/login").map_err(|e| e.to_string())?;
+  let command_url = base_url.join("/command").map_err(|e| e.to_string())?;
+
 
   let stdin = std::io::stdin();
   let mut iterator = stdin.lock().lines();
@@ -86,12 +106,12 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let login_request = LoginRequest { username: username.clone(), password, totp_token };
 
   let login_response: LoginResponse = reqwest::Client::new()
-      .post(format!("{}/account/login", url))
-      .json(&login_request)
-      .send()
-      .await.map_err(|e| format!("{}", e))?
-      .json()
-      .await.map_err(|e| format!("{}", e))?;
+    .post(login_url)
+    .json(&login_request)
+    .send()
+    .await.map_err(|e| format!("{}", e))?
+    .json()
+    .await.map_err(|e| format!("{}", e))?;
 
   if !login_response.success {
     println!("Login failed: {}", login_response.err.unwrap());
@@ -105,9 +125,27 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     root_page_id: login_response.root_page_id.unwrap(),
   })?;
 
-  // get container contents. 
-  // add to end orderings.. 
-  // 
+  let mut request_headers = reqwest::header::HeaderMap::new();
+  request_headers.insert(
+    reqwest::header::COOKIE,
+    reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
+
+  let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id: container_id }).unwrap();
+  let send_reqest = SendRequest {
+    command: "get-children-with-their-attachments".to_owned(),
+    json_data: get_children_request,
+    base64_data: None,
+  };
+  let container_children_response: SendResponse = reqwest::ClientBuilder::new()
+    .default_headers(request_headers.clone()).build().unwrap()
+    .post(command_url)
+    .json(&send_reqest)
+    .send()
+    .await.map_err(|e| e.to_string())?
+    .json()
+    .await.map_err(|e| e.to_string())?;
+
+  println!("{:?}", container_children_response);
 
   Ok(())
 }
