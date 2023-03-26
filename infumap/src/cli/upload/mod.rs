@@ -32,12 +32,15 @@ use serde_json::Map;
 use serde_json::Value;
 use tokio::fs;
 use tokio::fs::File;
+use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
 
 use crate::storage::db::item::ITEM_TYPE_FILE;
 use crate::storage::db::item::ITEM_TYPE_IMAGE;
 use crate::storage::db::item::RelationshipToParent;
 use crate::util::fs::expand_tilde;
+use crate::util::fs::path_exists;
 use crate::util::geometry::Dimensions;
 use crate::util::geometry::GRID_SIZE;
 use crate::util::geometry::Vector;
@@ -64,7 +67,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
-      .help("The id of the container to upload files to. This container must be empty (if resume flag is not set).")
+      .help("The id of the container to upload files to. If the resume flag is not set, this container must be empty.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -85,7 +88,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("resume")
       .short('r')
       .long("resume")
-      .help("If specified, files already present in the container will be skipped.")
+      .help("If specified, it is not enforced that the Infumap container is empty, and files already present in the container will be skipped.")
       .takes_value(false)
       .required(false))
 }
@@ -94,7 +97,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.is_present("resume");
 
-  // 1. validate directory
+  // validate directory
   let local_path = match sub_matches.value_of("directory").map(|v| v.to_string()) {
     Some(path) => path,
     None => { return Err("Path to directory to upload contents of must be specified.".into()); }
@@ -117,7 +120,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
   }
 
-  // 2. validate container.
+  // validate container.
   let container_id = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
     Some(uid_maybe) => {
       if !is_uid(&uid_maybe) {
@@ -128,7 +131,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     None => { return Err("Id of container to upload files into must be specified.".into()); }
   };
 
-  // 3. validate URL and construct sub URLs.
+  // validate URL and construct sub URLs.
   let url = match sub_matches.value_of("url").map(|v| v.to_string()) {
     Some(url) => url,
     None => { return Err("Infumap base URL must be specified.".into()); }
@@ -141,48 +144,21 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let login_url = base_url.join("/account/login").map_err(|e| e.to_string())?;
   let command_url = base_url.join("/command").map_err(|e| e.to_string())?;
 
-  // 4. read login credentials from stdin.
-  let stdin = std::io::stdin();
-  let mut iterator = stdin.lock().lines();
-  print!("Username: ");
-  std::io::stdout().lock().flush().unwrap();
-  let username = iterator.next().unwrap().unwrap();
-  print!("Password: ");
-  std::io::stdout().lock().flush().unwrap();
-  let password = read_password().unwrap();
-  print!("Authenticator code (if any)>: ");
-  std::io::stdout().lock().flush().unwrap();
-  let totp = iterator.next().unwrap().unwrap();
-  let totp_token = if totp == "" { None } else { Some(totp) };
-
-  // 5. login.
-  let login_request = LoginRequest { username: username.clone(), password, totp_token };
-  let login_response: LoginResponse = reqwest::Client::new()
-    .post(login_url)
-    .json(&login_request)
-    .send()
-    .await.map_err(|e| format!("{}", e))?
-    .json()
-    .await.map_err(|e| format!("{}", e))?;
-  if !login_response.success {
-    println!("Login failed: {}", login_response.err.unwrap());
-    return Ok(());
-  }
-  let owner_id = login_response.user_id.unwrap().clone();
-
-  // 6. construct the session cookie header.
-  let session_cookie_value = serde_json::to_string(&InfuSession {
-    username,
-    user_id: owner_id.clone(),
-    session_id: login_response.session_id.unwrap(),
-    root_page_id: login_response.root_page_id.unwrap(),
-  })?;
+  // get session / login.
+  let session = match read_session().await {
+    Ok(s) => s,
+    Err(_) => {
+      login(&login_url).await?;
+      read_session().await?
+    }
+  };
+  let session_cookie_value = serde_json::to_string(&session)?;
   let mut request_headers = reqwest::header::HeaderMap::new();
   request_headers.insert(
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
-  // 7. get children of container.
+  // get children of container.
   let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id: container_id.clone() }).unwrap();
   let send_reqest = SendRequest {
     command: "get-children-with-their-attachments".to_owned(),
@@ -201,7 +177,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     println!("Query for container contents failed.");
   }
 
-  // 8. enforce that the container is empty.
+  // enforce that the container is empty.
   let json_data = container_children_response.json_data.ok_or("Request for children yielded no data.")?;
   let json = serde_json::from_str::<Map<String, Value>>(&json_data).map_err(|e| e.to_string())?;
   let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
@@ -217,7 +193,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         .as_str().ok_or("Title property is not of type string.")?.to_owned())
   }).collect::<InfuResult<Vec<String>>>()?;
 
-  // 9. add items.
+  // add items.
   let mut current_ordering = new_ordering();
   let mut iter = fs::read_dir(&local_path).await?;
   while let Some(entry) = iter.next_entry().await? {
@@ -242,7 +218,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     let base_64_encoded = general_purpose::STANDARD.encode(&buffer);
 
     let mut item: Map<String, Value> = Map::new();
-    item.insert("ownerId".to_owned(), Value::String(owner_id.clone()));
+    item.insert("ownerId".to_owned(), Value::String(session.user_id.clone()));
     item.insert("id".to_owned(), Value::String(new_uid()));
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
     item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
@@ -321,4 +297,87 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   Ok(())
+}
+
+
+async fn login(login_url: &Url) -> InfuResult<()> {
+  let session_file_path = get_cli_session_path().await?;
+  if path_exists(&session_file_path).await {
+    // TODO (MEDIUM): attempt to logout to remove session resource server side.
+    debug!("Removing existing session file.");
+    tokio::fs::remove_file(&session_file_path).await?;
+  }
+
+  let stdin = std::io::stdin();
+  let mut iterator = stdin.lock().lines();
+  print!("Username: ");
+  std::io::stdout().lock().flush().unwrap();
+  let username = iterator.next().unwrap().unwrap();
+  print!("Password: ");
+  std::io::stdout().lock().flush().unwrap();
+  let password = read_password().unwrap();
+  print!("Authenticator code (if any)>: ");
+  std::io::stdout().lock().flush().unwrap();
+  let totp = iterator.next().unwrap().unwrap();
+  let totp_token = if totp == "" { None } else { Some(totp) };
+
+  let login_request = LoginRequest { username: username.clone(), password, totp_token };
+  let login_response: LoginResponse = reqwest::Client::new()
+    .post(login_url.clone())
+    .json(&login_request)
+    .send()
+    .await.map_err(|e| format!("{}", e))?
+    .json()
+    .await.map_err(|e| format!("{}", e))?;
+  if !login_response.success {
+    println!("Login failed: {}", login_response.err.unwrap());
+    return Ok(());
+  }
+  let owner_id = login_response.user_id.unwrap().clone();
+
+  let session_cookie_value = serde_json::to_string(&InfuSession {
+    username,
+    user_id: owner_id.clone(),
+    session_id: login_response.session_id.unwrap(),
+    root_page_id: login_response.root_page_id.unwrap(),
+  })?;
+
+  let mut file = OpenOptions::new()
+    .create_new(true)
+    .write(true)
+    .open(session_file_path).await?;
+  file.write_all(&session_cookie_value.as_bytes()).await?;
+  file.flush().await?;
+
+  Ok(())
+}
+
+
+async fn read_session() -> InfuResult<InfuSession> {
+  let session_file_path = get_cli_session_path().await?;
+  let mut f = File::open(&session_file_path).await?;
+  let mut buffer = vec![0; tokio::fs::metadata(&session_file_path).await?.len() as usize];
+  f.read_exact(&mut buffer).await?;
+  let session: InfuSession = serde_json::from_str(
+    &String::from_utf8(buffer).map_err(|e| format!("{}", e))?)?;
+  Ok(session)
+}
+
+
+async fn get_cli_session_path() -> InfuResult<PathBuf> {
+  let dot_infumap_path = PathBuf::from(
+    expand_tilde("~/.infumap").ok_or(format!("Could not determine ~/.infumap path."))?);
+  if !path_exists(&dot_infumap_path).await {
+    debug!("Creating ~/.infumap directory.");
+    tokio::fs::create_dir(&dot_infumap_path).await?;
+  }
+  let mut cli_dir_path = PathBuf::from(dot_infumap_path);
+  cli_dir_path.push("cli");
+  if !path_exists(&cli_dir_path).await {
+    debug!("Creating ~/.infumap/cli directory.");
+    tokio::fs::create_dir(&cli_dir_path).await?;
+  }
+  let mut session_file_path = PathBuf::from(cli_dir_path);
+  session_file_path.push("session.json");
+  Ok(session_file_path)
 }
