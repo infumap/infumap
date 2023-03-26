@@ -105,6 +105,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let local_path = PathBuf::from(
     expand_tilde(local_path).ok_or(format!("Could not interpret path."))?);
   let mut iter = fs::read_dir(&local_path).await?;
+  let mut num_files = 0;
   while let Some(entry) = iter.next_entry().await? {
     if entry.file_type().await?.is_dir() {
       return Err("Source directory must not contain other directories.".into());
@@ -118,6 +119,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     if entry.file_name().to_str().is_none() {
       return Err(format!("Could not interpret filename: {:?}", entry.file_name()).into());
     }
+    num_files += 1;
   }
 
   // validate container.
@@ -196,7 +198,9 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   // add items.
   let mut current_ordering = new_ordering();
   let mut iter = fs::read_dir(&local_path).await?;
+  let mut current_file = 0;
   while let Some(entry) = iter.next_entry().await? {
+    current_file += 1;
     let unix_time_now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
     let os_filename = entry.file_name();
@@ -247,19 +251,22 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
           item.insert("imageSizePx".to_owned(),
             json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }));
           item.insert("thumbnail".to_owned(), Value::String("".to_owned())); // set on the server.
-          println!("Adding an item of type image for file '{}'.", filename);
           if exif_orientation > 1 {
             debug!("Note: image has exif orientation type of: {}", exif_orientation);
           }
+          print!("Adding image '{}' {}/{}... ", filename, current_file, num_files);
+          std::io::stdout().flush()?;
         },
         Err(_e) => {
           item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
-          println!("Could not interpret file '{}' as an image, adding as an item of type file.", filename);
+          print!("Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ", filename, current_file, num_files);
+          std::io::stdout().flush()?;
         }
       }
     } else {
       item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
-      println!("Adding an item of type file for file '{}'", filename);
+      print!("Adding file '{}' {}/{}... ", filename, current_file, num_files);
+      std::io::stdout().flush()?;
     }
 
     let add_item_request = serde_json::to_string(&item)?;
@@ -280,14 +287,14 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         Ok(r) => {
           let json_response: SendResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
-            println!("Infumap rejected the add-item command - skipping.");
+            println!("infumap rejected the add-item command - skipping.");
           } else {
-            println!("Success!");
+            println!("success!");
           }
           break;
         },
         Err(e) => {
-          println!("There was a connection issue sending the add-item request - retrying: {}", e);
+          println!(" there was a connection issue sending the add-item request - retrying: {}", e);
           tokio::time::sleep(Duration::from_secs(2)).await;
         }
       }
