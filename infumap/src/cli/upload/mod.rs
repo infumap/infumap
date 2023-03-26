@@ -18,6 +18,7 @@ use std::io::BufRead;
 use std::io::Cursor;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
@@ -57,12 +58,13 @@ use crate::web::routes::command::SendResponse;
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
+  // TODO (MEDIUM): cache session in ~/.infumap.
   App::new("upload")
     .about("Bulk upload all files in a local directory to an Infumap container.")
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
-      .help("The id of the container to upload files to. This container must be empty.")
+      .help("The id of the container to upload files to. This container must be empty (if resume flag is not set).")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -80,10 +82,17 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .takes_value(true)
       .multiple_values(false)
       .required(true))
+    .arg(Arg::new("resume")
+      .short('r')
+      .long("resume")
+      .help("If specified, files already present in the container will be skipped.")
+      .takes_value(false)
+      .required(false))
 }
 
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let resuming = sub_matches.is_present("resume");
 
   // 1. validate directory
   let local_path = match sub_matches.value_of("directory").map(|v| v.to_string()) {
@@ -196,11 +205,17 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let json_data = container_children_response.json_data.ok_or("Request for children yielded no data.")?;
   let json = serde_json::from_str::<Map<String, Value>>(&json_data).map_err(|e| e.to_string())?;
   let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
-  let children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
-  if children.len() != 0 {
+  let container_children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
+  if container_children.len() != 0 && !resuming {
     println!("Specified container '{}' is not empty.", container_id.clone());
     return Ok(());
   }
+  let container_children_titles = container_children.iter().map(|child| -> InfuResult<String> {
+    Ok(child
+        .as_object().ok_or("item is not an object")?
+        .get("title").ok_or("item does not have title property.")?
+        .as_str().ok_or("Title property is not of type string.")?.to_owned())
+  }).collect::<InfuResult<Vec<String>>>()?;
 
   // 9. add items.
   let mut current_ordering = new_ordering();
@@ -210,6 +225,11 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
     let os_filename = entry.file_name();
     let filename = os_filename.to_str().ok_or(format!("Could not interpret filename '{:?}'.", entry.file_name()))?;
+    if resuming && container_children_titles.contains(&filename.to_owned()) {
+      println!("File '{}' is already present in the container, skipping.", filename);
+      continue;
+    }
+
     let mime_type = match mime_guess::from_path(&filename).first_raw() {
       Some(mime_type) => mime_type,
       None => "application/octet-stream"
@@ -240,7 +260,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
     let os_filename = entry.file_name();
     let filename = os_filename.to_str().ok_or("err")?;
-    if filename.ends_with(".png") || filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
+    if filename.to_lowercase().ends_with(".png") || filename.to_lowercase().ends_with(".jpg") || filename.to_lowercase().ends_with(".jpeg") {
       let file_cursor = Cursor::new(buffer.clone());
       let file_reader = Reader::new(file_cursor).with_guessed_format()?;
       match file_reader.decode() {
@@ -273,18 +293,28 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
       base64_data: Some(base_64_encoded),
     };
 
-    let add_item_response: SendResponse = reqwest::ClientBuilder::new()
-      .default_headers(request_headers.clone()).build().unwrap()
-      .post(command_url.clone())
-      .json(&send_reqest)
-      .send()
-      .await.map_err(|e| e.to_string())?
-      .json()
-      .await.map_err(|e| e.to_string())?;
-    if !add_item_response.success {
-      println!("Query for container contents failed.");
-    } else {
-      println!("Success!");
+    loop {
+      let add_item_response = reqwest::ClientBuilder::new()
+        .default_headers(request_headers.clone()).build().unwrap()
+        .post(command_url.clone())
+        .json(&send_reqest)
+        .send()
+        .await;
+      match add_item_response {
+        Ok(r) => {
+          let json_response: SendResponse = r.json().await.map_err(|e| e.to_string())?;
+          if !json_response.success {
+            println!("Infumap rejected the add-item command - skipping.");
+          } else {
+            println!("Success!");
+          }
+          break;
+        },
+        Err(e) => {
+          println!("There was a connection issue sending the add-item request - retrying: {}", e);
+          tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+      }
     }
 
     current_ordering = new_ordering_after(&current_ordering);
