@@ -21,8 +21,8 @@ import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { VisualElement } from "../../store/desktop/visual-element";
-import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
@@ -60,7 +60,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           </div>
         </div>
         <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementOnDesktopFn visualElement={attachment} />
+          <VisualElementOnDesktop visualElement={attachment} />
         }</For>
         <TableChildItems visualElement={props.visualElement} />
       </Show>
@@ -112,7 +112,7 @@ const TableChildItems: Component<VisualElementOnDesktopProps> = (props: VisualEl
 
       return (
         <>
-          <VisualElementInTableFn visualElement={child} parentVisualElement={props.visualElement} />
+          <VisualElementInTable visualElement={child} parentVisualElement={props.visualElement} />
           {/* <For each={attachments}>{attachmentItem =>
             <ItemInTable item={attachmentItem} parentTable={tableItem()} renderArea={props.renderArea} renderTreeParentId={tableItem().id} />
           }</For> */}
@@ -158,7 +158,7 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
                 `transform: scale(${scale()}); transform-origin: top left;`}>
       {tableItem().title}
       <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+        <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
       }</For>
     </div>
   );

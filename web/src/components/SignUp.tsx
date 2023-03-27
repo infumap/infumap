@@ -17,7 +17,7 @@
 */
 
 import { useLocation, useNavigate } from "@solidjs/router";
-import { Component, createMemo, createSignal, onMount, Show } from "solid-js";
+import { Component, createSignal, onMount, Show } from "solid-js";
 import { post } from "../server";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";

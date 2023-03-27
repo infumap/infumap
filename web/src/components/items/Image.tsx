@@ -22,8 +22,8 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { quantizeBoundingBox } from "../../util/geometry";
-import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -72,7 +72,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
              src={imgUrl()} />
       </div>
       <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementOnDesktopFn visualElement={attachment} />
+        <VisualElementOnDesktop visualElement={attachment} />
       }</For>
     </Show>
   );
@@ -97,7 +97,7 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-image`} />
         <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

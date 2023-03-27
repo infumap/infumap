@@ -354,7 +354,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / tableParentVe.boundsPx().w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe.boundsPx().h * calcPageInnerSpatialDimensionsBl(tableParentPage, desktopStore.getItem).h * GRID_SIZE
+    y: itemPosInPagePx.y / tableParentVe.boundsPx().h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,

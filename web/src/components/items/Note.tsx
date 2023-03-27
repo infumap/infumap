@@ -19,9 +19,9 @@
 import { Component, createMemo, For, Show } from "solid-js";
 import { asNoteItem, calcNoteSizeForSpatialBl } from "../../store/desktop/items/note-item";
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
@@ -30,7 +30,7 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
   const hitboxes = props.visualElement.hitboxes;
-  const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem(), () => null));
+  const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();
@@ -49,7 +49,7 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         </Show>
       </div>
       <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementOnDesktopFn visualElement={attachment} />
+        <VisualElementOnDesktop visualElement={attachment} />
       }</For>
     </div>
   );
@@ -74,7 +74,7 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-sticky-note`} />
         <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

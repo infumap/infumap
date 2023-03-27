@@ -39,7 +39,7 @@ export interface VisualElementInTableProps {
   parentVisualElement: VisualElement,
 }
 
-export const VisualElementInTableFn: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const VisualElementInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return (
     <Switch fallback={<div>unkown item type '{props.visualElement.itemType}'</div>}>
       <Match when={isPage(props.visualElement)}><PageInTable {...props} /></Match>

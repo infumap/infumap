@@ -22,8 +22,8 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../c
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
@@ -81,7 +81,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
           </div>
         </Show>
         <For each={props.visualElement.attachments()}>{attachmentVe =>
-          <VisualElementOnDesktopFn visualElement={attachmentVe} />
+          <VisualElementOnDesktop visualElement={attachmentVe} />
         }</For>
       </div>
     );
@@ -113,7 +113,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
             style={`left: ${props.visualElement.childAreaBoundsPx()!.x}px; top: ${props.visualElement.childAreaBoundsPx()!.y}px; ` +
                     `width: ${props.visualElement.childAreaBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx()!.h}px;`}>
           <For each={props.visualElement.children()}>{childVe =>
-            <VisualElementOnDesktopFn visualElement={childVe} />
+            <VisualElementOnDesktop visualElement={childVe} />
           }</For>
         </div>
       </Show>
@@ -126,7 +126,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <div class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children()}>{childVe =>
-          <VisualElementOnDesktopFn visualElement={childVe} />
+          <VisualElementOnDesktop visualElement={childVe} />
         }</For>
       </div>
     );
@@ -165,7 +165,7 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
                  `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
                  `transform: scale(${0.7}); transform-origin: center center;`}>
         <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"

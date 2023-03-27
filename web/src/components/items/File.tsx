@@ -19,9 +19,9 @@
 import { Component, createMemo, For } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../store/desktop/items/file-item";
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElementOnDesktopFn, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { VisualElementInTableFn, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
@@ -29,7 +29,7 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const desktopStore = useDesktopStore();
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = props.visualElement.boundsPx;
-  const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem(), () => null));
+  const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();
@@ -45,7 +45,7 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
       </div>
       <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementOnDesktopFn visualElement={attachment} />
+        <VisualElementOnDesktop visualElement={attachment} />
       }</For>
     </div>
   );
@@ -70,7 +70,7 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-file`} />
         <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTableFn visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div class="absolute overflow-hidden"
