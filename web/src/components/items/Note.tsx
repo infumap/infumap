@@ -24,12 +24,12 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { ITEM_TYPE_NOTE } from "../../store/desktop/items/base/item";
+import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
@@ -77,8 +77,7 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {

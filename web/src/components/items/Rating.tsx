@@ -24,11 +24,12 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { ITEM_TYPE_RATING } from "../../store/desktop/items/base/item";
+import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
@@ -59,7 +60,7 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 
 export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {

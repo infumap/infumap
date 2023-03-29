@@ -26,15 +26,14 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { ITEM_TYPE_PAGE } from "../../store/desktop/items/base/item";
+import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
@@ -49,7 +48,6 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     };
     return currentBoundsPx;
   };
-
   const popupClickBoundsPx = () => {
     return ({
       x: boundsPx().w / 3.0,
@@ -172,11 +170,9 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
@@ -191,7 +187,6 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
     };
     return currentBoundsPx;
   };
-
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;

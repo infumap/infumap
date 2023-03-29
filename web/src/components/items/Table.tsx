@@ -22,6 +22,7 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { ITEM_TYPE_TABLE } from "../../store/desktop/items/base/item";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { VisualElement } from "../../store/desktop/visual-element";
+import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
@@ -31,11 +32,9 @@ export const HEADER_HEIGHT_BL = 1.0;
 
 export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
-
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
@@ -50,7 +49,6 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
     };
     return currentBoundsPx;
   };
-
   const blockSizePx = () => {
     const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
@@ -92,28 +90,22 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
 const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-
-  let outerDiv: any | undefined;
+  let outerDiv: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
-
   const blockHeightPx = () => {
     let heightBr = tableItem().spatialHeightGr / GRID_SIZE - HEADER_HEIGHT_BL;
     let heightPx = props.visualElement.childAreaBoundsPx()!.h;
     return heightPx / heightBr;
   }
-
   const totalScrollableHeightPx = () =>
     tableItem().computed_children.get().length * blockHeightPx();
-
   const scrollHandler = (_ev: Event) => {
     tableItem().scrollYPx.set((outerDiv!)!.scrollTop);
   }
-
   onMount(() => {
     outerDiv!.scrollTop = tableItem().scrollYPx.get();
   });
-
   const childAreaBoundsPx = () => {
     let currentChildAreaBoundsPx = props.visualElement.childAreaBoundsPx();
     if (outerDiv! == null) { return currentChildAreaBoundsPx; }
@@ -180,8 +172,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
 export const TableInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {

@@ -23,13 +23,14 @@ import { ITEM_TYPE_IMAGE } from "../../store/desktop/items/base/item";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { quantizeBoundingBox } from "../../util/geometry";
+import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
@@ -100,7 +101,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
 export const ImageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {

@@ -36,6 +36,7 @@ import { findNearestContainerVe } from "./store/desktop/visual-element";
 import { switchToPage } from "./store/desktop/layout/arrange";
 import { asContainerItem } from "./store/desktop/items/base/container-item";
 import { ShadowDomElement } from "./store/desktop/shadow-dom";
+import { HTMLDivElementWithData } from "./util/html";
 
 
 const MOUSE_LEFT = 0;
@@ -52,24 +53,28 @@ interface HitInfo {
   visualElement: ShadowDomElement
 }
 
-export function rootElement() {
+function rootElement() {
   const desktopEl = document.getElementById("desktop")!;
   const topPage = desktopEl.children[0]!;
-  const topShadowEl = (topPage as any).data as ShadowDomElement;
+  const topShadowEl = (topPage as HTMLDivElementWithData).data as ShadowDomElement;
   return topShadowEl
 }
 
-export function topLevelElements() {
+function topLevelElements() {
   const desktopEl = document.getElementById("desktop")!;
   const topPage = desktopEl.children[0]!;
-  const topPageChildren = Array.from(topPage.children).filter((c: any) => c.data != null).map((c:any) => c.data as ShadowDomElement);
+  const topPageChildren = Array.from(topPage.children)
+    .filter(c => (c as HTMLDivElementWithData).data != null)
+    .map(c => (c as HTMLDivElementWithData).data as ShadowDomElement);
   return topPageChildren;
 }
 
-export function elementsOfTable(id: Uid) {
+function elementsOfTable(id: Uid) {
   const tableChildAreaEl = document.getElementById(id)!;
   const innerScrollEl = tableChildAreaEl.children[0]!;
-  const tableChildren = Array.from(innerScrollEl.children).filter((c: any) => c.data != null).map((c: any) => c.data as ShadowDomElement);
+  const tableChildren = Array.from(innerScrollEl.children)
+    .filter(c => (c as HTMLDivElementWithData).data != null)
+    .map(c => (c as HTMLDivElementWithData).data as ShadowDomElement);
   return tableChildren;
 }
 

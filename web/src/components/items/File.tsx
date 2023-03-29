@@ -24,11 +24,12 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { ITEM_TYPE_FILE } from "../../store/desktop/items/base/item";
+import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
 
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
@@ -73,7 +74,8 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: any | undefined;
+  let nodeElement: HTMLDivElementWithData | undefined;
+
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
