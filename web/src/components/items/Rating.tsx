@@ -25,6 +25,7 @@ import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { ITEM_TYPE_RATING } from "../../store/desktop/items/base/item";
 import { HTMLDivElementWithData } from "../../util/html";
+import { VisualElement_Concrete } from "../../store/desktop/visual-element";
 
 
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -32,26 +33,27 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_RATING,
       itemId: props.visualElement.itemId,
       parentId: ratingItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
 
   return (
     <div ref={nodeElement}
          id={props.visualElement.itemId}
          class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+         style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <i class={`fas fa-star text-yellow-400`} />
     </div>
   );
@@ -63,20 +65,21 @@ export const RatingInTable: Component<VisualElementInTableProps> = (props: Visua
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_RATING,
       itemId: props.visualElement.itemId,
       parentId: ratingItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -88,7 +91,7 @@ export const RatingInTable: Component<VisualElementInTableProps> = (props: Visua
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-star text-yellow-400`} />

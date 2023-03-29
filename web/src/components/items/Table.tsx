@@ -21,7 +21,7 @@ import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { ITEM_TYPE_TABLE } from "../../store/desktop/items/base/item";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { VisualElement_Reactive } from "../../store/desktop/visual-element";
+import { VisualElement_Concrete, VisualElement_Reactive } from "../../store/desktop/visual-element";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
@@ -35,20 +35,21 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_TABLE,
       itemId: props.visualElement.itemId,
       parentId: tableItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: props.visualElement.childAreaBoundsPx(),
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const blockSizePx = () => {
     const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
@@ -62,7 +63,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
         <div ref={nodeElement}
              id={props.visualElement.itemId}
              class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; `}>
+             style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; `}>
         </div>
       </Show>
       <Show when={props.visualElement.isTopLevel}>
@@ -106,20 +107,21 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
   onMount(() => {
     outerDiv!.scrollTop = tableItem().scrollYPx.get();
   });
-  const childAreaBoundsPx = () => {
+  // refer to: visual-element.ts
+  const childAreaBoundsPx_cache = () => {
     let currentChildAreaBoundsPx = props.visualElement.childAreaBoundsPx();
     if (outerDiv! == null) { return currentChildAreaBoundsPx; }
-    outerDiv!.data = {
+    (outerDiv!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_TABLE,
       itemId: props.visualElement.itemId,
       parentId: tableItem().parentId,
       boundsPx: props.visualElement.boundsPx(),
       childAreaBoundsPx: currentChildAreaBoundsPx,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentChildAreaBoundsPx;
   };
+  const childAreaBoundsPx = props.visualElement.childAreaBoundsPx;
 
   const drawVisibleItems = () => {
     const children = props.visualElement.children();
@@ -159,7 +161,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
     <div ref={outerDiv}
          id={props.visualElement.itemId}
          class="absolute"
-         style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
+         style={`left: ${childAreaBoundsPx_cache()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
                 `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;`}
                 onscroll={scrollHandler}>
       <div class="absolute" style={`width: ${childAreaBoundsPx()!.w}px; height: ${totalScrollableHeightPx()}px;`}>
@@ -175,20 +177,21 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_TABLE,
       itemId: props.visualElement.itemId,
       parentId: tableItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -198,7 +201,7 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
   return (
     <>
       <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-sticky-note`} />
@@ -206,7 +209,7 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span>{tableItem().title}</span>

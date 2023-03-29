@@ -24,8 +24,22 @@ import { isContainer } from "./items/base/container-item";
 import { ItemTypeMixin } from "./items/base/item";
 
 
-export interface VisualElement_Reactive {
-  itemType: string,
+// A visual element tree is constructed corresponding for the currently visible items. Note that items
+// may be represented on the screen more than once because there may be links.
+//
+// There are two types of visual element object:
+//   VisualElement_Reactive: Used for rendering - to enable SolidJS micro-reactivity.
+//   VisualElement_Concrete: Used to cache the current rendered visual tree, used during user interaction.
+// 
+// I wanted to maintain the concrete visual elements in a separate structure, however I had a bit of trouble
+// keeping it synced correctly, and ended up attaching them the the actual DOM elements and traversing this
+// as required. This is a bit of a dirty hack but not very consequential and fine for now.
+//
+// The concrete visual elements are cached using boundsPx() as a hook - again, seems a bit of a hack, but
+// ok for now.
+
+
+export interface VisualElement_Reactive extends ItemTypeMixin {
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
   isTopLevel: boolean,
@@ -44,7 +58,6 @@ export interface VisualElement_Concrete extends ItemTypeMixin {
   boundsPx: BoundingBox,
   childAreaBoundsPx: BoundingBox | null,
   hitboxes: Array<Hitbox>,
-  children: Array<Uid>
 }
 
 

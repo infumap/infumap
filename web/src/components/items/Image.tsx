@@ -22,6 +22,7 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { ITEM_TYPE_IMAGE } from "../../store/desktop/items/base/item";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { VisualElement_Concrete } from "../../store/desktop/visual-element";
 import { quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
@@ -33,20 +34,21 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_IMAGE,
       itemId: props.visualElement.itemId,
       parentId: imageItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
@@ -80,7 +82,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const BORDER_WIDTH_PX = 1;
 
   return (
-    <Show when={quantizedBoundsPx().w > 5}>
+    <Show when={boundsPx_cache().w > 5}>
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
@@ -104,20 +106,21 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_IMAGE,
       itemId: props.visualElement.itemId,
       parentId: imageItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -127,7 +130,7 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
   return (
     <>
       <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-image`} />
@@ -138,7 +141,7 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class="text-red-800 cursor-pointer">{imageItem().title}</span>

@@ -27,6 +27,7 @@ import { VisualElementInTable, VisualElementInTableProps } from "../VisualElemen
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { ITEM_TYPE_PAGE } from "../../store/desktop/items/base/item";
 import { HTMLDivElementWithData } from "../../util/html";
+import { VisualElement_Concrete } from "../../store/desktop/visual-element";
 
 
 export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -34,20 +35,21 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_PAGE,
       itemId: props.visualElement.itemId,
       parentId: pageItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: props.visualElement.childAreaBoundsPx(),
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const popupClickBoundsPx = () => {
     return ({
       x: boundsPx().w / 3.0,
@@ -88,7 +90,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgOpaqueVal()}>
+           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgOpaqueVal()}>
         <Show when={pageItem().computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
         </Show>
@@ -124,7 +126,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <div ref={nodeElement}
             id={props.visualElement.itemId}
             class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
+            style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
           <Show when={pageItem().computed_mouseIsOver.get()}>
             <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
           </Show>
@@ -152,7 +154,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class={`absolute`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children()}>{childVe =>
           <VisualElementOnDesktop visualElement={childVe} />
         }</For>
@@ -181,20 +183,21 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = () => {
+  // refer to: visual-element.ts
+  const boundsPx_cache = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
     if (nodeElement == null) { return currentBoundsPx; }
-    nodeElement!.data = {
+    (nodeElement!.data as VisualElement_Concrete) = {
       itemType: ITEM_TYPE_PAGE,
       itemId: props.visualElement.itemId,
       parentId: pageItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes(),
-      children: []
+      hitboxes: props.visualElement.hitboxes()
     };
     return currentBoundsPx;
   };
+  const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -206,12 +209,12 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
                   `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
                   `transform: scale(${0.7}); transform-origin: center center;`}>
       </div>
       <div class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         {pageItem().title}
