@@ -21,7 +21,7 @@ import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { ITEM_TYPE_TABLE } from "../../store/desktop/items/base/item";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { VisualElement } from "../../store/desktop/visual-element";
+import { VisualElement_Reactive } from "../../store/desktop/visual-element";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
@@ -131,7 +131,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
       visibleChildrenIds.push(children[i]);
     }
 
-    const drawChild = (child: VisualElement) => {
+    const drawChild = (child: VisualElement_Reactive) => {
       // const item = desktopStore.getItem(childId)!;
       // let attachments: Array<Item> = [];
       // if (isAttachmentsItem(item)) {

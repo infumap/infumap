@@ -31,11 +31,11 @@ import { Image } from "./items/Image";
 import { File } from "./items/File";
 import { Link } from "./items/Link";
 import { isLink } from "../store/desktop/items/link-item";
-import { VisualElement } from "../store/desktop/visual-element";
+import { VisualElement_Reactive } from "../store/desktop/visual-element";
 
 
 export interface VisualElementOnDesktopProps {
-  visualElement: VisualElement
+  visualElement: VisualElement_Reactive
 }
 
 export const VisualElementOnDesktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {

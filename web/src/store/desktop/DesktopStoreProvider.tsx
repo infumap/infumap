@@ -27,7 +27,6 @@ import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
-import { VisualElement } from "./visual-element";
 import { itemFromObject } from "./items/base/item-polymorphism";
 
 

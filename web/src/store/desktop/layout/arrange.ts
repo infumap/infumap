@@ -28,7 +28,7 @@ import { ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { VisualElement } from "../visual-element";
+import { VisualElement_Reactive } from "../visual-element";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, user: User) => {
@@ -73,7 +73,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 }
 
 
-export const arrange = (desktopStore: DesktopStoreContextModel, user: User): VisualElement | null => {
+export const arrange = (desktopStore: DesktopStoreContextModel, user: User): VisualElement_Reactive | null => {
   if (desktopStore.currentPageId() == null) { return null; }
   initiateLoadChildItemsIfNotLoaded(desktopStore, user, desktopStore.currentPageId()!);
   let currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
@@ -85,7 +85,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel, user: User): Vis
 }
 
 
-const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): VisualElement => {
+const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): VisualElement_Reactive => {
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
@@ -102,7 +102,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
     return result;
   }
 
-  const topLevelVisualElement: VisualElement = {
+  const topLevelVisualElement: VisualElement_Reactive = {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage().id,
     isTopLevel: true,
@@ -116,7 +116,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
   };
 
   topLevelVisualElement.children = () => {
-    const children: Array<VisualElement> = [];
+    const children: Array<VisualElement_Reactive> = [];
     const childItems = currentPage().computed_children.get().map(childId => desktopStore.getItem(childId)!);
     for (let i=0; i<childItems.length; ++i) {
       const item = childItems[i];
@@ -131,7 +131,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
 
       let geometry = calcGeometryOfItemInCell(item, cellBoundsPx(), desktopStore.getItem);
       if (!isTable(item)) {
-        let ve: VisualElement = {
+        let ve: VisualElement_Reactive = {
           itemType: item.itemType,
           itemId: item.id,
           isTopLevel: true,
@@ -155,7 +155,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
 }
 
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: User): VisualElement => {
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: User): VisualElement_Reactive => {
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const currentPageBoundsPx = () => {
     const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -172,7 +172,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
     return result;
   }
 
-  const topLevelVisualElement: VisualElement = {
+  const topLevelVisualElement: VisualElement_Reactive = {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage().id,
     isTopLevel: true,
@@ -189,7 +189,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
 
   const page = currentPage(); // avoid capturing this in children() =>.
   topLevelVisualElement.children = () => {
-    const topLevelChildren: Array<VisualElement> = page.computed_children.get()
+    const topLevelChildren: Array<VisualElement_Reactive> = page.computed_children.get()
       .map(childId => {
         const childItem = () => desktopStore.getItem(childId)!;
         const geometry = calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
@@ -201,7 +201,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           const pageItem = () => asPageItem(childItem());
           initiateLoadChildItemsIfNotLoaded(desktopStore, user, pageItem().id);
 
-          const pageWithChildrenVe: VisualElement = {
+          const pageWithChildrenVe: VisualElement_Reactive = {
             itemType: ITEM_TYPE_PAGE,
             itemId: childId,
             isTopLevel: true,
@@ -217,6 +217,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           const innerDimensionsBl = () => calcPageInnerSpatialDimensionsBl(pageItem());
 
           const page = pageItem();
+          // innerBoundsPx is boundsPx with x,y == 0,0 and it does not depend on item.spatialPositionGr,
+          // so pageWithChildrenVe.children does not depend on this either.
           const innerBoundsPx = geometry.innerBoundsPx;
           pageWithChildrenVe.children = () => {
             return page.computed_children.get().map(childId => {
@@ -254,7 +256,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             };
           };
 
-          let tableVe: VisualElement = {
+          let tableVe: VisualElement_Reactive = {
             itemType: ITEM_TYPE_TABLE,
             itemId: tableItem().id,
             isTopLevel: true,
@@ -268,13 +270,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           }
 
           tableVe.children = () => {
-            let tableVeChildren: Array<VisualElement> = [];
+            let tableVeChildren: Array<VisualElement_Reactive> = [];
             for (let idx=0; idx<tableItem().computed_children.get().length; ++idx) {
               const childId = () => tableItem().computed_children.get()[idx];
               const childItem = () => desktopStore.getItem(childId())!;
               const geometry = calcGeometryOfItemInTable(childItem(), blockSizePx(), idx, 0, sizeBl().w, desktopStore.getItem);
 
-              let tableItemVe: VisualElement = {
+              let tableItemVe: VisualElement_Reactive = {
                 itemType: childItem().itemType,
                 itemId: childItem().id,
                 isTopLevel: false,
@@ -287,7 +289,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
                 parent: () => tableVe
               };
               tableVeChildren.push(tableItemVe);
-              let attachments: Array<VisualElement> = [];
+              let attachments: Array<VisualElement_Reactive> = [];
 
               if (isAttachmentsItem(childItem())) {
           // TODO.

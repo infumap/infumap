@@ -24,7 +24,7 @@ import { isContainer } from "./items/base/container-item";
 import { ItemTypeMixin } from "./items/base/item";
 
 
-export interface VisualElement {
+export interface VisualElement_Reactive {
   itemType: string,
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
@@ -32,12 +32,13 @@ export interface VisualElement {
   boundsPx: () => BoundingBox, // relative to containing visual element childAreaBoundsPx.
   childAreaBoundsPx: () => BoundingBox | null,
   hitboxes: () => Array<Hitbox>, // higher index => takes precedence.
-  children: () => Array<VisualElement>,
-  attachments: () => Array<VisualElement>,
-  parent: () => VisualElement | null,
+  children: () => Array<VisualElement_Reactive>,
+  attachments: () => Array<VisualElement_Reactive>,
+  parent: () => VisualElement_Reactive | null,
 }
 
-export interface ConcreteVisualElement extends ItemTypeMixin {
+
+export interface VisualElement_Concrete extends ItemTypeMixin {
   itemId: Uid,
   parentId: Uid | null,
   boundsPx: BoundingBox,
@@ -47,12 +48,12 @@ export interface ConcreteVisualElement extends ItemTypeMixin {
 }
 
 
-export function findNearestContainerVe(visualElement: ConcreteVisualElement): ConcreteVisualElement {
+export function findNearestContainerVe(visualElement: VisualElement_Concrete): VisualElement_Concrete {
   if (isContainer(visualElement)) { return visualElement; }
   const parentId = visualElement.parentId;
   if (parent == null) { panic(); }
   const el = document.getElementById(parentId!) as any;
-  const se = el.data as ConcreteVisualElement;
+  const se = el.data as VisualElement_Concrete;
   if (isContainer(se)) { return se; }
   panic();
 }

@@ -24,7 +24,7 @@ import { isNote } from "../store/desktop/items/note-item";
 import { isPage } from "../store/desktop/items/page-item";
 import { isRating } from "../store/desktop/items/rating-item";
 import { isTable } from "../store/desktop/items/table-item";
-import { VisualElement } from "../store/desktop/visual-element";
+import { VisualElement_Reactive } from "../store/desktop/visual-element";
 import { FileInTable } from "./items/File";
 import { ImageInTable } from "./items/Image";
 import { LinkInTable } from "./items/Link";
@@ -35,8 +35,8 @@ import { TableInTable } from "./items/Table";
 
 
 export interface VisualElementInTableProps {
-  visualElement: VisualElement,
-  parentVisualElement: VisualElement,
+  visualElement: VisualElement_Reactive,
+  parentVisualElement: VisualElement_Reactive,
 }
 
 export const VisualElementInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {

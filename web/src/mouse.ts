@@ -32,7 +32,7 @@ import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { ConcreteVisualElement, findNearestContainerVe } from "./store/desktop/visual-element";
+import { VisualElement_Concrete, findNearestContainerVe } from "./store/desktop/visual-element";
 import { switchToPage } from "./store/desktop/layout/arrange";
 import { asContainerItem } from "./store/desktop/items/base/container-item";
 import { HTMLDivElementWithData } from "./util/html";
@@ -49,31 +49,31 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElement: ConcreteVisualElement
+  visualElement: VisualElement_Concrete
 }
 
-export function rootVisualElement() {
+export function rootVisualElement(): VisualElement_Concrete | null {
   const desktopEl = document.getElementById("desktop")!;
   if (desktopEl == null) { return null; }
   if (desktopEl.children.length == 0) { return null; }
   const topPage = desktopEl.children[0]!;
-  return (topPage as HTMLDivElementWithData).data as ConcreteVisualElement;
+  return (topPage as HTMLDivElementWithData).data as VisualElement_Concrete;
 }
 
-function topLevelVisualElements() {
+function topLevelVisualElements(): Array<VisualElement_Concrete> {
   const desktopEl = document.getElementById("desktop")!;
   const topPage = desktopEl.children[0]!;
   return Array.from(topPage.children)
     .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as ConcreteVisualElement);
+    .map(c => (c as HTMLDivElementWithData).data as VisualElement_Concrete);
 }
 
-function childVisualElementsOfTable(id: Uid) {
+function childVisualElementsOfTable(id: Uid): Array<VisualElement_Concrete> {
   const tableChildAreaEl = document.getElementById(id)!;
   const innerScrollEl = tableChildAreaEl.children[0]!;
   return Array.from(innerScrollEl.children)
     .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as ConcreteVisualElement);
+    .map(c => (c as HTMLDivElementWithData).data as VisualElement_Concrete);
 }
 
 export function getHitInfo(
@@ -151,8 +151,8 @@ export function getHitInfo(
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElement: ConcreteVisualElement,
-  moveOverContainerVisualElement: ConcreteVisualElement | null,
+  activeVisualElement: VisualElement_Concrete,
+  moveOverContainerVisualElement: VisualElement_Concrete | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -358,13 +358,12 @@ export function mouseMoveHandler(
   }
 }
 
-function findVisualElement(id: Uid): ConcreteVisualElement | null {
+function findVisualElement(id: Uid): VisualElement_Concrete | null {
   let r = topLevelVisualElements().find(el => el.itemId == id);
   return r ? r : null;
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
-  const activeItemId = mouseActionState!.activeVisualElement!.itemId;
   const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
   let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx);
@@ -394,7 +393,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     });
     activeItem.spatialPositionGr.set(itemPosInPageQuantizedGr);
   });
-  mouseActionState!.activeVisualElement = findVisualElement(activeItemId)!;
+  mouseActionState!.activeVisualElement = findVisualElement(activeItem.id)!;
 }
 
 export function mouseUpHandler(
