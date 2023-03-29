@@ -28,6 +28,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { measureLineCount } from '../../../util/html';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -79,18 +80,6 @@ export function fileToObject(f: FileItem): object {
     mimeType: f.mimeType,
     fileSizeBytes: f.fileSizeBytes,
   });
-}
-
-
-function measureLineCount(s: string, widthBl: number): number {
-  const div = document.createElement("div");
-  div.setAttribute("style", `line-height: ${LINE_HEIGHT_PX}px; width: ${widthBl*LINE_HEIGHT_PX}px; overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`);
-  const txt = document.createTextNode(s);
-  div.appendChild(txt);
-  document.body.appendChild(div);
-  let lineCount = div.offsetHeight / LINE_HEIGHT_PX;
-  document.body.removeChild(div);
-  return Math.floor(lineCount);
 }
 
 export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {

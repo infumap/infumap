@@ -28,6 +28,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { measureLineCount } from '../../../util/html';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -101,19 +102,6 @@ export function noteToObject(n: NoteItem): object {
 
     url: n.url,
   });
-}
-
-
-function measureLineCount(s: string, widthBl: number): number {
-  console.log("measuring", s);
-  const div = document.createElement("div");
-  div.setAttribute("style", `line-height: ${LINE_HEIGHT_PX}px; width: ${widthBl*LINE_HEIGHT_PX}px; overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`);
-  const txt = document.createTextNode(s);
-  div.appendChild(txt);
-  document.body.appendChild(div);
-  let lineCount = div.offsetHeight / LINE_HEIGHT_PX;
-  document.body.removeChild(div);
-  return Math.floor(lineCount);
 }
 
 export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {

@@ -16,6 +16,32 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
+
+
 export interface HTMLDivElementWithData extends HTMLDivElement {
   data: object
+}
+
+const cache = new Map<String, number>();
+
+export function measureLineCount(s: string, widthBl: number): number {
+  const key = s + "-#####-" + widthBl; // TODO (LOW): not foolproof.
+  if (cache.has(key)) {
+    return cache.get(key)!;
+  }
+  if (cache.size > 10000) {
+    // TODO (LOW): something better than this, though this trivial strategy should be very effective.
+    cache.clear();
+  }
+  const div = document.createElement("div");
+  div.setAttribute("style", `line-height: ${LINE_HEIGHT_PX}px; width: ${widthBl*LINE_HEIGHT_PX}px; overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`);
+  const txt = document.createTextNode(s);
+  div.appendChild(txt);
+  document.body.appendChild(div);
+  const lineCount = div.offsetHeight / LINE_HEIGHT_PX;
+  document.body.removeChild(div);
+  const result = Math.floor(lineCount);
+  cache.set(key, result);
+  return result;
 }
