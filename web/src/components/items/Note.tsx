@@ -34,6 +34,7 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
     nodeElement!.data = {
       itemType: ITEM_TYPE_NOTE,
       itemId: props.visualElement.itemId,

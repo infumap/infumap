@@ -33,6 +33,7 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
     nodeElement!.data = {
       itemType: ITEM_TYPE_FILE,
       itemId: props.visualElement.itemId,

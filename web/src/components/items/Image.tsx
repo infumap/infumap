@@ -34,6 +34,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => {
     let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
     nodeElement!.data = {
       itemType: ITEM_TYPE_IMAGE,
       itemId: props.visualElement.itemId,
