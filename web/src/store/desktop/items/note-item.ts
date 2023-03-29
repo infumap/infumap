@@ -105,6 +105,7 @@ export function noteToObject(n: NoteItem): object {
 
 
 function measureLineCount(s: string, widthBl: number): number {
+  console.log("measuring", s);
   const div = document.createElement("div");
   div.setAttribute("style", `line-height: ${LINE_HEIGHT_PX}px; width: ${widthBl*LINE_HEIGHT_PX}px; overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`);
   const txt = document.createTextNode(s);

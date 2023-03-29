@@ -32,10 +32,9 @@ import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { findNearestContainerVe } from "./store/desktop/visual-element";
+import { ConcreteVisualElement, findNearestContainerVe } from "./store/desktop/visual-element";
 import { switchToPage } from "./store/desktop/layout/arrange";
 import { asContainerItem } from "./store/desktop/items/base/container-item";
-import { ShadowDomElement } from "./store/desktop/shadow-dom";
 import { HTMLDivElementWithData } from "./util/html";
 
 
@@ -50,111 +49,108 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElement: ShadowDomElement
+  visualElement: ConcreteVisualElement
 }
 
-function rootElement() {
+function rootVisualElement() {
   const desktopEl = document.getElementById("desktop")!;
   const topPage = desktopEl.children[0]!;
-  const topShadowEl = (topPage as HTMLDivElementWithData).data as ShadowDomElement;
-  return topShadowEl
+  return (topPage as HTMLDivElementWithData).data as ConcreteVisualElement;
 }
 
-function topLevelElements() {
+function topLevelVisualElements() {
   const desktopEl = document.getElementById("desktop")!;
   const topPage = desktopEl.children[0]!;
-  const topPageChildren = Array.from(topPage.children)
+  return Array.from(topPage.children)
     .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as ShadowDomElement);
-  return topPageChildren;
+    .map(c => (c as HTMLDivElementWithData).data as ConcreteVisualElement);
 }
 
-function elementsOfTable(id: Uid) {
+function childVisualElementsOfTable(id: Uid) {
   const tableChildAreaEl = document.getElementById(id)!;
   const innerScrollEl = tableChildAreaEl.children[0]!;
-  const tableChildren = Array.from(innerScrollEl.children)
+  return Array.from(innerScrollEl.children)
     .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as ShadowDomElement);
-  return tableChildren;
+    .map(c => (c as HTMLDivElementWithData).data as ConcreteVisualElement);
 }
 
 export function getHitInfo(
-  desktopStore: DesktopStoreContextModel,
-  posOnDesktopPx: Vector,
-  ignore: Array<Uid>): HitInfo {
+    desktopStore: DesktopStoreContextModel,
+    posOnDesktopPx: Vector,
+    ignore: Array<Uid>): HitInfo {
 
-const topShadowEl = rootElement();
-const topPageChildren = topLevelElements();
+  const rootVe = rootVisualElement();
+  const topPageVes = topLevelVisualElements();
 
-const topLevelPage = asPageItem(desktopStore.getItem(topShadowEl.itemId)!);
-const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
+  const topLevelPage = asPageItem(desktopStore.getItem(rootVe.itemId)!);
+  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
-for (let i=0; i<topPageChildren.length; ++i) {
-  const child = topPageChildren[i] as ShadowDomElement;
-  if (isInside(posReltiveToTopLevelVisualElementPx, child.boundsPx)) {
-    if (isTable(child) && isInside(posReltiveToTopLevelVisualElementPx, child.childAreaBoundsPx!)) {
-      // resize hitbox of table takes precedence over everything in the child area.
-      let resizeHitbox = child.hitboxes[child.hitboxes.length-1];
-      if (resizeHitbox.type != HitboxType.Resize) { panic(); }
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(child.boundsPx!)))) {
-        return ({
-          hitboxType: HitboxType.Resize,
-          visualElement: topPageChildren[i],
-        });
-      }
+  for (let i=0; i<topPageVes.length; ++i) {
+    const topLevelVe = topPageVes[i];
+    if (isInside(posReltiveToTopLevelVisualElementPx, topLevelVe.boundsPx)) {
+      if (isTable(topLevelVe) && isInside(posReltiveToTopLevelVisualElementPx, topLevelVe.childAreaBoundsPx!)) {
+        // resize hitbox of table takes precedence over everything in the child area.
+        let resizeHitbox = topLevelVe.hitboxes[topLevelVe.hitboxes.length-1];
+        if (resizeHitbox.type != HitboxType.Resize) { panic(); }
+        if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(topLevelVe.boundsPx!)))) {
+          return ({
+            hitboxType: HitboxType.Resize,
+            visualElement: topLevelVe,
+          });
+        }
 
-      let tableItem = asTableItem(desktopStore.getItem(child.itemId)!);
-      let tableChildren = elementsOfTable(tableItem.id);
+        let tableItem = asTableItem(desktopStore.getItem(topLevelVe.itemId)!);
+        let tableChildVEs = childVisualElementsOfTable(tableItem.id);
 
-      for (let j=0; j<tableChildren.length; ++j) {
-        const tableChild = tableChildren[j];
-        const posRelativeToTableChildAreaPx = subtract(
-          posReltiveToTopLevelVisualElementPx,
-          { x: child.childAreaBoundsPx!.x, y: child.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
-        );
-        if (isInside(posRelativeToTableChildAreaPx, tableChild.boundsPx)) {
-          let hitboxType = HitboxType.None;
-          for (let k=tableChild.hitboxes.length-1; k>=0; --k) {
-            if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChild.hitboxes[k].boundsPx, getTopLeft(tableChild.boundsPx)))) {
-              hitboxType |= tableChild.hitboxes[k].type;
+        for (let j=0; j<tableChildVEs.length; ++j) {
+          const tableChildVe = tableChildVEs[j];
+          const posRelativeToTableChildAreaPx = subtract(
+            posReltiveToTopLevelVisualElementPx,
+            { x: topLevelVe.childAreaBoundsPx!.x, y: topLevelVe.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
+          );
+          if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
+            let hitboxType = HitboxType.None;
+            for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
+              if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getTopLeft(tableChildVe.boundsPx)))) {
+                hitboxType |= tableChildVe.hitboxes[k].type;
+              }
+            }
+            if (!ignore.find(a => a == tableChildVe.itemId)) {
+              return ({
+                hitboxType,
+                visualElement: tableChildVEs[j]
+              });
             }
           }
-          if (!ignore.find(a => a == tableChild.itemId)) {
-            return ({
-              hitboxType,
-              visualElement: tableChildren[j]
-            });
+        }
+      } else {
+        let hitboxType = HitboxType.None;
+        for (let j=topLevelVe.hitboxes.length-1; j>=0; --j) {
+          if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(topLevelVe.hitboxes[j].boundsPx, getTopLeft(topLevelVe.boundsPx)))) {
+            hitboxType |= topLevelVe.hitboxes[j].type;
           }
         }
-      }
-    } else {
-      let hitboxType = HitboxType.None;
-      for (let j=child.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(child.hitboxes[j].boundsPx, getTopLeft(child.boundsPx)))) {
-          hitboxType |= child.hitboxes[j].type;
+        if (!ignore.find(a => a == topLevelVe.itemId)) {
+          return ({
+            hitboxType,
+            visualElement: topPageVes[i],
+          });
         }
-      }
-      if (!ignore.find(a => a == child.itemId)) {
-        return ({
-          hitboxType,
-          visualElement: topPageChildren[i],
-        });
       }
     }
   }
-}
 
-return {
-  hitboxType: HitboxType.None,
-  visualElement: topShadowEl,
-};
+  return {
+    hitboxType: HitboxType.None,
+    visualElement: rootVe,
+  };
 }
 
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElement: ShadowDomElement,
-  moveOverContainerVisualElement: ShadowDomElement | null,
+  activeVisualElement: ConcreteVisualElement,
+  moveOverContainerVisualElement: ConcreteVisualElement | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -360,8 +356,8 @@ export function mouseMoveHandler(
   }
 }
 
-function findVisualElement(id: Uid): ShadowDomElement | null {
-  let r = topLevelElements().find(el => el.itemId == id);
+function findVisualElement(id: Uid): ConcreteVisualElement | null {
+  let r = topLevelVisualElements().find(el => el.itemId == id);
   return r ? r : null;
 }
 
@@ -372,8 +368,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
   const tableVeId = mouseActionState!.activeVisualElement!.parentId!;
-  const tableVe = topLevelElements().find(el => el.itemId == tableVeId)!;
-  const tableParentVe = rootElement();
+  const tableVe = topLevelVisualElements().find(el => el.itemId == tableVeId)!;
+  const tableParentVe = rootVisualElement();
   const tablePosInPagePx = getTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);

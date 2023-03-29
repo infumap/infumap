@@ -41,7 +41,7 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       parentId: noteItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: hitboxes(),
+      hitboxes: props.visualElement.hitboxes(),
       children: []
     };
     return currentBoundsPx;

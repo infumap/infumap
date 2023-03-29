@@ -41,12 +41,11 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       parentId: fileItem().parentId,
       boundsPx: currentBoundsPx,
       childAreaBoundsPx: null,
-      hitboxes: hitboxes(),
+      hitboxes: props.visualElement.hitboxes(),
       children: []
     };
     return currentBoundsPx;
   };
-  const hitboxes = props.visualElement.hitboxes;
   const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;

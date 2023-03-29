@@ -21,7 +21,7 @@ import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { Hitbox } from "./hitbox";
 import { isContainer } from "./items/base/container-item";
-import { ShadowDomElement } from "./shadow-dom";
+import { ItemTypeMixin } from "./items/base/item";
 
 
 export interface VisualElement {
@@ -37,13 +37,22 @@ export interface VisualElement {
   parent: () => VisualElement | null,
 }
 
+export interface ConcreteVisualElement extends ItemTypeMixin {
+  itemId: Uid,
+  parentId: Uid | null,
+  boundsPx: BoundingBox,
+  childAreaBoundsPx: BoundingBox | null,
+  hitboxes: Array<Hitbox>,
+  children: Array<Uid>
+}
 
-export function findNearestContainerVe(visualElement: ShadowDomElement): ShadowDomElement {
+
+export function findNearestContainerVe(visualElement: ConcreteVisualElement): ConcreteVisualElement {
   if (isContainer(visualElement)) { return visualElement; }
   const parentId = visualElement.parentId;
   if (parent == null) { panic(); }
   const el = document.getElementById(parentId!) as any;
-  const se = el.data as ShadowDomElement;
+  const se = el.data as ConcreteVisualElement;
   if (isContainer(se)) { return se; }
   panic();
 }

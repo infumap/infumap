@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, onCleanup, onMount, Show } from "solid-js";
+import { Component, createMemo, For, Show } from "solid-js";
 import { asPageItem } from "../../store/desktop/items/page-item";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
@@ -72,7 +72,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     return scale > 1.0 ? 1.0 : scale;
   });
 
-  const drawAsOpaque = () => {
+  const bgOpaqueVal = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.986)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)});`;
     if (pageItem().computed_mouseIsOver.get()) {
       bg = `background-color: #880088`;
@@ -80,11 +80,14 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     if (pageItem().computed_movingItemIsOver.get()) {
       bg = `background-color: #880000;`;
     }
+    return bg;
+  }
+  const drawAsOpaque = () => {
     return (
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgOpaqueVal()}>
         <Show when={pageItem().computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
         </Show>
@@ -103,7 +106,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     );
   }
 
-  const drawAsTranslucent = () => {
+  const bgTranslucentVal = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)});`;
     if (pageItem().computed_mouseIsOver.get()) {
       bg = `background-color: #880088`;
@@ -111,12 +114,16 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     if (pageItem().computed_movingItemIsOver.get()) {
       bg = `background-color: #88000088;`;
     }
+    return bg;
+  }
+
+  const drawAsTranslucent = () => {
     return (
       <>
         <div ref={nodeElement}
             id={props.visualElement.itemId}
             class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
           <Show when={pageItem().computed_mouseIsOver.get()}>
             <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
           </Show>
