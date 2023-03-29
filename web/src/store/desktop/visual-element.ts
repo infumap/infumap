@@ -42,7 +42,7 @@ import { ItemTypeMixin } from "./items/base/item";
 export interface VisualElement_Reactive extends ItemTypeMixin {
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
-  isTopLevel: boolean,
+  isInteractive: boolean,
   boundsPx: () => BoundingBox, // relative to containing visual element childAreaBoundsPx.
   childAreaBoundsPx: () => BoundingBox | null,
   hitboxes: () => Array<Hitbox>, // higher index => takes precedence.

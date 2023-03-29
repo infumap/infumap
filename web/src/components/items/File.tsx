@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For } from "solid-js";
+import { Component, createMemo, For, Show } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../store/desktop/items/file-item";
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
@@ -60,14 +60,16 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
          id={props.visualElement.itemId}
          class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
-                  `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                  `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-        <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
-      </div>
-      <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementOnDesktop visualElement={attachment} />
-      }</For>
+      <Show when={props.visualElement.isInteractive}>
+        <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                    `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
+          <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
+        </div>
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementOnDesktop visualElement={attachment} />
+        }</For>
+      </Show>
     </div>
   );
 }

@@ -53,7 +53,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const imgUrl = () => {
-    if (!props.visualElement.isTopLevel) {
+    if (!props.visualElement.isInteractive) {
       return "data:image/png;base64, " + imageItem().thumbnail;
     }
     return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);

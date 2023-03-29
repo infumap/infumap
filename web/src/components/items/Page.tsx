@@ -94,17 +94,17 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <Show when={pageItem().computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
         </Show>
-        <Show when={props.visualElement.isTopLevel}>
+        <Show when={props.visualElement.isInteractive}>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xs font-bold text-white"
                  style={`transform: scale(${calcOpaqueScale()}); transform-origin: center center;`}>
               {pageItem().title}
             </div>
           </div>
+          <For each={props.visualElement.attachments()}>{attachmentVe =>
+            <VisualElementOnDesktop visualElement={attachmentVe} />
+          }</For>
         </Show>
-        <For each={props.visualElement.attachments()}>{attachmentVe =>
-          <VisualElementOnDesktop visualElement={attachmentVe} />
-        }</For>
       </div>
     );
   }

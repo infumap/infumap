@@ -59,14 +59,14 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
   return (
     <>
-      <Show when={!props.visualElement.isTopLevel}>
+      <Show when={!props.visualElement.isInteractive}>
         <div ref={nodeElement}
              id={props.visualElement.itemId}
              class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; `}>
         </div>
       </Show>
-      <Show when={props.visualElement.isTopLevel}>
+      <Show when={props.visualElement.isInteractive}>
         <div class="absolute"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="absolute font-bold"

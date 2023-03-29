@@ -61,17 +61,19 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
          id={props.visualElement.itemId}
          class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
-                  `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                  `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-        <Show when={noteItem().url != null && hitboxes().length > 0}
-              fallback={<span>{noteItem().title}</span>}>
-          <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
-        </Show>
-      </div>
-      <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementOnDesktop visualElement={attachment} />
-      }</For>
+      <Show when={props.visualElement.isInteractive}>
+        <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                    `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
+          <Show when={noteItem().url != null && hitboxes().length > 0}
+                fallback={<span>{noteItem().title}</span>}>
+            <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
+          </Show>
+        </div>
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementOnDesktop visualElement={attachment} />
+        }</For>
+      </Show>
     </div>
   );
 }

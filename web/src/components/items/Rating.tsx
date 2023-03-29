@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../store/desktop/items/rating-item";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
@@ -54,7 +54,9 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
          id={props.visualElement.itemId}
          class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <i class={`fas fa-star text-yellow-400`} />
+      <Show when={props.visualElement.isInteractive}>
+        <i class={`fas fa-star text-yellow-400`} />
+      </Show>
     </div>
   );
 }

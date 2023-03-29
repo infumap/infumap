@@ -105,7 +105,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
   const topLevelVisualElement: VisualElement_Reactive = {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage().id,
-    isTopLevel: true,
+    isInteractive: true,
     resizingFromBoundsPx: null,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
@@ -134,7 +134,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
         let ve: VisualElement_Reactive = {
           itemType: item.itemType,
           itemId: item.id,
-          isTopLevel: true,
+          isInteractive: true,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: () => null,
@@ -175,7 +175,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
   const topLevelVisualElement: VisualElement_Reactive = {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage().id,
-    isTopLevel: true,
+    isInteractive: true,
     resizingFromBoundsPx: null,
     boundsPx: currentPageBoundsPx,
     childAreaBoundsPx: currentPageBoundsPx,
@@ -204,7 +204,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           const pageWithChildrenVe: VisualElement_Reactive = {
             itemType: ITEM_TYPE_PAGE,
             itemId: childId,
-            isTopLevel: true,
+            isInteractive: true,
             resizingFromBoundsPx: null,
             boundsPx: geometry.boundsPx,
             childAreaBoundsPx: geometry.boundsPx,
@@ -227,7 +227,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
               return {
                 itemType: childItem.itemType,
                 itemId: childItem.id,
-                isTopLevel: false,
+                isInteractive: false,
                 resizingFromBoundsPx: null,
                 boundsPx: geometry.boundsPx,
                 childAreaBoundsPx: () => null,
@@ -259,7 +259,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           let tableVe: VisualElement_Reactive = {
             itemType: ITEM_TYPE_TABLE,
             itemId: tableItem().id,
-            isTopLevel: true,
+            isInteractive: true,
             resizingFromBoundsPx: null,
             boundsPx: geometry.boundsPx,
             childAreaBoundsPx,
@@ -279,7 +279,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
               let tableItemVe: VisualElement_Reactive = {
                 itemType: childItem().itemType,
                 itemId: childItem().id,
-                isTopLevel: false,
+                isInteractive: true,
                 resizingFromBoundsPx: null,
                 boundsPx: geometry.boundsPx,
                 hitboxes: geometry.hitboxes,
@@ -327,7 +327,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
           const itemVe = {
             itemType: childItem().itemType,
             itemId: childItem().id,
-            isTopLevel: true,
+            isInteractive: true,
             resizingFromBoundsPx: null,
             boundsPx: geometry.boundsPx,
             childAreaBoundsPx: () => null,
