@@ -20,12 +20,10 @@ import { batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
-import { cloneBoundingBox, zeroTopLeft } from "../../../util/geometry";
 import { Uid } from "../../../util/uid";
 import { User } from "../../UserStoreProvider";
 import { DesktopStoreContextModel } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
-import { isContainer } from "../items/base/container-item";
 import { ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
@@ -75,19 +73,19 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 }
 
 
-export const arrange = (desktopStore: DesktopStoreContextModel, user: User): void => {
-  if (desktopStore.currentPageId() == null) { return; }
+export const arrange = (desktopStore: DesktopStoreContextModel, user: User): VisualElement | null => {
+  if (desktopStore.currentPageId() == null) { return null; }
   initiateLoadChildItemsIfNotLoaded(desktopStore, user, desktopStore.currentPageId()!);
   let currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   if (currentPage.arrangeAlgorithm == "grid") {
-    arrange_grid(desktopStore, user);
+    return arrange_grid(desktopStore, user);
   } else {
-    arrange_spatialStretch(desktopStore, user);
+    return arrange_spatialStretch(desktopStore, user);
   }
 }
 
 
-const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void => {
+const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): VisualElement => {
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
@@ -153,11 +151,11 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, user: User): void 
     return children;
   }
 
-  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+  return topLevelVisualElement;
 }
 
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: User): void => {
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: User): VisualElement => {
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const currentPageBoundsPx = () => {
     const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -343,6 +341,5 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
     return topLevelChildren;
   }
 
-
-  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+  return topLevelVisualElement;
 }

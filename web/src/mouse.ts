@@ -52,8 +52,10 @@ interface HitInfo {
   visualElement: ConcreteVisualElement
 }
 
-function rootVisualElement() {
+export function rootVisualElement() {
   const desktopEl = document.getElementById("desktop")!;
+  if (desktopEl == null) { return null; }
+  if (desktopEl.children.length == 0) { return null; }
   const topPage = desktopEl.children[0]!;
   return (topPage as HTMLDivElementWithData).data as ConcreteVisualElement;
 }
@@ -82,7 +84,7 @@ export function getHitInfo(
   const rootVe = rootVisualElement();
   const topPageVes = topLevelVisualElements();
 
-  const topLevelPage = asPageItem(desktopStore.getItem(rootVe.itemId)!);
+  const topLevelPage = asPageItem(desktopStore.getItem(rootVe!.itemId)!);
   const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
   for (let i=0; i<topPageVes.length; ++i) {
@@ -142,7 +144,7 @@ export function getHitInfo(
 
   return {
     hitboxType: HitboxType.None,
-    visualElement: rootVe,
+    visualElement: rootVe!,
   };
 }
 
@@ -374,8 +376,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVe.boundsPx.w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe.boundsPx.h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / tableParentVe!.boundsPx.w * tableParentPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / tableParentVe!.boundsPx.h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,

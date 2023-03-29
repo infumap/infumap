@@ -82,6 +82,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     }
     return bg;
   }
+
   const drawAsOpaque = () => {
     return (
       <div ref={nodeElement}

@@ -48,9 +48,6 @@ export interface DesktopStoreContextModel {
 
   setCurrentPageId: Setter<Uid | null>,
   currentPageId: Accessor<Uid | null>,
-
-  setTopLevelVisualElement: Setter<VisualElement | null>,
-  getTopLevelVisualElement: Accessor<VisualElement | null>,
 }
 
 export interface DesktopStoreContextProps {
@@ -76,7 +73,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   let items: { [id: Uid]: ItemSignal } = {};
   const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
-  const [getTopLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement | null>(null, { equals: false });
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
 
 
@@ -249,9 +245,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setRootId, setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
     updateItem, updateContainerItem,
     getItem, getContainerItem, addItem,
-    deleteItem, newOrderingAtEndOfChildren,
-    getTopLevelVisualElement,
-    setTopLevelVisualElement,
+    deleteItem, newOrderingAtEndOfChildren
   };
 
   return (
