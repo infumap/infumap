@@ -17,9 +17,9 @@
 */
 
 import { useNavigate } from "@solidjs/router";
-import { Component, onMount } from "solid-js";
+import { Component, onMount, Show } from "solid-js";
 import { server } from "../server";
-import { childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/layout/arrange";
+import { arrange, childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/layout/arrange";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
@@ -62,7 +62,9 @@ export const Main: Component = () => {
 
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
-      <Desktop />
+      <Show when={desktopStore.currentPageId() != null}>
+        <Desktop visualElement={arrange(desktopStore, userStore.getUser())!} />
+      </Show>
       <Toolbar />
     </div>
   );

@@ -38,8 +38,10 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, us
     var page = asPageItem(desktopStore.getItem(id)!);
     // TODO (HIGH): get rid of this horrible hack!
     let desktopEl = window.document.getElementById("desktop")!;
-    desktopEl.scrollTop = 0;
-    desktopEl.scrollLeft = 0;
+    if (desktopEl) {
+      desktopEl.scrollTop = 0;
+      desktopEl.scrollLeft = 0;
+    }
     // TODO (MEDIUM): retain these.
     page.scrollXPx.set(0);
     page.scrollYPx.set(0);
