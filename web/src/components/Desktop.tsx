@@ -127,6 +127,7 @@ export const Desktop: Component = () => {
 
   const scrollHandler = (_ev: Event) => {
     let pageItem = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+    console.log(pageItem, _ev);
     pageItem.scrollYPx.set(desktopDiv!.scrollTop);
     pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
   }

@@ -26,8 +26,8 @@
 # Maximum aggregate size (in megabytes) of all files in the cache.
 #cache_max_mb = 500
 
-#max_image_size_deviation_smaller_percent = 30
-#max_image_size_deviation_larger_percent = 5
+#max_image_size_deviation_smaller_percent = 50
+#max_image_size_deviation_larger_percent = 30
 
 # Whether or not to use the local filesystem to store file and image data.
 # You will want to disable this if you are running on a cloud server with
