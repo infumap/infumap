@@ -28,9 +28,7 @@ import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
 import { currentUnixTimeSeconds } from "./util/lang";
 import { newUid } from "./util/uid";
-import { batch } from "solid-js";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
-import { arrange } from "./store/desktop/layout/arrange";
 import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "./util/signals";
 import { itemFromObject } from "./store/desktop/items/base/item-polymorphism";
 

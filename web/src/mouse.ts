@@ -32,9 +32,10 @@ import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { findNearestContainerVe, VisualElement } from "./store/desktop/visual-element";
+import { findNearestContainerVe } from "./store/desktop/visual-element";
 import { switchToPage } from "./store/desktop/layout/arrange";
 import { asContainerItem } from "./store/desktop/items/base/container-item";
+import { ShadowDomElement } from "./store/desktop/shadow-dom";
 
 
 const MOUSE_LEFT = 0;
@@ -48,87 +49,113 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElement: VisualElement
+  visualElement: ShadowDomElement
+}
+
+export function rootElement() {
+  const desktopEl = document.getElementById("desktop")!;
+  const topPage = desktopEl.children[0]!;
+  const topShadowEl = (topPage as any).data as ShadowDomElement;
+  return topShadowEl
+}
+
+export function topLevelElements() {
+  const desktopEl = document.getElementById("desktop")!;
+  const topPage = desktopEl.children[0]!;
+  const topPageChildren = Array.from(topPage.children).filter((c: any) => c.data != null).map((c:any) => c.data as ShadowDomElement);
+  return topPageChildren;
+}
+
+export function elementsOfTable(id: Uid) {
+  const tableChildAreaEl = document.getElementById(id)!;
+  const innerScrollEl = tableChildAreaEl.children[0]!;
+  const tableChildren = Array.from(innerScrollEl.children).filter((c: any) => c.data != null).map((c: any) => c.data as ShadowDomElement);
+  return tableChildren;
 }
 
 export function getHitInfo(
-    desktopStore: DesktopStoreContextModel,
-    posOnDesktopPx: Vector,
-    ignore: Array<Uid>): HitInfo {
+  desktopStore: DesktopStoreContextModel,
+  posOnDesktopPx: Vector,
+  ignore: Array<Uid>): HitInfo {
 
-  const topLevelVisualElement = desktopStore.getTopLevelVisualElement()!;
-  const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement.itemId)!);
-  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
+const topShadowEl = rootElement();
+const topPageChildren = topLevelElements();
 
-  for (let i=0; i<topLevelVisualElement.children().length; ++i) {
-    const child = topLevelVisualElement.children()[i];
-    if (isInside(posReltiveToTopLevelVisualElementPx, child.boundsPx())) {
-      if (isTable(child) && isInside(posReltiveToTopLevelVisualElementPx, child.childAreaBoundsPx()!)) {
-        // resize hitbox of table takes precedence over everything in the child area.
-        let resizeHitbox = child.hitboxes()[child.hitboxes().length-1];
-        if (resizeHitbox.type != HitboxType.Resize) { panic(); }
-        if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(child.boundsPx()!)))) {
-          return ({
-            hitboxType: HitboxType.Resize,
-            visualElement: topLevelVisualElement.children()[i],
-          });
-        }
+const topLevelPage = asPageItem(desktopStore.getItem(topShadowEl.itemId)!);
+const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
-        let tableItem = asTableItem(desktopStore.getItem(child.itemId)!);
-        for (let j=0; j<child.children().length; ++j) {
-          const tableChild = child.children()[j];
-          const posRelativeToTableChildAreaPx = subtract(
-            posReltiveToTopLevelVisualElementPx,
-            { x: child.childAreaBoundsPx()!.x, y: child.childAreaBoundsPx()!.y - tableItem.scrollYPx.get() }
-          );
-          if (isInside(posRelativeToTableChildAreaPx, tableChild.boundsPx())) {
-            let hitboxType = HitboxType.None;
-            for (let k=tableChild.hitboxes().length-1; k>=0; --k) {
-              if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChild.hitboxes()[k].boundsPx, getTopLeft(tableChild.boundsPx())))) {
-                hitboxType |= tableChild.hitboxes()[k].type;
-              }
-            }
-            if (!ignore.find(a => a == tableChild.itemId)) {
-              return ({
-                hitboxType,
-                visualElement: child.children()[j]
-              });
+for (let i=0; i<topPageChildren.length; ++i) {
+  const child = topPageChildren[i] as ShadowDomElement;
+  if (isInside(posReltiveToTopLevelVisualElementPx, child.boundsPx)) {
+    if (isTable(child) && isInside(posReltiveToTopLevelVisualElementPx, child.childAreaBoundsPx!)) {
+      // resize hitbox of table takes precedence over everything in the child area.
+      let resizeHitbox = child.hitboxes[child.hitboxes.length-1];
+      if (resizeHitbox.type != HitboxType.Resize) { panic(); }
+      if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(child.boundsPx!)))) {
+        return ({
+          hitboxType: HitboxType.Resize,
+          visualElement: topPageChildren[i],
+        });
+      }
+
+      let tableItem = asTableItem(desktopStore.getItem(child.itemId)!);
+      let tableChildren = elementsOfTable(tableItem.id);
+
+      for (let j=0; j<tableChildren.length; ++j) {
+        const tableChild = tableChildren[j];
+        const posRelativeToTableChildAreaPx = subtract(
+          posReltiveToTopLevelVisualElementPx,
+          { x: child.childAreaBoundsPx!.x, y: child.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
+        );
+        if (isInside(posRelativeToTableChildAreaPx, tableChild.boundsPx)) {
+          let hitboxType = HitboxType.None;
+          for (let k=tableChild.hitboxes.length-1; k>=0; --k) {
+            if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChild.hitboxes[k].boundsPx, getTopLeft(tableChild.boundsPx)))) {
+              hitboxType |= tableChild.hitboxes[k].type;
             }
           }
-        }
-      } else {
-        let hitboxType = HitboxType.None;
-        for (let j=child.hitboxes().length-1; j>=0; --j) {
-          if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(child.hitboxes()[j].boundsPx, getTopLeft(child.boundsPx())))) {
-            hitboxType |= child.hitboxes()[j].type;
+          if (!ignore.find(a => a == tableChild.itemId)) {
+            return ({
+              hitboxType,
+              visualElement: tableChildren[j]
+            });
           }
         }
-        if (!ignore.find(a => a == child.itemId)) {
-          return ({
-            hitboxType,
-            visualElement: topLevelVisualElement.children()[i],
-          });
+      }
+    } else {
+      let hitboxType = HitboxType.None;
+      for (let j=child.hitboxes.length-1; j>=0; --j) {
+        if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(child.hitboxes[j].boundsPx, getTopLeft(child.boundsPx)))) {
+          hitboxType |= child.hitboxes[j].type;
         }
+      }
+      if (!ignore.find(a => a == child.itemId)) {
+        return ({
+          hitboxType,
+          visualElement: topPageChildren[i],
+        });
       }
     }
   }
+}
 
-  return {
-    hitboxType: HitboxType.None,
-    visualElement: desktopStore.getTopLevelVisualElement()!,
-  };
+return {
+  hitboxType: HitboxType.None,
+  visualElement: topShadowEl,
+};
 }
 
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElement: VisualElement,
-  moveOverContainerVisualElement: VisualElement | null,
+  activeVisualElement: ShadowDomElement,
+  moveOverContainerVisualElement: ShadowDomElement | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
   action: MouseAction,
+  onePxSizeBl: Vector,
 }
 
 let mouseActionState: MouseActionState | null = null;
@@ -166,11 +193,16 @@ export function mouseLeftDownHandler(
     mouseActionState = null;
     return;
   }
-
   let startPosBl = null;
   let startWidthBl = null;
   let startHeightBl = null;
   let startPx = desktopPxFromMouseEvent(ev);
+
+  const activeItem = desktopStore.getItem(hitInfo.visualElement.itemId)!;
+  const onePxSizeBl = {
+    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / hitInfo.visualElement.boundsPx.w,
+    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElement.boundsPx.h
+  };
 
   mouseActionState = {
     activeVisualElement: hitInfo.visualElement,
@@ -181,6 +213,7 @@ export function mouseLeftDownHandler(
     startPosBl,
     startWidthBl,
     startHeightBl,
+    onePxSizeBl,
   }
 }
 
@@ -268,8 +301,8 @@ export function mouseMoveHandler(
   }
 
   const deltaBl = {
-    x: deltaPx.x * calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState.activeVisualElement.boundsPx().w,
-    y: deltaPx.y * calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState.activeVisualElement.boundsPx().h
+    x: deltaPx.x * mouseActionState.onePxSizeBl.x,
+    y: deltaPx.y * mouseActionState.onePxSizeBl.y
   };
 
   // ### Resizing
@@ -322,39 +355,26 @@ export function mouseMoveHandler(
   }
 }
 
-function findVisualElementUnder(visualElement: VisualElement, id: Uid): VisualElement | null {
-  if (visualElement.itemId == id) { return visualElement; }
-  let children = visualElement.children();
-  for (let i=0; i<children.length; ++i) {
-    let r = findVisualElementUnder(children[i], id);
-    if (r != null) { return r; }
-  }
-  let attachments = visualElement.attachments();
-  for (let i=0; i<attachments.length; ++i) {
-    let r = findVisualElementUnder(attachments[i], id);
-    if (r != null) { return r; }
-  }
-  return null;
-}
-
-function findVisualElement(desktopStore: DesktopStoreContextModel, id: Uid): VisualElement | null {
-  return findVisualElementUnder(desktopStore.getTopLevelVisualElement()!, id);
+function findVisualElement(id: Uid): ShadowDomElement | null {
+  let r = topLevelElements().find(el => el.itemId == id);
+  return r ? r : null;
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeItemId = mouseActionState!.activeVisualElement!.itemId;
   const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
-  let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx());
+  let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
-  const tableVe = mouseActionState!.activeVisualElement!.parent()!;
-  const tableParentVe = tableVe.parent()!;
-  const tablePosInPagePx = getTopLeft(tableVe.childAreaBoundsPx()!);
+  const tableVeId = mouseActionState!.activeVisualElement!.parentId!;
+  const tableVe = topLevelElements().find(el => el.itemId == tableVeId)!;
+  const tableParentVe = rootElement();
+  const tablePosInPagePx = getTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVe.boundsPx().w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe.boundsPx().h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / tableParentVe.boundsPx.w * tableParentPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / tableParentVe.boundsPx.h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
@@ -371,7 +391,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     });
     activeItem.spatialPositionGr.set(itemPosInPageQuantizedGr);
   });
-  mouseActionState!.activeVisualElement = findVisualElement(desktopStore, activeItemId)!;
+  mouseActionState!.activeVisualElement = findVisualElement(activeItemId)!;
 }
 
 export function mouseUpHandler(

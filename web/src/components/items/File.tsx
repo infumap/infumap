@@ -23,12 +23,28 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { ITEM_TYPE_FILE } from "../../store/desktop/items/base/item";
 
 
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
+  let nodeElement: any | undefined;
+
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => {
+    let currentBoundsPx = props.visualElement.boundsPx();
+    nodeElement!.data = {
+      itemType: ITEM_TYPE_FILE,
+      itemId: props.visualElement.itemId,
+      parentId: fileItem().parentId,
+      boundsPx: currentBoundsPx,
+      childAreaBoundsPx: null,
+      hitboxes: hitboxes(),
+      children: []
+    };
+    return currentBoundsPx;
+  };
+  const hitboxes = props.visualElement.hitboxes;
   const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
@@ -37,7 +53,9 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const scale = () => Math.min(heightScale(), widthScale());
 
   return (
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div ref={nodeElement}
+         id={props.visualElement.itemId}
+         class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
                   `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
@@ -54,8 +72,22 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
+  let nodeElement: any | undefined;
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => {
+    let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
+    nodeElement!.data = {
+      itemType: ITEM_TYPE_FILE,
+      itemId: props.visualElement.itemId,
+      parentId: fileItem().parentId,
+      boundsPx: currentBoundsPx,
+      childAreaBoundsPx: null,
+      hitboxes: props.visualElement.hitboxes(),
+      children: []
+    };
+    return currentBoundsPx;
+  };
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -69,15 +101,17 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-file`} />
-        <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
-        }</For>
       </div>
-      <div class="absolute overflow-hidden"
-          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+      <div ref={nodeElement}
+           id={props.visualElement.itemId}
+           class="absolute overflow-hidden"
+           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+        }</For>
       </div>
     </>
   );

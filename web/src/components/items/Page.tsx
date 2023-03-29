@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, Show } from "solid-js";
+import { Component, createMemo, For, onCleanup, onMount, Show } from "solid-js";
 import { asPageItem } from "../../store/desktop/items/page-item";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
@@ -25,15 +25,31 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { ITEM_TYPE_PAGE } from "../../store/desktop/items/base/item";
 
 
 export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
+
+  let nodeElement: any | undefined;
+
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
+
   const boundsPx = () => {
-    // console.log(`page boundsPx ${props.visualElement.itemId}`);
-    return props.visualElement.boundsPx();
+    let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
+    nodeElement!.data = {
+      itemType: ITEM_TYPE_PAGE,
+      itemId: props.visualElement.itemId,
+      parentId: pageItem().parentId,
+      boundsPx: currentBoundsPx,
+      childAreaBoundsPx: props.visualElement.childAreaBoundsPx(),
+      hitboxes: props.visualElement.hitboxes(),
+      children: []
+    };
+    return currentBoundsPx;
   };
+
   const popupClickBoundsPx = () => {
     return ({
       x: boundsPx().w / 3.0,
@@ -67,7 +83,9 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       bg = `background-color: #880000;`;
     }
     return (
-      <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+      <div ref={nodeElement}
+           id={props.visualElement.itemId}
+           class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
         <Show when={pageItem().computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
@@ -97,33 +115,37 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     }
     return (
       <>
-      <div class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
-        <Show when={pageItem().computed_mouseIsOver.get()}>
-          <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
-        </Show>
-        <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-          <div class="flex items-center text-center text-xl font-bold text-white">
-            {pageItem().title}
+        <div ref={nodeElement}
+            id={props.visualElement.itemId}
+            class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bg}>
+          <Show when={pageItem().computed_mouseIsOver.get()}>
+            <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
+          </Show>
+          <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+            <div class="flex items-center text-center text-xl font-bold text-white">
+              {pageItem().title}
+            </div>
           </div>
         </div>
-      </div>
-      <Show when={props.visualElement.childAreaBoundsPx() != null}>
-        <div class="absolute"
-            style={`left: ${props.visualElement.childAreaBoundsPx()!.x}px; top: ${props.visualElement.childAreaBoundsPx()!.y}px; ` +
-                    `width: ${props.visualElement.childAreaBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx()!.h}px;`}>
-          <For each={props.visualElement.children()}>{childVe =>
-            <VisualElementOnDesktop visualElement={childVe} />
-          }</For>
-        </div>
-      </Show>
+        <Show when={props.visualElement.childAreaBoundsPx() != null}>
+          <div class="absolute"
+              style={`left: ${props.visualElement.childAreaBoundsPx()!.x}px; top: ${props.visualElement.childAreaBoundsPx()!.y}px; ` +
+                      `width: ${props.visualElement.childAreaBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx()!.h}px;`}>
+            <For each={props.visualElement.children()}>{childVe =>
+              <VisualElementOnDesktop visualElement={childVe} />
+            }</For>
+          </div>
+        </Show>
       </>
     );
   }
 
   const drawAsTopLevelPage = () => {
     return (
-      <div class={`absolute`}
+      <div ref={nodeElement}
+           id={props.visualElement.itemId}
+           class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children()}>{childVe =>
           <VisualElementOnDesktop visualElement={childVe} />
@@ -150,8 +172,26 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
+
+  let nodeElement: any | undefined;
+
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = props.visualElement.boundsPx;
+
+  const boundsPx = () => {
+    let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
+    nodeElement!.data = {
+      itemType: ITEM_TYPE_PAGE,
+      itemId: props.visualElement.itemId,
+      parentId: pageItem().parentId,
+      boundsPx: currentBoundsPx,
+      childAreaBoundsPx: null,
+      hitboxes: props.visualElement.hitboxes(),
+      children: []
+    };
+    return currentBoundsPx;
+  };
+
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -160,19 +200,21 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
 
   return (
     <>
-      <div class="absolute"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
-                 `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
-                 `transform: scale(${0.7}); transform-origin: center center;`}>
-        <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
-        }</For>
+      <div ref={nodeElement}
+           id={props.visualElement.itemId}
+           class="absolute"
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
+                  `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
+                  `transform: scale(${0.7}); transform-origin: center center;`}>
       </div>
       <div class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         {pageItem().title}
+        <For each={props.visualElement.attachments()}>{attachment =>
+          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+        }</For>
       </div>
     </>
   );

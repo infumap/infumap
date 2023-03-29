@@ -23,15 +23,32 @@ import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { ITEM_TYPE_RATING } from "../../store/desktop/items/base/item";
 
 
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = props.visualElement.boundsPx;
+  let nodeElement: any | undefined;
+
+  const ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const boundsPx = () => {
+    let currentBoundsPx = props.visualElement.boundsPx();
+    nodeElement!.data = {
+      itemType: ITEM_TYPE_RATING,
+      itemId: props.visualElement.itemId,
+      parentId: ratingItem().parentId,
+      boundsPx: currentBoundsPx,
+      childAreaBoundsPx: null,
+      hitboxes: props.visualElement.hitboxes(),
+      children: []
+    };
+    return currentBoundsPx;
+  };
 
   return (
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div ref={nodeElement}
+         id={props.visualElement.itemId}
+         class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <i class={`fas fa-star text-yellow-400`} />
     </div>
@@ -41,8 +58,23 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 
 export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
-  const boundsPx = props.visualElement.boundsPx;
+  let nodeElement: any | undefined;
+
+  const ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const boundsPx = () => {
+    let currentBoundsPx = props.visualElement.boundsPx();
+    if (nodeElement == null) { return currentBoundsPx; }
+    nodeElement!.data = {
+      itemType: ITEM_TYPE_RATING,
+      itemId: props.visualElement.itemId,
+      parentId: ratingItem().parentId,
+      boundsPx: currentBoundsPx,
+      childAreaBoundsPx: null,
+      hitboxes: props.visualElement.hitboxes(),
+      children: []
+    };
+    return currentBoundsPx;
+  };
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
@@ -51,7 +83,9 @@ export const RatingInTable: Component<VisualElementInTableProps> = (props: Visua
 
   return (
     <>
-      <div class="absolute text-center"
+      <div ref={nodeElement}
+           id={props.visualElement.itemId}
+           class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>

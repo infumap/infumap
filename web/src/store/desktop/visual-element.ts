@@ -21,6 +21,7 @@ import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { Hitbox } from "./hitbox";
 import { isContainer } from "./items/base/container-item";
+import { ShadowDomElement } from "./shadow-dom";
 
 
 export interface VisualElement {
@@ -37,10 +38,12 @@ export interface VisualElement {
 }
 
 
-export function findNearestContainerVe(visualElement: VisualElement): VisualElement {
+export function findNearestContainerVe(visualElement: ShadowDomElement): ShadowDomElement {
   if (isContainer(visualElement)) { return visualElement; }
-  const parent = visualElement.parent();
+  const parentId = visualElement.parentId;
   if (parent == null) { panic(); }
-  if (isContainer(parent)) { return parent; }
+  const el = document.getElementById(parentId!) as any;
+  const se = el.data as ShadowDomElement;
+  if (isContainer(se)) { return se; }
   panic();
 }
