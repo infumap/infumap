@@ -136,7 +136,7 @@ async fn get_cached_resized_img(
         match &candidate.size {
           ImageSize::Original => {
             if respond_with_cached_original {
-              debug!("Returning cached image '{}' (unmodified original) as response to request for '{}'.", candidate, name);
+              debug!("Responding with cached image '{}' (unmodified original).", candidate);
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
               let data = storage_cache::get(image_cache, &session.user_id, candidate).await?.unwrap();
               return Ok(Response::builder()
@@ -175,7 +175,7 @@ async fn get_cached_resized_img(
       }
       match best_candidate_maybe {
         Some(best_candidate) => {
-          debug!("Using cached image '{}' to respond to request for '{}'.", best_candidate.0, name);
+          debug!("Responding with cached image '{}'.", best_candidate.0);
           if format!("{}_{}", best_candidate.0.item_id, best_candidate.0.size) == name {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_EXACT]).inc();
           }
@@ -198,7 +198,7 @@ async fn get_cached_resized_img(
 
   if respond_with_cached_original {
     let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
-    debug!("Caching then returning image '{}' (unmodified original) to respond to request for '{}'.", cache_key, name);
+    debug!("Caching then returning image '{}' (unmodified original).", cache_key);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
     storage_cache::put(image_cache, &session.user_id, cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder()
@@ -230,7 +230,7 @@ async fn get_cached_resized_img(
       img.write_to(&mut cursor, ImageOutputFormat::Jpeg(JPEG_QUALITY))
         .map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
 
-      debug!("Inserting image '{}' into cache", name);
+      debug!("Inserting image '{}' into cache and using as response.", name);
 
       let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Width(requested_width) };
       let data = cursor.get_ref().to_vec();
