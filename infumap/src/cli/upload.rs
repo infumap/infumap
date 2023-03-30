@@ -124,17 +124,24 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     None => { return Err("Id of container to upload files into must be specified.".into()); }
   };
 
-  let session_name = match sub_matches.value_of("name") {
+  let session_name = match sub_matches.value_of("session") {
     Some(name) => name,
     None => "default"
   };
 
-  let session = match NamedInfuSession::get(session_name).await {
-    Ok(s) => s,
-    Err(e) => { return Err(format!("Could not get session '{}': {}.", session_name, e).into()); }
+  let named_session = match NamedInfuSession::get(session_name).await {
+    Ok(s) => {
+      match s {
+        Some(s) => s,
+        None => {
+          return Err("Session does not exist - use the login CLI command to create one.".into());
+        }
+      }
+    },
+    Err(e) => { return Err(format!("A problem occurred getting session '{}': {}.", session_name, e).into()); }
   };
 
-  let session_cookie_value = serde_json::to_string(&session)?;
+  let session_cookie_value = serde_json::to_string(&named_session.session)?;
   let mut request_headers = reqwest::header::HeaderMap::new();
   request_headers.insert(
     reqwest::header::COOKIE,
@@ -149,7 +156,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
   let container_children_response: SendResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
-    .post(session.command_url()?.clone())
+    .post(named_session.command_url()?.clone())
     .json(&send_reqest)
     .send()
     .await.map_err(|e| e.to_string())?
@@ -201,7 +208,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     let base_64_encoded = general_purpose::STANDARD.encode(&buffer);
 
     let mut item: Map<String, Value> = Map::new();
-    item.insert("ownerId".to_owned(), Value::String(session.session.user_id.clone()));
+    item.insert("ownerId".to_owned(), Value::String(named_session.session.user_id.clone()));
     item.insert("id".to_owned(), Value::String(new_uid()));
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
     item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
@@ -257,7 +264,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     loop {
       let add_item_response = reqwest::ClientBuilder::new()
         .default_headers(request_headers.clone()).build().unwrap()
-        .post(session.command_url()?.clone())
+        .post(named_session.command_url()?.clone())
         .json(&send_reqest)
         .send()
         .await;

@@ -59,17 +59,18 @@ impl NamedInfuSession {
     command_url_from_base_url(&self.url)
   }
 
-  pub async fn get(name: &str) -> InfuResult<NamedInfuSession> {
+  pub async fn get(name: &str) -> InfuResult<Option<NamedInfuSession>> {
     let sessions = Self::read_sessions().await?;
     let session = sessions.iter().find(|s| s.name == name);
     match session {
-      Some(s) => Ok(s.clone()),
-      None => Err(format!("Session '{}' does not exist.", name).into())
+      Some(s) => Ok(Some(s.clone())),
+      None => Ok(None)
     }
   }
 
   async fn read_sessions() -> InfuResult<Vec<NamedInfuSession>> {
     let session_file_path = Self::get_cli_sessions_path().await?;
+    if !path_exists(&session_file_path).await { return Ok(vec![]); }
     let mut f = File::open(&session_file_path).await
       .map_err(|e| format!("Could not open CLI sessions.json file for reading: {}", e))?;
     let mut buffer = vec![0; tokio::fs::metadata(&session_file_path).await?.len() as usize];
