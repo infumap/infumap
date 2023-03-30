@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::BufRead;
 use std::io::Cursor;
 use std::io::Write;
 use std::path::PathBuf;
@@ -26,21 +25,16 @@ use base64::{Engine as _, engine::general_purpose};
 use clap::{App, Arg, ArgMatches};
 use image::io::Reader;
 use log::debug;
-use reqwest::Url;
-use rpassword::read_password;
 use serde_json::Map;
 use serde_json::Value;
 use tokio::fs;
 use tokio::fs::File;
-use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
 
 use crate::storage::db::item::ITEM_TYPE_FILE;
 use crate::storage::db::item::ITEM_TYPE_IMAGE;
 use crate::storage::db::item::RelationshipToParent;
 use crate::util::fs::expand_tilde;
-use crate::util::fs::path_exists;
 use crate::util::geometry::Dimensions;
 use crate::util::geometry::GRID_SIZE;
 use crate::util::geometry::Vector;
@@ -48,20 +42,17 @@ use crate::util::image::adjust_image_for_exif_orientation;
 use crate::util::image::get_exif_orientation;
 use crate::util::infu::InfuResult;
 use crate::util::json;
-use crate::util::ordering::new_ordering;
-use crate::util::ordering::new_ordering_after;
 use crate::util::uid::is_uid;
 use crate::util::uid::new_uid;
-use crate::web::cookie::InfuSession;
-use crate::web::routes::account::LoginRequest;
-use crate::web::routes::account::LoginResponse;
 use crate::web::routes::command::GetChildrenRequest;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
 
+use super::NamedInfuSession;
+
+
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  // TODO (MEDIUM): cache session in ~/.infumap.
   App::new("upload")
     .about("Bulk upload all files in a local directory to an Infumap container.")
     .arg(Arg::new("container_id")
@@ -78,13 +69,13 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .takes_value(true)
       .multiple_values(false)
       .required(true))
-    .arg(Arg::new("url")
-      .short('u')
-      .long("url")
-      .help("URL of the Infumap instance to upload files to. Should include the protocol (http/https), and trailing / if the URL path is not empty.")
+    .arg(Arg::new("session")
+      .short('s')
+      .long("session")
+      .help("The name of the Infumap session to use. 'default' will be used if not specified.")
       .takes_value(true)
       .multiple_values(false)
-      .required(true))
+      .required(false))
     .arg(Arg::new("resume")
       .short('r')
       .long("resume")
@@ -133,27 +124,16 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     None => { return Err("Id of container to upload files into must be specified.".into()); }
   };
 
-  // validate URL and construct sub URLs.
-  let url = match sub_matches.value_of("url").map(|v| v.to_string()) {
-    Some(url) => url,
-    None => { return Err("Infumap base URL must be specified.".into()); }
+  let session_name = match sub_matches.value_of("name") {
+    Some(name) => name,
+    None => "default"
   };
-  let base_url = Url::parse(&url)
-    .map_err(|e| format!("Could not parse URL: {}", e))?;
-  if base_url.path() != "/" && !url.ends_with("/") {
-    return Err("Specified URL must have no path, or the path must end with a '/' to signify it is not a file.".into());
-  }
-  let login_url = base_url.join("/account/login").map_err(|e| e.to_string())?;
-  let command_url = base_url.join("/command").map_err(|e| e.to_string())?;
 
-  // get session / login.
-  let session = match read_session().await {
+  let session = match NamedInfuSession::get(session_name).await {
     Ok(s) => s,
-    Err(_) => {
-      login(&login_url).await?;
-      read_session().await?
-    }
+    Err(e) => { return Err(format!("Could not get session '{}': {}.", session_name, e).into()); }
   };
+
   let session_cookie_value = serde_json::to_string(&session)?;
   let mut request_headers = reqwest::header::HeaderMap::new();
   request_headers.insert(
@@ -169,7 +149,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
   let container_children_response: SendResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
-    .post(command_url.clone())
+    .post(session.command_url()?.clone())
     .json(&send_reqest)
     .send()
     .await.map_err(|e| e.to_string())?
@@ -196,7 +176,6 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   }).collect::<InfuResult<Vec<String>>>()?;
 
   // add items.
-  let mut current_ordering = new_ordering();
   let mut iter = fs::read_dir(&local_path).await?;
   let mut current_file = 0;
   while let Some(entry) = iter.next_entry().await? {
@@ -222,14 +201,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     let base_64_encoded = general_purpose::STANDARD.encode(&buffer);
 
     let mut item: Map<String, Value> = Map::new();
-    item.insert("ownerId".to_owned(), Value::String(session.user_id.clone()));
+    item.insert("ownerId".to_owned(), Value::String(session.session.user_id.clone()));
     item.insert("id".to_owned(), Value::String(new_uid()));
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
     item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
     item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
     item.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
-    item.insert("ordering".to_owned(),
-      Value::Array(current_ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+    item.insert("ordering".to_owned(), Value::Array(vec![])); // empty ordering => generate an appropriate one server side.
     item.insert("title".to_owned(), Value::String(filename.to_owned()));
     item.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
     item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
@@ -279,7 +257,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     loop {
       let add_item_response = reqwest::ClientBuilder::new()
         .default_headers(request_headers.clone()).build().unwrap()
-        .post(command_url.clone())
+        .post(session.command_url()?.clone())
         .json(&send_reqest)
         .send()
         .await;
@@ -299,92 +277,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         }
       }
     }
-
-    current_ordering = new_ordering_after(&current_ordering);
   }
 
   Ok(())
-}
-
-
-async fn login(login_url: &Url) -> InfuResult<()> {
-  let session_file_path = get_cli_session_path().await?;
-  if path_exists(&session_file_path).await {
-    // TODO (MEDIUM): attempt to logout to remove session resource server side.
-    debug!("Removing existing session file.");
-    tokio::fs::remove_file(&session_file_path).await?;
-  }
-
-  let stdin = std::io::stdin();
-  let mut iterator = stdin.lock().lines();
-  print!("Username: ");
-  std::io::stdout().lock().flush().unwrap();
-  let username = iterator.next().unwrap().unwrap();
-  print!("Password: ");
-  std::io::stdout().lock().flush().unwrap();
-  let password = read_password().unwrap();
-  print!("Authenticator code (if any)>: ");
-  std::io::stdout().lock().flush().unwrap();
-  let totp = iterator.next().unwrap().unwrap();
-  let totp_token = if totp == "" { None } else { Some(totp) };
-
-  let login_request = LoginRequest { username: username.clone(), password, totp_token };
-  let login_response: LoginResponse = reqwest::Client::new()
-    .post(login_url.clone())
-    .json(&login_request)
-    .send()
-    .await.map_err(|e| format!("{}", e))?
-    .json()
-    .await.map_err(|e| format!("{}", e))?;
-  if !login_response.success {
-    println!("Login failed: {}", login_response.err.unwrap());
-    return Ok(());
-  }
-  let owner_id = login_response.user_id.unwrap().clone();
-
-  let session_cookie_value = serde_json::to_string(&InfuSession {
-    username,
-    user_id: owner_id.clone(),
-    session_id: login_response.session_id.unwrap(),
-    root_page_id: login_response.root_page_id.unwrap(),
-  })?;
-
-  let mut file = OpenOptions::new()
-    .create_new(true)
-    .write(true)
-    .open(session_file_path).await?;
-  file.write_all(&session_cookie_value.as_bytes()).await?;
-  file.flush().await?;
-
-  Ok(())
-}
-
-
-async fn read_session() -> InfuResult<InfuSession> {
-  let session_file_path = get_cli_session_path().await?;
-  let mut f = File::open(&session_file_path).await?;
-  let mut buffer = vec![0; tokio::fs::metadata(&session_file_path).await?.len() as usize];
-  f.read_exact(&mut buffer).await?;
-  let session: InfuSession = serde_json::from_str(
-    &String::from_utf8(buffer).map_err(|e| format!("{}", e))?)?;
-  Ok(session)
-}
-
-
-async fn get_cli_session_path() -> InfuResult<PathBuf> {
-  let dot_infumap_path = PathBuf::from(
-    expand_tilde("~/.infumap").ok_or(format!("Could not determine ~/.infumap path."))?);
-  if !path_exists(&dot_infumap_path).await {
-    debug!("Creating ~/.infumap directory.");
-    tokio::fs::create_dir(&dot_infumap_path).await?;
-  }
-  let mut cli_dir_path = PathBuf::from(dot_infumap_path);
-  cli_dir_path.push("cli");
-  if !path_exists(&cli_dir_path).await {
-    debug!("Creating ~/.infumap/cli directory.");
-    tokio::fs::create_dir(&cli_dir_path).await?;
-  }
-  let mut session_file_path = PathBuf::from(cli_dir_path);
-  session_file_path.push("session.json");
-  Ok(session_file_path)
 }

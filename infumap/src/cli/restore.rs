@@ -29,7 +29,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("backup_file")
       .short('b')
       .long("backup-file")
-      .help("Backup file from S3 compatible object store. File should not be renamed.")
+      .help("Backup file taken from S3 compatible backup object store. File should not be renamed.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))

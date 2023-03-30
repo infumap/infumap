@@ -24,7 +24,7 @@ use crate::util::uid::Uid;
 
 pub const SESSION_COOKIE_NAME: &'static str = "infusession";
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct InfuSession {
   pub username: String,
   #[serde(rename="userId")]

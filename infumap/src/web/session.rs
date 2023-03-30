@@ -29,7 +29,7 @@ pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, 
   let session_cookie = match get_session_cookie_maybe(request) {
     Some(s) => s,
     None => {
-      debug!("No session cookie sent from client.");
+      debug!("No session cookie is present.");
       return None;
     }
   };

@@ -31,7 +31,10 @@ async fn main() {
   let arg_matches = App::new("Infumap")
     .version("0.1.0")
     .subcommand(cli::keygen::make_clap_subcommand())
+    .subcommand(cli::login::make_clap_subcommand())
+    .subcommand(cli::logout::make_clap_subcommand())
     .subcommand(cli::migrate::make_clap_subcommand())
+    .subcommand(cli::note::make_clap_subcommand())
     .subcommand(cli::repair::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
@@ -51,8 +54,17 @@ async fn main() {
     Some(("keygen", arg_sub_matches)) => {
       cli::keygen::execute(arg_sub_matches)
     },
+    Some(("login", arg_sub_matches)) => {
+      cli::login::execute(arg_sub_matches).await
+    },
+    Some(("logout", arg_sub_matches)) => {
+      cli::logout::execute(arg_sub_matches).await
+    },
     Some(("migrate", arg_sub_matches)) => {
       cli::migrate::execute(arg_sub_matches)
+    },
+    Some(("note", arg_sub_matches)) => {
+      cli::note::execute(arg_sub_matches).await
     },
     Some(("repair", arg_sub_matches)) => {
       cli::repair::execute(arg_sub_matches).await

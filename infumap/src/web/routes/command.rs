@@ -35,6 +35,7 @@ use crate::storage::db::item::{Item, is_data_item, is_image_item};
 use crate::storage::cache as storage_cache;
 use crate::storage::object;
 use crate::util::infu::InfuResult;
+use crate::util::ordering::new_ordering_at_end;
 use crate::web::serve::{json_response, incoming_json};
 use crate::web::session::get_and_validate_session;
 
@@ -188,6 +189,20 @@ async fn handle_add_item(
     return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
   }
 
+  let parent_id = match &item.parent_id {
+    Some(p) => p,
+    None => { return Err("Attempt was made to add item with no parent id.".into()); }
+  };
+
+  if !db.item.get(&parent_id).is_ok() {
+    return Err(format!("Attempt was made to add an item with parent id '{}', but an item with that id does not exist.", parent_id).into());
+  }
+
+  if item.ordering.len() == 0 {
+    let orderings = db.item.get_children(parent_id)?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
+    item.ordering = new_ordering_at_end(orderings);
+  }
+ 
   if is_data_item(&item.item_type) {
     let base64_data = base64_data_maybe.as_ref().ok_or(format!("Add item request has no base64 data, when this is expected for item of type {}.", item.item_type))?;
     let decoded = general_purpose::STANDARD.decode(&base64_data).map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;

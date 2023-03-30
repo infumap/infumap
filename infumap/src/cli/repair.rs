@@ -31,7 +31,7 @@ use crate::util::{infu::InfuResult, crypto::encrypt_file_data};
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("repair")
-    .about("Object store validation/repair tool.")
+    .about("Object store validation/repair tool. WORK IN PROGRESS.")
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")

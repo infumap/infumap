@@ -23,6 +23,7 @@ pub fn new_ordering() -> Ordering {
   vec![128]
 }
 
+
 pub fn new_ordering_after(end: &Ordering) -> Ordering {
   let mut r = vec![];
 
@@ -41,4 +42,27 @@ pub fn new_ordering_after(end: &Ordering) -> Ordering {
 
   r.push(N);
   r
+}
+
+
+// 0: if (x==y), -1: if (x < y), 1: if (x > y)
+pub fn compare_orderings(p1: &Vec<u8>, p2: &Vec<u8>) -> i8 {
+  let len = std::cmp::min(p1.len(), p2.len());
+  for i in 0..len {
+    if p1[i] < p2[i] { return -1; }
+    if p1[i] > p2[i] { return 1; }
+  }
+  if p2.len() > p1.len() { return -1; }
+  if p2.len() < p1.len() { return 1; }
+  return 0;
+}
+
+
+pub fn new_ordering_at_end(orderings: Vec<Vec<u8>>) -> Vec<u8> {
+  if orderings.len() == 0 { return new_ordering(); }
+  let mut highest = &orderings[0];
+  for i in 1..orderings.len() {
+    if compare_orderings(highest, &orderings[i]) <= 0 { highest = &orderings[i]; }
+  }
+  return new_ordering_after(highest);
 }

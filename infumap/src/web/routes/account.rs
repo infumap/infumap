@@ -17,7 +17,7 @@
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
-use log::{info, error};
+use log::{info, error, debug};
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use std::str;
@@ -34,6 +34,7 @@ use crate::util::crypto::generate_key;
 use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, new_uid};
+use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::serve::{json_response, not_found_response, incoming_json};
 
 
@@ -151,42 +152,34 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
 }
 
 
-#[derive(Deserialize)]
-pub struct LogoutRequest {
-  #[serde(rename="userId")]
-  user_id: String,
-  #[serde(rename="sessionId")]
-  session_id: String,
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LogoutResponse {
-  success: bool,
+  pub success: bool,
 }
 
 pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   let mut db = db.lock().await;
 
-  let payload: LogoutRequest = match incoming_json(req).await {
-    Ok(p) => p,
-    Err(e) => {
-      error!("Could not parse logout request: {}", e);
+  let session_cookie = match get_session_cookie_maybe(&req) {
+    Some(s) => s,
+    None => {
+      debug!("Could not log out user session: No session cookie is present.");
       return json_response(&LogoutResponse { success: false });
     }
   };
 
-  match db.session.delete_session(&payload.session_id) {
+  match db.session.delete_session(&session_cookie.session_id) {
     Err(e) => {
       error!(
         "Could not delete session '{}' for user '{}': {}",
-        payload.session_id, payload.user_id, e);
+        session_cookie.session_id, session_cookie.user_id, e);
       return json_response(&LogoutResponse { success: false });
     },
     Ok(user_id) => {
-      if user_id != payload.user_id {
+      if user_id != session_cookie.user_id {
         error!(
           "Unexpected user_id '{}' deleting session '{}'. Session is associated with user: '{}'",
-          payload.user_id, payload.session_id, user_id);
+          session_cookie.user_id, session_cookie.session_id, user_id);
         return json_response(&LogoutResponse { success: false });
       }
     }

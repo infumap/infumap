@@ -24,7 +24,7 @@ use serde_json::Value::Object;
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("migrate")
-    .about("Migrates db log files to the latest version.")
+    .about("Migrates db log files to the latest version. CURRENTLY DISABLED.")
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")
