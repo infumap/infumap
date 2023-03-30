@@ -123,7 +123,7 @@ pub async fn serve_command_route(
   METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "true"]).inc();
   let r = SendResponse { success: true, json_data: response_data };
 
-  debug!("Successfully processed a '{}' command for user '{}'.", request.command, session.user_id);
+  debug!("Successfully processed a '{}' command.", request.command);
   json_response(&r)
 }
 

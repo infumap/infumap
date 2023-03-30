@@ -149,13 +149,13 @@ pub struct TableColumn {
 }
 
 
-const ITEM_TYPE_PAGE: &'static str = "page";
-const ITEM_TYPE_NOTE: &'static str = "note";
+pub const ITEM_TYPE_PAGE: &'static str = "page";
+pub const ITEM_TYPE_NOTE: &'static str = "note";
 pub const ITEM_TYPE_FILE: &'static str = "file";
-const ITEM_TYPE_TABLE: &'static str = "table";
+pub const ITEM_TYPE_TABLE: &'static str = "table";
 pub const ITEM_TYPE_IMAGE: &'static str = "image";
-const ITEM_TYPE_RATING: &'static str = "rating";
-const ITEM_TYPE_LINK: &'static str = "link";
+pub const ITEM_TYPE_RATING: &'static str = "rating";
+pub const ITEM_TYPE_LINK: &'static str = "link";
 
 pub fn is_data_item(item_type: &str) -> bool {
   item_type == ITEM_TYPE_FILE || item_type == ITEM_TYPE_IMAGE
