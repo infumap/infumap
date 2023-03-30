@@ -45,17 +45,18 @@ pub struct NamedInfuSession {
   pub url: String
 }
 
+
 impl NamedInfuSession {
   pub fn _login_url(&self) -> InfuResult<Url> {
-    let base_url = Url::parse(&self.url)
-      .map_err(|e| format!("Could not parse URL: {}", e))?;
-    Ok(base_url.join("/account/login").map_err(|e| e.to_string())?)
+    login_url_from_base_url(&self.url)
+  }
+
+  pub fn logout_url(&self) -> InfuResult<Url> {
+    logout_url_from_base_url(&self.url)
   }
 
   pub fn command_url(&self) -> InfuResult<Url> {
-    let base_url = Url::parse(&self.url)
-      .map_err(|e| format!("Could not parse URL: {}", e))?;
-    Ok(base_url.join("/command").map_err(|e| e.to_string())?)
+    command_url_from_base_url(&self.url)
   }
 
   pub async fn get(name: &str) -> InfuResult<NamedInfuSession> {
@@ -66,14 +67,18 @@ impl NamedInfuSession {
       None => Err(format!("Session '{}' does not exist.", name).into())
     }
   }
-  
+
   async fn read_sessions() -> InfuResult<Vec<NamedInfuSession>> {
     let session_file_path = Self::get_cli_sessions_path().await?;
-    let mut f = File::open(&session_file_path).await?;
+    let mut f = File::open(&session_file_path).await
+      .map_err(|e| format!("Could not open CLI sessions.json file for reading: {}", e))?;
     let mut buffer = vec![0; tokio::fs::metadata(&session_file_path).await?.len() as usize];
-    f.read_exact(&mut buffer).await?;
+    f.read_exact(&mut buffer).await
+      .map_err(|e| format!("Could not read contents of the CLI sessions.json file: {}", e))?;
     let sessions: Vec<NamedInfuSession> = serde_json::from_str(
-      &String::from_utf8(buffer).map_err(|e| format!("{}", e))?)?;
+      &String::from_utf8(buffer)
+        .map_err(|e| format!("Could not interpret the CLI sessions.json file as utf8: {}", e))?)
+          .map_err(|e| format!("Could not deserialize CLI sessions.json file: {}", e))?;
     Ok(sessions)
   }
 
@@ -81,6 +86,7 @@ impl NamedInfuSession {
     let session_file_path = Self::get_cli_sessions_path().await?;
     let mut file = OpenOptions::new()
       .create(true)
+      .truncate(true)
       .write(true)
       .open(session_file_path).await?;
     let sessions_str = serde_json::to_string(&sessions)?;
@@ -94,17 +100,38 @@ impl NamedInfuSession {
       expand_tilde("~/.infumap").ok_or(format!("Could not determine ~/.infumap path."))?);
     if !path_exists(&dot_infumap_path).await {
       debug!("Creating ~/.infumap directory.");
-      tokio::fs::create_dir(&dot_infumap_path).await?;
+      tokio::fs::create_dir(&dot_infumap_path).await
+        .map_err(|e| format!("Could not create .infumap directory: {}", e))?;
     }
     let mut cli_dir_path = PathBuf::from(dot_infumap_path);
     cli_dir_path.push("cli");
     if !path_exists(&cli_dir_path).await {
       debug!("Creating ~/.infumap/cli directory.");
-      tokio::fs::create_dir(&cli_dir_path).await?;
+      tokio::fs::create_dir(&cli_dir_path).await
+        .map_err(|e| format!("Could not create cli directory: {}", e))?;
     }
     let mut session_file_path = PathBuf::from(cli_dir_path);
     session_file_path.push("sessions.json");
     Ok(session_file_path)
   }
 
+}
+
+
+fn logout_url_from_base_url(base_url: &str) -> InfuResult<Url> {
+  let base_url = Url::parse(base_url)
+    .map_err(|e| format!("Could not parse URL: {}", e))?;
+  base_url.join("/account/logout").map_err(|e| e.to_string().into())
+}
+
+fn login_url_from_base_url(base_url: &str) -> InfuResult<Url> {
+  let base_url = Url::parse(base_url)
+    .map_err(|e| format!("Could not parse URL: {}", e))?;
+  base_url.join("/account/login").map_err(|e| e.to_string().into())
+}
+
+fn command_url_from_base_url(base_url: &str) -> InfuResult<Url> {
+  let base_url = Url::parse(base_url)
+    .map_err(|e| format!("Could not parse URL: {}", e))?;
+  base_url.join("/command").map_err(|e| e.to_string().into())
 }

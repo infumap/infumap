@@ -24,7 +24,7 @@ use super::NamedInfuSession;
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("logout")
-    .about("Logout of an Infumap session. If session name is not specified, '\"default\"' will be assumed.")
+    .about("Logout of an Infumap session. If a session name is not specified, '\"default\"' will be assumed.")
     .arg(Arg::new("name")
       .short('n')
       .long("name")
@@ -42,7 +42,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   match logout(session_name).await {
     Err(e) => {
-      println!("There was a problem logging out of session '{}': {}.", session_name, e);
+      println!("A problem was encountered logging out of session '{}': {}.", session_name, e);
     }
     Ok(_) => {
       println!("Successfully logged out of session '{}'.", session_name);
@@ -57,7 +57,7 @@ pub async fn logout(session_name: &str) -> InfuResult<()> {
   let named_session = match sessions.iter().find(|s| s.name == session_name) {
     Some(s) => s,
     None => {
-      return Err(format!("No session found with name '{}'.", session_name).into());
+      return Err(format!("No session found with name '{}'", session_name).into());
     }
   };
 
@@ -67,22 +67,36 @@ pub async fn logout(session_name: &str) -> InfuResult<()> {
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
-  let logout_response: LogoutResponse = reqwest::ClientBuilder::new()
-    .default_headers(request_headers.clone()).build().unwrap()
-    .post(named_session.url.clone())
-    .send()
-    .await.map_err(|e| e.to_string())?
-    .json()
-    .await.map_err(|e| e.to_string())?;
+  let logout_url = named_session.logout_url()?;
 
+  let error_msg = match reqwest::ClientBuilder::new()
+      .default_headers(request_headers.clone()).build().unwrap()
+      .post(logout_url)
+      .send()
+      .await.map_err(|e| e.to_string()) {
+    Ok(r) => {
+      let logout_response: Result<LogoutResponse, String> = r.json().await.map_err(|e| e.to_string());
+      match logout_response {
+        Ok(rr) => {
+          if rr.success { None } else { Some(format!("There was a server side error logging out user {}", named_session.session.username)) }
+        },
+        Err(e) => {
+          Some(format!("An error occurred getting the logout response JSON content: {}", e))
+        }
+      }
+    },
+    Err(e) => {
+      Some(format!("There was a problem sending the logout server request: {}", e))
+    }
+  };
+
+  // Even if there was a problem logging the user out remotely, remove the session locally.
   let remaining_sessions = sessions.iter()
     .filter(|s| s.name != session_name).collect::<Vec<&NamedInfuSession>>();
   NamedInfuSession::write_sessions(&remaining_sessions).await?;
 
-  if !logout_response.success {
-    return Err(format!(
-      "Server logout request failed for server/user: {}/{}.",
-      named_session.url, named_session.session.username).into());
+  if let Some(msg) = error_msg {
+    return Err(msg.into());
   }
 
   Ok(())

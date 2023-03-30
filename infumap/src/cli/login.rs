@@ -17,9 +17,9 @@
 use std::io::{BufRead, Write};
 
 use clap::{App, Arg, ArgMatches};
-use reqwest::Url;
 use rpassword::read_password;
 
+use crate::cli::login_url_from_base_url;
 use crate::util::infu::InfuResult;
 use crate::web::cookie::InfuSession;
 use crate::web::routes::account::{LoginRequest, LoginResponse};
@@ -30,7 +30,7 @@ use super::logout::logout;
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("login")
-    .about("Create a new persistent Infumap session. If session name is not specified, '\"default\"' will be assumed. If there is an existing session with the same name, this will be closed/removed before creating the new session.")
+    .about("Create a new Infumap session. If session name is not specified, '\"default\"' will be assumed. If there is an existing session with the same name, this will be closed/removed before creating the new session.")
     .arg(Arg::new("name")
       .short('n')
       .long("name")
@@ -67,13 +67,15 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let stdin = std::io::stdin();
   let mut iterator = stdin.lock().lines();
   print!("Base URL: ");
+  std::io::stdout().lock().flush().unwrap();
   let url = iterator.next().unwrap().unwrap();
-  let base_url = Url::parse(&url)
-    .map_err(|e| format!("Could not parse URL: {}", e))?;
-  if base_url.path() != "/" && !url.ends_with("/") {
-    return Err("Specified URL must have no path, or the path must end with a '/' to signify it is not a file.".into());
-  }
-  let login_url = base_url.join("/account/login").map_err(|e| e.to_string())?;
+  let login_url = match login_url_from_base_url(&url) {
+    Ok(url) => url,
+    Err(e) => {
+      println!("Invalid URL: {}", e);
+      return Ok(())
+    }
+  };
   print!("Username: ");
   std::io::stdout().lock().flush().unwrap();
   let username = iterator.next().unwrap().unwrap();

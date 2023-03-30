@@ -18,7 +18,7 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::{Request, Response, StatusCode};
-use log::error;
+use log::{error, debug};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::str;
@@ -43,6 +43,7 @@ pub async fn http_serve(
     image_cache: Arc<std::sync::Mutex<ImageCache>>,
     config: Arc<Config>,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+  debug!("Serving: {}", req.uri().path());
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
