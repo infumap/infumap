@@ -17,12 +17,19 @@
 
 pub type Uid = String;
 
+pub const EMPTY_UID: &str = "00000000000000000000000000000000";
+
+
 pub fn uid_chars() -> Vec<&'static str> {
   vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
 }
 
 pub fn new_uid() -> Uid {
   uuid::Uuid::new_v4().to_string().replace("-", "")
+}
+
+pub fn is_empty_uid(id: &Uid) -> bool {
+  return id == EMPTY_UID;
 }
 
 pub fn is_uid(id_maybe: &str) -> bool {

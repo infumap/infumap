@@ -25,7 +25,7 @@ use crate::storage::db::item::RelationshipToParent;
 use crate::util::geometry::GRID_SIZE;
 use crate::util::geometry::Vector;
 use crate::util::json;
-use crate::util::uid::new_uid;
+use crate::util::uid::EMPTY_UID;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
 use crate::{util::{infu::InfuResult, uid::is_uid}, cli::NamedInfuSession};
@@ -103,7 +103,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut item: Map<String, Value> = Map::new();
   item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_NOTE.to_owned()));
   item.insert("ownerId".to_owned(), Value::String(named_session.session.user_id.clone()));
-  item.insert("id".to_owned(), Value::String(new_uid()));
+  item.insert("id".to_owned(), Value::String(EMPTY_UID.to_owned()));
   item.insert("parentId".to_owned(), Value::String(container_id.clone()));
   item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
   item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));

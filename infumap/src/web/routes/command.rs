@@ -36,6 +36,7 @@ use crate::storage::cache as storage_cache;
 use crate::storage::object;
 use crate::util::infu::InfuResult;
 use crate::util::ordering::new_ordering_at_end;
+use crate::util::uid::{is_empty_uid, new_uid};
 use crate::web::serve::{json_response, incoming_json};
 use crate::web::session::get_and_validate_session;
 
@@ -185,6 +186,11 @@ async fn handle_add_item(
     return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, user_id, item.id).into());
   }
 
+  // An empty id is not valid, but interpreted as a request to generate an id server side.
+  if is_empty_uid(&item.id) {
+    item.id = new_uid();
+  }
+
   if db.item.get(&item.id).is_ok() {
     return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
   }
@@ -198,6 +204,7 @@ async fn handle_add_item(
     return Err(format!("Attempt was made to add an item with parent id '{}', but an item with that id does not exist.", parent_id).into());
   }
 
+  // An empty ordering is not valid, but interpreted as a request to generate an ordering server side.
   if item.ordering.len() == 0 {
     let orderings = db.item.get_children(parent_id)?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
     item.ordering = new_ordering_at_end(orderings);
