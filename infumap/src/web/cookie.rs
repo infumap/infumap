@@ -31,8 +31,6 @@ pub struct InfuSession {
   pub user_id: Uid,
   #[serde(rename="sessionId")]
   pub session_id: Uid,
-  #[serde(rename="rootPageId")]
-  pub root_page_id: Uid
 }
 
 pub fn get_session_cookie_maybe(request: &Request<hyper::body::Incoming>) -> Option<InfuSession> {

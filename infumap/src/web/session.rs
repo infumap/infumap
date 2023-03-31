@@ -69,10 +69,5 @@ pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, 
     return None;
   }
 
-  if user.root_page_id != session_cookie.root_page_id {
-    warn!("Error validating session '{}': User root page '{}' does not match that in session cookie '{}'.", session_cookie.session_id, user.root_page_id, session_cookie.root_page_id);
-    return None
-  }
-
   Some(session)
 }

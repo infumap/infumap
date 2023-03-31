@@ -25,6 +25,7 @@ import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
 import { Toolbar } from "./Toolbar";
+import { EMPTY_UID } from "../util/uid";
 
 
 export const Main: Component = () => {
@@ -43,8 +44,9 @@ export const Main: Component = () => {
     }
 
     try {
-      const rootId = user!.rootPageId!;
-      const result = await server.fetchChildrenWithTheirAttachments(rootId);
+      const result = await server.fetchChildrenWithTheirAttachments(null);
+      const rootPage = result.items.find((a: any) => a['parentId'] == EMPTY_UID) as any;
+      const rootId = rootPage.id;
       childrenLoadInitiatedOrComplete[rootId] = true;
       desktopStore.setChildItemsFromServerObjects(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {

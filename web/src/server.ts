@@ -40,8 +40,8 @@ export interface ItemsAndTheirAttachments {
 }
 
 export const server = {
-  fetchChildrenWithTheirAttachments: async (parentId: Uid): Promise<ItemsAndTheirAttachments> => {
-    let r = await send("get-children-with-their-attachments", { parentId }, null);
+  fetchChildrenWithTheirAttachments: async (parentId: Uid | null): Promise<ItemsAndTheirAttachments> => {
+    let r = await send("get-children-with-their-attachments", parentId == null ? { } : { parentId }, null);
     // Server side, parentId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })

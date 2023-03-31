@@ -70,8 +70,6 @@ pub struct LoginResponse {
   pub session_id: Option<String>,
   #[serde(rename="userId")]
   pub user_id: Option<String>,
-  #[serde(rename="rootPageId")]
-  pub root_page_id: Option<String>,
 }
 
 pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -81,7 +79,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     // Rate limit failed login attempts.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
-      success: false, session_id: None, user_id: None, root_page_id: None,
+      success: false, session_id: None, user_id: None,
       err: Some(String::from(msg))
     });
   }
@@ -139,7 +137,6 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
         success: true,
         session_id: Some(session.id),
         user_id: Some(user.id),
-        root_page_id: Some(user.root_page_id.clone()),
         err: None
       };
       return json_response(&result);

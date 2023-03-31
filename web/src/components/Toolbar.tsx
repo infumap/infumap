@@ -33,6 +33,7 @@ export const Toolbar: Component = () => {
   const navigate = useNavigate();
 
   const logout = async () => {
+    desktopStore.setCurrentPageId(null);
     await userStore.logout();
     navigate('/login');
   }

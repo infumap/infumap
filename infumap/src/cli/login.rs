@@ -104,7 +104,6 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     username,
     user_id: login_response.user_id.unwrap(),
     session_id: login_response.session_id.unwrap(),
-    root_page_id: login_response.root_page_id.unwrap(),
   };
 
   let named_session = NamedInfuSession {
