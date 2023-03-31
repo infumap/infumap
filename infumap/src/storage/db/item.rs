@@ -18,7 +18,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::{Value, Map, Number};
 
 use crate::util::json;
-use crate::util::uid::Uid;
+use crate::util::uid::{Uid, is_uid};
 use crate::util::geometry::{Vector, Dimensions};
 use crate::util::infu::{InfuResult, InfuError};
 use crate::util::lang::option_xor;
@@ -504,6 +504,11 @@ impl JsonLogSerializable<Item> for Item {
     if json::get_string_field(map, "ownerId")?.is_some() { cannot_update_err("ownerId", &self.id)?; }
 
     let parent_id_maybe = json::get_string_field(map, "parentId")?;
+    if let Some(parent_id) = &parent_id_maybe {
+      if !is_uid(&parent_id) {
+        return Err(format!("An attempt was made to apply an update with invalid parent_id '{}' to item '{}'.", parent_id, &self.id).into());
+      }
+    }
     if self.parent_id.is_none() && parent_id_maybe.is_some() {
       return Err(format!("An attempt was made to apply an update to item '{}' that sets the 'parentId' field, where this was not previously set, but this is not allowed.", self.id).into());
     }
@@ -760,17 +765,26 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
   json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
 
   let id = json::get_string_field(map, "id")?.ok_or("'id' field was missing.")?;
+  if !is_uid(&id) { return Err(format!("Item has invalid uid '{}'.", id).into()); }
+
   let item_type = json::get_string_field(map, "itemType")?.ok_or("'itemType' field was missing.")?;
+
+  let parent_id = match map.get("parentId").ok_or(InfuError::new("'parentId' field was missing, and must always be set, even if null."))? {
+    Value::Null => None,
+    Value::String(uid_maybe) => {
+      if !is_uid(uid_maybe) {
+        return Err(format!("Item has invalid parent uid '{}'.", uid_maybe).into());
+      }
+      Some(uid_maybe.clone())
+    },
+    _ => return Err("'parentId' field was not of type 'string'.".into())
+  };
 
   Ok(Item {
     item_type: item_type.clone(),
     id: id.clone(),
     owner_id: json::get_string_field(map, "ownerId")?.ok_or("'owner_id' field was missing.")?,
-    parent_id: match map.get("parentId").ok_or(InfuError::new("'parentId' field was missing, and must always be set, even if null."))? {
-      Value::Null => None,
-      Value::String(s) => Some(s.clone()),
-      _ => return Err(InfuError::new("'parentId' field was not of type 'string'."))
-    },
+    parent_id,
     relationship_to_parent: RelationshipToParent::from_string(
       &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?)?,
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
