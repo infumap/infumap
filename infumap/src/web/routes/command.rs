@@ -102,7 +102,7 @@ pub async fn serve_command_route(
   debug!("Received '{}' command for user '{}'.", request.command, session.user_id);
 
   let response_data_maybe = match request.command.as_str() {
-    "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data).await,
+    "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data, &session.user_id).await,
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
     "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session.user_id).await,
@@ -132,20 +132,36 @@ pub async fn serve_command_route(
 #[derive(Deserialize, Serialize)]
 pub struct GetChildrenRequest {
   #[serde(rename="parentId")]
-  pub parent_id: String,
+  pub parent_id_maybe: Option<String>,
 }
 
-async fn handle_get_children_with_their_attachments(db: &Arc<tokio::sync::Mutex<Db>>, json_data: &str) -> InfuResult<Option<String>> {
+async fn handle_get_children_with_their_attachments(
+    db: &Arc<tokio::sync::Mutex<Db>>,
+    json_data: &str,
+    session_user_id: &String) -> InfuResult<Option<String>> {
   let db = db.lock().await;
 
   let request: GetChildrenRequest = serde_json::from_str(json_data)?;
+
+  let parent_id = match &request.parent_id_maybe {
+    Some(parent_id) => parent_id,
+    None => {
+      &db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
+    }
+  };
+
+  let parent_item = db.item.get(parent_id)?;
+  if &parent_item.owner_id != session_user_id {
+    return Err(format!("User '{}' does not own item '{}'.", session_user_id, parent_id).into());
+  }
+
   let child_items = db.item
-    .get_children(&request.parent_id)?;
+    .get_children(parent_id)?;
 
   let children_result = child_items.iter()
     .map(|v| v.to_api_json().ok())
     .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-    .ok_or(format!("Error occurred getting children for {}", &request.parent_id))?;
+    .ok_or(format!("Error occurred getting children for container '{}'.", parent_id))?;
 
   let mut attachments_result = serde_json::Map::new();
 
@@ -173,7 +189,7 @@ async fn handle_add_item(
     object_store: Arc<object::ObjectStore>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
-    user_id: &String) -> InfuResult<Option<String>> {
+    session_user_id: &String) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
@@ -192,16 +208,16 @@ async fn handle_add_item(
   // 2. A missing parent_id is interpreted as a request to use the user's root page id.
   if !item_map.contains_key("parentId") {
     item_map.insert("parentId".to_owned(),
-      Value::String(db.user.get(user_id).ok_or(format!("No user with id '{}'.", user_id))?.root_page_id.clone()));
+      Value::String(db.user.get(session_user_id).ok_or(format!("No user with id '{}'.", session_user_id))?.root_page_id.clone()));
   }
 
-  // 3. A missing ordering is interpreted as a request to create one at the end and use that.
+  // 3. A missing ordering is interpreted as a request to create one at the end of the childrren of the parent and use that.
   if !item_map.contains_key("ordering") {
     let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
     let parent_id = parent_id_value.as_str()
-      .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", user_id))?;
+      .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", session_user_id))?;
     if !is_uid(parent_id) {
-      return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", user_id).into());
+      return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", session_user_id).into());
     }
     let orderings = db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
     let ordering = new_ordering_at_end(orderings);
@@ -211,36 +227,32 @@ async fn handle_add_item(
   // 4. TODO (MEDIUM): triage destinations.
 
   let mut item: Item = Item::from_api_json(&item_map)?;
+  let parent_id = item_map.get("parentId").unwrap().as_str().unwrap(); // by this point, should never fail.
 
-  if &item.owner_id != user_id {
-    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, user_id, item.id).into());
+  if parent_id == EMPTY_UID {
+    return Err(format!("Attempt was made by user '{}' to add an item with an empty parent id.", session_user_id).into());
+  }
+
+  let parent_item = db.item.get(&parent_id.to_owned())
+    .map_err(|_| format!("Cannot add child item to '{}' because an item with that id does not exist.", parent_id))?;
+  if &parent_item.owner_id != session_user_id {
+    return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, session_user_id,).into());
   }
 
   if is_empty_uid(&item.id) {
-    return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", user_id).into());
+    return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", session_user_id).into());
+  }
+
+  if &item.owner_id != session_user_id {
+    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, session_user_id, item.id).into());
   }
 
   if db.item.get(&item.id).is_ok() {
     return Err(format!("Attempt was made to add item with id '{}', but an item with this id already exists.", item.id).into());
   }
 
-  let parent_id = match &item.parent_id {
-    Some(p) => {
-      if p == EMPTY_UID {
-        return Err(format!("Attempt was made by user '{}' to add an item with empty parent id.", user_id).into());
-      } else {
-        p
-      }
-    },
-    None => { panic!() } // should never get here.
-  };
-
   if item.ordering.len() == 0 {
-    return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", user_id).into());
-  }
-
-  if !db.item.get(&parent_id).is_ok() {
-    return Err(format!("Attempt was made to add an item with parent id '{}', but an item with that id does not exist.", parent_id).into());
+    return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", session_user_id).into());
   }
 
   if is_data_item(&item.item_type) {
@@ -249,8 +261,8 @@ async fn handle_add_item(
     if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
-    let object_encryption_key = &db.user.get(user_id).ok_or(format!("User '{}' not found.", user_id))?.object_encryption_key;
-    object::put(object_store.clone(), user_id, &item.id, &decoded, object_encryption_key).await?;
+    let object_encryption_key = &db.user.get(session_user_id).ok_or(format!("User '{}' not found.", session_user_id))?.object_encryption_key;
+    object::put(object_store.clone(), session_user_id, &item.id, &decoded, object_encryption_key).await?;
 
     if is_image_item(&item.item_type) {
       let file_cursor = Cursor::new(decoded);
@@ -282,7 +294,7 @@ async fn handle_add_item(
 async fn handle_update_item(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
-    user_id: &String) -> InfuResult<Option<String>> {
+    session_user_id: &String) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
@@ -291,8 +303,8 @@ async fn handle_update_item(
   let item_map = item_map_maybe.as_object().ok_or("Update item request body is not a JSON object.")?;
   let item: Item = Item::from_api_json(item_map)?;
 
-  if &db.item.get(&item.id)?.owner_id != user_id {
-    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, user_id, item.id).into());
+  if &db.item.get(&item.id)?.owner_id != session_user_id {
+    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, session_user_id, item.id).into());
   }
 
   db.item.update(&item).await?;
@@ -311,10 +323,14 @@ async fn handle_delete_item<'a>(
     object_store: Arc<object::ObjectStore>,
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     json_data: &str,
-    user_id: &String) -> InfuResult<Option<String>> {
+    session_user_id: &String) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let request: DeleteItemRequest = serde_json::from_str(json_data)?;
+
+  if &db.item.get(&request.id)?.owner_id != session_user_id {
+    return Err(format!("User '{}' does not own item '{}'.", session_user_id, request.id).into());
+  }
 
   if db.item.has_children_or_attachments(&request.id)? {
     return Err(format!("Cannot delete item '{}' because it has one or more associated child or attachment item.", request.id).into());
@@ -324,11 +340,11 @@ async fn handle_delete_item<'a>(
   debug!("Deleted item '{}' from database.", request.id);
 
   if is_data_item(&item.item_type) {
-    object::delete(object_store.clone(), user_id, &request.id).await?;
+    object::delete(object_store.clone(), session_user_id, &request.id).await?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
   if is_image_item(&item.item_type) {
-    let num_removed = storage_cache::delete_all(image_cache, user_id, &request.id).await?;
+    let num_removed = storage_cache::delete_all(image_cache, session_user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }
   Ok(None)
