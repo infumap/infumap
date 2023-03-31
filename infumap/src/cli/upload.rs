@@ -43,13 +43,11 @@ use crate::util::image::get_exif_orientation;
 use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::uid::is_uid;
-use crate::util::uid::new_uid;
 use crate::web::routes::command::GetChildrenRequest;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
 
 use super::NamedInfuSession;
-
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
@@ -88,7 +86,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.is_present("resume");
 
-  // validate directory
+  // validate directory.
   let local_path = match sub_matches.value_of("directory").map(|v| v.to_string()) {
     Some(path) => path,
     None => { return Err("Path to directory to upload contents of must be specified.".into()); }
@@ -209,12 +207,10 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
     let mut item: Map<String, Value> = Map::new();
     item.insert("ownerId".to_owned(), Value::String(named_session.session.user_id.clone()));
-    item.insert("id".to_owned(), Value::String(new_uid()));
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
     item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
     item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
     item.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
-    item.insert("ordering".to_owned(), Value::Array(vec![])); // empty ordering => generate an appropriate one server side.
     item.insert("title".to_owned(), Value::String(filename.to_owned()));
     item.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
     item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
@@ -272,14 +268,14 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         Ok(r) => {
           let json_response: SendResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
-            println!("infumap rejected the add-item command - skipping.");
+            println!("Infumap rejected the add-item command - skipping.");
           } else {
             println!("success!");
           }
           break;
         },
         Err(e) => {
-          println!(" there was a connection issue sending the add-item request - retrying: {}", e);
+          println!("there was a connection issue sending the add-item request - retrying: {}", e);
           tokio::time::sleep(Duration::from_secs(2)).await;
         }
       }

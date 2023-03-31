@@ -36,7 +36,7 @@ use crate::storage::cache as storage_cache;
 use crate::storage::object;
 use crate::util::infu::InfuResult;
 use crate::util::ordering::new_ordering_at_end;
-use crate::util::uid::{is_empty_uid, new_uid};
+use crate::util::uid::{is_empty_uid, new_uid, EMPTY_UID, is_uid};
 use crate::web::serve::{json_response, incoming_json};
 use crate::web::session::get_and_validate_session;
 
@@ -179,16 +179,45 @@ async fn handle_add_item(
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
   let item_map_maybe = iterator.next().ok_or("Add item request has no item data.")??;
-  let item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?;
-  let mut item: Item = Item::from_api_json(item_map)?;
+  let mut item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?.clone();
+
+  // The JSON sent to an add-item command is more flexible than the item schema allows for.
+  // First step is to prep/transform the received JSON map for deserialization into an item object.
+
+  // 1. A missing id is interpreted as a request to generate a new one.
+  if !item_map.contains_key("id") {
+    item_map.insert("id".to_owned(), Value::String(new_uid().to_owned()));
+  }
+
+  // 2. A missing parent_id is interpreted as a request to use the user's root page id.
+  if !item_map.contains_key("parentId") {
+    item_map.insert("parentId".to_owned(),
+      Value::String(db.user.get(user_id).ok_or(format!("No user with id '{}'.", user_id))?.root_page_id.clone()));
+  }
+
+  // 3. A missing ordering is interpreted as a request to create one at the end and use that.
+  if !item_map.contains_key("ordering") {
+    let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
+    let parent_id = parent_id_value.as_str()
+      .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", user_id))?;
+    if !is_uid(parent_id) {
+      return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", user_id).into());
+    }
+    let orderings = db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
+    let ordering = new_ordering_at_end(orderings);
+    item_map.insert(String::from("ordering"), Value::Array(ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+  }
+
+  // 4. TODO (MEDIUM): triage destinations.
+
+  let mut item: Item = Item::from_api_json(&item_map)?;
 
   if &item.owner_id != user_id {
     return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, user_id, item.id).into());
   }
 
-  // An empty id is not valid, but interpreted as a request to generate an id server side.
   if is_empty_uid(&item.id) {
-    item.id = new_uid();
+    return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", user_id).into());
   }
 
   if db.item.get(&item.id).is_ok() {
@@ -196,20 +225,24 @@ async fn handle_add_item(
   }
 
   let parent_id = match &item.parent_id {
-    Some(p) => p,
-    None => { return Err("Attempt was made to add item with no parent id.".into()); }
+    Some(p) => {
+      if p == EMPTY_UID {
+        return Err(format!("Attempt was made by user '{}' to add an item with empty parent id.", user_id).into());
+      } else {
+        p
+      }
+    },
+    None => { panic!() } // should never get here.
   };
+
+  if item.ordering.len() == 0 {
+    return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", user_id).into());
+  }
 
   if !db.item.get(&parent_id).is_ok() {
     return Err(format!("Attempt was made to add an item with parent id '{}', but an item with that id does not exist.", parent_id).into());
   }
 
-  // An empty ordering is not valid, but interpreted as a request to generate an ordering server side.
-  if item.ordering.len() == 0 {
-    let orderings = db.item.get_children(parent_id)?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
-    item.ordering = new_ordering_at_end(orderings);
-  }
- 
   if is_data_item(&item.item_type) {
     let base64_data = base64_data_maybe.as_ref().ok_or(format!("Add item request has no base64 data, when this is expected for item of type {}.", item.item_type))?;
     let decoded = general_purpose::STANDARD.decode(&base64_data).map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;

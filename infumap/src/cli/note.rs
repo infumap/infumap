@@ -25,7 +25,6 @@ use crate::storage::db::item::RelationshipToParent;
 use crate::util::geometry::GRID_SIZE;
 use crate::util::geometry::Vector;
 use crate::util::json;
-use crate::util::uid::EMPTY_UID;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
 use crate::{util::{infu::InfuResult, uid::is_uid}, cli::NamedInfuSession};
@@ -33,7 +32,7 @@ use crate::{util::{infu::InfuResult, uid::is_uid}, cli::NamedInfuSession};
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("note")
-    .about("Add a note to an Infumap container. WORK IN PROGRESS.")
+    .about("Add a note to an Infumap container.")
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
@@ -80,16 +79,14 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
 
   // validate container.
-  let container_id = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
+  let container_id_maybe = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
     Some(uid_maybe) => {
       if !is_uid(&uid_maybe) {
         return Err(format!("Invalid container id: '{}'.", uid_maybe).into());
       }
-      uid_maybe
+      Some(uid_maybe)
     },
-    None => {
-      named_session.session.root_page_id.clone()
-    }
+    None => { None }
   };
 
   let session_cookie_value = serde_json::to_string(&named_session.session)?;
@@ -103,12 +100,15 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut item: Map<String, Value> = Map::new();
   item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_NOTE.to_owned()));
   item.insert("ownerId".to_owned(), Value::String(named_session.session.user_id.clone()));
-  item.insert("id".to_owned(), Value::String(EMPTY_UID.to_owned()));
-  item.insert("parentId".to_owned(), Value::String(container_id.clone()));
+  match container_id_maybe {
+    Some(container_id) => {
+      item.insert("parentId".to_owned(), Value::String(container_id.clone()));
+    },
+    None => {}
+  }
   item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
   item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
   item.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
-  item.insert("ordering".to_owned(), Value::Array(vec![])); // empty ordering => generate an appropriate one server side.
   item.insert("title".to_owned(), Value::String(note.to_owned()));
   item.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
   item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 8).into()));
@@ -131,9 +131,9 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     .await.map_err(|e| format!("{}", e))?;
 
   if !add_item_response.success {
-    println!("infumap rejected the add-item command.");
+    println!("Infumap rejected the add-item command. Has your session expired?");
   } else {
-    println!("success!");
+    println!("Success!");
   }
 
   Ok(())

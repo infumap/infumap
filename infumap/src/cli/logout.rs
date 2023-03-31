@@ -25,9 +25,9 @@ use super::NamedInfuSession;
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("logout")
     .about("Logout of an Infumap session. If a session name is not specified, '\"default\"' will be assumed.")
-    .arg(Arg::new("name")
-      .short('n')
-      .long("name")
+    .arg(Arg::new("session")
+      .short('s')
+      .long("session")
       .help("The session name.")
       .takes_value(true)
       .multiple_values(false)
@@ -35,7 +35,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 }
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let session_name = match sub_matches.value_of("name") {
+  let session_name = match sub_matches.value_of("session") {
     Some(name) => name,
     None => "default"
   };
