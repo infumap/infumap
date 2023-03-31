@@ -157,6 +157,16 @@ pub const ITEM_TYPE_IMAGE: &'static str = "image";
 pub const ITEM_TYPE_RATING: &'static str = "rating";
 pub const ITEM_TYPE_LINK: &'static str = "link";
 
+pub fn is_attachments_item(item_type: &str) -> bool {
+  item_type == ITEM_TYPE_FILE || item_type == ITEM_TYPE_NOTE ||
+  item_type == ITEM_TYPE_PAGE || item_type == ITEM_TYPE_TABLE ||
+  item_type == ITEM_TYPE_IMAGE
+}
+
+pub fn is_container_item(item_type: &str) -> bool {
+  item_type == ITEM_TYPE_PAGE || item_type == ITEM_TYPE_TABLE
+}
+
 pub fn is_data_item(item_type: &str) -> bool {
   item_type == ITEM_TYPE_FILE || item_type == ITEM_TYPE_IMAGE
 }

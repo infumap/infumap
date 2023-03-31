@@ -14,17 +14,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use clap::{App, Arg, ArgMatches};
 use serde_json::Map;
 use serde_json::Value;
 
 use crate::storage::db::item::ITEM_TYPE_NOTE;
-use crate::storage::db::item::RelationshipToParent;
 use crate::util::geometry::GRID_SIZE;
-use crate::util::geometry::Vector;
-use crate::util::json;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
 use crate::{util::{infu::InfuResult, uid::is_uid}, cli::NamedInfuSession};
@@ -95,22 +90,15 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
-  let unix_time_now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-
   let mut item: Map<String, Value> = Map::new();
   item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_NOTE.to_owned()));
-  item.insert("ownerId".to_owned(), Value::String(named_session.session.user_id.clone()));
   match container_id_maybe {
     Some(container_id) => {
       item.insert("parentId".to_owned(), Value::String(container_id.clone()));
     },
     None => {}
   }
-  item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
-  item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
-  item.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
   item.insert("title".to_owned(), Value::String(note.to_owned()));
-  item.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
   item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 8).into()));
   item.insert("url".to_owned(), Value::String("".to_owned()));
 

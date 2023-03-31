@@ -29,12 +29,16 @@ use serde_json::Value;
 use std::str;
 use std::io::Cursor;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, is_data_item, is_image_item};
+use crate::storage::db::item::{Item, RelationshipToParent};
+use crate::storage::db::item::{is_data_item, is_image_item, is_container_item, is_attachments_item};
 use crate::storage::cache as storage_cache;
 use crate::storage::object;
+use crate::util::geometry::Vector;
 use crate::util::infu::InfuResult;
+use crate::util::json;
 use crate::util::ordering::new_ordering_at_end;
 use crate::util::uid::{is_empty_uid, new_uid, EMPTY_UID, is_uid};
 use crate::web::serve::{json_response, incoming_json};
@@ -198,20 +202,39 @@ async fn handle_add_item(
   let mut item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?.clone();
 
   // The JSON sent to an add-item command is more flexible than the item schema allows for.
-  // First step is to prep/transform the received JSON map for deserialization into an item object.
+  // First step is to prep/transform/add defaults to the received JSON map for deserialization into an item object.
 
-  // 1. A missing id is interpreted as a request to generate a new one.
   if !item_map.contains_key("id") {
     item_map.insert("id".to_owned(), Value::String(new_uid().to_owned()));
   }
 
-  // 2. A missing parent_id is interpreted as a request to use the user's root page id.
   if !item_map.contains_key("parentId") {
     item_map.insert("parentId".to_owned(),
       Value::String(db.user.get(session_user_id).ok_or(format!("No user with id '{}'.", session_user_id))?.root_page_id.clone()));
   }
 
-  // 3. A missing ordering is interpreted as a request to create one at the end of the childrren of the parent and use that.
+  if !item_map.contains_key("ownerId") {
+    item_map.insert("ownerId".to_owned(), Value::String(session_user_id.to_owned()));
+  }
+
+  if !item_map.contains_key("relationshipToParent") {
+    item_map.insert("relationshipToParent".to_owned(), Value::String("child".to_owned()));
+  }
+
+  let unix_time_now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+
+  if !item_map.contains_key("creationDate") {
+    item_map.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
+  }
+
+  if !item_map.contains_key("lastModifiedDate") {
+    item_map.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
+  }
+
+  if !item_map.contains_key("spatialPositionGr") {
+    item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+  }
+
   if !item_map.contains_key("ordering") {
     let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
     let parent_id = parent_id_value.as_str()
@@ -238,6 +261,22 @@ async fn handle_add_item(
   if &parent_item.owner_id != session_user_id {
     return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, session_user_id,).into());
   }
+
+  match item.relationship_to_parent {
+    RelationshipToParent::Child => {
+      if !is_container_item(&parent_item.item_type) {
+        return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", session_user_id).into());
+      }
+    },
+    RelationshipToParent::Attachment => {
+      if !is_attachments_item(&parent_item.item_type) {
+        return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", session_user_id).into());
+      }
+    },
+    RelationshipToParent::NoParent => {
+      return Err(format!("Attempt was made by user '{}' to add a root level page.", session_user_id).into());
+    }
+  };
 
   if is_empty_uid(&item.id) {
     return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", session_user_id).into());

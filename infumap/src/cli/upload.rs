@@ -18,7 +18,6 @@ use std::io::Cursor;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use base64::{Engine as _, engine::general_purpose};
@@ -33,11 +32,9 @@ use tokio::io::AsyncReadExt;
 
 use crate::storage::db::item::ITEM_TYPE_FILE;
 use crate::storage::db::item::ITEM_TYPE_IMAGE;
-use crate::storage::db::item::RelationshipToParent;
 use crate::util::fs::expand_tilde;
 use crate::util::geometry::Dimensions;
 use crate::util::geometry::GRID_SIZE;
-use crate::util::geometry::Vector;
 use crate::util::image::adjust_image_for_exif_orientation;
 use crate::util::image::get_exif_orientation;
 use crate::util::infu::InfuResult;
@@ -185,7 +182,6 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut current_file = 0;
   while let Some(entry) = iter.next_entry().await? {
     current_file += 1;
-    let unix_time_now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
     let os_filename = entry.file_name();
     let filename = os_filename.to_str().ok_or(format!("Could not interpret filename '{:?}'.", entry.file_name()))?;
@@ -206,13 +202,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     let base_64_encoded = general_purpose::STANDARD.encode(&buffer);
 
     let mut item: Map<String, Value> = Map::new();
-    item.insert("ownerId".to_owned(), Value::String(named_session.session.user_id.clone()));
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
-    item.insert("relationshipToParent".to_owned(), Value::String(RelationshipToParent::Child.as_str().to_owned()));
-    item.insert("creationDate".to_owned(), Value::Number(unix_time_now.into()));
-    item.insert("lastModifiedDate".to_owned(), Value::Number(unix_time_now.into()));
     item.insert("title".to_owned(), Value::String(filename.to_owned()));
-    item.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
     item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
     item.insert("originalCreationDate".to_owned(),
       Value::Number(metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs().into()));
