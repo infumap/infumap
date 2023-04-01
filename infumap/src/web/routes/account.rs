@@ -54,7 +54,7 @@ pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::
   }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
@@ -76,7 +76,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
   let mut db = db.lock().await;
 
   async fn failed_response(msg: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
-    // Rate limit failed login attempts.
+    // TODO (LOW): rate limit login requests properly.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
       success: false, session_id: None, user_id: None,
@@ -91,6 +91,8 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
       return failed_response("server error").await;
     }
   };
+
+  println!("{:?}", &payload);
 
   let user = match db.user.get_by_username(&payload.username) {
     Some(user) => user,
