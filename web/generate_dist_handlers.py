@@ -63,20 +63,21 @@ use super::serve::full_body;
 
 pub fn serve_dist_routes(req: &Request<hyper::body::Incoming>) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
   match (req.method(), req.uri().path()) {
-    (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
+    (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
+    (&Method::GET, "/add") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/add.html"))).unwrap()),
 """
 
 for f in js_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in css_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in png_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 for f in ico_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 output += """    _ => None
   }
