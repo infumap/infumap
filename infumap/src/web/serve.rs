@@ -51,7 +51,7 @@ pub async fn http_serve(
     else if req.uri().path().starts_with("/files/") { serve_files_route(&db, object_store, image_cache.clone(), config, &req).await }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, &req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
-    else if let Some(response) = serve_html_routes(&db, &object_store, &req).await { response }
+    else if let Some(response) = serve_html_routes(&req) { response }
     else { not_found_response() }
   )
 }

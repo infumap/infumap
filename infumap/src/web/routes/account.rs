@@ -92,8 +92,6 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     }
   };
 
-  println!("{:?}", &payload);
-
   let user = match db.user.get_by_username(&payload.username) {
     Some(user) => user,
     None => {
