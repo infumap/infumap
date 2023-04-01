@@ -30,11 +30,12 @@ use crate::storage::cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
 
-use super::dist_handlers::handle_dist_response_maybe;
+use super::dist_handlers::serve_dist_routes;
 use super::routes::account::serve_account_route;
 use super::routes::admin::serve_admin_route;
 use super::routes::command::serve_command_route;
 use super::routes::files::serve_files_route;
+use super::routes::html::serve_html_routes;
 
 
 pub async fn http_serve(
@@ -49,7 +50,8 @@ pub async fn http_serve(
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
     else if req.uri().path().starts_with("/files/") { serve_files_route(&db, object_store, image_cache.clone(), config, &req).await }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, &req).await }
-    else if let Some(response) = handle_dist_response_maybe(&req) { response }
+    else if let Some(response) = serve_dist_routes(&req) { response }
+    else if let Some(response) = serve_html_routes(&db, &object_store, &req).await { response }
     else { not_found_response() }
   )
 }

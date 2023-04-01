@@ -61,7 +61,7 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
 use super::serve::full_body;
 
-pub fn handle_dist_response_maybe(req: &Request<hyper::body::Incoming>) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
+pub fn serve_dist_routes(req: &Request<hyper::body::Incoming>) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
   match (req.method(), req.uri().path()) {
     (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
 """

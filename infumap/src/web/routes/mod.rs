@@ -21,6 +21,7 @@ pub mod account;
 pub mod admin;
 pub mod command;
 pub mod files;
+pub mod html;
 
 
 pub trait WebApiJsonSerializable<T> {
