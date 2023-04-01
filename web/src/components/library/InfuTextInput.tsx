@@ -23,7 +23,7 @@ export type InfuTextInputProps = {
   value?: string,
   type?: string,
   /// Triggered immediately as value changes.
-  onIncrementalChange?: ((v: string) => void),
+  onInput?: ((v: string) => void),
   /// Triggered after loosing focus.
   onChange?: ((v: string) => void),
   onEnter?: () => void,
@@ -33,16 +33,15 @@ export type InfuTextInputProps = {
 export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInputProps) => {
   let textElement: HTMLInputElement | undefined;
 
-  const keyDownHandler = (ev: Event) => {
-    // The input element value does not change immediately on key down, so wait a bit.
-    // This also gives desired behavior for ctrl-v. For paste otherwise, also just reuse this method.
-    if (props.onIncrementalChange) {
-      setTimeout(() => {
-        props.onIncrementalChange!(textElement!.value)
-      }, 1);
+  const inputHandler = (ev: Event) => {
+    if (props.onInput) {
+      props.onInput!(textElement!.value);
     }
+  }
+
+  const keyDownHandler = (ev: Event) => {
     if ((ev as KeyboardEvent).code == "Enter" && props.onEnter) {
-      setTimeout(() => { props.onEnter!(); }, 5)
+      setTimeout(() => { props.onEnter!(); }, 50)
     }
   }
 
@@ -57,8 +56,8 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
            class="border border-slate-300 p-2 rounded"
            value={props.value ? props.value : ""}
            type={props.type ? props.type : "text"}
-           onPaste={keyDownHandler}
            onKeyDown={keyDownHandler}
+           onInput={inputHandler}
            onChange={changeHandler}
            disabled={props.disabled} />
   );

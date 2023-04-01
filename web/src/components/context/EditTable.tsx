@@ -42,7 +42,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   return (
     <div>
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onIncrementalChange={handleTitleChange} onChange={handleTitleChanged} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleChange} onChange={handleTitleChanged} /></div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>
   );

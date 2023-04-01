@@ -54,11 +54,11 @@ export const Login: Component = () => {
       </div>
       <div class="mb-3">
         <div class="inline-block w-32">Username</div>
-        <InfuTextInput onIncrementalChange={(v) => { username = v; setError(null); }} />
+        <InfuTextInput onInput={(v) => { username = v; setError(null); }} />
       </div>
       <div class="mb-3">
         <div class="inline-block w-32">Password</div>
-        <InfuTextInput onIncrementalChange={(v) => { password = v; setError(null); }} onEnter={handleLoginClick} type="password" />
+        <InfuTextInput onInput={(v) => { password = v; setError(null); }} onEnter={handleLoginClick} type="password" />
       </div>
       <div>
         <div class="inline-block w-32"></div>
@@ -68,7 +68,7 @@ export const Login: Component = () => {
       <Show when={generalStore.prefer2fa()}>
         <div class="mb-3">
           <div class="inline-block w-32">6 Digit Token</div>
-          <InfuTextInput onIncrementalChange={(v) => { totpToken = v; setError(null); }} onEnter={handleLoginClick} />
+          <InfuTextInput onInput={(v) => { totpToken = v; setError(null); }} onEnter={handleLoginClick} />
         </div>
       </Show>
       <div class="mb-1">

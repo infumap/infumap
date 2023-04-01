@@ -111,12 +111,12 @@ export const SignUp: Component = () => {
         <div class="mb-3">
           <div class="inline-block w-32">Username</div>
           <Show when={!areSettingUp()} fallback={<InfuTextInput disabled={true} value={ROOT_USERNAME} />}>
-            <InfuTextInput onIncrementalChange={(v) => { username = v; }} />
+            <InfuTextInput onInput={(v) => { username = v; }} />
           </Show>
         </div>
         <div class="mb-3">
           <div class="inline-block w-32">Password</div>
-          <InfuTextInput onIncrementalChange={(v) => { password = v; }} type="password" />
+          <InfuTextInput onInput={(v) => { password = v; }} type="password" />
         </div>
         <div>
           <div class="inline-block w-32"></div>
@@ -128,7 +128,7 @@ export const SignUp: Component = () => {
         <Show when={generalStore.prefer2fa()}>
           <div class="mb-3">
             <div class="inline-block w-32">6 Digit Token</div>
-            <InfuTextInput onIncrementalChange={(v) => { totpToken = v; }} />
+            <InfuTextInput onInput={(v) => { totpToken = v; }} />
           </div>
         </Show>
         <div class="mb-1">

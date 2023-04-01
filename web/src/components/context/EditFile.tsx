@@ -42,7 +42,7 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
 
   return (
     <div>
-      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onIncrementalChange={handleTextChange} onChange={handleTextChanged} /></div>
+      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextChange} onChange={handleTextChanged} /></div>
       <div><InfuButton text="delete" onClick={deleteFile} /></div>
     </div>
   );

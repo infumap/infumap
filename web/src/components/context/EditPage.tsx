@@ -69,7 +69,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   return (
     <div class="m-1">
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onIncrementalChange={handleTitleChange} onChange={handleTitleChanged} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onInput={handleTitleChange} onChange={handleTitleChanged} /></div>
       <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr / GRID_SIZE).toString()} onChange={handleBlockWidthChange} /></div>
       <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChange={handleNaturalAspectChange} /></div>
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
