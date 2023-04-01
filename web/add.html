@@ -24,21 +24,41 @@
     <link rel="shortcut icon" type="image/ico" href="/src/assets/favicon.ico" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" />
     <link rel="apple-touch-icon" sizes="192x192" href="/src/assets/circle.png">
-    <title>Add Note - Infumap</title>
+    <title>Infumap</title>
+    <script type="text/javascript">
+      const addPath = "/add";
+      if (!location.href.endsWith(addPath)) {
+        throw "Unexpected path";
+      }
+      fetch("/account/validate-session", { method: 'POST' })
+        .then(async response => {
+          try {
+            if (response.status == 200) {
+              const body = await response.json();
+              if (body.success) {
+                return;
+              }
+            }
+          } catch {}
+          location.href = location.href.substring(0, location.href.length - addPath.length) + "/login?redirect=add";
+        });
+    </script>
   </head>
   <body>
     <div>Add Note</div>
-    <div><textarea id="note" rows="6" cols="60"></textarea></div>
-    <div><button onclick="submitNote()">submit</button></div>
+    <div style="padding: 10px;"><textarea id="note" rows="6" style="width: 100%;"></textarea></div>
+    <div><button onclick="handleSubmit()">submit</button></div>
+    <div id="status"></div>
   </body>
   <script>
-    async function submitNote() {
+    async function handleSubmit() {
       let jsonData = JSON.stringify({
         itemType: "note",
         title: document.getElementById("note").value,
         url: "",
         spatialWidthGr: 8 * 60,
       });
+      document.getElementById("status").textContent = "adding";
       await fetch("/command", {
         method: 'POST',
         headers: {
@@ -47,6 +67,10 @@
         },
         body: JSON.stringify({ command: "add-item", jsonData })
       });
+      document.getElementById("status").textContent = "added";
+      setTimeout(() => {
+        document.getElementById("status").textContent = "";
+      }, 2000);
     }
   </script>
 </html>

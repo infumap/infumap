@@ -36,6 +36,7 @@ use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, new_uid};
 use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::serve::{json_response, not_found_response, incoming_json};
+use crate::web::session::get_and_validate_session;
 
 
 const TOTP_ALGORITHM: Algorithm = Algorithm::SHA1; // The most broadly compatible algo & SHA1 is just fine for 2FA.
@@ -50,9 +51,11 @@ pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::
     (&Method::POST, "/account/logout") => logout(db, req).await,
     (&Method::POST, "/account/register") => register(db, req).await,
     (&Method::POST, "/account/totp") => totp(),
+    (&Method::POST, "/account/validate-session") => validate(db, req).await,
     _ => not_found_response()
   }
 }
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoginRequest {
@@ -397,4 +400,17 @@ pub fn totp() -> Response<BoxBody<Bytes, hyper::Error>> {
     url: Some(totp.get_url()),
     secret: Some(Secret::Raw(secret_bytes).to_encoded().to_string())
   })
+}
+
+
+#[derive(Serialize)]
+pub struct ValidateResponse {
+  pub success: bool,
+}
+
+pub async fn validate(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  match get_and_validate_session(&req, db).await {
+    Some(_session) => json_response(&ValidateResponse { success: true }),
+    None => { json_response(&ValidateResponse { success: false }) }
+  }
 }

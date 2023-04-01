@@ -43,7 +43,16 @@ export const Login: Component = () => {
 
   const handleLoginClick = async () => {
     const r = await userStore.login(username, password, generalStore.prefer2fa() ? totpToken : null);
-    if (r.success) { navigate('/'); }
+    if (r.success) {
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+      const loginPath = "/login";
+      const basePath = location.href.substring(0, location.href.lastIndexOf(loginPath));
+      if (urlParams.get("redirect") == "add") {
+        location.href = basePath + "/add";
+      }
+      navigate(basePath + '/');
+    }
     else { setError(r.err); }
   }
 
