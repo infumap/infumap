@@ -50,8 +50,9 @@ export const Login: Component = () => {
       const basePath = location.href.substring(0, location.href.lastIndexOf(loginPath));
       if (urlParams.get("redirect") == "add") {
         location.href = basePath + "/add";
+      } else {
+        navigate('/');
       }
-      navigate(basePath + '/');
     }
     else { setError(r.err); }
   }

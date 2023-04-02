@@ -32,11 +32,11 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent};
+use crate::storage::db::item::{Item, RelationshipToParent, ITEM_TYPE_IMAGE};
 use crate::storage::db::item::{is_data_item, is_image_item, is_container_item, is_attachments_item};
 use crate::storage::cache as storage_cache;
 use crate::storage::object;
-use crate::util::geometry::Vector;
+use crate::util::geometry::{Vector, Dimensions};
 use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::ordering::new_ordering_at_end;
@@ -200,6 +200,9 @@ async fn handle_add_item(
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
   let item_map_maybe = iterator.next().ok_or("Add item request has no item data.")??;
   let mut item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?.clone();
+  
+  let item_type = String::from(
+    item_map.get("itemType").ok_or("Item type was not specified.")?.as_str().ok_or("'itemType' field is not a string.")?);
 
   // The JSON sent to an add-item command is more flexible than the item schema allows for.
   // First step is to prep/transform/add defaults to the received JSON map for deserialization into an item object.
@@ -233,6 +236,14 @@ async fn handle_add_item(
 
   if !item_map.contains_key("spatialPositionGr") {
     item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+  }
+
+  if item_type == ITEM_TYPE_IMAGE && !item_map.contains_key("imageSizePx") {
+    item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
+  }
+
+  if item_type == ITEM_TYPE_IMAGE && !item_map.contains_key("thumbnail") {
+    item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
   }
 
   if !item_map.contains_key("ordering") {
@@ -307,6 +318,8 @@ async fn handle_add_item(
       let file_cursor = Cursor::new(decoded);
       let file_reader = Reader::new(file_cursor).with_guessed_format()?;
       let img = file_reader.decode().ok().ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
+      let width = img.width();
+      let height = img.height();
       let img = img.resize_exact(8, 8, FilterType::Nearest);
       // TODO (LOW): consider EXIF rotation information - the thumbnail may not be oriented correctly. But it's only 8x8, so doesn't matter much.
       let buf = Vec::new();
@@ -315,7 +328,18 @@ async fn handle_add_item(
         .map_err(|e| format!("An error occured creating the thumbnail png for new image '{}': {}.", item.id, e))?;
       let thumbnail_data = cursor.get_ref().to_vec();
       let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
+      if item.thumbnail.unwrap() != "" {
+        return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", session_user_id).into());
+      }
       item.thumbnail = Some(thumbnail_base64);
+      let img_size_px = &item.image_size_px.unwrap();
+      if img_size_px.w != -1 && img_size_px.w != width as i64 {
+        return Err(format!("Image width specified for new image item '{}' ({:?}) does not match the actual width of the image ({}).", item.id, img_size_px, width).into());
+      }
+      if img_size_px.h != -1 && img_size_px.h != height as i64 {
+        return Err(format!("Image height specified for new image item '{}' ({:?}) does not match the actual height of the image ({}).", item.id, img_size_px, height).into());
+      }
+      item.image_size_px = Some(Dimensions { w: width as i64, h: height as i64 });
     }
   } else {
     if base64_data_maybe.is_some() {
