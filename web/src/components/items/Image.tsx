@@ -50,6 +50,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   };
   const boundsPx = props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
+  const quantizedBoundsPx_cache = () => quantizeBoundingBox(boundsPx_cache());
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const imgUrl = () => {
@@ -82,11 +83,11 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const BORDER_WIDTH_PX = 1;
 
   return (
-    <Show when={boundsPx_cache().w > 5}>
+    <Show when={boundsPx().w > 5}>
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
-           style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+           style={`left: ${quantizedBoundsPx_cache().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <img class="max-w-none absolute"
              style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                     `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
