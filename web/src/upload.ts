@@ -60,46 +60,34 @@ export async function handleUpload(
     let base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
     if (file.type.startsWith("image")) {
-      let reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onloadend = function() {
-        let img = document.createElement('img')!;
-        img.onload = async () => {
-          let w = img.width;
-          let h = img.height;
-          document.body.removeChild(img);
-          let imageItem: ImageItem = {
-            itemType: ITEM_TYPE_IMAGE,
-            ownerId: userStore.getUser().userId,
-            id: newUid(),
-            parentId: parent.id,
-            relationshipToParent: Child,
-            creationDate: currentUnixTimeSeconds(),
-            lastModifiedDate: currentUnixTimeSeconds(),
-            ordering: desktopStore.newOrderingAtEndOfChildren(parent.id),
-            title: file.name,
-            spatialPositionGr: createVectorSignal(calcBlockPositionGr(parent, desktopPx)),
+      let imageItem: ImageItem = {
+        itemType: ITEM_TYPE_IMAGE,
+        ownerId: userStore.getUser().userId,
+        id: newUid(),
+        parentId: parent.id,
+        relationshipToParent: Child,
+        creationDate: currentUnixTimeSeconds(),
+        lastModifiedDate: currentUnixTimeSeconds(),
+        ordering: desktopStore.newOrderingAtEndOfChildren(parent.id),
+        title: file.name,
+        spatialPositionGr: createVectorSignal(calcBlockPositionGr(parent, desktopPx)),
 
-            spatialWidthGr: 4.0 * GRID_SIZE,
+        spatialWidthGr: 4.0 * GRID_SIZE,
 
-            originalCreationDate: Math.round(file.lastModified/1000.0),
-            mimeType: file.type,
-            fileSizeBytes: file.size,
+        originalCreationDate: Math.round(file.lastModified/1000.0),
+        mimeType: file.type,
+        fileSizeBytes: file.size,
 
-            imageSizePx: { w, h },
-            thumbnail: "", // calculated on server.
+        imageSizePx: { w: -1, h: -1 }, // calculate on server.
+        thumbnail: "", // calculate on server.
 
-            computed_attachments: createUidArraySignal([]),
-            computed_mouseIsOver: createBooleanSignal(false),
-          };
-          // includes thumbnail.
-          let returnedItem = await server.addItem(imageItem, base64Data);
-          // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-          desktopStore.addItem(itemFromObject(returnedItem));
-        }
-        img.src = reader.result as string;
-        document.body.appendChild(img);
-      }
+        computed_attachments: createUidArraySignal([]),
+        computed_mouseIsOver: createBooleanSignal(false),
+      };
+
+      let returnedItem = await server.addItem(imageItem, base64Data);
+      // TODO (MEDIUM): immediately put an item in the UI, have image update later.
+      desktopStore.addItem(itemFromObject(returnedItem));
 
     } else {
       let fileItem: FileItem = {
