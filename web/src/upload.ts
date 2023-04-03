@@ -35,12 +35,12 @@ export async function handleUpload(
 
   // handle string type data.
   for (let i=0; i<dataTransfer.items.length; ++i) {
-    let itm = dataTransfer.items[i];
-    if (itm.kind != 'string') {
+    const item = dataTransfer.items[i];
+    if (item.kind != 'string') {
       continue;
     }
-    if (itm.type == 'text/html') {
-      itm.getAsString((txt) => {
+    if (item.type == 'text/html') {
+      item.getAsString((txt) => {
         console.log("TODO: upload clipings", txt, desktopPx);
       });
     }
@@ -48,9 +48,9 @@ export async function handleUpload(
 
   // handle files.
   const files = dataTransfer.files;
-  for (let i=0; i<dataTransfer.files.length; ++i) {
-    let file = dataTransfer.files[i];
-    let base64Data = base64ArrayBuffer(await file.arrayBuffer());
+  for (let i=0; i<files.length; ++i) {
+    const file = files[i];
+    const base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
     if (file.type.startsWith("image")) {
       let imageItem: object = {
