@@ -17,25 +17,18 @@
 */
 
 import { GRID_SIZE } from "./constants";
-import { Child } from "./store/desktop/relationship-to-parent";
 import { server } from "./server";
-import { FileItem } from "./store/desktop/items/file-item";
-import { ImageItem } from "./store/desktop/items/image-item";
 import { calcBlockPositionGr, PageItem } from "./store/desktop/items/page-item";
 import { DesktopStoreContextModel } from "./store/desktop/DesktopStoreProvider";
-import { UserStoreContextModel } from "./store/UserStoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
-import { currentUnixTimeSeconds } from "./util/lang";
 import { newUid } from "./util/uid";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
-import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "./util/signals";
 import { itemFromObject } from "./store/desktop/items/base/item-polymorphism";
 
 
 export async function handleUpload(
     desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel,
     dataTransfer: DataTransfer,
     desktopPx: Vector,
     parent: PageItem) {
@@ -60,60 +53,37 @@ export async function handleUpload(
     let base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
     if (file.type.startsWith("image")) {
-      let imageItem: ImageItem = {
+      let imageItem: object = {
         itemType: ITEM_TYPE_IMAGE,
-        ownerId: userStore.getUser().userId,
-        id: newUid(),
         parentId: parent.id,
-        relationshipToParent: Child,
-        creationDate: currentUnixTimeSeconds(),
-        lastModifiedDate: currentUnixTimeSeconds(),
-        ordering: desktopStore.newOrderingAtEndOfChildren(parent.id),
         title: file.name,
-        spatialPositionGr: createVectorSignal(calcBlockPositionGr(parent, desktopPx)),
-
+        spatialPositionGr: calcBlockPositionGr(parent, desktopPx),
         spatialWidthGr: 4.0 * GRID_SIZE,
-
         originalCreationDate: Math.round(file.lastModified/1000.0),
         mimeType: file.type,
         fileSizeBytes: file.size,
-
-        imageSizePx: { w: -1, h: -1 }, // calculate on server.
-        thumbnail: "", // calculate on server.
-
-        computed_attachments: createUidArraySignal([]),
-        computed_mouseIsOver: createBooleanSignal(false),
       };
 
-      let returnedItem = await server.addItem(imageItem, base64Data);
+      const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
       desktopStore.addItem(itemFromObject(returnedItem));
 
     } else {
-      let fileItem: FileItem = {
+      let fileItem: object = {
         itemType: ITEM_TYPE_FILE,
-        ownerId: userStore.getUser().userId,
         id: newUid(),
         parentId: parent.id,
-        relationshipToParent: Child,
-        creationDate: currentUnixTimeSeconds(),
-        lastModifiedDate: currentUnixTimeSeconds(),
-        ordering: desktopStore.newOrderingAtEndOfChildren(parent.id),
         title: file.name,
-        spatialPositionGr: createVectorSignal(calcBlockPositionGr(parent, desktopPx)),
-
+        spatialPositionGr: calcBlockPositionGr(parent, desktopPx),
         spatialWidthGr: 8.0 * GRID_SIZE,
-
         originalCreationDate: Math.round(file.lastModified/1000.0),
         mimeType: file.type,
         fileSizeBytes: file.size,
-
-        computed_attachments: createUidArraySignal([]),
-        computed_mouseIsOver: createBooleanSignal(false),
       };
 
-      await server.addItem(fileItem, base64Data);
-      desktopStore.addItem(fileItem);
+      const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
+      // TODO (MEDIUM): immediately put an item in the UI.
+      desktopStore.addItem(itemFromObject(returnedItem));
     }
   }
 }

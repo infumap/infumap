@@ -94,7 +94,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
         return;
       }
       let item = desktopStore.getItem(hi.visualElement.itemId)!;
-      await handleUpload(desktopStore, userStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
+      await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
     }
   }
 

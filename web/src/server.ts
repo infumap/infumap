@@ -51,6 +51,11 @@ export const server = {
     });
   },
 
+  addItemFromPartialObject: async (item: object, base64Data: string | null): Promise<object> => {
+    let returnedItem = await send("add-item", item, base64Data);
+    return returnedItem;
+  },
+
   addItem: async (item: Item, base64Data: string | null): Promise<object> => {
     let returnedItem = await send("add-item", itemToObject(item), base64Data);
     return returnedItem;
