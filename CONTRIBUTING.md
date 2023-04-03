@@ -1,3 +1,3 @@
 # Contributing
 
-This project is not currently accepting external contributions, however feel free to open an issue with a bug report, or feature suggestion.
+This project is not currently accepting external contributions, however feel free to open an issue to make us aware of a bug, or to suggest a feature.
