@@ -95,7 +95,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     }
   };
 
-  let user = match db.user.get_by_username(&payload.username) {
+  let user = match db.user.get_by_username_case_insensitive(&payload.username) {
     Some(user) => user,
     None => {
       info!("A login was attempted for a user '{}' that does not exist.", payload.username);
@@ -134,7 +134,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     }
   }
 
-  match db.session.create_session(&user.id, &payload.username, &payload.password) {
+  match db.session.create_session(&user.id, &user.username, &payload.password) {
     Ok(session) => {
       let result = LoginResponse {
         success: true,
@@ -226,8 +226,8 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     }
   };
 
-  if db.user.get_by_username(&payload.username).is_some() ||
-     db.pending_user.get_by_username(&payload.username).is_some() ||
+  if db.user.get_by_username_case_insensitive(&payload.username).is_some() ||
+     db.pending_user.get_by_username_case_insensitive(&payload.username).is_some() ||
      RESERVED_NAMES.contains(&payload.username.as_str()) {
     return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) } )
   }

@@ -57,7 +57,7 @@ pub async fn get_and_validate_session(request: &Request<hyper::body::Incoming>, 
     return None;
   }
 
-  let user = match db.user.get_by_username(&session_cookie.username).ok_or(format!("No user exists with username '{}'.", session_cookie.username)) {
+  let user = match db.user.get_by_username_case_insensitive(&session_cookie.username).ok_or(format!("No user exists with username '{}'.", session_cookie.username)) {
     Ok(user) => user,
     Err(e) => {
       error!("Error occurred getting user to validate session: {}", e);

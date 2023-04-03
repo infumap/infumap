@@ -32,7 +32,7 @@ pub struct InstallationStateResponse {
 
 pub async fn serve_admin_route(db: &Arc<Mutex<Db>>, req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   match (req.method(), req.uri().path()) {
-    (&Method::POST, "/admin/installation-state") => json_response(&InstallationStateResponse { has_root_user: db.lock().await.user.get_by_username("root").is_some() }),
+    (&Method::POST, "/admin/installation-state") => json_response(&InstallationStateResponse { has_root_user: db.lock().await.user.get_by_username_case_insensitive("root").is_some() }),
     _ => not_found_response(),
   }
 }

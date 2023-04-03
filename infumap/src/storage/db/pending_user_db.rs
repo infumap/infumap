@@ -34,7 +34,7 @@ const CURRENT_USER_LOG_VERSION: i64 = 2;
 /// Not threadsafe.
 pub struct PendingUserDb {
   store: KVStore<User>,
-  id_by_username: HashMap<String, String>
+  id_by_lowercase_username: HashMap<String, String>
 }
 
 impl PendingUserDb {
@@ -47,14 +47,14 @@ impl PendingUserDb {
     for (id, user) in store.get_iter() {
       id_by_username.insert(user.username.clone(), id.clone());
     }
-    Ok(PendingUserDb { store, id_by_username })
+    Ok(PendingUserDb { store, id_by_lowercase_username: id_by_username })
   }
 
   pub async fn add(&mut self, user: User) -> InfuResult<()> {
-    if self.id_by_username.contains_key(&user.username) {
+    if self.id_by_lowercase_username.contains_key(&user.username.to_lowercase()) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
     } else {
-      self.id_by_username.insert(String::from(&user.username), String::from(&user.id));
+      self.id_by_lowercase_username.insert(user.username.to_lowercase(), String::from(&user.id));
     }
     self.store.add(user).await
   }
@@ -67,8 +67,8 @@ impl PendingUserDb {
     self.store.get(id)
   }
 
-  pub fn get_by_username(&self, username: &str) -> Option<&User> {
-    match self.id_by_username.get(username) {
+  pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {
+    match self.id_by_lowercase_username.get(&username.to_lowercase()) {
       None => None,
       Some(id) => self.store.get(id)
     }

@@ -34,7 +34,7 @@ const CURRENT_USER_LOG_VERSION: i64 = 2;
 pub struct UserDb {
   data_dir: PathBuf,
   store_by_id: HashMap<Uid, KVStore<User>>,
-  id_by_username: HashMap<String, Uid>,
+  id_by_lowercase_username: HashMap<String, Uid>,
 }
 
 impl UserDb {
@@ -100,15 +100,15 @@ impl UserDb {
     Ok(UserDb {
       data_dir: expanded_data_path,
       store_by_id: store_by_user_id,
-      id_by_username: user_id_by_username
+      id_by_lowercase_username: user_id_by_username
     })
   }
 
   pub async fn add(&mut self, user: User) -> InfuResult<()> {
-    if self.id_by_username.contains_key(&user.username) {
+    if self.id_by_lowercase_username.contains_key(&user.username.to_lowercase()) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
     } else {
-      self.id_by_username.insert(String::from(&user.username), String::from(&user.id));
+      self.id_by_lowercase_username.insert(user.username.to_ascii_lowercase(), String::from(&user.id));
     }
 
     let mut dir = self.data_dir.clone();
@@ -126,8 +126,8 @@ impl UserDb {
     Ok(())
   }
 
-  pub fn get_by_username(&self, username: &str) -> Option<&User> {
-    match self.id_by_username.get(username) {
+  pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {
+    match self.id_by_lowercase_username.get(&username.to_lowercase()) {
       None => None,
       Some(uid) => {
         match self.store_by_id.get(uid) {
