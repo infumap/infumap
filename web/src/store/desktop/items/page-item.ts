@@ -34,7 +34,7 @@ import { PositionalMixin } from './base/positional-item';
 import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
-import { switchToPage } from '../layout/arrange';
+import { childrenLoadInitiatedOrComplete, switchToPage } from '../layout/arrange';
 import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from '../../../util/signals';
 
 
@@ -54,6 +54,8 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
   innerSpatialWidthGr: number;
   naturalAspect: number;
+  arrangeAlgorithm: string;
+  id: Uid;
 }
 
 
@@ -152,8 +154,21 @@ export function pageToObject(p: PageItem): object {
 
 
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
-  let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
-  return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
+  if (page.arrangeAlgorithm == "grid") {
+    if (childrenLoadInitiatedOrComplete[page.id]) {
+      // const numCols = () => 10;
+      // const numRows = () => Math.ceil(currentPage().computed_children.get().length / numCols());
+      // const colAspect = () => 1.5;
+      // const cellWPx = () => pageBoundsPx().w / numCols();
+      // const cellHPx = () => pageBoundsPx().w / numCols() * (1.0/colAspect());
+      let w = page.spatialWidthGr / GRID_SIZE;
+      return { w: page.spatialWidthGr / GRID_SIZE, h: w * 1.5 };
+    }
+    return { w: page.spatialWidthGr / GRID_SIZE, h: 0.5 };
+  } else {
+    let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
+    return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
+  }
 }
 
 
@@ -167,16 +182,13 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 
 export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
   const innerBoundsPx = () => ({
-    x: 0.0,
-    y: 0.0,
+    x: 0.0, y: 0.0,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
   });
   const popupClickBoundsPx = () => ({
-    x: innerBoundsPx().w / 3.0,
-    y: innerBoundsPx().h / 3.0,
-    w: innerBoundsPx().w / 3.0,
-    h: innerBoundsPx().h / 3.0,
+    x: innerBoundsPx().w / 3.0, y: innerBoundsPx().h / 3.0,
+    w: innerBoundsPx().w / 3.0, h: innerBoundsPx().h / 3.0,
   });
   const boundsPx = () => ({
     x: (page.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
@@ -297,9 +309,11 @@ export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopSt
 export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable {
   return ({
     itemType: page.itemType,
+    id: page.id,
     spatialPositionGr: page.spatialPositionGr,
     spatialWidthGr: page.spatialWidthGr,
     naturalAspect: page.naturalAspect,
     innerSpatialWidthGr: page.innerSpatialWidthGr,
+    arrangeAlgorithm: page.arrangeAlgorithm,
   });
 }

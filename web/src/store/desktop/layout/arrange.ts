@@ -196,6 +196,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
         const childItem = () => desktopStore.getItem(childId)!;
         const geometry = calcGeometryOfItemInPage(childItem(), currentPageBoundsPx(), currentPageInnerDimensionsBl(), true, desktopStore.getItem);
 
+        if (isPage(childItem()) &&
+            asPageItem(childItem()).arrangeAlgorithm == "grid") {
+          // Always make sure child items of grid pages are loaded, even if not visible,
+          // because they are needed to to calculate the height.
+          initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem().id);
+        }
+
         // ### Child is a page with children visible.
         if (isPage(childItem()) &&
             // This test does not depend on pixel size, so is invariant over display devices.
