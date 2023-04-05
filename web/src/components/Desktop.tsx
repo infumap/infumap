@@ -16,20 +16,19 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup, onMount, Show } from "solid-js";
+import { Component, onCleanup, onMount } from "solid-js";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { TOOLBAR_WIDTH } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
-import { getHitInfo, mouseDownHandler, mouseMoveHandler, mouseUpHandler, rootVisualElement } from "../mouse";
+import { getHitInfo, mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../store/desktop/hitbox";
 import { asPageItem } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { Page } from "./items/Page";
-import { arrange } from "../store/desktop/layout/arrange";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
 import { VisualElement_Reactive } from "../store/desktop/visual-element";
 
@@ -59,7 +58,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     ev.preventDefault();
-    mouseDownHandler(desktopStore, generalStore, userStore, ev);
+    mouseDownHandler(desktopStore, generalStore, ev);
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {

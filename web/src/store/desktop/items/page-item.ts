@@ -34,8 +34,8 @@ import { PositionalMixin } from './base/positional-item';
 import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
-import { childrenLoadInitiatedOrComplete, switchToPage } from '../layout/arrange';
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from '../../../util/signals';
+import { switchToPage } from '../layout/arrange';
+import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from '../../../util/signals';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -56,6 +56,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   naturalAspect: number;
   arrangeAlgorithm: string;
   id: Uid;
+  childrenLoaded: BooleanSignal;
 }
 
 
@@ -86,7 +87,8 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     computed_attachments: createUidArraySignal([]),
     computed_movingItemIsOver: createBooleanSignal(false),
     computed_mouseIsOver: createBooleanSignal(false),
-
+    childrenLoaded: createBooleanSignal(false),
+  
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
   };
@@ -122,6 +124,8 @@ export function pageFromObject(o: any): PageItem {
     computed_movingItemIsOver: createBooleanSignal(false),
     computed_mouseIsOver: createBooleanSignal(false),
 
+    childrenLoaded: createBooleanSignal(false),
+
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
   });
@@ -155,7 +159,7 @@ export function pageToObject(p: PageItem): object {
 
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
-    if (childrenLoadInitiatedOrComplete[page.id]) {
+    if (page.childrenLoaded.get()) {
       // const numCols = () => 10;
       // const numRows = () => Math.ceil(currentPage().computed_children.get().length / numCols());
       // const colAspect = () => 1.5;
@@ -293,7 +297,7 @@ export const calcBlockPositionGr = (page: PageItem, desktopPosPx: Vector): Vecto
 
 
 export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  switchToPage(desktopStore, pageItem.id, userStore.getUser());
+  switchToPage(desktopStore, pageItem.id);
 }
 
 
@@ -315,5 +319,6 @@ export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable 
     naturalAspect: page.naturalAspect,
     innerSpatialWidthGr: page.innerSpatialWidthGr,
     arrangeAlgorithm: page.arrangeAlgorithm,
+    childrenLoaded: page.childrenLoaded
   });
 }

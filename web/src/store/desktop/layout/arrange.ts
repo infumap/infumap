@@ -21,9 +21,9 @@ import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
 import { Uid } from "../../../util/uid";
-import { User } from "../../UserStoreProvider";
 import { DesktopStoreContextModel } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
+import { asContainerItem } from "../items/base/container-item";
 import { ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
@@ -31,10 +31,9 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement_Reactive } from "../visual-element";
 
 
-export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, user: User) => {
+export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
   batch(() => {
     desktopStore.setCurrentPageId(id);
-    arrange(desktopStore, user);
     var page = asPageItem(desktopStore.getItem(id)!);
     // TODO (HIGH): get rid of this horrible hack!
     let desktopEl = window.document.getElementById("desktop")!;
@@ -51,7 +50,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid, us
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreContextModel, user: User, containerId: string) => {
+export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreContextModel, containerId: string) => {
   if (childrenLoadInitiatedOrComplete[containerId]) {
     return;
   }
@@ -67,6 +66,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           Object.keys(result.attachments).forEach(id => {
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
+          asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
@@ -75,19 +75,19 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 }
 
 
-export const arrange = (desktopStore: DesktopStoreContextModel, user: User): VisualElement_Reactive | null => {
+export const arrange = (desktopStore: DesktopStoreContextModel): VisualElement_Reactive | null => {
   if (desktopStore.currentPageId() == null) { return null; }
-  initiateLoadChildItemsIfNotLoaded(desktopStore, user, desktopStore.currentPageId()!);
+  initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.currentPageId()!);
   let currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   if (currentPage.arrangeAlgorithm == "grid") {
-    return arrange_grid(desktopStore, user);
+    return arrange_grid(desktopStore);
   } else {
-    return arrange_spatialStretch(desktopStore, user);
+    return arrange_spatialStretch(desktopStore);
   }
 }
 
 
-const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): VisualElement_Reactive => {
+const arrange_grid = (desktopStore: DesktopStoreContextModel): VisualElement_Reactive => {
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
@@ -157,7 +157,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel, _user: User): Visu
 }
 
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: User): VisualElement_Reactive => {
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel): VisualElement_Reactive => {
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const currentPageBoundsPx = () => {
     const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -200,7 +200,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             asPageItem(childItem()).arrangeAlgorithm == "grid") {
           // Always make sure child items of grid pages are loaded, even if not visible,
           // because they are needed to to calculate the height.
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem().id);
+          initiateLoadChildItemsIfNotLoaded(desktopStore, childItem().id);
         }
 
         // ### Child is a page with children visible.
@@ -208,7 +208,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
             // This test does not depend on pixel size, so is invariant over display devices.
             asPageItem(childItem()).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
           const pageItem = () => asPageItem(childItem());
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, pageItem().id);
+          initiateLoadChildItemsIfNotLoaded(desktopStore, pageItem().id);
 
           const pageWithChildrenVe: VisualElement_Reactive = {
             itemType: ITEM_TYPE_PAGE,
@@ -251,7 +251,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, user: Us
 
         // ### Table
         } else if (isTable(childItem())) {
-          initiateLoadChildItemsIfNotLoaded(desktopStore, user, childItem().id);
+          initiateLoadChildItemsIfNotLoaded(desktopStore, childItem().id);
           let tableItem = () => asTableItem(childItem());
 
           const sizeBl = () => ({ w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE });

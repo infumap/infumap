@@ -170,13 +170,12 @@ let lastMouseOverId: Uid | null = null;
 export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
     generalStore: GeneralStoreContextModel,
-    userStore: UserStoreContextModel,
     ev: MouseEvent) {
   if (desktopStore.currentPageId() == null) { return; }
   if (ev.button == MOUSE_LEFT) {
     mouseLeftDownHandler(desktopStore, generalStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
-    mouseRightDownHandler(desktopStore, generalStore, userStore);
+    mouseRightDownHandler(desktopStore, generalStore);
   } else {
     console.log("unrecognized mouse button: " + ev.button);
   }
@@ -222,8 +221,7 @@ export function mouseLeftDownHandler(
 
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    generalStore: GeneralStoreContextModel,
-    userStore: UserStoreContextModel) {
+    generalStore: GeneralStoreContextModel) {
   if (generalStore.contextMenuInfo()) { generalStore.setContextMenuInfo(null); return; }
   if (generalStore.editDialogInfo() != null) { generalStore.setEditDialogInfo(null); return; }
 
@@ -237,7 +235,7 @@ export function mouseRightDownHandler(
     parentId = desktopStore.getItem(parentId)!.parentId;
     if (loopCount++ > 10) { panic(); }
   }
-  switchToPage(desktopStore, parentId, userStore.getUser());
+  switchToPage(desktopStore, parentId);
 }
 
 

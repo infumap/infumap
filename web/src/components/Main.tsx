@@ -52,7 +52,7 @@ export const Main: Component = () => {
       Object.keys(result.attachments).forEach(id => {
         desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
-      switchToPage(desktopStore, rootId, userStore.getUser());
+      switchToPage(desktopStore, rootId);
 
     } catch (e) {
       console.log("An error occurred loading root page, clearing user session.", e);
@@ -65,7 +65,7 @@ export const Main: Component = () => {
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
       <Show when={desktopStore.currentPageId() != null}>
-        <Desktop visualElement={arrange(desktopStore, userStore.getUser())!} />
+        <Desktop visualElement={arrange(desktopStore)!} />
       </Show>
       <Toolbar />
     </div>
