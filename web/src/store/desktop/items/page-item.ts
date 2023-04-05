@@ -35,7 +35,7 @@ import { newLinkItem } from './link-item';
 import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { switchToPage } from '../layout/arrange';
-import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from '../../../util/signals';
+import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal, UidArraySignal } from '../../../util/signals';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -57,6 +57,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   arrangeAlgorithm: string;
   id: Uid;
   childrenLoaded: BooleanSignal;
+  computed_children: UidArraySignal;
 }
 
 
@@ -160,13 +161,14 @@ export function pageToObject(p: PageItem): object {
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
     if (page.childrenLoaded.get()) {
-      // const numCols = () => 10;
-      // const numRows = () => Math.ceil(currentPage().computed_children.get().length / numCols());
-      // const colAspect = () => 1.5;
-      // const cellWPx = () => pageBoundsPx().w / numCols();
-      // const cellHPx = () => pageBoundsPx().w / numCols() * (1.0/colAspect());
+      const numCols = () => 10;
+      const numRows = () => Math.ceil(page.computed_children.get().length / numCols());
+      const colAspect = () => 1.5;
+      const cellHGr = () => page.spatialWidthGr / numCols() * (1.0/colAspect());
+      const pageHeightGr = () => cellHGr() * numRows();
+      const pageHeightBl = () => Math.ceil(pageHeightGr() / GRID_SIZE);
       let w = page.spatialWidthGr / GRID_SIZE;
-      return { w: page.spatialWidthGr / GRID_SIZE, h: w * 1.5 };
+      return { w: page.spatialWidthGr / GRID_SIZE, h: pageHeightBl() < 1.0 ? 1.0 : pageHeightBl() };
     }
     return { w: page.spatialWidthGr / GRID_SIZE, h: 0.5 };
   } else {
@@ -319,6 +321,7 @@ export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable 
     naturalAspect: page.naturalAspect,
     innerSpatialWidthGr: page.innerSpatialWidthGr,
     arrangeAlgorithm: page.arrangeAlgorithm,
-    childrenLoaded: page.childrenLoaded
+    childrenLoaded: page.childrenLoaded,
+    computed_children: page.computed_children,
   });
 }
