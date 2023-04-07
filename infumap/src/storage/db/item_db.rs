@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-const CURRENT_ITEM_LOG_VERSION: i64 = 2;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 3;
 
 pub struct ItemAndUserId {
   pub user_id: Uid,
@@ -343,6 +343,47 @@ pub fn migrate_record_v1_to_v2(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
       let mut result = kvs.clone();
       result.remove(&String::from("__version"));
       return Ok(result);
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+
+pub fn migrate_record_v2_to_v3(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
+      if descriptor_version != 2 {
+        return Err(format!("Descriptor version is {}, but 2 was expected.", descriptor_version).into());
+      }
+      let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
+      if value_type != Item::value_type_identifier() {
+        return Err(format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, Item::value_type_identifier()).into());
+      }
+      let mut result = kvs.clone();
+      result.insert(String::from("version"), Value::Number((3 as i64).into()));
+      return Ok(result);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "page" {
+        let existing = result.insert(String::from("gridNumberOfColumns"), Value::Number((10 as i64).into()));
+        if existing.is_some() { return Err("gridNumberOfColumns field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
     },
 
     unexpected_record_type => {

@@ -23,13 +23,69 @@ use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
 
-pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+pub async fn _get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   let settings_path_maybe = match settings_path_maybe {
     Some(path) => {
+      let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
       if !path_exists(&std::path::PathBuf::from(&path)).await {
-        return Err(format!("The specified settings file path '{path}' does not exist.").into());
+        return Err(format!("The specified settings file path '{:?}' does not exist.", path).into());
       }
-      Some(String::from(path))
+      Some(path.into_os_string().into_string().map_err(|_| "Unsupported settings.toml file path.")?)
+    },
+
+    None => {
+      let env_only_config = match Config::builder()
+        .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
+        .set_default(CONFIG_ENV_ONLY, false)?
+        .build() {
+          Ok(c) => c,
+          Err(e) => {
+            return Err(format!("An error occurred building env var-only configuration: '{e}'").into());
+          }
+        };
+
+      if env_only_config.get_bool(CONFIG_ENV_ONLY)? {
+        None
+
+      } else {
+        // The settings file in the default location is used if the path is not explicitly stated (unless "env_only" is set to true).
+        // In some contexts, the default settings file and data dirs should be auto-created. In those cases,
+        // use init_fs_maybe_and_get_config instead.
+
+        let mut pb = match dirs::home_dir() {
+          Some(dir) => dir,
+          None => {
+            return Err(format!("No settings path was specified, and the home dir could not be determined.").into());
+          }
+        };
+
+        pb.push(".infumap");
+        if !path_exists(&pb).await {
+          return Err(format!("The default settings file directory '~/.infumap/' does not exist.").into());
+        }
+
+        pb.push("settings.toml");
+        if !path_exists(&pb).await {
+          return Err(format!("The default settings file '~/.infumap/settings.toml' does not exist.").into());
+        }
+
+        Some(pb.into_os_string().into_string().map_err(|_| "Unsupported settings.toml file path.")?)
+      }
+    }
+  };
+
+  build_config(settings_path_maybe)
+}
+
+
+pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+  let settings_path_maybe = match settings_path_maybe {
+    Some(path) => {
+      let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
+      if !path_exists(&std::path::PathBuf::from(&path)).await {
+        return Err(format!("The specified settings file path '{:?}' does not exist.", path).into());
+      }
+      Some(path.into_os_string().into_string().map_err(|_| "Unsupported settings.toml file path.")?)
     },
 
     None => {
@@ -126,37 +182,7 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
     }
   };
 
-  let config_builder =
-    if let Some(path) = &settings_path_maybe {
-      info!("Reading config from: {path} + overriding with env vars where set.");
-      Config::builder()
-        .add_source(config::File::new(&path, FileFormat::Toml))
-    } else {
-      info!("Not using settings file - taking all settings from env vars.");
-      Config::builder()
-    }
-    .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
-    .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT)?
-    .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT)?
-    .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)?
-    .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)?
-    .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)?
-    .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)?
-    .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT_DEFAULT)?
-    .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT_DEFAULT)?
-    .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_1_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT)?
-    .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT)?
-    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT)?;
-
-  let config = match config_builder.build() {
-    Ok(c) => c,
-    Err(e) => {
-      return Err(format!("An error occurred loading configuration: '{e}'").into());
-    }
-  };
+  let config = build_config(settings_path_maybe)?;
 
   if !expand_tilde_path_exists(config.get_string(CONFIG_DATA_DIR)?).await {
     return Err(format!("Data dir '{}' does not exist.", config.get_string(CONFIG_DATA_DIR)?).into());
@@ -288,4 +314,39 @@ pub async fn init_fs_and_config(settings_path_maybe: Option<String>) -> InfuResu
     }
   }
   Ok(config)
+}
+
+
+fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+  let config_builder =
+  if let Some(path) = &settings_path_maybe {
+    info!("Reading config from: {} + overriding with env vars where set.", path);
+    Config::builder().add_source(
+      config::File::new(path, FileFormat::Toml))
+  } else {
+    info!("Not using settings file - taking all settings from env vars.");
+    Config::builder()
+  }
+    .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
+    .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT)?
+    .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT)?
+    .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)?
+    .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)?
+    .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)?
+    .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)?
+    .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT_DEFAULT)?
+    .set_default(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT_DEFAULT)?
+    .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT)?
+    .set_default(CONFIG_ENABLE_S3_1_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT)?
+    .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT)?
+    .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT)?
+    .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT)?
+    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT)?;
+
+  match config_builder.build() {
+    Ok(c) => Ok(c),
+    Err(e) => {
+      Err(format!("An error occurred loading configuration: '{e}'").into())
+    }
+  }
 }

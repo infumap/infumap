@@ -360,6 +360,7 @@ fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_wi
     popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(10 * GRID_SIZE),
+    grid_number_of_columns: Some(10),
     url: None,
     table_columns: None,
     image_size_px: None,

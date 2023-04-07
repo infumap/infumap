@@ -21,7 +21,7 @@ use clap::{App, Arg, ArgMatches};
 use config::Config;
 
 use crate::config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET};
-use crate::setup::init_fs_and_config;
+use crate::setup::init_fs_maybe_and_get_config;
 use crate::storage::db::Db;
 use crate::storage::db::item::is_data_item;
 use crate::storage::file as storage_file;
@@ -106,7 +106,7 @@ async fn list_filesystem_files(db: &Db, file_store: Arc<Mutex<storage_file::File
 }
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let config = init_fs_and_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
+  let config = init_fs_maybe_and_get_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
   let mut db = create_db(&config).await?;
 
   let file_store = storage_file::new(&config.get_string(CONFIG_DATA_DIR)?)?;

@@ -26,7 +26,7 @@ use crate::util::uid::{Uid, is_uid};
 use super::user::User;
 use super::kv_store::KVStore;
 
-const CURRENT_USER_LOG_VERSION: i64 = 2;
+pub const CURRENT_USER_LOG_VERSION: i64 = 2;
 
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.

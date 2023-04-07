@@ -191,7 +191,7 @@ pub fn is_image_item(item_type: &str) -> bool {
   item_type == ITEM_TYPE_IMAGE
 }
 
-const ALL_JSON_FIELDS: [&'static str; 29] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 30] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -199,7 +199,7 @@ const ALL_JSON_FIELDS: [&'static str; 29] = ["__recordType",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
-  "linkToId"];
+  "linkToId", "gridNumberOfColumns"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -246,6 +246,7 @@ pub struct Item {
   pub popup_position_gr: Option<Vector<i64>>,
   pub popup_alignment_point: Option<AlignmentPoint>,
   pub popup_width_gr: Option<i64>,
+  pub grid_number_of_columns: Option<i64>,
 
   // note
   pub url: Option<String>,
@@ -291,6 +292,7 @@ impl Clone for Item {
       popup_position_gr: self.popup_position_gr.clone(),
       popup_alignment_point: self.popup_alignment_point.clone(),
       popup_width_gr: self.popup_width_gr.clone(),
+      grid_number_of_columns: self.grid_number_of_columns.clone(),
       url: self.url.clone(),
       table_columns: self.table_columns.clone(),
       image_size_px: self.image_size_px.clone(),
@@ -448,6 +450,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("popupWidthGr"), Value::Number(new_popup_width_gr.into()));
       }
     }
+    if let Some(grid_number_of_columns) = new.grid_number_of_columns {
+      if match old.grid_number_of_columns { Some(o) => o != grid_number_of_columns, None => { true } } {
+        if old.item_type != ITEM_TYPE_PAGE { cannot_modify_err("gridNumberOfColumns", &old.id)?; }
+        result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
+      }
+    }
 
     // note
     if let Some(new_url) = &new.url {
@@ -596,6 +604,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ITEM_TYPE_PAGE { not_applicable_err("popupWidthGr", &self.item_type, &self.id)?; }
       self.popup_width_gr = Some(v);
     }
+    if let Some(v) = json::get_integer_field(map, "gridNumberOfColumns")? {
+      if self.item_type != ITEM_TYPE_PAGE { not_applicable_err("gridNumberOfColumns", &self.item_type, &self.id)?; }
+      self.grid_number_of_columns = Some(v);
+    }
 
     // note
     if let Some(v) = json::get_string_field(map, "url")? {
@@ -722,6 +734,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(popup_width_gr) = item.popup_width_gr {
     if item.item_type != ITEM_TYPE_PAGE { unexpected_field_err("popupWidthGr", &item.id, &item.item_type)? }
     result.insert(String::from("popupWidthGr"), Value::Number(popup_width_gr.into()));
+  }
+  if let Some(grid_number_of_columns) = item.grid_number_of_columns {
+    if item.item_type != ITEM_TYPE_PAGE { unexpected_field_err("gridNumberOfColumns", &item.id, &item.item_type)? }
+    result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
   }
 
   // note
@@ -874,6 +890,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     popup_width_gr: match json::get_integer_field(map, "popupWidthGr")? {
       Some(v) => { if item_type == ITEM_TYPE_PAGE { Ok(Some(v)) } else { Err(not_applicable_err("popupWidthGr", &item_type, &id)) } },
       None => { if item_type == ITEM_TYPE_PAGE { Err(expected_for_err("popupWidthGr", &item_type, &id)) } else { Ok(None) } }
+    }?,
+    grid_number_of_columns: match json::get_integer_field(map, "gridNumberOfColumns")? {
+      Some(v) => { if item_type == ITEM_TYPE_PAGE { Ok(Some(v)) } else { Err(not_applicable_err("gridNumberOfColumns", &item_type, &id)) } },
+      None => { if item_type == ITEM_TYPE_PAGE { Err(expected_for_err("gridNumberOfColumns", &item_type, &id)) } else { Ok(None) } }
     }?,
 
     // note

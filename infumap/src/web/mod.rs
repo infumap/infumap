@@ -22,7 +22,7 @@ pub mod cookie;
 pub mod routes;
 pub mod session;
 
-use clap::ArgMatches;
+use clap::{ArgMatches, App, Arg};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use log::{info, error, warn, debug};
@@ -34,7 +34,7 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 
 use crate::config::*;
-use crate::setup::init_fs_and_config;
+use crate::setup::init_fs_maybe_and_get_config;
 use crate::storage::backup::{self as storage_backup, BackupStore};
 use crate::storage::db::Db;
 use crate::storage::cache::{self as storage_cache, ImageCache};
@@ -44,8 +44,23 @@ use crate::util::infu::InfuResult;
 use self::serve::http_serve;
 
 
+pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
+  App::new("web")
+    .about("Starts the Infumap web server.")
+    .arg(Arg::new("settings_path")
+    .short('s')
+    .long("settings")
+    .help(concat!("Path to a toml settings configuration file. If not specified and env_only config is not specified ",
+                  "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with ",
+                  "default values. On-disk data directories will also be created in ~/.infumap."))
+    .takes_value(true)
+    .multiple_values(false)
+    .required(false))
+}
+
+
 pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
-  let config = init_fs_and_config(
+  let config = init_fs_maybe_and_get_config(
     arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;

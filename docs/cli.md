@@ -1,6 +1,23 @@
 # CLI commands
 
+## Web Server
+
+### web
+
+Start the Infumap Web Server.
+
+Optionally specify a settings file.
+
+Settings can be specified via env vars.
+
+Automatically creates a settings file and default config / data directories in ~/.infumap is no settings file is explicitly specified.
+
+For more information refer to [configuration.md](configuration.md)
+
+
 ## API Commands
+
+This collection of commands operate by communicating with a running Infumap web server instance.
 
 ### login
 
@@ -24,7 +41,10 @@ Add a note.
 
 Bulk upload files.
 
+
 ## Admin Commands
+
+This collection of commands are for maintenance of Infumap data.
 
 ### keygen
 

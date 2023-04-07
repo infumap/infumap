@@ -20,7 +20,7 @@ mod util;
 mod web;
 mod cli;
 mod setup;
-use clap::{App, Arg};
+use clap::App;
 use log::error;
 
 
@@ -38,16 +38,8 @@ async fn main() {
     .subcommand(cli::repair::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
+    .subcommand(web::make_clap_subcommand())
     .about("Infumap")
-    .arg(Arg::new("settings_path")
-      .short('s')
-      .long("settings")
-      .help(concat!("Path to a toml settings configuration file. If not specified and env_only config is not specified ",
-                    "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with ",
-                    "default values. On-disk data directories will also be created in ~/.infumap."))
-      .takes_value(true)
-      .multiple_values(false)
-      .required(false))
     .get_matches();
 
   let command_result = match arg_matches.subcommand() {
@@ -61,26 +53,26 @@ async fn main() {
       cli::logout::execute(arg_sub_matches).await
     },
     Some(("migrate", arg_sub_matches)) => {
-      cli::migrate::execute(arg_sub_matches)
+      cli::migrate::execute(arg_sub_matches).await
     },
     Some(("note", arg_sub_matches)) => {
       cli::note::execute(arg_sub_matches).await
     },
     Some(("repair", arg_sub_matches)) => {
       cli::repair::execute(arg_sub_matches).await
-    }
+    },
     Some(("restore", arg_sub_matches)) => {
       cli::restore::execute(arg_sub_matches).await
     },
     Some(("upload", arg_sub_matches)) => {
       cli::upload::execute(arg_sub_matches).await
     },
-    Some((_, _arg_sub_matches)) => {
-      println!(".. --help for help.");
-      Ok(())
+    Some(("web", arg_sub_matches)) => {
+      web::execute(&arg_sub_matches).await
     },
     _ => {
-      web::execute(&arg_matches).await
+      println!(".. --help for help.");
+      Ok(())
     }
   };
 
