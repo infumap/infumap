@@ -1,9 +1,9 @@
 # CLI commands
 
-The Infumap executable provides various commands. There are two categories:
+The Infumap executable provides commands in two categories:
 
-- **Direct**: These commands work directly with Infumap configurtion and data. Your Infumap instance should be terminated before using these commands.
-- **API**: These commands require an operating Infumap instance, and perform their work via a REST API exposed by this instance.
+- **Direct**: These commands work directly with Infumap configuration and data. Generally, you should terminate the corresponding web server instance (if currently executing) before using these commands.
+- **API**: These commands operate against a running Infumap instance (started with the "web" command), performing their work via a REST API exposed by this instance.
 
 
 ## Direct
