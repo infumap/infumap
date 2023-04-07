@@ -46,6 +46,7 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
+  gridNumberOfColumns: NumberSignal,
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
@@ -57,6 +58,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   arrangeAlgorithm: string;
   id: Uid;
   childrenLoaded: BooleanSignal;
+  gridNumberOfColumns: NumberSignal;
   computed_children: UidArraySignal;
 }
 
@@ -83,6 +85,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
     popupAlignmentPoint: "center",
     popupWidthGr: 10.0 * GRID_SIZE,
+    gridNumberOfColumns: createNumberSignal(10),
 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
@@ -118,6 +121,7 @@ export function pageFromObject(o: any): PageItem {
     popupPositionGr: o.popupPositionGr,
     popupAlignmentPoint: o.popupAlignmentPoint,
     popupWidthGr: o.popupWidthGr,
+    gridNumberOfColumns: createNumberSignal(o.gridNumberOfColumns),
 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
@@ -154,6 +158,7 @@ export function pageToObject(p: PageItem): object {
     popupPositionGr: p.popupPositionGr,
     popupAlignmentPoint: p.popupAlignmentPoint,
     popupWidthGr: p.popupWidthGr,
+    gridNumberOfColumns: p.gridNumberOfColumns.get(),
   });
 }
 
@@ -161,7 +166,7 @@ export function pageToObject(p: PageItem): object {
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
     if (page.childrenLoaded.get()) {
-      const numCols = () => 10;
+      const numCols = () => page.gridNumberOfColumns.get();
       const numRows = () => Math.ceil(page.computed_children.get().length / numCols());
       const colAspect = () => 1.5;
       const cellHGr = () => page.spatialWidthGr / numCols() * (1.0/colAspect());
@@ -321,6 +326,7 @@ export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable 
     naturalAspect: page.naturalAspect,
     innerSpatialWidthGr: page.innerSpatialWidthGr,
     arrangeAlgorithm: page.arrangeAlgorithm,
+    gridNumberOfColumns: page.gridNumberOfColumns,
     childrenLoaded: page.childrenLoaded,
     computed_children: page.computed_children,
   });

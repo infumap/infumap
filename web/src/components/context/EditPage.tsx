@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) 2022-2023 The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -49,6 +49,11 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleTitleChange = (v: string) => { desktopStore.updateItem(pageId(), item => asPageItem(item).title = v); };
   const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(pageId())!); }
 
+  const handleGridNumberOfColumnsChange = (v: string) => {
+    desktopStore.updateItem(pageId(), item => asPageItem(item).gridNumberOfColumns.set(parseInt(v)));
+    server.updateItem(desktopStore.getItem(pageId())!);
+  }
+
   const deletePage = async () => {
     await server.deleteItem(pageId()); // throws on failure.
     desktopStore.deleteItem(pageId());
@@ -76,6 +81,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       <ColorSelector item={props.pageItem} />
       <div><InfuButton text="delete" onClick={deletePage} /></div>
       <div>is grid: <input ref={checkElement} type="checkbox" checked={props.pageItem.arrangeAlgorithm == "grid"} onClick={changeArrangeAlgo} /></div>
+      <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.get().toString()} onChange={handleGridNumberOfColumnsChange} /></div>
     </div>
   );
 }

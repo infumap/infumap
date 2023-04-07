@@ -91,7 +91,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): VisualElement_Rea
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const pageBoundsPx = () => desktopStore.desktopBoundsPx();
 
-  const numCols = () => 10;
+  const numCols = () => currentPage().gridNumberOfColumns.get();
   const numRows = () => Math.ceil(currentPage().computed_children.get().length / numCols());
   const colAspect = () => 1.5;
   const cellWPx = () => pageBoundsPx().w / numCols();
