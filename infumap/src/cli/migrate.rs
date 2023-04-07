@@ -38,7 +38,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .about("Migrates a single user or item log file to the next version, if it is not already at the latest. The existing log is retained with a postfix .vX where X is the existing version number. Note that generally it should not be necessary to migrate log files by hand, because this is done automatically on web server startup (TODO).")
     .arg(Arg::new("log_path")
       .short('p')
-      .long("log_path")
+      .long("log-path")
       .help(concat!("Path to the user or item log file to migrate."))
       .takes_value(true)
       .multiple_values(false)
