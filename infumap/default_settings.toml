@@ -14,23 +14,55 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
+# NOTE: Commented out configuration values indicate defaults - you do not
+# need to uncomment these lines if you want the default value.
+
+
+# The address and port to listen on for web and API requests. Should not be
+# exposed to the public internet. Instead, use a reverse proxy and enable
+# TLS on it. Refer to the "operations.md" doc file for more information on
+# how to deploy Infumap.
 #address = "127.0.0.1"
 #port = 8000
 
+
+# The address and port to listen on for prometheus metrics requests. Should
+# not be exposed to the public internet. Refer to the "operations.md" doc
+# file for more information.
 #prometheus_address = "127.0.0.1"
 #prometheus_port = 9090
 
+
+# The data directory. User and item database logs for each user as well as
+# the pending user list are kept in this directory. If you have local
+# object storage enabled (the default), file and image data will also be
+# stored here. Refer to the "data.md" doc file for more information.
 #data_dir = "~/.infumap/data"
+
+
+# The cache directory.
 #cache_dir = "~/.infumap/cache"
 
-# Maximum aggregate size (in megabytes) of all files in the cache.
+# Maximum aggregate size (in megabytes) of all files in the cache. Files are
+# removed using an LRU policy if this size is exceeded.
 #cache_max_mb = 500
 
+
+# In most instances, full size image data is not required client side, and it
+# would be prohibitively expensive to serve full size images any time an image
+# of any size needs to be displayed. On the other hand, there is a relatively
+# high cost to creating and maintaining scaled down images on the server.
+# First, they need to be fetched from the object store, which may incur an
+# egress cost. Then, they need to be scaled, which is relatively
+# computationally intensive to do at high quality. Finally, the image takes up
+# space in the cache. ...
 #max_image_size_deviation_smaller_percent = 50
 #max_image_size_deviation_larger_percent = 30
 
-# Whether or not to use the local filesystem to store file and image data.
-# You will want to disable this if you are running on a cloud server with
+
+# Whether or not to use the local filesystem to store file and image object
+# data. You will want to disable this if you are running on a cloud server with
 # limited or expensive disk.
 #enable_local_object_storage = true
 
@@ -46,13 +78,17 @@
 #s3_1_key = 
 #s3_1_secret = 
 
-# Secondary external object store configuration.
+# Secondary external object store configuration. Objects will be read from the
+# pimary object store by default - the secondary is only used as a backup in case
+# of error. For this reason, you should use the vendor with the lowest egress
+# cost for the primary store.
 #enable_s3_2_object_storage = false
 #s3_2_region = 
 #s3_2_endpoint = 
 #s3_2_bucket = 
 #s3_2_key = 
 #s3_2_secret = 
+
 
 # Database backup configuration. If enabled, the user and item database logs
 # will be backed up to the specified AWS S3 compatible object store periodically,

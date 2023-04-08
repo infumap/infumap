@@ -1,6 +1,8 @@
 # Infumap
 
-Very much work in progress!
+A safe, secure and accessible home for all of your information.
+
+Docs are very much a work in progress!
 
 - [CLI](cli.md)
 - [Configuration](configuration.md)
@@ -8,3 +10,4 @@ Very much work in progress!
 - [Integrations](integrations.md)
 - [Operations](operations.md)
 - [Security](security.md)
+- [Data](data.md)

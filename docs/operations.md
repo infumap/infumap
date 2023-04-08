@@ -73,3 +73,7 @@ Email this to yourself disaster_recovery.aes256 along with these instructions. A
 If possible, prepay for hosting / object store services, and keep the prepaid balances high. Use different credit cards for different providers so if there is a problem with one which ultimately results in loss of data, there is redundancy.
 
 Periodically sync data in remote objects store(s) locally.
+
+## Metrics
+
+(TODO).

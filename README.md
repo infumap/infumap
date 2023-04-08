@@ -2,6 +2,8 @@
 
 The computer desktop reimagined.
 
+A safe, secure and accessible home for all of your information.
+
 **Status:** Now useful in a very basic way, if you know what you're doing (there is no documentation), and if you avoid the quirks and bugs. No release yet.
 
 ## Running
