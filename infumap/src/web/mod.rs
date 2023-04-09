@@ -39,6 +39,7 @@ use crate::storage::backup::{self as storage_backup, BackupStore};
 use crate::storage::db::Db;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::object::{self as storage_object, ObjectStore};
+use crate::util::crypto::encrypt_file_data;
 use crate::util::infu::InfuResult;
 
 use self::serve::http_serve;
@@ -147,28 +148,54 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
     loop {
       interval.tick().await;
-      {
+      let dirty_user_ids = {
         let mut db = db.lock().await;
-        let dirty_user_ids = db.all_dirty_user_ids();
-        debug!("Backing up database logs for {} users.", dirty_user_ids.len());
-        for user_id in dirty_user_ids {
-          match db.create_user_backup(&user_id, &encryption_key).await {
-            Ok(backup_bytes) => {
-              match storage_backup::put(backup_store.clone(), &user_id, backup_bytes).await {
-                Ok(s3_filename) => {
-                  info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
-                },
-                Err(e) => {
-                  error!("Database log backup failed for user '{}': {}", user_id, e);
-                }
-              }
-            },
+        db.all_dirty_user_ids()
+      };
+      debug!("Backing up database logs for {} users.", dirty_user_ids.len());
+
+      for user_id in dirty_user_ids {
+        let raw_backup_bytes = {
+          // lock the db for as little time as possible.
+          let db = db.lock().await;
+          match db.create_user_backup_raw(&user_id).await {
+            Ok(bytes) => bytes,
             Err(e) => {
               error!("Failed to create database log backup for user '{}': {}", user_id, e);
+              continue;
             }
+          }
+        };
+
+        let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
+        match brotli::BrotliCompress(&mut &raw_backup_bytes[..], &mut compressed, &Default::default()) {
+          Ok(_) => {},
+          Err(e) => {
+            error!("Failed to compress database logs for user '{}': {}", user_id, e);
+            continue;
+          }
+        };
+
+        let encrypted = match encrypt_file_data(&encryption_key, &compressed, &user_id) {
+          Ok(bytes) => bytes,
+          Err(e) => {
+            error!("Failed to encrypt database logs for user '{}': {}", user_id, e);
+            continue;
+          }
+        };
+
+        info!("Finished creating database log backup for user {} with size {} bytes.", user_id, encrypted.len());
+
+        match storage_backup::put(backup_store.clone(), &user_id, encrypted).await {
+          Ok(s3_filename) => {
+            info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
+          },
+          Err(e) => {
+            error!("Database log backup failed for user '{}': {}", user_id, e);
           }
         }
       }
+
     }
   });
 

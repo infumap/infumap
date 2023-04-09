@@ -16,9 +16,8 @@
 
 use std::io::Cursor;
 use byteorder::{WriteBytesExt, BigEndian};
-use log::{info, debug};
+use log::debug;
 
-use crate::util::crypto::encrypt_file_data;
 use crate::util::infu::InfuResult;
 use self::item_db::ItemDb;
 use self::session_db::SessionDb;
@@ -58,7 +57,7 @@ impl Db {
     self.item.all_dirty_user_ids()
   }
 
-  pub async fn create_user_backup(&self, user_id: &str, encryption_key: &str) -> InfuResult<Vec<u8>> {
+  pub async fn create_user_backup_raw(&self, user_id: &str) -> InfuResult<Vec<u8>> {
     let item_log_size_bytes = self.item.get_log_size_bytes_for_user(&user_id).await? as usize;
     let user_log_size_bytes = self.user.get_log_size_bytes_for_user(&user_id).await? as usize;
     let buf_size = item_log_size_bytes + user_log_size_bytes + 8 * 2;
@@ -75,14 +74,8 @@ impl Db {
     self.user.backup_user(&user_id, &mut buf[(16+item_log_size_bytes)..(16+item_log_size_bytes+user_log_size_bytes)]).await
       .map_err(|e| format!("Failed to get item database log for user {}: {}", user_id, e))?;
 
-    let mut compressed = Vec::with_capacity(buf_size + 8);
-    brotli::BrotliCompress(&mut &buf[..], &mut compressed, &Default::default())
-      .map_err(|e| format!("Failed to compress database logs for user {}: {}", user_id, e))?;
-
-    let encrypted = encrypt_file_data(&encryption_key, &compressed, user_id)?;
-
-    info!("Created database log backup for user {} with size {} bytes.", user_id, encrypted.len());
-
-    Ok(encrypted)
+    Ok(buf)
   }
+
+
 }
