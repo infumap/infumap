@@ -148,6 +148,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
     loop {
       interval.tick().await;
+      debug!("Getting dirty user ids");
       let dirty_user_ids = {
         let mut db = db.lock().await;
         db.all_dirty_user_ids()
@@ -155,6 +156,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
       debug!("Backing up database logs for {} users.", dirty_user_ids.len());
 
       for user_id in dirty_user_ids {
+        debug!("Getting raw logs");
         let raw_backup_bytes = {
           // lock the db for as little time as possible.
           let db = db.lock().await;
@@ -167,6 +169,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           }
         };
 
+        debug!("Compressing backup data for user '{}'.", user_id);
         let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
         match brotli::BrotliCompress(&mut &raw_backup_bytes[..], &mut compressed, &Default::default()) {
           Ok(_) => {},
@@ -176,6 +179,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           }
         };
 
+        debug!("Encrypting backup data for user '{}'.", user_id);
         let encrypted = match encrypt_file_data(&encryption_key, &compressed, &user_id) {
           Ok(bytes) => bytes,
           Err(e) => {
@@ -184,7 +188,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           }
         };
 
-        info!("Finished creating database log backup for user {} with size {} bytes.", user_id, encrypted.len());
+        info!("Finished creating database log backup for user '{}' with size {} bytes.", user_id, encrypted.len());
 
         match storage_backup::put(backup_store.clone(), &user_id, encrypted).await {
           Ok(s3_filename) => {
