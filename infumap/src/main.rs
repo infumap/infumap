@@ -26,7 +26,10 @@ use log::error;
 
 #[tokio::main]
 async fn main() {
-  pretty_env_logger::init();
+  pretty_env_logger::formatted_timed_builder()
+    .format_timestamp_secs()
+    .filter_level(log::LevelFilter::Debug)
+    .init();
 
   let arg_matches = App::new("Infumap")
     .version("0.1.0")
