@@ -143,28 +143,19 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await
 }
 
-async fn all_dirty_ids(db: Arc<Mutex<Db>>) -> Vec<String> {
-  debug!("Getting dirty user ids");
-  db.lock().await.all_dirty_user_ids()
-}
-
-async fn get_backup_bytes(db: Arc<Mutex<Db>>, user_id: &str) -> InfuResult<Vec<u8>> {
-  debug!("Getting raw logs for user '{}'", user_id);
-  db.lock().await.create_user_backup_raw(user_id).await
-}
 
 fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
   let _forever = task::spawn(async move {
-    let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
-
     loop {
-      interval.tick().await;
+      time::sleep(Duration::from_secs((backup_period_minutes * 60) as u64)).await;
 
-      let dirty_user_ids = all_dirty_ids(db.clone()).await;
+      let dirty_user_ids = db.lock().await.all_dirty_user_ids();
+
       debug!("Backing up database logs for {} users.", dirty_user_ids.len());
-
       for user_id in dirty_user_ids {
-        let raw_backup_bytes = match get_backup_bytes(db.clone(), &user_id).await {
+
+        debug!("Getting raw logs for user '{}'", &user_id);
+        let raw_backup_bytes = match db.lock().await.create_user_backup_raw(&user_id).await {
           Ok(bytes) => bytes,
           Err(e) => {
             error!("Failed to create database log backup for user '{}': {}", user_id, e);
@@ -172,6 +163,8 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           }
         };
 
+        // This is very CPU intensive, so spawn a blocking task to avoid the potential for
+        // HTTP requests to get backed up (which they do).
         debug!("Compressing backup data for user '{}'.", user_id);
         let compress_result = spawn_blocking(move || {
           let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
@@ -203,7 +196,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
           }
         };
 
-        // TODO (HIGH): spawn thread to do this.
+        // This doesn't require enough CPU to bother spawning.
         debug!("Encrypting backup data for user '{}'.", user_id);
         let encrypted = match encrypt_file_data(&encryption_key, &compressed, &user_id) {
           Ok(bytes) => bytes,
@@ -229,9 +222,9 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
   });
 
   let _forever = task::spawn(async move {
-    let mut interval = time::interval(Duration::from_secs((backup_retention_period_days * 24 * 60 * 60) as u64));
     loop {
-      interval.tick().await;
+      time::sleep(Duration::from_secs((backup_retention_period_days * 24 * 60 * 60) as u64)).await;
+
       warn!("TODO: cleanup backup store");
     }
   });

@@ -71,10 +71,9 @@ pub struct SendResponse {
   pub json_data: Option<String>,
 }
 
+
 async fn load_user_items_maybe(db: Arc<tokio::sync::Mutex<Db>>, session: &Session) -> InfuResult<()> {
-  debug!("awaiting db lock (command)");
   let mut db = db.lock().await;
-  debug!("got db lock (command)");
   if db.item.user_items_loaded(&session.user_id) {
     Ok(())
   } else {
