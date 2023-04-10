@@ -27,6 +27,7 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use log::{info, error, warn, debug};
 use tokio::sync::Mutex;
+use tokio::task::spawn_blocking;
 use tokio::{task, time};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -172,15 +173,37 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
         };
 
         debug!("Compressing backup data for user '{}'.", user_id);
-        let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
-        match brotli::BrotliCompress(&mut &raw_backup_bytes[..], &mut compressed, &Default::default()) {
-          Ok(_) => {},
+        let compress_result = spawn_blocking(move || {
+          let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
+          match brotli::BrotliCompress(&mut &raw_backup_bytes[..], &mut compressed, &Default::default()) {
+            Ok(l) => {
+              if l != compressed.len() {
+                Err("Compressed sizes do not match".to_owned())
+              } else {
+                Ok(compressed)
+              }
+            },
+            Err(e) => {
+              Err(format!("{}", e))
+            }
+          }
+        }).await;
+        let compress_result = match compress_result {
+          Ok(r) => r,
           Err(e) => {
-            error!("Failed to compress database logs for user '{}': {}", user_id, e);
+            error!("Failed to compress backup database logs for user '{}': {}", user_id, e);
+            continue;
+          }
+        };
+        let compressed = match compress_result {
+          Ok(bytes) => bytes,
+          Err(e) => {
+            error!("Failed to compress backup database logs for user '{}': {}", user_id, e);
             continue;
           }
         };
 
+        // TODO (HIGH): spawn thread to do this.
         debug!("Encrypting backup data for user '{}'.", user_id);
         let encrypted = match encrypt_file_data(&encryption_key, &compressed, &user_id) {
           Ok(bytes) => bytes,
