@@ -35,6 +35,7 @@ use crate::storage::db::Db;
 use crate::storage::db::item::{Item, RelationshipToParent, ITEM_TYPE_IMAGE};
 use crate::storage::db::item::{is_data_item, is_image_item, is_container_item, is_attachments_item};
 use crate::storage::cache as storage_cache;
+use crate::storage::db::session::Session;
 use crate::storage::object;
 use crate::util::geometry::{Vector, Dimensions};
 use crate::util::infu::InfuResult;
@@ -70,6 +71,17 @@ pub struct SendResponse {
   pub json_data: Option<String>,
 }
 
+async fn load_user_items_maybe(db: Arc<tokio::sync::Mutex<Db>>, session: &Session) -> InfuResult<()> {
+  debug!("awaiting db lock (command)");
+  let mut db = db.lock().await;
+  debug!("got db lock (command)");
+  if db.item.user_items_loaded(&session.user_id) {
+    Ok(())
+  } else {
+    db.item.load_user_items(&session.user_id, false).await
+  }
+}
+
 pub async fn serve_command_route(
     db: &Arc<tokio::sync::Mutex<Db>>,
     object_store: &Arc<object::ObjectStore>,
@@ -81,17 +93,11 @@ pub async fn serve_command_route(
     None => { return json_response(&SendResponse { success: false, json_data: None }); }
   };
 
-  {
-    // Load user items if required
-    let mut db = db.lock().await;
-    if !db.item.user_items_loaded(&session.user_id) {
-      match db.item.load_user_items(&session.user_id, false).await {
-        Ok(_) => {},
-        Err(e) => {
-          error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
-          return json_response(&SendResponse { success: false, json_data: None });
-        }
-      }
+  match load_user_items_maybe(db.clone(), &session).await {
+    Ok(_) => {},
+    Err(e) => {
+      error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
+      return json_response(&SendResponse { success: false, json_data: None });
     }
   }
 

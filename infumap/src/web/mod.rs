@@ -142,30 +142,32 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await
 }
 
+async fn all_dirty_ids(db: Arc<Mutex<Db>>) -> Vec<String> {
+  debug!("Getting dirty user ids");
+  db.lock().await.all_dirty_user_ids()
+}
+
+async fn get_backup_bytes(db: Arc<Mutex<Db>>, user_id: &str) -> InfuResult<Vec<u8>> {
+  debug!("Getting raw logs for user '{}'", user_id);
+  db.lock().await.create_user_backup_raw(user_id).await
+}
 
 fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
   let _forever = task::spawn(async move {
     let mut interval = time::interval(Duration::from_secs((backup_period_minutes * 60) as u64));
+
     loop {
       interval.tick().await;
-      debug!("Getting dirty user ids");
-      let dirty_user_ids = {
-        let mut db = db.lock().await;
-        db.all_dirty_user_ids()
-      };
+
+      let dirty_user_ids = all_dirty_ids(db.clone()).await;
       debug!("Backing up database logs for {} users.", dirty_user_ids.len());
 
       for user_id in dirty_user_ids {
-        debug!("Getting raw logs");
-        let raw_backup_bytes = {
-          // lock the db for as little time as possible.
-          let db = db.lock().await;
-          match db.create_user_backup_raw(&user_id).await {
-            Ok(bytes) => bytes,
-            Err(e) => {
-              error!("Failed to create database log backup for user '{}': {}", user_id, e);
-              continue;
-            }
+        let raw_backup_bytes = match get_backup_bytes(db.clone(), &user_id).await {
+          Ok(bytes) => bytes,
+          Err(e) => {
+            error!("Failed to create database log backup for user '{}': {}", user_id, e);
+            continue;
           }
         };
 
