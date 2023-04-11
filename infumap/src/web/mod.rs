@@ -25,7 +25,7 @@ pub mod session;
 use clap::{ArgMatches, App, Arg};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use log::{info, error, warn, debug};
+use log::{info, error, debug};
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio::{task, time};
@@ -145,13 +145,16 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
 
 fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32, encryption_key: String, db: Arc<Mutex<Db>>, backup_store: Arc<BackupStore>) {
+
+  // *** BACKUP ***
+  let backup_store_ref = backup_store.clone();
   let _forever = task::spawn(async move {
     loop {
       time::sleep(Duration::from_secs((backup_period_minutes * 60) as u64)).await;
 
       let dirty_user_ids = db.lock().await.all_dirty_user_ids();
-
       debug!("Backing up database logs for {} users.", dirty_user_ids.len());
+
       for user_id in dirty_user_ids {
 
         debug!("Getting raw logs for user '{}'", &user_id);
@@ -164,7 +167,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
         };
 
         // This is very CPU intensive, so spawn a blocking task to avoid the potential for
-        // HTTP requests to get backed up (which they do).
+        // HTTP requests to get backed up (which they do otherwise).
         debug!("Compressing backup data for user '{}'.", user_id);
         let compress_result = spawn_blocking(move || {
           let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
@@ -208,7 +211,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
         info!("Finished creating database log backup for user '{}' with size {} bytes.", user_id, encrypted.len());
 
-        match storage_backup::put(backup_store.clone(), &user_id, encrypted).await {
+        match storage_backup::put(backup_store_ref.clone(), &user_id, encrypted).await {
           Ok(s3_filename) => {
             info!("Backed up database logs for user '{}' to '{}'.", user_id, s3_filename);
           },
@@ -221,11 +224,44 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
     }
   });
 
+  // *** CLEANUP ***
+  let backup_store_ref = backup_store.clone();
   let _forever = task::spawn(async move {
+    const CLEANUP_PERIOD: u32 = 10; // run cleanup logic every 10 backup cycles.
+    let backup_retention_period_s = (backup_retention_period_days * 24 * 60 * 60) as u64;
     loop {
-      time::sleep(Duration::from_secs((backup_retention_period_days * 24 * 60 * 60) as u64)).await;
+      time::sleep(Duration::from_secs((backup_period_minutes * 60 * CLEANUP_PERIOD) as u64)).await;
+      info!("Cleaning up superfluous db backups.");
 
-      warn!("TODO: cleanup backup store");
+      let backups = match storage_backup::list(backup_store_ref.clone()).await {
+        Ok(r) => r,
+        Err(e) => {
+          error!("Could not list db backups: {}", e);
+          continue;
+        }
+      };
+
+      for (user_id, timestamps) in backups.iter() {
+        // At least one timestamp per user is always returned. Always keep first backup.
+        let mut last_kept = *timestamps.first().unwrap();
+        for i in 1..timestamps.len()-1 { // Do not consider (always keep) last backup.
+          let timestamp = timestamps[i];
+          if timestamp - last_kept < backup_retention_period_s {
+            match storage_backup::delete(backup_store_ref.clone(), user_id, timestamp).await {
+              Ok(_) => {
+                info!("Deleted db backup for user '{}' at timestamp {}.", user_id, timestamp);
+              },
+              Err(e) => {
+                error!("Failed to delete db backup for user '{}' at timestamp {}: {}", user_id, timestamp, e);
+              }
+            };
+          } else {
+            last_kept = timestamp;
+          }
+        }
+      }
+
+      info!("Done cleaning up database log backups.");
     }
   });
 }
