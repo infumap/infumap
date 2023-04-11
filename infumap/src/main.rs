@@ -28,7 +28,7 @@ use log::error;
 async fn main() {
   pretty_env_logger::formatted_timed_builder()
     .format_timestamp_secs()
-    .filter_level(log::LevelFilter::Debug)
+    .filter_module("infumap", log::LevelFilter::Debug)
     .init();
 
   let arg_matches = App::new("Infumap")
