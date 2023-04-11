@@ -20,12 +20,18 @@ use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{server::conn::http1, service::service_fn, Request, Response};
 use log::{debug, error, info};
+use prometheus::{TextEncoder, Encoder};
 use tokio::{net::TcpListener, task};
 
-use crate::{util::infu::InfuResult, web::serve::not_found_response};
+use crate::{util::infu::InfuResult, web::serve::{not_found_response, text_response, internal_server_error_response}};
+
+use super::routes::{files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL, command::METRIC_COMMANDS_HANDLED_TOTAL};
 
 
 pub async fn spawn_promethues_listener(prometheus_addr: SocketAddr) -> InfuResult<()> {
+  prometheus::register(Box::new(METRIC_CACHED_IMAGE_REQUESTS_TOTAL.clone())).unwrap();
+  prometheus::register(Box::new(METRIC_COMMANDS_HANDLED_TOTAL.clone())).unwrap();
+
   let _forever = task::spawn(async move {
     let listener = match TcpListener::bind(prometheus_addr).await {
       Ok(listener) => listener,
@@ -60,29 +66,26 @@ pub async fn spawn_promethues_listener(prometheus_addr: SocketAddr) -> InfuResul
 
 
 async fn prometheus_http_serve(req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error>  {
-  debug!("Serving prometheus: {}", req.uri().path());
-  Ok(not_found_response())
+  debug!("Serving prometheus listener: {}", req.uri().path());
+
+  if req.uri().path() != "/metrics" {
+    return Ok(not_found_response());
+  }
+
+  let mut buffer = Vec::new();
+  let encoder = TextEncoder::new();
+  let metric_families = prometheus::gather();
+  if let Err(e) = encoder.encode(&metric_families, &mut buffer) {
+    error!("Error encoding metrics: {:?}", e);
+    return Ok(internal_server_error_response("Error encoding metrics."));
+  }
+  let output = match String::from_utf8(buffer.clone()) {
+    Ok(output) => output,
+    Err(e) => {
+      error!("Error converting metrics to utf8: {:?}", e);
+      return Ok(internal_server_error_response("Error converting metrics to utf8."));
+    }
+  };
+
+  Ok(text_response(&output))
 }
-
-
-
-// use config::Config;
-// use rocket_prometheus::PrometheusMetrics;
-// use crate::web::routes::files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL;
-// use crate::web::routes::command::METRIC_COMMANDS_HANDLED_TOTAL;
-// use crate::config::CONFIG_ENABLE_PROMETHEUS_METRICS;
-// use rocket::{Build, Rocket};
-
-
-// pub fn mount(config: &Config, build: Rocket<Build>) -> Rocket<Build> {
-//   if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).unwrap() {
-//     let prometheus = PrometheusMetrics::new();
-//     prometheus.registry().register(Box::new(METRIC_CACHED_IMAGE_REQUESTS_TOTAL.clone())).unwrap();
-//     prometheus.registry().register(Box::new(METRIC_COMMANDS_HANDLED_TOTAL.clone())).unwrap();  
-//     build
-//       .attach(prometheus.clone())
-//       .mount("/metrics", prometheus)
-//   } else {
-//     build
-//   }
-// }

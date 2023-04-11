@@ -75,6 +75,15 @@ pub fn json_response<T>(v: &T) -> Response<BoxBody<Bytes, hyper::Error>> where T
   }
 }
 
+pub fn text_response(v: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
+  match Response::builder().header(hyper::header::CONTENT_TYPE, "text/plain").body(full_body(String::from(v))) {
+    Ok(r) => r,
+    Err(_) => {
+      Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(empty_body()).unwrap()
+    }
+  }
+}
+
 pub fn forbidden_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder().status(StatusCode::FORBIDDEN).body(empty_body()).unwrap()
 }
