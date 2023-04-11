@@ -24,6 +24,15 @@ pub const CONFIG_ADDRESS_DEFAULT: &'static str = "127.0.0.1";
 pub const CONFIG_PORT: &'static str = "port";
 pub const CONFIG_PORT_DEFAULT: &'static str = "8000";
 
+pub const CONFIG_ENABLE_PROMETHEUS_METRICS: &'static str = "enable_prometheus_metrics";
+pub const CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT: bool = false;
+
+pub const CONFIG_PROMETHEUS_ADDRESS: &'static str = "prometheus_address";
+pub const CONFIG_PROMETHEUS_ADDRESS_DEFAULT: &'static str = "127.0.0.1";
+
+pub const CONFIG_PROMETHEUS_PORT: &'static str = "prometheus_port";
+pub const CONFIG_PROMETHEUS_PORT_DEFAULT: &'static str = "9090";
+
 pub const CONFIG_DATA_DIR: &'static str = "data_dir";
 pub const CONFIG_DATA_DIR_DEFAULT: &'static str = "~/.infumap/data";
 

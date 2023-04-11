@@ -30,6 +30,7 @@
 # The address and port to listen on for prometheus metrics requests. Should
 # not be exposed to the public internet. Refer to the "operations.md" doc
 # file for more information.
+#enable_prometheus_metrics = false
 #prometheus_address = "127.0.0.1"
 #prometheus_port = 9090
 

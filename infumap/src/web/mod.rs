@@ -43,6 +43,7 @@ use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::crypto::encrypt_file_data;
 use crate::util::infu::InfuResult;
 
+use self::prometheus::spawn_promethues_listener;
 use self::serve::http_serve;
 
 
@@ -139,6 +140,17 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   };
 
   let config = Arc::new(config);
+
+  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)? {
+    let prometheus_addr_str = format!("{}:{}", config.get_string(CONFIG_PROMETHEUS_ADDRESS)?, config.get_int(CONFIG_PROMETHEUS_PORT)?);
+    let prometheus_addr: SocketAddr = match prometheus_addr_str.parse() {
+      Ok(addr) => addr,
+      Err(e) => {
+        return Err(format!("Invalid prometheus socket address: {} ({})", addr_str, e).into());
+      }
+    };
+    spawn_promethues_listener(prometheus_addr).await?;
+  }
 
   listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await
 }

@@ -235,6 +235,11 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
   info!(" {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY)?);
   info!(" {} = '{}'", CONFIG_ADDRESS, config.get_string(CONFIG_ADDRESS)?);
   info!(" {} = '{}'", CONFIG_PORT, config.get_string(CONFIG_PORT)?);
+  info!(" {} = {}", CONFIG_ENABLE_PROMETHEUS_METRICS, config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)?);
+  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)? {
+    info!("  {} = '{}'", CONFIG_PROMETHEUS_ADDRESS, config.get_string(CONFIG_PROMETHEUS_ADDRESS)?);
+    info!("  {} = '{}'", CONFIG_PROMETHEUS_PORT, config.get_string(CONFIG_PROMETHEUS_PORT)?);
+  }
   info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR)?);
   info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR)?);
   info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB)?);
@@ -331,6 +336,9 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT)?
     .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT)?
     .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)?
+    .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT)?
+    .set_default(CONFIG_PROMETHEUS_ADDRESS, CONFIG_PROMETHEUS_ADDRESS_DEFAULT)?
+    .set_default(CONFIG_PROMETHEUS_PORT, CONFIG_PROMETHEUS_PORT_DEFAULT)?
     .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)?
     .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)?
     .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)?
