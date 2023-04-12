@@ -157,10 +157,10 @@ async fn get_cached_resized_img(
             if respond_with_cached_original {
               continue;
             }
-            if candidate_width as f64 / requested_width as f64 > (1.0 + max_image_size_deviation_larger_percent / 100.0) {
+            if (requested_width as f64 / candidate_width as f64) > (1.0 + max_image_size_deviation_larger_percent / 100.0) {
               continue;
             }
-            if (candidate_width as f64 / requested_width as f64) < (1.0 - max_image_size_deviation_smaller_percent / 100.0) {
+            if (requested_width as f64 / candidate_width as f64) < (1.0 - max_image_size_deviation_smaller_percent / 100.0) {
               continue;
             }
             best_candidate_maybe = match best_candidate_maybe {
