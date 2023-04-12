@@ -27,9 +27,8 @@
 #port = 8000
 
 
-# The address and port to listen on for prometheus metrics requests. Should
-# not be exposed to the public internet. Refer to the "operations.md" doc
-# file for more information.
+# Prometheus metrics endpoint configuration. Should not be exposed to the
+# public internet. Refer to the "operations.md" doc file for more information.
 #enable_prometheus_metrics = false
 #prometheus_address = "127.0.0.1"
 #prometheus_port = 9090
@@ -42,24 +41,29 @@
 #data_dir = "~/.infumap/data"
 
 
-# The cache directory.
+# The cache directory. Obje
 #cache_dir = "~/.infumap/cache"
 
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are
 # removed using an LRU policy if this size is exceeded.
 #cache_max_mb = 500
 
+# Maximum length of time the browser may cache images and files. The maximum
+# supported value is one year (31536000 seconds). Set to 0 to specify that
+# the browser should not chache Infumap content.
+#browser_cache_max_age_seconds = 31536000
+
 
 # In most instances, full size image data is not required client side, and it
-# would be prohibitively expensive to serve full size images any time an image
+# would be prohibitively expensive to serve full size images whenever an image
 # of any size needs to be displayed. On the other hand, there is a relatively
 # high cost to creating and maintaining scaled down images on the server.
 # First, they need to be fetched from the object store, which may incur an
 # egress cost. Then, they need to be scaled, which is relatively
-# computationally intensive to do at high quality. Finally, the image takes up
-# space in the cache. ...
+# computationally intensive to do in high qualities. Finally, the image takes
+# up space in the server cache. ...
 #max_image_size_deviation_smaller_percent = 50
-#max_image_size_deviation_larger_percent = 30
+#max_image_size_deviation_larger_percent = 0
 
 
 # Whether or not to use the local filesystem to store file and image object

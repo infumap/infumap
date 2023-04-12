@@ -42,6 +42,9 @@ pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 pub const CONFIG_CACHE_MAX_MB: &'static str = "cache_max_mb";
 pub const CONFIG_CACHE_MAX_MB_DEFAULT: u64 = 500;
 
+pub const CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS: &'static str = "browser_cache_max_age_seconds";
+pub const CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS_DEFAULT: u64 = 31536000;
+
 pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT: &'static str = "max_image_size_deviation_smaller_percent";
 pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT_DEFAULT: u64 = 30;
 

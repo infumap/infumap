@@ -69,16 +69,16 @@ pub fn serve_dist_routes(req: &Request<hyper::body::Incoming>) -> Option<Respons
 """
 
 for f in js_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=31536000\").header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in css_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=31536000\").header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
 
 for f in png_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=31536000\").header(hyper::header::CONTENT_TYPE, \"image/png\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 for f in ico_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=604800\").header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=31536000\").header(hyper::header::CONTENT_TYPE, \"image/ico\").body(full_body(include_bytes!(\"../../dist/assets/" + f + "\").as_slice())).unwrap()),\n"
 
 output += """    _ => None
   }

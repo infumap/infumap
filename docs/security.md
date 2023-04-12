@@ -75,3 +75,7 @@ Implemented.
 - Don't run anything else on the cloud VM running Infumap.
 - Use an encrypted volume.
 
+
+## Browser caching.
+
+- Files left in browser cache allow access to information that extends beyond a logged in session. Rely on security mechanisms on the client.

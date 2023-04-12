@@ -28,7 +28,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT};
+use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS};
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::cache as storage_cache;
@@ -61,10 +61,10 @@ const JPEG_QUALITY: u8 = 80;
 
 
 pub async fn serve_files_route(
+    config: Arc<Config>,
     db: &Arc<Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    config: Arc<Config>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
   let session = match get_and_validate_session(&req, &db).await {
@@ -80,7 +80,7 @@ pub async fn serve_files_route(
       Err(e) => internal_server_error_response(&format!("get_cached_resized_img failed: {}", e))
     }
   } else {
-    match get_file(db, object_store, &session, name).await {
+    match get_file(config, db, object_store, &session, name).await {
       Ok(file_response) => file_response,
       Err(e) => internal_server_error_response(&format!("get_file failed: {}", e))
     }
@@ -96,6 +96,11 @@ async fn get_cached_resized_img(
     session: &Session,
     name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
+  // TODO (MEDIUM): Consider browser side caching more in the case an image of different size than
+  // that requested is returned. There would be a strategy that is better by some metric that more
+  // heavily weights getting the exact requested size to the user. Such a strategy probably needs
+  // to keep track of frequency of different sizes requested over time as well.
+
   let name_parts = name.split('_').collect::<Vec<&str>>();
   if name_parts.len() != 2 {
     return Ok(not_found_response());
@@ -105,12 +110,11 @@ async fn get_cached_resized_img(
   // Second part in request name is always a number, though we may respond with '{uid}_original' from the image cache.
   let requested_width = name_parts.get(1).unwrap().to_string().parse::<u32>()?;
 
-  let max_image_size_deviation_smaller_percent;
-  let max_image_size_deviation_larger_percent;
-  {
-    max_image_size_deviation_larger_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?;
-    max_image_size_deviation_smaller_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?;
-  }
+  let max_image_size_deviation_smaller_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?;
+  let max_image_size_deviation_larger_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?;
+
+  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
+  let cache_control_value = format!("private, max-age={}", browser_cache_max_age_seconds);
 
   let object_encryption_key;
   let original_dimensions_px;
@@ -126,7 +130,7 @@ async fn get_cached_resized_img(
     original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime tyoe set.")?.clone();
   }
 
-  // Never want to upscale. Instead, want to respond with the original image without modification.
+  // Never want to upscale original image. Instead, want to respond with the original image without modification.
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
@@ -141,6 +145,7 @@ async fn get_cached_resized_img(
               let data = storage_cache::get(image_cache, &session.user_id, candidate).await?.unwrap();
               return Ok(Response::builder()
                 .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
+                .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
                 .body(full_body(data)).unwrap());
             } else {
               // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
@@ -185,6 +190,7 @@ async fn get_cached_resized_img(
           let data = storage_cache::get(image_cache, &session.user_id, best_candidate.0).await?.unwrap();
           return Ok(Response::builder()
             .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+            .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
             .body(full_body(data)).unwrap());
         },
         None => {
@@ -203,6 +209,7 @@ async fn get_cached_resized_img(
     storage_cache::put(image_cache, &session.user_id, cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder()
       .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
+      .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
       .body(full_body(original_file_bytes)).unwrap());
   }
 
@@ -239,6 +246,7 @@ async fn get_cached_resized_img(
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder()
         .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+        .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
         .body(full_body(data)).unwrap())
     },
 
@@ -251,21 +259,36 @@ async fn get_cached_resized_img(
 
 
 async fn get_file(
+    config: Arc<Config>,
     db: &Arc<Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
     session: &Session,
     uid: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
-  let db = db.lock().await;
 
-  let item = db.item.get(&String::from(uid))?;
+  let (item, object_encryption_key) = {
+    let db = db.lock().await;
+    let item = db.item.get(&String::from(uid))?.clone();
+    let object_encryption_key =
+      db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
+    (item, object_encryption_key)
+  };
+
   if item.owner_id != session.user_id {
     return Err(format!("File owner {} does match session user '{}'.", item.owner_id, session.user_id).into());
   }
 
-  let mime_type_string = item.mime_type.as_ref().ok_or(format!("Mime type is not available for item '{}'.", uid))?;
+  let mime_type_string = item.mime_type.as_ref()
+    .ok_or(format!("Mime type is not available for item '{}'.", uid))?;
 
-  let object_encryption_key = &db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key;
+  // TODO (MEDIUM): Consider putting non-image files in the cache. Not highest priority though since
+  // by default, configuration is such that these are cached browser side.
+  let data = object::get(object_store, &session.user_id, &String::from(uid), &object_encryption_key).await?;
 
-  let data = object::get(object_store, &session.user_id, &String::from(uid), object_encryption_key).await?;
-  Ok(Response::builder().header(hyper::header::CONTENT_TYPE, mime_type_string).body(full_body(data)).unwrap())
+  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
+  let cache_control_value = format!("private, max-age={}", browser_cache_max_age_seconds);
+
+  Ok(Response::builder()
+    .header(hyper::header::CONTENT_TYPE, mime_type_string)
+    .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+    .body(full_body(data)).unwrap())
 }
