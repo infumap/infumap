@@ -114,7 +114,7 @@ async fn get_cached_resized_img(
   let max_image_size_deviation_larger_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?;
 
   let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
-  let cache_control_value = format!("private, max-age={}", browser_cache_max_age_seconds);
+  let cache_control_value = calc_cache_control(browser_cache_max_age_seconds);
 
   let object_encryption_key;
   let original_dimensions_px;
@@ -285,10 +285,19 @@ async fn get_file(
   let data = object::get(object_store, &session.user_id, &String::from(uid), &object_encryption_key).await?;
 
   let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
-  let cache_control_value = format!("private, max-age={}", browser_cache_max_age_seconds);
 
   Ok(Response::builder()
     .header(hyper::header::CONTENT_TYPE, mime_type_string)
-    .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+    .header(hyper::header::CACHE_CONTROL, calc_cache_control(browser_cache_max_age_seconds))
     .body(full_body(data)).unwrap())
+}
+
+
+fn calc_cache_control(max_age: i64) -> String {
+  if max_age == 0 {
+    "no-cache".to_owned()
+  }
+  else {
+    format!("private, max-age={}", max_age)
+  }
 }

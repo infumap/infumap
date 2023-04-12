@@ -353,10 +353,16 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT)?
     .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT)?;
 
-  match config_builder.build() {
-    Ok(c) => Ok(c),
+  let result = match config_builder.build() {
+    Ok(c) => c,
     Err(e) => {
-      Err(format!("An error occurred loading configuration: '{e}'").into())
+      return Err(format!("An error occurred loading configuration: '{e}'").into());
     }
+  };
+
+  if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)? < 0 {
+    return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
   }
+
+  return Ok(result)
 }
