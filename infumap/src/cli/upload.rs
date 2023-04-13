@@ -168,7 +168,15 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     .json()
     .await.map_err(|e| e.to_string())?;
   if !container_children_response.success {
-    println!("Query for container contents failed.");
+    if let Some(reason) = container_children_response.fail_reason {
+      if reason == "invalid-session" {
+        return Err("Invalid session.".into());
+      } else {
+        return Err(format!("Query for container contents failed. Reason: {}", reason).into());
+      }
+    } else {
+      return Err("Query for container contents failed.".into());
+    }
   }
 
   let json_data = container_children_response.json_data.ok_or("Request for children yielded no data.")?;
@@ -176,8 +184,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
   let container_children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
   if container_children.len() != 0 && !resuming && !additional {
-    println!("Specified container '{}' is not empty. Either the 'additional' or 'resuming' flag must be set", container_id.clone());
-    return Ok(());
+    return Err(format!("Specified container '{}' is not empty. Either the 'additional' or 'resuming' flag must be set", container_id.clone()).into());
   }
   let container_children_titles = container_children.iter().map(|child| -> InfuResult<String> {
     Ok(child

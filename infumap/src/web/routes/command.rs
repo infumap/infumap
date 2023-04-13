@@ -65,9 +65,15 @@ pub struct SendRequest {
   pub base64_data: Option<String>,
 }
 
+const REASON_INVALID_SESSION: &str = "invalid-session";
+const REASON_SERVER: &str = "server";
+const REASON_CLIENT: &str = "client";
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SendResponse {
   pub success: bool,
+  #[serde(rename="failReason")]
+  pub fail_reason: Option<String>,
   #[serde(rename="jsonData")]
   pub json_data: Option<String>,
 }
@@ -90,14 +96,14 @@ pub async fn serve_command_route(
 
   let session = match get_and_validate_session(&request, db).await {
     Some(session) => session,
-    None => { return json_response(&SendResponse { success: false, json_data: None }); }
+    None => { return json_response(&SendResponse { success: false, fail_reason: Some(REASON_INVALID_SESSION.to_owned()), json_data: None }); }
   };
 
   match load_user_items_maybe(db.clone(), &session).await {
     Ok(_) => {},
     Err(e) => {
       error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
-      return json_response(&SendResponse { success: false, json_data: None });
+      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
     }
   }
 
@@ -105,7 +111,7 @@ pub async fn serve_command_route(
     Ok(r) => r,
     Err(e) => {
       error!("An error occurred parsing command payload for user '{}': {}", session.user_id, e);
-      return json_response(&SendResponse { success: false, json_data: None });
+      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
 
@@ -118,7 +124,7 @@ pub async fn serve_command_route(
     "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session.user_id).await,
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
-      return json_response(&SendResponse { success: false, json_data: None });
+      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
 
@@ -127,12 +133,12 @@ pub async fn serve_command_route(
     Err(e) => {
       warn!("An error occurred servicing a '{}' command for user '{}': {}.", request.command, session.user_id, e);
       METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "false"]).inc();
-      return json_response(&SendResponse { success: false, json_data: None });
+      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
     }
   };
 
   METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "true"]).inc();
-  let r = SendResponse { success: true, json_data: response_data };
+  let r = SendResponse { success: true, fail_reason: None, json_data: response_data };
 
   debug!("Successfully processed a '{}' command.", request.command);
   json_response(&r)
