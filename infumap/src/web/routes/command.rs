@@ -38,6 +38,7 @@ use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
 use crate::storage::object;
 use crate::util::geometry::{Vector, Dimensions};
+use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
 use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::ordering::new_ordering_at_end;
@@ -320,13 +321,21 @@ async fn handle_add_item(
     object::put(object_store.clone(), session_user_id, &item.id, &decoded, object_encryption_key).await?;
 
     if is_image_item(&item.item_type) {
+      let title = match &item.title {
+        Some(title) => title,
+        None => { return Err(format!("Image item '{}' has no title set.", item.id).into()); }
+      };
+      // TODO (LOW): clone here seems a bit excessive.
+      let exif_orientation = get_exif_orientation(decoded.clone(), title);
       let file_cursor = Cursor::new(decoded);
       let file_reader = Reader::new(file_cursor).with_guessed_format()?;
       let img = file_reader.decode().ok().ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
+      let img = adjust_image_for_exif_orientation(img, exif_orientation, title);
+
       let width = img.width();
       let height = img.height();
+
       let img = img.resize_exact(8, 8, FilterType::Nearest);
-      // TODO (LOW): consider EXIF rotation information - the thumbnail may not be oriented correctly. But it's only 8x8, so doesn't matter much.
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
       img.write_to(&mut cursor, ImageOutputFormat::Png)
@@ -337,6 +346,7 @@ async fn handle_add_item(
         return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", session_user_id).into());
       }
       item.thumbnail = Some(thumbnail_base64);
+
       let img_size_px = &item.image_size_px.unwrap();
       if img_size_px.w != -1 && img_size_px.w != width as i64 {
         return Err(format!("Image width specified for new image item '{}' ({:?}) does not match the actual width of the image ({}).", item.id, img_size_px, width).into());
