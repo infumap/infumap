@@ -56,9 +56,6 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
   }
   childrenLoadInitiatedOrComplete[containerId] = true;
   server.fetchChildrenWithTheirAttachments(containerId)
-    .catch(e => {
-      console.log(`Error occurred feching items for '${containerId}': ${e}.`);
-    })
     .then(result => {
       if (result != null) {
         batch(() => {
@@ -71,6 +68,9 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
       }
+    })
+    .catch(e => {
+      console.log(`Error occurred feching items for '${containerId}': ${e}.`);
     });
 }
 

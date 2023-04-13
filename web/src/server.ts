@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { logout } from "./components/Main";
 import { Item } from "./store/desktop/items/base/item";
 import { itemToObject } from "./store/desktop/items/base/item-polymorphism";
 import { throwExpression } from "./util/lang";
@@ -74,6 +75,13 @@ async function send(command: string, payload: object, base64Data: string | null)
   let d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   let r = await post('/command', d);
-  if (!r.success) { throwExpression(`'${command}' command failed!`); }
+  if (!r.success) {
+    if (logout != null) {
+      await logout();
+      throwExpression(`'${command}' command failed. Reason: ${r.failReason}`);
+    } else {
+      throwExpression(`'${command}' command failed.`);
+    }
+  }
   return JSON.parse(r.jsonData);
 }

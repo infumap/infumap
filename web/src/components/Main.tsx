@@ -28,6 +28,8 @@ import { Toolbar } from "./Toolbar";
 import { EMPTY_UID } from "../util/uid";
 
 
+export let logout: (() => Promise<void>) | null = null;
+
 export const Main: Component = () => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
@@ -61,6 +63,12 @@ export const Main: Component = () => {
       await generalStore.retrieveInstallationState();
     }
   });
+
+  logout = async () => {
+    await userStore.logout();
+    desktopStore.setCurrentPageId(null);
+    navigate('/login');
+  };
 
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) 2022-2023 The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,27 +16,19 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { useNavigate } from "@solidjs/router";
-import { Component, Show } from "solid-js";
 import imgUrl from '../assets/circle.png'
+
+import { Component, Show } from "solid-js";
 import { TOOLBAR_WIDTH } from "../constants";
 import { asPageItem } from "../store/desktop/items/page-item";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
-import { useUserStore } from "../store/UserStoreProvider";
 import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
+import { logout } from "./Main";
 
 
 export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
-  const navigate = useNavigate();
-
-  const logout = async () => {
-    desktopStore.setCurrentPageId(null);
-    await userStore.logout();
-    navigate('/login');
-  }
 
   return (
     <Show when={desktopStore.currentPageId() != null}>
@@ -53,7 +45,7 @@ export const Toolbar: Component = () => {
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-user cursor-pointer" onclick={logout} />
+            <i class="fa fa-user cursor-pointer" onclick={logout!} />
           </div>
         </div>
       </div>
