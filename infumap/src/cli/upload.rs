@@ -170,7 +170,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   if !container_children_response.success {
     if let Some(reason) = container_children_response.fail_reason {
       if reason == "invalid-session" {
-        return Err("Invalid session.".into());
+        return Err("Invalid session. Note that sessions do not survive server a restart - perhaps the server was restarted.".into());
       } else {
         return Err(format!("Query for container contents failed. Reason: {}", reason).into());
       }
