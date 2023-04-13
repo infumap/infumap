@@ -53,7 +53,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
-      .help("The id of the container to upload files to. If the resume flag is not set, this container must be empty.")
+      .help("The id of the container to upload files to.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -74,7 +74,15 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .arg(Arg::new("resume")
       .short('r')
       .long("resume")
-      .help("If specified, it is not enforced that the Infumap container is empty, and files already present in the container will be skipped.")
+      .help(concat!("By default, if the Infumap container has a file or image with the same name as a file in the local directory, ",
+                    "the bulk upload operation will not start. If this flag is set, these files will be skipped instead."))
+      .takes_value(false)
+      .required(false))
+    .arg(Arg::new("additional")
+      .short('a')
+      .long("additional")
+      .help(concat!("By default, an attempt to upload files to an Infumap container that contains files with names other than those ",
+                    "in the local directory will fail. Setting this flag disables this check."))
       .takes_value(false)
       .required(false))
 }
@@ -82,8 +90,9 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.is_present("resume");
+  let additional = sub_matches.is_present("additional");
 
-  // validate directory.
+  // Validate directory.
   let local_path = match sub_matches.value_of("directory").map(|v| v.to_string()) {
     Some(path) => path,
     None => { return Err("Path to directory to upload contents of must be specified.".into()); }
@@ -91,7 +100,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let local_path = PathBuf::from(
     expand_tilde(local_path).ok_or(format!("Could not interpret path."))?);
   let mut iter = fs::read_dir(&local_path).await?;
-  let mut num_files = 0;
+  let mut local_filenames = vec![];
   while let Some(entry) = iter.next_entry().await? {
     if entry.file_type().await?.is_dir() {
       return Err("Source directory must not contain other directories.".into());
@@ -102,13 +111,14 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     if !entry.file_type().await?.is_file() {
       return Err("Source directory must only contain regular files.".into());
     }
-    if entry.file_name().to_str().is_none() {
-      return Err(format!("Could not interpret filename: {:?}", entry.file_name()).into());
-    }
-    num_files += 1;
+    let filename = match entry.file_name().to_str() {
+      None => return Err(format!("Could not interpret filename: {:?}", entry.file_name()).into()),
+      Some(filename) => filename.to_owned()
+    };
+    local_filenames.push(filename);
   }
 
-  // validate container.
+  // Validate container.
   let container_id = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
     Some(uid_maybe) => {
       if !is_uid(&uid_maybe) {
@@ -142,7 +152,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
-  // get children of container.
+  // Get children of container.
   let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id_maybe: Some(container_id.clone()) }).unwrap();
   let send_reqest = SendRequest {
     command: "get-children-with-their-attachments".to_owned(),
@@ -161,13 +171,12 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     println!("Query for container contents failed.");
   }
 
-  // enforce that the container is empty.
   let json_data = container_children_response.json_data.ok_or("Request for children yielded no data.")?;
   let json = serde_json::from_str::<Map<String, Value>>(&json_data).map_err(|e| e.to_string())?;
   let children = json.get("children").ok_or("Request for children yielded an unexpected result (no children property).")?;
   let container_children = children.as_array().ok_or("Request for children yielded an unexpected result (children property is not an array).")?;
-  if container_children.len() != 0 && !resuming {
-    println!("Specified container '{}' is not empty.", container_id.clone());
+  if container_children.len() != 0 && !resuming && !additional {
+    println!("Specified container '{}' is not empty. Either the 'additional' or 'resuming' flag must be set", container_id.clone());
     return Ok(());
   }
   let container_children_titles = container_children.iter().map(|child| -> InfuResult<String> {
@@ -177,41 +186,50 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         .as_str().ok_or("Title property is not of type string.")?.to_owned())
   }).collect::<InfuResult<Vec<String>>>()?;
 
-  // add items.
-  let mut iter = fs::read_dir(&local_path).await?;
-  let mut current_file = 0;
-  while let Some(entry) = iter.next_entry().await? {
-    current_file += 1;
+  // 'resuming' flag validation.
+  for filename in &local_filenames {
+    if container_children_titles.contains(filename) && !resuming {
+      return Err(format!("Infumap container has existing item with name '{}', and resume flag is not set.", filename).into());
+    }
+  }
 
-    let os_filename = entry.file_name();
-    let filename = os_filename.to_str().ok_or(format!("Could not interpret filename '{:?}'.", entry.file_name()))?;
-    if resuming && container_children_titles.contains(&filename.to_owned()) {
+  // 'additional' flag check.
+  for item_name in &container_children_titles {
+    if !local_filenames.contains(item_name) && !additional {
+      return Err(format!("Infumap container has an existing item '{}' that is not present in the local directory, and the 'additional' flag is not set.", item_name).into());
+    }
+  }
+
+  for i in 1..local_filenames.len() {
+    let filename = &local_filenames[i];
+    let mut path = local_path.clone();
+    path.push(filename);
+
+    if container_children_titles.contains(filename) {
       println!("File '{}' is already present in the container, skipping.", filename);
       continue;
     }
 
-    let mime_type = match mime_guess::from_path(&filename).first_raw() {
+    let mime_type = match mime_guess::from_path(filename).first_raw() {
       Some(mime_type) => mime_type,
       None => "application/octet-stream"
     };
 
-    let mut f = File::open(&entry.path()).await?;
-    let metadata = tokio::fs::metadata(&entry.path()).await?;
+    let mut f = File::open(&path).await?;
+    let metadata = tokio::fs::metadata(&path).await?;
     let mut buffer = vec![0; metadata.len() as usize];
     f.read_exact(&mut buffer).await?;
     let base_64_encoded = general_purpose::STANDARD.encode(&buffer);
 
     let mut item: Map<String, Value> = Map::new();
     item.insert("parentId".to_owned(), Value::String(container_id.clone()));
-    item.insert("title".to_owned(), Value::String(filename.to_owned()));
+    item.insert("title".to_owned(), Value::String(filename.clone()));
     item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 6).into()));
     item.insert("originalCreationDate".to_owned(),
       Value::Number(metadata.created().map_err(|e| e.to_string())?.duration_since(UNIX_EPOCH)?.as_secs().into()));
     item.insert("mimeType".to_owned(), Value::String(mime_type.to_owned()));
     item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
 
-    let os_filename = entry.file_name();
-    let filename = os_filename.to_str().ok_or("err")?;
     if filename.to_lowercase().ends_with(".png") || filename.to_lowercase().ends_with(".jpg") || filename.to_lowercase().ends_with(".jpeg") {
       let file_cursor = Cursor::new(buffer.clone());
       let file_reader = Reader::new(file_cursor).with_guessed_format()?;
@@ -226,18 +244,18 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
           if exif_orientation > 1 {
             debug!("Note: image has exif orientation type of: {}", exif_orientation);
           }
-          print!("Adding image '{}' {}/{}... ", filename, current_file, num_files);
+          print!("Adding image '{}' {}/{}... ", filename, i, local_filenames.len());
           std::io::stdout().flush()?;
         },
         Err(_e) => {
           item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
-          print!("Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ", filename, current_file, num_files);
+          print!("Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ", filename, i, local_filenames.len());
           std::io::stdout().flush()?;
         }
       }
     } else {
       item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
-      print!("Adding file '{}' {}/{}... ", filename, current_file, num_files);
+      print!("Adding file '{}' {}/{}... ", filename, i, local_filenames.len());
       std::io::stdout().flush()?;
     }
 
