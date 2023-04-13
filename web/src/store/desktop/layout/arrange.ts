@@ -69,8 +69,8 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
         console.log(`No items were fetched for '${containerId}'.`);
       }
     })
-    .catch(e => {
-      console.log(`Error occurred feching items for '${containerId}': ${e}.`);
+    .catch((e: any) => {
+      console.log(`Error occurred feching items for '${containerId}': ${e.message}.`);
     });
 }
 

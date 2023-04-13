@@ -55,9 +55,8 @@ export const Main: Component = () => {
         desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
       switchToPage(desktopStore, rootId);
-
-    } catch (e) {
-      console.log("An error occurred loading root page, clearing user session.", e);
+    } catch (e: any) {
+      console.log(`An error occurred loading root page, clearing user session: ${e.message}.`);
       userStore.clear();
       generalStore.clearInstallationState();
       await generalStore.retrieveInstallationState();
