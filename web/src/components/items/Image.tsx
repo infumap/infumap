@@ -82,17 +82,6 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
   const BORDER_WIDTH_PX = 1;
 
-  let reloadCount = 0;
-  const loadError: any = (a: HTMLImageElement, _: Event) => {
-    console.log("load error: ", a.src);
-    if (reloadCount++ < 10) {
-      setTimeout(() => {
-        // reload image.
-        a.src = a.src + "?tmp=" + Math.random();
-      }, 1000 + Math.random() * 2000);
-    }
-  }
-
   return (
     <Show when={boundsPx().w > 5}>
       <div ref={nodeElement}
@@ -103,8 +92,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
              style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                     `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
              width={imageWidthToRequestPx(false)}
-             src={imgUrl()}
-             onError={loadError} />
+             src={imgUrl()} />
       </div>
       <For each={props.visualElement.attachments()}>{attachment =>
         <VisualElementOnDesktop visualElement={attachment} />

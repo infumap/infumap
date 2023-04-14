@@ -67,6 +67,11 @@ export const Main: Component = () => {
     await userStore.logout();
     desktopStore.setCurrentPageId(null);
     navigate('/login');
+    for (let key in childrenLoadInitiatedOrComplete) {
+      if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {
+        delete childrenLoadInitiatedOrComplete[key];
+      }
+    }
   };
 
   return (
