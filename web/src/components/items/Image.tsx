@@ -84,6 +84,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
   let reloadCount = 0;
   const loadError: any = (a: HTMLImageElement, _: Event) => {
+    console.log("load error: ", a.src);
     if (reloadCount++ < 10) {
       setTimeout(() => {
         // reload image.
