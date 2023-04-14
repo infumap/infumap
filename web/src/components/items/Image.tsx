@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, onCleanup, onMount } from "solid-js";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { ITEM_TYPE_IMAGE } from "../../store/desktop/items/base/item";
@@ -27,11 +27,15 @@ import { quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { logout } from "../Main";
 
+
+let imgFetchInProgressCount = 0;
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
   let nodeElement: HTMLDivElementWithData | undefined;
+  let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
   // refer to: visual-element.ts
@@ -53,12 +57,15 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const quantizedBoundsPx_cache = () => quantizeBoundingBox(boundsPx_cache());
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
-  const imgUrl = () => {
-    if (!props.visualElement.isInteractive) {
-      return "data:image/png;base64, " + imageItem().thumbnail;
-    }
-    return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
-  };
+  const isInteractive = () => { return props.visualElement.isInteractive; }
+  const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
+  const imgSrc = () => { return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true); }
+  // const imgUrl = () => {
+  //   if (!props.visualElement.isInteractive) {
+  //     return "data:image/png;base64, " + imageItem().thumbnail;
+  //   }
+  //   return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
+  // };
 
   const imageWidthToRequestPx = (lockToResizinFromBounds: boolean) => {
     let boundsPx = (resizingFromBoundsPx() == null || !lockToResizinFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
@@ -82,17 +89,67 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
   const BORDER_WIDTH_PX = 1;
 
+
+  let objectUrl: string | null = null;
+  let retryCount = 0;
+
+  onMount(async () => {
+    if (isInteractive()) {
+      while (retryCount < 10) {
+        let response;
+        try {
+          response = await fetch(imgSrc());
+        } catch (ex) {
+          console.log(`image fetch failed for ${imgSrc()}`, ex);
+          break;
+        }
+        if (response.status == 200) {
+          let blob = await response.blob();
+          objectUrl = URL.createObjectURL(blob);
+          imgElement!.src = objectUrl;
+          break;
+        }
+        if (response.status == 403) {
+          await logout!();
+          break;
+        }
+        if (response.status == 503) {
+          // TODO (MEDIUM): global image download manager, which pipelines requests.
+          await new Promise(r => setTimeout(r, 2000 + Math.random()*2000));
+          continue;
+        }
+        console.log(`Image fetch unexpected status response: ${response.status}`);
+        break;
+      }
+    }
+  });
+
+  onCleanup(() => {
+    if (objectUrl != null) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  });
+
   return (
     <Show when={boundsPx().w > 5}>
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
            style={`left: ${quantizedBoundsPx_cache().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
-        <img class="max-w-none absolute"
-             style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                    `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
-             width={imageWidthToRequestPx(false)}
-             src={imgUrl()} />
+        <Show when={!isInteractive()}>
+          <img class="max-w-none absolute"
+               style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
+               width={imageWidthToRequestPx(false)}
+               src={thumbnailSrc()} />
+        </Show>
+        <Show when={isInteractive()}>
+          <img ref={imgElement}
+               class="max-w-none absolute"
+               style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
+               width={imageWidthToRequestPx(false)} />
+        </Show>
       </div>
       <For each={props.visualElement.attachments()}>{attachment =>
         <VisualElementOnDesktop visualElement={attachment} />

@@ -50,7 +50,7 @@ pub async fn http_serve(
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
     else if req.uri().path().starts_with("/files/") {
       // TODO (LOW): perhaps this should be configurable, or dependent on number of threads.
-      const MAX_FILE_REQUESTS: i32 = 8;
+      const MAX_FILE_REQUESTS: i32 = 20;
 
       {
         let mut file_request_count = file_request_count.lock().unwrap();
