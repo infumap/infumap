@@ -281,13 +281,14 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 
 async fn listen(addr: SocketAddr, db: Arc<Mutex<Db>>, object_store: Arc<ObjectStore>, image_cache: Arc<std::sync::Mutex<ImageCache>>, config: Arc<config::Config>) -> InfuResult<()> {
   let listener = TcpListener::bind(addr).await?;
+  let file_request_count = Arc::new(std::sync::Mutex::new(0));
   loop {
     let (stream, _) = listener.accept().await?;
     let db = db.clone();
     let object_store = object_store.clone();
     let image_cache = image_cache.clone();
     let config = config.clone();
-    let file_request_count = Arc::new(std::sync::Mutex::new(0));
+    let file_request_count = file_request_count.clone();
     tokio::task::spawn(async move {
       if let Err(err) = http1::Builder::new()
         .serve_connection(
