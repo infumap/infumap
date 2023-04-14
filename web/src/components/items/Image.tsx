@@ -87,7 +87,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
     if (reloadCount++ < 10) {
       setTimeout(() => {
         // reload image.
-        a.src = a.src + "";
+        a.src = a.src + "?tmp=" + Math.random();
       }, 1000 + Math.random() * 2000);
     }
   }
