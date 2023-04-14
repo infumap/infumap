@@ -92,10 +92,11 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
   let objectUrl: string | null = null;
   let retryCount = 0;
+  let cleanedUp = false;
 
   onMount(async () => {
     if (isInteractive()) {
-      while (retryCount < 10) {
+      while (retryCount < 10 && !cleanedUp) {
         let response;
         try {
           response = await fetch(imgSrc());
@@ -110,12 +111,14 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           break;
         }
         if (response.status == 403) {
+          // Server rejected due to invalid session.
           await logout!();
           break;
         }
         if (response.status == 503) {
+          // Server rejected request due to too many existing outstanding file requests.
           // TODO (MEDIUM): global image download manager, which pipelines requests.
-          await new Promise(r => setTimeout(r, 2000 + Math.random()*2000));
+          await new Promise(r => setTimeout(r, 1000 + Math.random()*3000));
           continue;
         }
         console.log(`Image fetch unexpected status response: ${response.status}`);
@@ -128,6 +131,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
     if (objectUrl != null) {
       URL.revokeObjectURL(objectUrl);
     }
+    cleanedUp = true;
   });
 
   return (
