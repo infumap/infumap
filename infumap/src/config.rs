@@ -48,11 +48,11 @@ pub const CONFIG_CACHE_MAX_MB_DEFAULT: u64 = 500;
 pub const CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS: &'static str = "browser_cache_max_age_seconds";
 pub const CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS_DEFAULT: u64 = 31536000;
 
-pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT: &'static str = "max_image_size_deviation_smaller_percent";
-pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT_DEFAULT: u64 = 30;
+pub const CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT: &'static str = "max_scale_image_down_percent";
+pub const CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT_DEFAULT: u64 = 30;
 
-pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT: &'static str = "max_image_size_deviation_larger_percent";
-pub const CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT_DEFAULT: u64 = 5;
+pub const CONFIG_MAX_SCALE_IMAGE_UP_PERCENT: &'static str = "max_scale_image_up_percent";
+pub const CONFIG_MAX_SCALE_IMAGE_UP_PERCENT_DEFAULT: u64 = 5;
 
 pub const CONFIG_ENV_ONLY: &'static str = "env_only";
 pub const CONFIG_ENV_ONLY_DEFAULT: bool = false;

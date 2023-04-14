@@ -20,9 +20,9 @@
 
 
 # The level at which to log messages to stderr.
-# Valid values: off, error, warn, info, debug, trace.
 # Only Infumap messages are logged (no messages from dependencies).
-# Note: Infumap currently doesn't emit any messages a trace level.
+# Valid values: off, error, warn, info, debug, trace.
+# Infumap currently doesn't emit any messages a trace level.
 #log_level = "info"
 
 
@@ -68,9 +68,12 @@
 # First, they need to be fetched from the object store, which may incur an
 # egress cost. Then, they need to be scaled, which is relatively
 # computationally intensive to do in high qualities. Finally, the image takes
-# up space in the server cache.
-#max_image_size_deviation_smaller_percent = 50
-#max_image_size_deviation_larger_percent = 0
+# up space in the server cache. For this reason, Infumap can be configured to
+# serve images that are different from the requested size, if they are already
+# present in the cache. The following properties specify the maximum it is
+# permitted to scale an image up or down browser side.
+#max_scale_image_down_percent = 50
+#max_scale_image_up_percent = 0
 
 
 # Whether or not to use the local filesystem to store file and image object

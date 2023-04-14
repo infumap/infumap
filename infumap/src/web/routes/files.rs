@@ -28,7 +28,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::config::{CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT, CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS};
+use crate::config::{CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS};
 use crate::storage::db::Db;
 use crate::storage::db::session::Session;
 use crate::storage::cache as storage_cache;
@@ -110,8 +110,8 @@ async fn get_cached_resized_img(
   // Second part in request name is always a number, though we may respond with '{uid}_original' from the image cache.
   let requested_width = name_parts.get(1).unwrap().to_string().parse::<u32>()?;
 
-  let max_image_size_deviation_smaller_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_SMALLER_PERCENT)?;
-  let max_image_size_deviation_larger_percent = config.get_float(CONFIG_MAX_IMAGE_SIZE_DEVIATION_LARGER_PERCENT)?;
+  let max_scale_image_down_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT)?;
+  let max_scale_image_up_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT)?;
 
   let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
   let cache_control_value = calc_cache_control(browser_cache_max_age_seconds);
@@ -157,10 +157,10 @@ async fn get_cached_resized_img(
             if respond_with_cached_original {
               continue;
             }
-            if (requested_width as f64 / candidate_width as f64) > (1.0 + max_image_size_deviation_larger_percent / 100.0) {
+            if (requested_width as f64 / candidate_width as f64) > (1.0 + max_scale_image_up_percent / 100.0) {
               continue;
             }
-            if (requested_width as f64 / candidate_width as f64) < (1.0 - max_image_size_deviation_smaller_percent / 100.0) {
+            if (requested_width as f64 / candidate_width as f64) < (1.0 - max_scale_image_down_percent / 100.0) {
               continue;
             }
             best_candidate_maybe = match best_candidate_maybe {
