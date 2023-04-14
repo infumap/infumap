@@ -58,7 +58,7 @@ pub async fn http_serve(
           return Ok(service_unavailable_response(format!("max open requests for files ({}) exceeded", MAX_FILE_REQUESTS).as_str()));
         }
         *file_request_count = *file_request_count + 1;
-        debug!("Increased number of open /files requests to: {}", *file_request_count);
+        debug!("Number of open /files requests increased to: {}", *file_request_count);
       }
 
       let response = serve_files_route(config, &db, object_store, image_cache.clone(), &req).await;
@@ -67,7 +67,7 @@ pub async fn http_serve(
         let mut file_request_count = file_request_count.lock().unwrap();
         *file_request_count = *file_request_count - 1;
         if *file_request_count >= 0 {
-          debug!("Decreased number of open /files requests to: {}", *file_request_count);
+          debug!("Number of open /files requests decreased to: {}", *file_request_count);
         } else {
           panic!("There is a negative number of open requests to /files.");
         }
@@ -122,7 +122,7 @@ pub fn internal_server_error_response(reason: &str) -> Response<BoxBody<Bytes, h
 }
 
 pub fn service_unavailable_response(reason: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
-  error!("{}", reason);
+  debug!("{}", reason);
   Response::builder().status(StatusCode::SERVICE_UNAVAILABLE).body(empty_body()).unwrap()
 }
 
