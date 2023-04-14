@@ -17,7 +17,7 @@
 use std::os::unix::prelude::FileExt;
 use config::{Config, FileFormat};
 use log::{info, warn};
-use crate::config::*;
+use crate::{config::*, init_logger};
 use crate::util::crypto::generate_key;
 use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
@@ -79,6 +79,10 @@ pub async fn _get_config(settings_path_maybe: Option<String>) -> InfuResult<Conf
 
 
 pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+
+  // logger has not been initialized yet. cache log messages.
+  let mut info_messages = vec![];
+
   let settings_path_maybe = match settings_path_maybe {
     Some(path) => {
       let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
@@ -118,7 +122,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
         if !path_exists(&pb).await {
           match std::fs::create_dir(pb.as_path()) {
             Ok(_) => {
-              info!("Settings file was not specified, creating .infumap in home directory.");
+              info_messages.push("Settings file was not specified, creating .infumap in home directory.".to_owned());
             },
             Err(e) => {
               return Err(format!("Could not create .infumap in home directory: {e}").into());
@@ -132,12 +136,12 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
             if let Err(e) = std::fs::create_dir(pb.as_path()) {
               return Err(format!("Could not create cache directory: '{e}'").into());
             } else {
-              info!("Created cache directory: '~/.infumap/cache'");
+              info_messages.push("Created cache directory: '~/.infumap/cache'".to_owned());
             }
           }
           let num_created = ensure_256_subdirs(&pb).await?;
           if num_created > 0 {
-            info!("Created {} sub cache directories", num_created);
+            info_messages.push(format!("Created {} sub cache directories", num_created));
           }
           pb.pop();
         }
@@ -148,7 +152,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
             if let Err(e) = std::fs::create_dir(pb.as_path()) {
               return Err(format!("Could not create data directory: '{e}'").into());
             } else {
-              info!("Created data directory: '~/.infumap/data'");
+              info_messages.push("Created data directory: '~/.infumap/data'".to_owned());
             }
           }
           pb.pop();
@@ -166,10 +170,10 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
           let backup_encryption_key = generate_key();
           let default_settings = String::from_utf8(buf.to_vec()).unwrap();
           let default_settings = default_settings.replace("{{encryption_key}}", &backup_encryption_key);
-          
+
           match f.write_all_at(default_settings.as_bytes(), 0) {
             Ok(_) => {
-              info!("Created default settings file at ~/.infumap/settings.toml");
+              info_messages.push("Created default settings file at ~/.infumap/settings.toml".to_owned());
             },
             Err(e) => {
               return Err(format!("Could not create default settings file at ~/.infumap/settings.toml: '{e}'").into());
@@ -183,6 +187,10 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
   };
 
   let config = build_config(settings_path_maybe)?;
+  init_logger(Some(config.get_string(CONFIG_LOG_LEVEL)?.to_owned()))?;
+  for message in info_messages {
+    info!("{}", message);
+  }
 
   if !expand_tilde_path_exists(config.get_string(CONFIG_DATA_DIR)?).await {
     return Err(format!("Data dir '{}' does not exist.", config.get_string(CONFIG_DATA_DIR)?).into());
@@ -232,6 +240,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
   }
 
   info!("Config:");
+  info!(" {} = {}", CONFIG_LOG_LEVEL, config.get_string(CONFIG_LOG_LEVEL)?);
   info!(" {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY)?);
   info!(" {} = '{}'", CONFIG_ADDRESS, config.get_string(CONFIG_ADDRESS)?);
   info!(" {} = '{}'", CONFIG_PORT, config.get_string(CONFIG_PORT)?);
@@ -335,6 +344,7 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   }
     .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
     .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT)?
+    .set_default(CONFIG_LOG_LEVEL, CONFIG_LOG_LEVEL_DEFAULT)?
     .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT)?
     .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)?
     .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT)?

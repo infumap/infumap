@@ -20,17 +20,15 @@ mod util;
 mod web;
 mod cli;
 mod setup;
+use std::str::FromStr;
+
 use clap::App;
-use log::error;
+use std::env;
+use util::infu::InfuResult;
 
 
 #[tokio::main]
 async fn main() {
-  pretty_env_logger::formatted_timed_builder()
-    .format_timestamp_secs()
-    .filter_module("infumap", log::LevelFilter::Debug)
-    .init();
-
   let arg_matches = App::new("Infumap")
     .version("0.1.0")
     .subcommand(cli::keygen::make_clap_subcommand())
@@ -46,32 +44,45 @@ async fn main() {
     .get_matches();
 
   let command_result = match arg_matches.subcommand() {
-    Some(("keygen", arg_sub_matches)) => {
-      cli::keygen::execute(arg_sub_matches)
-    },
-    Some(("login", arg_sub_matches)) => {
-      cli::login::execute(arg_sub_matches).await
-    },
-    Some(("logout", arg_sub_matches)) => {
-      cli::logout::execute(arg_sub_matches).await
-    },
-    Some(("migrate", arg_sub_matches)) => {
-      cli::migrate::execute(arg_sub_matches).await
-    },
-    Some(("note", arg_sub_matches)) => {
-      cli::note::execute(arg_sub_matches).await
-    },
-    Some(("repair", arg_sub_matches)) => {
-      cli::repair::execute(arg_sub_matches).await
-    },
-    Some(("restore", arg_sub_matches)) => {
-      cli::restore::execute(arg_sub_matches).await
-    },
-    Some(("upload", arg_sub_matches)) => {
-      cli::upload::execute(arg_sub_matches).await
-    },
     Some(("web", arg_sub_matches)) => {
       web::execute(&arg_sub_matches).await
+    },
+    Some((command, arg_sub_matches)) => {
+      match init_logger(None) {
+        Err(e) => Err(e),
+        Ok(()) => {
+          match command {
+            "keygen" => {
+              cli::keygen::execute(arg_sub_matches)
+            },
+            "login" => {
+              cli::login::execute(arg_sub_matches).await
+            },
+            "logout" => {
+              cli::logout::execute(arg_sub_matches).await
+            },
+            "migrate" => {
+              cli::migrate::execute(arg_sub_matches).await
+            },
+            "note" => {
+              cli::note::execute(arg_sub_matches).await
+            },
+            "repair" => {
+              cli::repair::execute(arg_sub_matches).await
+            },
+            "restore" => {
+              cli::restore::execute(arg_sub_matches).await
+            },
+            "upload" => {
+              cli::upload::execute(arg_sub_matches).await
+            },
+            _ => {
+              println!(".. --help for help.");
+              Ok(())
+            }
+          }
+        }
+      }
     },
     _ => {
       println!(".. --help for help.");
@@ -81,6 +92,28 @@ async fn main() {
 
   match command_result {
     Ok(_) => {},
-    Err(e) => { error!("{}", e); }
+    Err(e) => {
+      // Not using logger here, as the error may have been in initializing the logger.
+      println!("{}", e);
+    }
   }
+}
+
+
+fn init_logger(level: Option<String>) -> InfuResult<()> {
+  let level = if let Some(level) = level {
+    log::LevelFilter::from_str(&level).map_err(|e| format!("Could not parse log level: {}", e))?
+  } else {
+    let key = "INFUMAP_LOG_LEVEL";
+    let log_level_str = match env::var(key) {
+      Err(_) => "info".to_owned(),
+      Ok(v) => v
+    };
+    log::LevelFilter::from_str(&log_level_str).map_err(|e| format!("Could not parse log level: {}", e))?
+  };
+  pretty_env_logger::formatted_timed_builder()
+    .format_timestamp_secs()
+    .filter_module("infumap", level)
+    .init();
+  Ok(())
 }

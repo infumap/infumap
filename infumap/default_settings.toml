@@ -19,6 +19,13 @@
 # need to uncomment these lines if you want the default value.
 
 
+# The level at which to log messages to stderr.
+# Valid values: off, error, warn, info, debug, trace.
+# Only Infumap messages are logged (no messages from dependencies).
+# Note: Infumap currently doesn't emit any messages a trace level.
+#log_level = "info"
+
+
 # The address and port to listen on for web and API requests. Should not be
 # exposed to the public internet. Instead, use a reverse proxy and enable
 # TLS on it. Refer to the "operations.md" doc file for more information on
@@ -41,7 +48,7 @@
 #data_dir = "~/.infumap/data"
 
 
-# The cache directory. Obje
+# The cache directory. Used to store scaled down images.
 #cache_dir = "~/.infumap/cache"
 
 # Maximum aggregate size (in megabytes) of all files in the cache. Files are
@@ -61,7 +68,7 @@
 # First, they need to be fetched from the object store, which may incur an
 # egress cost. Then, they need to be scaled, which is relatively
 # computationally intensive to do in high qualities. Finally, the image takes
-# up space in the server cache. ...
+# up space in the server cache.
 #max_image_size_deviation_smaller_percent = 50
 #max_image_size_deviation_larger_percent = 0
 

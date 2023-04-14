@@ -17,7 +17,7 @@
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
-use log::{info, error, debug};
+use log::{info, error, debug, warn};
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use std::str;
@@ -170,7 +170,7 @@ pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) ->
 
   match db.session.delete_session(&session_cookie.session_id) {
     Err(e) => {
-      error!(
+      warn!(
         "Could not delete session '{}' for user '{}': {}",
         session_cookie.session_id, session_cookie.user_id, e);
       return json_response(&LogoutResponse { success: false });

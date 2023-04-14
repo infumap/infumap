@@ -18,6 +18,9 @@
 pub const ENV_CONFIG_PREFIX: &'static str = "INFUMAP";
 
 
+pub const CONFIG_LOG_LEVEL: &'static str = "log_level";
+pub const CONFIG_LOG_LEVEL_DEFAULT: &'static str = "info";
+
 pub const CONFIG_ADDRESS: &'static str = "address";
 pub const CONFIG_ADDRESS_DEFAULT: &'static str = "127.0.0.1";
 
