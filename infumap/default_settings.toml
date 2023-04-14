@@ -70,8 +70,8 @@
 # computationally intensive to do in high qualities. Finally, the image takes
 # up space in the server cache. For this reason, Infumap can be configured to
 # serve images that are different from the requested size, if they are already
-# present in the cache. The following properties specify the maximum it is
-# permitted to scale an image up or down browser side.
+# present in the cache. The following properties specify the maximum amount an
+# image may be scaled up or down browser side.
 #max_scale_image_down_percent = 50
 #max_scale_image_up_percent = 0
 

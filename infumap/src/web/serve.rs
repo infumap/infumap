@@ -36,7 +36,9 @@ use super::routes::admin::serve_admin_route;
 use super::routes::command::serve_command_route;
 use super::routes::files::serve_files_route;
 
+
 pub async fn http_serve(
+    file_request_count: Arc<std::sync::Mutex<i32>>,
     db: Arc<Mutex<Db>>,
     object_store: Arc<ObjectStore>,
     image_cache: Arc<std::sync::Mutex<ImageCache>>,
@@ -46,7 +48,33 @@ pub async fn http_serve(
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
-    else if req.uri().path().starts_with("/files/") { serve_files_route(config, &db, object_store, image_cache.clone(), &req).await }
+    else if req.uri().path().starts_with("/files/") {
+      // TODO (LOW): perhaps this should be configurable, or dependent on number of threads.
+      const MAX_FILE_REQUESTS: i32 = 8;
+
+      {
+        let mut file_request_count = file_request_count.lock().unwrap();
+        if file_request_count.ge(&MAX_FILE_REQUESTS) {
+          return Ok(service_unavailable_response(format!("max open requests for files ({}) exceeded", MAX_FILE_REQUESTS).as_str()));
+        }
+        *file_request_count = *file_request_count + 1;
+        debug!("Increased number of open /files requests to: {}", *file_request_count);
+      }
+
+      let response = serve_files_route(config, &db, object_store, image_cache.clone(), &req).await;
+
+      {
+        let mut file_request_count = file_request_count.lock().unwrap();
+        *file_request_count = *file_request_count - 1;
+        if *file_request_count >= 0 {
+          debug!("Decreased number of open /files requests to: {}", *file_request_count);
+        } else {
+          panic!("There is a negative number of open requests to /files.");
+        }
+      }
+
+      response
+    }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, &req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
     else { not_found_response() }
@@ -91,6 +119,11 @@ pub fn forbidden_response() -> Response<BoxBody<Bytes, hyper::Error>> {
 pub fn internal_server_error_response(reason: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
   error!("{}", reason);
   Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(empty_body()).unwrap()
+}
+
+pub fn service_unavailable_response(reason: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
+  error!("{}", reason);
+  Response::builder().status(StatusCode::SERVICE_UNAVAILABLE).body(empty_body()).unwrap()
 }
 
 pub fn not_found_response() -> Response<BoxBody<Bytes, hyper::Error>> {
