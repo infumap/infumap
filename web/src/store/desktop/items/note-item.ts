@@ -53,7 +53,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     title,
     spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
-    spatialWidthGr: 4.0 * GRID_SIZE,
+    spatialWidthGr: 10.0 * GRID_SIZE,
 
     url: "",
 

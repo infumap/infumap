@@ -36,6 +36,7 @@ import { newOrdering } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { switchToPage } from '../layout/arrange';
 import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal, UidArraySignal } from '../../../util/signals';
+import { getHitInfo } from '../../../mouse';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -289,17 +290,14 @@ export function asPageMeasurable(item: ItemTypeMixin): PageMeasurable {
 }
 
 
-export const calcBlockPositionGr = (page: PageItem, desktopPosPx: Vector): Vector => {
-  // let propX = (desktopPosPx.x - page.computed_geometry[page.parentId].boundsPx.x) / page.computed_geometry[page.parentId].boundsPx.w!;
-  // let propY = (desktopPosPx.y - page.computed_geometry[page.parentId].boundsPx.y) / page.computed_geometry[page.parentId].boundsPx.h!;
-  // return {
-  //   x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-  //   y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-  // };
-  return ({
-    x: 0,
-    y: 0,
-  });
+export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page: PageItem, desktopPosPx: Vector): Vector => {
+  const hbi = getHitInfo(desktopStore, desktopPosPx, []);
+  const propX = (desktopPosPx.x - hbi.visualElement.boundsPx.x) / hbi.visualElement.boundsPx.w;
+  const propY = (desktopPosPx.y - hbi.visualElement.boundsPx.y) / hbi.visualElement.boundsPx.h;
+  return {
+    x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+    y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+  };
 }
 
 

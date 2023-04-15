@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup, onMount, Show } from "solid-js";
+import { Component, Show } from "solid-js";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { AddItem } from "./AddItem";
 
@@ -24,17 +24,18 @@ import { AddItem } from "./AddItem";
 const ContextMenuInner: Component = () => {
   const generalStore = useGeneralStore();
 
-  let contextMenuDiv: HTMLDivElement | undefined;
-
   // Prevent mouse down events bubbling up, which would trigger the handler that hides the context menu.
-  let mouseDownListener = (ev: MouseEvent) => ev.stopPropagation();
-  onMount(() => contextMenuDiv!.addEventListener('mousedown', mouseDownListener));
-  onCleanup(() => contextMenuDiv!.removeEventListener('mousedown', mouseDownListener));
+  let mouseDownListener = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  }
 
   const posPx = () => generalStore.contextMenuInfo()!.posPx;
   const item = () => generalStore.contextMenuInfo()!.item;
+
   return (
-    <div ref={contextMenuDiv} class="absolute" style={`left: ${posPx().x}px; top: ${posPx().y}px`}>
+    <div class="absolute"
+         style={`left: ${posPx().x}px; top: ${posPx().y}px`}
+         onMouseDown={mouseDownListener}>
       <AddItem desktopPosPx={posPx()} contextItem={item()} />
     </div>
   );

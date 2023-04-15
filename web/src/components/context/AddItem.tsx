@@ -42,8 +42,13 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   const newPageInContext = () => {
     if (isPage(props.contextItem)) {
-      let newPage = newPageItem(userStore.getUser().userId, props.contextItem?.id!, Child, "my new page", desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newPage.spatialPositionGr.set(calcBlockPositionGr(asPageItem(props.contextItem!), props.desktopPosPx));
+      let newPage = newPageItem(
+        userStore.getUser().userId,
+        props.contextItem?.id!,
+        Child,
+        "my new page",
+        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
+      newPage.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
       desktopStore.addItem(newPage);
       server.addItem(newPage, null);
       generalStore.setContextMenuInfo(null);
@@ -52,8 +57,13 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   const newNoteInContext = () => {
     if (isPage(props.contextItem)) {
-      let newNote = newNoteItem(userStore.getUser().userId, props.contextItem?.id!, Child, "my new note", desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newNote.spatialPositionGr.set(calcBlockPositionGr(asPageItem(props.contextItem!), props.desktopPosPx));
+      let newNote = newNoteItem(
+        userStore.getUser().userId,
+        props.contextItem?.id!,
+        Child,
+        "my new note",
+        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
+      newNote.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
       desktopStore.addItem(newNote);
       server.addItem(newNote, null);
       generalStore.setContextMenuInfo(null);
@@ -62,8 +72,13 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   const newTableInContext = () => {
     if (isPage(props.contextItem)) {
-      let newTable = newTableItem(userStore.getUser().userId, props.contextItem?.id!, Child, "my new table", desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newTable.spatialPositionGr.set(calcBlockPositionGr(asPageItem(props.contextItem!), props.desktopPosPx));
+      let newTable = newTableItem(
+        userStore.getUser().userId,
+        props.contextItem?.id!,
+        Child,
+        "my new table",
+        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
+      newTable.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
       desktopStore.addItem(newTable);
       server.addItem(newTable, null);
       generalStore.setContextMenuInfo(null);
