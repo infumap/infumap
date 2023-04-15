@@ -24,10 +24,19 @@ interface InfuButtonProps {
   onClick?: (() => void)
 }
 
+
 export const InfuButton: Component<InfuButtonProps> = (props: InfuButtonProps) => {
-  const handleClick = () => { if (props.onClick) { props.onClick() } }
+
+  const handleClick = (_ev: MouseEvent) => {
+    if (props.onClick) { props.onClick() }
+  }
+
+  const handleMouseDown = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  }
+
   return (
-    <button class="border border-slate-600 hover:bg-slate-300 rounded pl-4 pr-4 pt-2 pb-2" onclick={handleClick}>
+    <button class="border border-slate-600 hover:bg-slate-300 rounded pl-4 pr-4 pt-2 pb-2" onclick={handleClick} onmousedown={handleMouseDown}>
       {props.text}
     </button>
   );

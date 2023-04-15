@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroTopLeft } from '../../../util/geometry';
+import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { currentUnixTimeSeconds, notImplemented, panic } from '../../../util/lang';
 import { newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
@@ -266,7 +266,7 @@ export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
     innerBoundsPx: () => { notImplemented(); },
     hitboxes: () => [
-      { type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) },
+      { type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) },
     ]
   });
 }

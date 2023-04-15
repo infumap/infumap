@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
-import { BoundingBox, Dimensions, zeroTopLeft } from "../../../util/geometry";
+import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { notImplemented, panic } from "../../../util/lang";
 import { AttachmentsItem } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
@@ -203,7 +203,7 @@ export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBounds
   return ({
     boundsPx,
     innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [ { type: HitboxType.Click, boundsPx: zeroTopLeft(boundsPx()) } ]
+    hitboxes: () => [ { type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(boundsPx()) } ]
   });
 }
 

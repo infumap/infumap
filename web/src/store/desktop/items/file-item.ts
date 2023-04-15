@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from '../../../util/geometry';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { notImplemented, panic } from '../../../util/lang';
 import { AttachmentsItem } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
@@ -154,7 +154,7 @@ export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx
   return ({
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
     innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
+    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
   });
 }
 

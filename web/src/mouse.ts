@@ -27,7 +27,7 @@ import { asTableItem, isTable } from "./store/desktop/items/table-item";
 import { DesktopStoreContextModel } from "./store/desktop/DesktopStoreProvider";
 import { GeneralStoreContextModel } from "./store/GeneralStoreProvider";
 import { UserStoreContextModel } from "./store/UserStoreProvider";
-import { add, getTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetTopLeftBy } from "./util/geometry";
+import { add, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
 import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
@@ -36,6 +36,7 @@ import { VisualElement_Concrete, findNearestContainerVe } from "./store/desktop/
 import { switchToPage } from "./store/desktop/layout/arrange";
 import { asContainerItem } from "./store/desktop/items/base/container-item";
 import { HTMLDivElementWithData } from "./util/html";
+import { editDialogSizePx } from "./components/context/EditDialog";
 
 
 const MOUSE_LEFT = 0;
@@ -107,7 +108,7 @@ export function getHitInfo(
       // resize hitbox of table takes precedence over everything in the child area.
       let resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(resizeHitbox.boundsPx, getTopLeft(tableVe.boundsPx!)))) {
+      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
         return ({ hitboxType: HitboxType.Resize, visualElement: tableVe });
       }
 
@@ -123,7 +124,7 @@ export function getHitInfo(
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;
           for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
-            if (isInside(posRelativeToTableChildAreaPx, offsetTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getTopLeft(tableChildVe.boundsPx)))) {
+            if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(tableChildVe.boundsPx)))) {
               hitboxType |= tableChildVe.hitboxes[k].type;
             }
           }
@@ -137,7 +138,7 @@ export function getHitInfo(
     // handle inside any other item (including pages, which can't clicked in).
     let hitboxType = HitboxType.None;
     for (let j=childVe.hitboxes.length-1; j>=0; --j) {
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetTopLeftBy(childVe.hitboxes[j].boundsPx, getTopLeft(childVe.boundsPx)))) {
+      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(childVe.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVe.boundsPx)))) {
         hitboxType |= childVe.hitboxes[j].type;
       }
     }
@@ -162,8 +163,13 @@ interface MouseActionState {
   action: MouseAction,
   onePxSizeBl: Vector,
 }
-
 let mouseActionState: MouseActionState | null = null;
+
+interface DialogMoveState {
+  lastMousePosPx: Vector,
+}
+let dialogMoveState: DialogMoveState | null = null;
+
 let lastMouseOverId: Uid | null = null;
 
 
@@ -187,10 +193,23 @@ export function mouseLeftDownHandler(
     generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
 
-  if (generalStore.contextMenuInfo() != null) { generalStore.setContextMenuInfo(null); return; }
-  if (generalStore.editDialogInfo() != null) { generalStore.setEditDialogInfo(null); return; }
+  const desktopPosPx = desktopPxFromMouseEvent(ev);
 
-  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
+  if (generalStore.contextMenuInfo() != null) {
+    generalStore.setContextMenuInfo(null); return;
+  }
+
+  let dialogInfo = generalStore.editDialogInfo();
+  if (dialogInfo != null) {
+    if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
+      dialogMoveState = { lastMousePosPx: desktopPosPx };
+      return;
+    }
+
+    generalStore.setEditDialogInfo(null); return;
+  }
+
+  const hitInfo = getHitInfo(desktopStore, desktopPosPx, []);
   if (hitInfo.hitboxType == HitboxType.None) {
     mouseActionState = null;
     return;
@@ -222,8 +241,14 @@ export function mouseLeftDownHandler(
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
     generalStore: GeneralStoreContextModel) {
-  if (generalStore.contextMenuInfo()) { generalStore.setContextMenuInfo(null); return; }
-  if (generalStore.editDialogInfo() != null) { generalStore.setEditDialogInfo(null); return; }
+
+  if (generalStore.contextMenuInfo()) {
+    generalStore.setContextMenuInfo(null); return;
+  }
+
+  if (generalStore.editDialogInfo() != null) {
+    generalStore.setEditDialogInfo(null); return;
+  }
 
   let parentId = desktopStore.getItem(desktopStore.currentPageId()!)!.parentId;
   let loopCount = 0;
@@ -241,8 +266,22 @@ export function mouseRightDownHandler(
 
 export function mouseMoveHandler(
     desktopStore: DesktopStoreContextModel,
+    generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
   if (desktopStore.currentPageId() == null) { return; }
+
+  // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
+  // get outside the dialog area when being moved quickly.
+  if (dialogMoveState != null) {
+    let currentMousePosPx = desktopPxFromMouseEvent(ev);
+    let changePx = subtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
+    generalStore.setEditDialogInfo(({
+      item: generalStore.editDialogInfo()!.item,
+      desktopBoundsPx: boundingBoxFromPosSize(add(getBoundingBoxTopLeft(generalStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+    }));
+    dialogMoveState.lastMousePosPx = currentMousePosPx;
+    return;
+  }
 
   if (mouseActionState == null) {
     let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
@@ -356,14 +395,14 @@ export function mouseMoveHandler(
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
-  let itemPosInTablePx = getTopLeft(mouseActionState!.activeVisualElement!.boundsPx);
+  let itemPosInTablePx = getBoundingBoxTopLeft(mouseActionState!.activeVisualElement!.boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
   const tableVeId = mouseActionState!.activeVisualElement!.parentId!;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
   const tableVe = topLevelVisualElements().find(el => el.itemId == tableVeId)!;
     // TODO (MEDIUM): won't work in the (anticipated) general case.
   const tableParentVe = rootVisualElement();
-  const tablePosInPagePx = getTopLeft(tableVe.childAreaBoundsPx!);
+  const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
   const itemPosInPageGr = {
@@ -396,6 +435,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
 export function mouseUpHandler(
     userStore: UserStoreContextModel,
     desktopStore: DesktopStoreContextModel) {
+
+  dialogMoveState = null;
 
   if (mouseActionState == null) { return; }
 

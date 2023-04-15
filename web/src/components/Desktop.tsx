@@ -21,13 +21,13 @@ import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { TOOLBAR_WIDTH } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
-import { desktopPxFromMouseEvent } from "../util/geometry";
+import { boundingBoxFromPosSize, desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
 import { getHitInfo, mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../store/desktop/hitbox";
 import { asPageItem } from "../store/desktop/items/page-item";
-import { EditDialog } from "./context/EditDialog";
+import { EditDialog, editDialogSizePx } from "./context/EditDialog";
 import { Page } from "./items/Page";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
 import { VisualElement_Reactive } from "../store/desktop/visual-element";
@@ -48,29 +48,26 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
     let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(lastMouseMoveEvent!), []);
     let item = desktopStore.getItem(hbi.visualElement.itemId)!;
     if (ev.code == "Slash") {
-      generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item: item });
+      generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item });
     }
     if (ev.code == "Backslash") {
-      generalStore.setEditDialogInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item: item });
+      generalStore.setEditDialogInfo({
+        desktopBoundsPx: boundingBoxFromPosSize(desktopPxFromMouseEvent(lastMouseMoveEvent!), { ...editDialogSizePx }),
+        item
+      });
     }
   };
 
   const mouseDownListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-    ev.preventDefault();
     mouseDownHandler(desktopStore, generalStore, ev);
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-    ev.preventDefault();
     lastMouseMoveEvent = ev;
-    mouseMoveHandler(desktopStore, ev);
+    mouseMoveHandler(desktopStore, generalStore, ev);
   }
 
-  const mouseUpListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-    ev.preventDefault();
+  const mouseUpListener = (_ev: MouseEvent) => {
     mouseUpHandler(userStore, desktopStore);
   }
 
@@ -105,24 +102,18 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   onMount(() => {
     // TODO (MEDIUM): attach to desktopDiv?. need tab index.
-    document.addEventListener('mousedown', mouseDownListener);
-    document.addEventListener('mousemove', mouseMoveListener);
-    document.addEventListener('mouseup', mouseUpListener);
     document.addEventListener('keypress', keyListener);
-    document.addEventListener('contextmenu', contextMenuListener);
-    document.addEventListener('dragover', dragoverListener);
-    document.addEventListener('drop', dropListener);
+    desktopDiv!.addEventListener('contextmenu', contextMenuListener);
+    desktopDiv!.addEventListener('dragover', dragoverListener);
+    desktopDiv!.addEventListener('drop', dropListener);
     window.addEventListener('resize', windowResizeListener);
   });
 
   onCleanup(() => {
-    document.removeEventListener('mousedown', mouseDownListener);
-    document.removeEventListener('mousemove', mouseMoveListener);
-    document.removeEventListener('mouseup', mouseUpListener);
     document.removeEventListener('keypress', keyListener);
-    document.removeEventListener('contextmenu', contextMenuListener);
-    document.removeEventListener('dragover', dragoverListener);
-    document.removeEventListener('drop', dropListener);
+    desktopDiv!.removeEventListener('contextmenu', contextMenuListener);
+    desktopDiv!.removeEventListener('dragover', dragoverListener);
+    desktopDiv!.removeEventListener('drop', dropListener);
     window.removeEventListener('resize', windowResizeListener);
   });
 
@@ -157,6 +148,9 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
          ref={desktopDiv}
          class="absolute top-0 bottom-0 right-0 select-none outline-none"
          style={`left: ${TOOLBAR_WIDTH}px; ${overflowPolicy(props.visualElement)}`}
+         onmousedown={mouseDownListener}
+         onmousemove={mouseMoveListener}
+         onmouseup={mouseUpListener}
          onscroll={scrollHandler}>
       <Page visualElement={props.visualElement} />
       <ContextMenu />

@@ -18,7 +18,7 @@
 
 import { GRID_SIZE } from '../../../constants';
 import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from '../../../util/geometry';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { notImplemented, panic } from '../../../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../item-geometry';
@@ -133,7 +133,7 @@ export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBo
   return ({
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
     innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
+    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
   });
 }
 

@@ -26,7 +26,12 @@ interface InfuLinkProps {
 }
 
 export const InfuLink: Component<InfuLinkProps> = (props: InfuLinkProps) => {
+
+  const handleMouseDown = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  }
+
   return (
-    <A class="text-blue-800 hover:text-blue-400" href={props.href}>{props.text}</A>
+    <A class="text-blue-800 hover:text-blue-400" href={props.href} onMouseDown={handleMouseDown}>{props.text}</A>
   );
 }

@@ -16,12 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup, onMount, Show } from "solid-js";
+import { Component, onMount, Show } from "solid-js";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
-import { desktopPxFromMouseEvent, subtract, add, Vector } from "../../util/geometry";
+import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { EditItem } from "./EditItem";
 
+
+export const editDialogSizePx = { w: 400, h: 400 };
 
 export const EditDialogInner: Component = () => {
   const generalStore = useGeneralStore();
@@ -29,50 +31,26 @@ export const EditDialogInner: Component = () => {
 
   let editDialogDiv: HTMLDivElement | undefined;
 
-  let lastMousePosPx: Vector | null = null;
-
-  let mouseDownListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-    lastMousePosPx = desktopPxFromMouseEvent(ev);
-  };
-
-  let mouseMoveListener = (ev: MouseEvent) => {
-    // TODO (MEDIUM): this really needs to be managed by a global mouse handler, because the mouse can
-    //                move outside the dialog area and stop triggering move events.
-    if (ev.buttons == 1) { // left mouse down.
-      let currentMousePosPx = desktopPxFromMouseEvent(ev);
-      let changePx = subtract(currentMousePosPx, lastMousePosPx!)
-      generalStore.setEditDialogInfo(({ item: item(), posPx: add(generalStore.editDialogInfo()!.posPx, changePx) }));
-      lastMousePosPx = currentMousePosPx;
-    }
-  };
-
   onMount(() => {
-    editDialogDiv!.addEventListener('mousedown', mouseDownListener);
-    editDialogDiv!.addEventListener('mousemove', mouseMoveListener);
     let posPx = {
       x: (desktopStore.desktopBoundsPx().w / 2.0) - 200,
       y: 120.0
     };
-    generalStore.setEditDialogInfo({ item: item(), posPx });
-  });
-
-  onCleanup(() => {
-    editDialogDiv!.removeEventListener('mousedown', mouseDownListener);
-    editDialogDiv!.removeEventListener('mousemove', mouseMoveListener);
+    generalStore.setEditDialogInfo({ item: item(), desktopBoundsPx: boundingBoxFromPosSize(posPx, { ...editDialogSizePx }) });
   });
 
   const item = () => generalStore.editDialogInfo()!.item;
-  const posPx = () => generalStore.editDialogInfo()!.posPx;
+  const posPx = () => getBoundingBoxTopLeft(generalStore.editDialogInfo()!.desktopBoundsPx);
+  const sizePx = () => getBoundingBoxSize(generalStore.editDialogInfo()!.desktopBoundsPx);
 
   return (
     <>
       <div class="absolute text-xl font-bold z-10 rounded-md p-8 blur-md"
-           style={`left: ${posPx().x}px; top: ${posPx().y}px; width: 400px; height: 400px; background-color: #303030d0;`}>
+           style={`left: ${posPx().x}px; top: ${posPx().y}px; width: ${sizePx().w}px; height: ${sizePx().h}px; background-color: #303030d0;`}>
       </div>
       <div ref={editDialogDiv}
            class="absolute bg-white z-20 rounded-md border border-slate-700"
-           style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: 380px; height: 380px;`}>
+           style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
         <EditItem item={item()} />
       </div>
     </>

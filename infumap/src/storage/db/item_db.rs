@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use log::info;
+use log::{info, debug};
 use serde_json::{Map, Value};
 use tokio::fs::File;
 use tokio::io::{BufReader, AsyncReadExt};
@@ -218,7 +218,8 @@ impl ItemDb {
       .ok_or(format!("Attempt was made to update item '{}', but it does not exist.", item.id))?.clone();
     if Item::create_json_update(&old_item, item)?.len() == 2 {
       // "__recordType" and "id" and nothing else.
-      return Err(format!("Attempt was made to update item '{}', but nothing has changed.", item.id).into());
+      debug!("Attempt was made to update item '{}', but nothing has changed.", item.id);
+      return Ok(());
     }
 
     self.remove_from_indexes(&old_item)?;

@@ -19,7 +19,7 @@
 import { Accessor, createContext, createSignal, Setter, useContext } from "solid-js";
 import { JSX } from "solid-js/jsx-runtime";
 import { post } from "../server";
-import { Vector } from "../util/geometry";
+import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { Item } from "./desktop/items/base/item";
 
@@ -32,7 +32,7 @@ export interface ContextMenuInfo {
 }
 
 export interface EditDialogInfo {
-  posPx: Vector,
+  desktopBoundsPx: BoundingBox,
   item: Item
 }
 
@@ -70,7 +70,7 @@ export function GeneralStoreProvider(props: GeneralStoreContextProps) {
   const [localStorageDataString, setLacalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
-  const [editDialogInfo, setEditDialogInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
+  const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
 
   const retrieveInstallationState = async () => {

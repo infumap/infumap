@@ -16,37 +16,43 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { asNoteItem, NoteItem } from "../../store/desktop/items/note-item";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
+import { InfuTextArea } from "../library/InfuTextArea";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
   const desktopStore = useDesktopStore();
   const generalStore = useGeneralStore();
 
-  let noteId = () => props.noteItem.id;
+  let noteId = props.noteItem.id;
 
-  const handleTextChange = (v: string) => { desktopStore.updateItem(noteId(), item => asNoteItem(item).title = v); };
-  const handleTextChanged = (v: string) => { server.updateItem(desktopStore.getItem(noteId())!); }
+  const handleTextInput = (v: string) => {
+    desktopStore.updateItem(noteId, item => asNoteItem(item).title = v);
+  };
+
   const handleUrlChange = (v: string) => {
-    desktopStore.updateItem(noteId(), item => asNoteItem(item).url = v);
-    server.updateItem(desktopStore.getItem(noteId())!);
+    desktopStore.updateItem(noteId, item => asNoteItem(item).url = v);
   };
 
   const deleteNote = async () => {
-    await server.deleteItem(noteId()); // throws on failure.
-    desktopStore.deleteItem(noteId());
+    await server.deleteItem(noteId); // throws on failure.
+    desktopStore.deleteItem(noteId);
     generalStore.setEditDialogInfo(null);
   }
 
+  onCleanup(() => {
+    server.updateItem(desktopStore.getItem(noteId)!);
+  });
+
   return (
     <div class="m-1">
-      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.noteItem.title} onInput={handleTextChange} onChange={handleTextChanged} /></div>
+      <div class="text-slate-800 text-sm">Text <InfuTextArea value={props.noteItem.title} onInput={handleTextInput} /></div>
       <div class="text-slate-800 text-sm">Url <InfuTextInput value={props.noteItem.url} onChange={handleUrlChange} /></div>
       <div><InfuButton text="delete" onClick={deleteNote} /></div>
     </div>

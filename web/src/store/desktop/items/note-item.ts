@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, zeroTopLeft } from '../../../util/geometry';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { currentUnixTimeSeconds, notImplemented, panic } from '../../../util/lang';
 import { newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
@@ -176,7 +176,7 @@ export function calcGeometryOfNoteItemInCell(_note: NoteMeasurable, cellBoundsPx
   return ({
     boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
     innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroTopLeft(cellBoundsPx) }]
+    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
   });
 }
 

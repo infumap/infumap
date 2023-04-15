@@ -26,6 +26,15 @@ export interface BoundingBox {
   h: number;
 }
 
+export function boundingBoxFromPosSize(pos: Vector, size: Dimensions): BoundingBox {
+  return {
+    x: pos.x,
+    y: pos.y,
+    w: size.w,
+    h: size.h
+  };
+}
+
 export function cloneBoundingBox(boundingBox: BoundingBox | null): BoundingBox | null {
   if (boundingBox == null) { return null; }
   return ({
@@ -45,15 +54,19 @@ export function quantizeBoundingBox(boundingBox: BoundingBox): BoundingBox {
   });
 }
 
-export function getTopLeft(boundingBox: BoundingBox): Vector {
+export function getBoundingBoxSize(boundingBox: BoundingBox): Dimensions {
+  return ({ w: boundingBox.w, h: boundingBox.h });
+}
+
+export function getBoundingBoxTopLeft(boundingBox: BoundingBox): Vector {
   return ({ x: boundingBox.x, y: boundingBox.y });
 }
 
-export function zeroTopLeft(boundingBox: BoundingBox): BoundingBox {
+export function zeroBoundingBoxTopLeft(boundingBox: BoundingBox): BoundingBox {
   return ({ x: 0.0, y: 0.0, w: boundingBox.w, h: boundingBox.h });
 }
 
-export function offsetTopLeftBy(boundingBox: BoundingBox, offset: Vector): BoundingBox {
+export function offsetBoundingBoxTopLeftBy(boundingBox: BoundingBox, offset: Vector): BoundingBox {
   return ({
     x: boundingBox.x + offset.x,
     y: boundingBox.y + offset.y,

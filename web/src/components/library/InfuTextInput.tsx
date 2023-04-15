@@ -26,7 +26,7 @@ export type InfuTextInputProps = {
   onInput?: ((v: string) => void),
   /// Triggered after loosing focus.
   onChange?: ((v: string) => void),
-  onEnter?: () => void,
+  onEnterKeyDown?: () => void,
   disabled?: boolean
 };
 
@@ -40,8 +40,8 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
   }
 
   const keyDownHandler = (ev: Event) => {
-    if ((ev as KeyboardEvent).code == "Enter" && props.onEnter) {
-      setTimeout(() => { props.onEnter!(); }, 50)
+    if ((ev as KeyboardEvent).code == "Enter" && props.onEnterKeyDown) {
+      setTimeout(() => { props.onEnterKeyDown!(); }, 50)
     }
   }
 
@@ -51,11 +51,16 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
     }
   }
 
+  const mouseDownHandler = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  }
+
   return (
     <input ref={textElement}
            class="border border-slate-300 p-2 rounded"
            value={props.value ? props.value : ""}
            type={props.type ? props.type : "text"}
+           onMouseDown={mouseDownHandler}
            onKeyDown={keyDownHandler}
            onInput={inputHandler}
            onChange={changeHandler}
