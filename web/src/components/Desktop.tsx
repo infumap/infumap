@@ -59,15 +59,18 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
   };
 
   const mouseDownListener = (ev: MouseEvent) => {
+    ev.preventDefault();
     mouseDownHandler(desktopStore, generalStore, ev);
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
     lastMouseMoveEvent = ev;
+    ev.preventDefault();
     mouseMoveHandler(desktopStore, generalStore, ev);
   }
 
-  const mouseUpListener = (_ev: MouseEvent) => {
+  const mouseUpListener = (ev: MouseEvent) => {
+    ev.preventDefault();
     mouseUpHandler(userStore, desktopStore);
   }
 
