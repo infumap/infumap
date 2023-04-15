@@ -30,7 +30,9 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { logout } from "../Main";
 
 
-let imgFetchInProgressCount = 0;
+const fetchInProgress: Array<string> = [];
+const objectUrls: Map<string, string> = new Map<string, string>();
+
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
@@ -94,14 +96,17 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   let retryCount = 0;
   let cleanedUp = false;
 
+  let isInteractiveOnLoad = isInteractive();
+  let imgSrcOnLoad = imgSrc();
+
   onMount(async () => {
-    if (isInteractive()) {
+    if (isInteractiveOnLoad) {
       while (retryCount < 10 && !cleanedUp) {
         let response;
         try {
-          response = await fetch(imgSrc());
+          response = await fetch(imgSrcOnLoad);
         } catch (ex) {
-          console.log(`image fetch failed for ${imgSrc()}`, ex);
+          console.log(`image fetch failed for ${imgSrcOnLoad}`, ex);
           break;
         }
         if (response.status == 200) {
@@ -121,6 +126,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           await new Promise(r => setTimeout(r, 1000 + Math.random()*3000));
           continue;
         }
+        // TODO (MEDIUM): retry on the server in case of object store fetch failure.
         console.log(`Image fetch unexpected status response: ${response.status}`);
         break;
       }
@@ -140,14 +146,13 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
            id={props.visualElement.itemId}
            class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
            style={`left: ${quantizedBoundsPx_cache().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
-        <Show when={!isInteractive()}>
-          <img class="max-w-none absolute"
-               style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
-               width={imageWidthToRequestPx(false)}
-               src={thumbnailSrc()} />
-        </Show>
-        <Show when={isInteractive()}>
+        <Show when={isInteractive()} fallback={
+            <img class="max-w-none absolute"
+                 style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                        `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
+                 width={imageWidthToRequestPx(false)}
+                 src={thumbnailSrc()} />
+          }>
           <img ref={imgElement}
                class="max-w-none absolute"
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
