@@ -30,7 +30,8 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   const desktopStore = useDesktopStore();
   const generalStore = useGeneralStore();
 
-  let noteId = props.noteItem.id;
+  const noteId = props.noteItem.id;
+  let deleted = false;
 
   const handleTextInput = (v: string) => {
     desktopStore.updateItem(noteId, item => asNoteItem(item).title = v);
@@ -41,13 +42,16 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   };
 
   const deleteNote = async () => {
+    deleted = true;
     await server.deleteItem(noteId); // throws on failure.
     desktopStore.deleteItem(noteId);
     generalStore.setEditDialogInfo(null);
   }
 
   onCleanup(() => {
-    server.updateItem(desktopStore.getItem(noteId)!);
+    if (!deleted) {
+      server.updateItem(desktopStore.getItem(noteId)!);
+    }
   });
 
   return (

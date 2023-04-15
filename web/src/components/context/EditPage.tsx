@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 import { GRID_SIZE } from "../../constants";
 import { server } from "../../server";
 import { asPageItem, PageItem } from "../../store/desktop/items/page-item";
@@ -36,45 +36,49 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     return Math.round(aspect * 1000.0) / 1000.0;
   }
 
-  let pageId = () => props.pageItem.id;
+  const pageId = props.pageItem.id;
+  let deleted = false;
 
   const handleBlockWidthChange = (v: string) => {
-    desktopStore.updateItem(pageId(), item => asPageItem(item).innerSpatialWidthGr = parseInt(v) * GRID_SIZE);
-    server.updateItem(desktopStore.getItem(pageId())!);
+    desktopStore.updateItem(pageId, item => asPageItem(item).innerSpatialWidthGr = parseInt(v) * GRID_SIZE);
   };
   const handleNaturalAspectChange = async (v: string) => {
-    desktopStore.updateItem(pageId(), item => asPageItem(item).naturalAspect = parseFloat(v));
-    await server.updateItem(desktopStore.getItem(pageId())!);
+    desktopStore.updateItem(pageId, item => asPageItem(item).naturalAspect = parseFloat(v));
   };
-  const handleTitleChange = (v: string) => { desktopStore.updateItem(pageId(), item => asPageItem(item).title = v); };
-  const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(pageId())!); }
+  const handleTitleInput = (v: string) => {
+    desktopStore.updateItem(pageId, item => asPageItem(item).title = v);
+  };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
-    desktopStore.updateItem(pageId(), item => asPageItem(item).gridNumberOfColumns.set(parseInt(v)));
-    server.updateItem(desktopStore.getItem(pageId())!);
+    desktopStore.updateItem(pageId, item => asPageItem(item).gridNumberOfColumns.set(parseInt(v)));
   }
 
   const deletePage = async () => {
-    await server.deleteItem(pageId()); // throws on failure.
-    desktopStore.deleteItem(pageId());
+    deleted = true;
+    await server.deleteItem(pageId); // throws on failure.
+    desktopStore.deleteItem(pageId);
     generalStore.setEditDialogInfo(null);
   }
 
   const setAspectToMatchScreen = async () => {
-    desktopStore.updateItem(pageId(), item => asPageItem(item).naturalAspect = screenAspect());
-    await server.updateItem(desktopStore.getItem(pageId())!);
+    desktopStore.updateItem(pageId, item => asPageItem(item).naturalAspect = screenAspect());
   }
 
   let checkElement: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
-    desktopStore.updateItem(pageId(), item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"))
-    await server.updateItem(desktopStore.getItem(pageId())!);
+    desktopStore.updateItem(pageId, item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"));
   }
+
+  onCleanup(() => {
+    if (!deleted) {
+      server.updateItem(desktopStore.getItem(pageId)!);
+    }
+  });
 
   return (
     <div class="m-1">
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onInput={handleTitleChange} onChange={handleTitleChanged} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onInput={handleTitleInput} /></div>
       <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr / GRID_SIZE).toString()} onChange={handleBlockWidthChange} /></div>
       <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChange={handleNaturalAspectChange} /></div>
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />

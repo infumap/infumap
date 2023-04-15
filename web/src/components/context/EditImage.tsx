@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem, ImageItem } from "../../store/desktop/items/image-item";
@@ -29,20 +29,29 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
   const desktopStore = useDesktopStore();
   const generalStore = useGeneralStore();
 
-  const imageId = () => props.imageItem.id;
+  const imageId = props.imageItem.id;
+  let deleted = false;
 
-  const handleTitleChange = (v: string) => { desktopStore.updateItem(imageId(), item => asImageItem(item).title = v); };
-  const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(imageId())!); }
+  const handleTitleChange = (v: string) => {
+    desktopStore.updateItem(imageId, item => asImageItem(item).title = v);
+  };
 
   const deleteImage = async () => {
-    await server.deleteItem(imageId()); // throws on failure.
-    desktopStore.deleteItem(imageId());
+    deleted = true;
+    await server.deleteItem(imageId); // throws on failure.
+    desktopStore.deleteItem(imageId);
     generalStore.setEditDialogInfo(null);
   }
 
+  onCleanup(() => {
+    if (!deleted) {
+      server.updateItem(desktopStore.getItem(imageId)!);
+    }
+  });
+
   return (
     <div>
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.imageItem.title} onInput={handleTitleChange} onChange={handleTitleChanged} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.imageItem.title} onInput={handleTitleChange} /></div>
       <div><InfuButton text="delete" onClick={deleteImage} /></div>
     </div>
   );

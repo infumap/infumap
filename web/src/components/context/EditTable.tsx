@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../store/desktop/items/table-item";
@@ -29,20 +29,29 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   const desktopStore = useDesktopStore();
   const generalStore = useGeneralStore();
 
-  let tableId = () => props.tableItem.id;
+  const tableId = props.tableItem.id;
+  let deleted = false;
 
-  const handleTitleChange = (v: string) => { desktopStore.updateItem(tableId(), item => asTableItem(item).title = v); };
-  const handleTitleChanged = (v: string) => { server.updateItem(desktopStore.getItem(tableId())!); }
+  const handleTitleInput = (v: string) => {
+    desktopStore.updateItem(tableId, item => asTableItem(item).title = v);
+  };
 
   const deleteTable = async () => {
-    await server.deleteItem(tableId()); // throws on failure.
-    desktopStore.deleteItem(tableId());
+    deleted = true;
+    await server.deleteItem(tableId); // throws on failure.
+    desktopStore.deleteItem(tableId);
     generalStore.setEditDialogInfo(null);
   }
 
+  onCleanup(() => {
+    if (!deleted) {
+      server.updateItem(desktopStore.getItem(tableId)!);
+    }
+  });
+
   return (
     <div>
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleChange} onChange={handleTitleChanged} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleInput} /></div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>
   );

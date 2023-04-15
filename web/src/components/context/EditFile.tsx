@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asFileItem, FileItem } from "../../store/desktop/items/file-item";
@@ -29,20 +29,29 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
   const desktopStore = useDesktopStore();
   const generalStore = useGeneralStore();
 
-  const fileId = () => props.fileItem.id;
+  const fileId = props.fileItem.id;
+  let deleted = false;
 
-  const handleTextChange = (v: string) => { desktopStore.updateItem(fileId(), item => asFileItem(item).title = v); };
-  const handleTextChanged = (v: string) => { server.updateItem(desktopStore.getItem(fileId())!); }
+  const handleTextInput = (v: string) => {
+    desktopStore.updateItem(fileId, item => asFileItem(item).title = v);
+  };
 
   const deleteFile = async () => {
-    await server.deleteItem(fileId()); // throws on failure.
-    desktopStore.deleteItem(fileId());
+    deleted = true;
+    await server.deleteItem(fileId); // throws on failure.
+    desktopStore.deleteItem(fileId);
     generalStore.setEditDialogInfo(null);
   }
 
+  onCleanup(() => {
+    if (!deleted) {
+      server.updateItem(desktopStore.getItem(fileId)!);
+    }
+  });
+
   return (
     <div>
-      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextChange} onChange={handleTextChanged} /></div>
+      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextInput} /></div>
       <div><InfuButton text="delete" onClick={deleteFile} /></div>
     </div>
   );
