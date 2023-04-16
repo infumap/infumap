@@ -447,6 +447,10 @@ export function mouseUpHandler(
     case MouseAction.Moving:
       const overVes = mouseActionState.moveOverContainerVisualElement!;
       const moveOverContainerId = overVes.itemId;
+      if (moveOverContainerId == activeItem.id) {
+        // TODO (MEDIUM): This case did occur. Figure out how/why.
+        throw new Error("Attempt was made to move an item into itself.");
+      }
       const parentChanged = moveOverContainerId != activeItem.parentId;
       if (parentChanged) {
         const prevParentId = activeItem.parentId;
