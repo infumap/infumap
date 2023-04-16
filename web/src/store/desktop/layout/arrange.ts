@@ -161,7 +161,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel): VisualE
   const currentPage = () => asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const currentPageBoundsPx = () => {
     const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
-    const pageAspect = currentPage().naturalAspect;
+    const pageAspect = currentPage().naturalAspect.get();
     let result = desktopStore.desktopBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / desktopAspect > 1.25) {

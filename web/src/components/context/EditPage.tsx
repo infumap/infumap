@@ -43,7 +43,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     desktopStore.updateItem(pageId, item => asPageItem(item).innerSpatialWidthGr = parseInt(v) * GRID_SIZE);
   };
   const handleNaturalAspectChange = async (v: string) => {
-    desktopStore.updateItem(pageId, item => asPageItem(item).naturalAspect = parseFloat(v));
+    asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(parseFloat(v));
   };
   const handleTitleInput = (v: string) => {
     desktopStore.updateItem(pageId, item => asPageItem(item).title = v);
@@ -61,7 +61,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   }
 
   const setAspectToMatchScreen = async () => {
-    desktopStore.updateItem(pageId, item => asPageItem(item).naturalAspect = screenAspect());
+    asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(screenAspect());
   }
 
   let checkElement: HTMLInputElement | undefined;
