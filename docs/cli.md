@@ -2,20 +2,20 @@
 
 CLI commands are split into two categories:
 
-- **Direct**: These commands work directly with Infumap configuration and data. Generally, you should terminate the corresponding web server instance (if it is currently running) before using these commands.
+- **Local**: These commands work directly with Infumap configuration and data. Generally, you should terminate the corresponding web server instance (if it is currently running) before using these commands.
 
 - **API**: These commands operate against a running Infumap instance (started with the "web" command) via an HTTP API.
 
 
-## Direct Commands
+## Local Commands
 
 ### web
 
 Start an Infumap web server. By default, configuration will be read from `~/.infumap/settings.toml`. If this file does not exist, it will be created automatically (by default). Also, suitable on-disk data directories will be automatically created in `~/.infumap` as required. In summary, to get a functional Infumap web instance up and running, it is not necessary do anything beyond simply executing `infumap web`.
 
-In addition to using a settings file, Infumap web server configuration can be specified via environment variables. This approach is particularly useful in containerized deployment scenarios.
+In addition to (or instead of) using a settings file, Infumap web server configuration can be specified via environment variables. This approach is particularly useful in containerized deployment scenarios.
 
-For detailed information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
+For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
 
 Options:
@@ -89,4 +89,5 @@ Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
 - **-c --container-id (required):** The id of the container to add the files to.
 - **-d --directory (required):** The path of the directory to upload all files from. This directory must only contain regular files (no links or directories).
-- **-r --resume (optional):** If present, it is not enforced that the Infumap container is empty, and files already present in the container will be skipped.
+- **-r --resume (optional):** By default, if the Infumap container has a file or image with the same name as a file in the local directory, the bulk upload operation will not start. If this flag is set, these files will be skipped instead.
+- **-a --additional (optional):** By default, an attempt to upload files to an Infumap container that contains files with names other than those in the local directory will fail. Setting this flag disables this check.
