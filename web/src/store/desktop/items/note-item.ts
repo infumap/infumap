@@ -27,7 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 
@@ -53,7 +53,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     title,
     spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
-    spatialWidthGr: 10.0 * GRID_SIZE,
+    spatialWidthGr: createNumberSignal(10.0 * GRID_SIZE),
 
     url: "",
 
@@ -76,7 +76,7 @@ export function noteFromObject(o: any): NoteItem {
     title: o.title,
     spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
-    spatialWidthGr: o.spatialWidthGr,
+    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
     url: o.url,
 
@@ -98,15 +98,15 @@ export function noteToObject(n: NoteItem): object {
     title: n.title,
     spatialPositionGr: n.spatialPositionGr.get(),
 
-    spatialWidthGr: n.spatialWidthGr,
+    spatialWidthGr: n.spatialWidthGr.get(),
 
     url: n.url,
   });
 }
 
 export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
-  let lineCount = measureLineCount(note.title, note.spatialWidthGr / GRID_SIZE);
-  return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
+  let lineCount = measureLineCount(note.title, note.spatialWidthGr.get() / GRID_SIZE);
+  return { w: note.spatialWidthGr.get() / GRID_SIZE, h: lineCount };
 }
 
 export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {

@@ -30,8 +30,22 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { logout } from "../Main";
 
 
-const fetchInProgress: Array<string> = [];
-const objectUrls: Map<string, string> = new Map<string, string>();
+let waiting: Array<string> = [];
+let fetchInProgress: Array<[string, Promise<string>]> = [];
+let objectUrls: Map<string, string> = new Map<string, string>();
+
+const imageManager = {
+  get: (filename: string): Promise<string> => {
+    waiting.push(filename);
+    return new Promise((resolve, reject) => {
+      // TODO. Some desired features:
+      //   1. limit number of requests for images.
+      //   2. serialize the ordering.
+      //   3. allow fetches to be cancelled. https://javascript.info/fetch-abort
+      //   4. maintain images a bit longer than required, in case the user navigates back.
+    });
+  }
+};
 
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -190,7 +204,7 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
   const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
+    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

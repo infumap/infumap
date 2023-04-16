@@ -51,7 +51,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   };
   const boundsPx = props.visualElement.boundsPx;
   const blockSizePx = () => {
-    const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE };
+    const sizeBl = { w: tableItem().spatialWidthGr.get() / GRID_SIZE, h: tableItem().spatialHeightGr.get() / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
   }
   const headerHeightPx = () => blockSizePx().h * HEADER_HEIGHT_BL;
@@ -95,7 +95,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const blockHeightPx = () => {
-    let heightBr = tableItem().spatialHeightGr / GRID_SIZE - HEADER_HEIGHT_BL;
+    let heightBr = tableItem().spatialHeightGr.get() / GRID_SIZE - HEADER_HEIGHT_BL;
     let heightPx = props.visualElement.childAreaBoundsPx()!.h;
     return heightPx / heightBr;
   }
@@ -194,7 +194,7 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
   const boundsPx = props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr / GRID_SIZE;
+    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

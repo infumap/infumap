@@ -27,7 +27,7 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -53,7 +53,7 @@ export function imageFromObject(o: any): ImageItem {
     title: o.title,
     spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
-    spatialWidthGr: o.spatialWidthGr,
+    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
     originalCreationDate: o.originalCreationDate,
     mimeType: o.mimeType,
@@ -80,7 +80,7 @@ export function imageToObject(i: ImageItem): object {
     title: i.title,
     spatialPositionGr: i.spatialPositionGr.get(),
 
-    spatialWidthGr: i.spatialWidthGr,
+    spatialWidthGr: i.spatialWidthGr.get(),
 
     originalCreationDate: i.originalCreationDate,
     mimeType: i.mimeType,
@@ -109,8 +109,8 @@ export function asImageMeasurable(item: ItemTypeMixin): ImageMeasurable {
 
 export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
   // half block quantization.
-  let heightBl = Math.round(((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w) * 2.0) / 2.0;
-  return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
+  let heightBl = Math.round(((image.spatialWidthGr.get() / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w) * 2.0) / 2.0;
+  return { w: image.spatialWidthGr.get() / GRID_SIZE, h: heightBl };
 }
 
 export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {

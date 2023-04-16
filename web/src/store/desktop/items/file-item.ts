@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../../../constants';
+import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { notImplemented, panic } from '../../../util/lang';
@@ -27,7 +27,7 @@ import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 
@@ -50,7 +50,7 @@ export function fileFromObject(o: any): FileItem {
     title: o.title,
     spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
-    spatialWidthGr: o.spatialWidthGr,
+    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
     originalCreationDate: o.originalCreationDate,
     mimeType: o.mimeType,
@@ -74,7 +74,7 @@ export function fileToObject(f: FileItem): object {
     title: f.title,
     spatialPositionGr: f.spatialPositionGr.get(),
 
-    spatialWidthGr: f.spatialWidthGr,
+    spatialWidthGr: f.spatialWidthGr.get(),
 
     originalCreationDate: f.originalCreationDate,
     mimeType: f.mimeType,
@@ -83,8 +83,8 @@ export function fileToObject(f: FileItem): object {
 }
 
 export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
-  let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE);
-  return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
+  let lineCount = measureLineCount(file.title, file.spatialWidthGr.get() / GRID_SIZE);
+  return { w: file.spatialWidthGr.get() / GRID_SIZE, h: lineCount };
 }
 
 export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {

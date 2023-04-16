@@ -59,8 +59,8 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     title,
     spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
 
-    spatialWidthGr: 8.0 * GRID_SIZE,
-    spatialHeightGr: 6.0 * GRID_SIZE,
+    spatialWidthGr: createNumberSignal(8.0 * GRID_SIZE),
+    spatialHeightGr: createNumberSignal(6.0 * GRID_SIZE),
 
     tableColumns: [{
       name: "Title",
@@ -93,8 +93,8 @@ export function tableFromObject(o: any): TableItem {
     title: o.title,
     spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
-    spatialWidthGr: o.spatialWidthGr,
-    spatialHeightGr: o.spatialHeightGr,
+    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
+    spatialHeightGr: createNumberSignal(o.spatialHeightGr),
 
     tableColumns: o.tableColumns,
 
@@ -123,8 +123,8 @@ export function tableToObject(t: TableItem): object {
     title: t.title,
     spatialPositionGr: t.spatialPositionGr.get(),
 
-    spatialWidthGr: t.spatialWidthGr,
-    spatialHeightGr: t.spatialHeightGr,
+    spatialWidthGr: t.spatialWidthGr.get(),
+    spatialHeightGr: t.spatialHeightGr.get(),
 
     tableColumns: t.tableColumns,
   });
@@ -132,7 +132,7 @@ export function tableToObject(t: TableItem): object {
 
 
 export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
-  return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
+  return { w: table.spatialWidthGr.get() / GRID_SIZE, h: table.spatialHeightGr.get() / GRID_SIZE };
 }
 
 export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {

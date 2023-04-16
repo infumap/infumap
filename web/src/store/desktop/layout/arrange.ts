@@ -206,7 +206,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel): VisualE
         // ### Child is a page with children visible.
         if (isPage(childItem()) &&
             // This test does not depend on pixel size, so is invariant over display devices.
-            asPageItem(childItem()).spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
+            asPageItem(childItem()).spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
           const pageItem = () => asPageItem(childItem());
           initiateLoadChildItemsIfNotLoaded(desktopStore, pageItem().id);
 
@@ -254,7 +254,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel): VisualE
           initiateLoadChildItemsIfNotLoaded(desktopStore, childItem().id);
           let tableItem = () => asTableItem(childItem());
 
-          const sizeBl = () => ({ w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE });
+          const sizeBl = () => ({ w: tableItem().spatialWidthGr.get() / GRID_SIZE, h: tableItem().spatialHeightGr.get() / GRID_SIZE });
           const blockSizePx = () => ({ w: geometry.boundsPx().w / sizeBl().w, h: geometry.boundsPx().h / sizeBl().h });
 
           let childAreaBoundsPx = () => {
