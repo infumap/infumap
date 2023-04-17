@@ -17,32 +17,36 @@
 */
 
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 
 
 export type InfuTextAreaProps = {
   value?: string,
   /// Triggered immediately as value changes.
   onInput?: ((v: string) => void),
-  /// Triggered after loosing focus.
-  onChange?: ((v: string) => void),
+  /// Triggered after loosing focus, or cleanup.
+  onChangeOrCleanup?: ((v: string) => void),
   disabled?: boolean
 };
 
 export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaProps) => {
   let textElement: HTMLTextAreaElement | undefined;
 
-  const inputHandler = (_ev: Event) => {
+  const inputHandler = () => {
     if (props.onInput) {
       props.onInput!(textElement!.value);
     }
   }
 
-  const changeHandler = (_ev: Event) => {
-    if (props.onChange) {
-      props.onChange(textElement!.value);
+  const changeHandler = () => {
+    if (props.onChangeOrCleanup) {
+      props.onChangeOrCleanup(textElement!.value);
     }
   }
+
+  onCleanup(() => {
+    changeHandler();
+  })
 
   const mouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();

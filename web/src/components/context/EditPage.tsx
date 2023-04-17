@@ -39,12 +39,16 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const pageId = props.pageItem.id;
   let deleted = false;
 
+  let blockWidth: string = asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr.get().toString();
+  const handleBlockWidthInput = (v: string) => { blockWidth = v; }
   const handleBlockWidthChange = (v: string) => {
-    desktopStore.updateItem(pageId, item => asPageItem(item).innerSpatialWidthGr = parseInt(v) * GRID_SIZE);
+    asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr.set(parseInt(v) * GRID_SIZE);
   };
+
   const handleNaturalAspectChange = async (v: string) => {
     asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(parseFloat(v));
   };
+
   const handleTitleInput = (v: string) => {
     desktopStore.updateItem(pageId, item => asPageItem(item).title = v);
   };
@@ -79,13 +83,13 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   return (
     <div class="m-1">
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onInput={handleTitleInput} /></div>
-      <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr / GRID_SIZE).toString()} onChange={handleBlockWidthChange} /></div>
-      <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChange={handleNaturalAspectChange} /></div>
+      <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr.get() / GRID_SIZE).toString()} onChangeOrCleanup={handleBlockWidthChange} onInput={handleBlockWidthInput} /></div>
+      <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.get().toString()} onChangeOrCleanup={handleNaturalAspectChange} /></div>
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
       <ColorSelector item={props.pageItem} />
       <div><InfuButton text="delete" onClick={deletePage} /></div>
       <div>is grid: <input ref={checkElement} type="checkbox" checked={props.pageItem.arrangeAlgorithm == "grid"} onClick={changeArrangeAlgo} /></div>
-      <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.get().toString()} onChange={handleGridNumberOfColumnsChange} /></div>
+      <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.get().toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
     </div>
   );
 }

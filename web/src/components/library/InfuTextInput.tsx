@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 
 
 export type InfuTextInputProps = {
@@ -24,8 +24,8 @@ export type InfuTextInputProps = {
   type?: string,
   /// Triggered immediately as value changes.
   onInput?: ((v: string) => void),
-  /// Triggered after loosing focus.
-  onChange?: ((v: string) => void),
+  /// Triggered after loosing focus, or cleanup.
+  onChangeOrCleanup?: ((v: string) => void),
   onEnterKeyDown?: () => void,
   disabled?: boolean
 };
@@ -33,7 +33,7 @@ export type InfuTextInputProps = {
 export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInputProps) => {
   let textElement: HTMLInputElement | undefined;
 
-  const inputHandler = (ev: Event) => {
+  const inputHandler = () => {
     if (props.onInput) {
       props.onInput!(textElement!.value);
     }
@@ -45,11 +45,15 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
     }
   }
 
-  const changeHandler = (_ev: Event) => {
-    if (props.onChange) {
-      props.onChange(textElement!.value);
+  const changeHandler = () => {
+    if (props.onChangeOrCleanup) {
+      props.onChangeOrCleanup(textElement!.value);
     }
   }
+
+  onCleanup(() => {
+    changeHandler();
+  })
 
   const mouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();

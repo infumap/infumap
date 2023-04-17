@@ -40,7 +40,7 @@ import { getHitInfo } from '../../../mouse';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
-  innerSpatialWidthGr: number;
+  innerSpatialWidthGr: NumberSignal;
   naturalAspect: NumberSignal;
   backgroundColorIndex: number;
   arrangeAlgorithm: string;
@@ -54,7 +54,7 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
-  innerSpatialWidthGr: number;
+  innerSpatialWidthGr: NumberSignal;
   naturalAspect: NumberSignal;
   arrangeAlgorithm: string;
   id: Uid;
@@ -79,7 +79,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     spatialWidthGr: createNumberSignal(4.0 * GRID_SIZE),
 
-    innerSpatialWidthGr: 60.0 * GRID_SIZE,
+    innerSpatialWidthGr: createNumberSignal(60.0 * GRID_SIZE),
     naturalAspect: createNumberSignal(2.0),
     backgroundColorIndex: 0,
     arrangeAlgorithm: "spatial-stretch",
@@ -115,7 +115,7 @@ export function pageFromObject(o: any): PageItem {
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
-    innerSpatialWidthGr: o.innerSpatialWidthGr,
+    innerSpatialWidthGr: createNumberSignal(o.innerSpatialWidthGr),
     naturalAspect: createNumberSignal(o.naturalAspect),
     backgroundColorIndex: o.backgroundColorIndex,
     arrangeAlgorithm: o.arrangeAlgorithm,
@@ -152,7 +152,7 @@ export function pageToObject(p: PageItem): object {
 
     spatialWidthGr: p.spatialWidthGr.get(),
 
-    innerSpatialWidthGr: p.innerSpatialWidthGr,
+    innerSpatialWidthGr: p.innerSpatialWidthGr.get(),
     naturalAspect: p.naturalAspect.get(),
     backgroundColorIndex: p.backgroundColorIndex,
     arrangeAlgorithm: p.arrangeAlgorithm,
@@ -186,8 +186,8 @@ export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
 
 export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensions {
   return {
-    w: page.innerSpatialWidthGr / GRID_SIZE,
-    h: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect.get())
+    w: page.innerSpatialWidthGr.get() / GRID_SIZE,
+    h: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE / page.naturalAspect.get())
   };
 }
 
@@ -294,8 +294,8 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
   const propX = (desktopPosPx.x - hbi.visualElement.boundsPx.x) / hbi.visualElement.boundsPx.w;
   const propY = (desktopPosPx.y - hbi.visualElement.boundsPx.y) / hbi.visualElement.boundsPx.h;
   return {
-    x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-    y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect.get() * propY * 2.0) / 2.0 * GRID_SIZE
+    x: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+    y: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE / page.naturalAspect.get() * propY * 2.0) / 2.0 * GRID_SIZE
   };
 }
 
