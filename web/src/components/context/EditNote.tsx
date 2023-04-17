@@ -38,7 +38,9 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   };
 
   const handleUrlChange = (v: string) => {
-    desktopStore.updateItem(noteId, item => asNoteItem(item).url = v);
+    if (!deleted) {
+      desktopStore.updateItem(noteId, item => asNoteItem(item).url = v);
+    }
   };
 
   const deleteNote = async () => {

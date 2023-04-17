@@ -52,6 +52,10 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       desktopStore.addItem(newPage);
       server.addItem(newPage, null);
       generalStore.setContextMenuInfo(null);
+      generalStore.setEditDialogInfo({
+        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
+        item: newPage
+      });
     }
   };
 
@@ -67,6 +71,10 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       desktopStore.addItem(newNote);
       server.addItem(newNote, null);
       generalStore.setContextMenuInfo(null);
+      generalStore.setEditDialogInfo({
+        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
+        item: newNote
+      });
     }
   }
 
@@ -82,6 +90,10 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       desktopStore.addItem(newTable);
       server.addItem(newTable, null);
       generalStore.setContextMenuInfo(null);
+      generalStore.setEditDialogInfo({
+        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
+        item: newTable
+      });
     }
   }
 
