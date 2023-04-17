@@ -106,6 +106,7 @@ export function noteToObject(n: NoteItem): object {
 
 export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
   let lineCount = measureLineCount(note.title, note.spatialWidthGr.get() / GRID_SIZE);
+  if (lineCount < 1) { lineCount = 1; }
   return { w: note.spatialWidthGr.get() / GRID_SIZE, h: lineCount };
 }
 

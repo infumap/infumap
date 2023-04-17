@@ -21,13 +21,13 @@ import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { TOOLBAR_WIDTH } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
-import { boundingBoxFromPosSize, desktopPxFromMouseEvent } from "../util/geometry";
+import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
 import { getHitInfo, mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../store/desktop/hitbox";
 import { asPageItem } from "../store/desktop/items/page-item";
-import { EditDialog, editDialogSizePx } from "./context/EditDialog";
+import { EditDialog } from "./context/EditDialog";
 import { Page } from "./items/Page";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
 import { VisualElement_Reactive } from "../store/desktop/visual-element";
@@ -43,16 +43,22 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
   let lastMouseMoveEvent: MouseEvent | undefined;
 
   const keyListener = (ev: KeyboardEvent) => {
+    if (generalStore.editDialogInfo() != null || generalStore.contextMenuInfo() != null) {
+      return;
+    }
+
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
     if (ev.code != "Slash" && ev.code != "Backslash") { return; }
     let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(lastMouseMoveEvent!), []);
     let item = desktopStore.getItem(hbi.visualElement.itemId)!;
     if (ev.code == "Slash") {
+      ev.preventDefault();
       generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item });
     }
     if (ev.code == "Backslash") {
+      ev.preventDefault();
       generalStore.setEditDialogInfo({
-        desktopBoundsPx: boundingBoxFromPosSize(desktopPxFromMouseEvent(lastMouseMoveEvent!), { ...editDialogSizePx }),
+        desktopBoundsPx: { x: 0, y: 0, w: 0, h: 0 },
         item
       });
     }

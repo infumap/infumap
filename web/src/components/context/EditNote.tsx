@@ -58,7 +58,7 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
 
   return (
     <div class="m-1">
-      <div class="text-slate-800 text-sm">Text <InfuTextArea value={props.noteItem.title} onInput={handleTextInput} /></div>
+      <div class="text-slate-800 text-sm">Text <InfuTextArea focus={true} value={props.noteItem.title} onInput={handleTextInput} /></div>
       <div class="text-slate-800 text-sm">Url <InfuTextInput value={props.noteItem.url} onChangeOrCleanup={handleUrlChange} /></div>
       <div><InfuButton text="delete" onClick={deleteNote} /></div>
     </div>

@@ -51,7 +51,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   return (
     <div>
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleInput} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleInput} focus={true} /></div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>
   );

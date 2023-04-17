@@ -51,7 +51,7 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
 
   return (
     <div>
-      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextInput} /></div>
+      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextInput} focus={true} /></div>
       <div><InfuButton text="delete" onClick={deleteFile} /></div>
     </div>
   );

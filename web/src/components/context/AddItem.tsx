@@ -46,7 +46,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         userStore.getUser().userId,
         props.contextItem?.id!,
         Child,
-        "my new page",
+        "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
       newPage.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
       desktopStore.addItem(newPage);
@@ -65,7 +65,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         userStore.getUser().userId,
         props.contextItem?.id!,
         Child,
-        "my new note",
+        "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
       newNote.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
       desktopStore.addItem(newNote);
@@ -84,7 +84,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         userStore.getUser().userId,
         props.contextItem?.id!,
         Child,
-        "my new table",
+        "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
       newTable.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
       desktopStore.addItem(newTable);

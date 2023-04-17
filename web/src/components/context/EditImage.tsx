@@ -51,7 +51,7 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
 
   return (
     <div>
-      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.imageItem.title} onInput={handleTitleChange} /></div>
+      <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.imageItem.title} onInput={handleTitleChange} focus={true} /></div>
       <div><InfuButton text="delete" onClick={deleteImage} /></div>
     </div>
   );

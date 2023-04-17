@@ -17,7 +17,7 @@
 */
 
 
-import { Component, onCleanup } from "solid-js";
+import { Component, onCleanup, onMount } from "solid-js";
 
 
 export type InfuTextAreaProps = {
@@ -26,7 +26,8 @@ export type InfuTextAreaProps = {
   onInput?: ((v: string) => void),
   /// Triggered after loosing focus, or cleanup.
   onChangeOrCleanup?: ((v: string) => void),
-  disabled?: boolean
+  disabled?: boolean,
+  focus?: boolean,
 };
 
 export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaProps) => {
@@ -51,6 +52,12 @@ export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaPr
   const mouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
   }
+
+  onMount(() => {
+    if (props.focus) {
+      textElement?.focus();
+    }
+  });
 
   return (
     <textarea ref={textElement}
