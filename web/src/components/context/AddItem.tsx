@@ -49,8 +49,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
       newPage.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
-      desktopStore.addItem(newPage);
       server.addItem(newPage, null);
+      desktopStore.addItem(newPage);
       generalStore.setContextMenuInfo(null);
       generalStore.setEditDialogInfo({
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
@@ -87,8 +87,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
       newTable.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
-      desktopStore.addItem(newTable);
       server.addItem(newTable, null);
+      desktopStore.addItem(newTable);
       generalStore.setContextMenuInfo(null);
       generalStore.setEditDialogInfo({
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
