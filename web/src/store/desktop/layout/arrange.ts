@@ -203,6 +203,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel): VisualE
           initiateLoadChildItemsIfNotLoaded(desktopStore, childItem().id);
         }
 
+        // *** TODO: the result of this calc depends on page.spatialWidthGr.get(), which means when
+        //     one of these changes, the entire calculation for all VEs is invalidated. How to fix?
+        //     perhaps the on, or untrack solid-js utility functions are useful. Or perhaps we actually
+        //     ideally want the VEs to be signals, and managed as state in some way. Or maybe calculate
+        //     all VEs always. That is probably tolerable, as it's only done once, however the problem
+        //     with that is downloading child items when not required probably isn't tolerable.
+
         // ### Child is a page with children visible.
         if (isPage(childItem()) &&
             // This test does not depend on pixel size, so is invariant over display devices.
