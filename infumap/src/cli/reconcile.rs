@@ -109,7 +109,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .short('c')
       .long("copy")
       .help("If specified, missing items will be copied to the destination, else they will just be listed.")
-      .takes_value(true)
+      .takes_value(false)
       .multiple_values(false)
       .required(true))
 }
@@ -176,6 +176,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   if mode != Mode::Missing {
     return Err(format!("Unknown mode '{:?}'.", mode).into());
   }
+
+  let copying = config.get_bool("copy")?;
 
   let a = match sub_matches.value_of("a") {
     Some(a) => match ObjectStoreName::from_str(a) {
@@ -250,14 +252,26 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let destination_files = destination_store.list().await?;
   println!("Number of destination files: {}.", destination_files.len());
 
+  let mut missing_cnt = 0;
+  for s_file in &source_files {
+    if !destination_files.contains(&s_file) {
+      missing_cnt += 1;
+    }
+  }
+  println!("Number of source files missing in destination: {}.\n", missing_cnt);
+
   let mut cnt = 0;
   for s_file in &source_files {
     if !destination_files.contains(&s_file) {
-      println!("{}/{} Copying: {}_{}", cnt, source_files.len(), s_file.user_id, s_file.item_id);
-      let val = Arc::new(source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?);
-      destination_store.put(s_file.user_id.clone(), s_file.item_id.clone(), val).await?;
+      cnt += 1;
+      if copying {
+        println!("{}/{} Copying: {}_{}", cnt, missing_cnt, s_file.user_id, s_file.item_id);
+        let val = Arc::new(source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?);
+        destination_store.put(s_file.user_id.clone(), s_file.item_id.clone(), val).await?;
+      } else {
+        println!("{}_{}", s_file.user_id, s_file.item_id);
+      }
     }
-    cnt += 1;
   }
 
   Ok(())
