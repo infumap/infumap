@@ -101,20 +101,20 @@ async fn main() {
 
 
 fn init_logger(level: Option<String>) -> InfuResult<()> {
-  pretty_env_logger::init();
-  // let level = if let Some(level) = level {
-  //   log::LevelFilter::from_str(&level).map_err(|e| format!("Could not parse log level: {}", e))?
-  // } else {
-  //   let key = "INFUMAP_LOG_LEVEL";
-  //   let log_level_str = match env::var(key) {
-  //     Err(_) => "info".to_owned(),
-  //     Ok(v) => v
-  //   };
-  //   log::LevelFilter::from_str(&log_level_str).map_err(|e| format!("Could not parse log level: {}", e))?
-  // };
-  // pretty_env_logger::formatted_timed_builder()
-  //   .format_timestamp_secs()
-  //   .filter_module("infumap", level)
-  //   .init();
+  // pretty_env_logger::init();
+  let level = if let Some(level) = level {
+    log::LevelFilter::from_str(&level).map_err(|e| format!("Could not parse log level: {}", e))?
+  } else {
+    let key = "INFUMAP_LOG_LEVEL";
+    let log_level_str = match env::var(key) {
+      Err(_) => "info".to_owned(),
+      Ok(v) => v
+    };
+    log::LevelFilter::from_str(&log_level_str).map_err(|e| format!("Could not parse log level: {}", e))?
+  };
+  pretty_env_logger::formatted_timed_builder()
+    .format_timestamp_secs()
+    .filter_module("infumap", level)
+    .init();
   Ok(())
 }

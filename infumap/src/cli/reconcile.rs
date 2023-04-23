@@ -14,37 +14,34 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::{HashSet, HashMap};
-use std::sync::{Mutex, Arc};
+use std::sync::Arc;
 
 use clap::{App, Arg, ArgMatches};
 use config::Config;
 
 use crate::config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE};
 use crate::setup::get_config;
-use crate::storage::db::Db;
-use crate::storage::db::item::is_data_item;
 use crate::storage::file as storage_file;
 use crate::storage::object::IndividualObjectStore;
 use crate::storage::s3 as storage_s3;
-use crate::util::{infu::InfuResult, crypto::encrypt_file_data};
+use crate::util::infu::InfuResult;
 
 
 #[derive(PartialEq, Debug)]
-enum Command {
-  Copy,
+enum Mode {
+  Missing,
 }
 
-impl Command {
+impl Mode {
   pub fn _as_str(&self) -> &'static str {
     match self {
-      Command::Copy => "copy",
+      Mode::Missing => "missing",
     }
   }
 
-  pub fn from_str(s: &str) -> InfuResult<Command> {
+  pub fn from_str(s: &str) -> InfuResult<Mode> {
     match s {
-      "copy" => Ok(Command::Copy),
+      "missing" => Ok(Mode::Missing),
       other => Err(format!("Invalid Command value: '{}'.", other).into())
     }
   }
@@ -87,10 +84,10 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .takes_value(true)
       .multiple_values(false)
       .required(false))
-    .arg(Arg::new("command")
-      .short('c')
-      .long("command")
-      .help("The reconcile sub command (currently only \"copy\" is implemented).")
+    .arg(Arg::new("mode")
+      .short('m')
+      .long("mode")
+      .help("The sub command (currently only \"missing\" is implemented).")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -105,6 +102,13 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .short('b')
       .long("b")
       .help("The destination object store.")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(true))
+    .arg(Arg::new("copy")
+      .short('c')
+      .long("copy")
+      .help("If specified, missing items will be copied to the destination, else they will just be listed.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
@@ -128,12 +132,6 @@ fn create_s3_2_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storag
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
   if s3_2_key.is_none() { return Ok(None); }
   Ok(Some(storage_s3::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
-}
-
-async fn list_s3_files(s3_store: Arc<storage_s3::S3Store>) -> InfuResult<HashSet<String>> {
-  let mut files_in_s3 = HashSet::new();
-  for o in storage_s3::list(s3_store).await? { files_in_s3.insert(format!("{}_{}", o.user_id, o.item_id)); }
-  Ok(files_in_s3)
 }
 
 // async fn create_db(config: &Config) -> InfuResult<Db> {
@@ -163,31 +161,20 @@ async fn list_s3_files(s3_store: Arc<storage_s3::S3Store>) -> InfuResult<HashSet
 //   Ok(desired_files)
 // }
 
-async fn list_filesystem_files(db: &Db, file_store: Arc<Mutex<storage_file::FileStore>>) -> InfuResult<HashSet<String>> {
-  let mut result = HashSet::new();
-  for user_id in &db.user.all_user_ids() {
-    let files = storage_file::list(file_store.clone(), user_id).await?;
-    for file in &files {
-      result.insert(format!("{}_{}", user_id, file));
-    }
-  }
-  Ok(result)
-}
-
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let config = get_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
 
-  let command = match sub_matches.value_of("command") {
-    Some(command) => match Command::from_str(command) {
+  let mode = match sub_matches.value_of("mode") {
+    Some(mode) => match Mode::from_str(mode) {
       Ok(v) => v,
       Err(e) => return Err(e)
     },
-    None => return Err("Command was not specified.".into())
+    None => return Err("Mode was not specified.".into())
   };
 
-  if command != Command::Copy {
-    return Err(format!("Unknown command '{:?}'.", command).into());
+  if mode != Mode::Missing {
+    return Err(format!("Unknown mode '{:?}'.", mode).into());
   }
 
   let a = match sub_matches.value_of("a") {
@@ -263,15 +250,18 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let destination_files = destination_store.list().await?;
   println!("Number of destination files: {}.", destination_files.len());
 
+  let mut cnt = 0;
   for s_file in &source_files {
     if !destination_files.contains(&s_file) {
-      println!("Copying: {}_{}", s_file.user_id, s_file.item_id);
+      println!("{}/{} Copying: {}_{}", cnt, source_files.len(), s_file.user_id, s_file.item_id);
       let val = Arc::new(source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?);
       destination_store.put(s_file.user_id.clone(), s_file.item_id.clone(), val).await?;
     }
+    cnt += 1;
   }
 
   Ok(())
+
   // let config = init_fs_maybe_and_get_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
   // let mut db = create_db(&config).await?;
 

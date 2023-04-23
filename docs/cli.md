@@ -38,28 +38,27 @@ Options:
 
 ### reconcile
 
-NOTE: the below is aspirational - not implemented yet.
-
 Use this command to check / reconcile the contents of the configured object stores and item database.
 
 Options:
 - **-s --settings (optional):** Path to the settings file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **-m --mode (required):** The sub command. Currently only "missing" is implemented (and only partially). In the future there will be a command "orphaned" for discovering object files that have no counterpart in the item database, and for deleting / retrieving them.
 - **-a --a (required):** The source object store.
 - **-b --b (required):** The destination object store.
-- **-c --command (required):** The sub command. Currently only "copy" is implemented. In the future there will be a command for discovering object files that have no counterpart in the item database, and for deleting / getting them.
+- **-c --copy (optional):** Only valid in "missing" mode. If specified, items present in the source but not destination object store will be copied to the destination. Else, they will just be listed.
 
 Examples:
 
 Copy any files in the `s3_1` object store that are not present in the `s3_2` object store to `s3_2`:
 
 ```
-infumap reconcile -c copy -a s3_1 -b s3_2
+infumap reconcile -m missing -a s3_1 -b s3_2 -c
 ```
 
 Copy any files in the `s3_2` object store that are not present in the `local` object store to the `local` object store:
 
 ```
-infumap reconcile -c copy -a s3_1 -b s3_2
+infumap reconcile -m missing -a s3_1 -b local -c
 ```
 
 
