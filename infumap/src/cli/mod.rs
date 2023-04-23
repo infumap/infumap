@@ -33,7 +33,7 @@ pub mod login;
 pub mod logout;
 pub mod migrate;
 pub mod note;
-pub mod repair;
+pub mod reconcile;
 pub mod restore;
 pub mod upload;
 

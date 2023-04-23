@@ -200,7 +200,7 @@ async fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = object::get(object_store, &session.user_id, &String::from(&uid), &object_encryption_key).await?;
+  let original_file_bytes = object::get(object_store, session.user_id.clone(), String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
     let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
@@ -282,7 +282,7 @@ async fn get_file(
 
   // TODO (MEDIUM): Consider putting non-image files in the cache. Not highest priority though since
   // by default, configuration is such that these are cached browser side.
-  let data = object::get(object_store, &session.user_id, &String::from(uid), &object_encryption_key).await?;
+  let data = object::get(object_store, session.user_id.clone(), String::from(uid), &object_encryption_key).await?;
 
   let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
 

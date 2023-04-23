@@ -17,6 +17,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
+use log::debug;
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
 
@@ -24,18 +26,23 @@ use crate::storage::db::item_db::ItemAndUserId;
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
 
+use super::object::IndividualObjectStore;
+
 
 pub fn create_bucket(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
   let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
     .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
   let mut bucket = Bucket::new(
     bucket,
-    if let Some(region) = region {
-      region.parse().map_err(|e| format!("Could not parse S3 region: {}", e))?
-    } else {
+    if let Some(endpoint) = endpoint {
       Region::Custom {
         region: if let Some(region) = region { region.to_owned() } else { "global".to_owned() },
-        endpoint: endpoint.clone().ok_or("Expecting S3 endpoint to be specified when S3 region is not specified.")?
+        endpoint: endpoint.clone()
+      }
+    } else {
+      match region {
+        Some(region) => region.parse().map_err(|e| format!("Could not parse S3 region: {}", e))?,
+        None => return Err("region expected".into())
       }
     },
     credentials
@@ -61,7 +68,7 @@ pub fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key
 }
 
 
-pub async fn get(s3_store: Arc<S3Store>, user_id: &Uid, id: &Uid) -> InfuResult<Vec<u8>> {
+pub async fn get(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<Vec<u8>> {
   let s3_path = format!("{}_{}", user_id, id);
   let result = s3_store.bucket.get_object(s3_path).await
     .map_err(|e| format!("Error occured getting S3 object: {}", e))?;
@@ -77,7 +84,7 @@ pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>
   let result = s3_store.bucket.put_object(s3_path, val.as_slice()).await
     .map_err(|e| format!("Error occured putting S3 object: {}", e))?;
   if result.status_code() != 200 {
-    return Err(format!("Unexpected status code putting S3 object: {}", result.status_code()).into());
+    return Err(format!("Unexpected status code putting S3 object: {}.", result.status_code()).into());
   }
   Ok(())
 }
@@ -102,6 +109,7 @@ pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
     return Err(format!("Expected list_page status code to be 200, not {}", lbrs.1).into());
   }
   loop {
+    debug!("Retrieved {} filenames", lbrs.0.contents.len());
     for c in lbrs.0.contents {
       let mut parts = c.key.split("_");
       let user_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
@@ -125,4 +133,18 @@ pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
     }
   }
   Ok(result)
+}
+
+
+#[async_trait]
+impl IndividualObjectStore for Arc<S3Store> {
+  async fn get(&self, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>> {
+    get(self.clone(), user_id, item_id).await
+  }
+  async fn put(&self, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
+    put(self.clone(), user_id, item_id, val).await
+  }
+  async fn list(&self) -> InfuResult<Vec<ItemAndUserId>> {
+    list(self.clone()).await
+  }
 }

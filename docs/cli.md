@@ -36,12 +36,32 @@ Migrate an existing user or item log file to the next version. This may be requi
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
 
-### repair
+### reconcile
 
-Work-in-progress. This command will be useful for reconciling and aligning the contents of the different configured object stores.
+NOTE: the below is aspirational - not implemented yet.
+
+Use this command to check / reconcile the contents of the configured object stores and item database.
 
 Options:
 - **-s --settings (optional):** Path to the settings file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **-a --a (required):** The source object store.
+- **-b --b (required):** The destination object store.
+- **-c --command (required):** The sub command. Currently only "copy" is implemented. In the future there will be a command for discovering object files that have no counterpart in the item database, and for deleting / getting them.
+
+Examples:
+
+Copy any files in the `s3_1` object store that are not present in the `s3_2` object store to `s3_2`:
+
+```
+infumap reconcile -c copy -a s3_1 -b s3_2
+```
+
+Copy any files in the `s3_2` object store that are not present in the `local` object store to the `local` object store:
+
+```
+infumap reconcile -c copy -a s3_1 -b s3_2
+```
+
 
 ### restore
 

@@ -34,6 +34,7 @@ use super::item::Item;
 
 pub const CURRENT_ITEM_LOG_VERSION: i64 = 3;
 
+#[derive(PartialEq)]
 pub struct ItemAndUserId {
   pub user_id: Uid,
   pub item_id: Uid
@@ -237,7 +238,7 @@ impl ItemDb {
             Some(rtp) => {
               let rtp_str = rtp.as_str()
                 .ok_or(InfuError::from(format!("Expected property relationshipToParent of item '{}' to have type string.", item.id)))?;
-              RelationshipToParent::from_string(rtp_str)?
+              RelationshipToParent::from_str(rtp_str)?
             },
             None => {
               old_item.relationship_to_parent.clone()

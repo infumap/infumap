@@ -42,7 +42,7 @@ impl RelationshipToParent {
     }
   }
 
-  pub fn from_string(s: &str) -> InfuResult<RelationshipToParent> {
+  pub fn from_str(s: &str) -> InfuResult<RelationshipToParent> {
     match s {
       "attachment" => Ok(RelationshipToParent::Attachment),
       "child" => Ok(RelationshipToParent::Child),
@@ -536,7 +536,7 @@ impl JsonLogSerializable<Item> for Item {
     }
     if parent_id_maybe.is_some() { self.parent_id = parent_id_maybe; }
 
-    if let Some(u) = json::get_string_field(map, "relationshipToParent")? { self.relationship_to_parent = RelationshipToParent::from_string(&u)?; }
+    if let Some(u) = json::get_string_field(map, "relationshipToParent")? { self.relationship_to_parent = RelationshipToParent::from_str(&u)?; }
     if json::get_integer_field(map, "creationDate")?.is_some() { cannot_update_err("creationDate", &self.id)?; }
     if let Some(u) = json::get_integer_field(map, "lastModifiedDate")? { self.last_modified_date = u; }
     if map.contains_key("ordering") {
@@ -811,7 +811,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     id: id.clone(),
     owner_id: json::get_string_field(map, "ownerId")?.ok_or("'owner_id' field was missing.")?,
     parent_id,
-    relationship_to_parent: RelationshipToParent::from_string(
+    relationship_to_parent: RelationshipToParent::from_str(
       &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?)?,
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
     last_modified_date: json::get_integer_field(map, "lastModifiedDate")?.ok_or("'lastModifiedDate' field was missing.")?,

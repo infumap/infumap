@@ -17,6 +17,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Mutex, Arc};
+use async_trait::async_trait;
 use tokio::fs::{File, OpenOptions, self};
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -26,6 +27,9 @@ use log::{info, warn};
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, uid_chars};
 use crate::util::fs::{expand_tilde, construct_file_subpath, ensure_256_subdirs, path_exists};
+
+use super::db::item_db::ItemAndUserId;
+use super::object::IndividualObjectStore;
 
 
 pub struct FileStore {
@@ -51,9 +55,9 @@ pub fn new(data_dir: &str) -> InfuResult<Arc<Mutex<FileStore>>> {
 
 
 /// Get data associated with the specified item for the specified user.
-pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: &Uid, item_id: &Uid) -> InfuResult<Vec<u8>> {
-  let files_dir = ensure_files_dir(file_store, user_id).await?;
-  let path = construct_file_subpath(&files_dir, item_id)?;
+pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>> {
+  let files_dir = ensure_files_dir(file_store, &user_id).await?;
+  let path = construct_file_subpath(&files_dir, &item_id)?;
   let mut f = File::open(&path).await?;
   let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
   f.read_exact(&mut buffer).await?;
@@ -62,7 +66,7 @@ pub async fn get(file_store: Arc<Mutex<FileStore>>, user_id: &Uid, item_id: &Uid
 
 
 /// Set data for the specified item for the specified user.
-pub async fn put(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid, val: Vec<u8>) -> InfuResult<()> {
+pub async fn put(file_store: Arc<Mutex<FileStore>>, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
   let files_dir = ensure_files_dir(file_store, &user_id).await?;
   let mut file = OpenOptions::new()
     .create_new(true)
@@ -140,4 +144,57 @@ async fn ensure_files_dir(file_store: Arc<Mutex<FileStore>>, user_id: &Uid) -> I
   }
 
   Ok(files_dir)
+}
+
+
+async fn all_user_data_dirs(path: PathBuf) -> InfuResult<Vec<String>> {
+  let mut result = vec![];
+  let mut iter = tokio::fs::read_dir(&path).await?;
+  while let Some(entry) = iter.next_entry().await? {
+    if !entry.file_type().await?.is_dir() {
+      // pending users log is in the data directory as well.
+      continue;
+    }
+
+    if let Some(dirname) = entry.file_name().to_str() {
+      let parts = dirname.split('_').collect::<Vec<&str>>();
+      if parts.len() != 2 {
+        warn!("Unexpected directory in data directory: '{}'.", dirname);
+        continue;
+      }
+      let dir_userid = *parts.get(1).unwrap();
+      result.push(dir_userid.to_owned());
+    }
+  }
+
+  Ok(result)
+}
+
+
+#[async_trait]
+impl IndividualObjectStore for Arc<Mutex<FileStore>> {
+  async fn get(&self, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>> {
+    get(self.clone(), user_id, item_id).await
+  }
+
+  async fn put(&self, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
+    put(self.clone(), user_id, item_id, val).await
+  }
+
+  async fn list(&self) -> InfuResult<Vec<ItemAndUserId>> {
+    let path = {
+      let file_store = self.lock().unwrap();
+      file_store.data_dir.clone()
+    };
+
+    let all_users = all_user_data_dirs(path).await?;
+    let mut result = vec![];
+    for user_id in all_users {
+      let files = list(self.clone(), &user_id).await?;
+      for item_id in &files {
+        result.push(ItemAndUserId { user_id: user_id.clone(), item_id: item_id.clone() });
+      }
+    }
+    Ok(result)
+  }
 }

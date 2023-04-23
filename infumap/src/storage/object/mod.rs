@@ -17,6 +17,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use async_trait::async_trait;
 use tokio::task::JoinSet;
 
 use crate::storage::file as storage_file;
@@ -24,6 +25,8 @@ use crate::storage::s3 as storage_s3;
 use crate::util::crypto::{encrypt_file_data, decrypt_file_data};
 use crate::util::infu::InfuResult;
 use crate::util::uid::Uid;
+
+use super::db::item_db::ItemAndUserId;
 
 
 pub struct ObjectStore {
@@ -104,22 +107,23 @@ pub fn new(data_dir: &str, enable_local_object_storage: bool,
   )?))
 }
 
-pub async fn get(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
+pub async fn get(object_store: Arc<ObjectStore>, user_id: Uid, id: Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
   // If there is a problem reading from any one of the sources, take the view (for the moment)
   // that it is better to error out than try from another source so as to alert the user there
-  // is a problem. TODO (MEDIUM): probably something else is better.
+  // is a problem. TODO (MEDIUM): something else would be better.
   if let Some(file_store) = &object_store.file_store {
-    return storage_file::get(file_store.clone(), user_id, id).await;
+    let ciphertext = storage_file::get(file_store.clone(), user_id.clone(), id.clone()).await?;
+    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
   }
   // Assume that store #1 is the most cost effective to read from, and always use it in preference
   // to store #2 if available.
   if let Some(s3_1_store) = &object_store.s3_1_data_store {
-    let ciphertext = storage_s3::get(s3_1_store.clone(), user_id, id).await?;
-    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(user_id, id).as_str())?);
+    let ciphertext = storage_s3::get(s3_1_store.clone(), user_id.clone(), id.clone()).await?;
+    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
   }
   if let Some(s3_2_store) = &object_store.s3_2_data_store {
-    let ciphertext = storage_s3::get(s3_2_store.clone(), user_id, id).await?;
-    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(user_id, id).as_str())?);
+    let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
+    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
   }
   Err("No object store configured".into())
 }
@@ -128,18 +132,16 @@ pub async fn get(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, encryp
 pub async fn put(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid, val: &Vec<u8>, encryption_key: &str) -> InfuResult<()> {
   let mut set = JoinSet::new();
 
-  if let Some(file_store) = &object_store.file_store {
-    async fn fs_put(file_store: Arc<Mutex<storage_file::FileStore>>, user_id: Uid, id: Uid, val: Vec<u8>) -> InfuResult<()> {
-      storage_file::put(file_store, user_id.clone(), id.clone(), val.clone()).await
-    }
-    set.spawn(fs_put(file_store.clone(), user_id.clone(), id.clone(), val.clone()));
-  }
-
-  let encrypted_val = Arc::new(if object_store.s3_1_data_store.is_some() || object_store.s3_2_data_store.is_some() {
+  let encrypted_val = Arc::new(
     encrypt_file_data(encryption_key, val, filename(user_id, id).as_str())?
-  } else {
-    vec![]
-  });
+  );
+
+  if let Some(file_store) = &object_store.file_store {
+    async fn fs_put(file_store: Arc<Mutex<storage_file::FileStore>>, user_id: Uid, id: Uid, encrypted_val: Arc<Vec<u8>>) -> InfuResult<()> {
+      storage_file::put(file_store, user_id.clone(), id.clone(), encrypted_val.clone()).await
+    }
+    set.spawn(fs_put(file_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
+  }
 
   if let Some(s3_1_store) = &object_store.s3_1_data_store {
     set.spawn(storage_s3::put(s3_1_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
@@ -204,4 +206,12 @@ pub async fn delete(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid) -> 
 
 fn filename(user_id: &Uid, id: &Uid) -> String {
   format!("{}_{}", user_id, id)
+}
+
+
+#[async_trait]
+pub trait IndividualObjectStore {
+  async fn get(&self, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>>;
+  async fn put(&self, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()>;
+  async fn list(&self) -> InfuResult<Vec<ItemAndUserId>>;
 }

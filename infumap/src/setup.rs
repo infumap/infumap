@@ -23,7 +23,7 @@ use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
 
-pub async fn _get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+pub async fn get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   let settings_path_maybe = match settings_path_maybe {
     Some(path) => {
       let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
