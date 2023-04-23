@@ -111,7 +111,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .help("If specified, missing items will be copied to the destination, else they will just be listed.")
       .takes_value(false)
       .multiple_values(false)
-      .required(true))
+      .required(true)) // TODO: with other commands implemented, this will be false.
 }
 
 fn create_s3_1_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
@@ -177,7 +177,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Err(format!("Unknown mode '{:?}'.", mode).into());
   }
 
-  let copying = config.get_bool("copy")?;
+  let copying = sub_matches.is_present("copy");
 
   let a = match sub_matches.value_of("a") {
     Some(a) => match ObjectStoreName::from_str(a) {
