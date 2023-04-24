@@ -68,7 +68,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
   let data_dir = config.get_string(CONFIG_DATA_DIR)?;
   let db = Arc::new(tokio::sync::Mutex::new(
-    match Db::new( &data_dir).await {
+    match Db::new(&data_dir).await {
       Ok(db) => db,
       Err(e) => {
         return Err(format!("Failed to initialize database: {}", e).into());

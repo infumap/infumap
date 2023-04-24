@@ -21,6 +21,7 @@ For more information on configuring the Infumap web server, refer to [configurat
 Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment varable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 
+
 ### keygen
 
 Generate a 256 bit encryption key suitable for use with the `backup_encryption_key` configuration property or the `objectEncryptionKey` user item property.
@@ -29,6 +30,7 @@ Changing the `objectEncryptionKey` user property is currently not a supported / 
 
 A (unique) backup encryption key is generated when a new `settings.toml` file is auto-generated. Generally, you won't need to use the `keygen` command unless you are specifying configuration via environment variables, or creating a settings file from scratch.
 
+
 ### migrate
 
 Migrate an existing user or item log file to the next version. This may be required when upgrading to a new version of Infumap. Ultimately log migration will happen automatically on web server startup and this command will be an advanced feature, however this is not implemented yet.
@@ -36,29 +38,40 @@ Migrate an existing user or item log file to the next version. This may be requi
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
 
+
 ### reconcile
 
-Use this command to check / reconcile the contents of the configured object stores and item database.
+Use this command to check / reconcile the contents of the configured object stores and item database. Generally, these
+should stay in sync, however deviations can occur in some error scenarios, or if you manually modify the contents of the
+Infumap data directory or object stores.
 
 Options:
 - **-s --settings (optional):** Path to the settings file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **-m --mode (required):** The sub command. Currently only "missing" is implemented (and only partially). In the future there will be a command "orphaned" for discovering object files that have no counterpart in the item database, and for deleting / retrieving them.
+- **-c --command (required):** The sub command:
+  - **missing:** Identify files that are present in the source object store but not the destination. By default, the files are just listed. If the --copy flag is specified, they are copied.
+  - **orphaned:** List object files in the source object store that have no counterpart in the item database. TODO: options to remove or get these files.
 - **-a --a (required):** The source object store.
 - **-b --b (required):** The destination object store.
 - **-c --copy (optional):** Only valid in "missing" mode. If specified, items present in the source but not destination object store will be copied to the destination. Else, they will just be listed.
 
 Examples:
 
-Copy any files in the `s3_1` object store that are not present in the `s3_2` object store to `s3_2`:
+List all files in `s3_1` that are not present in `s3_2`:
 
 ```
-infumap reconcile -m missing -a s3_1 -b s3_2 -c
+infumap reconcile -c missing -a s3_1 -b s3_2
 ```
 
-Copy any files in the `s3_2` object store that are not present in the `local` object store to the `local` object store:
+Copy all files in `s3_2` that are not present in the `local` object store to the `local` object store:
 
 ```
-infumap reconcile -m missing -a s3_1 -b local -c
+infumap reconcile -c missing -a s3_1 -b local --copy
+```
+
+List all files in `s3_2` that have no corresponding entry in the item database.
+
+```
+infumap reconcile -c orphaned -a s3_2
 ```
 
 
@@ -84,12 +97,14 @@ Sessions are named. If you don't specify a name, "`default`" will be assumed.
 Options:
 - **-s --session (optional):** The session name.
 
+
 ### logout
 
 Closes an open session. If no session name is specified, "`default`" will be assumed.
 
 Options:
 - **-s --session (optional):** The session name.
+
 
 ### note
 
@@ -99,6 +114,7 @@ Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
 - **-c --container-id (optional):** The id of the container to add the note to. If omitted, the note will be added to the root container of the session user.
 - **-n --note (required):** The note to add. Should be in quotes (" ").
+
 
 ### upload
 
