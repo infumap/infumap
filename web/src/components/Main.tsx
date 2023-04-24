@@ -65,6 +65,8 @@ export const Main: Component = () => {
 
   logout = async () => {
     await userStore.logout();
+    generalStore.setEditDialogInfo(null);
+    generalStore.setContextMenuInfo(null);
     desktopStore.setCurrentPageId(null);
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
