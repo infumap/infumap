@@ -265,7 +265,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     if !destination_files.contains(&s_file) {
       cnt += 1;
       if copying {
-        println!("{}/{} Copying: {}_{}", cnt, missing_cnt, s_file.user_id, s_file.item_id);
+        println!("Copying {}/{}: {}_{}", cnt, missing_cnt, s_file.user_id, s_file.item_id);
         let val = Arc::new(source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?);
         destination_store.put(s_file.user_id.clone(), s_file.item_id.clone(), val).await?;
       } else {
