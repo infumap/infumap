@@ -98,7 +98,7 @@ fn make_missing_subcommand<'a, 'b>() -> App<'a> {
 
 
 fn make_orphaned_subcommand<'a, 'b>() -> App<'a> {
-  App::new("missing")
+  App::new("orphaned")
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")

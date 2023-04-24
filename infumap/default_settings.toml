@@ -87,6 +87,11 @@
 # to other configured object stores). If you are using AWS, you don't need to
 # specify an endpoint, only region. If you are using a compatible service, you
 # usually only need to specify the endpoint, not region.
+# Note: This issue: https://github.com/durch/rust-s3/issues/291 is a problem
+# with the default build. Backblaze and Wasabi work, but AWS S3 does not. If
+# you want to use AWS S3, you can change the rust-s3 dependency in Cargo.toml
+# to not use tokio-rustls-tls and re-build. This is not the default to avoid an
+# external dependency on openssl.
 #enable_s3_1_object_storage = false
 #s3_1_region = 
 #s3_1_endpoint = 
