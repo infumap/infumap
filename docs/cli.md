@@ -45,7 +45,7 @@ Use this command to check / reconcile the contents of the configured object stor
 should stay in sync, however deviations can occur in some error scenarios, or if you manually modify the contents of the
 Infumap data directory or object stores. There are two subcommands `missing` and `orphaned`:
 
-#### `missing` Command:
+#### missing sub-command
 
 Identify files that are present in the source object store but not the destination. By default, files are just listed. If the --copy flag is specified, they are copied from source to destination.
 
@@ -68,7 +68,7 @@ Copy all files in `s3_2` that are not present in the `local` object store to the
 infumap reconcile missing -a s3_1 -b local --copy
 ```
 
-#### `orphaned` Command
+#### orphaned sub-command
 
 List object files in an object store that have no counterpart in the item database. TODO: options to remove or get these files.
 
