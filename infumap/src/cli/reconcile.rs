@@ -30,30 +30,6 @@ use crate::storage::s3 as storage_s3;
 use crate::util::infu::InfuResult;
 
 
-#[derive(PartialEq, Debug)]
-enum Command {
-  Missing,
-  Orphaned,
-}
-
-impl Command {
-  pub fn _as_str(&self) -> &'static str {
-    match self {
-      Command::Missing => "missing",
-      Command::Orphaned => "orphaned",
-    }
-  }
-
-  pub fn from_str(s: &str) -> InfuResult<Command> {
-    match s {
-      "missing" => Ok(Command::Missing),
-      "orphaned" => Ok(Command::Orphaned),
-      other => Err(format!("Invalid Command value: '{}'.", other).into())
-    }
-  }
-}
-
-
 enum ObjectStoreName {
   S3_1,
   S3_2,
@@ -83,6 +59,13 @@ impl ObjectStoreName {
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("reconcile")
     .about("Check / reconcile the contents of the configured object stores and item database.")
+    .subcommand(make_missing_subcommand())
+    .subcommand(make_orphaned_subcommand())
+}
+
+
+fn make_missing_subcommand<'a, 'b>() -> App<'a> {
+  App::new("missing")
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")
@@ -90,13 +73,6 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .takes_value(true)
       .multiple_values(false)
       .required(false))
-    .arg(Arg::new("command")
-      .short('c')
-      .long("command")
-      .help("The sub command (currently only \"missing\" is implemented).")
-      .takes_value(true)
-      .multiple_values(false)
-      .required(true))
     .arg(Arg::new("a")
       .short('a')
       .long("a")
@@ -112,6 +88,7 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
       .multiple_values(false)
       .required(true))
     .arg(Arg::new("copy")
+      .short('c')
       .long("copy")
       .help("If specified, missing items will be copied to the destination, else they will just be listed.")
       .takes_value(false)
@@ -120,24 +97,35 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 }
 
 
+fn make_orphaned_subcommand<'a, 'b>() -> App<'a> {
+  App::new("missing")
+    .arg(Arg::new("settings_path")
+      .short('s')
+      .long("settings")
+      .help(concat!("Path to a toml settings configuration file. If not specified, the default will be assumed."))
+      .takes_value(true)
+      .multiple_values(false)
+      .required(false))
+    .arg(Arg::new("o")
+      .short('o')
+      .long("o")
+      .help("The object store to check for orphaned files.")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(true))
+}
+
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let config = get_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
 
-  let command = match sub_matches.value_of("command") {
-    Some(command) => match Command::from_str(command) {
-      Ok(v) => v,
-      Err(e) => return Err(e)
+  match sub_matches.subcommand() {
+    Some(("missing", arg_sub_matches)) => {
+      execute_missing(arg_sub_matches, &config).await
     },
-    None => return Err("Sub command was not specified.".into())
-  };
-
-  match command {
-    Command::Missing => {
-      execute_missing(sub_matches, &config).await
+    Some(("orphaned", arg_sub_matches)) => {
+      execute_orphaned(arg_sub_matches, &config).await
     },
-    Command::Orphaned => {
-      execute_orphaned(sub_matches, &config).await
-    }
+    _ => return Err("Sub command was not specified.".into())
   }
 }
 
@@ -250,17 +238,13 @@ pub async fn execute_orphaned<'a>(sub_matches: &ArgMatches, config: &Config) -> 
     return Err("--copy flag is not valid for use with the \"orphaned\" command".into());
   }
   
-  let a = match sub_matches.value_of("a") {
+  let o = match sub_matches.value_of("o") {
     Some(a) => match ObjectStoreName::from_str(a) {
       Ok(v) => v,
-      Err(_e) => return Err(format!("Unknown source object store name '{}'.", a).into())
+      Err(_e) => return Err(format!("Unknown object store name '{}'.", a).into())
     },
-    None => return Err("Source object store ('a') was not specified.".into())
+    None => return Err("Object store ('o') was not specified.".into())
   };
-
-  if sub_matches.is_present("b") {
-    return Err("Destination object store ('b') was specified but not expected.".into())
-  }
 
   let s3_1_maybe = create_s3_1_data_store_maybe(&config)?;
   let s3_2_maybe = create_s3_2_data_store_maybe(&config)?;
@@ -270,7 +254,7 @@ pub async fn execute_orphaned<'a>(sub_matches: &ArgMatches, config: &Config) -> 
     None
   };
 
-  let source_store = match a {
+  let source_store = match o {
     ObjectStoreName::S3_1 => {
       match &s3_1_maybe {
         Some(s) => s as &dyn IndividualObjectStore,

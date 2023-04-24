@@ -43,35 +43,44 @@ Options:
 
 Use this command to check / reconcile the contents of the configured object stores and item database. Generally, these
 should stay in sync, however deviations can occur in some error scenarios, or if you manually modify the contents of the
-Infumap data directory or object stores.
+Infumap data directory or object stores. There are two subcommands `missing` and `orphaned`:
 
-Options:
+#### `missing` Command:
+
+Identify files that are present in the source object store but not the destination. By default, files are just listed. If the --copy flag is specified, they are copied from source to destination.
+
 - **-s --settings (optional):** Path to the settings file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **-c --command (required):** The sub command:
-  - **missing:** Identify files that are present in the source object store but not the destination. By default, the files are just listed. If the --copy flag is specified, they are copied.
-  - **orphaned:** List object files in the source object store that have no counterpart in the item database. TODO: options to remove or get these files.
 - **-a --a (required):** The source object store.
 - **-b --b (required):** The destination object store.
-- **-c --copy (optional):** Only valid in "missing" mode. If specified, items present in the source but not destination object store will be copied to the destination. Else, they will just be listed.
+- **-c --copy (optional):** If specified, items present in the source but not destination object store will be copied to the destination. Else, they will just be listed.
 
 Examples:
 
 List all files in `s3_1` that are not present in `s3_2`:
 
 ```
-infumap reconcile -c missing -a s3_1 -b s3_2
+infumap reconcile missing -a s3_1 -b s3_2
 ```
 
 Copy all files in `s3_2` that are not present in the `local` object store to the `local` object store:
 
 ```
-infumap reconcile -c missing -a s3_1 -b local --copy
+infumap reconcile missing -a s3_1 -b local --copy
 ```
+
+#### `orphaned` Command
+
+List object files in an object store that have no counterpart in the item database. TODO: options to remove or get these files.
+
+- **-s --settings (optional):** Path to the settings file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **-o --o (required):** The object store to check.
+
+Examples:
 
 List all files in `s3_2` that have no corresponding entry in the item database.
 
 ```
-infumap reconcile -c orphaned -a s3_2
+infumap reconcile orphaned -o s3_2
 ```
 
 
