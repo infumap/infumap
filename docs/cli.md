@@ -119,11 +119,11 @@ Options:
 
 List the children and attachments of an item.
 
+Tip: You may find the ctrl-w "kill last word" command useful when browsing an item hierarchy on the command line.
+
 Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
 - **-i --id (optional):** The item id. If omitted, the root container of the session user will be assumed.
-
-Remarks: You may find the ctrl-w command "kill last word", is useful for browsing an item hierarchy from the command line.
 
 
 ### note
