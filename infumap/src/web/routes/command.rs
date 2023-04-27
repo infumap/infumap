@@ -119,6 +119,7 @@ pub async fn serve_command_route(
 
   let response_data_maybe = match request.command.as_str() {
     "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data, &session.user_id).await,
+    "get-attachments" => handle_get_attachments(db, &request.json_data, &session.user_id).await,
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
     "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session.user_id).await,
@@ -197,6 +198,44 @@ async fn handle_get_children_with_their_attachments(
   result.insert(String::from("attachments"), Value::from(attachments_result));
 
   Ok(Some(serde_json::to_string(&result)?))
+}
+
+
+#[derive(Deserialize, Serialize)]
+pub struct GetAttachmentsRequest {
+  #[serde(rename="parentId")]
+  pub parent_id_maybe: Option<String>,
+}
+
+async fn handle_get_attachments(
+    db: &Arc<tokio::sync::Mutex<Db>>,
+    json_data: &str,
+    session_user_id: &String) -> InfuResult<Option<String>> {
+  let db = db.lock().await;
+
+  let request: GetAttachmentsRequest = serde_json::from_str(json_data)?;
+
+  let parent_id = match &request.parent_id_maybe {
+    Some(parent_id) => parent_id,
+    None => {
+      &db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
+    }
+  };
+
+  let parent_item = db.item.get(parent_id)?;
+  if &parent_item.owner_id != session_user_id {
+    return Err(format!("User '{}' does not own item '{}'.", session_user_id, parent_id).into());
+  }
+
+  let attachment_items = db.item
+    .get_attachments(parent_id)?;
+
+  let attachments_result = attachment_items.iter()
+    .map(|v| v.to_api_json().ok())
+    .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
+    .ok_or(format!("Error occurred getting attachments for item '{}'.", parent_id))?;
+
+  Ok(Some(serde_json::to_string(&attachments_result)?))
 }
 
 

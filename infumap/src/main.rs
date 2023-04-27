@@ -34,6 +34,7 @@ async fn main() {
     .subcommand(cli::keygen::make_clap_subcommand())
     .subcommand(cli::login::make_clap_subcommand())
     .subcommand(cli::logout::make_clap_subcommand())
+    .subcommand(cli::ls::make_clap_subcommand())
     .subcommand(cli::migrate::make_clap_subcommand())
     .subcommand(cli::note::make_clap_subcommand())
     .subcommand(cli::reconcile::make_clap_subcommand())
@@ -60,6 +61,9 @@ async fn main() {
             },
             "logout" => {
               cli::logout::execute(arg_sub_matches).await
+            },
+            "ls" => {
+              cli::ls::execute(arg_sub_matches).await
             },
             "migrate" => {
               cli::migrate::execute(arg_sub_matches).await

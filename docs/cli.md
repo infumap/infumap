@@ -115,6 +115,17 @@ Options:
 - **-s --session (optional):** The session name.
 
 
+### ls
+
+List the children and attachments of an item.
+
+Options:
+- **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
+- **-i --id (optional):** The item id. If omitted, the root container of the session user will be assumed.
+
+Remarks: You may find the ctrl-w command "kill last word", is useful for browsing an item hierarchy from the command line.
+
+
 ### note
 
 Add a note.

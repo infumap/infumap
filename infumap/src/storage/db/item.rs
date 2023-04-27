@@ -149,6 +149,44 @@ pub struct TableColumn {
 }
 
 
+pub enum ItemType {
+  Page,
+  Table,
+  Note,
+  File,
+  Image,
+  Rating,
+  Link
+}
+
+impl ItemType {
+  pub fn _as_str(&self) -> &'static str {
+    match self {
+      ItemType::Page => ITEM_TYPE_PAGE,
+      ItemType::Table => ITEM_TYPE_TABLE,
+      ItemType::Note => ITEM_TYPE_NOTE,
+      ItemType::File => ITEM_TYPE_FILE,
+      ItemType::Image => ITEM_TYPE_IMAGE,
+      ItemType::Rating => ITEM_TYPE_RATING,
+      ItemType::Link => ITEM_TYPE_LINK,
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<ItemType> {
+    match s {
+      ITEM_TYPE_PAGE => Ok(ItemType::Page),
+      ITEM_TYPE_TABLE => Ok(ItemType::Table),
+      ITEM_TYPE_NOTE => Ok(ItemType::Note),
+      ITEM_TYPE_FILE => Ok(ItemType::File),
+      ITEM_TYPE_IMAGE => Ok(ItemType::Image),
+      ITEM_TYPE_RATING => Ok(ItemType::Rating),
+      ITEM_TYPE_LINK => Ok(ItemType::Link),
+      other => Err(format!("Invalid ItemType value: '{}'.", other).into())
+    }
+  }
+}
+
+
 pub const ITEM_TYPE_PAGE: &'static str = "page";
 pub const ITEM_TYPE_NOTE: &'static str = "note";
 pub const ITEM_TYPE_FILE: &'static str = "file";

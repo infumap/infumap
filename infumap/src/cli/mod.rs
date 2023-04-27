@@ -31,6 +31,7 @@ use crate::util::infu::InfuResult;
 pub mod keygen;
 pub mod login;
 pub mod logout;
+pub mod ls;
 pub mod migrate;
 pub mod note;
 pub mod reconcile;
