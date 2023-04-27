@@ -339,7 +339,7 @@ async fn list_all_db_files(db: &mut Db) -> InfuResult<Vec<ItemAndUserId>> {
   let mut files = vec![];
   for iu in db.item.all_loaded_items() {
     let item = db.item.get(&iu.item_id)?;
-    if !is_data_item(&item.item_type) { continue; }
+    if !is_data_item(item.item_type) { continue; }
     files.push(ItemAndUserId { user_id: iu.user_id, item_id: iu.item_id });
   }
 

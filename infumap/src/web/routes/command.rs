@@ -32,7 +32,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent, ITEM_TYPE_IMAGE};
+use crate::storage::db::item::{Item, RelationshipToParent, ItemType};
 use crate::storage::db::item::{is_data_item, is_image_item, is_container_item, is_attachments_item};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
@@ -289,11 +289,11 @@ async fn handle_add_item(
     item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
   }
 
-  if item_type == ITEM_TYPE_IMAGE && !item_map.contains_key("imageSizePx") {
+  if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
     item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
   }
 
-  if item_type == ITEM_TYPE_IMAGE && !item_map.contains_key("thumbnail") {
+  if item_type == ItemType::Image.as_str() && !item_map.contains_key("thumbnail") {
     item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
   }
 
@@ -326,12 +326,12 @@ async fn handle_add_item(
 
   match item.relationship_to_parent {
     RelationshipToParent::Child => {
-      if !is_container_item(&parent_item.item_type) {
+      if !is_container_item(parent_item.item_type) {
         return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", session_user_id).into());
       }
     },
     RelationshipToParent::Attachment => {
-      if !is_attachments_item(&parent_item.item_type) {
+      if !is_attachments_item(parent_item.item_type) {
         return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", session_user_id).into());
       }
     },
@@ -356,7 +356,7 @@ async fn handle_add_item(
     return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", session_user_id).into());
   }
 
-  if is_data_item(&item.item_type) {
+  if is_data_item(item.item_type) {
     let base64_data = base64_data_maybe.as_ref().ok_or(format!("Add item request has no base64 data, when this is expected for item of type {}.", item.item_type))?;
     let decoded = general_purpose::STANDARD.decode(&base64_data).map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;
     if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
@@ -365,7 +365,7 @@ async fn handle_add_item(
     let object_encryption_key = &db.user.get(session_user_id).ok_or(format!("User '{}' not found.", session_user_id))?.object_encryption_key;
     object::put(object_store.clone(), session_user_id, &item.id, &decoded, object_encryption_key).await?;
 
-    if is_image_item(&item.item_type) {
+    if is_image_item(item.item_type) {
       let title = match &item.title {
         Some(title) => title,
         None => { return Err(format!("Image item '{}' has no title set.", item.id).into()); }
@@ -462,11 +462,11 @@ async fn handle_delete_item<'a>(
   let item = db.item.remove(&request.id).await?;
   debug!("Deleted item '{}' from database.", request.id);
 
-  if is_data_item(&item.item_type) {
+  if is_data_item(item.item_type) {
     object::delete(object_store.clone(), session_user_id, &request.id).await?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
-  if is_image_item(&item.item_type) {
+  if is_image_item(item.item_type) {
     let num_removed = storage_cache::delete_all(image_cache, session_user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }

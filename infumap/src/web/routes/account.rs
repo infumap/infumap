@@ -28,7 +28,7 @@ use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent};
+use crate::storage::db::item::{Item, RelationshipToParent, ItemType};
 use crate::storage::db::user::User;
 use crate::util::crypto::generate_key;
 use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
@@ -338,7 +338,7 @@ fn sanitize_page_size(w_px: i64, h_px: i64) -> Dimensions<i64> {
 
 fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
   Item {
-    item_type: String::from("page"),
+    item_type: ItemType::Page,
     owner_id: String::from(owner_id),
     id: root_page_id,
     parent_id: None,

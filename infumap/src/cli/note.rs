@@ -18,7 +18,7 @@ use clap::{App, Arg, ArgMatches};
 use serde_json::Map;
 use serde_json::Value;
 
-use crate::storage::db::item::ITEM_TYPE_NOTE;
+use crate::storage::db::item::ItemType;
 use crate::util::geometry::GRID_SIZE;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
@@ -91,7 +91,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   let mut item: Map<String, Value> = Map::new();
-  item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_NOTE.to_owned()));
+  item.insert("itemType".to_owned(), Value::String(ItemType::Note.as_str().to_owned()));
   match container_id_maybe {
     Some(container_id) => {
       item.insert("parentId".to_owned(), Value::String(container_id.clone()));

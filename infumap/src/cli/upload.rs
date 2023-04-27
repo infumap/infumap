@@ -30,8 +30,7 @@ use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-use crate::storage::db::item::ITEM_TYPE_FILE;
-use crate::storage::db::item::ITEM_TYPE_IMAGE;
+use crate::storage::db::item::ItemType;
 use crate::util::fs::expand_tilde;
 use crate::util::geometry::Dimensions;
 use crate::util::geometry::GRID_SIZE;
@@ -244,7 +243,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         Ok(img) => {
           let exif_orientation = get_exif_orientation(buffer.clone(), filename);
           let img = adjust_image_for_exif_orientation(img, exif_orientation, filename);
-          item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_IMAGE.to_owned()));
+          item.insert("itemType".to_owned(), Value::String(ItemType::Image.as_str().to_owned()));
           item.insert("imageSizePx".to_owned(),
             json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }));
           item.insert("thumbnail".to_owned(), Value::String("".to_owned())); // set on the server.
@@ -255,13 +254,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
           std::io::stdout().flush()?;
         },
         Err(_e) => {
-          item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
+          item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
           print!("Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ", filename, i, local_filenames.len());
           std::io::stdout().flush()?;
         }
       }
     } else {
-      item.insert("itemType".to_owned(), Value::String(ITEM_TYPE_FILE.to_owned()));
+      item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
       print!("Adding file '{}' {}/{}... ", filename, i, local_filenames.len());
       std::io::stdout().flush()?;
     }

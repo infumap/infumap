@@ -246,12 +246,12 @@ impl ItemDb {
           };
           match relationship_to_parent {
             RelationshipToParent::Child => {
-              if !is_container_item(&parent_item.item_type) {
+              if !is_container_item(parent_item.item_type) {
                 return Err(format!("Attempt was made to update the parent of item '{}' to '{}' (relationship to parent 'child'), but it is not a container item.", item.id, parent_id).into());
               }
             },
             RelationshipToParent::Attachment => {
-              if !is_attachments_item(&parent_item.item_type) {
+              if !is_attachments_item(parent_item.item_type) {
                 return Err(format!("Attempt was made to update the parent of item '{}' to '{}' (relationship to parent 'attachment'), but it is not an attachments item.", item.id, parent_id).into());
               }
             },
