@@ -206,6 +206,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
   }
 
+  let mut num_skipped = 0;
   for i in 1..local_filenames.len() {
     let filename = &local_filenames[i];
     let mut path = local_path.clone();
@@ -284,6 +285,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
           let json_response: SendResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
             println!("Infumap rejected the add-item command - skipping.");
+            num_skipped += 1;
           } else {
             println!("success!");
           }
@@ -296,6 +298,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
     }
   }
+  println!("Number skipped: {}", num_skipped);
 
   Ok(())
 }
