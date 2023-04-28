@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use clap::{App, Arg, ArgMatches};
@@ -278,7 +279,8 @@ pub async fn execute_orphaned<'a>(sub_matches: &ArgMatches, config: &Config) -> 
   let mut db = create_db(config).await?;
 
   println!("Retrieving db file list...");
-  let db_files = list_all_db_files(&mut db).await?;
+  let db_files = HashSet::<ItemAndUserId>::from_iter(
+    list_all_db_files(&mut db).await?.iter().cloned());
   println!("Retrieving source file list...");
   let source_files = source_store.list().await?;
 

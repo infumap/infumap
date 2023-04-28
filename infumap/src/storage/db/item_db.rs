@@ -34,7 +34,7 @@ use super::item::Item;
 
 pub const CURRENT_ITEM_LOG_VERSION: i64 = 3;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
   pub user_id: Uid,
   pub item_id: Uid
