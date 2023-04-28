@@ -205,7 +205,8 @@ pub async fn execute_missing<'a>(sub_matches: &ArgMatches, config: &Config) -> I
   let source_files = source_store.list().await?;
   println!("Number of source files: {}.", source_files.len());
   println!("Retrieving destination file list...");
-  let destination_files = destination_store.list().await?;
+  let destination_files = HashSet::<ItemAndUserId>::from_iter(
+    destination_store.list().await?.iter().cloned());
   println!("Number of destination files: {}.", destination_files.len());
 
   let mut missing_cnt = 0;
