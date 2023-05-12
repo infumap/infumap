@@ -27,25 +27,7 @@ import { quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { logout } from "../Main";
-
-
-let waiting: Array<string> = [];
-let fetchInProgress: Array<[string, Promise<string>]> = [];
-let objectUrls: Map<string, string> = new Map<string, string>();
-
-const imageManager = {
-  get: (filename: string): Promise<string> => {
-    waiting.push(filename);
-    return new Promise((resolve, reject) => {
-      // TODO. Some desired features:
-      //   1. limit number of requests for images.
-      //   2. serialize the ordering.
-      //   3. allow fetches to be cancelled. https://javascript.info/fetch-abort
-      //   4. maintain images a bit longer than required, in case the user navigates back.
-    });
-  }
-};
+import { getImage, releaseImage } from "../../imageManager";
 
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -106,52 +88,24 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const BORDER_WIDTH_PX = 1;
 
 
-  let objectUrl: string | null = null;
-  let retryCount = 0;
-  let cleanedUp = false;
-
   let isInteractiveOnLoad = isInteractive();
   let imgSrcOnLoad = imgSrc();
 
-  onMount(async () => {
+  onMount(() => {
     if (isInteractiveOnLoad) {
-      while (retryCount < 10 && !cleanedUp) {
-        let response;
-        try {
-          response = await fetch(imgSrcOnLoad);
-        } catch (ex) {
-          console.log(`image fetch failed for ${imgSrcOnLoad}`, ex);
-          break;
-        }
-        if (response.status == 200) {
-          let blob = await response.blob();
-          objectUrl = URL.createObjectURL(blob);
+      // console.debug(`mount: ${imgSrcOnLoad}`);
+      getImage(imgSrcOnLoad)
+        .then((objectUrl) => {
           imgElement!.src = objectUrl;
-          break;
-        }
-        if (response.status == 403) {
-          // Server rejected due to invalid session.
-          await logout!();
-          break;
-        }
-        if (response.status == 503) {
-          // Server rejected request due to too many existing outstanding file requests.
-          // TODO (MEDIUM): global image download manager, which pipelines requests.
-          await new Promise(r => setTimeout(r, 1000 + Math.random()*3000));
-          continue;
-        }
-        // TODO (MEDIUM): retry on the server in case of object store fetch failure.
-        console.log(`Image fetch unexpected status response: ${response.status}`);
-        break;
-      }
+        });
     }
   });
 
   onCleanup(() => {
-    if (objectUrl != null) {
-      URL.revokeObjectURL(objectUrl);
+    // console.debug(`cleanup: ${imgSrcOnLoad}`);
+    if (isInteractiveOnLoad) {
+      releaseImage(imgSrcOnLoad);
     }
-    cleanedUp = true;
   });
 
   return (
