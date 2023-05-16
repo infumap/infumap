@@ -21,7 +21,7 @@ import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
 import { Uid } from "../../../util/uid";
-import { DesktopStoreContextModel } from "../DesktopStoreProvider";
+import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asContainerItem } from "../items/base/container-item";
 import { ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
@@ -67,11 +67,8 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          if (desktopStore.currentPageId() == containerId) {
-            arrange(desktopStore);
-          } else {
-            rearrangeAllContainerVisualElementsWithId(desktopStore, containerId);
-          }
+          const ves = visualElementsWithId(desktopStore, containerId);
+          ves.forEach(ve => { rearrangeVisualElement(desktopStore, ve); });
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
@@ -180,10 +177,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
         const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
 
         const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
-
-        // innerBoundsPx is boundsPx with x,y == 0,0 and it does not depend on item.spatialPositionGr,
-        // so pageWithChildrenVe.children does not depend on this either.
         const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+
         pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
           const childItem = desktopStore.getItem(childId)!;
           const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
@@ -360,44 +355,19 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 }
 
 
-/**
- * Call after loading children of a container.
- */
-export const rearrangeAllContainerVisualElementsWithId = (desktopStore: DesktopStoreContextModel, itemId: Uid): void => {
-  const ves = visualElementsWithId(desktopStore, itemId);
-  ves.forEach(ve => {
-    rearrangeVisualElement(desktopStore, ve);
-  });
-}
-
-const childVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
-  let result: Array<VisualElementSignal> = [];
-  ve.children.forEach(childVes => {
-    if (childVes.get().itemId == id) {
-      result.push(childVes);
-    }
-    result = result.concat(childVisualElementsWithId(desktopStore, childVes.get(), id));
-  });
-  return result;
-}
-
-const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
-  let result: Array<VisualElementSignal> = [];
-  const rootVe = desktopStore.rootVisualElement();
-  if (rootVe.itemId == id) {
-    result.push({ get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, ves: VisualElementSignal): void => {
+  const ve = ves.get();
+  if (desktopStore.currentPageId() == ve.itemId) {
+    arrange(desktopStore);
+    return;
   }
-  result = result.concat(childVisualElementsWithId(desktopStore, rootVe, id));
-  return result;
-}
 
-export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, ve: VisualElementSignal): void => {
-  if (isTable(ve.get())) {
-    rearrangeTable(desktopStore, ve);
-  } else if (isPage(ve.get())) {
-    rearrangePage(desktopStore, ve);
+  if (isTable(ve)) {
+    rearrangeTable(desktopStore, ves);
+  } else if (isPage(ve)) {
+    rearrangePage(desktopStore, ves);
   } else {
-    rearrangeItem(desktopStore, ve);
+    rearrangeItem(desktopStore, ves);
   }
 }
 
@@ -510,10 +480,11 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
   const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
+  const innerBoundsPx = zeroBoundingBoxTopLeft(currentPageBoundsPx);
 
   const childId = ve.get().itemId;
   const childItem = desktopStore.getItem(ve.get().itemId)!;
-  const geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
+  const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
 
   const pageVisualElement: VisualElement = {
     itemType: ITEM_TYPE_PAGE,

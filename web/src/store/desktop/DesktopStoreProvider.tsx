@@ -29,6 +29,7 @@ import { TOOLBAR_WIDTH } from "../../constants";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { itemFromObject } from "./items/base/item-polymorphism";
 import { NONE_VISUAL_ELEMENT, VisualElement } from "./visual-element";
+import { VisualElementSignal } from "../../util/signals";
 
 
 export interface DesktopStoreContextModel {
@@ -264,4 +265,26 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
 export function useDesktopStore() : DesktopStoreContextModel {
   return useContext(DesktopStoreContext) ?? panic();
+}
+
+
+export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
+  let result: Array<VisualElementSignal> = [];
+  const rootVe = desktopStore.rootVisualElement();
+  if (rootVe.itemId == id) {
+    result.push({ get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+  }
+  result = result.concat(childVisualElementsWithId(desktopStore, rootVe, id));
+  return result;
+}
+
+const childVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
+  let result: Array<VisualElementSignal> = [];
+  ve.children.forEach(childVes => {
+    if (childVes.get().itemId == id) {
+      result.push(childVes);
+    }
+    result = result.concat(childVisualElementsWithId(desktopStore, childVes.get(), id));
+  });
+  return result;
 }
