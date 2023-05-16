@@ -31,7 +31,6 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../../../util/signals";
 import { zeroBoundingBoxTopLeft } from "../../../util/geometry";
-import { panic } from "../../../util/lang";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -47,7 +46,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
     // TODO (MEDIUM): retain these.
     page.scrollXPx.set(0);
     page.scrollYPx.set(0);
-    arrange(desktopStore); // sets root visual element.
+    arrange(desktopStore);
   });
 }
 
@@ -68,7 +67,11 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          rearrangeAllContainerVisualElementsWithId(desktopStore, containerId);
+          if (desktopStore.currentPageId() == containerId) {
+            arrange(desktopStore);
+          } else {
+            rearrangeAllContainerVisualElementsWithId(desktopStore, containerId);
+          }
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
@@ -400,10 +403,7 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
 
 export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: VisualElementSignal) => {
   const parent = ve.get().parent;
-  if (parent == null) {
-    console.log("TODO: not rearranging item because parent is null");
-    return;
-  }
+  if (parent == null) { throw new Error(`item ${ve.get().itemId} has no parent.`); }
 
   const parentVisualElement = parent!();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
@@ -424,7 +424,7 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent: parent,
+    parent,
   };
 
   ve.set(itemVisualElement);
@@ -432,9 +432,7 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
 
 export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: VisualElementSignal) => {
   const parent = ve.get().parent;
-  if (parent == null) {
-    throw new Error(`table ${ve.get().itemId} has no parent.`);
-  }
+  if (parent == null) { throw new Error(`table ${ve.get().itemId} has no parent.`); }
 
   const parentVisualElement = parent!();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
