@@ -193,30 +193,29 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 
 
 export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = () => ({
+  const innerBoundsPx = {
     x: 0.0, y: 0.0,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  });
-  const popupClickBoundsPx = () => ({
-    x: innerBoundsPx().w / 3.0, y: innerBoundsPx().h / 3.0,
-    w: innerBoundsPx().w / 3.0, h: innerBoundsPx().h / 3.0,
-  });
-  const boundsPx = () => ({
+  };
+  const popupClickBoundsPx = {
+    x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+    w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0,
+  };
+  const boundsPx = {
     x: (page.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (page.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx,
-    hitboxes: () => !emitHitboxes ? [] : [
-      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
-      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
-      { type: HitboxType.OpenPopup, boundsPx: popupClickBoundsPx() },
+    hitboxes: !emitHitboxes ? [] : [
+      { type: HitboxType.Move, boundsPx: innerBoundsPx },
+      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      { type: HitboxType.OpenPopup, boundsPx: popupClickBoundsPx },
       { type: HitboxType.Resize,
-        boundsPx: { x: innerBoundsPx().w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx().h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   };
@@ -224,39 +223,37 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
 
 
 export function calcGeometryOfPageAttachmentItem(_page: PageMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = () => ({
+  const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
     w: 15,
     h: 10,
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [],
+    hitboxes: [],
   }
 }
 
 
 export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
-  const innerBoundsPx = () => ({
+  const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  });
-  const boundsPx = () => ({
+  };
+  const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx,
-    hitboxes: () => [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
+    hitboxes: [
+      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx },
     ],
   };
 }
@@ -264,9 +261,8 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
 
 export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
-    boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
-    innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [
+    boundsPx: cloneBoundingBox(cellBoundsPx)!,
+    hitboxes: [
       { type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) },
     ]
   });
@@ -291,8 +287,8 @@ export function asPageMeasurable(item: ItemTypeMixin): PageMeasurable {
 
 export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page: PageItem, desktopPosPx: Vector): Vector => {
   const hbi = getHitInfo(desktopStore, desktopPosPx, []);
-  const propX = (desktopPosPx.x - hbi.visualElement.boundsPx.x) / hbi.visualElement.boundsPx.w;
-  const propY = (desktopPosPx.y - hbi.visualElement.boundsPx.y) / hbi.visualElement.boundsPx.h;
+  const propX = (desktopPosPx.x - hbi.visualElementSignal.get().boundsPx.x) / hbi.visualElementSignal.get().boundsPx.w;
+  const propY = (desktopPosPx.y - hbi.visualElementSignal.get().boundsPx.y) / hbi.visualElementSignal.get().boundsPx.h;
   return {
     x: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
     y: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE / page.naturalAspect.get() * propY * 2.0) / 2.0 * GRID_SIZE

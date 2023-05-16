@@ -88,73 +88,69 @@ export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
 }
 
 export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = () => ({
+  const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
     w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  });
-  const boundsPx = () => ({
+  };
+  const boundsPx = {
     x: (file.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (file.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx,
-    hitboxes: () => !emitHitboxes ? [] : [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx() },
+    hitboxes: !emitHitboxes ? [] : [
+      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx },
       { type: HitboxType.Resize,
-        boundsPx: { x: boundsPx().w - RESIZE_BOX_SIZE_PX, y: boundsPx().h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   }
 }
 
 export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = () => ({
+  const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
     w: 15,
     h: 10,
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx: () => { panic(); },
-    hitboxes: () => [],
+    hitboxes: [],
   }
 }
 
 export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
-  const innerBoundsPx = () => ({
+  const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  });
-  const boundsPx = () => ({
+  };
+  const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx,
-    hitboxes: () => [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx() },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx() }
+    hitboxes: [
+      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      { type: HitboxType.Move, boundsPx: innerBoundsPx }
     ],
   };
 }
 
 export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
-    boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
-    innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
+    boundsPx: cloneBoundingBox(cellBoundsPx)!,
+    hitboxes: [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
   });
 }
 

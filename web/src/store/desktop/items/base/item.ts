@@ -20,7 +20,7 @@ import { BooleanSignal } from '../../../../util/signals';
 import { Uid } from '../../../../util/uid';
 import { PositionalMixin } from './positional-item';
 
-
+export const ITEM_TYPE_NONE = "none";
 export const ITEM_TYPE_PAGE = "page";
 export const ITEM_TYPE_TABLE = "table";
 export const ITEM_TYPE_NOTE = "note";

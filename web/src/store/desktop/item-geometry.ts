@@ -21,7 +21,7 @@ import { Hitbox } from "./hitbox";
 
 
 export interface ItemGeometry {
-  boundsPx: () => BoundingBox, // relative to containing render area.
-  innerBoundsPx: () => BoundingBox, // x, y are 0.0.
-  hitboxes: () => Array<Hitbox>, // higher index => takes precedence.
+  boundsPx: BoundingBox, // relative to containing render area.
+  // innerBoundsPx: BoundingBox, // x, y are 0.0.
+  hitboxes: Array<Hitbox>, // higher index => takes precedence.
 }

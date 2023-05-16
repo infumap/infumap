@@ -16,57 +16,40 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { Accessor } from "solid-js";
 import { BoundingBox } from "../../util/geometry";
-import { panic } from "../../util/lang";
+import { EMPTY_UID } from "../../util/uid";
 import { Uid } from "../../util/uid";
 import { Hitbox } from "./hitbox";
-import { isContainer } from "./items/base/container-item";
-import { ItemTypeMixin } from "./items/base/item";
+import { ITEM_TYPE_NONE, ItemTypeMixin } from "./items/base/item";
+import { VisualElementSignal } from "../../util/signals";
 
 
-// A visual element tree is constructed corresponding for the currently visible items. Note that items
-// may be represented on the screen more than once because there may be links.
-//
-// There are two types of visual element object:
-//   VisualElement_Reactive: Used for rendering - to enable SolidJS micro-reactivity.
-//   VisualElement_Concrete: Used to cache the current rendered visual tree, used during user interaction.
-// 
-// I wanted to maintain the concrete visual elements in a separate structure, however I had a bit of trouble
-// keeping it synced correctly, and ended up attaching them the the actual DOM elements and traversing this
-// as required. This is a bit of a dirty hack but not very consequential and fine for now.
-//
-// The concrete visual elements are cached using boundsPx() as a hook - again, seems a bit of a hack, but
-// ok for now.
-
-
-export interface VisualElement_Reactive extends ItemTypeMixin {
+export interface VisualElement extends ItemTypeMixin {
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
   isInteractive: boolean,
-  boundsPx: () => BoundingBox, // relative to containing visual element childAreaBoundsPx.
-  childAreaBoundsPx: () => BoundingBox | null,
-  hitboxes: () => Array<Hitbox>, // higher index => takes precedence.
-  children: () => Array<VisualElement_Reactive>,
-  attachments: () => Array<VisualElement_Reactive>,
-  parent: () => VisualElement_Reactive | null,
-}
-
-
-export interface VisualElement_Concrete extends ItemTypeMixin {
-  itemId: Uid,
-  parentId: Uid | null,
-  boundsPx: BoundingBox,
+  boundsPx: BoundingBox, // relative to containing visual element childAreaBoundsPx.
   childAreaBoundsPx: BoundingBox | null,
-  hitboxes: Array<Hitbox>,
+  hitboxes: Array<Hitbox>, // higher index => takes precedence.
+  children: Array<VisualElementSignal>,
+  attachments: Array<VisualElementSignal>,
+  parent: Accessor<VisualElement> | null,
 }
 
-
-export function findNearestContainerVe(visualElement: VisualElement_Concrete): VisualElement_Concrete {
-  if (isContainer(visualElement)) { return visualElement; }
-  const parentId = visualElement.parentId;
-  if (parent == null) { panic(); }
-  const el = document.getElementById(parentId!) as any;
-  const se = el.data as VisualElement_Concrete;
-  if (isContainer(se)) { return se; }
-  panic();
-}
+/**
+ * Used to represent that there is no root visual element. This makes the typing much easier to deal with
+ * than using VisualElement | null
+ */
+export const NONE_VISUAL_ELEMENT: VisualElement = {
+  itemType: ITEM_TYPE_NONE,
+  itemId: EMPTY_UID,
+  resizingFromBoundsPx: null,
+  isInteractive: false,
+  boundsPx: { x: 0, y: 0, w: 0, h: 0 },
+  childAreaBoundsPx: null,
+  hitboxes: [],
+  children: [],
+  attachments: [],
+  parent: null,
+};

@@ -32,11 +32,11 @@ import { panic } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement_Concrete, findNearestContainerVe } from "./store/desktop/visual-element";
-import { switchToPage } from "./store/desktop/layout/arrange";
-import { asContainerItem } from "./store/desktop/items/base/container-item";
-import { HTMLDivElementWithData } from "./util/html";
+import { VisualElement } from "./store/desktop/visual-element";
+import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
+import { asContainerItem, isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
+import { VisualElementSignal } from "./util/signals";
 
 
 const MOUSE_LEFT = 0;
@@ -50,76 +50,48 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElement: VisualElement_Concrete
+  visualElementSignal: VisualElementSignal
 }
 
-export function rootVisualElement(): VisualElement_Concrete | null {
-  const desktopEl = document.getElementById("desktop")!;
-  if (desktopEl == null) { return null; }
-  if (desktopEl.children.length == 0) { return null; }
-  const topPage = desktopEl.children[0]!;
-  return (topPage as HTMLDivElementWithData).data as VisualElement_Concrete;
-}
-
-function topLevelVisualElements(): Array<VisualElement_Concrete> {
-  const desktopEl = document.getElementById("desktop")!;
-  const topPage = desktopEl.children[0]!;
-  return Array.from(topPage.children)
-    .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as VisualElement_Concrete);
-}
-
-function childVisualElementsOfTable(id: Uid): Array<VisualElement_Concrete> {
-  const tableChildAreaEl = document.getElementById(id)!;
-  const innerScrollEl = tableChildAreaEl.children[0]!;
-  return Array.from(innerScrollEl.children)
-    .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as VisualElement_Concrete);
-}
-
-function _childVisualElementsOfPage(id: Uid): Array<VisualElement_Concrete> {
-  const pageChildAreaEl = document.getElementById(id)!;
-  return Array.from(pageChildAreaEl.children)
-    .filter(c => (c as HTMLDivElementWithData).data != null)
-    .map(c => (c as HTMLDivElementWithData).data as VisualElement_Concrete);
-}
 
 export function getHitInfo(
     desktopStore: DesktopStoreContextModel,
     posOnDesktopPx: Vector,
     ignore: Array<Uid>): HitInfo {
 
-  const rootVe = rootVisualElement();
-  const topLevelPage = asPageItem(desktopStore.getItem(rootVe!.itemId)!);
+  const rootVisualElement: VisualElement = desktopStore.rootVisualElement();
+  const topLevelPage = asPageItem(desktopStore.getItem(rootVisualElement!.itemId)!);
 
   const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
-  const topLevelVes = topLevelVisualElements();
-  for (let i=0; i<topLevelVes.length; ++i) {
-    const childVe = topLevelVes[i];
-    if (!isInside(posReltiveToTopLevelVisualElementPx, childVe.boundsPx)) {
+  for (let i=0; i<rootVisualElement.children.length; ++i) {
+    const childVisualElementSignal = rootVisualElement.children[i];
+    const childVisualElement = childVisualElementSignal.get();
+
+    if (!isInside(posReltiveToTopLevelVisualElementPx, childVisualElement.boundsPx)) {
       continue;
     }
 
     // handle inside table child area.
-    if (isTable(childVe) && isInside(posReltiveToTopLevelVisualElementPx, childVe.childAreaBoundsPx!)) {
-      const tableVe = childVe;
+    if (isTable(childVisualElement) && isInside(posReltiveToTopLevelVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+      const tableVisualElementSignal = childVisualElementSignal;
+      const tableVisualElement = childVisualElement;
 
       // resize hitbox of table takes precedence over everything in the child area.
-      let resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length-1];
+      let resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
-        return ({ hitboxType: HitboxType.Resize, visualElement: tableVe });
+      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
+        return ({ hitboxType: HitboxType.Resize, visualElementSignal: tableVisualElementSignal });
       }
 
-      let tableItem = asTableItem(desktopStore.getItem(tableVe.itemId)!);
-      let tableChildVes = childVisualElementsOfTable(tableItem.id);
+      let tableItem = asTableItem(desktopStore.getItem(tableVisualElement.itemId)!);
 
-      for (let j=0; j<tableChildVes.length; ++j) {
-        const tableChildVe = tableChildVes[j];
+      for (let j=0; j<tableVisualElement.children.length; ++j) {
+        const tableChildVes = tableVisualElement.children[j];
+        const tableChildVe = tableChildVes.get();
         const posRelativeToTableChildAreaPx = subtract(
           posReltiveToTopLevelVisualElementPx,
-          { x: tableVe.childAreaBoundsPx!.x, y: tableVe.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
+          { x: tableVisualElement.childAreaBoundsPx!.x, y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;
@@ -129,7 +101,7 @@ export function getHitInfo(
             }
           }
           if (!ignore.find(a => a == tableChildVe.itemId)) {
-            return ({ hitboxType, visualElement: tableChildVes[j] });
+            return ({ hitboxType, visualElementSignal: tableChildVes });
           }
         }
       }
@@ -137,25 +109,25 @@ export function getHitInfo(
 
     // handle inside any other item (including pages, which can't clicked in).
     let hitboxType = HitboxType.None;
-    for (let j=childVe.hitboxes.length-1; j>=0; --j) {
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(childVe.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVe.boundsPx)))) {
-        hitboxType |= childVe.hitboxes[j].type;
+    for (let j=childVisualElement.hitboxes.length-1; j>=0; --j) {
+      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {
+        hitboxType |= childVisualElement.hitboxes[j].type;
       }
     }
-    if (!ignore.find(a => a == childVe.itemId)) {
-      return ({ hitboxType, visualElement: topLevelVes[i] });
+    if (!ignore.find(a => a == childVisualElement.itemId)) {
+      return ({ hitboxType, visualElementSignal: rootVisualElement.children[i] });
     }
   }
 
   // didn't intersect any top level visual element.
-  return { hitboxType: HitboxType.None, visualElement: rootVe! };
+  return { hitboxType: HitboxType.None, visualElementSignal: { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement } };
 }
 
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElement: VisualElement_Concrete,
-  moveOverContainerVisualElement: VisualElement_Concrete | null,
+  activeVisualElementSignal: VisualElementSignal,
+  moveOverContainerVisualElement: VisualElement | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -219,13 +191,13 @@ export function mouseLeftDownHandler(
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPxFromMouseEvent(ev);
-  const activeItem = desktopStore.getItem(hitInfo.visualElement.itemId)!;
+  const activeItem = desktopStore.getItem(hitInfo.visualElementSignal.get().itemId)!;
   const onePxSizeBl = {
-    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / hitInfo.visualElement.boundsPx.w,
-    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElement.boundsPx.h
+    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / hitInfo.visualElementSignal.get().boundsPx.w,
+    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElementSignal.get().boundsPx.h
   };
   mouseActionState = {
-    activeVisualElement: hitInfo.visualElement,
+    activeVisualElementSignal: hitInfo.visualElementSignal,
     moveOverContainerVisualElement: null,
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
@@ -285,7 +257,7 @@ export function mouseMoveHandler(
 
   if (mouseActionState == null) {
     let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-    let overItem = desktopStore.getItem(currentHitInfo.visualElement!.itemId)!;
+    let overItem = desktopStore.getItem(currentHitInfo.visualElementSignal!.get().itemId)!;
     if (overItem.id != lastMouseOverId) {
       batch(() => {
         if (lastMouseOverId != null) {
@@ -308,7 +280,7 @@ export function mouseMoveHandler(
 
   const deltaPx = subtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
 
-  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.itemId)!;
+  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElementSignal!.get().itemId)!;
 
   if (mouseActionState.action == MouseAction.Ambiguous) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
@@ -359,11 +331,20 @@ export function mouseMoveHandler(
       }
     });
 
+    rearrangeVisualElement(desktopStore, mouseActionState.activeVisualElementSignal);
+
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
     const overHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
-    const overVes = overHitInfo.visualElement;
-    const overContainerVe = findNearestContainerVe(overVes);
+    const overVes = overHitInfo.visualElementSignal.get();
+    const overContainerVe = isContainer(overVes)
+      ? overVes
+      : (() => {
+        if (overVes.parent == null) { panic(); }
+        const result = overVes.parent();
+        if (!isContainer(result)) { panic(); }
+        return result;
+      })();
 
     if (mouseActionState.moveOverContainerVisualElement == null ||
         mouseActionState.moveOverContainerVisualElement! != overContainerVe) {
@@ -385,19 +366,20 @@ export function mouseMoveHandler(
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
     activeItem.spatialPositionGr.set({ x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE });
+    rearrangeVisualElement(desktopStore, mouseActionState.activeVisualElementSignal);
   }
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
-  const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElement!.itemId)!;
+  const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElementSignal!.get().itemId)!;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
-  let itemPosInTablePx = getBoundingBoxTopLeft(mouseActionState!.activeVisualElement!.boundsPx);
+  let itemPosInTablePx = getBoundingBoxTopLeft(mouseActionState!.activeVisualElementSignal!.get().boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
-  const tableVeId = mouseActionState!.activeVisualElement!.parentId!;
+  const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!().itemId;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableVe = topLevelVisualElements().find(el => el.itemId == tableVeId)!;
-    // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableParentVe = rootVisualElement();
+  const tableVe = desktopStore.rootVisualElement().children.map(c => c.get()).find(el => el.itemId == tableVeId)!;
+  // TODO (MEDIUM): won't work in the (anticipated) general case.
+  const tableParentVe = desktopStore.rootVisualElement();
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
@@ -419,12 +401,14 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
       item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
     });
     activeItem.spatialPositionGr.set(itemPosInPageQuantizedGr);
+    // TODO (LOW): something more efficient:
+    arrange(desktopStore); // align visual elements with item tree.
   });
   // TODO (MEDIUM): won't work in (anticipated) general case.
-  mouseActionState!.activeVisualElement = topLevelVisualElements().find(el => el.itemId == activeItem.id)!;
+  mouseActionState!.activeVisualElementSignal = desktopStore.rootVisualElement().children.find(el => el.get().itemId == activeItem.id)!;
   mouseActionState!.onePxSizeBl = {
-    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElement.boundsPx.w,
-    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElement.boundsPx.h
+    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
+    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
   };
 }
 
@@ -436,7 +420,7 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElement!.itemId)!;
+  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElementSignal!.get().itemId)!;
 
   if (mouseActionState.moveOverContainerVisualElement != null) {
     asContainerItem(desktopStore.getItem(mouseActionState.moveOverContainerVisualElement!.itemId)!)
@@ -470,6 +454,7 @@ export function mouseUpHandler(
           const prevParent = desktopStore.getContainerItem(prevParentId)!;
           prevParent.computed_children.set(prevParent.computed_children.get().filter(i => i != activeItem.id));
         });
+        arrange(desktopStore);
       }
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.get().x ||
           mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.get().y ||

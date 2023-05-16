@@ -19,13 +19,14 @@
 import { useNavigate } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { server } from "../server";
-import { arrange, childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/layout/arrange";
+import { childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/layout/arrange";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
 import { Toolbar } from "./Toolbar";
 import { EMPTY_UID } from "../util/uid";
+import { ITEM_TYPE_NONE } from "../store/desktop/items/base/item";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -78,8 +79,8 @@ export const Main: Component = () => {
 
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
-      <Show when={desktopStore.currentPageId() != null}>
-        <Desktop visualElement={arrange(desktopStore)!} />
+      <Show when={desktopStore.rootVisualElement().itemType != ITEM_TYPE_NONE}>
+        <Desktop visualElement={desktopStore.rootVisualElement()} />
       </Show>
       <Toolbar />
     </div>

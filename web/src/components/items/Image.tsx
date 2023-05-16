@@ -19,10 +19,8 @@
 import { Component, For, Show, onCleanup, onMount } from "solid-js";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { ITEM_TYPE_IMAGE } from "../../store/desktop/items/base/item";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { VisualElement_Concrete } from "../../store/desktop/visual-element";
 import { quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
@@ -36,23 +34,8 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  // refer to: visual-element.ts
-  const boundsPx_cache = () => {
-    let currentBoundsPx = props.visualElement.boundsPx();
-    if (nodeElement == null) { return currentBoundsPx; }
-    (nodeElement!.data as VisualElement_Concrete) = {
-      itemType: ITEM_TYPE_IMAGE,
-      itemId: props.visualElement.itemId,
-      parentId: imageItem().parentId,
-      boundsPx: currentBoundsPx,
-      childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes()
-    };
-    return currentBoundsPx;
-  };
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
-  const quantizedBoundsPx_cache = () => quantizeBoundingBox(boundsPx_cache());
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const isInteractive = () => { return props.visualElement.isInteractive; }
@@ -113,7 +96,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
-           style={`left: ${quantizedBoundsPx_cache().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+           style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <Show when={isInteractive()} fallback={
             <img class="max-w-none absolute"
                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
@@ -128,8 +111,8 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
                width={imageWidthToRequestPx(false)} />
         </Show>
       </div>
-      <For each={props.visualElement.attachments()}>{attachment =>
-        <VisualElementOnDesktop visualElement={attachment} />
+      <For each={props.visualElement.attachments}>{attachment =>
+        <VisualElementOnDesktop visualElement={attachment.get()} />
       }</For>
     </Show>
   );
@@ -141,21 +124,7 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  // refer to: visual-element.ts
-  const boundsPx_cache = () => {
-    let currentBoundsPx = props.visualElement.boundsPx();
-    if (nodeElement == null) { return currentBoundsPx; }
-    (nodeElement!.data as VisualElement_Concrete) = {
-      itemType: ITEM_TYPE_IMAGE,
-      itemId: props.visualElement.itemId,
-      parentId: imageItem().parentId,
-      boundsPx: currentBoundsPx,
-      childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes()
-    };
-    return currentBoundsPx;
-  };
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
@@ -165,18 +134,18 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
   return (
     <>
       <div class="absolute text-center"
-           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-image`} />
-        <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+        <For each={props.visualElement.attachments}>{attachment =>
+          <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute overflow-hidden"
-           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class="text-red-800 cursor-pointer">{imageItem().title}</span>

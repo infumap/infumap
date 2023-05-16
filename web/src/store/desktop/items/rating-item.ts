@@ -74,66 +74,62 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions 
 }
 
 export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = () => ({
+  const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
     w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  });
-  const boundsPx = () => ({
+  };
+  const boundsPx = {
     x: (rating.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (rating.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx,
-    hitboxes: () => [],
+    hitboxes: [],
   }
 }
 
 export function calcGeometryOfRatingAttachmentItem(_rating: RatingMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = () => ({
+  const boundsPx = {
     x: containerBoundsPx.w - (20 * index),
     y: -5,
     w: 15,
     h: 10,
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [],
+    hitboxes: [],
   }
 }
 
 export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
-  const innerBoundsPx = () => ({
+  const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  });
-  const boundsPx = () => ({
+  };
+  const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
-  });
+  };
   return {
     boundsPx,
-    innerBoundsPx,
-    hitboxes: () => [
-      { type: HitboxType.Move, boundsPx: innerBoundsPx() }
+    hitboxes: [
+      { type: HitboxType.Move, boundsPx: innerBoundsPx }
     ],
   };
 }
 
 export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
-    boundsPx: () => cloneBoundingBox(cellBoundsPx)!,
-    innerBoundsPx: () => { notImplemented(); },
-    hitboxes: () => [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
+    boundsPx: cloneBoundingBox(cellBoundsPx)!,
+    hitboxes: [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
   });
 }
 

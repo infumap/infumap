@@ -28,6 +28,7 @@ import { BoundingBox, Dimensions } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { itemFromObject } from "./items/base/item-polymorphism";
+import { NONE_VISUAL_ELEMENT, VisualElement } from "./visual-element";
 
 
 export interface DesktopStoreContextModel {
@@ -47,6 +48,9 @@ export interface DesktopStoreContextModel {
 
   setCurrentPageId: Setter<Uid | null>,
   currentPageId: Accessor<Uid | null>,
+
+  rootVisualElement: Accessor<VisualElement>,
+  setRootVisualElement: Setter<VisualElement>,
 }
 
 export interface DesktopStoreContextProps {
@@ -72,6 +76,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   let items: { [id: Uid]: ItemSignal } = {};
   const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
+  const [rootVisualElement, setRootVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
+
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
 
 
@@ -244,7 +250,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setRootId, setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
     updateItem, updateContainerItem,
     getItem, getContainerItem, addItem,
-    deleteItem, newOrderingAtEndOfChildren
+    deleteItem, newOrderingAtEndOfChildren,
+    rootVisualElement, setRootVisualElement
   };
 
   return (

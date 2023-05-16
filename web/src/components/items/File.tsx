@@ -23,9 +23,7 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { ITEM_TYPE_FILE } from "../../store/desktop/items/base/item";
 import { HTMLDivElementWithData } from "../../util/html";
-import { VisualElement_Concrete } from "../../store/desktop/visual-element";
 
 
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -33,21 +31,7 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
-  // refer to: visual-element.ts
-  const boundsPx_cache = () => {
-    let currentBoundsPx = props.visualElement.boundsPx();
-    if (nodeElement == null) { return currentBoundsPx; }
-    (nodeElement!.data as VisualElement_Concrete) = {
-      itemType: ITEM_TYPE_FILE,
-      itemId: props.visualElement.itemId,
-      parentId: fileItem().parentId,
-      boundsPx: currentBoundsPx,
-      childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes()
-    };
-    return currentBoundsPx;
-  };
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
@@ -59,15 +43,15 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     <div ref={nodeElement}
          id={props.visualElement.itemId}
          class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-         style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.isInteractive}>
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
           <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
         </div>
-        <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementOnDesktop visualElement={attachment} />
+        <For each={props.visualElement.attachments}>{attachment =>
+          <VisualElementOnDesktop visualElement={attachment.get()} />
         }</For>
       </Show>
     </div>
@@ -80,21 +64,7 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
-  // refer to: visual-element.ts
-  const boundsPx_cache = () => {
-    let currentBoundsPx = props.visualElement.boundsPx();
-    if (nodeElement == null) { return currentBoundsPx; }
-    (nodeElement!.data as VisualElement_Concrete) = {
-      itemType: ITEM_TYPE_FILE,
-      itemId: props.visualElement.itemId,
-      parentId: fileItem().parentId,
-      boundsPx: currentBoundsPx,
-      childAreaBoundsPx: null,
-      hitboxes: props.visualElement.hitboxes()
-    };
-    return currentBoundsPx;
-  };
-  const boundsPx = props.visualElement.boundsPx;
+  const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
@@ -104,7 +74,7 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
   return (
     <>
       <div class="absolute text-center"
-          style={`left: ${boundsPx_cache().x}px; top: ${boundsPx().y}px; ` +
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                  `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-file`} />
@@ -112,12 +82,12 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute overflow-hidden"
-           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
-        <For each={props.visualElement.attachments()}>{attachment =>
-          <VisualElementInTable visualElement={attachment} parentVisualElement={props.parentVisualElement} />
+        <For each={props.visualElement.attachments}>{attachment =>
+          <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.parentVisualElement} />
         }</For>
       </div>
     </>

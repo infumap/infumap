@@ -30,7 +30,7 @@ import { asPageItem } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { Page } from "./items/Page";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
-import { VisualElement_Reactive } from "../store/desktop/visual-element";
+import { VisualElement } from "../store/desktop/visual-element";
 
 
 export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -50,7 +50,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
     if (ev.code != "Slash" && ev.code != "Backslash") { return; }
     let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(lastMouseMoveEvent!), []);
-    let item = desktopStore.getItem(hbi.visualElement.itemId)!;
+    let item = desktopStore.getItem(hbi.visualElementSignal.get().itemId)!;
     if (ev.code == "Slash") {
       ev.preventDefault();
       generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item });
@@ -98,7 +98,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
         console.log("must upload on background.");
         return;
       }
-      let item = desktopStore.getItem(hi.visualElement.itemId)!;
+      let item = desktopStore.getItem(hi.visualElementSignal.get().itemId)!;
       await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
     }
   }
@@ -133,20 +133,20 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
     pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
   }
 
-  function overflowPolicy(topLevelVisualElement: VisualElement_Reactive) {
+  function overflowPolicy(topLevelVisualElement: VisualElement) {
     // Child items may extend outside the bounds of the page, even if the page is the same size as the desktop.
     // This means overflow policy can't just be set to auto.
 
     let desktopPx = desktopStore.desktopBoundsPx();
-    if (topLevelVisualElement.childAreaBoundsPx()!.w == desktopPx.w &&
-        topLevelVisualElement.childAreaBoundsPx()!.h == desktopPx.h) {
+    if (topLevelVisualElement.childAreaBoundsPx!.w == desktopPx.w &&
+        topLevelVisualElement.childAreaBoundsPx!.h == desktopPx.h) {
       return "";
     }
-    if (topLevelVisualElement.childAreaBoundsPx()!.w != desktopPx.w &&
-        topLevelVisualElement.childAreaBoundsPx()!.h != desktopPx.h) {
+    if (topLevelVisualElement.childAreaBoundsPx!.w != desktopPx.w &&
+        topLevelVisualElement.childAreaBoundsPx!.h != desktopPx.h) {
       return "overflow: auto;"
     }
-    if (topLevelVisualElement.childAreaBoundsPx()!.w != desktopPx.w) {
+    if (topLevelVisualElement.childAreaBoundsPx!.w != desktopPx.w) {
       return "overflow-x: auto; overflow-y: hidden;"
     }
     return "overflow-y: auto; overflow-x: hidden;";
