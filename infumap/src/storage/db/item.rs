@@ -21,7 +21,6 @@ use crate::util::json;
 use crate::util::uid::{Uid, is_uid};
 use crate::util::geometry::{Vector, Dimensions};
 use crate::util::infu::{InfuResult, InfuError};
-use crate::util::lang::option_xor;
 use crate::web::routes::WebApiJsonSerializable;
 use crate::storage::db::kv_store::JsonLogSerializable;
 
@@ -374,9 +373,6 @@ impl JsonLogSerializable<Item> for Item {
     fn nan_err(field_name: &str, item_id: &str) -> String {
       format!("Could not serialize the '{}' field of item '{}' to an update record because it is not a number.", field_name, item_id)
     }
-    fn add_or_remove_err(field_name: &str, item_id: &str) -> InfuResult<()> {
-      Err(format!("An attempt was made to create an item update that adds or removes the field '{}' of item '{}', but this is not allowed.", field_name, item_id).into())
-    }
     fn cannot_modify_err(field_name: &str, item_id: &str) -> InfuResult<()> {
       Err(format!("An attempt was made to create an item update that modifies the field '{}' of item '{}', but this is not allowed.", field_name, item_id).into())
     }
@@ -388,7 +384,13 @@ impl JsonLogSerializable<Item> for Item {
     result.insert(String::from("__recordType"), Value::String(String::from("update")));
     result.insert(String::from("id"), Value::String(new.id.clone()));
 
-    if option_xor(&old.parent_id, &new.parent_id) { add_or_remove_err("parentId", &old.id)?; }
+    if old.parent_id.is_none() && new.parent_id.is_some() {
+      return Err(format!("An attempt was made to create an item update that adds the field '{}' (value '{}') to item '{}', but this is not allowed.", "parentId", new.parent_id.as_ref().unwrap(), old.id).into());
+    }
+    if old.parent_id.is_some() && new.parent_id.is_none() {
+      return Err(format!("An attempt was made to create an item update that removes the field '{}' (value '{}') from item '{}', but this is not allowed.", "parentId", old.parent_id.as_ref().unwrap(), old.id).into());
+    }
+
     if let Some(parent_id) = &new.parent_id {
       if old.parent_id.as_ref().unwrap() != parent_id {
         result.insert(String::from("parentId"), Value::String(String::from(parent_id)));

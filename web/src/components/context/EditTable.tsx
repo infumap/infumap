@@ -23,6 +23,7 @@ import { asTableItem, TableItem } from "../../store/desktop/items/table-item";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
+import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
@@ -34,6 +35,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   const handleTitleInput = (v: string) => {
     desktopStore.updateItem(tableId, item => asTableItem(item).title = v);
+    rearrangeVisualElementsWithId(desktopStore, tableId);
   };
 
   const deleteTable = async () => {
@@ -41,6 +43,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
     await server.deleteItem(tableId); // throws on failure.
     desktopStore.deleteItem(tableId);
     generalStore.setEditDialogInfo(null);
+    arrange(desktopStore);
   }
 
   onCleanup(() => {

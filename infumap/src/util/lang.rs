@@ -14,6 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub fn option_xor<U, T>(a: &Option<U>, b: &Option<T>) -> bool {
+pub fn _option_xor<U, T>(a: &Option<U>, b: &Option<T>) -> bool {
   a.is_none() && b.is_some() || a.is_some() && b.is_none()
 }

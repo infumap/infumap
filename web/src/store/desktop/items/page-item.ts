@@ -20,7 +20,7 @@ import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { currentUnixTimeSeconds, notImplemented, panic } from '../../../util/lang';
-import { newUid, Uid } from '../../../util/uid';
+import { EMPTY_UID, newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
@@ -105,7 +105,7 @@ export function pageFromObject(o: any): PageItem {
     itemType: o.itemType,
     ownerId: o.ownerId,
     id: o.id,
-    parentId: o.parentId,
+    parentId: o.parentId ? o.parentId : null,
     relationshipToParent: o.relationshipToParent,
     creationDate: o.creationDate,
     lastModifiedDate: o.lastModifiedDate,
@@ -142,7 +142,7 @@ export function pageToObject(p: PageItem): object {
     itemType: p.itemType,
     ownerId: p.ownerId,
     id: p.id,
-    parentId: p.parentId,
+    parentId: p.parentId == EMPTY_UID ? null : p.parentId,
     relationshipToParent: p.relationshipToParent,
     creationDate: p.creationDate,
     lastModifiedDate: p.lastModifiedDate,

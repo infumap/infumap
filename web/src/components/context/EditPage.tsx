@@ -25,6 +25,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
+import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
@@ -42,23 +43,27 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr.set(parseInt(v) * GRID_SIZE);
+      rearrangeVisualElementsWithId(desktopStore, pageId);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(parseFloat(v));
+      rearrangeVisualElementsWithId(desktopStore, pageId);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
       desktopStore.updateItem(pageId, item => asPageItem(item).gridNumberOfColumns.set(parseInt(v)));
+      rearrangeVisualElementsWithId(desktopStore, pageId);
     }
   }
 
   const handleTitleInput = (v: string) => {
     desktopStore.updateItem(pageId, item => asPageItem(item).title = v);
+    rearrangeVisualElementsWithId(desktopStore, pageId);
   };
 
   const deletePage = async () => {
@@ -66,16 +71,19 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     await server.deleteItem(pageId); // throws on failure.
     desktopStore.deleteItem(pageId);
     generalStore.setEditDialogInfo(null);
+    arrange(desktopStore);
   }
 
   const setAspectToMatchScreen = async () => {
     asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(screenAspect());
+    rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 
   let checkElement: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
     desktopStore.updateItem(pageId, item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"));
+    rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 
   onCleanup(() => {

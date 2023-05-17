@@ -24,6 +24,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuTextArea } from "../library/InfuTextArea";
+import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
@@ -35,11 +36,13 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
 
   const handleTextInput = (v: string) => {
     desktopStore.updateItem(noteId, item => asNoteItem(item).title = v);
+    rearrangeVisualElementsWithId(desktopStore, noteId);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
       desktopStore.updateItem(noteId, item => asNoteItem(item).url = v);
+      rearrangeVisualElementsWithId(desktopStore, noteId);
     }
   };
 
@@ -48,6 +51,7 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
     await server.deleteItem(noteId); // throws on failure.
     desktopStore.deleteItem(noteId);
     generalStore.setEditDialogInfo(null);
+    arrange(desktopStore);
   }
 
   onCleanup(() => {

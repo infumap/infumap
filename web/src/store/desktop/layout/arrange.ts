@@ -67,8 +67,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          const ves = visualElementsWithId(desktopStore, containerId);
-          ves.forEach(ve => { rearrangeVisualElement(desktopStore, ve); });
+          rearrangeVisualElementsWithId(desktopStore, containerId);
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
@@ -354,6 +353,10 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   desktopStore.setRootVisualElement(topLevelVisualElement);
 }
 
+export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
+  const ves = visualElementsWithId(desktopStore, id);
+  ves.forEach(ve => { rearrangeVisualElement(desktopStore, ve); });
+}
 
 export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, ves: VisualElementSignal): void => {
   const ve = ves.get();

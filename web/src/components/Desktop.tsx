@@ -26,11 +26,12 @@ import { useUserStore } from "../store/UserStoreProvider";
 import { getHitInfo, mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../store/desktop/hitbox";
-import { asPageItem } from "../store/desktop/items/page-item";
+import { asPageItem, isPage } from "../store/desktop/items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { Page } from "./items/Page";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
 import { VisualElement } from "../store/desktop/visual-element";
+import { arrange } from "../store/desktop/layout/arrange";
 
 
 export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -82,6 +83,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   const windowResizeListener = () => {
     desktopStore.resetDesktopSizePx();
+    arrange(desktopStore);
   }
 
   const contextMenuListener = (ev: Event) => {
@@ -99,6 +101,10 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
         return;
       }
       let item = desktopStore.getItem(hi.visualElementSignal.get().itemId)!;
+      if (!isPage(item)) {
+        console.log("must upload on page.");
+        return;
+      }
       await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
     }
   }

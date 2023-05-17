@@ -25,6 +25,7 @@ import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
 import { itemFromObject } from "./store/desktop/items/base/item-polymorphism";
+import { arrange } from "./store/desktop/layout/arrange";
 
 
 export async function handleUpload(
@@ -49,6 +50,7 @@ export async function handleUpload(
   // handle files.
   const files = dataTransfer.files;
   for (let i=0; i<files.length; ++i) {
+    console.log(`uploading ${i}/${files.length}...`);
     const file = files[i];
     const base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
@@ -67,6 +69,7 @@ export async function handleUpload(
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
       desktopStore.addItem(itemFromObject(returnedItem));
+      arrange(desktopStore);
 
     } else {
       let fileItem: object = {
@@ -84,6 +87,7 @@ export async function handleUpload(
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
       desktopStore.addItem(itemFromObject(returnedItem));
+      arrange(desktopStore);
     }
   }
 }

@@ -28,6 +28,7 @@ import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../store/desktop/items/table-item";
 import { Item } from "../../store/desktop/items/base/item";
+import { arrange } from "../../store/desktop/layout/arrange";
 
 
 type ContexMenuProps = {
@@ -56,6 +57,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
         item: newPage
       });
+      arrange(desktopStore);
     }
   };
 
@@ -75,6 +77,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
         item: newNote
       });
+      arrange(desktopStore);
     }
   }
 
@@ -94,6 +97,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
         item: newTable
       });
+      arrange(desktopStore);
     }
   }
 
