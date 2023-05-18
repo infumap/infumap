@@ -297,9 +297,13 @@ export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreCo
 
 
 export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
+  let parentPage = asPageItem(desktopStore.getItem(pageItem.parentId)!);
   batch(() => {
     let li = newLinkItem(pageItem.ownerId, pageItem.parentId, Child, desktopStore.newOrderingAtEndOfChildren(pageItem.parentId), pageItem.id);
-    li.spatialWidthGr.set(20 * GRID_SIZE);
+    let widthGr = Math.round((parentPage.innerSpatialWidthGr.get() / GRID_SIZE) / 2.0) * GRID_SIZE;
+    let heightGr = Math.round((parentPage.innerSpatialWidthGr.get() / parentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
+    li.spatialWidthGr.set(widthGr);
+    li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
     desktopStore.addItem(li);
     arrange(desktopStore);
   });
