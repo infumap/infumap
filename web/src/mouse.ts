@@ -142,7 +142,7 @@ interface DialogMoveState {
 }
 let dialogMoveState: DialogMoveState | null = null;
 
-let lastMouseOverId: Uid | null = null;
+let lastMouseOver: VisualElementSignal | null = null;
 
 
 export function mouseDownHandler(
@@ -257,16 +257,16 @@ export function mouseMoveHandler(
 
   if (mouseActionState == null) {
     let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-    let overItem = desktopStore.getItem(currentHitInfo.visualElementSignal!.get().itemId)!;
-    if (overItem.id != lastMouseOverId) {
+    let overElement = currentHitInfo.visualElementSignal;
+    if (overElement != lastMouseOver) {
       batch(() => {
-        if (lastMouseOverId != null) {
-          desktopStore.getItem(lastMouseOverId)!.computed_mouseIsOver.set(false);
+        if (lastMouseOver != null) {
+          lastMouseOver.get().computed_mouseIsOver.set(false);
         }
-        lastMouseOverId = null;
-        if (overItem.id != desktopStore.currentPageId()) {
-          desktopStore.getItem(overItem.id)!.computed_mouseIsOver.set(true);
-          lastMouseOverId = overItem.id;
+        lastMouseOver = null;
+        if (overElement!.get().itemId != desktopStore.currentPageId()) {
+          overElement!.get().computed_mouseIsOver.set(true);
+          lastMouseOver = overElement;
         }
       });
     }
@@ -349,10 +349,9 @@ export function mouseMoveHandler(
     if (mouseActionState.moveOverContainerVisualElement == null ||
         mouseActionState.moveOverContainerVisualElement! != overContainerVe) {
       if (mouseActionState.moveOverContainerVisualElement != null) {
-        asContainerItem(desktopStore.getItem(mouseActionState.moveOverContainerVisualElement!.itemId)!)
-          .computed_movingItemIsOver.set(false);
+        mouseActionState.moveOverContainerVisualElement.computed_movingItemIsOver.set(false);
       }
-      asContainerItem(desktopStore.getItem(overContainerVe.itemId)!).computed_movingItemIsOver.set(true);
+      overContainerVe.computed_movingItemIsOver.set(true);
       mouseActionState.moveOverContainerVisualElement = overContainerVe;
       if (isTable(overContainerVe)) {
         console.log("over table");
@@ -423,8 +422,7 @@ export function mouseUpHandler(
   const activeItem = desktopStore.getItem(mouseActionState.activeVisualElementSignal!.get().itemId)!;
 
   if (mouseActionState.moveOverContainerVisualElement != null) {
-    asContainerItem(desktopStore.getItem(mouseActionState.moveOverContainerVisualElement!.itemId)!)
-      .computed_movingItemIsOver.set(false);
+    mouseActionState.moveOverContainerVisualElement.computed_movingItemIsOver.set(false);
   }
 
   switch (mouseActionState.action) {

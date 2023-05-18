@@ -24,13 +24,14 @@ import { Uid } from "../../../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asContainerItem } from "../items/base/container-item";
-import { ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
+import { ITEM_TYPE_LINK, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
-import { VisualElementSignal, createVisualElementSignal } from "../../../util/signals";
+import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
 import { zeroBoundingBoxTopLeft } from "../../../util/geometry";
+import { asLinkItem } from "../items/link-item";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -131,21 +132,31 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage.id,
     isInteractive: true,
+    isPopupLink: false,
     resizingFromBoundsPx: null,
     boundsPx: currentPageBoundsPx,
     childAreaBoundsPx: currentPageBoundsPx,
     hitboxes: [],
     children: [], // replaced below.
     attachments: [],
-    parent: null
+    parent: null,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
   };
 
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
 
   topLevelVisualElement.children = currentPage.computed_children.get()
     .map(childId => {
-      const childItem = desktopStore.getItem(childId)!;
+      let childItem = desktopStore.getItem(childId)!;
       const geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
+
+      let isLink = false;
+      if (childItem.itemType == ITEM_TYPE_LINK) {
+        const linkItem = asLinkItem(childItem);
+        childItem = desktopStore.getItem(linkItem.linkToId)!;
+        isLink = true;
+      }
 
       if (isPage(childItem) &&
           asPageItem(childItem).arrangeAlgorithm == "grid") {
@@ -163,8 +174,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 
         const pageWithChildrenVisualElement: VisualElement = {
           itemType: ITEM_TYPE_PAGE,
-          itemId: childId,
+          itemId: childItem.id,
           isInteractive: true,
+          isPopupLink: isLink,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: geometry.boundsPx,
@@ -172,6 +184,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
           children: [],
           attachments: [],
           parent: desktopStore.rootVisualElement,
+          computed_mouseIsOver: createBooleanSignal(false),
+          computed_movingItemIsOver: createBooleanSignal(false),
         };
         const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
 
@@ -181,17 +195,20 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
         pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
           const childItem = desktopStore.getItem(childId)!;
           const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
-          const pageVisualElement = {
+          const pageVisualElement: VisualElement = {
             itemType: childItem.itemType,
             itemId: childItem.id,
-            isInteractive: false,
+            isInteractive: isLink,
+            isPopupLink: false,
             resizingFromBoundsPx: null,
             boundsPx: geometry.boundsPx,
             childAreaBoundsPx: null,
             hitboxes: [],
             children: [],
             attachments: [],
-            parent: pageWithChildrenVisualElementSignal.get
+            parent: pageWithChildrenVisualElementSignal.get,
+            computed_mouseIsOver: createBooleanSignal(false),
+            computed_movingItemIsOver: createBooleanSignal(false),
           };
           return createVisualElementSignal(pageVisualElement);
         });
@@ -218,6 +235,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
           itemType: ITEM_TYPE_TABLE,
           itemId: tableItem.id,
           isInteractive: true,
+          isPopupLink: false,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx,
@@ -225,6 +243,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
           children: [],
           attachments: [],
           parent: desktopStore.rootVisualElement,
+          computed_mouseIsOver: createBooleanSignal(false),
+          computed_movingItemIsOver: createBooleanSignal(false),
         }
         const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
 
@@ -239,13 +259,16 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
               itemType: childItem.itemType,
               itemId: childItem.id,
               isInteractive: true,
+              isPopupLink: false,
               resizingFromBoundsPx: null,
               boundsPx: geometry.boundsPx,
               hitboxes: geometry.hitboxes,
               children: [],
               attachments: [],
               childAreaBoundsPx: null,
-              parent: tableVisualElementSignal.get
+              parent: tableVisualElementSignal.get,
+              computed_mouseIsOver: createBooleanSignal(false),
+              computed_movingItemIsOver: createBooleanSignal(false),
             };
             tableVeChildren.push(createVisualElementSignal(tableItemVe));
 
@@ -265,6 +288,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
           itemType: childItem.itemType,
           itemId: childItem.id,
           isInteractive: true,
+          isPopupLink: false,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: null,
@@ -272,6 +296,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
           children: [],
           attachments: [], // TODO.
           parent: desktopStore.rootVisualElement,
+          computed_mouseIsOver: createBooleanSignal(false),
+          computed_movingItemIsOver: createBooleanSignal(false),
         };
         // if attachments...
         const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
@@ -305,13 +331,16 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage.id,
     isInteractive: true,
+    isPopupLink: false,
     resizingFromBoundsPx: null,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
     hitboxes: [],
     children: [], // replaced below.
     attachments: [],
-    parent: null
+    parent: null,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
   };
 
   topLevelVisualElement.children = (() => {
@@ -334,6 +363,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           itemType: item.itemType,
           itemId: item.id,
           isInteractive: true,
+          isPopupLink: false,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: null,
@@ -341,6 +371,8 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           children: [],
           attachments: [],
           parent: desktopStore.rootVisualElement,
+          computed_mouseIsOver: createBooleanSignal(false),
+          computed_movingItemIsOver: createBooleanSignal(false),
         };
         children.push(createVisualElementSignal(ve));
       } else {
@@ -391,6 +423,7 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
     itemType: ve.get().itemType,
     itemId: childId,
     isInteractive: true,
+    isPopupLink: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: null,
@@ -398,6 +431,8 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
     children: [],
     attachments: [],
     parent,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
   };
 
   ve.set(itemVisualElement);
@@ -431,6 +466,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
     itemType: ITEM_TYPE_TABLE,
     itemId: tableItem.id,
     isInteractive: true,
+    isPopupLink: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx,
@@ -438,6 +474,8 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
     children: [],
     attachments: [],
     parent: desktopStore.rootVisualElement,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
   }
 
   tableVisualElement.children = (() => {
@@ -451,13 +489,16 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
         itemType: childItem.itemType,
         itemId: childItem.id,
         isInteractive: true,
+        isPopupLink: false,
         resizingFromBoundsPx: null,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         children: [],
         attachments: [],
         childAreaBoundsPx: null,
-        parent: ve.get
+        parent: ve.get,
+        computed_mouseIsOver: createBooleanSignal(false),
+        computed_movingItemIsOver: createBooleanSignal(false),
       };
       tableVeChildren.push(createVisualElementSignal(tableItemVisualElement));
       // let attachments: Array<VisualElementSignal> = [];
@@ -493,6 +534,7 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
     itemType: ITEM_TYPE_PAGE,
     itemId: childId,
     isInteractive: true,
+    isPopupLink: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
@@ -500,6 +542,8 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
     children: [],
     attachments: [],
     parent: parent,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
   };
 
   if (// Page children are visible.
@@ -515,17 +559,20 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
     pageVisualElement.children = pageItem.computed_children.get().map(childId => {
       const childItem = desktopStore.getItem(childId)!;
       const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
-      const childVisualElement = {
+      const childVisualElement: VisualElement = {
         itemType: childItem.itemType,
         itemId: childItem.id,
         isInteractive: false,
+        isPopupLink: false,
         resizingFromBoundsPx: null,
         boundsPx: geometry.boundsPx,
         childAreaBoundsPx: null,
         hitboxes: [],
         children: [],
         attachments: [],
-        parent: ve.get
+        parent: ve.get,
+        computed_mouseIsOver: createBooleanSignal(false),
+        computed_movingItemIsOver: createBooleanSignal(false),
       };
       return createVisualElementSignal(childVisualElement);
     });

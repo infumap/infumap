@@ -32,9 +32,9 @@ import { DesktopStoreContextModel } from '../DesktopStoreProvider';
 import { UserStoreContextModel } from '../../UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { newLinkItem } from './link-item';
-import { newOrdering } from '../../../util/ordering';
+import { newOrdering, newOrderingAtEnd } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
-import { switchToPage } from '../layout/arrange';
+import { arrange, switchToPage } from '../layout/arrange';
 import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal, UidArraySignal } from '../../../util/signals';
 import { getHitInfo } from '../../../mouse';
 
@@ -90,8 +90,6 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
-    computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: createBooleanSignal(false),
     childrenLoaded: createBooleanSignal(false),
   
     scrollXPx: createNumberSignal(0),
@@ -126,9 +124,6 @@ export function pageFromObject(o: any): PageItem {
 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
-
-    computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: createBooleanSignal(false),
 
     childrenLoaded: createBooleanSignal(false),
 
@@ -303,9 +298,10 @@ export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreCo
 
 export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
   batch(() => {
-    let li = newLinkItem(pageItem.ownerId, pageItem.parentId, Child, newOrdering(), pageItem.id);
+    let li = newLinkItem(pageItem.ownerId, pageItem.parentId, Child, desktopStore.newOrderingAtEndOfChildren(pageItem.parentId), pageItem.id);
     li.spatialWidthGr.set(20 * GRID_SIZE);
     desktopStore.addItem(li);
+    arrange(desktopStore);
   });
 }
 

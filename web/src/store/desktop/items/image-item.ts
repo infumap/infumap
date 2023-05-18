@@ -63,7 +63,6 @@ export function imageFromObject(o: any): ImageItem {
     imageSizePx: o.imageSizePx,
 
     computed_attachments: createUidArraySignal([]),
-    computed_mouseIsOver: createBooleanSignal(false),
   });
 }
 

@@ -58,7 +58,6 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     url: "",
 
     computed_attachments: createUidArraySignal([]),
-    computed_mouseIsOver: createBooleanSignal(false),
   };
 }
 
@@ -81,7 +80,6 @@ export function noteFromObject(o: any): NoteItem {
     url: o.url,
 
     computed_attachments: createUidArraySignal([]),
-    computed_mouseIsOver: createBooleanSignal(false),
   });
 }
 

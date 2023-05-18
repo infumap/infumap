@@ -57,7 +57,6 @@ export function fileFromObject(o: any): FileItem {
     fileSizeBytes: o.fileSizeBytes,
 
     computed_attachments: createUidArraySignal([]),
-    computed_mouseIsOver: createBooleanSignal(false),
   });
 }
 

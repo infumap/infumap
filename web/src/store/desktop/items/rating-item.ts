@@ -47,8 +47,6 @@ export function ratingFromObject(o: any): RatingItem {
     spatialPositionGr: createVectorSignal(o.spatialPositionGr),
 
     rating: o.rating,
-
-    computed_mouseIsOver: createBooleanSignal(false),
   });
 }
 

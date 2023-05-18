@@ -43,6 +43,4 @@ export interface Item extends ItemTypeMixin, PositionalMixin {
   creationDate: number,
   lastModifiedDate: number,
   ordering: Uint8Array,
-
-  computed_mouseIsOver: BooleanSignal,
 }

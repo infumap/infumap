@@ -18,7 +18,7 @@
 
 import { Component } from "solid-js";
 import { VisualElementInTableProps } from "../VisualElementInTable";
-import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 
 // export const Link: Component<ItemOnDesktopProps> = (props: ItemOnDesktopProps) => {
@@ -33,6 +33,7 @@ import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 
 export const Link: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return <></>;
+  // return <VisualElementOnDesktop visualElement={} />;
 }
 
 // export const LinkInTable: Component<ItemInTableProps> = (props: ItemInTableProps) => {

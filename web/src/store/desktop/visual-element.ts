@@ -22,19 +22,23 @@ import { EMPTY_UID } from "../../util/uid";
 import { Uid } from "../../util/uid";
 import { Hitbox } from "./hitbox";
 import { ITEM_TYPE_NONE, ItemTypeMixin } from "./items/base/item";
-import { VisualElementSignal } from "../../util/signals";
+import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
 
 
 export interface VisualElement extends ItemTypeMixin {
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
   isInteractive: boolean,
+  isPopupLink: boolean,
   boundsPx: BoundingBox, // relative to containing visual element childAreaBoundsPx.
   childAreaBoundsPx: BoundingBox | null,
   hitboxes: Array<Hitbox>, // higher index => takes precedence.
   children: Array<VisualElementSignal>,
   attachments: Array<VisualElementSignal>,
   parent: Accessor<VisualElement> | null,
+
+  computed_mouseIsOver: BooleanSignal,
+  computed_movingItemIsOver: BooleanSignal; // for containers.
 }
 
 /**
@@ -46,10 +50,15 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   itemId: EMPTY_UID,
   resizingFromBoundsPx: null,
   isInteractive: false,
+  isPopupLink: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   hitboxes: [],
   children: [],
   attachments: [],
   parent: null,
+
+
+  computed_mouseIsOver: createBooleanSignal(false),
+  computed_movingItemIsOver: createBooleanSignal(false),
 };

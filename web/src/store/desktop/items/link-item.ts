@@ -58,7 +58,6 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     linkToId,
 
     computed_attachments: createUidArraySignal([]),
-    computed_mouseIsOver: createBooleanSignal(false),
   };
 }
 
@@ -81,7 +80,6 @@ export function linkFromObject(o: any): LinkItem {
     linkToId: o.linkToId,
 
     computed_attachments: createUidArraySignal([]),
-    computed_mouseIsOver: createBooleanSignal(false),
   });
 }
 

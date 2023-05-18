@@ -70,9 +70,6 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
 
-    computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: createBooleanSignal(false),
-
     childrenLoaded: createBooleanSignal(false),
 
     scrollYPx: createNumberSignal(0)
@@ -100,9 +97,6 @@ export function tableFromObject(o: any): TableItem {
 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
-
-    computed_movingItemIsOver: createBooleanSignal(false),
-    computed_mouseIsOver: createBooleanSignal(false),
 
     childrenLoaded: createBooleanSignal(false),
 
