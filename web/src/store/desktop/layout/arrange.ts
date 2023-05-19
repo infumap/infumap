@@ -35,6 +35,7 @@ import { asLinkItem, newLinkItem } from "../items/link-item";
 import { ItemGeometry } from "../item-geometry";
 import { Child } from "../relationship-to-parent";
 import { newOrdering } from "../../../util/ordering";
+import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -168,9 +169,16 @@ const arrangeItem = (desktopStore: DesktopStoreContextModel, childItem: Item, pa
   const geometry = calcGeometryOfItemInPage(childItem, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
 
   let isLink = false;
+  let spatialWidthGr = isXSizableItem(childItem)
+    ? asXSizableItem(childItem).spatialWidthGr.get()
+    : 0;
+
   if (childItem.itemType == ITEM_TYPE_LINK) {
     const linkItem = asLinkItem(childItem);
     childItem = desktopStore.getItem(linkItem.linkToId)!;
+    if (isXSizableItem(childItem)) {
+      spatialWidthGr = linkItem.spatialWidthGr.get();
+    }
     isLink = true;
   }
 
@@ -184,7 +192,7 @@ const arrangeItem = (desktopStore: DesktopStoreContextModel, childItem: Item, pa
 
   if (isPage(childItem) &&
       // This test does not depend on pixel size, so is invariant over display devices.
-      asPageItem(childItem).spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
+      spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
     return arrangePageFull(desktopStore, childItem, geometry, isPopup, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
   }
@@ -492,7 +500,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent: { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement },
+    parent,
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   }
@@ -560,7 +568,7 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent: parent,
+    parent,
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   };

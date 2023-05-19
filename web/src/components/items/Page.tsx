@@ -133,6 +133,27 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     );
   }
 
+  const drawAsPopup = () => {
+    return (
+      <>
+        <div ref={nodeElement}
+            id={props.visualElement.itemId}
+            class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #eeeeee;`}>
+        </div>
+        <Show when={props.visualElement.childAreaBoundsPx != null}>
+          <div class="absolute"
+              style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
+                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+            <For each={props.visualElement.children}>{childVe =>
+              <VisualElementOnDesktop visualElement={childVe.get()} />
+            }</For>
+          </div>
+        </Show>
+      </>
+    );
+  }
+
   const drawAsTopLevelPage = () => {
     return (
       <div ref={nodeElement}
@@ -151,11 +172,14 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <Show when={pageItem().id == desktopStore.currentPageId()}>
         {drawAsTopLevelPage()}
       </Show>
-      <Show when={pageItem().id != desktopStore.currentPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.currentPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsOpaque()}
       </Show>
-      <Show when={pageItem().id != desktopStore.currentPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.currentPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
+      </Show>
+      <Show when={props.visualElement.isPopup}>
+        {drawAsPopup()}
       </Show>
     </>
   );
