@@ -35,7 +35,7 @@ export interface VisualElement extends ItemTypeMixin {
   hitboxes: Array<Hitbox>, // higher index => takes precedence.
   children: Array<VisualElementSignal>,
   attachments: Array<VisualElementSignal>,
-  parent: Accessor<VisualElement> | null,
+  parent: VisualElementSignal | null,
 
   computed_mouseIsOver: BooleanSignal,
   computed_movingItemIsOver: BooleanSignal; // for containers.

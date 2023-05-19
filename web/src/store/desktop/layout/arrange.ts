@@ -31,8 +31,10 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
 import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
-import { asLinkItem } from "../items/link-item";
+import { asLinkItem, newLinkItem } from "../items/link-item";
 import { ItemGeometry } from "../item-geometry";
+import { Child } from "../relationship-to-parent";
+import { newOrdering } from "../../../util/ordering";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -148,6 +150,17 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   topLevelVisualElement.children = currentPage.computed_children.get()
     .map(childId => arrangeItem(desktopStore, desktopStore.getItem(childId)!, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl));
 
+  const popupBreadcrumbs = currentPage.computed_popupBreadcrumbs.get();
+  if (popupBreadcrumbs.length > 0) {
+    let popupId = popupBreadcrumbs[popupBreadcrumbs.length-1];
+    let li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupId);
+    let widthGr = Math.round((currentPage.innerSpatialWidthGr.get() / GRID_SIZE) / 2.0) * GRID_SIZE;
+    let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
+    li.spatialWidthGr.set(widthGr);
+    li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
+    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl));
+  }
+
   desktopStore.setRootVisualElement(topLevelVisualElement);
 }
 
@@ -173,18 +186,18 @@ const arrangeItem = (desktopStore: DesktopStoreContextModel, childItem: Item, pa
       // This test does not depend on pixel size, so is invariant over display devices.
       asPageItem(childItem).spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
-    return arrangePageFull(desktopStore, childItem, geometry, isPopup, desktopStore.rootVisualElement);
+    return arrangePageFull(desktopStore, childItem, geometry, isPopup, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
   }
 
   if (isTable(childItem)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
-    return arrangeTableFull(desktopStore, childItem, geometry, desktopStore.rootVisualElement);
+    return arrangeTableFull(desktopStore, childItem, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
   }
 
-  return arrangeNoChildren(childItem, geometry, desktopStore.rootVisualElement);
+  return arrangeNoChildren(childItem, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
 }
 
-const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, parent: Accessor<VisualElement>) => {
+const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal) => {
   let tableItem = asTableItem(childItem);
 
   const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
@@ -231,7 +244,7 @@ const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Ite
         children: [],
         attachments: [],
         childAreaBoundsPx: null,
-        parent: tableVisualElementSignal.get,
+        parent: tableVisualElementSignal,
         computed_mouseIsOver: createBooleanSignal(false),
         computed_movingItemIsOver: createBooleanSignal(false),
       };
@@ -248,7 +261,7 @@ const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Ite
   return tableVisualElementSignal;
 }
 
-const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, isPopup: boolean, parent: Accessor<VisualElement>) => {
+const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, isPopup: boolean, parent: VisualElementSignal) => {
   const pageWithChildrenVisualElement: VisualElement = {
     itemType: ITEM_TYPE_PAGE,
     itemId: childItem.id,
@@ -296,7 +309,7 @@ const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item
   return pageWithChildrenVisualElementSignal;
 }
 
-const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: Accessor<VisualElement>) => {
+const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal) => {
   const itemVisualElement: VisualElement = {
     itemType: childItem.itemType,
     itemId: childItem.id,
@@ -376,7 +389,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           hitboxes: geometry.hitboxes,
           children: [],
           attachments: [],
-          parent: desktopStore.rootVisualElement,
+          parent: { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement },
           computed_mouseIsOver: createBooleanSignal(false),
           computed_movingItemIsOver: createBooleanSignal(false),
         };
@@ -416,7 +429,7 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
   const parent = ve.get().parent;
   if (parent == null) { throw new Error(`item ${ve.get().itemId} has no parent.`); }
 
-  const parentVisualElement = parent!();
+  const parentVisualElement = parent!.get();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
   const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
@@ -448,7 +461,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
   const parent = ve.get().parent;
   if (parent == null) { throw new Error(`table ${ve.get().itemId} has no parent.`); }
 
-  const parentVisualElement = parent!();
+  const parentVisualElement = parent!.get();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
   const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
@@ -479,7 +492,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent: desktopStore.rootVisualElement,
+    parent: { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement },
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   }
@@ -502,7 +515,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
         children: [],
         attachments: [],
         childAreaBoundsPx: null,
-        parent: ve.get,
+        parent: ve,
         computed_mouseIsOver: createBooleanSignal(false),
         computed_movingItemIsOver: createBooleanSignal(false),
       };
@@ -526,7 +539,7 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
     return;
   }
 
-  const parentVisualElement = parent!();
+  const parentVisualElement = parent!.get();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
   const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
@@ -576,7 +589,7 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
         hitboxes: [],
         children: [],
         attachments: [],
-        parent: ve.get,
+        parent: ve,
         computed_mouseIsOver: createBooleanSignal(false),
         computed_movingItemIsOver: createBooleanSignal(false),
       };

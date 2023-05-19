@@ -19,7 +19,7 @@
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { currentUnixTimeSeconds, notImplemented, panic } from '../../../util/lang';
+import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
@@ -32,7 +32,6 @@ import { DesktopStoreContextModel } from '../DesktopStoreProvider';
 import { UserStoreContextModel } from '../../UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { newLinkItem } from './link-item';
-import { newOrdering, newOrderingAtEnd } from '../../../util/ordering';
 import { Child } from '../relationship-to-parent';
 import { arrange, switchToPage } from '../layout/arrange';
 import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal, UidArraySignal } from '../../../util/signals';
@@ -51,6 +50,8 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
+
+  computed_popupBreadcrumbs: UidArraySignal;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
@@ -94,6 +95,8 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
+
+    computed_popupBreadcrumbs: createUidArraySignal([]),
   };
 }
 
@@ -129,6 +132,8 @@ export function pageFromObject(o: any): PageItem {
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
+
+    computed_popupBreadcrumbs: createUidArraySignal([]),
   });
 }
 
@@ -291,22 +296,15 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 }
 
 
-export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
+export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   switchToPage(desktopStore, pageItem.id);
 }
 
 
-export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
+export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   let parentPage = asPageItem(desktopStore.getItem(pageItem.parentId)!);
-  batch(() => {
-    let li = newLinkItem(pageItem.ownerId, pageItem.parentId, Child, desktopStore.newOrderingAtEndOfChildren(pageItem.parentId), pageItem.id);
-    let widthGr = Math.round((parentPage.innerSpatialWidthGr.get() / GRID_SIZE) / 2.0) * GRID_SIZE;
-    let heightGr = Math.round((parentPage.innerSpatialWidthGr.get() / parentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
-    li.spatialWidthGr.set(widthGr);
-    li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
-    desktopStore.addItem(li);
-    arrange(desktopStore);
-  });
+  parentPage.computed_popupBreadcrumbs.set([pageItem.id]);
+  arrange(desktopStore);
 }
 
 

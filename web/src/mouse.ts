@@ -34,7 +34,7 @@ import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
 import { VisualElement } from "./store/desktop/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
-import { asContainerItem, isContainer } from "./store/desktop/items/base/container-item";
+import { isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
 import { VisualElementSignal } from "./util/signals";
 
@@ -59,10 +59,14 @@ export function getHitInfo(
     posOnDesktopPx: Vector,
     ignore: Array<Uid>): HitInfo {
 
-  const rootVisualElement: VisualElement = desktopStore.rootVisualElement();
-  const topLevelPage = asPageItem(desktopStore.getItem(rootVisualElement!.itemId)!);
+  let rootVisualElement: VisualElement = desktopStore.rootVisualElement();
+  if (rootVisualElement.children.length > 0 &&
+      rootVisualElement.children[rootVisualElement.children.length-1].get().isPopup) {
+    rootVisualElement = rootVisualElement.children[rootVisualElement.children.length-1].get();
+  }
+  const rootPage = asPageItem(desktopStore.getItem(rootVisualElement!.itemId)!);
 
-  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
+  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: rootPage.scrollXPx.get(), y: rootPage.scrollYPx.get() });
 
   for (let i=0; i<rootVisualElement.children.length; ++i) {
     const childVisualElementSignal = rootVisualElement.children[i];
@@ -225,11 +229,10 @@ export function mouseRightDownHandler(
     return;
   }
 
-  let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-  if (hitInfo.visualElementSignal.get().isPopup) {
-    const a = hitInfo.visualElementSignal.get().parent!().children.filter(c => c.get().itemId != hitInfo.visualElementSignal.get().itemId);
-
-    console.log("close popup");
+  const popupContainer = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  if (popupContainer.computed_popupBreadcrumbs.get().length > 0) {
+    popupContainer.computed_popupBreadcrumbs.set((() => { let vs = popupContainer.computed_popupBreadcrumbs.get(); vs.pop(); return vs; })());
+    arrange(desktopStore);
     return;
   }
 
@@ -268,6 +271,7 @@ export function mouseMoveHandler(
 
   if (mouseActionState == null) {
     let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
+    console.log(currentHitInfo);
     let overElement = currentHitInfo.visualElementSignal;
     if (overElement != lastMouseOver) {
       batch(() => {
@@ -275,7 +279,8 @@ export function mouseMoveHandler(
           lastMouseOver.get().computed_mouseIsOver.set(false);
         }
         lastMouseOver = null;
-        if (overElement!.get().itemId != desktopStore.currentPageId()) {
+        if (overElement!.get().itemId != desktopStore.currentPageId() &&
+            !overElement.get().isPopup) {
           overElement!.get().computed_mouseIsOver.set(true);
           lastMouseOver = overElement;
         }
@@ -352,7 +357,7 @@ export function mouseMoveHandler(
       ? overVes
       : (() => {
         if (overVes.parent == null) { panic(); }
-        const result = overVes.parent();
+        const result = overVes.parent.get();
         if (!isContainer(result)) { panic(); }
         return result;
       })();
@@ -385,7 +390,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
   let itemPosInTablePx = getBoundingBoxTopLeft(mouseActionState!.activeVisualElementSignal!.get().boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
-  const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!().itemId;
+  const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!.get().itemId;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
   const tableVe = desktopStore.rootVisualElement().children.map(c => c.get()).find(el => el.itemId == tableVeId)!;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
