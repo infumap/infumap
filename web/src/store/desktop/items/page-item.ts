@@ -246,10 +246,23 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
     w: blockSizePx.w * widthBl,
     h: blockSizePx.h
   };
+  const popupClickAreaBoundsPx = {
+    x: 0.0,
+    y: 0.0,
+    w: blockSizePx.w,
+    h: blockSizePx.h
+  };
+  const clickAreaBoundsPx = {
+    x: blockSizePx.w,
+    y: 0.0,
+    w: blockSizePx.w * (widthBl - 1),
+    h: blockSizePx.h
+  };
   return {
     boundsPx,
     hitboxes: [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      { type: HitboxType.Click, boundsPx: clickAreaBoundsPx },
+      { type: HitboxType.OpenPopup, boundsPx: popupClickAreaBoundsPx },
       { type: HitboxType.Move, boundsPx: innerBoundsPx },
     ],
   };
@@ -299,7 +312,10 @@ export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreCo
 
 
 export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  let parentPage = asPageItem(desktopStore.getItem(pageItem.parentId)!);
+  let parentPageMaybe = desktopStore.getItem(pageItem.parentId)!;
+  let parentPage = isPage(parentPageMaybe)
+    ? asPageItem(parentPageMaybe)
+    : asPageItem(desktopStore.getItem(parentPageMaybe.parentId)!); // parent was a table.
   parentPage.computed_popupBreadcrumbs.set([pageItem.id]);
   arrange(desktopStore);
 }

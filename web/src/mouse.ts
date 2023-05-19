@@ -199,7 +199,6 @@ export function mouseLeftDownHandler(
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, []);
   if (hitInfo.hitboxType == HitboxType.None) {
-    console.log(hitInfo.visualElementSignal.get());
     if (hitInfo.visualElementSignal.get().isPopup) {
       switchToPage(desktopStore, hitInfo.visualElementSignal.get().itemId);
     }
