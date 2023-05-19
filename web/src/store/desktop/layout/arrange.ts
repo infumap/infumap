@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { batch } from "solid-js";
+import { Accessor, batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
@@ -24,14 +24,15 @@ import { Uid } from "../../../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asContainerItem } from "../items/base/container-item";
-import { ITEM_TYPE_LINK, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "../items/base/item";
+import { ITEM_TYPE_LINK, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Item } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
 import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
-import { zeroBoundingBoxTopLeft } from "../../../util/geometry";
+import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { asLinkItem } from "../items/link-item";
+import { ItemGeometry } from "../item-geometry";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -114,7 +115,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = currentPage.naturalAspect.get();
-  const currentPageBoundsPx = (() => {
+  const topLevelPageBoundsPx = (() => {
     let result = desktopStore.desktopBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / desktopAspect > 1.25) {
@@ -126,189 +127,194 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     }
     return result;
   })();
+  const topLevelPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
 
-  // the signal for this visual element is fixed, in DesktopStore.
   const topLevelVisualElement: VisualElement = {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage.id,
     isInteractive: true,
-    isPopupLink: false,
+    isPopup: false,
     resizingFromBoundsPx: null,
-    boundsPx: currentPageBoundsPx,
-    childAreaBoundsPx: currentPageBoundsPx,
+    boundsPx: topLevelPageBoundsPx,
+    childAreaBoundsPx: topLevelPageBoundsPx,
     hitboxes: [],
-    children: [], // replaced below.
+    children: [],
     attachments: [],
     parent: null,
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   };
 
-  const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
-
   topLevelVisualElement.children = currentPage.computed_children.get()
-    .map(childId => {
-      let childItem = desktopStore.getItem(childId)!;
-      const geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
+    .map(childId => arrangeItem(desktopStore, desktopStore.getItem(childId)!, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl));
 
-      let isLink = false;
-      if (childItem.itemType == ITEM_TYPE_LINK) {
-        const linkItem = asLinkItem(childItem);
-        childItem = desktopStore.getItem(linkItem.linkToId)!;
-        isLink = true;
-      }
-
-      if (isPage(childItem) &&
-          asPageItem(childItem).arrangeAlgorithm == "grid") {
-        // Always make sure child items of grid pages are loaded, even if not visible,
-        // because they are needed to to calculate the height.
-        initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
-      }
-
-      // ### Child is a page with children visible.
-      if (isPage(childItem) &&
-          // This test does not depend on pixel size, so is invariant over display devices.
-          asPageItem(childItem).spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-        const pageItem = asPageItem(childItem);
-        initiateLoadChildItemsIfNotLoaded(desktopStore, pageItem.id);
-
-        const pageWithChildrenVisualElement: VisualElement = {
-          itemType: ITEM_TYPE_PAGE,
-          itemId: childItem.id,
-          isInteractive: true,
-          isPopupLink: isLink,
-          resizingFromBoundsPx: null,
-          boundsPx: geometry.boundsPx,
-          childAreaBoundsPx: geometry.boundsPx,
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
-          parent: desktopStore.rootVisualElement,
-          computed_mouseIsOver: createBooleanSignal(false),
-          computed_movingItemIsOver: createBooleanSignal(false),
-        };
-        const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
-
-        const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
-        const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
-
-        pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
-          const childItem = desktopStore.getItem(childId)!;
-          const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
-          const pageVisualElement: VisualElement = {
-            itemType: childItem.itemType,
-            itemId: childItem.id,
-            isInteractive: isLink,
-            isPopupLink: false,
-            resizingFromBoundsPx: null,
-            boundsPx: geometry.boundsPx,
-            childAreaBoundsPx: null,
-            hitboxes: [],
-            children: [],
-            attachments: [],
-            parent: pageWithChildrenVisualElementSignal.get,
-            computed_mouseIsOver: createBooleanSignal(false),
-            computed_movingItemIsOver: createBooleanSignal(false),
-          };
-          return createVisualElementSignal(pageVisualElement);
-        });
-
-        return pageWithChildrenVisualElementSignal;
-
-      // ### Table
-      } else if (isTable(childItem)) {
-        initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
-        let tableItem = asTableItem(childItem);
-
-        const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
-        const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
-
-        let childAreaBoundsPx = (() => {
-          const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-          return {
-            x: geometry.boundsPx.x, y: geometry.boundsPx.y + headerHeightPx,
-            w: geometry.boundsPx.w, h: geometry.boundsPx.h - headerHeightPx
-          };
-        })();
-
-        let tableVisualElement: VisualElement = {
-          itemType: ITEM_TYPE_TABLE,
-          itemId: tableItem.id,
-          isInteractive: true,
-          isPopupLink: false,
-          resizingFromBoundsPx: null,
-          boundsPx: geometry.boundsPx,
-          childAreaBoundsPx,
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
-          parent: desktopStore.rootVisualElement,
-          computed_mouseIsOver: createBooleanSignal(false),
-          computed_movingItemIsOver: createBooleanSignal(false),
-        }
-        const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
-
-        tableVisualElement.children = (() => {
-          let tableVeChildren: Array<VisualElementSignal> = [];
-          for (let idx=0; idx<tableItem.computed_children.get().length; ++idx) {
-            const childId = tableItem.computed_children.get()[idx];
-            const childItem = desktopStore.getItem(childId)!;
-            const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
-
-            let tableItemVe: VisualElement = {
-              itemType: childItem.itemType,
-              itemId: childItem.id,
-              isInteractive: true,
-              isPopupLink: false,
-              resizingFromBoundsPx: null,
-              boundsPx: geometry.boundsPx,
-              hitboxes: geometry.hitboxes,
-              children: [],
-              attachments: [],
-              childAreaBoundsPx: null,
-              parent: tableVisualElementSignal.get,
-              computed_mouseIsOver: createBooleanSignal(false),
-              computed_movingItemIsOver: createBooleanSignal(false),
-            };
-            tableVeChildren.push(createVisualElementSignal(tableItemVe));
-
-            // let attachments: Array<VisualElementSignal> = [];
-            if (isAttachmentsItem(childItem)) {
-              // TODO
-            }
-          };
-          return tableVeChildren;
-        })();
-
-        return tableVisualElementSignal;
-
-      // ### Any other item type.
-      } else {
-        const itemVisualElement: VisualElement = {
-          itemType: childItem.itemType,
-          itemId: childItem.id,
-          isInteractive: true,
-          isPopupLink: false,
-          resizingFromBoundsPx: null,
-          boundsPx: geometry.boundsPx,
-          childAreaBoundsPx: null,
-          hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [], // TODO.
-          parent: desktopStore.rootVisualElement,
-          computed_mouseIsOver: createBooleanSignal(false),
-          computed_movingItemIsOver: createBooleanSignal(false),
-        };
-        // if attachments...
-        const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
-        return itemVisualElementSignal;
-      }
-    });
-
-  // set this last as it triggers the display update.
   desktopStore.setRootVisualElement(topLevelVisualElement);
 }
 
+const arrangeItem = (desktopStore: DesktopStoreContextModel, childItem: Item, pageBoundsPx: BoundingBox, pageInnerPageDimensionsBl: Dimensions) => {
+  const geometry = calcGeometryOfItemInPage(childItem, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
+
+  let isLink = false;
+  if (childItem.itemType == ITEM_TYPE_LINK) {
+    const linkItem = asLinkItem(childItem);
+    childItem = desktopStore.getItem(linkItem.linkToId)!;
+    isLink = true;
+  }
+
+  if (isPage(childItem) && asPageItem(childItem).arrangeAlgorithm == "grid") {
+    // Always make sure child items of grid pages are loaded, even if not visible,
+    // because they are needed to to calculate the height.
+    initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
+  }
+
+  const isPopup = isLink;
+
+  if (isPage(childItem) &&
+      // This test does not depend on pixel size, so is invariant over display devices.
+      asPageItem(childItem).spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
+    return arrangePageFull(desktopStore, childItem, geometry, isPopup, desktopStore.rootVisualElement);
+  }
+
+  if (isTable(childItem)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
+    return arrangeTableFull(desktopStore, childItem, geometry, desktopStore.rootVisualElement);
+  }
+
+  return arrangeNoChildren(childItem, geometry, desktopStore.rootVisualElement);
+}
+
+const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, parent: Accessor<VisualElement>) => {
+  let tableItem = asTableItem(childItem);
+
+  const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
+  const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
+  const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
+
+  let childAreaBoundsPx = {
+    x: geometry.boundsPx.x, y: geometry.boundsPx.y + headerHeightPx,
+    w: geometry.boundsPx.w, h: geometry.boundsPx.h - headerHeightPx
+  };
+
+  let tableVisualElement: VisualElement = {
+    itemType: ITEM_TYPE_TABLE,
+    itemId: tableItem.id,
+    isInteractive: true,
+    isPopup: false,
+    resizingFromBoundsPx: null,
+    boundsPx: geometry.boundsPx,
+    childAreaBoundsPx,
+    hitboxes: geometry.hitboxes,
+    children: [],
+    attachments: [],
+    parent,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
+  }
+  const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
+
+  tableVisualElement.children = (() => {
+    let tableVeChildren: Array<VisualElementSignal> = [];
+    for (let idx=0; idx<tableItem.computed_children.get().length; ++idx) {
+      const childId = tableItem.computed_children.get()[idx];
+      const childItem = desktopStore.getItem(childId)!;
+      const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
+
+      let tableItemVe: VisualElement = {
+        itemType: childItem.itemType,
+        itemId: childItem.id,
+        isInteractive: true,
+        isPopup: false,
+        resizingFromBoundsPx: null,
+        boundsPx: geometry.boundsPx,
+        hitboxes: geometry.hitboxes,
+        children: [],
+        attachments: [],
+        childAreaBoundsPx: null,
+        parent: tableVisualElementSignal.get,
+        computed_mouseIsOver: createBooleanSignal(false),
+        computed_movingItemIsOver: createBooleanSignal(false),
+      };
+      tableVeChildren.push(createVisualElementSignal(tableItemVe));
+
+      // let attachments: Array<VisualElementSignal> = [];
+      if (isAttachmentsItem(childItem)) {
+        // TODO
+      }
+    };
+    return tableVeChildren;
+  })();
+
+  return tableVisualElementSignal;
+}
+
+const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, isPopup: boolean, parent: Accessor<VisualElement>) => {
+  const pageWithChildrenVisualElement: VisualElement = {
+    itemType: ITEM_TYPE_PAGE,
+    itemId: childItem.id,
+    isInteractive: true,
+    isPopup,
+    resizingFromBoundsPx: null,
+    boundsPx: geometry.boundsPx,
+    childAreaBoundsPx: geometry.boundsPx,
+    hitboxes: geometry.hitboxes,
+    children: [],
+    attachments: [],
+    parent,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
+  };
+  const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
+
+  const pageItem = asPageItem(childItem);
+  const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
+  const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+
+  pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
+    const childItem = desktopStore.getItem(childId)!;
+    return arrangeItem(desktopStore, childItem, innerBoundsPx, innerDimensionsBl);
+
+    // const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
+    // const pageVisualElement: VisualElement = {
+    //   itemType: childItem.itemType,
+    //   itemId: childItem.id,
+    //   isInteractive: isPopup,
+    //   isPopup: false,
+    //   resizingFromBoundsPx: null,
+    //   boundsPx: geometry.boundsPx,
+    //   childAreaBoundsPx: null,
+    //   hitboxes: [],
+    //   children: [],
+    //   attachments: [],
+    //   parent: pageWithChildrenVisualElementSignal.get,
+    //   computed_mouseIsOver: createBooleanSignal(false),
+    //   computed_movingItemIsOver: createBooleanSignal(false),
+    // };
+    // return createVisualElementSignal(pageVisualElement);
+  });
+
+  return pageWithChildrenVisualElementSignal;
+}
+
+const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: Accessor<VisualElement>) => {
+  const itemVisualElement: VisualElement = {
+    itemType: childItem.itemType,
+    itemId: childItem.id,
+    isInteractive: true,
+    isPopup: false,
+    resizingFromBoundsPx: null,
+    boundsPx: geometry.boundsPx,
+    childAreaBoundsPx: null,
+    hitboxes: geometry.hitboxes,
+    children: [],
+    attachments: [],
+    parent,
+    computed_mouseIsOver: createBooleanSignal(false),
+    computed_movingItemIsOver: createBooleanSignal(false),
+  };
+  const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
+  return itemVisualElementSignal;
+}
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
@@ -331,7 +337,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     itemType: ITEM_TYPE_PAGE,
     itemId: currentPage.id,
     isInteractive: true,
-    isPopupLink: false,
+    isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
@@ -363,7 +369,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           itemType: item.itemType,
           itemId: item.id,
           isInteractive: true,
-          isPopupLink: false,
+          isPopup: false,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: null,
@@ -423,7 +429,7 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
     itemType: ve.get().itemType,
     itemId: childId,
     isInteractive: true,
-    isPopupLink: false,
+    isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: null,
@@ -466,7 +472,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
     itemType: ITEM_TYPE_TABLE,
     itemId: tableItem.id,
     isInteractive: true,
-    isPopupLink: false,
+    isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx,
@@ -489,7 +495,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
         itemType: childItem.itemType,
         itemId: childItem.id,
         isInteractive: true,
-        isPopupLink: false,
+        isPopup: false,
         resizingFromBoundsPx: null,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
@@ -534,7 +540,7 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
     itemType: ITEM_TYPE_PAGE,
     itemId: childId,
     isInteractive: true,
-    isPopupLink: false,
+    isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
@@ -563,7 +569,7 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
         itemType: childItem.itemType,
         itemId: childItem.id,
         isInteractive: false,
-        isPopupLink: false,
+        isPopup: false,
         resizingFromBoundsPx: null,
         boundsPx: geometry.boundsPx,
         childAreaBoundsPx: null,

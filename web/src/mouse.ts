@@ -153,7 +153,7 @@ export function mouseDownHandler(
   if (ev.button == MOUSE_LEFT) {
     mouseLeftDownHandler(desktopStore, generalStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
-    mouseRightDownHandler(desktopStore, generalStore);
+    mouseRightDownHandler(desktopStore, generalStore, ev);
   } else {
     console.log("unrecognized mouse button: " + ev.button);
   }
@@ -212,14 +212,25 @@ export function mouseLeftDownHandler(
 
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    generalStore: GeneralStoreContextModel) {
+    generalStore: GeneralStoreContextModel,
+    ev: MouseEvent) {
 
   if (generalStore.contextMenuInfo()) {
-    generalStore.setContextMenuInfo(null); return;
+    generalStore.setContextMenuInfo(null);
+    return;
   }
 
   if (generalStore.editDialogInfo() != null) {
-    generalStore.setEditDialogInfo(null); return;
+    generalStore.setEditDialogInfo(null);
+    return;
+  }
+
+  let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
+  if (hitInfo.visualElementSignal.get().isPopup) {
+    const a = hitInfo.visualElementSignal.get().parent!().children.filter(c => c.get().itemId != hitInfo.visualElementSignal.get().itemId);
+
+    console.log("close popup");
+    return;
   }
 
   let parentId = desktopStore.getItem(desktopStore.currentPageId()!)!.parentId;

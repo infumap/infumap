@@ -29,7 +29,7 @@ export interface VisualElement extends ItemTypeMixin {
   itemId: Uid,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
   isInteractive: boolean,
-  isPopupLink: boolean,
+  isPopup: boolean,
   boundsPx: BoundingBox, // relative to containing visual element childAreaBoundsPx.
   childAreaBoundsPx: BoundingBox | null,
   hitboxes: Array<Hitbox>, // higher index => takes precedence.
@@ -50,7 +50,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   itemId: EMPTY_UID,
   resizingFromBoundsPx: null,
   isInteractive: false,
-  isPopupLink: false,
+  isPopup: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   hitboxes: [],
