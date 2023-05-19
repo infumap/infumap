@@ -59,32 +59,44 @@ export function getHitInfo(
     posOnDesktopPx: Vector,
     ignore: Array<Uid>): HitInfo {
 
-  let rootVisualElement: VisualElement = desktopStore.rootVisualElement();
-  if (rootVisualElement.children.length > 0 &&
-      rootVisualElement.children[rootVisualElement.children.length-1].get().isPopup) {
-    rootVisualElement = rootVisualElement.children[rootVisualElement.children.length-1].get();
+  const topLevelVisualElement: VisualElement = desktopStore.rootVisualElement();
+  const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement!.itemId)!);
+  const posRelativeToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
+
+  // root is either the top level page, or popup if mouse is over the popup.
+  let rootVisualElement = topLevelVisualElement;
+  let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
+  let rootVisualElementSignal = { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement };
+  if (topLevelVisualElement.children.length > 0) {
+    const popupVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
+    if (popupVeMaybe.isPopup &&
+        isInside(posRelativeToTopLevelVisualElementPx, popupVeMaybe.boundsPx)) {
+      rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
+      rootVisualElement = rootVisualElementSignal.get();
+      posRelativeToRootVisualElementPx = subtract(
+        posRelativeToTopLevelVisualElementPx,
+        { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
+    }
   }
-  const rootPage = asPageItem(desktopStore.getItem(rootVisualElement!.itemId)!);
 
-  const posReltiveToTopLevelVisualElementPx = add(posOnDesktopPx, { x: rootPage.scrollXPx.get(), y: rootPage.scrollYPx.get() });
-
+  // TODO (HIGH): reverse this i think.
   for (let i=0; i<rootVisualElement.children.length; ++i) {
     const childVisualElementSignal = rootVisualElement.children[i];
     const childVisualElement = childVisualElementSignal.get();
 
-    if (!isInside(posReltiveToTopLevelVisualElementPx, childVisualElement.boundsPx)) {
+    if (!isInside(posRelativeToRootVisualElementPx, childVisualElement.boundsPx)) {
       continue;
     }
 
     // handle inside table child area.
-    if (isTable(childVisualElement) && isInside(posReltiveToTopLevelVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+    if (isTable(childVisualElement) && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
       const tableVisualElementSignal = childVisualElementSignal;
       const tableVisualElement = childVisualElement;
 
       // resize hitbox of table takes precedence over everything in the child area.
       let resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
+      if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
         return ({ hitboxType: HitboxType.Resize, visualElementSignal: tableVisualElementSignal });
       }
 
@@ -94,7 +106,7 @@ export function getHitInfo(
         const tableChildVes = tableVisualElement.children[j];
         const tableChildVe = tableChildVes.get();
         const posRelativeToTableChildAreaPx = subtract(
-          posReltiveToTopLevelVisualElementPx,
+          posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x, y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
@@ -114,7 +126,7 @@ export function getHitInfo(
     // handle inside any other item (including pages, which can't clicked in).
     let hitboxType = HitboxType.None;
     for (let j=childVisualElement.hitboxes.length-1; j>=0; --j) {
-      if (isInside(posReltiveToTopLevelVisualElementPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {
+      if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {
         hitboxType |= childVisualElement.hitboxes[j].type;
       }
     }
@@ -124,7 +136,7 @@ export function getHitInfo(
   }
 
   // didn't intersect any top level visual element.
-  return { hitboxType: HitboxType.None, visualElementSignal: { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement } };
+  return { hitboxType: HitboxType.None, visualElementSignal: rootVisualElementSignal };
 }
 
 
@@ -187,6 +199,10 @@ export function mouseLeftDownHandler(
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, []);
   if (hitInfo.hitboxType == HitboxType.None) {
+    console.log(hitInfo.visualElementSignal.get());
+    if (hitInfo.visualElementSignal.get().isPopup) {
+      switchToPage(desktopStore, hitInfo.visualElementSignal.get().itemId);
+    }
     mouseActionState = null;
     return;
   }
@@ -271,7 +287,6 @@ export function mouseMoveHandler(
 
   if (mouseActionState == null) {
     let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-    console.log(currentHitInfo);
     let overElement = currentHitInfo.visualElementSignal;
     if (overElement != lastMouseOver) {
       batch(() => {
