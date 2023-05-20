@@ -68,32 +68,26 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
-  // refer to: visual-element.ts
-  const boundsPx_cache = () => {
-    let currentBoundsPx = props.visualElement.boundsPx;
-    if (nodeElement == null) { return currentBoundsPx; }
-    return currentBoundsPx;
-  };
-  const boundsPx = props.visualElement.boundsPx;
-  const scale = () => boundsPx.h / LINE_HEIGHT_PX;
+  const boundsPx = () => props.visualElement.boundsPx;
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
-    return boundsPx.w / widthBl;
+    return boundsPx().w / widthBl;
   }
 
   return (
     <>
       <div class="absolute text-center"
-           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx.y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx.h/scale()}px; `+
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-sticky-note`} />
       </div>
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute overflow-hidden"
-           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx.y}px; ` +
-                  `width: ${(boundsPx.w - oneBlockWidthPx())/scale()}px; height: ${boundsPx.h / scale()}px; ` +
+           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
         <For each={props.visualElement.attachments}>{attachment =>

@@ -32,6 +32,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const desktopStore = useDesktopStore();
   let nodeElement: HTMLDivElementWithData | undefined;
 
+  const SMALL_TOOLBAR_WIDTH_PX = 28;
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
   const popupClickBoundsPx = () => {
@@ -123,7 +124,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <Show when={props.visualElement.childAreaBoundsPx != null}>
           <div class="absolute"
               style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
-                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+                     `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
             <For each={props.visualElement.children}>{childVe =>
               <VisualElementOnDesktop visualElement={childVe.get()} />
             }</For>
@@ -134,21 +135,23 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   }
 
   const borderColorVal = () => {
-    return `border-color: ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `;
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `;
   }
 
   const drawAsPopup = () => {
     return (
       <>
-        <div ref={nodeElement}
-             id={props.visualElement.itemId}
-             class={`absolute border-2 rounded-sm shadow-xl z-5`}
-             style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w+2}px; height: ${boundsPx().h+2}px; background-color: #bbbbbb;}`}>
+        <div class={`absolute rounded-sm shadow-xl`}
+             style={`left: ${boundsPx().x-SMALL_TOOLBAR_WIDTH_PX-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w+SMALL_TOOLBAR_WIDTH_PX+2}px; height: ${boundsPx().h+2}px; background-color: #dddddd;}`}>
         </div>
-        <div ref={nodeElement}
-            id={props.visualElement.itemId}
-            class={`absolute rounded-sm shadow-xl z-5`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #eeeeee; ${borderColorVal()}`}>
+        <div class={`absolute border rounded-sm`}
+             style={`left: ${boundsPx().x-SMALL_TOOLBAR_WIDTH_PX}px; top: ${boundsPx().y}px; width: ${boundsPx().w+SMALL_TOOLBAR_WIDTH_PX}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
+        </div>
+        <div class={`absolute rounded-sm text-gray-100`}
+             style={`left: ${boundsPx().x-SMALL_TOOLBAR_WIDTH_PX}px; top: ${boundsPx().y}px; width: ${SMALL_TOOLBAR_WIDTH_PX}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
+          <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
+            {pageItem().title}
+          </div>
         </div>
         <div class="absolute"
              style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
@@ -198,17 +201,11 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
-  // refer to: visual-element.ts
-  const boundsPx_cache = () => {
-    let currentBoundsPx = props.visualElement.boundsPx;
-    if (nodeElement == null) { return currentBoundsPx; }
-    return currentBoundsPx;
-  };
-  const boundsPx = props.visualElement.boundsPx;
-  const scale = () => boundsPx.h / LINE_HEIGHT_PX;
+  const boundsPx = () => props.visualElement.boundsPx;
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
-    return boundsPx.w / widthBl;
+    return boundsPx().w / widthBl;
   }
 
   return (
@@ -216,13 +213,13 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
       <div ref={nodeElement}
            id={props.visualElement.itemId}
            class="absolute"
-           style={`left: ${boundsPx_cache().x}px; top: ${boundsPx.y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx.h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
                   `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
                   `transform: scale(${0.7}); transform-origin: center center;`}>
       </div>
       <div class="absolute overflow-hidden"
-           style={`left: ${boundsPx_cache().x + oneBlockWidthPx()}px; top: ${boundsPx.y}px; ` +
-                  `width: ${(boundsPx.w - oneBlockWidthPx())/scale()}px; height: ${boundsPx.h / scale()}px; ` +
+           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         {pageItem().title}
         <For each={props.visualElement.attachments}>{attachment =>
