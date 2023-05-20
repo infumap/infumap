@@ -221,7 +221,7 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
   };
 
   const bgOpaqueVal = () => {
-    let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.986)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)});`;
+    let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
     return bg;
   }
 
