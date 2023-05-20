@@ -30,7 +30,7 @@ import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/p
 import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
 import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
-import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { asLinkItem, isLink, newLinkItem } from "../items/link-item";
 import { ItemGeometry } from "../item-geometry";
 import { Child } from "../relationship-to-parent";
@@ -73,7 +73,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          // rearrangeVisualElementsWithId(desktopStore, containerId);
+          rearrangeVisualElementsWithId(desktopStore, containerId);
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
@@ -445,7 +445,7 @@ export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: Visual
   const parentVisualElement = parent!.get();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
-  const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
+  const currentPageBoundsPx = zeroBoundingBoxTopLeft(parentVisualElement.childAreaBoundsPx!);
 
   const childId = ve.get().itemId;
   const childItem = desktopStore.getItem(ve.get().itemId)!;
@@ -477,7 +477,7 @@ export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: Visua
   const parentVisualElement = parent!.get();
   const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
-  const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
+  const currentPageBoundsPx = zeroBoundingBoxTopLeft(parentVisualElement.childAreaBoundsPx!);
 
   const childItem = desktopStore.getItem(ve.get().itemId)!;
   const geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
@@ -553,7 +553,11 @@ export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: Visual
   }
 
   const parentVisualElement = parent!.get();
-  const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
+  const parentItem = desktopStore.getItem(parentVisualElement.itemId)!;
+  if (!isPage(parentItem)) {
+    return;
+  }
+  const currentPage = asPageItem(parentItem);
   const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
   const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
   const innerBoundsPx = zeroBoundingBoxTopLeft(currentPageBoundsPx);

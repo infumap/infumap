@@ -133,23 +133,30 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     );
   }
 
+  const borderColorVal = () => {
+    return `border-color: ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `;
+  }
+
   const drawAsPopup = () => {
     return (
       <>
         <div ref={nodeElement}
-            id={props.visualElement.itemId}
-            class={`absolute border border-slate-700 rounded-sm shadow-xl z-5`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #eeeeee;`}>
+             id={props.visualElement.itemId}
+             class={`absolute border-2 rounded-sm shadow-xl z-5`}
+             style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w+2}px; height: ${boundsPx().h+2}px; background-color: #bbbbbb;}`}>
         </div>
-        <Show when={props.visualElement.childAreaBoundsPx != null}>
-          <div class="absolute"
-              style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
-                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-            <For each={props.visualElement.children}>{childVe =>
-              <VisualElementOnDesktop visualElement={childVe.get()} />
-            }</For>
-          </div>
-        </Show>
+        <div ref={nodeElement}
+            id={props.visualElement.itemId}
+            class={`absolute rounded-sm shadow-xl z-5`}
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #eeeeee; ${borderColorVal()}`}>
+        </div>
+        <div class="absolute"
+             style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
+                    `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+          <For each={props.visualElement.children}>{childVe =>
+            <VisualElementOnDesktop visualElement={childVe.get()} />
+          }</For>
+        </div>
       </>
     );
   }
