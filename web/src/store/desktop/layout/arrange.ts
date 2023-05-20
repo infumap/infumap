@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, batch } from "solid-js";
+import { batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
@@ -31,11 +31,12 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
 import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
-import { asLinkItem, newLinkItem } from "../items/link-item";
+import { asLinkItem, isLink, newLinkItem } from "../items/link-item";
 import { ItemGeometry } from "../item-geometry";
 import { Child } from "../relationship-to-parent";
 import { newOrdering } from "../../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
+import { panic } from "../../../util/lang";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -72,7 +73,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          rearrangeVisualElementsWithId(desktopStore, containerId);
+          // rearrangeVisualElementsWithId(desktopStore, containerId);
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);
@@ -149,7 +150,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   };
 
   topLevelVisualElement.children = currentPage.computed_children.get()
-    .map(childId => arrangeItem(desktopStore, desktopStore.getItem(childId)!, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl));
+    .map(childId => arrangeItem(desktopStore, desktopStore.getItem(childId)!, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl, false));
 
   const popupBreadcrumbs = currentPage.computed_popupBreadcrumbs.get();
   if (popupBreadcrumbs.length > 0) {
@@ -159,50 +160,60 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr.set(widthGr);
     li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
-    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl));
+    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl, true));
   }
 
   desktopStore.setRootVisualElement(topLevelVisualElement);
 }
 
-const arrangeItem = (desktopStore: DesktopStoreContextModel, childItem: Item, pageBoundsPx: BoundingBox, pageInnerPageDimensionsBl: Dimensions) => {
-  const geometry = calcGeometryOfItemInPage(childItem, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
+const arrangeItem = (
+    desktopStore: DesktopStoreContextModel,
+    item: Item,
+    pageBoundsPx: BoundingBox,
+    pageInnerPageDimensionsBl: Dimensions,
+    isPopup: boolean) => {
 
-  let isLink = false;
-  let spatialWidthGr = isXSizableItem(childItem)
-    ? asXSizableItem(childItem).spatialWidthGr.get()
+  if (isPopup) {
+    if (!isLink(item)) {
+      panic();
+    }
+  }
+
+  const geometry = calcGeometryOfItemInPage(item, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
+
+  let spatialWidthGr = isXSizableItem(item)
+    ? asXSizableItem(item).spatialWidthGr.get()
     : 0;
 
-  if (childItem.itemType == ITEM_TYPE_LINK) {
-    const linkItem = asLinkItem(childItem);
-    childItem = desktopStore.getItem(linkItem.linkToId)!;
-    if (isXSizableItem(childItem)) {
+  let _isLinkItem = false;
+  if (item.itemType == ITEM_TYPE_LINK) {
+    _isLinkItem = true;
+    const linkItem = asLinkItem(item);
+    item = desktopStore.getItem(linkItem.linkToId)!;
+    if (isXSizableItem(item)) {
       spatialWidthGr = linkItem.spatialWidthGr.get();
     }
-    isLink = true;
   }
 
-  if (isPage(childItem) && asPageItem(childItem).arrangeAlgorithm == "grid") {
+  if (isPage(item) && asPageItem(item).arrangeAlgorithm == "grid") {
     // Always make sure child items of grid pages are loaded, even if not visible,
     // because they are needed to to calculate the height.
-    initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
+    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
   }
 
-  const isPopup = isLink;
-
-  if (isPage(childItem) &&
+  if (isPage(item) &&
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
-    return arrangePageFull(desktopStore, childItem, geometry, isPopup, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
+    return arrangePageFull(desktopStore, item, geometry, isPopup, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
   }
 
-  if (isTable(childItem)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, childItem.id);
-    return arrangeTableFull(desktopStore, childItem, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+  if (isTable(item)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
+    return arrangeTableFull(desktopStore, item, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
   }
 
-  return arrangeNoChildren(childItem, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+  return arrangeNoChildren(item, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
 }
 
 const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal) => {
@@ -292,26 +303,12 @@ const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
   pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
-    const childItem = desktopStore.getItem(childId)!;
-    return arrangeItem(desktopStore, childItem, innerBoundsPx, innerDimensionsBl);
-
-    // const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
-    // const pageVisualElement: VisualElement = {
-    //   itemType: childItem.itemType,
-    //   itemId: childItem.id,
-    //   isInteractive: isPopup,
-    //   isPopup: false,
-    //   resizingFromBoundsPx: null,
-    //   boundsPx: geometry.boundsPx,
-    //   childAreaBoundsPx: null,
-    //   hitboxes: [],
-    //   children: [],
-    //   attachments: [],
-    //   parent: pageWithChildrenVisualElementSignal.get,
-    //   computed_mouseIsOver: createBooleanSignal(false),
-    //   computed_movingItemIsOver: createBooleanSignal(false),
-    // };
-    // return createVisualElementSignal(pageVisualElement);
+    const innerChildItem = desktopStore.getItem(childId)!;
+    if (isPopup) {
+      return arrangeItem(desktopStore, innerChildItem, innerBoundsPx, innerDimensionsBl, false);
+    }
+    const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, desktopStore.getItem);
+    return arrangeNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal);
   });
 
   return pageWithChildrenVisualElementSignal;
@@ -321,7 +318,7 @@ const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: Visu
   const itemVisualElement: VisualElement = {
     itemType: childItem.itemType,
     itemId: childItem.id,
-    isInteractive: true,
+    isInteractive: false,
     isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,

@@ -138,7 +138,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <>
         <div ref={nodeElement}
             id={props.visualElement.itemId}
-            class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
+            class={`absolute border border-slate-700 rounded-sm shadow-xl z-5`}
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #eeeeee;`}>
         </div>
         <Show when={props.visualElement.childAreaBoundsPx != null}>
