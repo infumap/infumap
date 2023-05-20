@@ -33,10 +33,11 @@ import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
 import { VisualElement } from "./store/desktop/visual-element";
-import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
+import { arrange, switchToPage } from "./store/desktop/layout/arrange";
 import { isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
 import { VisualElementSignal } from "./util/signals";
+import { rearrangeVisualElement } from "./store/desktop/layout/rearrange";
 
 
 const MOUSE_LEFT = 0;

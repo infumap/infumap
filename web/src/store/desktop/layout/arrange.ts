@@ -19,11 +19,9 @@
 import { batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
-import { server } from "../../../server";
 import { Uid } from "../../../util/uid";
-import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
+import { DesktopStoreContextModel } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
-import { asContainerItem } from "../items/base/container-item";
 import { ITEM_TYPE_LINK, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Item } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
@@ -37,6 +35,7 @@ import { Child } from "../relationship-to-parent";
 import { newOrdering } from "../../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../../../util/lang";
+import { initiateLoadChildItemsIfNotLoaded } from "./load";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -56,33 +55,6 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
   });
 }
 
-
-export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
-
-export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreContextModel, containerId: string) => {
-  if (childrenLoadInitiatedOrComplete[containerId]) {
-    return;
-  }
-  childrenLoadInitiatedOrComplete[containerId] = true;
-  server.fetchChildrenWithTheirAttachments(containerId)
-    .then(result => {
-      if (result != null) {
-        batch(() => {
-          desktopStore.setChildItemsFromServerObjects(containerId, result.items);
-          Object.keys(result.attachments).forEach(id => {
-            desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
-          });
-          asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          rearrangeVisualElementsWithId(desktopStore, containerId);
-        });
-      } else {
-        console.log(`No items were fetched for '${containerId}'.`);
-      }
-    })
-    .catch((e: any) => {
-      console.log(`Error occurred feching items for '${containerId}': ${e.message}.`);
-    });
-}
 
 /**
  * Create the visual element tree for the current page.
@@ -416,204 +388,3 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   desktopStore.setRootVisualElement(topLevelVisualElement);
 }
-
-export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
-  const ves = visualElementsWithId(desktopStore, id);
-  ves.forEach(ve => { rearrangeVisualElement(desktopStore, ve); });
-}
-
-export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, ves: VisualElementSignal): void => {
-  const ve = ves.get();
-  if (desktopStore.currentPageId() == ve.itemId) {
-    arrange(desktopStore);
-    return;
-  }
-
-  if (isTable(ve)) {
-    rearrangeTable(desktopStore, ves);
-  } else if (isPage(ve)) {
-    rearrangePage(desktopStore, ves);
-  } else {
-    rearrangeItem(desktopStore, ves);
-  }
-}
-
-export const rearrangeItem = (desktopStore: DesktopStoreContextModel, ve: VisualElementSignal) => {
-  const parent = ve.get().parent;
-  if (parent == null) { throw new Error(`item ${ve.get().itemId} has no parent.`); }
-
-  const parentVisualElement = parent!.get();
-  const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
-  const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
-  const currentPageBoundsPx = zeroBoundingBoxTopLeft(parentVisualElement.childAreaBoundsPx!);
-
-  const childId = ve.get().itemId;
-  const childItem = desktopStore.getItem(ve.get().itemId)!;
-  const geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
-
-  const itemVisualElement: VisualElement = {
-    itemType: ve.get().itemType,
-    itemId: childId,
-    isInteractive: true,
-    isPopup: false,
-    resizingFromBoundsPx: null,
-    boundsPx: geometry.boundsPx,
-    childAreaBoundsPx: null,
-    hitboxes: geometry.hitboxes,
-    children: [],
-    attachments: [],
-    parent,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
-  };
-
-  ve.set(itemVisualElement);
-}
-
-export const rearrangeTable = (desktopStore: DesktopStoreContextModel, ve: VisualElementSignal) => {
-  const parent = ve.get().parent;
-  if (parent == null) { throw new Error(`table ${ve.get().itemId} has no parent.`); }
-
-  const parentVisualElement = parent!.get();
-  const currentPage = asPageItem(desktopStore.getItem(parentVisualElement.itemId)!);
-  const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
-  const currentPageBoundsPx = zeroBoundingBoxTopLeft(parentVisualElement.childAreaBoundsPx!);
-
-  const childItem = desktopStore.getItem(ve.get().itemId)!;
-  const geometry = calcGeometryOfItemInPage(childItem, currentPageBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
-  let tableItem = asTableItem(childItem);
-
-  const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
-  const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
-
-  let childAreaBoundsPx = (() => {
-    const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-    return {
-      x: geometry.boundsPx.x, y: geometry.boundsPx.y + headerHeightPx,
-      w: geometry.boundsPx.w, h: geometry.boundsPx.h - headerHeightPx
-    };
-  })();
-
-  let tableVisualElement: VisualElement = {
-    itemType: ITEM_TYPE_TABLE,
-    itemId: tableItem.id,
-    isInteractive: true,
-    isPopup: false,
-    resizingFromBoundsPx: null,
-    boundsPx: geometry.boundsPx,
-    childAreaBoundsPx,
-    hitboxes: geometry.hitboxes,
-    children: [],
-    attachments: [],
-    parent,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
-  }
-
-  tableVisualElement.children = (() => {
-    let tableVeChildren: Array<VisualElementSignal> = [];
-    for (let idx=0; idx<tableItem.computed_children.get().length; ++idx) {
-      const childId = tableItem.computed_children.get()[idx];
-      const childItem = desktopStore.getItem(childId)!;
-      const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
-
-      let tableItemVisualElement: VisualElement = {
-        itemType: childItem.itemType,
-        itemId: childItem.id,
-        isInteractive: true,
-        isPopup: false,
-        resizingFromBoundsPx: null,
-        boundsPx: geometry.boundsPx,
-        hitboxes: geometry.hitboxes,
-        children: [],
-        attachments: [],
-        childAreaBoundsPx: null,
-        parent: ve,
-        computed_mouseIsOver: createBooleanSignal(false),
-        computed_movingItemIsOver: createBooleanSignal(false),
-      };
-      tableVeChildren.push(createVisualElementSignal(tableItemVisualElement));
-      // let attachments: Array<VisualElementSignal> = [];
-
-      if (isAttachmentsItem(childItem)) {
-        // TODO.
-      }
-    };
-    return tableVeChildren;
-  })();
-
-  ve.set(tableVisualElement);
-}
-
-export const rearrangePage = (desktopStore: DesktopStoreContextModel, ve: VisualElementSignal) => {
-  const parent = ve.get().parent;
-  if (parent == null) {
-    console.log("TODO: not rearranging page because parent is null");
-    return;
-  }
-
-  const parentVisualElement = parent!.get();
-  const parentItem = desktopStore.getItem(parentVisualElement.itemId)!;
-  if (!isPage(parentItem)) {
-    return;
-  }
-  const currentPage = asPageItem(parentItem);
-  const currentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
-  const currentPageBoundsPx = parentVisualElement.childAreaBoundsPx!;
-  const innerBoundsPx = zeroBoundingBoxTopLeft(currentPageBoundsPx);
-
-  const childId = ve.get().itemId;
-  const childItem = desktopStore.getItem(ve.get().itemId)!;
-  const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, currentPageInnerDimensionsBl, true, desktopStore.getItem);
-
-  const pageVisualElement: VisualElement = {
-    itemType: ITEM_TYPE_PAGE,
-    itemId: childId,
-    isInteractive: true,
-    isPopup: false,
-    resizingFromBoundsPx: null,
-    boundsPx: geometry.boundsPx,
-    childAreaBoundsPx: geometry.boundsPx,
-    hitboxes: geometry.hitboxes,
-    children: [],
-    attachments: [],
-    parent,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
-  };
-
-  if (// Page children are visible.
-      // This test does not depend on pixel size, so is invariant over display devices.
-      asPageItem(childItem).spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-    const pageItem = asPageItem(childItem);
-    initiateLoadChildItemsIfNotLoaded(desktopStore, pageItem.id);
-
-    const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
-    const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
-
-    // TODO (MEDIUM): If these already exist, they don't need to be replaced, only updated.
-    pageVisualElement.children = pageItem.computed_children.get().map(childId => {
-      const childItem = desktopStore.getItem(childId)!;
-      const geometry = calcGeometryOfItemInPage(childItem, innerBoundsPx, innerDimensionsBl, false, desktopStore.getItem);
-      const childVisualElement: VisualElement = {
-        itemType: childItem.itemType,
-        itemId: childItem.id,
-        isInteractive: false,
-        isPopup: false,
-        resizingFromBoundsPx: null,
-        boundsPx: geometry.boundsPx,
-        childAreaBoundsPx: null,
-        hitboxes: [],
-        children: [],
-        attachments: [],
-        parent: ve,
-        computed_mouseIsOver: createBooleanSignal(false),
-        computed_movingItemIsOver: createBooleanSignal(false),
-      };
-      return createVisualElementSignal(childVisualElement);
-    });
-  }
-
-  ve.set(pageVisualElement);
-}
-

@@ -19,7 +19,7 @@
 import { useNavigate } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { server } from "../server";
-import { childrenLoadInitiatedOrComplete, switchToPage } from "../store/desktop/layout/arrange";
+import { switchToPage } from "../store/desktop/layout/arrange";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
@@ -27,6 +27,7 @@ import { Desktop } from "./Desktop";
 import { Toolbar } from "./Toolbar";
 import { EMPTY_UID } from "../util/uid";
 import { ITEM_TYPE_NONE } from "../store/desktop/items/base/item";
+import { childrenLoadInitiatedOrComplete } from "../store/desktop/layout/load";
 
 
 export let logout: (() => Promise<void>) | null = null;

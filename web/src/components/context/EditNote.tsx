@@ -24,7 +24,8 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuTextArea } from "../library/InfuTextArea";
-import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
+import { arrange } from "../../store/desktop/layout/arrange";
+import { rearrangeVisualElementsWithId } from "../../store/desktop/layout/rearrange";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
