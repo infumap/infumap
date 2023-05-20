@@ -29,8 +29,6 @@ import { Rating } from "./items/Rating";
 import { Table } from "./items/Table";
 import { Image } from "./items/Image";
 import { File } from "./items/File";
-import { Link } from "./items/Link";
-import { isLink } from "../store/desktop/items/link-item";
 import { VisualElement } from "../store/desktop/visual-element";
 
 
@@ -47,7 +45,6 @@ export const VisualElementOnDesktop: Component<VisualElementOnDesktopProps> = (p
       <Match when={isImage(props.visualElement)}><Image {...props} /></Match>
       <Match when={isFile(props.visualElement)}><File {...props} /></Match>
       <Match when={isRating(props.visualElement)}><Rating {...props} /></Match>
-      <Match when={isLink(props.visualElement)}><Link {...props} /></Match>
     </Switch>
   );
 }

@@ -31,7 +31,6 @@ export const HEADER_HEIGHT_BL = 1.0;
 
 export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -45,9 +44,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   return (
     <>
       <Show when={!props.visualElement.isInteractive}>
-        <div ref={nodeElement}
-             id={props.visualElement.itemId}
-             class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+        <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; `}>
         </div>
       </Show>
@@ -145,7 +142,6 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
 export const TableInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -163,9 +159,7 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-sticky-note`} />
       </div>
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class="absolute overflow-hidden"
+      <div class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>

@@ -30,7 +30,6 @@ import { getImage, releaseImage } from "../../imageManager";
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
   let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
@@ -93,9 +92,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
   return (
     <Show when={boundsPx().w > 5}>
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
+      <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
            style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <Show when={isInteractive()} fallback={
             <img class="max-w-none absolute"

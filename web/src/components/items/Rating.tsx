@@ -23,20 +23,16 @@ import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
 
   return (
-    <div ref={nodeElement}
-         id={props.visualElement.itemId}
-         class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.isInteractive}>
         <i class={`fas fa-star text-yellow-400`} />
@@ -48,7 +44,6 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 
 export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -60,9 +55,7 @@ export const RatingInTable: Component<VisualElementInTableProps> = (props: Visua
 
   return (
     <>
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class="absolute text-center"
+      <div class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>

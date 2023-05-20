@@ -23,12 +23,10 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -40,9 +38,7 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const scale = () => Math.min(heightScale(), widthScale());
 
   return (
-    <div ref={nodeElement}
-         id={props.visualElement.itemId}
-         class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.isInteractive}>
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/5}px; width: ${naturalWidthPx()}px; ` +
@@ -61,7 +57,6 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -79,9 +74,7 @@ export const FileInTable: Component<VisualElementInTableProps> = (props: VisualE
                  `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-file`} />
       </div>
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class="absolute overflow-hidden"
+      <div class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>

@@ -25,12 +25,10 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const SMALL_TOOLBAR_WIDTH_PX = 28;
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
@@ -72,9 +70,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
   const drawAsOpaque = () => {
     return (
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+      <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgOpaqueVal()}>
         <Show when={props.visualElement.computed_mouseIsOver.get()}>
           <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
@@ -108,10 +104,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const drawAsTranslucent = () => {
     return (
       <>
-        <div ref={nodeElement}
-            id={props.visualElement.itemId}
-            class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
+        <div class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
           <Show when={props.visualElement.computed_mouseIsOver.get()}>
             <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
           </Show>
@@ -123,8 +117,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         </div>
         <Show when={props.visualElement.childAreaBoundsPx != null}>
           <div class="absolute"
-              style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
-                     `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+               style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
+                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
             <For each={props.visualElement.children}>{childVe =>
               <VisualElementOnDesktop visualElement={childVe.get()} />
             }</For>
@@ -166,9 +160,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
   const drawAsTopLevelPage = () => {
     return (
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class={`absolute`}
+      <div class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children}>{childVe =>
           <VisualElementOnDesktop visualElement={childVe.get()} />
@@ -198,7 +190,6 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
-  let nodeElement: HTMLDivElementWithData | undefined;
 
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -210,9 +201,7 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
 
   return (
     <>
-      <div ref={nodeElement}
-           id={props.visualElement.itemId}
-           class="absolute"
+      <div class="absolute"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
                   `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
                   `transform: scale(${0.7}); transform-origin: center center;`}>

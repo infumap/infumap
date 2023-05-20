@@ -19,7 +19,6 @@
 import { Component, Match, Switch } from "solid-js";
 import { isFile } from "../store/desktop/items/file-item";
 import { isImage } from "../store/desktop/items/image-item";
-import { isLink } from "../store/desktop/items/link-item";
 import { isNote } from "../store/desktop/items/note-item";
 import { isPage } from "../store/desktop/items/page-item";
 import { isRating } from "../store/desktop/items/rating-item";
@@ -27,7 +26,6 @@ import { isTable } from "../store/desktop/items/table-item";
 import { VisualElement } from "../store/desktop/visual-element";
 import { FileInTable } from "./items/File";
 import { ImageInTable } from "./items/Image";
-import { LinkInTable } from "./items/Link";
 import { NoteInTable } from "./items/Note";
 import { PageInTable } from "./items/Page";
 import { RatingInTable } from "./items/Rating";
@@ -48,7 +46,6 @@ export const VisualElementInTable: Component<VisualElementInTableProps> = (props
       <Match when={isImage(props.visualElement)}><ImageInTable {...props} /></Match>
       <Match when={isFile(props.visualElement)}><FileInTable {...props} /></Match>
       <Match when={isRating(props.visualElement)}><RatingInTable {...props} /></Match>
-      <Match when={isLink(props.visualElement)}><LinkInTable {...props} /></Match>
     </Switch>
   );
 }
