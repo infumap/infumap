@@ -25,6 +25,7 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { calcSizeForSpatialBl } from "../../store/desktop/items/base/item-polymorphism";
 
 
 export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -198,13 +199,36 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
     const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
+  const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), desktopStore.getItem);
+  const aspect = () => dimensionsBl().w / dimensionsBl().h;
+  const thumbBoundsPx = () => {
+    if (aspect() >= 1.0) {
+      const w = oneBlockWidthPx() * 0.75;
+      let h = w / aspect() * boundsPx().h / oneBlockWidthPx();
+      if (h < 3 && w > 4) { h = 3; }
+      const x = (oneBlockWidthPx() - w) / 2.0;
+      const y = (boundsPx().h - h) / 2.0 + boundsPx().y;
+      const result = { x, y, w, h };
+      return result;
+    }
+    const h = boundsPx().h * 0.75;
+    let w = h * aspect() * oneBlockWidthPx() / boundsPx().h;
+    if (w < 3 && h > 4) { w = 3; }
+    const x = (oneBlockWidthPx() - w) / 2.0;
+    const y = (boundsPx().h - h) / 2.0 + boundsPx().y;
+    const result = { x, y, w, h };
+    return result;
+  };
+
+  const bgOpaqueVal = () => {
+    let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.986)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)});`;
+    return bg;
+  }
 
   return (
     <>
-      <div class="absolute"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px; ` +
-                  `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)}); ` +
-                  `transform: scale(${0.7}); transform-origin: center center;`}>
+      <div class="absolute border border-slate-700 rounded-sm shadow-sm"
+           style={`left: ${thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` + bgOpaqueVal()}>
       </div>
       <div class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
