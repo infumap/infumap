@@ -131,7 +131,6 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     }
     return result;
   })();
-  const topLevelPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(currentPage);
 
   const topLevelVisualElement: VisualElement = {
     itemType: ITEM_TYPE_PAGE,
@@ -150,7 +149,12 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   };
 
   topLevelVisualElement.children = currentPage.computed_children.get()
-    .map(childId => arrangeItem(desktopStore, desktopStore.getItem(childId)!, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl, false));
+    .map(childId => arrangeItem(
+      desktopStore,
+      desktopStore.getItem(childId)!,
+      topLevelPageBoundsPx,
+      { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement },
+      false));
 
   const popupBreadcrumbs = currentPage.computed_popupBreadcrumbs.get();
   if (popupBreadcrumbs.length > 0) {
@@ -160,7 +164,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr.set(widthGr);
     li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
-    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, topLevelPageInnerDimensionsBl, true));
+    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement }, true));
   }
 
   desktopStore.setRootVisualElement(topLevelVisualElement);
@@ -169,8 +173,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
     item: Item,
-    pageBoundsPx: BoundingBox,
-    pageInnerPageDimensionsBl: Dimensions,
+    containerBoundsPx: BoundingBox,
+    parentVisualElementSignal: VisualElementSignal, // used to establish back references only, not called.
     isPopup: boolean) => {
 
   if (isPopup) {
@@ -178,6 +182,10 @@ const arrangeItem = (
       panic();
     }
   }
+
+  const parent = asPageItem(desktopStore.getItem(item.parentId)!);
+  const pageBoundsPx = zeroBoundingBoxTopLeft(containerBoundsPx);
+  const pageInnerPageDimensionsBl = calcPageInnerSpatialDimensionsBl(parent);
 
   const geometry = calcGeometryOfItemInPage(item, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
 
@@ -205,15 +213,15 @@ const arrangeItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePageFull(desktopStore, item, geometry, isPopup, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+    return arrangePageFull(desktopStore, item, geometry, isPopup, parentVisualElementSignal);
   }
 
   if (isTable(item)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangeTableFull(desktopStore, item, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+    return arrangeTableFull(desktopStore, item, geometry, parentVisualElementSignal);
   }
 
-  return arrangeNoChildren(item, geometry, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+  return arrangeNoChildren(item, geometry, parentVisualElementSignal, true);
 }
 
 const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal) => {
@@ -305,20 +313,20 @@ const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item
   pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
     const innerChildItem = desktopStore.getItem(childId)!;
     if (isPopup) {
-      return arrangeItem(desktopStore, innerChildItem, innerBoundsPx, innerDimensionsBl, false);
+      return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, false);
     }
     const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, desktopStore.getItem);
-    return arrangeNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal);
+    return arrangeNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal, false);
   });
 
   return pageWithChildrenVisualElementSignal;
 }
 
-const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal) => {
+const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal, isInteractive: boolean) => {
   const itemVisualElement: VisualElement = {
     itemType: childItem.itemType,
     itemId: childItem.id,
-    isInteractive: false,
+    isInteractive,
     isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
