@@ -80,8 +80,8 @@ export const Main: Component = () => {
 
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
-      <Show when={desktopStore.rootVisualElement().itemType != ITEM_TYPE_NONE}>
-        <Desktop visualElement={desktopStore.rootVisualElement()} />
+      <Show when={desktopStore.topLevelVisualElement().itemType != ITEM_TYPE_NONE}>
+        <Desktop visualElement={desktopStore.topLevelVisualElement()} />
       </Show>
       <Toolbar />
     </div>

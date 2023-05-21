@@ -47,8 +47,6 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
-
-  computed_popupBreadcrumbs: UidArraySignal;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
@@ -92,8 +90,6 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-
-    computed_popupBreadcrumbs: createUidArraySignal([]),
   };
 }
 
@@ -129,8 +125,6 @@ export function pageFromObject(o: any): PageItem {
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-
-    computed_popupBreadcrumbs: createUidArraySignal([]),
   });
 }
 
@@ -312,11 +306,7 @@ export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreCo
 
 
 export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  let parentPageMaybe = desktopStore.getItem(pageItem.parentId)!;
-  let parentPage = isPage(parentPageMaybe)
-    ? asPageItem(parentPageMaybe)
-    : asPageItem(desktopStore.getItem(parentPageMaybe.parentId)!); // parent was a table.
-  parentPage.computed_popupBreadcrumbs.set([pageItem.id]);
+  desktopStore.pushPopupId(pageItem.id)
   arrange(desktopStore);
 }
 

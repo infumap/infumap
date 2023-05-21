@@ -125,21 +125,20 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
       desktopStore,
       desktopStore.getItem(childId)!,
       topLevelPageBoundsPx,
-      { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement },
+      { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
       false));
 
-  const popupBreadcrumbs = currentPage.computed_popupBreadcrumbs.get();
-  if (popupBreadcrumbs.length > 0) {
-    let popupId = popupBreadcrumbs[popupBreadcrumbs.length-1];
+  let popupId = desktopStore.popupId();
+  if (popupId != null) {
     let li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupId);
     let widthGr = Math.round((currentPage.innerSpatialWidthGr.get() / GRID_SIZE) / 2.0) * GRID_SIZE;
     let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr.set(widthGr);
     li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
-    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement }, true));
+    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement }, true));
   }
 
-  desktopStore.setRootVisualElement(topLevelVisualElement);
+  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
 
 const arrangeItem = (
@@ -374,7 +373,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           hitboxes: geometry.hitboxes,
           children: [],
           attachments: [],
-          parent: { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement },
+          parent: { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
           computed_mouseIsOver: createBooleanSignal(false),
           computed_movingItemIsOver: createBooleanSignal(false),
         };
@@ -386,5 +385,5 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     return children;
   })();
 
-  desktopStore.setRootVisualElement(topLevelVisualElement);
+  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }

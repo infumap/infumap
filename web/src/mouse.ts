@@ -60,14 +60,14 @@ export function getHitInfo(
     posOnDesktopPx: Vector,
     ignore: Array<Uid>): HitInfo {
 
-  const topLevelVisualElement: VisualElement = desktopStore.rootVisualElement();
+  const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
   const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement!.itemId)!);
   const posRelativeToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
   // root is either the top level page, or popup if mouse is over the popup.
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
-  let rootVisualElementSignal = { get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement };
+  let rootVisualElementSignal = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
   if (topLevelVisualElement.children.length > 0) {
     const popupVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
     if (popupVeMaybe.isPopup &&
@@ -245,11 +245,9 @@ export function mouseRightDownHandler(
     return;
   }
 
-  const popupContainer = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
-  if (popupContainer.computed_popupBreadcrumbs.get().length > 0) {
-    popupContainer.computed_popupBreadcrumbs.set((() => { let vs = popupContainer.computed_popupBreadcrumbs.get(); vs.pop(); return vs; })());
+  if (desktopStore.popupId() != null) {
+    desktopStore.popPopupId();
     arrange(desktopStore);
-    return;
   }
 
   let parentId = desktopStore.getItem(desktopStore.topLevelPageId()!)!.parentId;
@@ -262,7 +260,9 @@ export function mouseRightDownHandler(
     parentId = desktopStore.getItem(parentId)!.parentId;
     if (loopCount++ > 10) { panic(); }
   }
-  switchToPage(desktopStore, parentId);
+
+  desktopStore.popTopLevelPageId();
+  arrange(desktopStore);
 }
 
 
@@ -407,9 +407,9 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
   const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!.get().itemId;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableVe = desktopStore.rootVisualElement().children.map(c => c.get()).find(el => el.itemId == tableVeId)!;
+  const tableVe = desktopStore.topLevelVisualElement().children.map(c => c.get()).find(el => el.itemId == tableVeId)!;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableParentVe = desktopStore.rootVisualElement();
+  const tableParentVe = desktopStore.topLevelVisualElement();
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
@@ -435,7 +435,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     arrange(desktopStore); // align visual elements with item tree.
   });
   // TODO (MEDIUM): won't work in (anticipated) general case.
-  mouseActionState!.activeVisualElementSignal = desktopStore.rootVisualElement().children.find(el => el.get().itemId == activeItem.id)!;
+  mouseActionState!.activeVisualElementSignal = desktopStore.topLevelVisualElement().children.find(el => el.get().itemId == activeItem.id)!;
   mouseActionState!.onePxSizeBl = {
     x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
     y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h

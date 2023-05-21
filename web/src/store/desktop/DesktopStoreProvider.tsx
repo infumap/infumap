@@ -56,8 +56,8 @@ export interface DesktopStoreContextModel {
   popPopupId: () => void,
   popupId: () => Uid | null,
 
-  rootVisualElement: Accessor<VisualElement>,
-  setRootVisualElement: Setter<VisualElement>,
+  topLevelVisualElement: Accessor<VisualElement>,
+  setTopLevelVisualElement: Setter<VisualElement>,
 }
 
 export interface DesktopStoreContextProps {
@@ -85,9 +85,9 @@ interface PageBreadcrumb {
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [_rootId, setRootId] = createSignal<Uid | null>(null, { equals: false });
   let items: { [id: Uid]: ItemSignal } = {};
-  const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
+  // const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
-  const [rootVisualElement, setRootVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
+  const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
   let breadcrumbs: Array<PageBreadcrumb> = [];
 
@@ -258,42 +258,64 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
   const clearBreadcrumbs = (): void => {
-    setCurrentPageId(null);
     breadcrumbs = [];
+    console.log("clearBreadcrumbs", breadcrumbs);
   }
 
   const pushTopLevelPageId = (uid: Uid): void => {
     breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
-    setCurrentPageId(uid);
+    console.log("pushTopLevelPageId", breadcrumbs);
   }
 
   const popTopLevelPageId = (): void => {
     if (breadcrumbs.length <= 1) {
+      console.log("popTopLevelPageId (0)", breadcrumbs);
       return;
     }
     breadcrumbs.pop();
-    setCurrentPageId(breadcrumbs[breadcrumbs.length-1].pageId);
+    console.log("popTopLevelPageId (1)", breadcrumbs);
   }
 
   const topLevelPageId = (): Uid | null => {
-    return currentPageId();
+    if (breadcrumbs.length == 0) {
+      console.log("topLevelPageId", breadcrumbs);
+      return null;
+    }
+    console.log("topLevelPageId", breadcrumbs);
+    return breadcrumbs[breadcrumbs.length-1].pageId;
   }
 
   const pushPopupId = (uid: Uid): void => {
-    if (breadcrumbs.length == 0) { panic(); }
+    if (breadcrumbs.length == 0) {
+      panic();
+    }
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(uid);
+    console.log("pushPopupId", breadcrumbs);
   }
 
   const popPopupId = (): void => {
-    if (breadcrumbs.length == 0) { panic(); }
-    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) { return; }
+    if (breadcrumbs.length == 0) {
+      panic();
+    }
+    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
+      console.log("popPopupId (0)", breadcrumbs);
+      return;
+    }
+    console.log("popPopupId (1)", breadcrumbs);
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
   }
 
   const popupId = (): Uid | null => {
-    if (breadcrumbs.length == 0) { panic(); }
-    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) { return null; }
-    return breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs[breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length-1];
+    if (breadcrumbs.length == 0) {
+      panic();
+    }
+    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
+      console.log("popupId (0)", breadcrumbs);
+      return null;
+    }
+    const lastBreadcrumbPopups = breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs;
+    console.log("popPopupId (1)", lastBreadcrumbPopups, breadcrumbs);
+    return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
   }
 
   const value: DesktopStoreContextModel = {
@@ -302,8 +324,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     updateItem, updateContainerItem,
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
-    rootVisualElement, setRootVisualElement,
-    clearBreadcrumbs, pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
+    topLevelVisualElement, setTopLevelVisualElement,
+    clearBreadcrumbs,
+    pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
     pushPopupId, popPopupId, popupId,
   };
 
@@ -322,9 +345,9 @@ export function useDesktopStore() : DesktopStoreContextModel {
 
 export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
-  const rootVe = desktopStore.rootVisualElement();
+  const rootVe = desktopStore.topLevelVisualElement();
   if (rootVe.itemId == id) {
-    result.push({ get: desktopStore.rootVisualElement, set: desktopStore.setRootVisualElement });
+    result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
   result = result.concat(childVisualElementsWithId(desktopStore, rootVe, id));
   return result;
