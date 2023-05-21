@@ -40,7 +40,7 @@ import { initiateLoadChildItemsIfNotLoaded } from "./load";
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
   batch(() => {
-    desktopStore.setCurrentPageId(id);
+    desktopStore.pushTopLevelPageId(id);
     var page = asPageItem(desktopStore.getItem(id)!);
     // TODO (HIGH): get rid of this horrible hack!
     let desktopEl = window.document.getElementById("desktop")!;
@@ -76,9 +76,9 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
  *    approach is more ad-hoc / less "automated", I think the code is simpler to work on due to this.
  */
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
-  if (desktopStore.currentPageId() == null) { return; }
-  initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.currentPageId()!);
-  let currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  if (desktopStore.topLevelPageId() == null) { return; }
+  initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.topLevelPageId()!);
+  let currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   if (currentPage.arrangeAlgorithm == "grid") {
     arrange_grid(desktopStore);
   } else {
@@ -88,7 +88,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 
 
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
-  const currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = currentPage.naturalAspect.get();
   const topLevelPageBoundsPx = (() => {
@@ -315,7 +315,7 @@ const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: Visu
 }
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
-  const currentPage = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
   const numCols = currentPage.gridNumberOfColumns.get();

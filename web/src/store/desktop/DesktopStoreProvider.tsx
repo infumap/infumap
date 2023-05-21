@@ -47,8 +47,14 @@ export interface DesktopStoreContextModel {
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
-  setCurrentPageId: Setter<Uid | null>,
-  currentPageId: Accessor<Uid | null>,
+  clearBreadcrumbs: () => void, // and set topLevel page to null.
+  pushTopLevelPageId: (uid: Uid) => void,
+  popTopLevelPageId: () => void,
+  topLevelPageId: () => Uid | null,
+
+  pushPopupId: (id: Uid) => void,
+  popPopupId: () => void,
+  popupId: () => Uid | null,
 
   rootVisualElement: Accessor<VisualElement>,
   setRootVisualElement: Setter<VisualElement>,
@@ -71,6 +77,10 @@ function createItemSignal(item: Item): ItemSignal {
   return { item: itemAccessor, setItem: itemSetter };
 }
 
+interface PageBreadcrumb {
+  pageId: Uid,
+  popupBreadcrumbs: Array<Uid>,
+}
 
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [_rootId, setRootId] = createSignal<Uid | null>(null, { equals: false });
@@ -78,6 +88,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [rootVisualElement, setRootVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
+
+  let breadcrumbs: Array<PageBreadcrumb> = [];
+
 
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
 
@@ -244,15 +257,54 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }
   }
 
+  const clearBreadcrumbs = (): void => {
+    setCurrentPageId(null);
+    breadcrumbs = [];
+  }
+
+  const pushTopLevelPageId = (uid: Uid): void => {
+    breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
+    setCurrentPageId(uid);
+  }
+
+  const popTopLevelPageId = (): void => {
+    if (breadcrumbs.length <= 1) {
+      return;
+    }
+    breadcrumbs.pop();
+    setCurrentPageId(breadcrumbs[breadcrumbs.length-1].pageId);
+  }
+
+  const topLevelPageId = (): Uid | null => {
+    return currentPageId();
+  }
+
+  const pushPopupId = (uid: Uid): void => {
+    if (breadcrumbs.length == 0) { panic(); }
+    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(uid);
+  }
+
+  const popPopupId = (): void => {
+    if (breadcrumbs.length == 0) { panic(); }
+    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) { return; }
+    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
+  }
+
+  const popupId = (): Uid | null => {
+    if (breadcrumbs.length == 0) { panic(); }
+    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) { return null; }
+    return breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs[breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length-1];
+  }
 
   const value: DesktopStoreContextModel = {
-    currentPageId, setCurrentPageId,
     desktopBoundsPx, resetDesktopSizePx,
     setRootId, setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
     updateItem, updateContainerItem,
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
-    rootVisualElement, setRootVisualElement
+    rootVisualElement, setRootVisualElement,
+    clearBreadcrumbs, pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
+    pushPopupId, popPopupId, popupId,
   };
 
   return (

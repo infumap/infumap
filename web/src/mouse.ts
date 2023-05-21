@@ -166,7 +166,7 @@ export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
     generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
-  if (desktopStore.currentPageId() == null) { return; }
+  if (desktopStore.topLevelPageId() == null) { return; }
   if (ev.button == MOUSE_LEFT) {
     mouseLeftDownHandler(desktopStore, generalStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
@@ -245,14 +245,14 @@ export function mouseRightDownHandler(
     return;
   }
 
-  const popupContainer = asPageItem(desktopStore.getItem(desktopStore.currentPageId()!)!);
+  const popupContainer = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   if (popupContainer.computed_popupBreadcrumbs.get().length > 0) {
     popupContainer.computed_popupBreadcrumbs.set((() => { let vs = popupContainer.computed_popupBreadcrumbs.get(); vs.pop(); return vs; })());
     arrange(desktopStore);
     return;
   }
 
-  let parentId = desktopStore.getItem(desktopStore.currentPageId()!)!.parentId;
+  let parentId = desktopStore.getItem(desktopStore.topLevelPageId()!)!.parentId;
   let loopCount = 0;
   while (!isPage(desktopStore.getItem(parentId!)!)) {
     if (parentId == EMPTY_UID) {
@@ -270,7 +270,7 @@ export function mouseMoveHandler(
     desktopStore: DesktopStoreContextModel,
     generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
-  if (desktopStore.currentPageId() == null) { return; }
+  if (desktopStore.topLevelPageId() == null) { return; }
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
@@ -294,7 +294,7 @@ export function mouseMoveHandler(
           lastMouseOver.get().computed_mouseIsOver.set(false);
         }
         lastMouseOver = null;
-        if (overElement!.get().itemId != desktopStore.currentPageId() &&
+        if (overElement!.get().itemId != desktopStore.topLevelPageId() &&
             !overElement.get().isPopup) {
           overElement!.get().computed_mouseIsOver.set(true);
           lastMouseOver = overElement;

@@ -39,7 +39,7 @@ export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextM
 
 export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, ves: VisualElementSignal): void => {
   const ve = ves.get();
-  if (desktopStore.currentPageId() == ve.itemId) {
+  if (desktopStore.topLevelPageId() == ve.itemId) {
     arrange(desktopStore);
     return;
   }

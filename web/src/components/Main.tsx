@@ -69,7 +69,7 @@ export const Main: Component = () => {
     await userStore.logout();
     generalStore.setEditDialogInfo(null);
     generalStore.setContextMenuInfo(null);
-    desktopStore.setCurrentPageId(null);
+    desktopStore.clearBreadcrumbs();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
       if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {

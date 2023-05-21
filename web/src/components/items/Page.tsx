@@ -172,13 +172,13 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
   return (
     <>
-      <Show when={pageItem().id == desktopStore.currentPageId()}>
+      <Show when={pageItem().id == desktopStore.topLevelPageId()}>
         {drawAsTopLevelPage()}
       </Show>
-      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.currentPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.currentPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
       <Show when={props.visualElement.isPopup}>
