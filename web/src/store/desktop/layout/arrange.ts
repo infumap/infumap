@@ -36,6 +36,7 @@ import { newOrdering } from "../../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../../../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
+import { Hitbox, HitboxType, cloneHitbox } from "../hitbox";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -126,7 +127,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
       desktopStore.getItem(childId)!,
       topLevelPageBoundsPx,
       { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
-      false));
+      false, false));
 
   let popupId = desktopStore.popupId();
   if (popupId != null) {
@@ -141,10 +142,16 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
         li,
         topLevelPageBoundsPx,
         { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
-        true));
+        false, true));
   }
 
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+}
+
+enum RenderStyle {
+  Full,
+  InsidePopup,
+  Placeholder,
 }
 
 const arrangeItem = (
@@ -152,6 +159,7 @@ const arrangeItem = (
     item: Item,
     containerBoundsPx: BoundingBox,
     parentSignalUnderConstruction: VisualElementSignal, // used to establish back references only, not called.
+    parentIsPopup: boolean,
     isPopup: boolean) => {
 
   if (isPopup) {
@@ -190,7 +198,7 @@ const arrangeItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePage(desktopStore, asPageItem(item), geometry, parentSignalUnderConstruction, isPopup);
+    return arrangePage(desktopStore, asPageItem(item), geometry, parentSignalUnderConstruction, parentIsPopup, isPopup);
   }
 
   if (isTable(item)) {
@@ -198,7 +206,7 @@ const arrangeItem = (
     return arrangeTable(desktopStore, asTableItem(item), geometry, parentSignalUnderConstruction);
   }
 
-  return arrangeItemNoChildren(item, geometry, parentSignalUnderConstruction, true);
+  return arrangeItemNoChildren(item, geometry, parentSignalUnderConstruction, parentIsPopup ? RenderStyle.InsidePopup : RenderStyle.Full);
 }
 
 const arrangeTable = (
@@ -273,7 +281,16 @@ const arrangePage = (
     pageItem: PageItem,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
+    parentIsPopup: boolean,
     isPopup: boolean) => {
+
+  let hitboxes: Array<Hitbox> = parentIsPopup
+    ? geometry.hitboxes.filter(hb => hb.type != HitboxType.OpenPopup).map(hb => {
+        let nHb = cloneHitbox(hb)!;
+        if (nHb.type == HitboxType.Click) { nHb.type = HitboxType.OpenPopup }
+        return nHb;
+      })
+    : geometry.hitboxes;
 
   const pageWithChildrenVisualElement: VisualElement = {
     itemType: ITEM_TYPE_PAGE,
@@ -283,7 +300,7 @@ const arrangePage = (
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
-    hitboxes: geometry.hitboxes,
+    hitboxes,
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,
@@ -298,10 +315,10 @@ const arrangePage = (
   pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
     const innerChildItem = desktopStore.getItem(childId)!;
     if (isPopup) {
-      return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, false);
+      return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, true, false);
     }
     const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, desktopStore.getItem);
-    return arrangeItemNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal, false);
+    return arrangeItemNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal, RenderStyle.Placeholder);
   });
 
   return pageWithChildrenVisualElementSignal;
@@ -311,17 +328,31 @@ const arrangeItemNoChildren = (
     childItem: Item,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
-    isInteractive: boolean) => {
+    style: RenderStyle) => {
+
+  let hitboxes: Array<Hitbox> = [];
+  if (style == RenderStyle.Full) {
+    hitboxes = geometry.hitboxes;
+  }
+  if (style == RenderStyle.InsidePopup) {
+    if (isPage(childItem)) {
+      hitboxes = geometry.hitboxes.filter(hb => hb.type != HitboxType.OpenPopup).map(hb => {
+        let nHb = cloneHitbox(hb)!;
+        if (nHb.type == HitboxType.Click) { nHb.type = HitboxType.OpenPopup }
+        return nHb;
+      });
+    }
+  }
 
   const itemVisualElement: VisualElement = {
     itemType: childItem.itemType,
     itemId: childItem.id,
-    isInteractive,
+    isInteractive: style != RenderStyle.Placeholder,
     isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: null,
-    hitboxes: geometry.hitboxes,
+    hitboxes: hitboxes,
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,
@@ -329,8 +360,7 @@ const arrangeItemNoChildren = (
     computed_movingItemIsOver: createBooleanSignal(false),
   };
 
-  const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
-  return itemVisualElementSignal;
+  return createVisualElementSignal(itemVisualElement);
 }
 
 

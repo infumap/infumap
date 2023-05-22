@@ -26,6 +26,8 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { calcSizeForSpatialBl } from "../../store/desktop/items/base/item-polymorphism";
+import { HitboxType } from "../../store/desktop/hitbox";
+import { BoundingBox } from "../../util/geometry";
 
 
 export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -34,13 +36,10 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const SMALL_TOOLBAR_WIDTH_PX = 28;
   const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
   const boundsPx = () => props.visualElement.boundsPx;
-  const popupClickBoundsPx = () => {
-    return ({
-      x: boundsPx().w / 3.0,
-      y: boundsPx().h / 3.0,
-      w: boundsPx().w / 3.0,
-      h: boundsPx().h / 3.0,
-    })
+  const popupClickBoundsPx = (): BoundingBox | null => {
+    const hbMaybe = props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup);
+    if (!hbMaybe) { return null; }
+    return hbMaybe.boundsPx;
   }
 
   const calcOpaqueScale = createMemo((): number => {
@@ -73,8 +72,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgOpaqueVal()}>
-        <Show when={props.visualElement.computed_mouseIsOver.get()}>
-          <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
+        <Show when={props.visualElement.computed_mouseIsOver.get() && popupClickBoundsPx() != null}>
+          <div class={`absolute`} style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; background-color: #ff00ff`}></div>
         </Show>
         <Show when={props.visualElement.isInteractive}>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
@@ -107,8 +106,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
-          <Show when={props.visualElement.computed_mouseIsOver.get()}>
-            <div class={`absolute`} style={`left: ${popupClickBoundsPx().x}px; top: ${popupClickBoundsPx().y}px; width: ${popupClickBoundsPx().w}px; height: ${popupClickBoundsPx().h}px; background-color: #ff00ff`}></div>
+          <Show when={props.visualElement.computed_mouseIsOver.get() && popupClickBoundsPx() != null}>
+            <div class={`absolute`} style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; background-color: #ff00ff`}></div>
           </Show>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xl font-bold text-white">
