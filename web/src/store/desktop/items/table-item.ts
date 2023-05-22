@@ -19,7 +19,7 @@
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../../../util/geometry";
-import { currentUnixTimeSeconds, notImplemented, panic } from "../../../util/lang";
+import { currentUnixTimeSeconds, panic } from "../../../util/lang";
 import { newUid, Uid } from "../../../util/uid";
 import { AttachmentsItem } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";

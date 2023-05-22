@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { BoundingBox, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
+import { createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";

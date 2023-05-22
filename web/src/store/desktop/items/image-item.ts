@@ -19,7 +19,7 @@
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
-import { notImplemented, panic } from "../../../util/lang";
+import { panic } from "../../../util/lang";
 import { AttachmentsItem } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
 import { ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
@@ -27,7 +27,7 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
+import { createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {

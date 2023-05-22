@@ -19,7 +19,7 @@
 import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { notImplemented, panic } from '../../../util/lang';
+import { panic } from '../../../util/lang';
 import { AttachmentsItem } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
@@ -27,7 +27,7 @@ import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 

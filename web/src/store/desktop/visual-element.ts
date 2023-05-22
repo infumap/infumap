@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor } from "solid-js";
 import { BoundingBox } from "../../util/geometry";
 import { EMPTY_UID } from "../../util/uid";
 import { Uid } from "../../util/uid";

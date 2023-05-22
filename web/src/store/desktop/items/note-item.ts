@@ -16,10 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../../../constants';
+import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { currentUnixTimeSeconds, notImplemented, panic } from '../../../util/lang';
+import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
@@ -27,7 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 

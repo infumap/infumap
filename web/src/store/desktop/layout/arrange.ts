@@ -135,7 +135,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr.set(widthGr);
     li.spatialPositionGr.set({ x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE });
-    topLevelVisualElement.children.push(arrangeItem(desktopStore, li, topLevelPageBoundsPx, { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement }, true));
+    topLevelVisualElement.children.push(
+      arrangeItem(
+        desktopStore,
+        li,
+        topLevelPageBoundsPx,
+        { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
+        true));
   }
 
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
@@ -312,6 +318,7 @@ const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: Visu
   const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
   return itemVisualElementSignal;
 }
+
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);

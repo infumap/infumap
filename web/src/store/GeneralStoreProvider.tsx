@@ -19,7 +19,7 @@
 import { Accessor, createContext, createSignal, Setter, useContext } from "solid-js";
 import { JSX } from "solid-js/jsx-runtime";
 import { post } from "../server";
-import { BoundingBox, Dimensions, Vector } from "../util/geometry";
+import { BoundingBox, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { Item } from "./desktop/items/base/item";
 

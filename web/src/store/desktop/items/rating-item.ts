@@ -19,11 +19,11 @@
 import { GRID_SIZE } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { notImplemented, panic } from '../../../util/lang';
+import { panic } from '../../../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createBooleanSignal, createVectorSignal } from '../../../util/signals';
+import { createVectorSignal } from '../../../util/signals';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
