@@ -37,19 +37,19 @@ export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextM
   ves.forEach(ve => { rearrangeVisualElement(desktopStore, ve); });
 }
 
-export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, ves: VisualElementSignal): void => {
-  const ve = ves.get();
+export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
+  const ve = visualElementSignal.get();
   if (desktopStore.topLevelPageId() == ve.itemId) {
     arrange(desktopStore);
     return;
   }
 
   if (isTable(ve)) {
-    rearrangeTable(desktopStore, ves);
+    rearrangeTable(desktopStore, visualElementSignal);
   } else if (isPage(ve)) {
-    rearrangePage(desktopStore, ves);
+    rearrangePage(desktopStore, visualElementSignal);
   } else {
-    rearrangeItem(desktopStore, ves);
+    rearrangeItem(desktopStore, visualElementSignal);
   }
 }
 

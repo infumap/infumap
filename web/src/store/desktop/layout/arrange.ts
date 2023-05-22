@@ -328,13 +328,13 @@ const arrangeItemNoChildren = (
     childItem: Item,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
-    style: RenderStyle) => {
+    renderStyle: RenderStyle) => {
 
   let hitboxes: Array<Hitbox> = [];
-  if (style == RenderStyle.Full) {
+  if (renderStyle == RenderStyle.Full) {
     hitboxes = geometry.hitboxes;
   }
-  if (style == RenderStyle.InsidePopup) {
+  if (renderStyle == RenderStyle.InsidePopup) {
     if (isPage(childItem)) {
       hitboxes = geometry.hitboxes.filter(hb => hb.type != HitboxType.OpenPopup).map(hb => {
         let nHb = cloneHitbox(hb)!;
@@ -347,7 +347,7 @@ const arrangeItemNoChildren = (
   const itemVisualElement: VisualElement = {
     itemType: childItem.itemType,
     itemId: childItem.id,
-    isInteractive: style != RenderStyle.Placeholder,
+    isInteractive: renderStyle != RenderStyle.Placeholder,
     isPopup: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
