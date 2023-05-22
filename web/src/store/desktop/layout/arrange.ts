@@ -24,8 +24,8 @@ import { DesktopStoreContextModel } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { ITEM_TYPE_LINK, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Item } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
-import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
+import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
 import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
@@ -151,7 +151,7 @@ const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
     item: Item,
     containerBoundsPx: BoundingBox,
-    parentVisualElementSignal: VisualElementSignal, // used to establish back references only, not called.
+    parentSignalUnderConstruction: VisualElementSignal, // used to establish back references only, not called.
     isPopup: boolean) => {
 
   if (isPopup) {
@@ -190,19 +190,22 @@ const arrangeItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePageFull(desktopStore, item, geometry, isPopup, parentVisualElementSignal);
+    return arrangePage(desktopStore, asPageItem(item), geometry, parentSignalUnderConstruction, isPopup);
   }
 
   if (isTable(item)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangeTableFull(desktopStore, item, geometry, parentVisualElementSignal);
+    return arrangeTable(desktopStore, asTableItem(item), geometry, parentSignalUnderConstruction);
   }
 
-  return arrangeNoChildren(item, geometry, parentVisualElementSignal, true);
+  return arrangeItemNoChildren(item, geometry, parentSignalUnderConstruction, true);
 }
 
-const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal) => {
-  let tableItem = asTableItem(childItem);
+const arrangeTable = (
+    desktopStore: DesktopStoreContextModel,
+    tableItem: TableItem,
+    geometry: ItemGeometry,
+    parentSignalUnderConstruction: VisualElementSignal) => {
 
   const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
@@ -224,7 +227,7 @@ const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Ite
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent,
+    parent: parentSignalUnderConstruction,
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   }
@@ -265,10 +268,16 @@ const arrangeTableFull = (desktopStore: DesktopStoreContextModel, childItem: Ite
   return tableVisualElementSignal;
 }
 
-const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item, geometry: ItemGeometry, isPopup: boolean, parent: VisualElementSignal) => {
+const arrangePage = (
+    desktopStore: DesktopStoreContextModel,
+    pageItem: PageItem,
+    geometry: ItemGeometry,
+    parentSignalUnderConstruction: VisualElementSignal,
+    isPopup: boolean) => {
+
   const pageWithChildrenVisualElement: VisualElement = {
     itemType: ITEM_TYPE_PAGE,
-    itemId: childItem.id,
+    itemId: pageItem.id,
     isInteractive: true,
     isPopup,
     resizingFromBoundsPx: null,
@@ -277,13 +286,12 @@ const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent,
+    parent: parentSignalUnderConstruction,
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   };
   const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
 
-  const pageItem = asPageItem(childItem);
   const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
@@ -293,13 +301,18 @@ const arrangePageFull = (desktopStore: DesktopStoreContextModel, childItem: Item
       return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, false);
     }
     const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, desktopStore.getItem);
-    return arrangeNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal, false);
+    return arrangeItemNoChildren(innerChildItem, geometry, pageWithChildrenVisualElementSignal, false);
   });
 
   return pageWithChildrenVisualElementSignal;
 }
 
-const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: VisualElementSignal, isInteractive: boolean) => {
+const arrangeItemNoChildren = (
+    childItem: Item,
+    geometry: ItemGeometry,
+    parentSignalUnderConstruction: VisualElementSignal,
+    isInteractive: boolean) => {
+
   const itemVisualElement: VisualElement = {
     itemType: childItem.itemType,
     itemId: childItem.id,
@@ -311,10 +324,11 @@ const arrangeNoChildren = (childItem: Item, geometry: ItemGeometry, parent: Visu
     hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
-    parent,
+    parent: parentSignalUnderConstruction,
     computed_mouseIsOver: createBooleanSignal(false),
     computed_movingItemIsOver: createBooleanSignal(false),
   };
+
   const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
   return itemVisualElementSignal;
 }
