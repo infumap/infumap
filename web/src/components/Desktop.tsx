@@ -51,7 +51,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
     if (ev.code != "Slash" && ev.code != "Backslash") { return; }
     let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(lastMouseMoveEvent!), []);
-    let item = desktopStore.getItem(hbi.visualElementSignal.get().itemId)!;
+    let item = hbi.visualElementSignal.get().item;
     if (ev.code == "Slash") {
       ev.preventDefault();
       generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item });
@@ -100,7 +100,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
         console.log("must upload on background.");
         return;
       }
-      let item = desktopStore.getItem(hi.visualElementSignal.get().itemId)!;
+      let item = hi.visualElementSignal.get().item;
       if (!isPage(item)) {
         console.log("must upload on page.");
         return;

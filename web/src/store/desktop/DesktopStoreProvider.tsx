@@ -335,17 +335,18 @@ export function useDesktopStore() : DesktopStoreContextModel {
 export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
-  if (rootVe.itemId == id) {
+  if (rootVe.item.id == id) {
     result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
   result = result.concat(childVisualElementsWithId(desktopStore, rootVe, id));
   return result;
 }
 
+
 const childVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
-    if (childVes.get().itemId == id) {
+    if (childVes.get().item.id == id) {
       result.push(childVes);
     }
     result = result.concat(childVisualElementsWithId(desktopStore, childVes.get(), id));

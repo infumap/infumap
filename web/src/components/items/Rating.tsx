@@ -28,7 +28,7 @@ import { asTableItem } from "../../store/desktop/items/table-item";
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
 
-  const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const _ratingItem = () => asRatingItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
 
   return (
@@ -45,11 +45,11 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
 
-  const _ratingItem = () => asRatingItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const _ratingItem = () => asRatingItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

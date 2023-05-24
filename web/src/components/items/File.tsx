@@ -28,7 +28,7 @@ import { asTableItem } from "../../store/desktop/items/table-item";
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
 
-  const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
@@ -58,11 +58,11 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
 
-  const fileItem = () => asFileItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

@@ -34,7 +34,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const desktopStore = useDesktopStore();
 
   const SMALL_TOOLBAR_WIDTH_PX = 28;
-  const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const pageItem = () => asPageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => {
     const hbMaybe = props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup);
@@ -191,11 +191,11 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
 
-  const pageItem = () => asPageItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const pageItem = () => asPageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
   const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), desktopStore.getItem);

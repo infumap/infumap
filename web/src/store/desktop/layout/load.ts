@@ -41,7 +41,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
           try {
-            rearrangeVisualElementsWithId(desktopStore, containerId);
+            rearrangeVisualElementsWithId(desktopStore, containerId, true);
           } catch (e: any) {
             throw new Error(`rearrangeVisualElementsWithId failed ${e}`);
           };

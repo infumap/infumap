@@ -17,15 +17,15 @@
 */
 
 import { BoundingBox } from "../../util/geometry";
-import { EMPTY_UID } from "../../util/uid";
-import { Uid } from "../../util/uid";
 import { Hitbox } from "./hitbox";
-import { ITEM_TYPE_NONE, ItemTypeMixin } from "./items/base/item";
+import { Item, NONE_ITEM } from "./items/base/item";
 import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
+import { LinkItem } from "./items/link-item";
 
 
-export interface VisualElement extends ItemTypeMixin {
-  itemId: Uid,
+export interface VisualElement {
+  item: Item,
+  linkItemMaybe: LinkItem | null,
   resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
   isInteractive: boolean,
   isPopup: boolean,
@@ -45,8 +45,8 @@ export interface VisualElement extends ItemTypeMixin {
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
-  itemType: ITEM_TYPE_NONE,
-  itemId: EMPTY_UID,
+  item: NONE_ITEM,
+  linkItemMaybe: null,
   resizingFromBoundsPx: null,
   isInteractive: false,
   isPopup: false,

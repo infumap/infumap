@@ -37,13 +37,13 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
 
   const handleTextInput = (v: string) => {
     desktopStore.updateItem(noteId, item => asNoteItem(item).title = v);
-    rearrangeVisualElementsWithId(desktopStore, noteId);
+    rearrangeVisualElementsWithId(desktopStore, noteId, true);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
       desktopStore.updateItem(noteId, item => asNoteItem(item).url = v);
-      rearrangeVisualElementsWithId(desktopStore, noteId);
+      rearrangeVisualElementsWithId(desktopStore, noteId, true);
     }
   };
 

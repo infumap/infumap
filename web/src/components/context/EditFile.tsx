@@ -36,7 +36,7 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
 
   const handleTextInput = (v: string) => {
     desktopStore.updateItem(fileId, item => asFileItem(item).title = v);
-    rearrangeVisualElementsWithId(desktopStore, fileId);
+    rearrangeVisualElementsWithId(desktopStore, fileId, true);
   };
 
   const deleteFile = async () => {

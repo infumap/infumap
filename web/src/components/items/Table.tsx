@@ -32,7 +32,7 @@ export const HEADER_HEIGHT_BL = 1.0;
 export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
 
-  const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const blockSizePx = () => {
     const sizeBl = { w: tableItem().spatialWidthGr.get() / GRID_SIZE, h: tableItem().spatialHeightGr.get() / GRID_SIZE };
@@ -75,7 +75,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
   const desktopStore = useDesktopStore();
   let outerDiv: HTMLDivElementWithData | undefined;
 
-  const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const tableItem = () => asTableItem(props.visualElement.item);
   const blockHeightPx = () => {
     let heightBr = tableItem().spatialHeightGr.get() / GRID_SIZE - HEADER_HEIGHT_BL;
     let heightPx = props.visualElement.childAreaBoundsPx!.h;
@@ -127,7 +127,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   return (
     <div ref={outerDiv}
-         id={props.visualElement.itemId}
+         id={props.visualElement.item.id}
          class="absolute"
          style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
                 `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;`}
@@ -143,11 +143,11 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 export const TableInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
 
-  const tableItem = () => asTableItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

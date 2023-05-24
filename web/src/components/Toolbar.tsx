@@ -32,15 +32,15 @@ export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
 
   return (
-    <Show when={desktopStore.topLevelVisualElement().itemType != NONE_VISUAL_ELEMENT.itemType}>
+    <Show when={desktopStore.topLevelVisualElement().item.itemType != NONE_VISUAL_ELEMENT.item.itemType}>
       <div class="fixed left-0 top-0 bottom-0 border-r border-gray-800 text-gray-100"
           style={`background-image: linear-gradient(270deg, ` +
-                 `${hexToRGBA(Colors[asPageItem(desktopStore.getItem(desktopStore.topLevelVisualElement()!.itemId)!).backgroundColorIndex], 0.786)}, ` +
-                 `${hexToRGBA(Colors[asPageItem(desktopStore.getItem(desktopStore.topLevelVisualElement()!.itemId)!).backgroundColorIndex], 0.864)}); ` +
+                 `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.item).backgroundColorIndex], 0.786)}, ` +
+                 `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.item).backgroundColorIndex], 0.864)}); ` +
                  `width: ${TOOLBAR_WIDTH}px`}>
         <img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" />
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
-          {asPageItem(desktopStore.getItem(desktopStore.topLevelVisualElement()!.itemId)!).title}
+          {asPageItem(desktopStore.topLevelVisualElement()!.item).title}
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">

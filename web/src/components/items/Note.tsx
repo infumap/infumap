@@ -23,13 +23,12 @@ import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualEl
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
-import { HTMLDivElementWithData } from "../../util/html";
 
 
 export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const desktopStore = useDesktopStore();
 
-  const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const hitboxes = () => props.visualElement.hitboxes;
   const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem()));
@@ -63,11 +62,11 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const desktopStore = useDesktopStore();
 
-  const noteItem = () => asNoteItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

@@ -44,27 +44,27 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr.set(parseInt(v) * GRID_SIZE);
-      rearrangeVisualElementsWithId(desktopStore, pageId);
+      rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(parseFloat(v));
-      rearrangeVisualElementsWithId(desktopStore, pageId);
+      rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
       desktopStore.updateItem(pageId, item => asPageItem(item).gridNumberOfColumns.set(parseInt(v)));
-      rearrangeVisualElementsWithId(desktopStore, pageId);
+      rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   }
 
   const handleTitleInput = (v: string) => {
     desktopStore.updateItem(pageId, item => asPageItem(item).title = v);
-    rearrangeVisualElementsWithId(desktopStore, pageId);
+    rearrangeVisualElementsWithId(desktopStore, pageId, true);
   };
 
   const deletePage = async () => {
@@ -77,14 +77,14 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const setAspectToMatchScreen = async () => {
     asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(screenAspect());
-    rearrangeVisualElementsWithId(desktopStore, pageId);
+    rearrangeVisualElementsWithId(desktopStore, pageId, true);
   }
 
   let checkElement: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
     desktopStore.updateItem(pageId, item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"));
-    rearrangeVisualElementsWithId(desktopStore, pageId);
+    rearrangeVisualElementsWithId(desktopStore, pageId, true);
   }
 
   onCleanup(() => {

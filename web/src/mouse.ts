@@ -61,7 +61,7 @@ export function getHitInfo(
     ignore: Array<Uid>): HitInfo {
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
-  const topLevelPage = asPageItem(desktopStore.getItem(topLevelVisualElement!.itemId)!);
+  const topLevelPage = asPageItem(topLevelVisualElement!.item);
   const posRelativeToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
   // root is either the top level page, or popup if mouse is over the popup.
@@ -90,7 +90,7 @@ export function getHitInfo(
     }
 
     // handle inside table child area.
-    if (isTable(childVisualElement) && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+    if (isTable(childVisualElement.item) && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
       const tableVisualElementSignal = childVisualElementSignal;
       const tableVisualElement = childVisualElement;
 
@@ -101,7 +101,7 @@ export function getHitInfo(
         return ({ hitboxType: HitboxType.Resize, visualElementSignal: tableVisualElementSignal });
       }
 
-      let tableItem = asTableItem(desktopStore.getItem(tableVisualElement.itemId)!);
+      let tableItem = asTableItem(tableVisualElement.item);
 
       for (let j=0; j<tableVisualElement.children.length; ++j) {
         const tableChildVes = tableVisualElement.children[j];
@@ -117,7 +117,7 @@ export function getHitInfo(
               hitboxType |= tableChildVe.hitboxes[k].type;
             }
           }
-          if (!ignore.find(a => a == tableChildVe.itemId)) {
+          if (!ignore.find(a => a == tableChildVe.item.id)) {
             return ({ hitboxType, visualElementSignal: tableChildVes });
           }
         }
@@ -131,7 +131,7 @@ export function getHitInfo(
         hitboxType |= childVisualElement.hitboxes[j].type;
       }
     }
-    if (!ignore.find(a => a == childVisualElement.itemId)) {
+    if (!ignore.find(a => a == childVisualElement.item.id)) {
       return ({ hitboxType, visualElementSignal: rootVisualElement.children[i] });
     }
   }
@@ -201,7 +201,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, []);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (hitInfo.visualElementSignal.get().isPopup) {
-      switchToPage(desktopStore, hitInfo.visualElementSignal.get().itemId);
+      switchToPage(desktopStore, hitInfo.visualElementSignal.get().item.id);
     }
     mouseActionState = null;
     return;
@@ -211,7 +211,7 @@ export function mouseLeftDownHandler(
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPxFromMouseEvent(ev);
-  const activeItem = desktopStore.getItem(hitInfo.visualElementSignal.get().itemId)!;
+  const activeItem = desktopStore.getItem(hitInfo.visualElementSignal.get().item.id)!;
   const onePxSizeBl = {
     x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / hitInfo.visualElementSignal.get().boundsPx.w,
     y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElementSignal.get().boundsPx.h
@@ -294,7 +294,7 @@ export function mouseMoveHandler(
           lastMouseOver.get().computed_mouseIsOver.set(false);
         }
         lastMouseOver = null;
-        if (overElement!.get().itemId != desktopStore.topLevelPageId() &&
+        if (overElement!.get().item.id != desktopStore.topLevelPageId() &&
             !overElement.get().isPopup) {
           overElement!.get().computed_mouseIsOver.set(true);
           lastMouseOver = overElement;
@@ -311,7 +311,7 @@ export function mouseMoveHandler(
 
   const deltaPx = subtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
 
-  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElementSignal!.get().itemId)!;
+  const activeItem = mouseActionState.activeVisualElementSignal!.get().item;
 
   if (mouseActionState.action == MouseAction.Ambiguous) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
@@ -368,12 +368,12 @@ export function mouseMoveHandler(
   } else if (mouseActionState.action == MouseAction.Moving) {
     const overHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
     const overVes = overHitInfo.visualElementSignal.get();
-    const overContainerVe = isContainer(overVes)
+    const overContainerVe = isContainer(overVes.item)
       ? overVes
       : (() => {
         if (overVes.parent == null) { panic(); }
         const result = overVes.parent.get();
-        if (!isContainer(result)) { panic(); }
+        if (!isContainer(result.item)) { panic(); }
         return result;
       })();
 
@@ -384,7 +384,7 @@ export function mouseMoveHandler(
       }
       overContainerVe.computed_movingItemIsOver.set(true);
       mouseActionState.moveOverContainerVisualElement = overContainerVe;
-      if (isTable(overContainerVe)) {
+      if (isTable(overContainerVe.item)) {
         console.log("over table");
         // TODO (HIGH): update table item here with mouse over position.
       }
@@ -401,13 +401,13 @@ export function mouseMoveHandler(
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
-  const activeItem = desktopStore.getItem(mouseActionState!.activeVisualElementSignal!.get().itemId)!;
+  const activeItem = mouseActionState!.activeVisualElementSignal!.get().item;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
   let itemPosInTablePx = getBoundingBoxTopLeft(mouseActionState!.activeVisualElementSignal!.get().boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
-  const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!.get().itemId;
+  const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!.get().item.id;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableVe = desktopStore.topLevelVisualElement().children.map(c => c.get()).find(el => el.itemId == tableVeId)!;
+  const tableVe = desktopStore.topLevelVisualElement().children.map(c => c.get()).find(el => el.item.id == tableVeId)!;
   // TODO (MEDIUM): won't work in the (anticipated) general case.
   const tableParentVe = desktopStore.topLevelVisualElement();
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
@@ -435,7 +435,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     arrange(desktopStore); // align visual elements with item tree.
   });
   // TODO (MEDIUM): won't work in (anticipated) general case.
-  mouseActionState!.activeVisualElementSignal = desktopStore.topLevelVisualElement().children.find(el => el.get().itemId == activeItem.id)!;
+  mouseActionState!.activeVisualElementSignal = desktopStore.topLevelVisualElement().children.find(el => el.get().item.id == activeItem.id)!;
   mouseActionState!.onePxSizeBl = {
     x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
     y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
@@ -450,7 +450,7 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeItem = desktopStore.getItem(mouseActionState.activeVisualElementSignal!.get().itemId)!;
+  const activeItem = mouseActionState.activeVisualElementSignal!.get().item;
 
   if (mouseActionState.moveOverContainerVisualElement != null) {
     mouseActionState.moveOverContainerVisualElement.computed_movingItemIsOver.set(false);
@@ -459,7 +459,7 @@ export function mouseUpHandler(
   switch (mouseActionState.action) {
     case MouseAction.Moving:
       const overVes = mouseActionState.moveOverContainerVisualElement!;
-      const moveOverContainerId = overVes.itemId;
+      const moveOverContainerId = overVes.item.id;
       if (moveOverContainerId == activeItem.id) {
         // TODO (MEDIUM): This case did occur. Figure out how/why.
         throw new Error("Attempt was made to move an item into itself.");

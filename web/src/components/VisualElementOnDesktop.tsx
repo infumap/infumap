@@ -38,13 +38,13 @@ export interface VisualElementOnDesktopProps {
 
 export const VisualElementOnDesktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return (
-    <Switch fallback={<div>unkown item type '{props.visualElement.itemType}'</div>}>
-      <Match when={isPage(props.visualElement)}><Page {...props} /></Match>
-      <Match when={isNote(props.visualElement)}><Note {...props} /></Match>
-      <Match when={isTable(props.visualElement)}><Table {...props} /></Match>
-      <Match when={isImage(props.visualElement)}><Image {...props} /></Match>
-      <Match when={isFile(props.visualElement)}><File {...props} /></Match>
-      <Match when={isRating(props.visualElement)}><Rating {...props} /></Match>
+    <Switch fallback={<div>unkown item type '{props.visualElement.item.itemType}'</div>}>
+      <Match when={isPage(props.visualElement.item)}><Page {...props} /></Match>
+      <Match when={isNote(props.visualElement.item)}><Note {...props} /></Match>
+      <Match when={isTable(props.visualElement.item)}><Table {...props} /></Match>
+      <Match when={isImage(props.visualElement.item)}><Image {...props} /></Match>
+      <Match when={isFile(props.visualElement.item)}><File {...props} /></Match>
+      <Match when={isRating(props.visualElement.item)}><Rating {...props} /></Match>
     </Switch>
   );
 }

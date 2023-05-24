@@ -16,8 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BooleanSignal } from '../../../../util/signals';
-import { Uid } from '../../../../util/uid';
+import { createVectorSignal } from '../../../../util/signals';
+import { EMPTY_UID, Uid } from '../../../../util/uid';
 import { PositionalMixin } from './positional-item';
 
 export const ITEM_TYPE_NONE = "none";
@@ -44,3 +44,15 @@ export interface Item extends ItemTypeMixin, PositionalMixin {
   lastModifiedDate: number,
   ordering: Uint8Array,
 }
+
+export const NONE_ITEM: Item = {
+  itemType: ITEM_TYPE_NONE,
+  ownerId: EMPTY_UID,
+  id: EMPTY_UID,
+  parentId: EMPTY_UID,
+  relationshipToParent: "child",
+  creationDate: 0,
+  lastModifiedDate: 0,
+  ordering: Uint8Array.from([]),
+  spatialPositionGr: createVectorSignal({ x: 0, y: 0 })
+};

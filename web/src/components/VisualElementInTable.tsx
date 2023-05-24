@@ -39,13 +39,13 @@ export interface VisualElementInTableProps {
 
 export const VisualElementInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return (
-    <Switch fallback={<div>unkown item type '{props.visualElement.itemType}'</div>}>
-      <Match when={isPage(props.visualElement)}><PageInTable {...props} /></Match>
-      <Match when={isTable(props.visualElement)}><TableInTable {...props} /></Match>
-      <Match when={isNote(props.visualElement)}><NoteInTable {...props} /></Match>
-      <Match when={isImage(props.visualElement)}><ImageInTable {...props} /></Match>
-      <Match when={isFile(props.visualElement)}><FileInTable {...props} /></Match>
-      <Match when={isRating(props.visualElement)}><RatingInTable {...props} /></Match>
+    <Switch fallback={<div>unkown item type '{props.visualElement.item.itemType}'</div>}>
+      <Match when={isPage(props.visualElement.item)}><PageInTable {...props} /></Match>
+      <Match when={isTable(props.visualElement.item)}><TableInTable {...props} /></Match>
+      <Match when={isNote(props.visualElement.item)}><NoteInTable {...props} /></Match>
+      <Match when={isImage(props.visualElement.item)}><ImageInTable {...props} /></Match>
+      <Match when={isFile(props.visualElement.item)}><FileInTable {...props} /></Match>
+      <Match when={isRating(props.visualElement.item)}><RatingInTable {...props} /></Match>
     </Switch>
   );
 }

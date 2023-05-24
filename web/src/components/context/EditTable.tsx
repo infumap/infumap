@@ -36,7 +36,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   const handleTitleInput = (v: string) => {
     desktopStore.updateItem(tableId, item => asTableItem(item).title = v);
-    rearrangeVisualElementsWithId(desktopStore, tableId);
+    rearrangeVisualElementsWithId(desktopStore, tableId, true);
   };
 
   const deleteTable = async () => {

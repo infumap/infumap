@@ -32,14 +32,14 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const desktopStore = useDesktopStore();
   let imgElement: HTMLImageElement | undefined;
 
-  const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const imageItem = () => asImageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const isInteractive = () => { return props.visualElement.isInteractive; }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
-  const imgSrc = () => { return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true); }
+  const imgSrc = () => { return "/files/" + props.visualElement.item.id + "_" + imageWidthToRequestPx(true); }
   // const imgUrl = () => {
   //   if (!props.visualElement.isInteractive) {
   //     return "data:image/png;base64, " + imageItem().thumbnail;
@@ -120,11 +120,11 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
   const desktopStore = useDesktopStore();
   let nodeElement: HTMLDivElementWithData | undefined;
 
-  const imageItem = () => asImageItem(desktopStore.getItem(props.visualElement.itemId)!);
+  const imageItem = () => asImageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(desktopStore.getItem(props.parentVisualElement.itemId)!).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 
@@ -140,7 +140,7 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
         }</For>
       </div>
       <div ref={nodeElement}
-           id={props.visualElement.itemId}
+           id={props.visualElement.item.id}
            class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
