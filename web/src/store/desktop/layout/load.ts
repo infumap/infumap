@@ -40,7 +40,11 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
-          rearrangeVisualElementsWithId(desktopStore, containerId);
+          try {
+            rearrangeVisualElementsWithId(desktopStore, containerId);
+          } catch (e: any) {
+            throw new Error(`rearrangeVisualElementsWithId failed ${e}`);
+          };
         });
       } else {
         console.log(`No items were fetched for '${containerId}'.`);

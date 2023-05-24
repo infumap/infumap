@@ -25,23 +25,22 @@ import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
 import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
 import { logout } from "./Main";
+import { NONE_VISUAL_ELEMENT } from '../store/desktop/visual-element';
 
 
 export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
 
   return (
-    <Show when={desktopStore.topLevelPageId() != null}>
+    <Show when={desktopStore.topLevelVisualElement().itemType != NONE_VISUAL_ELEMENT.itemType}>
       <div class="fixed left-0 top-0 bottom-0 border-r border-gray-800 text-gray-100"
           style={`background-image: linear-gradient(270deg, ` +
-                 `${hexToRGBA(Colors[asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!).backgroundColorIndex], 0.786)}, ` +
-                 `${hexToRGBA(Colors[asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!).backgroundColorIndex], 0.864)}); ` +
+                 `${hexToRGBA(Colors[asPageItem(desktopStore.getItem(desktopStore.topLevelVisualElement()!.itemId)!).backgroundColorIndex], 0.786)}, ` +
+                 `${hexToRGBA(Colors[asPageItem(desktopStore.getItem(desktopStore.topLevelVisualElement()!.itemId)!).backgroundColorIndex], 0.864)}); ` +
                  `width: ${TOOLBAR_WIDTH}px`}>
         <img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" />
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
-          <Show when={desktopStore.topLevelPageId() != null}>
-            {asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!).title}
-          </Show>
+          {asPageItem(desktopStore.getItem(desktopStore.topLevelVisualElement()!.itemId)!).title}
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">

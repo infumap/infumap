@@ -259,29 +259,23 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const clearBreadcrumbs = (): void => {
     breadcrumbs = [];
-    console.log("clearBreadcrumbs", breadcrumbs);
   }
 
   const pushTopLevelPageId = (uid: Uid): void => {
     breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
-    console.log("pushTopLevelPageId", breadcrumbs);
   }
 
   const popTopLevelPageId = (): void => {
     if (breadcrumbs.length <= 1) {
-      console.log("popTopLevelPageId (0)", breadcrumbs);
       return;
     }
     breadcrumbs.pop();
-    console.log("popTopLevelPageId (1)", breadcrumbs);
   }
 
   const topLevelPageId = (): Uid | null => {
     if (breadcrumbs.length == 0) {
-      console.log("topLevelPageId", breadcrumbs);
       return null;
     }
-    console.log("topLevelPageId", breadcrumbs);
     return breadcrumbs[breadcrumbs.length-1].pageId;
   }
 
@@ -290,7 +284,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       panic();
     }
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(uid);
-    console.log("pushPopupId", breadcrumbs);
   }
 
   const popPopupId = (): void => {
@@ -298,10 +291,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       panic();
     }
     if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
-      console.log("popPopupId (0)", breadcrumbs);
       return;
     }
-    console.log("popPopupId (1)", breadcrumbs);
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
   }
 
@@ -310,11 +301,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       panic();
     }
     if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
-      console.log("popupId (0)", breadcrumbs);
       return null;
     }
     const lastBreadcrumbPopups = breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs;
-    console.log("popPopupId (1)", lastBreadcrumbPopups, breadcrumbs);
     return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
   }
 

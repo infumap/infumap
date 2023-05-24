@@ -154,30 +154,30 @@ enum RenderStyle {
   Placeholder,
 }
 
-const arrangeItem = (
+export const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
     item: Item,
     containerBoundsPx: BoundingBox,
     parentSignalUnderConstruction: VisualElementSignal, // used to establish back references only, not called.
     parentIsPopup: boolean,
-    isPopup: boolean) => {
-
+    isPopup: boolean): VisualElementSignal => {
+console.log("A");
   if (isPopup) {
     if (!isLink(item)) {
       panic();
     }
   }
-
+console.log("B");
   const parent = asPageItem(desktopStore.getItem(item.parentId)!);
   const pageBoundsPx = zeroBoundingBoxTopLeft(containerBoundsPx);
   const pageInnerPageDimensionsBl = calcPageInnerSpatialDimensionsBl(parent);
-
+console.log("C");
   const geometry = calcGeometryOfItemInPage(item, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
-
+console.log("D");
   let spatialWidthGr = isXSizableItem(item)
     ? asXSizableItem(item).spatialWidthGr.get()
     : 0;
-
+console.log("E");
   let _isLinkItem = false;
   if (item.itemType == ITEM_TYPE_LINK) {
     _isLinkItem = true;
@@ -187,25 +187,25 @@ const arrangeItem = (
       spatialWidthGr = linkItem.spatialWidthGr.get();
     }
   }
-
+console.log("F");
   if (isPage(item) && asPageItem(item).arrangeAlgorithm == "grid") {
     // Always make sure child items of grid pages are loaded, even if not visible,
     // because they are needed to to calculate the height.
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
   }
-
+console.log("G");
   if (isPage(item) &&
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
     return arrangePage(desktopStore, asPageItem(item), geometry, parentSignalUnderConstruction, parentIsPopup, isPopup);
   }
-
+console.log("H");
   if (isTable(item)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
     return arrangeTable(desktopStore, asTableItem(item), geometry, parentSignalUnderConstruction);
   }
-
+console.log("I");
   return arrangeItemNoChildren(item, geometry, parentSignalUnderConstruction, parentIsPopup ? RenderStyle.InsidePopup : RenderStyle.Full);
 }
 
@@ -213,7 +213,7 @@ const arrangeTable = (
     desktopStore: DesktopStoreContextModel,
     tableItem: TableItem,
     geometry: ItemGeometry,
-    parentSignalUnderConstruction: VisualElementSignal) => {
+    parentSignalUnderConstruction: VisualElementSignal): VisualElementSignal => {
 
   const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
@@ -282,7 +282,7 @@ const arrangePage = (
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
     parentIsPopup: boolean,
-    isPopup: boolean) => {
+    isPopup: boolean): VisualElementSignal => {
 
   let hitboxes: Array<Hitbox> = parentIsPopup
     ? geometry.hitboxes.filter(hb => hb.type != HitboxType.OpenPopup).map(hb => {
@@ -328,7 +328,7 @@ const arrangeItemNoChildren = (
     childItem: Item,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
-    renderStyle: RenderStyle) => {
+    renderStyle: RenderStyle): VisualElementSignal => {
 
   let hitboxes: Array<Hitbox> = [];
   if (renderStyle == RenderStyle.Full) {
