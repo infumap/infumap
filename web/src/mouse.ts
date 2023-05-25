@@ -63,11 +63,12 @@ export function getHitInfo(
   const topLevelPage = asPageItem(topLevelVisualElement!.item);
   const posRelativeToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
-  // root is either the top level page, or popup if mouse is over the popup.
+  // Root is either the top level page, or popup if mouse is over the popup.
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
   if (topLevelVisualElement.children.length > 0) {
+    // The ve of the popup, if there is one, is always the last of the children.
     const popupVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
     if (popupVeMaybe.isPopup &&
         isInside(posRelativeToTopLevelVisualElementPx, popupVeMaybe.boundsPx)) {
@@ -79,8 +80,7 @@ export function getHitInfo(
     }
   }
 
-  // TODO (HIGH): reverse this i think.
-  for (let i=0; i<rootVisualElement.children.length; ++i) {
+  for (let i=rootVisualElement.children.length-1; i>=0; --i) {
     const childVisualElementSignal = rootVisualElement.children[i];
     const childVisualElement = childVisualElementSignal.get();
 
@@ -135,7 +135,6 @@ export function getHitInfo(
     }
   }
 
-  // didn't intersect any top level visual element.
   return { hitboxType: HitboxType.None, visualElementSignal: rootVisualElementSignal };
 }
 

@@ -351,6 +351,8 @@ const arrangeItemNoChildren = (
         if (nHb.type == HitboxType.Click) { nHb.type = HitboxType.OpenPopup }
         return nHb;
       });
+    } else {
+      hitboxes = geometry.hitboxes;
     }
   }
 
