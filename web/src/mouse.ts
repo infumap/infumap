@@ -156,7 +156,7 @@ interface DialogMoveState {
 }
 let dialogMoveState: DialogMoveState | null = null;
 
-let lastMouseOver: VisualElementSignal | null = null;
+let lastMouseOverVes: VisualElementSignal | null = null;
 
 
 export function mouseDownHandler(
@@ -259,6 +259,27 @@ export function mouseRightDownHandler(
   arrange(desktopStore);
 }
 
+export function mouseMoveNoButtonHandler(desktopStore: DesktopStoreContextModel) {
+  const ev = desktopStore.lastMouseMoveEvent();
+  let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
+  let overElementVes = currentHitInfo.visualElementSignal;
+  if (overElementVes != lastMouseOverVes) {
+    if (lastMouseOverVes != null) {
+      lastMouseOverVes.get().computed_mouseIsOver.set(false);
+      lastMouseOverVes = null;
+    }
+  }
+  if (overElementVes!.get().item.id != desktopStore.topLevelPageId() &&
+      !overElementVes.get().isPopup && !overElementVes.get().computed_mouseIsOver.get()) {
+    overElementVes!.get().computed_mouseIsOver.set(true);
+    lastMouseOverVes = overElementVes;
+  }
+  if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
+    document.body.style.cursor = "nwse-resize";
+  } else {
+    document.body.style.cursor = "default";
+  }
+}
 
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
@@ -280,26 +301,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   }
 
   if (mouseActionState == null) {
-    let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-    let overElement = currentHitInfo.visualElementSignal;
-    if (overElement != lastMouseOver) {
-      batch(() => {
-        if (lastMouseOver != null) {
-          lastMouseOver.get().computed_mouseIsOver.set(false);
-        }
-        lastMouseOver = null;
-        if (overElement!.get().item.id != desktopStore.topLevelPageId() &&
-            !overElement.get().isPopup) {
-          overElement!.get().computed_mouseIsOver.set(true);
-          lastMouseOver = overElement;
-        }
-      });
-    }
-    if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
-      document.body.style.cursor = "nwse-resize";
-    } else {
-      document.body.style.cursor = "default";
-    }
+    mouseMoveNoButtonHandler(desktopStore);
     return;
   }
 
