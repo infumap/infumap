@@ -31,7 +31,7 @@ import { DesktopStoreContextModel } from '../DesktopStoreProvider';
 import { UserStoreContextModel } from '../../UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { arrange, switchToPage } from '../layout/arrange';
-import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal, UidArraySignal } from '../../../util/signals';
+import { createNumberSignal, createUidArraySignal, NumberSignal, UidArraySignal } from '../../../util/signals';
 import { getHitInfo } from '../../../mouse';
 
 
@@ -54,7 +54,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   naturalAspect: NumberSignal;
   arrangeAlgorithm: string;
   id: Uid;
-  childrenLoaded: BooleanSignal;
+  childrenLoaded: boolean;
   gridNumberOfColumns: NumberSignal;
   computed_children: UidArraySignal;
 }
@@ -86,7 +86,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
-    childrenLoaded: createBooleanSignal(false),
+    childrenLoaded: false,
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
@@ -121,7 +121,7 @@ export function pageFromObject(o: any): PageItem {
     computed_children: createUidArraySignal([]),
     computed_attachments: createUidArraySignal([]),
 
-    childrenLoaded: createBooleanSignal(false),
+    childrenLoaded: false,
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
@@ -157,7 +157,7 @@ export function pageToObject(p: PageItem): object {
 
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
-    if (page.childrenLoaded.get()) {
+    if (page.childrenLoaded) {
       const numCols = () => page.gridNumberOfColumns.get();
       const numRows = () => Math.ceil(page.computed_children.get().length / numCols());
       const colAspect = () => 1.5;

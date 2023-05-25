@@ -39,7 +39,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           Object.keys(result.attachments).forEach(id => {
             desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
-          asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded.set(true);
+          asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded = true;
           try {
             rearrangeVisualElementsWithId(desktopStore, containerId, true);
           } catch (e: any) {

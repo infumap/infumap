@@ -26,7 +26,7 @@ const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE];
 export interface ContainerMixin {
   computed_children: UidArraySignal;
 
-  childrenLoaded: BooleanSignal;
+  childrenLoaded: boolean;
 }
 
 export interface ContainerItem extends ContainerMixin, Item { }
