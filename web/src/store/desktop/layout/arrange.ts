@@ -60,13 +60,14 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
 /**
  * Create the visual element tree for the current page.
  * 
- * Design note: Initially, this was implemented such that there was no state (signals) associated with the 
- * visual elements - the display was a pure function of the item tree state. This was simpler from the point
- * of view that the visual elements did not need to be separately updated / managed. However, the functional
- * approach turned out to be a dead end:
+ * Design note: Initially, this was implemented such that the visual element state was a function of the item
+ * state (arrange was never explicitly called). Note that the result of the arrange function did include (nested)
+ * visual element signals though which had dependencies on the relevant part of the item state. This approach was
+ * simpler from the point of view that the visual elements did not need to be separately updated / managed. However,
+ * the functional approach turned out to be a dead end:
  * 1. It was effectively impossible to perfectly optimize it in the case of, for example, resizing pages because
  *    the children were a function of page size. By comparison, as a general comment, the stateful approach makes
- *    it easy to make precisely the optimal updates at precisely the required times. Also, given optimization as
+ *    it easy(er) to make precisely the optimal updates at precisely the required times. Also, given optimization as
  *    a priority, I would say the implementation is not actually harder to reason about even though it is more
  *    ad-hoc.
  * 2. The visual element tree state is required for mouse interaction as well as rendering, and it was messy to

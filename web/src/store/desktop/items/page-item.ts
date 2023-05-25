@@ -306,7 +306,8 @@ export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreCo
 
 
 export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  desktopStore.pushPopupId(pageItem.id)
+  desktopStore.pushPopupId(pageItem.id);
+  // TODO (LOW): no need to arrange entire page.
   arrange(desktopStore);
 }
 
