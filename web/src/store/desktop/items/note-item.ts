@@ -53,7 +53,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     title,
     spatialPositionGr: { x: 0.0, y: 0.0 },
 
-    spatialWidthGr: createNumberSignal(10.0 * GRID_SIZE),
+    spatialWidthGr: 10.0 * GRID_SIZE,
 
     url: "",
 
@@ -75,7 +75,7 @@ export function noteFromObject(o: any): NoteItem {
     title: o.title,
     spatialPositionGr: o.spatialPositionGr,
 
-    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
+    spatialWidthGr: o.spatialWidthGr,
 
     url: o.url,
 
@@ -96,16 +96,16 @@ export function noteToObject(n: NoteItem): object {
     title: n.title,
     spatialPositionGr: n.spatialPositionGr,
 
-    spatialWidthGr: n.spatialWidthGr.get(),
+    spatialWidthGr: n.spatialWidthGr,
 
     url: n.url,
   });
 }
 
 export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
-  let lineCount = measureLineCount(note.title, note.spatialWidthGr.get() / GRID_SIZE);
+  let lineCount = measureLineCount(note.title, note.spatialWidthGr / GRID_SIZE);
   if (lineCount < 1) { lineCount = 1; }
-  return { w: note.spatialWidthGr.get() / GRID_SIZE, h: lineCount };
+  return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
 export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {

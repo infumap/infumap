@@ -66,7 +66,7 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
 

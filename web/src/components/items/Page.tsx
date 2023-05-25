@@ -174,10 +174,10 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <Show when={pageItem().id == desktopStore.topLevelPageId()}>
         {drawAsTopLevelPage()}
       </Show>
-      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr.get() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
       <Show when={props.visualElement.isPopup}>
@@ -195,7 +195,7 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr.get() / GRID_SIZE;
+    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
     return boundsPx().w / widthBl;
   }
   const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), desktopStore.getItem);

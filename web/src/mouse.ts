@@ -315,7 +315,7 @@ export function mouseMoveHandler(
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
       if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
         mouseActionState.startPosBl = null;
-        mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr.get() / GRID_SIZE;
+        mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
         if (isYSizableItem(activeItem)) {
           mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr.get() / GRID_SIZE;
         }
@@ -350,7 +350,7 @@ export function mouseMoveHandler(
       newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
       if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-      asXSizableItem(activeItem).spatialWidthGr.set(newWidthBl * GRID_SIZE);
+      asXSizableItem(activeItem).spatialWidthGr = newWidthBl * GRID_SIZE;
 
       if (isYSizableItem(activeItem)) {
         let newHeightBl = mouseActionState!.startHeightBl! + deltaBl.y;
@@ -491,7 +491,7 @@ export function mouseUpHandler(
       break;
 
     case MouseAction.Resizing:
-      if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr.get() ||
+      if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
           (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr.get())) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }

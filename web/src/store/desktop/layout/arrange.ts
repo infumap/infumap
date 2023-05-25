@@ -135,7 +135,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     let li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupId);
     let widthGr = Math.round((currentPage.innerSpatialWidthGr.get() / GRID_SIZE) / 2.0) * GRID_SIZE;
     let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
-    li.spatialWidthGr.set(widthGr);
+    li.spatialWidthGr = widthGr;
     li.spatialPositionGr = { x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE };
     topLevelVisualElement.children.push(
       arrangeItem(
@@ -176,7 +176,7 @@ export const arrangeItem = (
   const geometry = calcGeometryOfItemInPage(item, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
 
   let spatialWidthGr = isXSizableItem(item)
-    ? asXSizableItem(item).spatialWidthGr.get()
+    ? asXSizableItem(item).spatialWidthGr
     : 0;
 
   let linkItemMaybe: LinkItem | null = null;
@@ -184,7 +184,7 @@ export const arrangeItem = (
     linkItemMaybe = asLinkItem(item);
     item = desktopStore.getItem(linkItemMaybe.linkToId)!;
     if (isXSizableItem(item)) {
-      spatialWidthGr = linkItemMaybe.spatialWidthGr.get();
+      spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }
   }
 
@@ -216,7 +216,7 @@ const arrangeTable = (
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal): VisualElementSignal => {
 
-  const sizeBl = { w: tableItem.spatialWidthGr.get() / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
+  const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
 

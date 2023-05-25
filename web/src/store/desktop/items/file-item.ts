@@ -50,7 +50,7 @@ export function fileFromObject(o: any): FileItem {
     title: o.title,
     spatialPositionGr: o.spatialPositionGr,
 
-    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
+    spatialWidthGr: o.spatialWidthGr,
 
     originalCreationDate: o.originalCreationDate,
     mimeType: o.mimeType,
@@ -73,7 +73,7 @@ export function fileToObject(f: FileItem): object {
     title: f.title,
     spatialPositionGr: f.spatialPositionGr,
 
-    spatialWidthGr: f.spatialWidthGr.get(),
+    spatialWidthGr: f.spatialWidthGr,
 
     originalCreationDate: f.originalCreationDate,
     mimeType: f.mimeType,
@@ -82,8 +82,8 @@ export function fileToObject(f: FileItem): object {
 }
 
 export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
-  let lineCount = measureLineCount(file.title, file.spatialWidthGr.get() / GRID_SIZE);
-  return { w: file.spatialWidthGr.get() / GRID_SIZE, h: lineCount };
+  let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE);
+  return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
 export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {

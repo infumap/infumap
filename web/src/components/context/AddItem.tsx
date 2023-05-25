@@ -49,7 +49,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         Child,
         "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newPage.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
+      newPage.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
       server.addItem(newPage, null);
       desktopStore.addItem(newPage);
       generalStore.setContextMenuInfo(null);
@@ -69,7 +69,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         Child,
         "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newNote.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
+      newNote.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
       desktopStore.addItem(newNote);
       server.addItem(newNote, null);
       generalStore.setContextMenuInfo(null);
@@ -89,7 +89,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         Child,
         "",
         desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newTable.spatialPositionGr.set(calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx));
+      newTable.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
       server.addItem(newTable, null);
       desktopStore.addItem(newTable);
       generalStore.setContextMenuInfo(null);

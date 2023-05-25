@@ -73,7 +73,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     title,
     spatialPositionGr: { x: 0.0, y: 0.0 },
 
-    spatialWidthGr: createNumberSignal(4.0 * GRID_SIZE),
+    spatialWidthGr: 4.0 * GRID_SIZE,
 
     innerSpatialWidthGr: createNumberSignal(60.0 * GRID_SIZE),
     naturalAspect: createNumberSignal(2.0),
@@ -107,7 +107,7 @@ export function pageFromObject(o: any): PageItem {
     title: o.title,
     spatialPositionGr: o.spatialPositionGr,
 
-    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
+    spatialWidthGr: o.spatialWidthGr,
 
     innerSpatialWidthGr: createNumberSignal(o.innerSpatialWidthGr),
     naturalAspect: createNumberSignal(o.naturalAspect),
@@ -141,7 +141,7 @@ export function pageToObject(p: PageItem): object {
     title: p.title,
     spatialPositionGr: p.spatialPositionGr,
 
-    spatialWidthGr: p.spatialWidthGr.get(),
+    spatialWidthGr: p.spatialWidthGr,
 
     innerSpatialWidthGr: p.innerSpatialWidthGr.get(),
     naturalAspect: p.naturalAspect.get(),
@@ -161,16 +161,16 @@ export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
       const numCols = () => page.gridNumberOfColumns.get();
       const numRows = () => Math.ceil(page.computed_children.get().length / numCols());
       const colAspect = () => 1.5;
-      const cellHGr = () => page.spatialWidthGr.get() / numCols() * (1.0/colAspect());
+      const cellHGr = () => page.spatialWidthGr / numCols() * (1.0/colAspect());
       const pageHeightGr = () => cellHGr() * numRows();
       const pageHeightBl = () => Math.ceil(pageHeightGr() / GRID_SIZE);
-      let w = page.spatialWidthGr.get() / GRID_SIZE;
-      return { w: page.spatialWidthGr.get() / GRID_SIZE, h: pageHeightBl() < 1.0 ? 1.0 : pageHeightBl() };
+      let w = page.spatialWidthGr / GRID_SIZE;
+      return { w: page.spatialWidthGr / GRID_SIZE, h: pageHeightBl() < 1.0 ? 1.0 : pageHeightBl() };
     }
-    return { w: page.spatialWidthGr.get() / GRID_SIZE, h: 0.5 };
+    return { w: page.spatialWidthGr / GRID_SIZE, h: 0.5 };
   } else {
-    let bh = Math.round(page.spatialWidthGr.get() / GRID_SIZE / page.naturalAspect.get() * 2.0) / 2.0;
-    return { w: page.spatialWidthGr.get() / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
+    let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect.get() * 2.0) / 2.0;
+    return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
   }
 }
 

@@ -17,7 +17,6 @@
 */
 
 import { panic } from "../../../../util/lang";
-import { NumberSignal } from "../../../../util/signals";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
 
 
@@ -25,7 +24,7 @@ const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_NOTE, ITEM_TYPE_TABLE, ITEM_TYPE_I
 const HALF_SIZEABLE_ITEM_TYPES = [ITEM_TYPE_NOTE, ITEM_TYPE_TABLE, ITEM_TYPE_IMAGE, ITEM_TYPE_FILE];
 
 export interface XSizableMixin {
-  spatialWidthGr: NumberSignal,
+  spatialWidthGr: number,
 }
 
 export interface XSizableItem extends XSizableMixin, Item { }

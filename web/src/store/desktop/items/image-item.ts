@@ -53,7 +53,7 @@ export function imageFromObject(o: any): ImageItem {
     title: o.title,
     spatialPositionGr: o.spatialPositionGr,
 
-    spatialWidthGr: createNumberSignal(o.spatialWidthGr),
+    spatialWidthGr: o.spatialWidthGr,
 
     originalCreationDate: o.originalCreationDate,
     mimeType: o.mimeType,
@@ -79,7 +79,7 @@ export function imageToObject(i: ImageItem): object {
     title: i.title,
     spatialPositionGr: i.spatialPositionGr,
 
-    spatialWidthGr: i.spatialWidthGr.get(),
+    spatialWidthGr: i.spatialWidthGr,
 
     originalCreationDate: i.originalCreationDate,
     mimeType: i.mimeType,
@@ -108,8 +108,8 @@ export function asImageMeasurable(item: ItemTypeMixin): ImageMeasurable {
 
 export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
   // half block quantization.
-  let heightBl = Math.round(((image.spatialWidthGr.get() / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w) * 2.0) / 2.0;
-  return { w: image.spatialWidthGr.get() / GRID_SIZE, h: heightBl };
+  let heightBl = Math.round(((image.spatialWidthGr / GRID_SIZE) * image.imageSizePx.h / image.imageSizePx.w) * 2.0) / 2.0;
+  return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
 }
 
 export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
