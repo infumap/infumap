@@ -19,7 +19,6 @@
 import { GRID_SIZE } from "../../../constants";
 import { BoundingBox, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { createUidArraySignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
@@ -57,7 +56,7 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     linkToId,
 
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
   };
 }
 
@@ -79,7 +78,7 @@ export function linkFromObject(o: any): LinkItem {
 
     linkToId: o.linkToId,
 
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
   });
 }
 

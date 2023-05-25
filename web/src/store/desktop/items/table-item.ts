@@ -29,7 +29,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createNumberSignal, createUidArraySignal, NumberSignal } from "../../../util/signals";
+import { createNumberSignal, NumberSignal } from "../../../util/signals";
 
 
 export interface TableColumn {
@@ -68,7 +68,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     }],
 
     computed_children: [],
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
 
     childrenLoaded: false,
 
@@ -96,7 +96,7 @@ export function tableFromObject(o: any): TableItem {
     tableColumns: o.tableColumns,
 
     computed_children: [],
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
 
     childrenLoaded: false,
 

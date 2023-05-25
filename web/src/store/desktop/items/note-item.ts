@@ -27,7 +27,6 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createUidArraySignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 
@@ -57,7 +56,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     url: "",
 
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
   };
 }
 
@@ -79,7 +78,7 @@ export function noteFromObject(o: any): NoteItem {
 
     url: o.url,
 
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
   });
 }
 

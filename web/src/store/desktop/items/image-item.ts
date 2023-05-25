@@ -27,7 +27,6 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createUidArraySignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -62,7 +61,7 @@ export function imageFromObject(o: any): ImageItem {
     thumbnail: o.thumbnail,
     imageSizePx: o.imageSizePx,
 
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
   });
 }
 

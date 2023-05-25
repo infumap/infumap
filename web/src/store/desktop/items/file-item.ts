@@ -27,7 +27,6 @@ import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createUidArraySignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 
@@ -56,7 +55,7 @@ export function fileFromObject(o: any): FileItem {
     mimeType: o.mimeType,
     fileSizeBytes: o.fileSizeBytes,
 
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
   });
 }
 

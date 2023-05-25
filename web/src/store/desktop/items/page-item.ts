@@ -31,7 +31,7 @@ import { DesktopStoreContextModel } from '../DesktopStoreProvider';
 import { UserStoreContextModel } from '../../UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { arrange, switchToPage } from '../layout/arrange';
-import { createNumberSignal, createUidArraySignal, NumberSignal, UidArraySignal } from '../../../util/signals';
+import { createNumberSignal, NumberSignal } from '../../../util/signals';
 import { getHitInfo } from '../../../mouse';
 
 
@@ -85,7 +85,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     gridNumberOfColumns: createNumberSignal(10),
 
     computed_children: [],
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
     childrenLoaded: false,
   
     scrollXPx: createNumberSignal(0),
@@ -119,7 +119,7 @@ export function pageFromObject(o: any): PageItem {
     gridNumberOfColumns: createNumberSignal(o.gridNumberOfColumns),
 
     computed_children: [],
-    computed_attachments: createUidArraySignal([]),
+    computed_attachments: [],
 
     childrenLoaded: false,
 

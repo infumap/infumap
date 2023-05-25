@@ -158,7 +158,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     } else if (item.relationshipToParent == Attachment) {
       const attachmentsParentItem = asAttachmentsItem(parentItem);
       attachmentsParentItem.computed_attachments
-        .set(attachmentsParentItem.computed_attachments.get().filter(aid => aid != id));
+        = attachmentsParentItem.computed_attachments.filter(aid => aid != id);
     } else {
       panic();
     }
@@ -220,7 +220,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
         attachments.push(attachmentItem.id);
       });
       attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
-      parent.computed_attachments.set(attachments);
+      parent.computed_attachments = attachments;
     });
   };
 

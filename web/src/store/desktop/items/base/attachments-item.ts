@@ -17,14 +17,14 @@
 */
 
 import { panic } from "../../../../util/lang";
-import { UidArraySignal } from "../../../../util/signals";
+import { Uid } from "../../../../util/uid";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
 
 
 const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE];
 
 export interface AttachmentsMixin {
-  computed_attachments: UidArraySignal;
+  computed_attachments: Array<Uid>;
 }
 
 export interface AttachmentsItem extends AttachmentsMixin, Item { }
