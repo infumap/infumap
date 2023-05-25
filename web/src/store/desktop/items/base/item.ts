@@ -45,7 +45,7 @@ export interface Item extends ItemTypeMixin, PositionalMixin {
   ordering: Uint8Array,
 }
 
-export const NONE_ITEM: Item = {
+export const EMPTY_ITEM: Item = {
   itemType: ITEM_TYPE_NONE,
   ownerId: EMPTY_UID,
   id: EMPTY_UID,

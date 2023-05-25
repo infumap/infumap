@@ -23,8 +23,7 @@ import { asFileItem, FileItem } from "../../store/desktop/items/file-item";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange } from "../../store/desktop/layout/arrange";
-import { rearrangeVisualElementsWithId } from "../../store/desktop/layout/rearrange";
+import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {

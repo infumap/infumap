@@ -23,8 +23,7 @@ import { asTableItem, TableItem } from "../../store/desktop/items/table-item";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange } from "../../store/desktop/layout/arrange";
-import { rearrangeVisualElementsWithId } from "../../store/desktop/layout/rearrange";
+import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {

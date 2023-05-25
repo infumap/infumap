@@ -21,7 +21,7 @@ import { server } from "../../../server";
 import { Uid } from "../../../util/uid";
 import { DesktopStoreContextModel } from "../DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
-import { rearrangeVisualElementsWithId } from "./rearrange";
+import { rearrangeVisualElementsWithId } from "./arrange";
 
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};

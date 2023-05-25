@@ -18,34 +18,49 @@
 
 import { BoundingBox } from "../../util/geometry";
 import { Hitbox } from "./hitbox";
-import { Item, NONE_ITEM } from "./items/base/item";
+import { Item, EMPTY_ITEM } from "./items/base/item";
 import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
 import { LinkItem } from "./items/link-item";
 
 
 export interface VisualElement {
   item: Item,
+
+  // If the VisualElement corresponds to a link item, "item" is the linked-to item, and
+  // "linkItemMaybe" is the link item itself.
   linkItemMaybe: LinkItem | null,
-  resizingFromBoundsPx: BoundingBox | null, // if set, the element is currently being resized, and these were the original bounds.
+
+  // If set, the element is currently being resized, and these were the original bounds.
+  resizingFromBoundsPx: BoundingBox | null,
+
+  
   isInteractive: boolean,
   isPopup: boolean,
-  boundsPx: BoundingBox, // relative to containing visual element childAreaBoundsPx.
+  
+  // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
+  boundsPx: BoundingBox,
   childAreaBoundsPx: BoundingBox | null,
-  hitboxes: Array<Hitbox>, // higher index => takes precedence.
+
+  // higher index => higher precedence.
+  hitboxes: Array<Hitbox>,
+
   children: Array<VisualElementSignal>,
   attachments: Array<VisualElementSignal>,
   parent: VisualElementSignal | null,
 
   computed_mouseIsOver: BooleanSignal,
-  computed_movingItemIsOver: BooleanSignal; // for containers.
+
+  // For containers only
+  computed_movingItemIsOver: BooleanSignal;
 }
 
+
 /**
- * Used to represent that there is no root visual element. This makes the typing much easier to deal with
+ * Used when there is no top level visual element. This makes the typing much easier to deal with
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
-  item: NONE_ITEM,
+  item: EMPTY_ITEM,
   linkItemMaybe: null,
   resizingFromBoundsPx: null,
   isInteractive: false,

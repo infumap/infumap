@@ -25,8 +25,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
 import { useGeneralStore } from "../../store/GeneralStoreProvider";
-import { arrange } from "../../store/desktop/layout/arrange";
-import { rearrangeVisualElementsWithId } from "../../store/desktop/layout/rearrange";
+import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {

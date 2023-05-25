@@ -20,9 +20,9 @@ import { batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { Uid } from "../../../util/uid";
-import { DesktopStoreContextModel } from "../DesktopStoreProvider";
+import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
 import { isAttachmentsItem } from "../items/base/attachments-item";
-import { ITEM_TYPE_LINK, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Item } from "../items/base/item";
+import { ITEM_TYPE_LINK, Item } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
@@ -447,4 +447,45 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   })();
 
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+}
+
+export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid, pageChildrenOnly: boolean): void => {
+  if (!pageChildrenOnly) {
+    // TODO.
+    panic();
+  }
+  const ves = visualElementsWithId(desktopStore, id);
+  ves.forEach(ve => {
+    if (ve.get().parent == null) {
+      rearrangeVisualElement(desktopStore, ve);
+    } else {
+      if (isPage(ve.get().parent!.get().item)) {
+        rearrangeVisualElement(desktopStore, ve);
+      }
+    }
+  });
+}
+
+export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
+  const ve = visualElementSignal.get();
+  if (desktopStore.topLevelPageId() == ve.item.id) {
+    arrange(desktopStore);
+    return;
+  }
+
+  // TODO: this seems too much of a hack...
+  let item = visualElementSignal.get().item;
+  if (visualElementSignal.get().linkItemMaybe != null) {
+    item = visualElementSignal.get().linkItemMaybe!;
+  }
+
+  const visualElement = arrangeItem(
+    desktopStore,
+    item,
+    visualElementSignal.get().parent!.get().childAreaBoundsPx!,
+    visualElementSignal.get().parent!,
+    visualElementSignal.get().parent!.get().isPopup,
+    visualElementSignal.get().isPopup).get();
+
+  visualElementSignal.set(visualElement);
 }
