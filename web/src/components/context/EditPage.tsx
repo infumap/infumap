@@ -42,21 +42,21 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
-      asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr.set(parseInt(v) * GRID_SIZE);
+      asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
       rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
-      asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(parseFloat(v));
+      asPageItem(desktopStore.getItem(pageId)!).naturalAspect = parseFloat(v);
       rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
-      desktopStore.updateItem(pageId, item => asPageItem(item).gridNumberOfColumns.set(parseInt(v)));
+      desktopStore.updateItem(pageId, item => asPageItem(item).gridNumberOfColumns = parseInt(v));
       rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   }
@@ -75,7 +75,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   }
 
   const setAspectToMatchScreen = async () => {
-    asPageItem(desktopStore.getItem(pageId)!).naturalAspect.set(screenAspect());
+    asPageItem(desktopStore.getItem(pageId)!).naturalAspect = screenAspect();
     rearrangeVisualElementsWithId(desktopStore, pageId, true);
   }
 
@@ -95,13 +95,13 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   return (
     <div class="m-1">
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onInput={handleTitleInput} focus={true} /></div>
-      <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr.get() / GRID_SIZE).toString()} onChangeOrCleanup={handleBlockWidthChange} /></div>
-      <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.get().toString()} onChangeOrCleanup={handleNaturalAspectChange} /></div>
+      <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr / GRID_SIZE).toString()} onChangeOrCleanup={handleBlockWidthChange} /></div>
+      <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChangeOrCleanup={handleNaturalAspectChange} /></div>
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
       <ColorSelector item={props.pageItem} />
       <div><InfuButton text="delete" onClick={deletePage} /></div>
       <div>is grid: <input ref={checkElement} type="checkbox" checked={props.pageItem.arrangeAlgorithm == "grid"} onClick={changeArrangeAlgo} /></div>
-      <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.get().toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
+      <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
     </div>
   );
 }

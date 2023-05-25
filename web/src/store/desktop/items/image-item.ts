@@ -39,7 +39,7 @@ export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizabl
 
 
 export function imageFromObject(o: any): ImageItem {
-  // TODO: dynamic type check of o.
+  // TODO (LOW): dynamic type check of o.
   return ({
     itemType: o.itemType,
     ownerId: o.ownerId,

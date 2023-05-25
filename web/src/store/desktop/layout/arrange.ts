@@ -92,7 +92,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
-  const pageAspect = currentPage.naturalAspect.get();
+  const pageAspect = currentPage.naturalAspect;
   const topLevelPageBoundsPx = (() => {
     let result = desktopStore.desktopBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
@@ -133,8 +133,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   let popupId = desktopStore.popupId();
   if (popupId != null) {
     let li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupId);
-    let widthGr = Math.round((currentPage.innerSpatialWidthGr.get() / GRID_SIZE) / 2.0) * GRID_SIZE;
-    let heightGr = Math.round((currentPage.innerSpatialWidthGr.get() / currentPage.naturalAspect.get() / GRID_SIZE)/ 2.0) * GRID_SIZE;
+    let widthGr = Math.round((currentPage.innerSpatialWidthGr / GRID_SIZE) / 2.0) * GRID_SIZE;
+    let heightGr = Math.round((currentPage.innerSpatialWidthGr / currentPage.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr = widthGr;
     li.spatialPositionGr = { x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE };
     topLevelVisualElement.children.push(
@@ -381,7 +381,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
-  const numCols = currentPage.gridNumberOfColumns.get();
+  const numCols = currentPage.gridNumberOfColumns;
   const numRows = Math.ceil(currentPage.computed_children.length / numCols);
   const colAspect = 1.5;
   const cellWPx = pageBoundsPx.w / numCols;

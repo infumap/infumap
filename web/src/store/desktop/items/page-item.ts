@@ -36,26 +36,26 @@ import { getHitInfo } from '../../../mouse';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
-  innerSpatialWidthGr: NumberSignal;
-  naturalAspect: NumberSignal;
+  innerSpatialWidthGr: number;
+  naturalAspect: number;
   backgroundColorIndex: number;
   arrangeAlgorithm: string;
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
-  gridNumberOfColumns: NumberSignal,
+  gridNumberOfColumns: number,
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
-  innerSpatialWidthGr: NumberSignal;
-  naturalAspect: NumberSignal;
+  innerSpatialWidthGr: number;
+  naturalAspect: number;
   arrangeAlgorithm: string;
   id: Uid;
   childrenLoaded: boolean;
-  gridNumberOfColumns: NumberSignal;
+  gridNumberOfColumns: number;
   computed_children: Array<Uid>;
 }
 
@@ -75,14 +75,14 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     spatialWidthGr: 4.0 * GRID_SIZE,
 
-    innerSpatialWidthGr: createNumberSignal(60.0 * GRID_SIZE),
-    naturalAspect: createNumberSignal(2.0),
+    innerSpatialWidthGr: 60.0 * GRID_SIZE,
+    naturalAspect: 2.0,
     backgroundColorIndex: 0,
     arrangeAlgorithm: "spatial-stretch",
     popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
     popupAlignmentPoint: "center",
     popupWidthGr: 10.0 * GRID_SIZE,
-    gridNumberOfColumns: createNumberSignal(10),
+    gridNumberOfColumns: 10,
 
     computed_children: [],
     computed_attachments: [],
@@ -109,14 +109,14 @@ export function pageFromObject(o: any): PageItem {
 
     spatialWidthGr: o.spatialWidthGr,
 
-    innerSpatialWidthGr: createNumberSignal(o.innerSpatialWidthGr),
-    naturalAspect: createNumberSignal(o.naturalAspect),
+    innerSpatialWidthGr: o.innerSpatialWidthGr,
+    naturalAspect: o.naturalAspect,
     backgroundColorIndex: o.backgroundColorIndex,
     arrangeAlgorithm: o.arrangeAlgorithm,
     popupPositionGr: o.popupPositionGr,
     popupAlignmentPoint: o.popupAlignmentPoint,
     popupWidthGr: o.popupWidthGr,
-    gridNumberOfColumns: createNumberSignal(o.gridNumberOfColumns),
+    gridNumberOfColumns: o.gridNumberOfColumns,
 
     computed_children: [],
     computed_attachments: [],
@@ -143,14 +143,14 @@ export function pageToObject(p: PageItem): object {
 
     spatialWidthGr: p.spatialWidthGr,
 
-    innerSpatialWidthGr: p.innerSpatialWidthGr.get(),
-    naturalAspect: p.naturalAspect.get(),
+    innerSpatialWidthGr: p.innerSpatialWidthGr,
+    naturalAspect: p.naturalAspect,
     backgroundColorIndex: p.backgroundColorIndex,
     arrangeAlgorithm: p.arrangeAlgorithm,
     popupPositionGr: p.popupPositionGr,
     popupAlignmentPoint: p.popupAlignmentPoint,
     popupWidthGr: p.popupWidthGr,
-    gridNumberOfColumns: p.gridNumberOfColumns.get(),
+    gridNumberOfColumns: p.gridNumberOfColumns,
   });
 }
 
@@ -158,7 +158,7 @@ export function pageToObject(p: PageItem): object {
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
     if (page.childrenLoaded) {
-      const numCols = () => page.gridNumberOfColumns.get();
+      const numCols = () => page.gridNumberOfColumns;
       const numRows = () => Math.ceil(page.computed_children.length / numCols());
       const colAspect = () => 1.5;
       const cellHGr = () => page.spatialWidthGr / numCols() * (1.0/colAspect());
@@ -169,7 +169,7 @@ export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
     }
     return { w: page.spatialWidthGr / GRID_SIZE, h: 0.5 };
   } else {
-    let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect.get() * 2.0) / 2.0;
+    let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
     return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
   }
 }
@@ -177,8 +177,8 @@ export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
 
 export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensions {
   return {
-    w: page.innerSpatialWidthGr.get() / GRID_SIZE,
-    h: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE / page.naturalAspect.get())
+    w: page.innerSpatialWidthGr / GRID_SIZE,
+    h: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect)
   };
 }
 
@@ -294,8 +294,8 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
   const propX = (desktopPosPx.x - hbi.visualElementSignal.get().boundsPx.x) / hbi.visualElementSignal.get().boundsPx.w;
   const propY = (desktopPosPx.y - hbi.visualElementSignal.get().boundsPx.y) / hbi.visualElementSignal.get().boundsPx.h;
   return {
-    x: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-    y: Math.floor(page.innerSpatialWidthGr.get() / GRID_SIZE / page.naturalAspect.get() * propY * 2.0) / 2.0 * GRID_SIZE
+    x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+    y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
   };
 }
 
