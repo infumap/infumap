@@ -53,7 +53,7 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     // possibly unused, depending on linked to type.
     spatialWidthGr: 4.0 * GRID_SIZE,
-    spatialHeightGr: createNumberSignal(4.0 * GRID_SIZE),
+    spatialHeightGr: 4.0 * GRID_SIZE,
 
     linkToId,
 
@@ -75,7 +75,7 @@ export function linkFromObject(o: any): LinkItem {
     spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: o.spatialWidthGr,
-    spatialHeightGr: createNumberSignal(o.spatialHeightGr),
+    spatialHeightGr: o.spatialHeightGr,
 
     linkToId: o.linkToId,
 
@@ -96,7 +96,7 @@ export function linkToObject(l: LinkItem): object {
     spatialPositionGr: l.spatialPositionGr,
 
     spatialWidthGr: l.spatialWidthGr,
-    spatialHeightGr: l.spatialHeightGr.get(),
+    spatialHeightGr: l.spatialHeightGr,
 
     linkToId: l.linkToId,
   });

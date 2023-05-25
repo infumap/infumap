@@ -24,7 +24,7 @@ import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./item";
 const ITEM_TYPES = [ITEM_TYPE_TABLE];
 
 export interface YSizableMixin {
-  spatialHeightGr: NumberSignal
+  spatialHeightGr: number
 }
 
 export interface YSizableItem extends YSizableMixin, Item { }

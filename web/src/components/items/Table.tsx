@@ -35,7 +35,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const blockSizePx = () => {
-    const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr.get() / GRID_SIZE };
+    const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
   }
   const headerHeightPx = () => blockSizePx().h * HEADER_HEIGHT_BL;
@@ -77,7 +77,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   const tableItem = () => asTableItem(props.visualElement.item);
   const blockHeightPx = () => {
-    let heightBr = tableItem().spatialHeightGr.get() / GRID_SIZE - HEADER_HEIGHT_BL;
+    let heightBr = tableItem().spatialHeightGr / GRID_SIZE - HEADER_HEIGHT_BL;
     let heightPx = props.visualElement.childAreaBoundsPx!.h;
     return heightPx / heightBr;
   }

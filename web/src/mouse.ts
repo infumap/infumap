@@ -317,7 +317,7 @@ export function mouseMoveHandler(
         mouseActionState.startPosBl = null;
         mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
         if (isYSizableItem(activeItem)) {
-          mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr.get() / GRID_SIZE;
+          mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
         }
         mouseActionState.action = MouseAction.Resizing;
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
@@ -356,7 +356,7 @@ export function mouseMoveHandler(
         let newHeightBl = mouseActionState!.startHeightBl! + deltaBl.y;
         newHeightBl = Math.round(newHeightBl);
         if (newHeightBl < 1) { newHeightBl = 1.0; }
-        asYSizableItem(activeItem).spatialHeightGr.set(newHeightBl * GRID_SIZE);
+        asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
       }
     });
 
@@ -492,7 +492,7 @@ export function mouseUpHandler(
 
     case MouseAction.Resizing:
       if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
-          (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr.get())) {
+          (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }
 

@@ -216,7 +216,7 @@ const arrangeTable = (
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal): VisualElementSignal => {
 
-  const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr.get() / GRID_SIZE };
+  const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
 
