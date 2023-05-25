@@ -42,7 +42,7 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
     deleted = true;
     await server.deleteItem(fileId); // throws on failure.
     desktopStore.deleteItem(fileId);
-    generalStore.setEditDialogInfo(null);
+    desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 

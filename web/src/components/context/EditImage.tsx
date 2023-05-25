@@ -42,7 +42,7 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
     deleted = true;
     await server.deleteItem(imageId); // throws on failure.
     desktopStore.deleteItem(imageId);
-    generalStore.setEditDialogInfo(null);
+    desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 

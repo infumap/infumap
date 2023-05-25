@@ -41,24 +41,22 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   let desktopDiv: HTMLDivElement | undefined;
 
-  let lastMouseMoveEvent: MouseEvent | undefined;
-
   const keyListener = (ev: KeyboardEvent) => {
-    if (generalStore.editDialogInfo() != null || generalStore.contextMenuInfo() != null) {
+    if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null) {
       return;
     }
 
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
     if (ev.code != "Slash" && ev.code != "Backslash") { return; }
-    let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(lastMouseMoveEvent!), []);
+    let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), []);
     let item = hbi.visualElementSignal.get().item;
     if (ev.code == "Slash") {
       ev.preventDefault();
-      generalStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(lastMouseMoveEvent!), item });
+      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), item });
     }
     if (ev.code == "Backslash") {
       ev.preventDefault();
-      generalStore.setEditDialogInfo({
+      desktopStore.setEditDialogInfo({
         desktopBoundsPx: { x: 0, y: 0, w: 0, h: 0 },
         item
       });
@@ -67,18 +65,18 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDownHandler(desktopStore, generalStore, ev);
+    mouseDownHandler(desktopStore, ev);
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    lastMouseMoveEvent = ev;
+    desktopStore.setLastMouseMoveEvent(ev);
     ev.preventDefault();
-    mouseMoveHandler(desktopStore, generalStore, ev);
+    mouseMoveHandler(desktopStore);
   }
 
   const mouseUpListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseUpHandler(userStore, desktopStore);
+    mouseUpHandler(desktopStore, userStore);
   }
 
   const windowResizeListener = () => {

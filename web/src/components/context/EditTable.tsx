@@ -42,7 +42,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
     deleted = true;
     await server.deleteItem(tableId); // throws on failure.
     desktopStore.deleteItem(tableId);
-    generalStore.setEditDialogInfo(null);
+    desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 

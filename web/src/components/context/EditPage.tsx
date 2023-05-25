@@ -70,7 +70,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     deleted = true;
     await server.deleteItem(pageId); // throws on failure.
     desktopStore.deleteItem(pageId);
-    generalStore.setEditDialogInfo(null);
+    desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 

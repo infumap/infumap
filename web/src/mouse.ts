@@ -25,7 +25,6 @@ import { asYSizableItem, isYSizableItem } from "./store/desktop/items/base/y-siz
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "./store/desktop/items/page-item";
 import { asTableItem, isTable } from "./store/desktop/items/table-item";
 import { DesktopStoreContextModel } from "./store/desktop/DesktopStoreProvider";
-import { GeneralStoreContextModel } from "./store/GeneralStoreProvider";
 import { UserStoreContextModel } from "./store/UserStoreProvider";
 import { add, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
 import { panic } from "./util/lang";
@@ -162,13 +161,12 @@ let lastMouseOver: VisualElementSignal | null = null;
 
 export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
-    generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
   if (desktopStore.topLevelPageId() == null) { return; }
   if (ev.button == MOUSE_LEFT) {
-    mouseLeftDownHandler(desktopStore, generalStore, ev);
+    mouseLeftDownHandler(desktopStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
-    mouseRightDownHandler(desktopStore, generalStore, ev);
+    mouseRightDownHandler(desktopStore, ev);
   } else {
     console.log("unrecognized mouse button: " + ev.button);
   }
@@ -177,23 +175,22 @@ export function mouseDownHandler(
 
 export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
-    generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
 
   const desktopPosPx = desktopPxFromMouseEvent(ev);
 
-  if (generalStore.contextMenuInfo() != null) {
-    generalStore.setContextMenuInfo(null); return;
+  if (desktopStore.contextMenuInfo() != null) {
+    desktopStore.setContextMenuInfo(null); return;
   }
 
-  let dialogInfo = generalStore.editDialogInfo();
+  let dialogInfo = desktopStore.editDialogInfo();
   if (dialogInfo != null) {
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
       dialogMoveState = { lastMousePosPx: desktopPosPx };
       return;
     }
 
-    generalStore.setEditDialogInfo(null); return;
+    desktopStore.setEditDialogInfo(null); return;
   }
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, []);
@@ -230,16 +227,15 @@ export function mouseLeftDownHandler(
 
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    generalStore: GeneralStoreContextModel,
     ev: MouseEvent) {
 
-  if (generalStore.contextMenuInfo()) {
-    generalStore.setContextMenuInfo(null);
+  if (desktopStore.contextMenuInfo()) {
+    desktopStore.setContextMenuInfo(null);
     return;
   }
 
-  if (generalStore.editDialogInfo() != null) {
-    generalStore.setEditDialogInfo(null);
+  if (desktopStore.editDialogInfo() != null) {
+    desktopStore.setEditDialogInfo(null);
     return;
   }
 
@@ -264,20 +260,20 @@ export function mouseRightDownHandler(
 }
 
 
-export function mouseMoveHandler(
-    desktopStore: DesktopStoreContextModel,
-    generalStore: GeneralStoreContextModel,
-    ev: MouseEvent) {
+export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
+
   if (desktopStore.topLevelPageId() == null) { return; }
+
+  const ev = desktopStore.lastMouseMoveEvent();
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
   if (dialogMoveState != null) {
     let currentMousePosPx = desktopPxFromMouseEvent(ev);
     let changePx = subtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
-    generalStore.setEditDialogInfo(({
-      item: generalStore.editDialogInfo()!.item,
-      desktopBoundsPx: boundingBoxFromPosSize(add(getBoundingBoxTopLeft(generalStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+    desktopStore.setEditDialogInfo(({
+      item: desktopStore.editDialogInfo()!.item,
+      desktopBoundsPx: boundingBoxFromPosSize(add(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
     }));
     dialogMoveState.lastMousePosPx = currentMousePosPx;
     return;
@@ -441,8 +437,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
 }
 
 export function mouseUpHandler(
-    userStore: UserStoreContextModel,
-    desktopStore: DesktopStoreContextModel) {
+    desktopStore: DesktopStoreContextModel,
+    userStore: UserStoreContextModel) {
 
   dialogMoveState = null;
 

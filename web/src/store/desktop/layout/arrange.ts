@@ -37,6 +37,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../../../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
 import { Hitbox, HitboxType, cloneHitbox } from "../hitbox";
+import { mouseMoveHandler } from "../../../mouse";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -86,6 +87,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   } else {
     arrange_spatialStretch(desktopStore);
   }
+  mouseMoveHandler(desktopStore)
 }
 
 

@@ -24,7 +24,7 @@ import { EMPTY_UID, Uid } from "../../util/uid";
 import { Attachment, Child, NoParent } from "./relationship-to-parent";
 import { asContainerItem, ContainerItem, isContainer } from "./items/base/container-item";
 import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
-import { BoundingBox, Dimensions } from "../../util/geometry";
+import { BoundingBox, Dimensions, Vector } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { itemFromObject } from "./items/base/item-polymorphism";
@@ -57,6 +57,25 @@ export interface DesktopStoreContextModel {
 
   topLevelVisualElement: Accessor<VisualElement>,
   setTopLevelVisualElement: Setter<VisualElement>,
+
+  setLastMouseMoveEvent: (ev: MouseEvent) => void,
+  lastMouseMoveEvent: () => MouseEvent,
+
+  editDialogInfo: Accessor<EditDialogInfo | null>,
+  setEditDialogInfo: Setter<EditDialogInfo | null>,
+
+  contextMenuInfo: Accessor<ContextMenuInfo | null>,
+  setContextMenuInfo: Setter<ContextMenuInfo | null>,
+}
+
+export interface ContextMenuInfo {
+  posPx: Vector,
+  item: Item
+}
+
+export interface EditDialogInfo {
+  desktopBoundsPx: BoundingBox,
+  item: Item
 }
 
 export interface DesktopStoreContextProps {
@@ -86,9 +105,14 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   // const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
+  const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
+  const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
 
   let breadcrumbs: Array<PageBreadcrumb> = [];
 
+  let lastMoveEvent: MouseEvent = new MouseEvent("mousemove");
+  const setLastMouseMoveEvent = (ev: MouseEvent) => { lastMoveEvent = ev; }
+  const lastMouseMoveEvent = (): MouseEvent => { return lastMoveEvent; }
 
   // TODO: Need some way to keep track of parent pages that haven't been loaded yet.
 
@@ -315,6 +339,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     clearBreadcrumbs,
     pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
     pushPopupId, popPopupId, popupId,
+    setLastMouseMoveEvent, lastMouseMoveEvent,
+    editDialogInfo, setEditDialogInfo,
+    contextMenuInfo, setContextMenuInfo,
   };
 
   return (

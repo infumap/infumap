@@ -50,7 +50,7 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
     deleted = true;
     await server.deleteItem(noteId); // throws on failure.
     desktopStore.deleteItem(noteId);
-    generalStore.setEditDialogInfo(null);
+    desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 

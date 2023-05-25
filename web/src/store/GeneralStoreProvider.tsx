@@ -16,25 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, createContext, createSignal, Setter, useContext } from "solid-js";
+import { Accessor, createContext, createSignal, useContext } from "solid-js";
 import { JSX } from "solid-js/jsx-runtime";
 import { post } from "../server";
-import { BoundingBox, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
-import { Item } from "./desktop/items/base/item";
 
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
 
-export interface ContextMenuInfo {
-  posPx: Vector,
-  item: Item
-}
-
-export interface EditDialogInfo {
-  desktopBoundsPx: BoundingBox,
-  item: Item
-}
 
 interface InstallationState {
   hasRootUser: boolean
@@ -45,12 +34,6 @@ interface LocalStorageData {
 }
 
 export interface GeneralStoreContextModel {
-  contextMenuInfo: Accessor<ContextMenuInfo | null>,
-  setContextMenuInfo: Setter<ContextMenuInfo | null>,
-
-  editDialogInfo: Accessor<EditDialogInfo | null>,
-  setEditDialogInfo: Setter<EditDialogInfo | null>,
-
   installationState: Accessor<InstallationState | null>,
   retrieveInstallationState: () => Promise<void>,
   clearInstallationState: () => void,
@@ -69,8 +52,6 @@ const GeneralStoreContext = createContext<GeneralStoreContextModel>();
 export function GeneralStoreProvider(props: GeneralStoreContextProps) {
   const [localStorageDataString, setLacalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
-  const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
-  const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
 
   const retrieveInstallationState = async () => {
@@ -103,8 +84,6 @@ export function GeneralStoreProvider(props: GeneralStoreContextProps) {
   }
 
   const value: GeneralStoreContextModel = {
-    contextMenuInfo, setContextMenuInfo,
-    editDialogInfo, setEditDialogInfo,
     installationState, retrieveInstallationState, clearInstallationState, assumeHaveRootUser: assumeInstallationStateHaveRootUser,
     prefer2fa, setPrefer2fa,
   };

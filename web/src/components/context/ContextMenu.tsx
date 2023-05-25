@@ -17,20 +17,20 @@
 */
 
 import { Component, Show } from "solid-js";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { AddItem } from "./AddItem";
+import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 
 
 const ContextMenuInner: Component = () => {
-  const generalStore = useGeneralStore();
+  const desktopStore = useDesktopStore();
 
   // Prevent mouse down events bubbling up, which would trigger the handler that hides the context menu.
   let mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
   }
 
-  const posPx = () => generalStore.contextMenuInfo()!.posPx;
-  const item = () => generalStore.contextMenuInfo()!.item;
+  const posPx = () => desktopStore.contextMenuInfo()!.posPx;
+  const item = () => desktopStore.contextMenuInfo()!.item;
 
   return (
     <div class="absolute"
@@ -43,9 +43,10 @@ const ContextMenuInner: Component = () => {
 
 
 export const ContextMenu: Component = () => {
-  const generalStore = useGeneralStore();
+  const desktopStore = useDesktopStore();
+
   return (
-    <Show when={generalStore.contextMenuInfo() != null}>
+    <Show when={desktopStore.contextMenuInfo() != null}>
       <ContextMenuInner />
     </Show>
   );

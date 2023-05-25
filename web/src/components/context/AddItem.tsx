@@ -21,7 +21,6 @@ import { Child } from "../../store/desktop/relationship-to-parent";
 import { newNoteItem } from "../../store/desktop/items/note-item";
 import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../store/desktop/items/page-item";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { Vector } from "../../util/geometry";
 import ToolbarIcon from "../ToolbarIcon";
 import { server } from "../../server";
@@ -39,7 +38,6 @@ type ContexMenuProps = {
 export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   const newPageInContext = () => {
     if (isPage(props.contextItem)) {
@@ -52,8 +50,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       newPage.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
       server.addItem(newPage, null);
       desktopStore.addItem(newPage);
-      generalStore.setContextMenuInfo(null);
-      generalStore.setEditDialogInfo({
+      desktopStore.setContextMenuInfo(null);
+      desktopStore.setEditDialogInfo({
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
         item: newPage
       });
@@ -72,8 +70,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       newNote.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
       desktopStore.addItem(newNote);
       server.addItem(newNote, null);
-      generalStore.setContextMenuInfo(null);
-      generalStore.setEditDialogInfo({
+      desktopStore.setContextMenuInfo(null);
+      desktopStore.setEditDialogInfo({
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
         item: newNote
       });
@@ -92,8 +90,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       newTable.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
       server.addItem(newTable, null);
       desktopStore.addItem(newTable);
-      generalStore.setContextMenuInfo(null);
-      generalStore.setEditDialogInfo({
+      desktopStore.setContextMenuInfo(null);
+      desktopStore.setEditDialogInfo({
         desktopBoundsPx: { x:0, y:0, w:0, h:0 },
         item: newTable
       });

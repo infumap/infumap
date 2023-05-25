@@ -36,12 +36,12 @@ export const EditDialogInner: Component = () => {
       x: (desktopStore.desktopBoundsPx().w / 2.0) - 200,
       y: 120.0
     };
-    generalStore.setEditDialogInfo({ item: item(), desktopBoundsPx: boundingBoxFromPosSize(posPx, { ...editDialogSizePx }) });
+    desktopStore.setEditDialogInfo({ item: item(), desktopBoundsPx: boundingBoxFromPosSize(posPx, { ...editDialogSizePx }) });
   });
 
-  const item = () => generalStore.editDialogInfo()!.item;
-  const posPx = () => getBoundingBoxTopLeft(generalStore.editDialogInfo()!.desktopBoundsPx);
-  const sizePx = () => getBoundingBoxSize(generalStore.editDialogInfo()!.desktopBoundsPx);
+  const item = () => desktopStore.editDialogInfo()!.item;
+  const posPx = () => getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx);
+  const sizePx = () => getBoundingBoxSize(desktopStore.editDialogInfo()!.desktopBoundsPx);
 
   return (
     <>
@@ -58,10 +58,10 @@ export const EditDialogInner: Component = () => {
 }
 
 export const EditDialog: Component = () => {
-  const generalStore = useGeneralStore();
+  const desktopStore = useDesktopStore();
 
   return (
-    <Show when={generalStore.editDialogInfo() != null}>
+    <Show when={desktopStore.editDialogInfo() != null}>
       <EditDialogInner />
     </Show>
   );
