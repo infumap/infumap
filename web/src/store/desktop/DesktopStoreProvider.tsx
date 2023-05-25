@@ -33,7 +33,6 @@ import { VisualElementSignal } from "../../util/signals";
 
 
 export interface DesktopStoreContextModel {
-  setRootId: Setter<Uid | null>,
   setChildItemsFromServerObjects: (parentId: Uid, items: Array<object>) => void,
   setAttachmentItemsFromServerObjects: (parentId: Uid, items: Array<object>) => void
   updateItem: (id: Uid, f: (item: Item) => void) => void,
@@ -83,7 +82,6 @@ interface PageBreadcrumb {
 }
 
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
-  const [_rootId, setRootId] = createSignal<Uid | null>(null, { equals: false });
   let items: { [id: Uid]: ItemSignal } = {};
   // const [currentPageId, setCurrentPageId] = createSignal<Uid | null>(null, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
@@ -309,7 +307,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
-    setRootId, setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
+    setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
     updateItem, updateContainerItem,
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
