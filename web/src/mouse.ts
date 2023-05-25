@@ -326,8 +326,8 @@ export function mouseMoveHandler(
         }
         mouseActionState.startWidthBl = null;
         mouseActionState.startPosBl = {
-          x: activeItem.spatialPositionGr.get().x / GRID_SIZE,
-          y: activeItem.spatialPositionGr.get().y / GRID_SIZE
+          x: activeItem.spatialPositionGr.x / GRID_SIZE,
+          y: activeItem.spatialPositionGr.y / GRID_SIZE
         };
         mouseActionState.action = MouseAction.Moving;
       }
@@ -393,7 +393,7 @@ export function mouseMoveHandler(
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
-    activeItem.spatialPositionGr.set({ x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE });
+    activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
     rearrangeVisualElement(desktopStore, mouseActionState.activeVisualElementSignal);
   }
 }
@@ -428,7 +428,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
       item.parentId = tableParentPage.id;
       item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
     });
-    activeItem.spatialPositionGr.set(itemPosInPageQuantizedGr);
+    activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     // TODO (LOW): something more efficient:
     arrange(desktopStore); // align visual elements with item tree.
   });
@@ -470,7 +470,7 @@ export function mouseUpHandler(
             item.parentId = moveOverContainerId;
             item.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
           });
-          activeItem.spatialPositionGr.set({ x: 0.0, y: 0.0 });
+          activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
 
           const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
           const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children.get()];
@@ -483,8 +483,8 @@ export function mouseUpHandler(
         });
         arrange(desktopStore);
       }
-      if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.get().x ||
-          mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.get().y ||
+      if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
+          mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y ||
           parentChanged) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }

@@ -27,7 +27,7 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
+import { createNumberSignal, createUidArraySignal } from "../../../util/signals";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -51,7 +51,7 @@ export function imageFromObject(o: any): ImageItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
@@ -77,7 +77,7 @@ export function imageToObject(i: ImageItem): object {
     lastModifiedDate: i.lastModifiedDate,
     ordering: Array.from(i.ordering),
     title: i.title,
-    spatialPositionGr: i.spatialPositionGr.get(),
+    spatialPositionGr: i.spatialPositionGr,
 
     spatialWidthGr: i.spatialWidthGr.get(),
 
@@ -120,8 +120,8 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
     h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   const boundsPx = {
-    x: (image.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (image.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (image.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (image.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };

@@ -16,12 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { VectorSignal } from "../../../../util/signals";
+import { Vector } from "../../../../util/geometry";
 import { Item, ItemTypeMixin } from "./item";
 
 
 export interface PositionalMixin {
-  spatialPositionGr: VectorSignal,
+  spatialPositionGr: Vector,
 }
 
 export interface PositionalItem extends PositionalMixin, Item { }

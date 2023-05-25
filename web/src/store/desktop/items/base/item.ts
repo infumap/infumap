@@ -54,5 +54,5 @@ export const EMPTY_ITEM: Item = {
   creationDate: 0,
   lastModifiedDate: 0,
   ordering: Uint8Array.from([]),
-  spatialPositionGr: createVectorSignal({ x: 0, y: 0 })
+  spatialPositionGr: { x: 0, y: 0 }
 };

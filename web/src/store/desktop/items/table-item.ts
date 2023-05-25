@@ -29,7 +29,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal } from "../../../util/signals";
+import { createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal } from "../../../util/signals";
 
 
 export interface TableColumn {
@@ -57,7 +57,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
     title,
-    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
+    spatialPositionGr: { x: 0.0, y: 0.0 },
 
     spatialWidthGr: createNumberSignal(8.0 * GRID_SIZE),
     spatialHeightGr: createNumberSignal(6.0 * GRID_SIZE),
@@ -88,7 +88,7 @@ export function tableFromObject(o: any): TableItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
     spatialHeightGr: createNumberSignal(o.spatialHeightGr),
@@ -115,7 +115,7 @@ export function tableToObject(t: TableItem): object {
     lastModifiedDate: t.lastModifiedDate,
     ordering: Array.from(t.ordering),
     title: t.title,
-    spatialPositionGr: t.spatialPositionGr.get(),
+    spatialPositionGr: t.spatialPositionGr,
 
     spatialWidthGr: t.spatialWidthGr.get(),
     spatialHeightGr: t.spatialHeightGr.get(),
@@ -137,8 +137,8 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
     h: calcTableSizeForSpatialBl(table).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   const boundsPx = {
-    x: (table.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (table.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (table.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (table.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcTableSizeForSpatialBl(table).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcTableSizeForSpatialBl(table).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };

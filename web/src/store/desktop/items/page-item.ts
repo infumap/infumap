@@ -31,7 +31,7 @@ import { DesktopStoreContextModel } from '../DesktopStoreProvider';
 import { UserStoreContextModel } from '../../UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { arrange, switchToPage } from '../layout/arrange';
-import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, createVectorSignal, NumberSignal, UidArraySignal } from '../../../util/signals';
+import { BooleanSignal, createBooleanSignal, createNumberSignal, createUidArraySignal, NumberSignal, UidArraySignal } from '../../../util/signals';
 import { getHitInfo } from '../../../mouse';
 
 
@@ -71,7 +71,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
     title,
-    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
+    spatialPositionGr: { x: 0.0, y: 0.0 },
 
     spatialWidthGr: createNumberSignal(4.0 * GRID_SIZE),
 
@@ -105,7 +105,7 @@ export function pageFromObject(o: any): PageItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
@@ -139,7 +139,7 @@ export function pageToObject(p: PageItem): object {
     lastModifiedDate: p.lastModifiedDate,
     ordering: Array.from(p.ordering),
     title: p.title,
-    spatialPositionGr: p.spatialPositionGr.get(),
+    spatialPositionGr: p.spatialPositionGr,
 
     spatialWidthGr: p.spatialWidthGr.get(),
 
@@ -194,8 +194,8 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
     w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0,
   };
   const boundsPx = {
-    x: (page.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (page.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };

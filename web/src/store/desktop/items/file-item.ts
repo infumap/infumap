@@ -27,7 +27,7 @@ import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { createNumberSignal, createUidArraySignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 
@@ -48,7 +48,7 @@ export function fileFromObject(o: any): FileItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
@@ -71,7 +71,7 @@ export function fileToObject(f: FileItem): object {
     lastModifiedDate: f.lastModifiedDate,
     ordering: Array.from(f.ordering),
     title: f.title,
-    spatialPositionGr: f.spatialPositionGr.get(),
+    spatialPositionGr: f.spatialPositionGr,
 
     spatialWidthGr: f.spatialWidthGr.get(),
 
@@ -94,8 +94,8 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
     h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   const boundsPx = {
-    x: (file.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (file.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (file.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (file.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };

@@ -23,7 +23,6 @@ import { panic } from '../../../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createVectorSignal } from '../../../util/signals';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -44,7 +43,7 @@ export function ratingFromObject(o: any): RatingItem {
     creationDate: o.creationDate,
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     rating: o.rating,
   });
@@ -60,7 +59,7 @@ export function ratingToObject(r: RatingItem): object {
     creationDate: r.creationDate,
     lastModifiedDate: r.lastModifiedDate,
     ordering: Array.from(r.ordering),
-    spatialPositionGr: r.spatialPositionGr.get(),
+    spatialPositionGr: r.spatialPositionGr,
 
     rating: r.rating,
   });
@@ -79,8 +78,8 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
     h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   const boundsPx = {
-    x: (rating.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (rating.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (rating.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (rating.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };

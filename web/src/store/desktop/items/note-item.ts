@@ -27,7 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { createNumberSignal, createUidArraySignal, createVectorSignal } from '../../../util/signals';
+import { createNumberSignal, createUidArraySignal } from '../../../util/signals';
 import { measureLineCount } from '../../../util/html';
 
 
@@ -51,7 +51,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
     title,
-    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
+    spatialPositionGr: { x: 0.0, y: 0.0 },
 
     spatialWidthGr: createNumberSignal(10.0 * GRID_SIZE),
 
@@ -73,7 +73,7 @@ export function noteFromObject(o: any): NoteItem {
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
     title: o.title,
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
 
@@ -94,7 +94,7 @@ export function noteToObject(n: NoteItem): object {
     lastModifiedDate: n.lastModifiedDate,
     ordering: Array.from(n.ordering),
     title: n.title,
-    spatialPositionGr: n.spatialPositionGr.get(),
+    spatialPositionGr: n.spatialPositionGr,
 
     spatialWidthGr: n.spatialWidthGr.get(),
 
@@ -116,8 +116,8 @@ export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: 
     h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
   const boundsPx = {
-    x: (note.spatialPositionGr.get().x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (note.spatialPositionGr.get().y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+    x: (note.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+    y: (note.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
     w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };

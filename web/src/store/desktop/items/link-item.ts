@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { BoundingBox, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { createNumberSignal, createUidArraySignal, createVectorSignal } from "../../../util/signals";
+import { createNumberSignal, createUidArraySignal } from "../../../util/signals";
 import { newUid, Uid } from "../../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
@@ -49,7 +49,7 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     creationDate: currentUnixTimeSeconds(),
     lastModifiedDate: currentUnixTimeSeconds(),
     ordering,
-    spatialPositionGr: createVectorSignal({ x: 0.0, y: 0.0 }),
+    spatialPositionGr: { x: 0.0, y: 0.0 },
 
     // possibly unused, depending on linked to type.
     spatialWidthGr: createNumberSignal(4.0 * GRID_SIZE),
@@ -72,7 +72,7 @@ export function linkFromObject(o: any): LinkItem {
     creationDate: o.creationDate,
     lastModifiedDate: o.lastModifiedDate,
     ordering: new Uint8Array(o.ordering),
-    spatialPositionGr: createVectorSignal(o.spatialPositionGr),
+    spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: createNumberSignal(o.spatialWidthGr),
     spatialHeightGr: createNumberSignal(o.spatialHeightGr),
@@ -93,7 +93,7 @@ export function linkToObject(l: LinkItem): object {
     creationDate: l.creationDate,
     lastModifiedDate: l.lastModifiedDate,
     ordering: Array.from(l.ordering),
-    spatialPositionGr: l.spatialPositionGr.get(),
+    spatialPositionGr: l.spatialPositionGr,
 
     spatialWidthGr: l.spatialWidthGr.get(),
     spatialHeightGr: l.spatialHeightGr.get(),
