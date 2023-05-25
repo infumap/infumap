@@ -146,7 +146,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     }
     if (isContainer(item)) {
       const containerItem = asContainerItem(item);
-      if (containerItem.computed_children.get().length > 0) {
+      if (containerItem.computed_children.length > 0) {
         panic!();
       }
     }
@@ -154,7 +154,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     if (item.relationshipToParent == Child) {
       const containerParentItem = asContainerItem(parentItem);
       containerParentItem.computed_children
-        .set(containerParentItem.computed_children.get().filter(cid => cid != id));
+        = containerParentItem.computed_children.filter(cid => cid != id);
     } else if (item.relationshipToParent == Attachment) {
       const attachmentsParentItem = asAttachmentsItem(parentItem);
       attachmentsParentItem.computed_attachments
@@ -196,7 +196,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
         }
       });
       children.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
-      parent.computed_children.set(children);
+      parent.computed_children = children;
     });
   };
 
@@ -230,7 +230,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       items[item.id] = createItemSignal(item);
       if (item.relationshipToParent == Child) {
         const parentItem = getContainerItem(item.parentId)!;
-        parentItem.computed_children.set([...parentItem.computed_children.get(), item.id]);
+        parentItem.computed_children = [...parentItem.computed_children, item.id];
       } else {
         throwExpression("only support child relationships currently");
       }
@@ -240,7 +240,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const newOrderingAtEndOfChildren = (parentId: Uid): Uint8Array => {
     let parent = asContainerItem(items[parentId].item());
-    let children = parent.computed_children.get().map(c => items[c].item().ordering);
+    let children = parent.computed_children.map(c => items[c].item().ordering);
     return newOrderingAtEnd(children);
   }
 

@@ -421,9 +421,9 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   };
   batch(() => {
     tableParentPage.computed_children
-      .set([activeItem.id, ...tableParentPage.computed_children.get()]);
+      = [activeItem.id, ...tableParentPage.computed_children];
     tableItem.computed_children
-      .set(tableItem.computed_children.get().filter(childItem => childItem != activeItem.id));
+      = tableItem.computed_children.filter(childItem => childItem != activeItem.id);
     desktopStore.updateItem(activeItem.id, item => {
       item.parentId = tableParentPage.id;
       item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
@@ -473,13 +473,13 @@ export function mouseUpHandler(
           activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
 
           const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
-          const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children.get()];
+          const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
           moveOverContainerChildren.sort(
             (a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-          moveOverContainer.computed_children.set(moveOverContainerChildren);
+          moveOverContainer.computed_children = moveOverContainerChildren;
 
           const prevParent = desktopStore.getContainerItem(prevParentId)!;
-          prevParent.computed_children.set(prevParent.computed_children.get().filter(i => i != activeItem.id));
+          prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
         });
         arrange(desktopStore);
       }

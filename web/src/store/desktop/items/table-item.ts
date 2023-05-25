@@ -67,7 +67,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       widthGr: 8 * GRID_SIZE,
     }],
 
-    computed_children: createUidArraySignal([]),
+    computed_children: [],
     computed_attachments: createUidArraySignal([]),
 
     childrenLoaded: false,
@@ -95,7 +95,7 @@ export function tableFromObject(o: any): TableItem {
 
     tableColumns: o.tableColumns,
 
-    computed_children: createUidArraySignal([]),
+    computed_children: [],
     computed_attachments: createUidArraySignal([]),
 
     childrenLoaded: false,

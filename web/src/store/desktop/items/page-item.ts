@@ -56,7 +56,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   id: Uid;
   childrenLoaded: boolean;
   gridNumberOfColumns: NumberSignal;
-  computed_children: UidArraySignal;
+  computed_children: Array<Uid>;
 }
 
 
@@ -84,7 +84,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     popupWidthGr: 10.0 * GRID_SIZE,
     gridNumberOfColumns: createNumberSignal(10),
 
-    computed_children: createUidArraySignal([]),
+    computed_children: [],
     computed_attachments: createUidArraySignal([]),
     childrenLoaded: false,
   
@@ -118,7 +118,7 @@ export function pageFromObject(o: any): PageItem {
     popupWidthGr: o.popupWidthGr,
     gridNumberOfColumns: createNumberSignal(o.gridNumberOfColumns),
 
-    computed_children: createUidArraySignal([]),
+    computed_children: [],
     computed_attachments: createUidArraySignal([]),
 
     childrenLoaded: false,
@@ -159,7 +159,7 @@ export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
     if (page.childrenLoaded) {
       const numCols = () => page.gridNumberOfColumns.get();
-      const numRows = () => Math.ceil(page.computed_children.get().length / numCols());
+      const numRows = () => Math.ceil(page.computed_children.length / numCols());
       const colAspect = () => 1.5;
       const cellHGr = () => page.spatialWidthGr / numCols() * (1.0/colAspect());
       const pageHeightGr = () => cellHGr() * numRows();

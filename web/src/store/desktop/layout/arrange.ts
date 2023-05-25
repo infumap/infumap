@@ -122,7 +122,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     computed_movingItemIsOver: createBooleanSignal(false),
   };
 
-  topLevelVisualElement.children = currentPage.computed_children.get()
+  topLevelVisualElement.children = currentPage.computed_children
     .map(childId => arrangeItem(
       desktopStore,
       desktopStore.getItem(childId)!,
@@ -244,8 +244,8 @@ const arrangeTable = (
 
   tableVisualElement.children = (() => {
     let tableVeChildren: Array<VisualElementSignal> = [];
-    for (let idx=0; idx<tableItem.computed_children.get().length; ++idx) {
-      const childId = tableItem.computed_children.get()[idx];
+    for (let idx=0; idx<tableItem.computed_children.length; ++idx) {
+      const childId = tableItem.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
       if (isLink(childItem)) {
         // TODO.
@@ -318,7 +318,7 @@ const arrangePage = (
   const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-  pageWithChildrenVisualElement.children = pageItem.computed_children.get().map(childId => {
+  pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
     const innerChildItem = desktopStore.getItem(childId)!;
     if (isLink(innerChildItem)) {
       // TODO.
@@ -382,7 +382,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
   const numCols = currentPage.gridNumberOfColumns.get();
-  const numRows = Math.ceil(currentPage.computed_children.get().length / numCols);
+  const numRows = Math.ceil(currentPage.computed_children.length / numCols);
   const colAspect = 1.5;
   const cellWPx = pageBoundsPx.w / numCols;
   const cellHPx = pageBoundsPx.w / numCols * (1.0/colAspect);
@@ -412,7 +412,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   topLevelVisualElement.children = (() => {
     const children: Array<VisualElementSignal> = [];
-    const childItems = currentPage.computed_children.get().map(childId => desktopStore.getItem(childId)!);
+    const childItems = currentPage.computed_children.map(childId => desktopStore.getItem(childId)!);
     for (let i=0; i<childItems.length; ++i) {
       const item = childItems[i];
       const col = i % numCols;
