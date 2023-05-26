@@ -20,7 +20,7 @@ import { Component, createMemo, For, Show } from "solid-js";
 import { asPageItem } from "../../store/desktop/items/page-item";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { Colors } from "../../style";
+import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
@@ -36,13 +36,10 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const SMALL_TOOLBAR_WIDTH_PX = 28;
   const pageItem = () => asPageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
-  const popupClickBoundsPx = (): BoundingBox | null => {
-    const hbMaybe = props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup);
-    if (!hbMaybe) { return null; }
-    return hbMaybe.boundsPx;
-  }
+  const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click)!.boundsPx;
+  const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
 
-  const calcOpaqueScale = createMemo((): number => {
+  const opaqueTitleScale = createMemo((): number => {
     const outerDiv = document.createElement("div");
     outerDiv.setAttribute("class", "flex items-center justify-center");
     outerDiv.setAttribute("style", `width: ${boundsPx().w}px; height: ${boundsPx().h}px;`);
@@ -57,31 +54,33 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     return scale > 1.0 ? 1.0 : scale;
   });
 
-  const bgOpaqueVal = () => {
-    let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.986)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)});`;
-    if (props.visualElement.computed_mouseIsOver.get()) {
-      bg = `background-color: #880088`;
-    }
-    if (props.visualElement.computed_movingItemIsOver.get()) {
-      bg = `background-color: #880000;`;
-    }
-    return bg;
-  }
-
   const drawAsOpaque = () => {
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgOpaqueVal()}>
-        <Show when={props.visualElement.computed_mouseIsOver.get() && popupClickBoundsPx() != null}>
-          <div class={`absolute`} style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; background-color: #ff00ff`}></div>
-        </Show>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
         <Show when={props.visualElement.isInteractive}>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xs font-bold text-white"
-                 style={`transform: scale(${calcOpaqueScale()}); transform-origin: center center;`}>
+                 style={`transform: scale(${opaqueTitleScale()}); transform-origin: center center;`}>
               {pageItem().title}
             </div>
           </div>
+          <Show when={props.visualElement.computed_mouseIsOver.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff22;`}>
+            </div>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff44;`}>
+            </div>
+          </Show>
+          <Show when={props.visualElement.computed_movingItemIsOver.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff22;`}>
+            </div>
+          </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElementOnDesktop visualElement={attachmentVe.get()} />
           }</For>
@@ -90,30 +89,11 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     );
   }
 
-  const bgTranslucentVal = () => {
-    let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.386)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.364)});`;
-    if (props.visualElement.computed_mouseIsOver.get()) {
-      bg = `background-color: #880088`;
-    }
-    if (props.visualElement.computed_movingItemIsOver.get()) {
-      bg = `background-color: #88000088;`;
-    }
-    return bg;
-  }
-
   const drawAsTranslucent = () => {
     return (
       <>
-        <div class={`absolute border border-slate-700 rounded-sm shadow-lg z-5`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` + bgTranslucentVal()}>
-          <Show when={props.visualElement.computed_mouseIsOver.get() && popupClickBoundsPx() != null}>
-            <div class={`absolute`} style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; background-color: #ff00ff`}></div>
-          </Show>
-          <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-            <div class="flex items-center text-center text-xl font-bold text-white">
-              {pageItem().title}
-            </div>
-          </div>
+        <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff;`}>
         </div>
         <Show when={props.visualElement.childAreaBoundsPx != null}>
           <div class="absolute"
@@ -124,6 +104,30 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
             }</For>
           </div>
         </Show>
+        <div class={`absolute border border-slate-700 rounded-sm`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
+          <Show when={props.visualElement.computed_mouseIsOver.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff22;`}>
+            </div>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff44;`}>
+            </div>
+          </Show>
+          <Show when={props.visualElement.computed_movingItemIsOver.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff22;`}>
+            </div>
+          </Show>
+        </div>
+        <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+          <div class="flex items-center text-center text-xl font-bold text-white">
+            {pageItem().title}
+          </div>
+        </div>
       </>
     );
   }
@@ -174,7 +178,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <Show when={pageItem().id == desktopStore.topLevelPageId()}>
         {drawAsTopLevelPage()}
       </Show>
-      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isInteractive || (!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>

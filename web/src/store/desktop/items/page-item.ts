@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, ITEM_BORDER_WIDTH_PX } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
@@ -183,16 +183,16 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 }
 
 
-export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0, y: 0.0,
-    w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
+    h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
-  const popupClickBoundsPx = {
-    x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-    w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0,
-  };
+  const popupClickBoundsPx = parentIsPopup
+    ? cloneBoundingBox(innerBoundsPx)!
+    : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+        w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
   const boundsPx = {
     x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,

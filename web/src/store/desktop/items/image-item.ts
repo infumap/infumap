@@ -22,7 +22,7 @@ import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/g
 import { panic } from "../../../util/lang";
 import { AttachmentsItem } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
+import { ItemTypeMixin, ITEM_TYPE_IMAGE, ITEM_BORDER_WIDTH_PX } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
@@ -111,12 +111,12 @@ export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
   return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
 }
 
-export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
-    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
+    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
   const boundsPx = {
     x: (image.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,

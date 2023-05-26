@@ -16,13 +16,21 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { hexToRGBA } from "./util/color";
+import { panic } from "./util/lang";
+
 export let Colors = [
-    "#395176", // blue [default]
-    "#395176", // blue
-    "#76393A", // red
-    "#764F39", // orange
-    "#767139", // yellow
-    "#3B7639", // green
-    "#6F3976", // purple
-    "#767676"  // gray
+  "#395176", // blue [default]
+  "#395176", // blue
+  "#76393A", // red
+  "#764F39", // orange
+  "#767139", // yellow
+  "#3B7639", // green
+  "#6F3976", // purple
+  "#767676"  // gray
 ];
+
+export function linearGradient(colIndex: number, lightenByAlpha: number): string {
+  if (lightenByAlpha > 0.986) { panic(); }
+  return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`
+}

@@ -121,8 +121,8 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
   return calcSizeForSpatialBl(constructLinkToMeasurable(link, getItem), getItem);
 }
 
-export function calcGeometryOfLinkItem(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfItemInPage(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, emitHitboxes, getItem)
+export function calcGeometryOfLinkItem(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfItemInPage(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup, getItem)
 }
 
 export function calcGeometryOfLinkAttachmentItem(link: LinkItem, containerBoundsPx: BoundingBox, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {

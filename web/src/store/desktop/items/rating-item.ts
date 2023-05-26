@@ -20,7 +20,7 @@ import { GRID_SIZE } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { panic } from '../../../util/lang';
-import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './base/item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
 
@@ -70,12 +70,12 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions 
   return { w: 1.0, h: 1.0 };
 }
 
-export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = {
+export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+  const _innerBoundsPx = {
     x: 0.0,
     y: 0.0,
-    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
+    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
   const boundsPx = {
     x: (rating.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,

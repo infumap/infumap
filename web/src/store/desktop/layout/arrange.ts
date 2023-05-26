@@ -36,8 +36,7 @@ import { newOrdering } from "../../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../../../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
-import { Hitbox, HitboxType, cloneHitbox } from "../hitbox";
-import { mouseMoveNoButtonHandler } from "../../../mouse";
+import { mouseMoveNoButtonDownHandler } from "../../../mouse";
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -62,15 +61,13 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
  * Create the visual element tree for the current page.
  * 
  * Design note: Initially, this was implemented such that the visual element state was a function of the item
- * state (arrange was never explicitly called). Note that the result of the arrange function did include (nested)
- * visual element signals though which had dependencies on the relevant part of the item state. This approach was
+ * state (arrange was never called directly). The arrange function in this implementation did include (nested)
+ * visual element signals though, which had dependencies on the relevant part of the item state. This approach was
  * simpler from the point of view that the visual elements did not need to be separately updated / managed. However,
  * the functional approach turned out to be a dead end:
  * 1. It was effectively impossible to perfectly optimize it in the case of, for example, resizing pages because
  *    the children were a function of page size. By comparison, as a general comment, the stateful approach makes
- *    it easy(er) to make precisely the optimal updates at precisely the required times. Also, given optimization as
- *    a priority, I would say the implementation is not actually harder to reason about even though it is more
- *    ad-hoc.
+ *    it easy(er) to make precisely the optimal updates at precisely the required times.
  * 2. The visual element tree state is required for mouse interaction as well as rendering, and it was messy to
  *    create a cached version of this as a side effect of the functional arrange method. And there were associated
  *    bugs, which were not trivial to track down.
@@ -87,7 +84,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   } else {
     arrange_spatialStretch(desktopStore);
   }
-  mouseMoveNoButtonHandler(desktopStore);
+  mouseMoveNoButtonDownHandler(desktopStore);
 }
 
 
@@ -175,7 +172,7 @@ export const arrangeItem = (
   const pageBoundsPx = zeroBoundingBoxTopLeft(containerBoundsPx);
   const pageInnerPageDimensionsBl = calcPageInnerSpatialDimensionsBl(parent);
 
-  const geometry = calcGeometryOfItemInPage(item, pageBoundsPx, pageInnerPageDimensionsBl, true, desktopStore.getItem);
+  const geometry = calcGeometryOfItemInPage(item, pageBoundsPx, pageInnerPageDimensionsBl, true, parentIsPopup, desktopStore.getItem);
 
   let spatialWidthGr = isXSizableItem(item)
     ? asXSizableItem(item).spatialWidthGr
@@ -200,7 +197,7 @@ export const arrangeItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePage(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignalUnderConstruction, parentIsPopup, isPopup);
+    return arrangePage(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignalUnderConstruction, isPopup);
   }
 
   if (isTable(item)) {
@@ -289,16 +286,7 @@ const arrangePage = (
     linkItemMaybe: LinkItem | null,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
-    parentIsPopup: boolean,
     isPopup: boolean): VisualElementSignal => {
-
-  let hitboxes: Array<Hitbox> = parentIsPopup
-    ? geometry.hitboxes.filter(hb => hb.type != HitboxType.OpenPopup).map(hb => {
-        let nHb = cloneHitbox(hb)!;
-        if (nHb.type == HitboxType.Click) { nHb.type = HitboxType.OpenPopup }
-        return nHb;
-      })
-    : geometry.hitboxes;
 
   const pageWithChildrenVisualElement: VisualElement = {
     item: pageItem,
@@ -308,7 +296,7 @@ const arrangePage = (
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
-    hitboxes,
+    hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,
@@ -329,7 +317,7 @@ const arrangePage = (
     if (isPopup) {
       return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, true, false);
     }
-    const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, desktopStore.getItem);
+    const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, false, desktopStore.getItem);
     return arrangeItemNoChildren(innerChildItem, null, geometry, pageWithChildrenVisualElementSignal, RenderStyle.Placeholder);
   });
 
@@ -343,22 +331,6 @@ const arrangeItemNoChildren = (
     parentSignalUnderConstruction: VisualElementSignal,
     renderStyle: RenderStyle): VisualElementSignal => {
 
-  let hitboxes: Array<Hitbox> = [];
-  if (renderStyle == RenderStyle.Full) {
-    hitboxes = geometry.hitboxes;
-  }
-  if (renderStyle == RenderStyle.InsidePopup) {
-    if (isPage(childItem)) {
-      hitboxes = geometry.hitboxes.filter(hb => hb.type != HitboxType.OpenPopup).map(hb => {
-        let nHb = cloneHitbox(hb)!;
-        if (nHb.type == HitboxType.Click) { nHb.type = HitboxType.OpenPopup }
-        return nHb;
-      });
-    } else {
-      hitboxes = geometry.hitboxes;
-    }
-  }
-
   const itemVisualElement: VisualElement = {
     item: childItem,
     linkItemMaybe,
@@ -367,7 +339,7 @@ const arrangeItemNoChildren = (
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: null,
-    hitboxes: hitboxes,
+    hitboxes: geometry.hitboxes,
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,

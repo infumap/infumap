@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from "../../../util/lang";
 import { newUid, Uid } from "../../../util/uid";
 import { AttachmentsItem } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./base/item";
+import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_BORDER_WIDTH_PX } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
@@ -129,12 +129,12 @@ export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
   return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
 }
 
-export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
-    w: calcTableSizeForSpatialBl(table).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcTableSizeForSpatialBl(table).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcTableSizeForSpatialBl(table).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
+    h: calcTableSizeForSpatialBl(table).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
   const boundsPx = {
     x: (table.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,

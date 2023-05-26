@@ -259,7 +259,7 @@ export function mouseRightDownHandler(
   arrange(desktopStore);
 }
 
-export function mouseMoveNoButtonHandler(desktopStore: DesktopStoreContextModel) {
+export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
   const ev = desktopStore.lastMouseMoveEvent();
   let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
   let overElementVes = currentHitInfo.visualElementSignal;
@@ -282,7 +282,6 @@ export function mouseMoveNoButtonHandler(desktopStore: DesktopStoreContextModel)
 }
 
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
-
   if (desktopStore.topLevelPageId() == null) { return; }
 
   const ev = desktopStore.lastMouseMoveEvent();
@@ -301,7 +300,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   }
 
   if (mouseActionState == null) {
-    mouseMoveNoButtonHandler(desktopStore);
+    mouseMoveNoButtonDownHandler(desktopStore);
     return;
   }
 

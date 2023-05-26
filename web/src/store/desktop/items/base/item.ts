@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { createVectorSignal } from '../../../../util/signals';
 import { EMPTY_UID, Uid } from '../../../../util/uid';
 import { PositionalMixin } from './positional-item';
 
@@ -28,6 +27,8 @@ export const ITEM_TYPE_FILE = "file";
 export const ITEM_TYPE_IMAGE = "image";
 export const ITEM_TYPE_RATING = "rating";
 export const ITEM_TYPE_LINK = "link";
+
+export const ITEM_BORDER_WIDTH_PX = 1;
 
 export interface ItemTypeMixin {
   itemType: string,

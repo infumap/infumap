@@ -22,7 +22,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { newUid, Uid } from '../../../util/uid';
 import { AttachmentsItem } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE, ITEM_BORDER_WIDTH_PX } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
@@ -107,12 +107,12 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
   return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean): ItemGeometry {
+export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
-    w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
+    h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
   const boundsPx = {
     x: (note.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
