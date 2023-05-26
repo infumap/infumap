@@ -30,7 +30,6 @@ export const HEADER_HEIGHT_BL = 1.0;
 
 
 export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-  const desktopStore = useDesktopStore();
 
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -72,7 +71,6 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
 
 const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-  const desktopStore = useDesktopStore();
   let outerDiv: HTMLDivElementWithData | undefined;
 
   const tableItem = () => asTableItem(props.visualElement.item);
@@ -141,8 +139,6 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
 
 export const TableInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
-  const desktopStore = useDesktopStore();
-
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

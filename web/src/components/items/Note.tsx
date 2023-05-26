@@ -20,13 +20,11 @@ import { Component, createMemo, For, Show } from "solid-js";
 import { asNoteItem, calcNoteSizeForSpatialBl } from "../../store/desktop/items/note-item";
 import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
 export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-  const desktopStore = useDesktopStore();
 
   const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -60,7 +58,6 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 
 export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
-  const desktopStore = useDesktopStore();
 
   const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;

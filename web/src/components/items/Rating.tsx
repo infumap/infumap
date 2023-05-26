@@ -26,8 +26,6 @@ import { asTableItem } from "../../store/desktop/items/table-item";
 
 
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-  const desktopStore = useDesktopStore();
-
   const _ratingItem = () => asRatingItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
 
@@ -43,8 +41,6 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 
 
 export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
-  const desktopStore = useDesktopStore();
-
   const _ratingItem = () => asRatingItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

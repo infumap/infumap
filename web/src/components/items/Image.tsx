@@ -18,7 +18,6 @@
 
 import { Component, For, Show, onCleanup, onMount } from "solid-js";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem } from "../../store/desktop/items/image-item";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { quantizeBoundingBox } from "../../util/geometry";
@@ -29,7 +28,6 @@ import { getImage, releaseImage } from "../../imageManager";
 
 
 export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-  const desktopStore = useDesktopStore();
   let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.item);
@@ -117,7 +115,6 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 
 
 export const ImageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
-  const desktopStore = useDesktopStore();
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.item);
