@@ -24,15 +24,15 @@ import { allowHalfBlockWidth, asXSizableItem } from "./store/desktop/items/base/
 import { asYSizableItem, isYSizableItem } from "./store/desktop/items/base/y-sizeable-item";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "./store/desktop/items/page-item";
 import { asTableItem, isTable } from "./store/desktop/items/table-item";
-import { DesktopStoreContextModel } from "./store/desktop/DesktopStoreProvider";
+import { DesktopStoreContextModel, visualElementsWithId } from "./store/desktop/DesktopStoreProvider";
 import { UserStoreContextModel } from "./store/UserStoreProvider";
 import { add, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
-import { panic } from "./util/lang";
+import { panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement } from "./store/desktop/visual-element";
-import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
+import { VisualElement, calcVisualPathString } from "./store/desktop/visual-element";
+import { arrange, rearrangeVisualElement, rearrangeVisualElementsWithId, switchToPage } from "./store/desktop/layout/arrange";
 import { isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
 import { VisualElementSignal } from "./util/signals";
@@ -342,27 +342,25 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   // ### Resizing
   if (mouseActionState.action == MouseAction.Resizing) {
-    batch(() => {
-      let newWidthBl = mouseActionState!.startWidthBl! + deltaBl.x;
-      newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
-      if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-      asXSizableItem(activeItem).spatialWidthGr = newWidthBl * GRID_SIZE;
+    let newWidthBl = mouseActionState!.startWidthBl! + deltaBl.x;
+    newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+    if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-      if (isYSizableItem(activeItem)) {
-        let newHeightBl = mouseActionState!.startHeightBl! + deltaBl.y;
-        newHeightBl = Math.round(newHeightBl);
-        if (newHeightBl < 1) { newHeightBl = 1.0; }
-        asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
-      }
-    });
+    asXSizableItem(activeItem).spatialWidthGr = newWidthBl * GRID_SIZE;
+
+    if (isYSizableItem(activeItem)) {
+      let newHeightBl = mouseActionState!.startHeightBl! + deltaBl.y;
+      newHeightBl = Math.round(newHeightBl);
+      if (newHeightBl < 1) { newHeightBl = 1.0; }
+      asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
+    }
 
     rearrangeVisualElement(desktopStore, mouseActionState.activeVisualElementSignal);
 
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
-    const overHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
-    const overVe = overHitInfo.visualElementSignal.get();
+    const overVe = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]).visualElementSignal.get();
     const overContainerVe = isContainer(overVe.item)
       ? overVe
       : (() => {
@@ -396,15 +394,15 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
-  const activeItem = mouseActionState!.activeVisualElementSignal!.get().item;
+  const activeVisualElement = mouseActionState!.activeVisualElementSignal!.get();
+  const activeItem = activeVisualElement.item;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
-  let itemPosInTablePx = getBoundingBoxTopLeft(mouseActionState!.activeVisualElementSignal!.get().boundsPx);
+  let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
-  const tableVeId = mouseActionState!.activeVisualElementSignal!.get().parent!.get().item.id;
-  // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableVe = desktopStore.topLevelVisualElement().children.map(c => c.get()).find(el => el.item.id == tableVeId)!;
-  // TODO (MEDIUM): won't work in the (anticipated) general case.
-  const tableParentVe = desktopStore.topLevelVisualElement();
+  const tableVe = activeVisualElement.parent!.get();
+  const tableParentVe = tableVe.parent!.get();
+  const tableParentVisualPathString = calcVisualPathString(tableVe.parent!);
+
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
@@ -416,25 +414,34 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
   };
-  batch(() => {
-    tableParentPage.computed_children
-      = [activeItem.id, ...tableParentPage.computed_children];
-    tableItem.computed_children
-      = tableItem.computed_children.filter(childItem => childItem != activeItem.id);
-    desktopStore.updateItem(activeItem.id, item => {
-      item.parentId = tableParentPage.id;
-      item.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
-    });
-    activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
-    // TODO (LOW): something more efficient:
-    arrange(desktopStore);
+
+  tableParentPage.computed_children
+    = [activeItem.id, ...tableParentPage.computed_children];
+  tableItem.computed_children
+    = tableItem.computed_children.filter(childItem => childItem != activeItem.id);
+  activeItem.parentId = tableParentPage.id;
+  activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
+  activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
+  arrange(desktopStore);
+
+  let done = false;
+  let otherVes = [];
+  visualElementsWithId(desktopStore, activeVisualElement.item.id).forEach(ve => {
+    if (calcVisualPathString(ve.get().parent!) == tableParentVisualPathString) {
+      mouseActionState!.activeVisualElementSignal = ve;
+      mouseActionState!.onePxSizeBl = {
+        x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
+        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
+      };
+      done = true;
+    } else {
+      otherVes.push(ve);
+    }
   });
-  // TODO (MEDIUM): won't work in (anticipated) general case.
-  mouseActionState!.activeVisualElementSignal = desktopStore.topLevelVisualElement().children.find(el => el.get().item.id == activeItem.id)!;
-  mouseActionState!.onePxSizeBl = {
-    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
-    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
-  };
+
+  if (!done) {
+    panic();
+  }
 }
 
 export function mouseUpHandler(
@@ -453,37 +460,41 @@ export function mouseUpHandler(
 
   switch (mouseActionState.action) {
     case MouseAction.Moving:
-      const overVes = mouseActionState.moveOverContainerVisualElement!;
-      const moveOverContainerId = overVes.item.id;
+      const overVe = mouseActionState.moveOverContainerVisualElement!;
+      const moveOverContainerId = overVe.item.id;
       if (moveOverContainerId == activeItem.id) {
-        throw new Error("Attempt was made to move an item into itself.");
+        throwExpression("Attempt was made to move an item into itself.");
       }
+
       const parentChanged = moveOverContainerId != activeItem.parentId;
       if (parentChanged) {
+        if (!isTable(overVe.item)) {
+          throwExpression(`Expecting parent to have changed already moving over item of type ${overVe.item.itemType}`);
+        }
         const prevParentId = activeItem.parentId;
-        batch(() => {
-          desktopStore.updateItem(activeItem.id, item => {
-            item.parentId = moveOverContainerId;
-            item.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
-          });
-          activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-          const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
-          const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
-          moveOverContainerChildren.sort(
-            (a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-          moveOverContainer.computed_children = moveOverContainerChildren;
+        activeItem.parentId = moveOverContainerId;
+        activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
+        activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-          const prevParent = desktopStore.getContainerItem(prevParentId)!;
-          prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-        });
+        const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
+        const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
+        moveOverContainerChildren.sort(
+          (a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+        moveOverContainer.computed_children = moveOverContainerChildren;
+
+        const prevParent = desktopStore.getContainerItem(prevParentId)!;
+        prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
+
         arrange(desktopStore);
       }
+
       if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
           mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y ||
           parentChanged) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }
+
       break;
 
     case MouseAction.Resizing:

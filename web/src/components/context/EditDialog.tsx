@@ -18,7 +18,6 @@
 
 import { Component, onMount, Show } from "solid-js";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { EditItem } from "./EditItem";
 
@@ -26,7 +25,6 @@ import { EditItem } from "./EditItem";
 export const editDialogSizePx = { w: 400, h: 400 };
 
 export const EditDialogInner: Component = () => {
-  const generalStore = useGeneralStore();
   const desktopStore = useDesktopStore();
 
   let editDialogDiv: HTMLDivElement | undefined;

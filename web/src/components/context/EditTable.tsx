@@ -20,7 +20,6 @@ import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../store/desktop/items/table-item";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
@@ -28,13 +27,12 @@ import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layo
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   const tableId = props.tableItem.id;
   let deleted = false;
 
   const handleTitleInput = (v: string) => {
-    desktopStore.updateItem(tableId, item => asTableItem(item).title = v);
+    asTableItem(desktopStore.getItem(tableId)!).title = v;
     rearrangeVisualElementsWithId(desktopStore, tableId, true);
   };
 

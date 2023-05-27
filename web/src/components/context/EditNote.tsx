@@ -22,26 +22,24 @@ import { asNoteItem, NoteItem } from "../../store/desktop/items/note-item";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuTextArea } from "../library/InfuTextArea";
 import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   const noteId = props.noteItem.id;
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    desktopStore.updateItem(noteId, item => asNoteItem(item).title = v);
+    asNoteItem(desktopStore.getItem(noteId)!).title = v;
     rearrangeVisualElementsWithId(desktopStore, noteId, true);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
-      desktopStore.updateItem(noteId, item => asNoteItem(item).url = v);
+      asNoteItem(desktopStore.getItem(noteId)!).url = v;
       rearrangeVisualElementsWithId(desktopStore, noteId, true);
     }
   };

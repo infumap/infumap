@@ -76,3 +76,19 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   computed_mouseIsOver: createBooleanSignal(false),
   computed_movingItemIsOver: createBooleanSignal(false),
 };
+
+
+export function calcVisualPathString(visualElementSignal: VisualElementSignal): string {
+  return calcVisualPathStringImpl(visualElementSignal, "");
+}
+
+function calcVisualPathStringImpl(visualElementSignal: VisualElementSignal, current: string): string {
+  const ve = visualElementSignal.get();
+  if (current != "") { current += "-"; }
+  current += ve.item.id;
+  if (ve.linkItemMaybe != null) {
+    current += "[" + ve.linkItemMaybe!.id + "]";
+  }
+  if (ve.parent == null) { return current; }
+  return calcVisualPathStringImpl(ve.parent, current);
+}

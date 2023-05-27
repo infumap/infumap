@@ -39,7 +39,7 @@ export const ColorSelector: Component<{ item: Item }> = (props: {item: Item }) =
   let itemId = props.item.id;
 
   const handleClick = (col: number) => {
-    desktopStore.updateItem(props.item.id, item => asPageItem(item).backgroundColorIndex = col);
+    asPageItem(desktopStore.getItem(props.item.id)!).backgroundColorIndex = col;
     server.updateItem(desktopStore.getItem(itemId)!);
   }
 

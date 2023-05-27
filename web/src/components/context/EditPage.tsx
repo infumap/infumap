@@ -24,13 +24,11 @@ import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   const screenAspect = (): number => {
     let aspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -56,13 +54,13 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
-      desktopStore.updateItem(pageId, item => asPageItem(item).gridNumberOfColumns = parseInt(v));
+      asPageItem(desktopStore.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
       rearrangeVisualElementsWithId(desktopStore, pageId, true);
     }
   }
 
   const handleTitleInput = (v: string) => {
-    desktopStore.updateItem(pageId, item => asPageItem(item).title = v);
+    asPageItem(desktopStore.getItem(pageId)!).title = v;
     rearrangeVisualElementsWithId(desktopStore, pageId, true);
   };
 
@@ -82,7 +80,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   let checkElement: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
-    desktopStore.updateItem(pageId, item => asPageItem(item).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch"));
+    asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch");
     rearrangeVisualElementsWithId(desktopStore, pageId, true);
   }
 

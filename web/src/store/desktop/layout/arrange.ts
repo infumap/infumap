@@ -37,6 +37,10 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../../../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../../../mouse";
+import { newUid } from "../../../util/uid";
+
+
+const POPUP_LINK_ID = newUid();
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -62,9 +66,9 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
  * 
  * Design note: Initially, this was implemented such that the visual element state was a function of the item
  * state (arrange was never called directly). The arrange function in this implementation did include (nested)
- * visual element signals though, which had dependencies on the relevant part of the item state. This approach was
- * simpler from the point of view that the visual elements did not need to be separately updated / managed. However,
- * the functional approach turned out to be a dead end:
+ * visual element signals though, which had dependencies on the relevant part of the item state. All the items
+ * were solidjs signals. This approach was simpler from the point of view that the visual elements did not need
+ * to be imperatively updated / managed. However, the functional approach turned out to be a dead end:
  * 1. It was effectively impossible to perfectly optimize it in the case of, for example, resizing pages because
  *    the children were a function of page size. By comparison, as a general comment, the stateful approach makes
  *    it easy(er) to make precisely the optimal updates at precisely the required times.
@@ -132,6 +136,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   let popupId = desktopStore.popupId();
   if (popupId != null) {
     let li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupId);
+    li.id = POPUP_LINK_ID;
     let widthGr = Math.round((currentPage.innerSpatialWidthGr / GRID_SIZE) / 2.0) * GRID_SIZE;
     let heightGr = Math.round((currentPage.innerSpatialWidthGr / currentPage.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr = widthGr;

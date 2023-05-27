@@ -20,7 +20,6 @@ import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asFileItem, FileItem } from "../../store/desktop/items/file-item";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
@@ -28,13 +27,12 @@ import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layo
 
 export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   const fileId = props.fileItem.id;
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    desktopStore.updateItem(fileId, item => asFileItem(item).title = v);
+    asFileItem(desktopStore.getItem(fileId)!).title = v;
     rearrangeVisualElementsWithId(desktopStore, fileId, true);
   };
 

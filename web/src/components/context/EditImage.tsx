@@ -20,7 +20,6 @@ import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asImageItem, ImageItem } from "../../store/desktop/items/image-item";
-import { useGeneralStore } from "../../store/GeneralStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
@@ -28,13 +27,12 @@ import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layo
 
 export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: ImageItem}) => {
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   const imageId = props.imageItem.id;
   let deleted = false;
 
   const handleTitleChange = (v: string) => {
-    desktopStore.updateItem(imageId, item => asImageItem(item).title = v);
+    asImageItem(desktopStore.getItem(imageId)!).title = v;
     rearrangeVisualElementsWithId(desktopStore, imageId, true);
   };
 
