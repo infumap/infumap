@@ -435,7 +435,10 @@ export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextM
   if (!pageChildrenOnly) { panic(); } // TODO
 
   visualElementsWithId(desktopStore, id).forEach(ve => {
-    rearrangeVisualElement(desktopStore, ve);
+    const parentIsPage = ve.get().parent == null || isPage(ve.get().parent!.get().item);
+    if (parentIsPage) {
+      rearrangeVisualElement(desktopStore, ve);
+    }
   });
 }
 
