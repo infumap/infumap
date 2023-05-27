@@ -362,12 +362,12 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
     const overHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
-    const overVes = overHitInfo.visualElementSignal.get();
-    const overContainerVe = isContainer(overVes.item)
-      ? overVes
+    const overVe = overHitInfo.visualElementSignal.get();
+    const overContainerVe = isContainer(overVe.item)
+      ? overVe
       : (() => {
-        if (overVes.parent == null) { panic(); }
-        const result = overVes.parent.get();
+        if (overVe.parent == null) { panic(); }
+        const result = overVe.parent.get();
         if (!isContainer(result.item)) { panic(); }
         return result;
       })();
@@ -427,7 +427,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     });
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     // TODO (LOW): something more efficient:
-    arrange(desktopStore); // align visual elements with item tree.
+    arrange(desktopStore);
   });
   // TODO (MEDIUM): won't work in (anticipated) general case.
   mouseActionState!.activeVisualElementSignal = desktopStore.topLevelVisualElement().children.find(el => el.get().item.id == activeItem.id)!;
@@ -456,7 +456,6 @@ export function mouseUpHandler(
       const overVes = mouseActionState.moveOverContainerVisualElement!;
       const moveOverContainerId = overVes.item.id;
       if (moveOverContainerId == activeItem.id) {
-        // TODO (MEDIUM): This case did occur. Figure out how/why.
         throw new Error("Attempt was made to move an item into itself.");
       }
       const parentChanged = moveOverContainerId != activeItem.parentId;
