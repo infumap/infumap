@@ -18,7 +18,6 @@
 
 import { Component, For, onMount, Show } from "solid-js";
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";

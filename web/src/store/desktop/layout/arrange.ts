@@ -200,12 +200,17 @@ export const arrangeItem = (
     return arrangePage(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignalUnderConstruction, isPopup);
   }
 
-  if (isTable(item)) {
+  if (isTable(item) && (item.parentId == desktopStore.topLevelPageId() || parentIsPopup)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
     return arrangeTable(desktopStore, asTableItem(item), linkItemMaybe, geometry, parentSignalUnderConstruction);
   }
 
-  return arrangeItemNoChildren(item, linkItemMaybe, geometry, parentSignalUnderConstruction, parentIsPopup ? RenderStyle.InsidePopup : RenderStyle.Full);
+  const renderStyle = parentIsPopup
+    ? RenderStyle.InsidePopup
+    : item.parentId == desktopStore.topLevelPageId()
+      ? RenderStyle.Full
+      : RenderStyle.Placeholder;
+  return arrangeItemNoChildren(item, linkItemMaybe, geometry, parentSignalUnderConstruction, renderStyle);
 }
 
 const arrangeTable = (
@@ -325,14 +330,14 @@ const arrangePage = (
 }
 
 const arrangeItemNoChildren = (
-    childItem: Item,
+    item: Item,
     linkItemMaybe: LinkItem | null,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
     renderStyle: RenderStyle): VisualElementSignal => {
 
   const itemVisualElement: VisualElement = {
-    item: childItem,
+    item,
     linkItemMaybe,
     isInteractive: renderStyle != RenderStyle.Placeholder,
     isPopup: false,
@@ -427,19 +432,10 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 }
 
 export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid, pageChildrenOnly: boolean): void => {
-  if (!pageChildrenOnly) {
-    // TODO.
-    panic();
-  }
-  const ves = visualElementsWithId(desktopStore, id);
-  ves.forEach(ve => {
-    if (ve.get().parent == null) {
-      rearrangeVisualElement(desktopStore, ve);
-    } else {
-      if (isPage(ve.get().parent!.get().item)) {
-        rearrangeVisualElement(desktopStore, ve);
-      }
-    }
+  if (!pageChildrenOnly) { panic(); } // TODO
+
+  visualElementsWithId(desktopStore, id).forEach(ve => {
+    rearrangeVisualElement(desktopStore, ve);
   });
 }
 
@@ -450,11 +446,9 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
     return;
   }
 
-  // TODO: this seems too much of a hack...
-  let item = visualElementSignal.get().item;
-  if (visualElementSignal.get().linkItemMaybe != null) {
-    item = visualElementSignal.get().linkItemMaybe!;
-  }
+  const item = visualElementSignal.get().linkItemMaybe != null
+    ? visualElementSignal.get().linkItemMaybe!
+    : visualElementSignal.get().item;
 
   const visualElement = arrangeItem(
     desktopStore,
