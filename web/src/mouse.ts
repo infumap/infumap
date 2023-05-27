@@ -356,7 +356,9 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
     }
 
-    rearrangeVisualElement(desktopStore, mouseActionState.activeVisualElementSignal);
+    visualElementsWithId(desktopStore, mouseActionState.activeVisualElementSignal.get().item.id).forEach(ve => {
+      rearrangeVisualElement(desktopStore, ve);
+    });
 
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
@@ -389,7 +391,10 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
     activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-    rearrangeVisualElement(desktopStore, mouseActionState.activeVisualElementSignal);
+
+    visualElementsWithId(desktopStore, mouseActionState.activeVisualElementSignal.get().item.id).forEach(ve => {
+      rearrangeVisualElement(desktopStore, ve);
+    });
   }
 }
 
