@@ -50,7 +50,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
         <div class="absolute"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="absolute font-bold"
-               style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
+               style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                       `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
                       `overflow-wrap: break-word;`}>
             {tableItem().title}
