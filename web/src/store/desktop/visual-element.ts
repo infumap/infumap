@@ -33,10 +33,11 @@ export interface VisualElement {
   // If set, the element is currently being resized, and these were the original bounds.
   resizingFromBoundsPx: BoundingBox | null,
 
-  
-  isInteractive: boolean,
-  isPopup: boolean,
-  
+  isInteractive: boolean,          // the visual element can be interacted with.
+  isPopup: boolean,                // the visual element is a popup (and thus also a page).
+  isInsideTable: boolean,          // the visual element is inside a table.
+  allowDragInPositioning: boolean, // an item dropped on the container is positioned according to the mouse position (thus visual element is also always a page).
+
   // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
   boundsPx: BoundingBox,
   childAreaBoundsPx: BoundingBox | null,
@@ -48,10 +49,10 @@ export interface VisualElement {
   attachments: Array<VisualElementSignal>,
   parent: VisualElementSignal | null,
 
-  computed_mouseIsOver: BooleanSignal,
+  mouseIsOver: BooleanSignal,
 
   // For containers only
-  computed_movingItemIsOver: BooleanSignal;
+  movingItemIsOver: BooleanSignal;
 }
 
 
@@ -65,6 +66,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   isInteractive: false,
   isPopup: false,
+  isInsideTable: false,
+  allowDragInPositioning: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   hitboxes: [],
@@ -73,8 +76,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   parent: null,
 
 
-  computed_mouseIsOver: createBooleanSignal(false),
-  computed_movingItemIsOver: createBooleanSignal(false),
+  mouseIsOver: createBooleanSignal(false),
+  movingItemIsOver: createBooleanSignal(false),
 };
 
 

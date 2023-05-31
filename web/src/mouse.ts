@@ -27,7 +27,7 @@ import { asTableItem, isTable } from "./store/desktop/items/table-item";
 import { DesktopStoreContextModel, visualElementsWithId } from "./store/desktop/DesktopStoreProvider";
 import { UserStoreContextModel } from "./store/UserStoreProvider";
 import { add, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
-import { panic, throwExpression } from "./util/lang";
+import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
@@ -137,11 +137,42 @@ export function getHitInfo(
   return { hitboxType: HitboxType.None, visualElementSignal: rootVisualElementSignal };
 }
 
+export interface FindVisualElementsResult {
+  overContainerVe: VisualElement,
+  overPositionableVe: VisualElement,
+}
+
+function findVisualElements(overVe: VisualElement): FindVisualElementsResult {
+  if (overVe.isInsideTable) {
+    assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
+    const parentTableVe = overVe.parent!.get();
+    const tableParentPageVe = parentTableVe.parent!.get();
+    assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
+    assert(tableParentPageVe.allowDragInPositioning, "page containing table does not drag in positioning.");
+    return { overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe};
+  }
+
+  if (isTable(overVe.item)) {
+    assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
+    assert(overVe.parent!.get().allowDragInPositioning, "page containing table does not allow drag in positioning.");
+    return { overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
+  }
+
+  if (isPage(overVe.item) && overVe.allowDragInPositioning) {
+    return { overContainerVe: overVe, overPositionableVe: overVe };
+  }
+
+  const overVeParent = overVe.parent!.get();
+  assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
+  assert(overVe.parent!.get().allowDragInPositioning, "parent of non-container does not allow drag in positioning.");
+  return { overContainerVe: overVeParent, overPositionableVe: overVeParent };
+}
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
   activeVisualElementSignal: VisualElementSignal,
   moveOverContainerVisualElement: VisualElement | null,
+  scaleDefiningVisualElement: VisualElement | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -202,6 +233,10 @@ export function mouseLeftDownHandler(
     return;
   }
 
+  const ves = findVisualElements(
+    getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [hitInfo.visualElementSignal.get().item.id]).visualElementSignal.get()
+  );
+
   const startPosBl = null;
   const startWidthBl = null;
   const startHeightBl = null;
@@ -214,6 +249,7 @@ export function mouseLeftDownHandler(
   mouseActionState = {
     activeVisualElementSignal: hitInfo.visualElementSignal,
     moveOverContainerVisualElement: null,
+    scaleDefiningVisualElement: ves.overPositionableVe,
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
     startPx,
@@ -265,13 +301,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   let overElementVes = currentHitInfo.visualElementSignal;
   if (overElementVes != lastMouseOverVes) {
     if (lastMouseOverVes != null) {
-      lastMouseOverVes.get().computed_mouseIsOver.set(false);
+      lastMouseOverVes.get().mouseIsOver.set(false);
       lastMouseOverVes = null;
     }
   }
   if (overElementVes!.get().item.id != desktopStore.topLevelPageId() &&
-      !overElementVes.get().isPopup && !overElementVes.get().computed_mouseIsOver.get()) {
-    overElementVes!.get().computed_mouseIsOver.set(true);
+      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get()) {
+    overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
   if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
@@ -362,27 +398,21 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
+
     const overVe = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]).visualElementSignal.get();
-    const overContainerVe = isContainer(overVe.item)
-      ? overVe
-      : (() => {
-        if (overVe.parent == null) { panic(); }
-        const result = overVe.parent.get();
-        if (!isContainer(result.item)) { panic(); }
-        return result;
-      })();
+    const ves = findVisualElements(overVe);
 
     if (mouseActionState.moveOverContainerVisualElement == null ||
-        mouseActionState.moveOverContainerVisualElement! != overContainerVe) {
+        mouseActionState.moveOverContainerVisualElement! != ves.overContainerVe) {
       if (mouseActionState.moveOverContainerVisualElement != null) {
-        mouseActionState.moveOverContainerVisualElement.computed_movingItemIsOver.set(false);
+        mouseActionState.moveOverContainerVisualElement.movingItemIsOver.set(false);
       }
-      overContainerVe.computed_movingItemIsOver.set(true);
-      mouseActionState.moveOverContainerVisualElement = overContainerVe;
-      if (isTable(overContainerVe.item)) {
-        console.log("over table");
-        // TODO (HIGH): update table item here with mouse over position.
-      }
+      ves.overContainerVe.movingItemIsOver.set(true);
+      mouseActionState.moveOverContainerVisualElement = ves.overContainerVe;
+    }
+
+    if (mouseActionState.scaleDefiningVisualElement != ves.overPositionableVe) {
+      moveActiveItemToDifferentPage(desktopStore);
     }
 
     let newPosBl = add(mouseActionState.startPosBl!, deltaBl);
@@ -396,6 +426,14 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       rearrangeVisualElement(desktopStore, ve);
     });
   }
+}
+
+export function handleMoveOverTable(desktopStore: DesktopStoreContextModel) {
+  console.log("over table. draw insertion point line.");
+}
+
+export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel) {
+  console.log("changing scale");
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
@@ -460,7 +498,7 @@ export function mouseUpHandler(
   const activeItem = mouseActionState.activeVisualElementSignal!.get().item;
 
   if (mouseActionState.moveOverContainerVisualElement != null) {
-    mouseActionState.moveOverContainerVisualElement.computed_movingItemIsOver.set(false);
+    mouseActionState.moveOverContainerVisualElement.movingItemIsOver.set(false);
   }
 
   switch (mouseActionState.action) {

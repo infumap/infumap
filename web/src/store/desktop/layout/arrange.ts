@@ -114,6 +114,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     linkItemMaybe: null,
     isInteractive: true,
     isPopup: false,
+    isInsideTable: false,
+    allowDragInPositioning: true,
     resizingFromBoundsPx: null,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
@@ -121,8 +123,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     children: [],
     attachments: [],
     parent: null,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
+    mouseIsOver: createBooleanSignal(false),
+    movingItemIsOver: createBooleanSignal(false),
   };
 
   topLevelVisualElement.children = currentPage.computed_children
@@ -202,7 +204,7 @@ export const arrangeItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePage(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignalUnderConstruction, isPopup);
+    return arrangePageWithChildren(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignalUnderConstruction, isPopup);
   }
 
   if (isTable(item) && (item.parentId == desktopStore.topLevelPageId() || parentIsPopup)) {
@@ -239,6 +241,8 @@ const arrangeTable = (
     linkItemMaybe,
     isInteractive: true,
     isPopup: false,
+    isInsideTable: false,
+    allowDragInPositioning: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx,
@@ -246,8 +250,8 @@ const arrangeTable = (
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
+    mouseIsOver: createBooleanSignal(false),
+    movingItemIsOver: createBooleanSignal(false),
   }
   const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
 
@@ -267,6 +271,8 @@ const arrangeTable = (
         linkItemMaybe: null,
         isInteractive: true,
         isPopup: false,
+        isInsideTable: true,
+        allowDragInPositioning: false,
         resizingFromBoundsPx: null,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
@@ -274,8 +280,8 @@ const arrangeTable = (
         attachments: [],
         childAreaBoundsPx: null,
         parent: tableVisualElementSignal,
-        computed_mouseIsOver: createBooleanSignal(false),
-        computed_movingItemIsOver: createBooleanSignal(false),
+        mouseIsOver: createBooleanSignal(false),
+        movingItemIsOver: createBooleanSignal(false),
       };
       tableVeChildren.push(createVisualElementSignal(tableItemVe));
 
@@ -290,7 +296,7 @@ const arrangeTable = (
   return tableVisualElementSignal;
 }
 
-const arrangePage = (
+const arrangePageWithChildren = (
     desktopStore: DesktopStoreContextModel,
     pageItem: PageItem,
     linkItemMaybe: LinkItem | null,
@@ -303,6 +309,8 @@ const arrangePage = (
     linkItemMaybe,
     isInteractive: true,
     isPopup,
+    isInsideTable: false,
+    allowDragInPositioning: true,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
@@ -310,8 +318,8 @@ const arrangePage = (
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
+    mouseIsOver: createBooleanSignal(false),
+    movingItemIsOver: createBooleanSignal(false),
   };
   const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
 
@@ -346,6 +354,8 @@ const arrangeItemNoChildren = (
     linkItemMaybe,
     isInteractive: renderStyle != RenderStyle.Placeholder,
     isPopup: false,
+    isInsideTable: false,
+    allowDragInPositioning: false,
     resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: null,
@@ -353,8 +363,8 @@ const arrangeItemNoChildren = (
     children: [],
     attachments: [],
     parent: parentSignalUnderConstruction,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
+    mouseIsOver: createBooleanSignal(false),
+    movingItemIsOver: createBooleanSignal(false),
   };
 
   return createVisualElementSignal(itemVisualElement);
@@ -383,6 +393,8 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     linkItemMaybe: null,
     isInteractive: true,
     isPopup: false,
+    isInsideTable: false,
+    allowDragInPositioning: true,
     resizingFromBoundsPx: null,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
@@ -390,8 +402,8 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     children: [], // replaced below.
     attachments: [],
     parent: null,
-    computed_mouseIsOver: createBooleanSignal(false),
-    computed_movingItemIsOver: createBooleanSignal(false),
+    mouseIsOver: createBooleanSignal(false),
+    movingItemIsOver: createBooleanSignal(false),
   };
 
   topLevelVisualElement.children = (() => {
@@ -415,6 +427,8 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           linkItemMaybe: null,
           isInteractive: true,
           isPopup: false,
+          isInsideTable: false,
+          allowDragInPositioning: false,
           resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: null,
@@ -422,8 +436,8 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           children: [],
           attachments: [],
           parent: { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
-          computed_mouseIsOver: createBooleanSignal(false),
-          computed_movingItemIsOver: createBooleanSignal(false),
+          mouseIsOver: createBooleanSignal(false),
+          movingItemIsOver: createBooleanSignal(false),
         };
         children.push(createVisualElementSignal(ve));
       } else {

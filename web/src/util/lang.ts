@@ -31,3 +31,9 @@ export function throwExpression(errorMessage: string): never {
 export function currentUnixTimeSeconds(): number {
   return Math.floor(new Date().getTime()/1000);
 }
+
+export function assert(condition: boolean, errorMessage: string): void {
+  if (!condition) {
+    throwExpression(errorMessage);
+  }
+}

@@ -65,7 +65,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
               {pageItem().title}
             </div>
           </div>
-          <Show when={props.visualElement.computed_mouseIsOver.get()}>
+          <Show when={props.visualElement.mouseIsOver.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
@@ -75,7 +75,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                         `background-color: #ffffff44;`}>
             </div>
           </Show>
-          <Show when={props.visualElement.computed_movingItemIsOver.get()}>
+          <Show when={props.visualElement.movingItemIsOver.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
@@ -106,7 +106,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         </Show>
         <div class={`absolute border border-slate-700 rounded-sm`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
-          <Show when={props.visualElement.computed_mouseIsOver.get()}>
+          <Show when={props.visualElement.mouseIsOver.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
@@ -116,7 +116,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                         `background-color: #ffffff44;`}>
             </div>
           </Show>
-          <Show when={props.visualElement.computed_movingItemIsOver.get()}>
+          <Show when={props.visualElement.movingItemIsOver.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
