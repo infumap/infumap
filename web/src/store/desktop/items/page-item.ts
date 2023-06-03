@@ -33,6 +33,7 @@ import { PositionalMixin } from './base/positional-item';
 import { arrange, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../../../util/signals';
 import { getHitInfo } from '../../../mouse';
+import { VisualElement } from '../visual-element';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -300,15 +301,18 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 }
 
 
-export function handlePageClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  switchToPage(desktopStore, pageItem.id);
+export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
+  switchToPage(desktopStore, visualElement.item.id);
 }
 
 
-export function handlePagePopupClick(pageItem: PageItem, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  desktopStore.pushPopupId(pageItem.id);
-  // TODO (LOW): no need to arrange entire page.
-  arrange(desktopStore);
+export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
+  if (visualElement.parent!.get().isPopup) {
+    desktopStore.pushPopupId(visualElement.item.id);
+  } else {
+    desktopStore.replacePopupId(visualElement.item.id);
+  }
+  arrange(desktopStore); // TODO (LOW): no need to arrange entire page.
 }
 
 

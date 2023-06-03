@@ -22,6 +22,7 @@ import { Uid } from '../../../../util/uid';
 import { UserStoreContextModel } from '../../../UserStoreProvider';
 import { DesktopStoreContextModel } from '../../DesktopStoreProvider';
 import { ItemGeometry } from '../../item-geometry';
+import { VisualElement } from '../../visual-element';
 import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileAttachmentItem, calcGeometryOfFileItem, calcGeometryOfFileItemInCell, calcGeometryOfFileItemInTable, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile } from '../file-item';
 import { asImageItem, asImageMeasurable, calcGeometryOfImageAttachmentItem, calcGeometryOfImageItem, calcGeometryOfImageItemInCell, calcGeometryOfImageItemInTable, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage } from '../image-item';
 import { asLinkItem, calcGeometryOfLinkAttachmentItem, calcGeometryOfLinkItem, calcGeometryOfLinkItemInCell, calcGeometryOfLinkItemInTable, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject } from '../link-item';
@@ -111,8 +112,9 @@ export function itemToObject(item: Item): object {
   throwExpression(`Unknown item type: ${item.itemType}`);
 }
 
-export function handleClick(item: Item, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  if (isPage(item)) { handlePageClick(asPageItem(item), desktopStore, userStore); }
+export function handleClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
+  const item = visualElement.item;
+  if (isPage(item)) { handlePageClick(visualElement, desktopStore, userStore); }
   else if (isTable(item)) { }
   else if (isNote(item)) { handleNoteClick(asNoteItem(item)); }
   else if (isImage(item)) { handleImageClick(asImageItem(item)); }
@@ -122,8 +124,9 @@ export function handleClick(item: Item, desktopStore: DesktopStoreContextModel, 
   else { throwExpression(`Unknown item type: ${item.itemType}`); }
 }
 
-export function handlePopupClick(item: Item, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  if (isPage(item)) { handlePagePopupClick(asPageItem(item), desktopStore, userStore); }
+export function handlePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
+  const item = visualElement.item;
+  if (isPage(item)) { handlePagePopupClick(visualElement, desktopStore, userStore); }
   else if (isTable(item)) { }
   else if (isNote(item)) { }
   else if (isImage(item)) { }

@@ -50,6 +50,7 @@ export interface DesktopStoreContextModel {
   topLevelPageId: () => Uid | null,
 
   pushPopupId: (id: Uid) => void,
+  replacePopupId: (id: Uid) => void,
   popPopupId: () => void,
   popupId: () => Uid | null,
 
@@ -272,6 +273,13 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(uid);
   }
 
+  const replacePopupId = (uid: Uid): void => {
+    if (breadcrumbs.length == 0) {
+      panic();
+    }
+    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs = [uid];
+  }
+
   const popPopupId = (): void => {
     if (breadcrumbs.length == 0) {
       panic();
@@ -302,7 +310,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     topLevelVisualElement, setTopLevelVisualElement,
     clearBreadcrumbs,
     pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
-    pushPopupId, popPopupId, popupId,
+    replacePopupId, pushPopupId, popPopupId, popupId,
     setLastMouseMoveEvent, lastMouseMoveEvent,
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,

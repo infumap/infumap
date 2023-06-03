@@ -271,7 +271,7 @@ export function mouseLeftDownHandler(
 
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    ev: MouseEvent) {
+    _ev: MouseEvent) {
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
@@ -558,7 +558,8 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeItem = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement).get().item;
+  const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement).get();
+  const activeItem = activeVisualElement.item;
 
   if (mouseActionState.moveOverContainerElement != null) {
     visualElementSignalFromPathString(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);
@@ -613,10 +614,10 @@ export function mouseUpHandler(
 
     case MouseAction.Ambiguous:
       if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.OpenPopup) {
-        handlePopupClick(activeItem, desktopStore, userStore);
+        handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Click) {
-        handleClick(activeItem, desktopStore, userStore);
+        handleClick(activeVisualElement, desktopStore, userStore);
       }
       break;
 
