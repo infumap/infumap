@@ -31,7 +31,7 @@ import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement, calcVisualPathString } from "./store/desktop/visual-element";
+import { VisualElement, visualElementToPathString } from "./store/desktop/visual-element";
 import { arrange, rearrangeVisualElement, rearrangeVisualElementsWithId, switchToPage } from "./store/desktop/layout/arrange";
 import { isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
@@ -148,23 +148,23 @@ function findVisualElements(overVe: VisualElement): FindVisualElementsResult {
     const parentTableVe = overVe.parent!.get();
     const tableParentPageVe = parentTableVe.parent!.get();
     assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
-    assert(tableParentPageVe.allowDragInPositioning, "page containing table does not drag in positioning.");
+    assert(tableParentPageVe.isDragOverPositioning, "page containing table does not drag in positioning.");
     return { overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe};
   }
 
   if (isTable(overVe.item)) {
     assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
-    assert(overVe.parent!.get().allowDragInPositioning, "page containing table does not allow drag in positioning.");
+    assert(overVe.parent!.get().isDragOverPositioning, "page containing table does not allow drag in positioning.");
     return { overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
   }
 
-  if (isPage(overVe.item) && overVe.allowDragInPositioning) {
+  if (isPage(overVe.item) && overVe.isDragOverPositioning) {
     return { overContainerVe: overVe, overPositionableVe: overVe };
   }
 
   const overVeParent = overVe.parent!.get();
   assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
-  assert(overVe.parent!.get().allowDragInPositioning, "parent of non-container does not allow drag in positioning.");
+  assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
   return { overContainerVe: overVeParent, overPositionableVe: overVeParent };
 }
 
@@ -411,8 +411,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       mouseActionState.moveOverContainerVisualElement = ves.overContainerVe;
     }
 
-    if (mouseActionState.scaleDefiningVisualElement != ves.overPositionableVe) {
-      moveActiveItemToDifferentPage(desktopStore);
+    if (mouseActionState.scaleDefiningVisualElement!.item != ves.overPositionableVe.item) {
+      moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe);
     }
 
     let newPosBl = add(mouseActionState.startPosBl!, deltaBl);
@@ -428,12 +428,53 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   }
 }
 
-export function handleMoveOverTable(desktopStore: DesktopStoreContextModel) {
+export function handleMoveOverTable(_desktopStore: DesktopStoreContextModel) {
   console.log("over table. draw insertion point line.");
 }
 
-export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel) {
-  console.log("changing scale");
+export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement) {
+  // console.log("move to:", moveToVe.item);
+  const activeVisualElement = mouseActionState!.activeVisualElementSignal!.get();
+  const activeItem = activeVisualElement.item;
+  const currentPage = asPageItem(desktopStore.getItem(activeItem.parentId)!);
+  const moveToPage = asPageItem(moveToVe.item);
+  const moveToVisualPathString = visualElementToPathString(moveToVe);
+  activeItem.parentId = moveToVe.item.id;
+  activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveToVe.item.id);
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  moveToPage.computed_children
+    = [activeItem.id, ...moveToPage.computed_children];
+  currentPage.computed_children
+    = currentPage.computed_children.filter(childItem => childItem != activeItem.id);
+  arrange(desktopStore);
+
+  let done = false;
+  let otherVes = [];
+  visualElementsWithId(desktopStore, activeVisualElement.item.id).forEach(ve => {
+    if (visualElementToPathString(ve.get().parent!.get()) == moveToVisualPathString) {
+      mouseActionState!.activeVisualElementSignal = ve;
+      mouseActionState!.onePxSizeBl = {
+        x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
+        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
+      };
+      done = true;
+    } else {
+      otherVes.push(ve);
+    }
+  });
+  if (!done) { panic(); }
+
+  done = false;
+  otherVes = [];
+  visualElementsWithId(desktopStore, moveToPage.id).forEach(ve => {
+    if (visualElementToPathString(ve.get()) == moveToVisualPathString) {
+      mouseActionState!.scaleDefiningVisualElement = ve.get();
+      done = true;
+    } else {
+      otherVes.push(ve);
+    }
+  });
+  if (!done) { panic(); }
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
@@ -444,7 +485,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   itemPosInTablePx.y -= tableItem.scrollYPx.get();
   const tableVe = activeVisualElement.parent!.get();
   const tableParentVe = tableVe.parent!.get();
-  const tableParentVisualPathString = calcVisualPathString(tableVe.parent!);
+  const tableParentVisualPathString = visualElementToPathString(tableVe.parent!.get());
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
@@ -470,7 +511,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   let done = false;
   let otherVes = [];
   visualElementsWithId(desktopStore, activeVisualElement.item.id).forEach(ve => {
-    if (calcVisualPathString(ve.get().parent!) == tableParentVisualPathString) {
+    if (visualElementToPathString(ve.get().parent!.get()) == tableParentVisualPathString) {
       mouseActionState!.activeVisualElementSignal = ve;
       mouseActionState!.onePxSizeBl = {
         x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
@@ -481,10 +522,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
       otherVes.push(ve);
     }
   });
+  if (!done) { panic(); }
 
-  if (!done) {
-    panic();
-  }
 }
 
 export function mouseUpHandler(

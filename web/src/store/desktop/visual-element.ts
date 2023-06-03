@@ -21,6 +21,9 @@ import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "./items/base/item";
 import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
 import { LinkItem } from "./items/link-item";
+import { DesktopStoreContextModel } from "./DesktopStoreProvider";
+import { EMPTY_UID } from "../../util/uid";
+import { panic } from "../../util/lang";
 
 
 export interface VisualElement {
@@ -36,7 +39,7 @@ export interface VisualElement {
   isInteractive: boolean,          // the visual element can be interacted with.
   isPopup: boolean,                // the visual element is a popup (and thus also a page).
   isInsideTable: boolean,          // the visual element is inside a table.
-  allowDragInPositioning: boolean, // an item dropped on the container is positioned according to the mouse position (thus visual element is also always a page).
+  isDragOverPositioning: boolean,  // an item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
 
   // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
   boundsPx: BoundingBox,
@@ -57,7 +60,7 @@ export interface VisualElement {
 
 
 /**
- * Used when there is no top level visual element. This makes the typing much easier to deal with
+ * Used when there is no top level visual element. This makes typing much easier to deal with
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
@@ -67,7 +70,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   isInteractive: false,
   isPopup: false,
   isInsideTable: false,
-  allowDragInPositioning: false,
+  isDragOverPositioning: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   hitboxes: [],
@@ -75,23 +78,65 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   attachments: [],
   parent: null,
 
-
   mouseIsOver: createBooleanSignal(false),
   movingItemIsOver: createBooleanSignal(false),
 };
 
 
-export function calcVisualPathString(visualElementSignal: VisualElementSignal): string {
-  return calcVisualPathStringImpl(visualElementSignal, "");
+export function visualElementToPathString(visualElement: VisualElement): string {
+  function impl(visualElement: VisualElement, current: string): string {
+    const ve = visualElement;
+    if (current != "") { current += "-"; }
+    current += ve.item.id;
+    if (ve.linkItemMaybe != null) {
+      current += "[" + ve.linkItemMaybe!.id + "]";
+    }
+    if (ve.parent == null) { return current; }
+    return impl(ve.parent.get(), current);
+  }
+
+  return impl(visualElement, "");
 }
 
-function calcVisualPathStringImpl(visualElementSignal: VisualElementSignal, current: string): string {
-  const ve = visualElementSignal.get();
-  if (current != "") { current += "-"; }
-  current += ve.item.id;
-  if (ve.linkItemMaybe != null) {
-    current += "[" + ve.linkItemMaybe!.id + "]";
+
+export function visualElementSignalFromPathString(desktopStore: DesktopStoreContextModel, pathString: string): VisualElementSignal {
+  function getIds(part: string): { itemId: string, linkId: string | null } {
+    let itemId = part;
+    let linkId = null;
+    if (part.length == EMPTY_UID.length * 2 + 2) {
+      itemId = part.substring(0, EMPTY_UID.length);
+      linkId = part.substring(EMPTY_UID.length+1, part.length-1);
+    } else if (part.length != EMPTY_UID.length) {
+      panic();
+    }
+    return { itemId, linkId };
   }
-  if (ve.parent == null) { return current; }
-  return calcVisualPathStringImpl(ve.parent, current);
+
+  const parts = pathString.split("-");
+  let ves = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
+  let { itemId } = getIds(parts[parts.length-1]);
+  if (ves.get().item.id != itemId) { panic(); }
+
+  for (let i=parts.length-2; i>=0; --i) {
+    let ve = ves.get();
+    let { itemId, linkId } = getIds(parts[i]);
+    let done: boolean = false;
+    for (let j=0; j<ve.children.length && !done; ++j) {
+      if (ve.children[j].get().item.id == itemId &&
+          ve.children[j].get().linkItemMaybe == linkId) {
+        ves = ve.children[j];
+        done = true;
+      }
+    }
+    for (let j=0; j<ve.attachments.length && !done; ++j) {
+      if (ve.attachments[j].get().item.id == itemId &&
+          ve.attachments[j].get().linkItemMaybe == linkId) {
+        ves = ve.attachments[j];
+        done = true;
+      }
+    }
+    if (!done) { panic!(); }
+  }
+
+  return ves;
 }
