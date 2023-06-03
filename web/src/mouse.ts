@@ -31,7 +31,7 @@ import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
+import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, offsetFromDesktopTopLeftPx, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
 import { arrange, rearrangeVisualElement, rearrangeVisualElementsWithId, switchToPage } from "./store/desktop/layout/arrange";
 import { isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
@@ -175,6 +175,7 @@ interface MouseActionState {
   scaleDefiningElement: VisualElementPathString | null,
   startPx: Vector,
   startPosBl: Vector | null,
+  clickOffsetProp: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
   action: MouseAction,
@@ -246,6 +247,11 @@ export function mouseLeftDownHandler(
     x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / hitInfo.visualElementSignal.get().boundsPx.w,
     y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElementSignal.get().boundsPx.h
   };
+  let topLeftPx = offsetFromDesktopTopLeftPx(hitInfo.visualElementSignal.get());
+  let clickOffsetProp = {
+    x: (startPx.x - topLeftPx.x) / hitInfo.visualElementSignal.get().boundsPx.w,
+    y: (startPx.y - topLeftPx.y) / hitInfo.visualElementSignal.get().boundsPx.h
+  };
   mouseActionState = {
     activeElement: visualElementToPathString(hitInfo.visualElementSignal.get()),
     moveOverContainerElement: null,
@@ -254,6 +260,7 @@ export function mouseLeftDownHandler(
     action: MouseAction.Ambiguous,
     startPx,
     startPosBl,
+    clickOffsetProp,
     startWidthBl,
     startHeightBl,
     onePxSizeBl,
