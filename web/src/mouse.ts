@@ -29,11 +29,9 @@ import { UserStoreContextModel } from "./store/UserStoreProvider";
 import { add, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
 import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
-import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, offsetFromDesktopTopLeftPx, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
-import { arrange, rearrangeVisualElement, rearrangeVisualElementsWithId, switchToPage } from "./store/desktop/layout/arrange";
-import { isContainer } from "./store/desktop/items/base/container-item";
+import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, visualElementDesktopBoundsPx, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
+import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
 import { editDialogSizePx } from "./components/context/EditDialog";
 import { VisualElementSignal } from "./util/signals";
 
@@ -243,14 +241,14 @@ export function mouseLeftDownHandler(
   const startHeightBl = null;
   const startPx = desktopPxFromMouseEvent(ev);
   const activeItem = desktopStore.getItem(hitInfo.visualElementSignal.get().item.id)!;
+  let desktopBoundsPx = visualElementDesktopBoundsPx(hitInfo.visualElementSignal.get());
   const onePxSizeBl = {
-    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / hitInfo.visualElementSignal.get().boundsPx.w,
-    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElementSignal.get().boundsPx.h
+    x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / desktopBoundsPx.w,
+    y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / desktopBoundsPx.h
   };
-  let topLeftPx = offsetFromDesktopTopLeftPx(hitInfo.visualElementSignal.get());
   let clickOffsetProp = {
-    x: (startPx.x - topLeftPx.x) / hitInfo.visualElementSignal.get().boundsPx.w,
-    y: (startPx.y - topLeftPx.y) / hitInfo.visualElementSignal.get().boundsPx.h
+    x: (startPx.x - desktopBoundsPx.x) / desktopBoundsPx.w,
+    y: (startPx.y - desktopBoundsPx.y) / desktopBoundsPx.h
   };
   mouseActionState = {
     activeElement: visualElementToPathString(hitInfo.visualElementSignal.get()),
@@ -419,7 +417,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     }
 
     if (visualElementSignalFromPathString(desktopStore, mouseActionState.scaleDefiningElement!).get().item != ves.overPositionableVe.item) {
-      moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe);
+      moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe, desktopPxFromMouseEvent(ev));
     }
 
     let newPosBl = add(mouseActionState.startPosBl!, deltaBl);
@@ -439,16 +437,30 @@ export function handleMoveOverTable(_desktopStore: DesktopStoreContextModel) {
   console.log("over table. draw insertion point line.");
 }
 
-export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement) {
-  // console.log("move to:", moveToVe.item);
+export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
   const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get();
   const activeItem = activeVisualElement.item;
   const currentPage = asPageItem(desktopStore.getItem(activeItem.parentId)!);
   const moveToPage = asPageItem(moveToVe.item);
+  const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
+  const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
+  const mousePointBl = {
+    x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w),
+    y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h)
+  };
+  const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem, desktopStore.getItem);
+  const clickOffsetInActiveItemBl = {
+    x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x),
+    y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y)
+  }
+  const newItemPosBl = subtract(mousePointBl, clickOffsetInActiveItemBl);
+  const newItemPosGr = { x: newItemPosBl.x * GRID_SIZE, y: newItemPosBl.y * GRID_SIZE };
+  mouseActionState!.startPx = desktopPx;
+  mouseActionState!.startPosBl = newItemPosBl;
   const moveToVisualPathString = visualElementToPathString(moveToVe);
   activeItem.parentId = moveToVe.item.id;
   activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveToVe.item.id);
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  activeItem.spatialPositionGr = newItemPosGr;
   moveToPage.computed_children
     = [activeItem.id, ...moveToPage.computed_children];
   currentPage.computed_children

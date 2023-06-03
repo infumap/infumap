@@ -151,12 +151,12 @@ function getIds(part: string): { itemId: Uid, linkId: Uid | null } {
   return { itemId, linkId };
 }
 
-export function offsetFromDesktopTopLeftPx(visualElement: VisualElement): Vector {
+export function visualElementDesktopBoundsPx(visualElement: VisualElement): BoundingBox {
   let ve: VisualElement | null = visualElement;
   let r = { x: 0, y: 0 };
   while (ve != null) {
     r = add(r, getBoundingBoxTopLeft(ve.boundsPx));
     ve = ve.parent == null ? null : ve.parent!.get();
   }
-  return r;
+  return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
 }
