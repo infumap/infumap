@@ -26,7 +26,7 @@ import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "./store/de
 import { asTableItem, isTable } from "./store/desktop/items/table-item";
 import { DesktopStoreContextModel, visualElementsWithId } from "./store/desktop/DesktopStoreProvider";
 import { UserStoreContextModel } from "./store/UserStoreProvider";
-import { add, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, subtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
+import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
 import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { compareOrderings } from "./util/ordering";
@@ -58,7 +58,7 @@ export function getHitInfo(
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
   const topLevelPage = asPageItem(topLevelVisualElement!.item);
-  const posRelativeToTopLevelVisualElementPx = add(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
+  const posRelativeToTopLevelVisualElementPx = vectorAdd(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
   // Root is either the top level page, or popup if mouse is over the popup.
   let rootVisualElement = topLevelVisualElement;
@@ -71,7 +71,7 @@ export function getHitInfo(
         isInside(posRelativeToTopLevelVisualElementPx, popupVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
-      posRelativeToRootVisualElementPx = subtract(
+      posRelativeToRootVisualElementPx = vectorSubtract(
         posRelativeToTopLevelVisualElementPx,
         { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
     }
@@ -102,7 +102,7 @@ export function getHitInfo(
       for (let j=0; j<tableVisualElement.children.length; ++j) {
         const tableChildVes = tableVisualElement.children[j];
         const tableChildVe = tableChildVes.get();
-        const posRelativeToTableChildAreaPx = subtract(
+        const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x, y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
         );
@@ -334,10 +334,10 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // get outside the dialog area when being moved quickly.
   if (dialogMoveState != null) {
     let currentMousePosPx = desktopPxFromMouseEvent(ev);
-    let changePx = subtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
+    let changePx = vectorSubtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
     desktopStore.setEditDialogInfo(({
       item: desktopStore.editDialogInfo()!.item,
-      desktopBoundsPx: boundingBoxFromPosSize(add(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+      desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
     }));
     dialogMoveState.lastMousePosPx = currentMousePosPx;
     return;
@@ -348,7 +348,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     return;
   }
 
-  const deltaPx = subtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
+  const deltaPx = vectorSubtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
 
   const activeItem = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement).get().item;
 
@@ -423,7 +423,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe, desktopPxFromMouseEvent(ev));
     }
 
-    let newPosBl = add(mouseActionState.startPosBl!, deltaBl);
+    let newPosBl = vectorAdd(mouseActionState.startPosBl!, deltaBl);
     newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
@@ -456,7 +456,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
     x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x * 2.0) / 2.0,
     y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y * 2.0) / 2.0
   }
-  const newItemPosBl = subtract(mousePointBl, clickOffsetInActiveItemBl);
+  const newItemPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
   const newItemPosGr = { x: newItemPosBl.x * GRID_SIZE, y: newItemPosBl.y * GRID_SIZE };
   mouseActionState!.startPx = desktopPx;
   mouseActionState!.startPosBl = newItemPosBl;
@@ -511,7 +511,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const tableParentVisualPathString = visualElementToPathString(tableVe.parent!.get());
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
-  const itemPosInPagePx = add(tablePosInPagePx, itemPosInTablePx);
+  const itemPosInPagePx = vectorAdd(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(desktopStore.getItem(tableItem.parentId)!);
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / tableParentVe!.boundsPx.w * tableParentPage.innerSpatialWidthGr,

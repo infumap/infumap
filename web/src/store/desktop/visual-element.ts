@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, Vector, add, getBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "./items/base/item";
 import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
@@ -155,7 +155,7 @@ export function visualElementDesktopBoundsPx(visualElement: VisualElement): Boun
   let ve: VisualElement | null = visualElement;
   let r = { x: 0, y: 0 };
   while (ve != null) {
-    r = add(r, getBoundingBoxTopLeft(ve.boundsPx));
+    r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
     ve = ve.parent == null ? null : ve.parent!.get();
   }
   return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };

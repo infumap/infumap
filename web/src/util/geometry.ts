@@ -114,13 +114,13 @@ function clientPxFromMouseEvent(ev: MouseEvent): Vector {
 }
 
 export function desktopPxFromMouseEvent(ev: MouseEvent): Vector {
-  return subtract(clientPxFromMouseEvent(ev), { x: TOOLBAR_WIDTH, y: 0 });
+  return vectorSubtract(clientPxFromMouseEvent(ev), { x: TOOLBAR_WIDTH, y: 0 });
 }
 
-export function subtract(a: Vector, b: Vector): Vector {
+export function vectorSubtract(a: Vector, b: Vector): Vector {
   return { x: a.x - b.x, y: a.y - b.y };
 }
 
-export function add(a: Vector, b: Vector): Vector {
+export function vectorAdd(a: Vector, b: Vector): Vector {
   return { x: a.x + b.x, y: a.y + b.y };
 }
