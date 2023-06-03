@@ -31,7 +31,7 @@ import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { batch } from "solid-js";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement, visualElementToPathString } from "./store/desktop/visual-element";
+import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
 import { arrange, rearrangeVisualElement, rearrangeVisualElementsWithId, switchToPage } from "./store/desktop/layout/arrange";
 import { isContainer } from "./store/desktop/items/base/container-item";
 import { editDialogSizePx } from "./components/context/EditDialog";
@@ -170,9 +170,9 @@ function findVisualElements(overVe: VisualElement): FindVisualElementsResult {
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeVisualElementSignal: VisualElementSignal,
-  moveOverContainerVisualElement: VisualElement | null,
-  scaleDefiningVisualElement: VisualElement | null,
+  activeElement: VisualElementPathString,
+  moveOverContainerElement: VisualElementPathString | null,
+  scaleDefiningElement: VisualElementPathString | null,
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
@@ -247,9 +247,9 @@ export function mouseLeftDownHandler(
     y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / hitInfo.visualElementSignal.get().boundsPx.h
   };
   mouseActionState = {
-    activeVisualElementSignal: hitInfo.visualElementSignal,
-    moveOverContainerVisualElement: null,
-    scaleDefiningVisualElement: ves.overPositionableVe,
+    activeElement: visualElementToPathString(hitInfo.visualElementSignal.get()),
+    moveOverContainerElement: null,
+    scaleDefiningElement: visualElementToPathString(ves.overPositionableVe),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
     startPx,
@@ -342,7 +342,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   const deltaPx = subtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
 
-  const activeItem = mouseActionState.activeVisualElementSignal!.get().item;
+  const activeItem = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement).get().item;
 
   if (mouseActionState.action == MouseAction.Ambiguous) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
@@ -392,7 +392,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
     }
 
-    visualElementsWithId(desktopStore, mouseActionState.activeVisualElementSignal.get().item.id).forEach(ve => {
+    visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
 
@@ -402,16 +402,16 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     const overVe = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]).visualElementSignal.get();
     const ves = findVisualElements(overVe);
 
-    if (mouseActionState.moveOverContainerVisualElement == null ||
-        mouseActionState.moveOverContainerVisualElement! != ves.overContainerVe) {
-      if (mouseActionState.moveOverContainerVisualElement != null) {
-        mouseActionState.moveOverContainerVisualElement.movingItemIsOver.set(false);
+    if (mouseActionState.moveOverContainerElement == null ||
+        mouseActionState.moveOverContainerElement! != visualElementToPathString(ves.overContainerVe)) {
+      if (mouseActionState.moveOverContainerElement != null) {
+        visualElementSignalFromPathString(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);
       }
       ves.overContainerVe.movingItemIsOver.set(true);
-      mouseActionState.moveOverContainerVisualElement = ves.overContainerVe;
+      mouseActionState.moveOverContainerElement = visualElementToPathString(ves.overContainerVe);
     }
 
-    if (mouseActionState.scaleDefiningVisualElement!.item != ves.overPositionableVe.item) {
+    if (visualElementSignalFromPathString(desktopStore, mouseActionState.scaleDefiningElement!).get().item != ves.overPositionableVe.item) {
       moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe);
     }
 
@@ -422,7 +422,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
     activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
-    visualElementsWithId(desktopStore, mouseActionState.activeVisualElementSignal.get().item.id).forEach(ve => {
+    visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
   }
@@ -434,7 +434,7 @@ export function handleMoveOverTable(_desktopStore: DesktopStoreContextModel) {
 
 export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement) {
   // console.log("move to:", moveToVe.item);
-  const activeVisualElement = mouseActionState!.activeVisualElementSignal!.get();
+  const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get();
   const activeItem = activeVisualElement.item;
   const currentPage = asPageItem(desktopStore.getItem(activeItem.parentId)!);
   const moveToPage = asPageItem(moveToVe.item);
@@ -452,10 +452,11 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   let otherVes = [];
   visualElementsWithId(desktopStore, activeVisualElement.item.id).forEach(ve => {
     if (visualElementToPathString(ve.get().parent!.get()) == moveToVisualPathString) {
-      mouseActionState!.activeVisualElementSignal = ve;
+      mouseActionState!.activeElement = visualElementToPathString(ve.get());
+      let boundsPx = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
-        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
+        x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / boundsPx.w,
+        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / boundsPx.h
       };
       done = true;
     } else {
@@ -468,7 +469,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   otherVes = [];
   visualElementsWithId(desktopStore, moveToPage.id).forEach(ve => {
     if (visualElementToPathString(ve.get()) == moveToVisualPathString) {
-      mouseActionState!.scaleDefiningVisualElement = ve.get();
+      mouseActionState!.scaleDefiningElement = visualElementToPathString(ve.get());
       done = true;
     } else {
       otherVes.push(ve);
@@ -478,7 +479,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
-  const activeVisualElement = mouseActionState!.activeVisualElementSignal!.get();
+  const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get();
   const activeItem = activeVisualElement.item;
   const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
@@ -512,10 +513,11 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   let otherVes = [];
   visualElementsWithId(desktopStore, activeVisualElement.item.id).forEach(ve => {
     if (visualElementToPathString(ve.get().parent!.get()) == tableParentVisualPathString) {
-      mouseActionState!.activeVisualElementSignal = ve;
+      mouseActionState!.activeElement = visualElementToPathString(ve.get());
+      let boundsPx = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / mouseActionState!.activeVisualElementSignal.get().boundsPx.w,
-        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / mouseActionState!.activeVisualElementSignal.get().boundsPx.h
+        x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / boundsPx.w,
+        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / boundsPx.h
       };
       done = true;
     } else {
@@ -534,15 +536,15 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeItem = mouseActionState.activeVisualElementSignal!.get().item;
+  const activeItem = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement).get().item;
 
-  if (mouseActionState.moveOverContainerVisualElement != null) {
-    mouseActionState.moveOverContainerVisualElement.movingItemIsOver.set(false);
+  if (mouseActionState.moveOverContainerElement != null) {
+    visualElementSignalFromPathString(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);
   }
 
   switch (mouseActionState.action) {
     case MouseAction.Moving:
-      const overVe = mouseActionState.moveOverContainerVisualElement!;
+      const overVe = visualElementSignalFromPathString(desktopStore, mouseActionState.moveOverContainerElement!).get();
       const moveOverContainerId = overVe.item.id;
       if (moveOverContainerId == activeItem.id) {
         throwExpression("Attempt was made to move an item into itself.");

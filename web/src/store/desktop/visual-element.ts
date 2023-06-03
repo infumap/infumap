@@ -22,9 +22,11 @@ import { Item, EMPTY_ITEM } from "./items/base/item";
 import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
 import { LinkItem } from "./items/link-item";
 import { DesktopStoreContextModel } from "./DesktopStoreProvider";
-import { EMPTY_UID } from "../../util/uid";
+import { EMPTY_UID, Uid } from "../../util/uid";
 import { panic } from "../../util/lang";
 
+
+export type VisualElementPathString = string;
 
 export interface VisualElement {
   item: Item,
@@ -83,7 +85,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 };
 
 
-export function visualElementToPathString(visualElement: VisualElement): string {
+export function visualElementToPathString(visualElement: VisualElement): VisualElementPathString {
   function impl(visualElement: VisualElement, current: string): string {
     const ve = visualElement;
     if (current != "") { current += "-"; }
@@ -98,20 +100,8 @@ export function visualElementToPathString(visualElement: VisualElement): string 
   return impl(visualElement, "");
 }
 
-
-export function visualElementSignalFromPathString(desktopStore: DesktopStoreContextModel, pathString: string): VisualElementSignal {
-  function getIds(part: string): { itemId: string, linkId: string | null } {
-    let itemId = part;
-    let linkId = null;
-    if (part.length == EMPTY_UID.length * 2 + 2) {
-      itemId = part.substring(0, EMPTY_UID.length);
-      linkId = part.substring(EMPTY_UID.length+1, part.length-1);
-    } else if (part.length != EMPTY_UID.length) {
-      panic();
-    }
-    return { itemId, linkId };
-  }
-
+export function visualElementSignalFromPathString(
+    desktopStore: DesktopStoreContextModel, pathString: VisualElementPathString): VisualElementSignal {
   const parts = pathString.split("-");
   let ves = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
   let { itemId } = getIds(parts[parts.length-1]);
@@ -123,20 +113,40 @@ export function visualElementSignalFromPathString(desktopStore: DesktopStoreCont
     let done: boolean = false;
     for (let j=0; j<ve.children.length && !done; ++j) {
       if (ve.children[j].get().item.id == itemId &&
-          ve.children[j].get().linkItemMaybe == linkId) {
+          (ve.children[j].get().linkItemMaybe == null ? null : ve.children[j].get().linkItemMaybe!.id) == linkId) {
         ves = ve.children[j];
         done = true;
       }
     }
     for (let j=0; j<ve.attachments.length && !done; ++j) {
       if (ve.attachments[j].get().item.id == itemId &&
-          ve.attachments[j].get().linkItemMaybe == linkId) {
+          (ve.attachments[j].get().linkItemMaybe == null ? null : ve.attachments[j].get().linkItemMaybe!.id) == linkId) {
         ves = ve.attachments[j];
         done = true;
       }
     }
-    if (!done) { panic!(); }
+    if (!done) {
+      panic!();
+    }
   }
 
   return ves;
+}
+
+export function itemIdFromVisualElementPath(pathString: VisualElementPathString): Uid {
+  const parts = pathString.split("-");
+  let { itemId } = getIds(parts[0]);
+  return itemId;
+}
+
+function getIds(part: string): { itemId: Uid, linkId: Uid | null } {
+  let itemId = part;
+  let linkId = null;
+  if (part.length == EMPTY_UID.length * 2 + 2) {
+    itemId = part.substring(0, EMPTY_UID.length);
+    linkId = part.substring(EMPTY_UID.length+1, part.length-1);
+  } else if (part.length != EMPTY_UID.length) {
+    panic();
+  }
+  return { itemId, linkId };
 }
