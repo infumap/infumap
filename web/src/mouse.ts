@@ -163,6 +163,9 @@ function findVisualElements(overVe: VisualElement): FindVisualElementsResult {
   const overVeParent = overVe.parent!.get();
   assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
   assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
+  if (isPage(overVe.item)) {
+    return { overContainerVe: overVe, overPositionableVe: overVeParent };
+  }
   return { overContainerVe: overVeParent, overPositionableVe: overVeParent };
 }
 
@@ -445,13 +448,13 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
   const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
-    x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w),
-    y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h)
+    x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
+    y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
   const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem, desktopStore.getItem);
   const clickOffsetInActiveItemBl = {
-    x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x),
-    y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y)
+    x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x * 2.0) / 2.0,
+    y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y * 2.0) / 2.0
   }
   const newItemPosBl = subtract(mousePointBl, clickOffsetInActiveItemBl);
   const newItemPosGr = { x: newItemPosBl.x * GRID_SIZE, y: newItemPosBl.y * GRID_SIZE };
@@ -571,9 +574,6 @@ export function mouseUpHandler(
 
       const parentChanged = moveOverContainerId != activeItem.parentId;
       if (parentChanged) {
-        if (!isTable(overVe.item)) {
-          throwExpression(`Expecting parent to have changed already moving over item of type ${overVe.item.itemType}`);
-        }
         const prevParentId = activeItem.parentId;
 
         activeItem.parentId = moveOverContainerId;
