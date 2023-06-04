@@ -104,7 +104,7 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
       { type: HitboxType.Click, boundsPx: innerBoundsPx },
       { type: HitboxType.Move, boundsPx: innerBoundsPx },
       { type: HitboxType.Resize,
-        boundsPx: { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: boundsPx.h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: boundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: boundsPx.h - RESIZE_BOX_SIZE_PX + 2,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   }

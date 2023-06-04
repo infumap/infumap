@@ -147,7 +147,7 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
     hitboxes: !emitHitboxes ? [] : [
       { type: HitboxType.Move, boundsPx: innerBoundsPx },
       { type: HitboxType.Resize,
-        boundsPx: { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX,
+        boundsPx: { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2,
                     w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
     ],
   };
