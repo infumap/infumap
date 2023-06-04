@@ -21,7 +21,7 @@ import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
 import { Uid } from "../../../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
-import { isAttachmentsItem } from "../items/base/attachments-item";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ITEM_TYPE_LINK, Item } from "../items/base/item";
 import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
@@ -288,13 +288,19 @@ const arrangeTable = (
       };
       tableVeChildren.push(createVisualElementSignal(tableItemVe));
 
-      // let attachments: Array<VisualElementSignal> = [];
       if (isAttachmentsItem(childItem)) {
-        // TODO
+        const attachmentsItem = asAttachmentsItem(childItem);
+        attachmentsItem.computed_attachments.forEach(attachment => {
+          console.log("attachment (of table child item):", attachment);
+        });
       }
     };
     return tableVeChildren;
   })();
+
+  tableItem.computed_attachments.forEach(attachment => {
+    console.log("attachment (of table):", attachment);
+  });
 
   return tableVisualElementSignal;
 }
@@ -343,6 +349,10 @@ const arrangePageWithChildren = (
     return arrangeItemNoChildren(innerChildItem, null, geometry, pageWithChildrenVisualElementSignal, RenderStyle.Placeholder);
   });
 
+  pageItem.computed_attachments.forEach(attachment => {
+    console.log("attachment (of page with children):", attachment);
+  });
+
   return pageWithChildrenVisualElementSignal;
 }
 
@@ -371,6 +381,13 @@ const arrangeItemNoChildren = (
     movingItemIsOver: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   };
+
+  if (isAttachmentsItem(item)) {
+    const attachmentsItem = asAttachmentsItem(item);
+    attachmentsItem.computed_attachments.forEach(attachment => {
+      console.log("attachment (of item with no children):", attachment);
+    });
+  }
 
   return createVisualElementSignal(itemVisualElement);
 }
