@@ -26,7 +26,7 @@ import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "./store/de
 import { asTableItem, isTable } from "./store/desktop/items/table-item";
 import { DesktopStoreContextModel, visualElementsWithId } from "./store/desktop/DesktopStoreProvider";
 import { UserStoreContextModel } from "./store/UserStoreProvider";
-import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize } from "./util/geometry";
+import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, offsetBoundingBoxTopLeftBy, boundingBoxFromPosSize, Dimensions } from "./util/geometry";
 import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { compareOrderings } from "./util/ordering";
@@ -423,6 +423,10 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe, desktopPxFromMouseEvent(ev));
     }
 
+    if (isTable(ves.overContainerVe.item)) {
+      handleMoveOverTable(ves.overContainerVe, desktopPxFromMouseEvent(ev));
+    }
+
     let newPosBl = vectorAdd(mouseActionState.startPosBl!, deltaBl);
     newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
@@ -436,8 +440,16 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   }
 }
 
-export function handleMoveOverTable(_desktopStore: DesktopStoreContextModel) {
-  console.log("over table. draw insertion point line.");
+export function handleMoveOverTable(moveToVe: VisualElement, desktopPx: Vector) {
+  const tableItem = asTableItem(moveToVe.item);
+  const tableDimensionsBl: Dimensions = {
+    w: tableItem.spatialWidthGr / GRID_SIZE,
+    h: tableItem.spatialHeightGr / GRID_SIZE
+  };
+  const tableBoundsPx = visualElementDesktopBoundsPx(moveToVe);
+  const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
+  const tableRowNumber = Math.floor(mousePropY * tableDimensionsBl.h);
+  moveToVe.moveOverRowNumber.set(tableRowNumber);
 }
 
 export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {

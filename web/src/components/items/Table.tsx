@@ -38,6 +38,13 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   }
   const headerHeightPx = () => blockSizePx().h * HEADER_HEIGHT_BL;
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
+  const overPosRowPx = () => {
+    const heightBl = tableItem().spatialHeightGr / GRID_SIZE;
+    const rowHeightPx = boundsPx().h / heightBl;
+    const rowNumber = props.visualElement.moveOverRowNumber.get() + 1;
+    const rowPx = rowNumber * rowHeightPx + boundsPx().y;
+    return rowPx;
+  };
 
   return (
     <>
@@ -63,6 +70,10 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           <VisualElementOnDesktop visualElement={attachment.get()} />
         }</For>
         <TableChildArea visualElement={props.visualElement} />
+        <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1}>
+          <div class={`absolute border border-black`}
+               style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 2px;`}></div>
+        </Show>
       </Show>
     </>
   );

@@ -19,7 +19,7 @@
 import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "./items/base/item";
-import { BooleanSignal, VisualElementSignal, createBooleanSignal } from "../../util/signals";
+import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../../util/signals";
 import { LinkItem } from "./items/link-item";
 import { DesktopStoreContextModel } from "./DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../../util/uid";
@@ -56,8 +56,8 @@ export interface VisualElement {
 
   mouseIsOver: BooleanSignal,
 
-  // For containers only
-  movingItemIsOver: BooleanSignal;
+  movingItemIsOver: BooleanSignal, // for containers only.
+  moveOverRowNumber: NumberSignal, // for tables only.
 }
 
 
@@ -82,6 +82,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
   mouseIsOver: createBooleanSignal(false),
   movingItemIsOver: createBooleanSignal(false),
+  moveOverRowNumber: createNumberSignal(-1),
 };
 
 

@@ -27,7 +27,7 @@ import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemI
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
-import { VisualElementSignal, createBooleanSignal, createVisualElementSignal } from "../../../util/signals";
+import { VisualElementSignal, createBooleanSignal, createNumberSignal, createVisualElementSignal } from "../../../util/signals";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { LinkItem, asLinkItem, isLink, newLinkItem } from "../items/link-item";
 import { ItemGeometry } from "../item-geometry";
@@ -125,6 +125,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     parent: null,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    moveOverRowNumber: createNumberSignal(-1),
   };
 
   topLevelVisualElement.children = currentPage.computed_children
@@ -252,6 +253,7 @@ const arrangeTable = (
     parent: parentSignalUnderConstruction,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    moveOverRowNumber: createNumberSignal(-1),
   }
   const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
 
@@ -282,6 +284,7 @@ const arrangeTable = (
         parent: tableVisualElementSignal,
         mouseIsOver: createBooleanSignal(false),
         movingItemIsOver: createBooleanSignal(false),
+        moveOverRowNumber: createNumberSignal(-1),
       };
       tableVeChildren.push(createVisualElementSignal(tableItemVe));
 
@@ -320,6 +323,7 @@ const arrangePageWithChildren = (
     parent: parentSignalUnderConstruction,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    moveOverRowNumber: createNumberSignal(-1),
   };
   const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
 
@@ -365,6 +369,7 @@ const arrangeItemNoChildren = (
     parent: parentSignalUnderConstruction,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    moveOverRowNumber: createNumberSignal(-1),
   };
 
   return createVisualElementSignal(itemVisualElement);
@@ -404,6 +409,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     parent: null,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    moveOverRowNumber: createNumberSignal(-1),
   };
 
   topLevelVisualElement.children = (() => {
@@ -438,6 +444,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           parent: { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
           mouseIsOver: createBooleanSignal(false),
           movingItemIsOver: createBooleanSignal(false),
+          moveOverRowNumber: createNumberSignal(-1),
         };
         children.push(createVisualElementSignal(ve));
       } else {
