@@ -83,6 +83,16 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   let outerDiv: HTMLDivElementWithData | undefined;
 
+  const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
+
+  let scrollDoneTimer: number | null = null;
+  function scrollDoneHandler() {
+    const row = Math.round(tableItem().scrollYPx.get() / blockHeightPx());
+    const quantizedOffset = row * blockHeightPx();
+    tableItem().scrollYPx.set(quantizedOffset);
+    (outerDiv!)!.scrollTop = quantizedOffset;
+  }
+
   const tableItem = () => asTableItem(props.visualElement.item);
   const blockHeightPx = () => {
     let heightBr = tableItem().spatialHeightGr / GRID_SIZE - HEADER_HEIGHT_BL;
@@ -91,13 +101,17 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
   }
   const totalScrollableHeightPx = () =>
     tableItem().computed_children.length * blockHeightPx();
+  const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
+
   const scrollHandler = (_ev: Event) => {
+    if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
+    scrollDoneTimer = setTimeout(scrollDoneHandler, QUANTIZE_SCROLL_TIMEOUT_MS);
     tableItem().scrollYPx.set((outerDiv!)!.scrollTop);
   }
+
   onMount(() => {
     outerDiv!.scrollTop = tableItem().scrollYPx.get();
   });
-  const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
 
   const drawVisibleItems = () => {
     const children = props.visualElement.children;
