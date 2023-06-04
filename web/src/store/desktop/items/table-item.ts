@@ -40,7 +40,7 @@ export interface TableColumn {
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
   tableColumns: Array<TableColumn>;
 
-  scrollYPx: NumberSignal;
+  scrollYProp: NumberSignal;
 }
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin { }
@@ -72,7 +72,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
 
     childrenLoaded: false,
 
-    scrollYPx: createNumberSignal(0)
+    scrollYProp: createNumberSignal(0)
   };
 }
 
@@ -100,7 +100,7 @@ export function tableFromObject(o: any): TableItem {
 
     childrenLoaded: false,
 
-    scrollYPx: createNumberSignal(0),
+    scrollYProp: createNumberSignal(0),
   });
 }
 

@@ -23,7 +23,7 @@ import { Item } from "./items/base/item";
 import { EMPTY_UID, Uid } from "../../util/uid";
 import { Attachment, Child, NoParent } from "./relationship-to-parent";
 import { asContainerItem, ContainerItem, isContainer } from "./items/base/container-item";
-import { compareOrderings, newOrderingAtEnd } from "../../util/ordering";
+import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../../util/ordering";
 import { BoundingBox, Dimensions, Vector } from "../../util/geometry";
 import { TOOLBAR_WIDTH } from "../../constants";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
@@ -40,6 +40,7 @@ export interface DesktopStoreContextModel {
   addItem: (item: Item) => void,
   deleteItem: (id: Uid) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
+  newOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
 
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
@@ -227,8 +228,21 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const newOrderingAtEndOfChildren = (parentId: Uid): Uint8Array => {
     let parent = asContainerItem(items[parentId]);
-    let children = parent.computed_children.map(c => items[c].ordering);
-    return newOrderingAtEnd(children);
+    let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
+    return newOrderingAtEnd(childrenOrderings);
+  }
+
+
+  const newOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
+    let parent = asContainerItem(items[parentId]);
+    let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
+    if (position <= 0) {
+      return newOrderingAtBeginning(childrenOrderings);
+    } else if (position >= childrenOrderings.length) {
+      return newOrderingAtEnd(childrenOrderings);
+    } else {
+      return newOrderingBetween(childrenOrderings[position-1], childrenOrderings[position]);
+    }
   }
 
 
@@ -303,10 +317,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
-    setChildItemsFromServerObjects, setAttachmentItemsFromServerObjects,
-    // updateItem, updateContainerItem,
+    setChildItemsFromServerObjects,
+    setAttachmentItemsFromServerObjects,
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
+    newOrderingAtPosition,
     topLevelVisualElement, setTopLevelVisualElement,
     clearBreadcrumbs,
     pushTopLevelPageId, popTopLevelPageId, topLevelPageId,

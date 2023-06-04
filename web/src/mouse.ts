@@ -102,9 +102,10 @@ export function getHitInfo(
       for (let j=0; j<tableVisualElement.children.length; ++j) {
         const tableChildVes = tableVisualElement.children[j];
         const tableChildVe = tableChildVes.get();
+        const tableBlockHeightPx = tableChildVe.boundsPx.h;
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
-          { x: tableVisualElement.childAreaBoundsPx!.x, y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYPx.get() }
+          { x: tableVisualElement.childAreaBoundsPx!.x, y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYProp.get() * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;
@@ -514,10 +515,13 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get();
+  const tableVisualElement = activeVisualElement.parent!.get();
   const activeItem = activeVisualElement.item;
-  const tableItem = asTableItem(desktopStore.getItem(activeItem.parentId)!);
+  const tableItem = asTableItem(tableVisualElement.item);
+  const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
+  console.log("tableBlockHEightPx", tableBlockHeightPx);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= tableItem.scrollYPx.get();
+  itemPosInTablePx.y -= tableItem.scrollYProp.get() * tableBlockHeightPx;
   const tableVe = activeVisualElement.parent!.get();
   const tableParentVe = tableVe.parent!.get();
   const tableParentVisualPathString = visualElementToPathString(tableVe.parent!.get());
@@ -582,6 +586,8 @@ export function mouseUpHandler(
       const overVe = visualElementSignalFromPathString(desktopStore, mouseActionState.moveOverContainerElement!).get();
       const moveOverContainerId = overVe.item.id;
       if (moveOverContainerId == activeItem.id) {
+        // TODO (HIGH): more rigorous check of entire hierarchy.
+        // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
         throwExpression("Attempt was made to move an item into itself.");
       }
 
@@ -590,9 +596,15 @@ export function mouseUpHandler(
         const prevParentId = activeItem.parentId;
 
         activeItem.parentId = moveOverContainerId;
-        activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
         activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
 
+        if (isTable(overVe.item)) {
+          const insertPosition = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get();
+          activeItem.ordering = desktopStore.newOrderingAtPosition(moveOverContainerId, insertPosition);
+        } else {
+          activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
+        }
+  
         const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
         const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
         moveOverContainerChildren.sort(

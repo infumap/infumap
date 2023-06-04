@@ -87,10 +87,9 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
   let scrollDoneTimer: number | null = null;
   function scrollDoneHandler() {
-    const row = Math.round(tableItem().scrollYPx.get() / blockHeightPx());
-    const quantizedOffset = row * blockHeightPx();
-    tableItem().scrollYPx.set(quantizedOffset);
-    (outerDiv!)!.scrollTop = quantizedOffset;
+    const row = Math.round(tableItem().scrollYProp.get());
+    tableItem().scrollYProp.set(row);
+    (outerDiv!)!.scrollTop = row * blockHeightPx();
   }
 
   const tableItem = () => asTableItem(props.visualElement.item);
@@ -106,18 +105,18 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
   const scrollHandler = (_ev: Event) => {
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
     scrollDoneTimer = setTimeout(scrollDoneHandler, QUANTIZE_SCROLL_TIMEOUT_MS);
-    tableItem().scrollYPx.set((outerDiv!)!.scrollTop);
+    tableItem().scrollYProp.set((outerDiv!)!.scrollTop / blockHeightPx());
   }
 
   onMount(() => {
-    outerDiv!.scrollTop = tableItem().scrollYPx.get();
+    outerDiv!.scrollTop = tableItem().scrollYProp.get() * blockHeightPx();
   });
 
   const drawVisibleItems = () => {
     const children = props.visualElement.children;
     const visibleChildrenIds = [];
-    const firstItemIdx = Math.floor(tableItem().scrollYPx.get() / blockHeightPx());
-    let lastItemIdx = Math.ceil((tableItem().scrollYPx.get() + props.visualElement.childAreaBoundsPx!.h) / blockHeightPx());
+    const firstItemIdx = Math.floor(tableItem().scrollYProp.get());
+    let lastItemIdx = Math.ceil((tableItem().scrollYProp.get() * blockHeightPx() + props.visualElement.childAreaBoundsPx!.h) / blockHeightPx());
     if (lastItemIdx > children.length - 1) { lastItemIdx = children.length - 1; }
     for (let i=firstItemIdx; i<=lastItemIdx; ++i) {
       visibleChildrenIds.push(children[i]);
