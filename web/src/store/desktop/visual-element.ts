@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, cloneBoundingBox } from "../../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "./items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../../util/signals";
@@ -87,6 +87,35 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   moveOverRowNumber: createNumberSignal(-1),
 };
 
+export function createVisualElement(override: any): VisualElement {
+  let result: any = {
+    item: EMPTY_ITEM,
+    linkItemMaybe: null,
+    resizingFromBoundsPx: null,
+    isInteractive: false,
+    isPopup: false,
+    isInsideTable: false,
+    isDragOverPositioning: false,
+    boundsPx: { x: 0, y: 0, w: 0, h: 0 },
+    childAreaBoundsPx: null,
+    hitboxes: [],
+    children: [],
+    attachments: [],
+    parent: null,
+
+    mouseIsOver: createBooleanSignal(false),
+    movingItemIsOver: createBooleanSignal(false),
+    movingItemIsOverAttach: createBooleanSignal(false),
+    moveOverRowNumber: createNumberSignal(-1),
+  };
+  const allPropertyNames = Object.getOwnPropertyNames(result);
+  const overridePropertyNames = Object.getOwnPropertyNames(override);
+  overridePropertyNames.forEach(name => {
+    if (!allPropertyNames.find(e => e == name)) { panic(); }
+    result[name] = override[name];
+  });
+  return result;
+}
 
 export function visualElementToPathString(visualElement: VisualElement): VisualElementPathString {
   function impl(visualElement: VisualElement, current: string): string {

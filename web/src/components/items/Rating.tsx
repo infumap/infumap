@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show } from "solid-js";
+import { Component } from "solid-js";
 import { asRatingItem } from "../../store/desktop/items/rating-item";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";

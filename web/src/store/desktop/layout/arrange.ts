@@ -26,7 +26,7 @@ import { ITEM_TYPE_LINK, Item } from "../items/base/item";
 import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { VisualElement } from "../visual-element";
+import { VisualElement, createVisualElement } from "../visual-element";
 import { VisualElementSignal, createBooleanSignal, createNumberSignal, createVisualElementSignal } from "../../../util/signals";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { LinkItem, asLinkItem, isLink, newLinkItem } from "../items/link-item";
@@ -109,25 +109,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     return result;
   })();
 
-  const topLevelVisualElement: VisualElement = {
+  const topLevelVisualElement = createVisualElement({
     item: currentPage,
-    linkItemMaybe: null,
     isInteractive: true,
-    isPopup: false,
-    isInsideTable: false,
     isDragOverPositioning: true,
-    resizingFromBoundsPx: null,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
-    hitboxes: [],
-    children: [],
-    attachments: [],
-    parent: null,
-    mouseIsOver: createBooleanSignal(false),
-    movingItemIsOver: createBooleanSignal(false),
-    movingItemIsOverAttach: createBooleanSignal(false),
-    moveOverRowNumber: createNumberSignal(-1),
-  };
+  });
 
   topLevelVisualElement.children = currentPage.computed_children
     .map(childId => arrangeItem(
@@ -241,25 +229,15 @@ const arrangeTable = (
     w: geometry.boundsPx.w, h: geometry.boundsPx.h - headerHeightPx
   };
 
-  let tableVisualElement: VisualElement = {
+  const tableVisualElement = createVisualElement({
     item: tableItem,
     linkItemMaybe,
     isInteractive: true,
-    isPopup: false,
-    isInsideTable: false,
-    isDragOverPositioning: false,
-    resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: geometry.hitboxes,
-    children: [],
-    attachments: [],
     parent: parentSignalUnderConstruction,
-    mouseIsOver: createBooleanSignal(false),
-    movingItemIsOver: createBooleanSignal(false),
-    movingItemIsOverAttach: createBooleanSignal(false),
-    moveOverRowNumber: createNumberSignal(-1),
-  }
+  });
   const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
 
   tableVisualElement.children = (() => {
@@ -273,25 +251,14 @@ const arrangeTable = (
       }
       const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
 
-      let tableItemVe: VisualElement = {
+      const tableItemVe = createVisualElement({
         item: childItem,
-        linkItemMaybe: null,
         isInteractive: true,
-        isPopup: false,
         isInsideTable: true,
-        isDragOverPositioning: false,
-        resizingFromBoundsPx: null,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
-        children: [],
-        attachments: [],
-        childAreaBoundsPx: null,
         parent: tableVisualElementSignal,
-        mouseIsOver: createBooleanSignal(false),
-        movingItemIsOver: createBooleanSignal(false),
-        movingItemIsOverAttach: createBooleanSignal(false),
-        moveOverRowNumber: createNumberSignal(-1),
-      };
+      });
       tableVeChildren.push(createVisualElementSignal(tableItemVe));
 
       if (isAttachmentsItem(childItem)) {
@@ -318,25 +285,17 @@ const arrangePageWithChildren = (
     parentSignalUnderConstruction: VisualElementSignal,
     isPopup: boolean): VisualElementSignal => {
 
-  const pageWithChildrenVisualElement: VisualElement = {
+  const pageWithChildrenVisualElement = createVisualElement({
     item: pageItem,
     linkItemMaybe,
     isInteractive: true,
     isPopup,
-    isInsideTable: false,
     isDragOverPositioning: true,
-    resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
     hitboxes: geometry.hitboxes,
-    children: [],
-    attachments: [],
     parent: parentSignalUnderConstruction,
-    mouseIsOver: createBooleanSignal(false),
-    movingItemIsOver: createBooleanSignal(false),
-    movingItemIsOverAttach: createBooleanSignal(false),
-    moveOverRowNumber: createNumberSignal(-1),
-  };
+  });
   const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
 
   const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
@@ -344,10 +303,7 @@ const arrangePageWithChildren = (
 
   pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
     const innerChildItem = desktopStore.getItem(childId)!;
-    if (isLink(innerChildItem)) {
-      // TODO.
-      panic();
-    }
+    if (isLink(innerChildItem)) { panic(); } // TODO
     if (isPopup) {
       return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, true, false);
     }
@@ -369,25 +325,14 @@ const arrangeItemNoChildren = (
     parentSignalUnderConstruction: VisualElementSignal,
     renderStyle: RenderStyle): VisualElementSignal => {
 
-  const itemVisualElement: VisualElement = {
+  const itemVisualElement = createVisualElement({
     item,
     linkItemMaybe,
     isInteractive: renderStyle != RenderStyle.Placeholder,
-    isPopup: false,
-    isInsideTable: false,
-    isDragOverPositioning: false,
-    resizingFromBoundsPx: null,
     boundsPx: geometry.boundsPx,
-    childAreaBoundsPx: null,
     hitboxes: geometry.hitboxes,
-    children: [],
-    attachments: [],
     parent: parentSignalUnderConstruction,
-    mouseIsOver: createBooleanSignal(false),
-    movingItemIsOver: createBooleanSignal(false),
-    movingItemIsOverAttach: createBooleanSignal(false),
-    moveOverRowNumber: createNumberSignal(-1),
-  };
+  });
   const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
 
   arrangeItemAttachments(desktopStore, itemVisualElementSignal);
@@ -407,25 +352,12 @@ function arrangeItemAttachments(desktopStore: DesktopStoreContextModel, itemVisu
       const attachmentItem = desktopStore.getItem(attachmentId)!;
       const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, i, desktopStore.getItem);
 
-      const attachmentVisualElement: VisualElement = {
+      const attachmentVisualElement = createVisualElement({
         item: attachmentItem,
-        linkItemMaybe: null,
-        isInteractive: false,
-        isPopup: false,
-        isInsideTable: false,
-        isDragOverPositioning: false,
-        resizingFromBoundsPx: null,
         boundsPx: attachmentGeometry.boundsPx,
-        childAreaBoundsPx: null,
         hitboxes: attachmentGeometry.hitboxes,
-        children: [],
-        attachments: [],
         parent: itemVisualElementSignal,
-        mouseIsOver: createBooleanSignal(false),
-        movingItemIsOver: createBooleanSignal(false),
-        movingItemIsOverAttach: createBooleanSignal(false),
-        moveOverRowNumber: createNumberSignal(-1),
-      };
+      });
 
       itemVisualElementSignal.get().attachments.push(createVisualElementSignal(attachmentVisualElement));
     }
@@ -450,25 +382,13 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     return result;
   })();
 
-  const topLevelVisualElement: VisualElement = {
+  const topLevelVisualElement = createVisualElement({
     item: currentPage,
-    linkItemMaybe: null,
     isInteractive: true,
-    isPopup: false,
-    isInsideTable: false,
     isDragOverPositioning: true,
-    resizingFromBoundsPx: null,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
-    hitboxes: [],
-    children: [], // replaced below.
-    attachments: [],
-    parent: null,
-    mouseIsOver: createBooleanSignal(false),
-    movingItemIsOver: createBooleanSignal(false),
-    movingItemIsOverAttach: createBooleanSignal(false),
-    moveOverRowNumber: createNumberSignal(-1),
-  };
+  });
 
   topLevelVisualElement.children = (() => {
     const children: Array<VisualElementSignal> = [];
@@ -486,25 +406,13 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
       let geometry = calcGeometryOfItemInCell(item, cellBoundsPx, desktopStore.getItem);
       if (!isTable(item)) {
-        let ve: VisualElement = {
+        const ve = createVisualElement({
           item,
-          linkItemMaybe: null,
           isInteractive: true,
-          isPopup: false,
-          isInsideTable: false,
-          isDragOverPositioning: false,
-          resizingFromBoundsPx: null,
           boundsPx: geometry.boundsPx,
-          childAreaBoundsPx: null,
           hitboxes: geometry.hitboxes,
-          children: [],
-          attachments: [],
           parent: { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
-          mouseIsOver: createBooleanSignal(false),
-          movingItemIsOver: createBooleanSignal(false),
-          movingItemIsOverAttach: createBooleanSignal(false),
-          moveOverRowNumber: createNumberSignal(-1),
-        };
+        });
         children.push(createVisualElementSignal(ve));
       } else {
         console.log("TODO: child tables in grid pages.");
