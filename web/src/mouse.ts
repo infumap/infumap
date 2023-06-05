@@ -34,6 +34,7 @@ import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, vi
 import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
 import { editDialogSizePx } from "./components/context/EditDialog";
 import { VisualElementSignal } from "./util/signals";
+import { batch } from "solid-js";
 
 
 const MOUSE_LEFT = 0;
@@ -174,6 +175,7 @@ interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
   activeElement: VisualElementPathString,
   moveOverContainerElement: VisualElementPathString | null,
+  moveOverAttachElement: VisualElementPathString | null,
   scaleDefiningElement: VisualElementPathString | null,
   startPx: Vector,
   startPosBl: Vector | null,
@@ -257,6 +259,7 @@ export function mouseLeftDownHandler(
   mouseActionState = {
     activeElement: visualElementToPathString(hitInfo.visualElementSignal.get()),
     moveOverContainerElement: null,
+    moveOverAttachElement: null,
     scaleDefiningElement: visualElementToPathString(ves.overPositionableVe),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
@@ -408,9 +411,11 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
 
-    const overVe = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]).visualElementSignal.get();
+    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
+    const overVe = hitInfo.visualElementSignal.get();
     const ves = findVisualElements(overVe);
 
+    // update move over element state.
     if (mouseActionState.moveOverContainerElement == null ||
         mouseActionState.moveOverContainerElement! != visualElementToPathString(ves.overContainerVe)) {
       if (mouseActionState.moveOverContainerElement != null) {
@@ -419,6 +424,19 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       ves.overContainerVe.movingItemIsOver.set(true);
       mouseActionState.moveOverContainerElement = visualElementToPathString(ves.overContainerVe);
     }
+
+    // update move over attach state.
+    batch(() => {
+      if (mouseActionState!.moveOverAttachElement != null) {
+        visualElementSignalFromPathString(desktopStore, mouseActionState!.moveOverAttachElement).get().movingItemIsOverAttach.set(false);
+      }
+      if (hitInfo.hitboxType & HitboxType.Attach) {
+        hitInfo.visualElementSignal.get().movingItemIsOverAttach.set(true);
+        mouseActionState!.moveOverAttachElement = visualElementToPathString(hitInfo.visualElementSignal.get());
+      } else {
+        mouseActionState!.moveOverAttachElement = null;
+      }
+    });
 
     if (visualElementSignalFromPathString(desktopStore, mouseActionState.scaleDefiningElement!).get().item != ves.overPositionableVe.item) {
       moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe, desktopPxFromMouseEvent(ev));
@@ -519,7 +537,6 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const activeItem = activeVisualElement.item;
   const tableItem = asTableItem(tableVisualElement.item);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
-  console.log("tableBlockHEightPx", tableBlockHeightPx);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
   itemPosInTablePx.y -= tableItem.scrollYProp.get() * tableBlockHeightPx;
   const tableVe = activeVisualElement.parent!.get();

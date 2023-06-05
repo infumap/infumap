@@ -18,10 +18,11 @@
 
 import { Component, createMemo, For, Show } from "solid-js";
 import { asNoteItem, calcNoteSizeForSpatialBl } from "../../store/desktop/items/note-item";
-import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { BoundingBox } from "../../util/geometry";
 
 
 export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -35,6 +36,14 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const widthScale = () => boundsPx().w / naturalWidthPx();
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
+  const attachBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      y: 0,
+      w: ATTACH_AREA_SIZE_PX,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  }
 
   return (
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
@@ -51,6 +60,12 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElementOnDesktop visualElement={attachment.get()} />
         }</For>
+      </Show>
+      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+        <div class={`absolute rounded-sm`}
+             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                    `background-color: #ff0000;`}>
+        </div>
       </Show>
     </div>
   );

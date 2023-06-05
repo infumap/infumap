@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) 2022-2023 The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -21,6 +21,8 @@ export const GRID_SIZE = 60.0;
 export const TOOLBAR_WIDTH = 40;
 
 export const RESIZE_BOX_SIZE_PX = 8;
+
+export const ATTACH_AREA_SIZE_PX = 10;
 
 export const LINE_HEIGHT_PX = 24;
 

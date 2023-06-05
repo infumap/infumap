@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
@@ -129,9 +129,12 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
     hitboxes: !emitHitboxes ? [] : [
       { type: HitboxType.Click, boundsPx: innerBoundsPx },
       { type: HitboxType.Move, boundsPx: innerBoundsPx },
+      { type: HitboxType.Attach,
+        boundsPx: { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0,
+                    w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX } },
       { type: HitboxType.Resize,
         boundsPx: { x: boundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: boundsPx.h - RESIZE_BOX_SIZE_PX + 2,
-                    w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
+                    w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } },
     ],
   }
 }

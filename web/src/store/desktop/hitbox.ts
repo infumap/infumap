@@ -25,6 +25,7 @@ export enum HitboxType {
   Move = 2,
   Resize = 4,
   OpenPopup = 8,
+  Attach = 16,
 }
 
 export interface Hitbox {

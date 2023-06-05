@@ -17,12 +17,13 @@
 */
 
 import { Component, For, onMount, Show } from "solid-js";
-import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { asTableItem } from "../../store/desktop/items/table-item";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementSignal } from "../../util/signals";
+import { BoundingBox } from "../../util/geometry";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
@@ -45,6 +46,14 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
+  const attachBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      y: 0,
+      w: ATTACH_AREA_SIZE_PX,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  }
 
   return (
     <>
@@ -65,6 +74,12 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`}>
           </div>
+          <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                        `background-color: #ff0000;`}>
+            </div>
+          </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElementOnDesktop visualElement={attachment.get()} />

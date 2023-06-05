@@ -18,7 +18,7 @@
 
 import { Component, createMemo, For, Show } from "solid-js";
 import { asPageItem } from "../../store/desktop/items/page-item";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
@@ -38,6 +38,14 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const boundsPx = () => props.visualElement.boundsPx;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
+  const attachBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      y: 0,
+      w: ATTACH_AREA_SIZE_PX,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  }
 
   const opaqueTitleScale = createMemo((): number => {
     const outerDiv = document.createElement("div");
@@ -81,6 +89,12 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                         `background-color: #ffffff22;`}>
             </div>
           </Show>
+          <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                        `background-color: #ff0000;`}>
+            </div>
+          </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElementOnDesktop visualElement={attachmentVe.get()} />
           }</For>
@@ -120,6 +134,12 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
+            </div>
+          </Show>
+          <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                        `background-color: #ff0000;`}>
             </div>
           </Show>
         </div>

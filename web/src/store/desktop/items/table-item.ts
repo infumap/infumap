@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { HitboxType } from "../hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
@@ -146,9 +146,12 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
       { type: HitboxType.Move, boundsPx: innerBoundsPx },
+      { type: HitboxType.Attach,
+        boundsPx: { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0,
+                    w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX } },
       { type: HitboxType.Resize,
         boundsPx: { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2,
-                    w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } }
+                    w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } },
     ],
   };
 }

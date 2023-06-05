@@ -56,8 +56,9 @@ export interface VisualElement {
 
   mouseIsOver: BooleanSignal,
 
-  movingItemIsOver: BooleanSignal, // for containers only.
-  moveOverRowNumber: NumberSignal, // for tables only.
+  movingItemIsOver: BooleanSignal,       // for containers only.
+  movingItemIsOverAttach: BooleanSignal, // for attachment items only.
+  moveOverRowNumber: NumberSignal,       // for tables only.
 }
 
 
@@ -82,6 +83,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
   mouseIsOver: createBooleanSignal(false),
   movingItemIsOver: createBooleanSignal(false),
+  movingItemIsOverAttach: createBooleanSignal(false),
   moveOverRowNumber: createNumberSignal(-1),
 };
 

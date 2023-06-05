@@ -18,16 +18,25 @@
 
 import { Component, createMemo, For, Show } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../store/desktop/items/file-item";
-import { GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
+import { BoundingBox } from "../../util/geometry";
 
 
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
 
   const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
+  const attachBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      y: 0,
+      w: ATTACH_AREA_SIZE_PX,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  };
   const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
@@ -47,6 +56,12 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElementOnDesktop visualElement={attachment.get()} />
         }</For>
+        <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                      `background-color: #ff0000;`}>
+          </div>
+        </Show>
       </Show>
     </div>
   );

@@ -125,6 +125,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     parent: null,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   };
 
@@ -253,6 +254,7 @@ const arrangeTable = (
     parent: parentSignalUnderConstruction,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   }
   const tableVisualElementSignal = createVisualElementSignal(tableVisualElement);
@@ -284,6 +286,7 @@ const arrangeTable = (
         parent: tableVisualElementSignal,
         mouseIsOver: createBooleanSignal(false),
         movingItemIsOver: createBooleanSignal(false),
+        movingItemIsOverAttach: createBooleanSignal(false),
         moveOverRowNumber: createNumberSignal(-1),
       };
       tableVeChildren.push(createVisualElementSignal(tableItemVe));
@@ -329,6 +332,7 @@ const arrangePageWithChildren = (
     parent: parentSignalUnderConstruction,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   };
   const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
@@ -379,6 +383,7 @@ const arrangeItemNoChildren = (
     parent: parentSignalUnderConstruction,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   };
 
@@ -426,6 +431,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     parent: null,
     mouseIsOver: createBooleanSignal(false),
     movingItemIsOver: createBooleanSignal(false),
+    movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   };
 
@@ -461,6 +467,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
           parent: { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
           mouseIsOver: createBooleanSignal(false),
           movingItemIsOver: createBooleanSignal(false),
+          movingItemIsOverAttach: createBooleanSignal(false),
           moveOverRowNumber: createNumberSignal(-1),
         };
         children.push(createVisualElementSignal(ve));
