@@ -593,7 +593,8 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement).get();
+  const activeVisualElementSignal = visualElementSignalFromPathString(desktopStore, mouseActionState.activeElement);
+  const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = activeVisualElement.item;
 
   if (mouseActionState.moveOverContainerElement != null) {
@@ -688,7 +689,7 @@ export function mouseUpHandler(
         handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Click) {
-        handleClick(activeVisualElement, desktopStore, userStore);
+        handleClick(activeVisualElementSignal, desktopStore, userStore);
       }
       break;
 

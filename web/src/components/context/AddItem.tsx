@@ -28,6 +28,7 @@ import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../store/desktop/items/table-item";
 import { Item } from "../../store/desktop/items/base/item";
 import { arrange } from "../../store/desktop/layout/arrange";
+import { newRatingItem } from "../../store/desktop/items/rating-item";
 
 
 type ContexMenuProps = {
@@ -77,7 +78,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       });
       arrange(desktopStore);
     }
-  }
+  };
 
   const newTableInContext = () => {
     if (isPage(props.contextItem)) {
@@ -97,7 +98,27 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       });
       arrange(desktopStore);
     }
-  }
+  };
+
+  const newRatingInContext = () => {
+    if (isPage(props.contextItem)) {
+      let newRating = newRatingItem(
+        userStore.getUser().userId,
+        props.contextItem?.id!,
+        3,
+        Child,
+        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
+      newRating.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
+      desktopStore.addItem(newRating);
+      server.addItem(newRating, null);
+      desktopStore.setContextMenuInfo(null);
+      desktopStore.setEditDialogInfo({
+        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
+        item: newRating
+      });
+      arrange(desktopStore);
+    }
+  };
 
   return (
     <div class="border rounded w-[250px] h-[55px] bg-slate-50 mb-1">
@@ -105,6 +126,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <ToolbarIcon icon="folder" margin={18} clickHandler={newPageInContext} />
       <ToolbarIcon icon="table" margin={4} clickHandler={newTableInContext} />
       <ToolbarIcon icon="sticky-note" margin={8} clickHandler={newNoteInContext} />
+      <ToolbarIcon icon="star" margin={4} clickHandler={newRatingInContext} />
     </div>
   );
 }

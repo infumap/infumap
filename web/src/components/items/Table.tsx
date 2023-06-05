@@ -105,6 +105,7 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
     const row = Math.round(tableItem().scrollYProp.get());
     tableItem().scrollYProp.set(row);
     (outerDiv!)!.scrollTop = row * blockHeightPx();
+    scrollDoneTimer = null;
   }
 
   const tableItem = () => asTableItem(props.visualElement.item);

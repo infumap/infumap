@@ -157,11 +157,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
 
+
 enum RenderStyle {
   Full,
   InsidePopup,
   Placeholder,
 }
+
 
 export const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
@@ -221,6 +223,7 @@ export const arrangeItem = (
       : RenderStyle.Placeholder;
   return arrangeItemNoChildren(desktopStore, item, linkItemMaybe, geometry, parentSignalUnderConstruction, renderStyle);
 }
+
 
 const arrangeTable = (
     desktopStore: DesktopStoreContextModel,
@@ -301,10 +304,11 @@ const arrangeTable = (
     return tableVeChildren;
   })();
 
-  addAttachments(desktopStore, tableItem, geometry.boundsPx, tableVisualElementSignal);
+  arrangeItemAttachments(desktopStore, tableVisualElementSignal);
 
   return tableVisualElementSignal;
 }
+
 
 const arrangePageWithChildren = (
     desktopStore: DesktopStoreContextModel,
@@ -351,10 +355,11 @@ const arrangePageWithChildren = (
     return arrangeItemNoChildren(desktopStore, innerChildItem, null, geometry, pageWithChildrenVisualElementSignal, RenderStyle.Placeholder);
   });
 
-  addAttachments(desktopStore, pageItem, geometry.boundsPx, pageWithChildrenVisualElementSignal);
+  arrangeItemAttachments(desktopStore, pageWithChildrenVisualElementSignal);
 
   return pageWithChildrenVisualElementSignal;
 }
+
 
 const arrangeItemNoChildren = (
     desktopStore: DesktopStoreContextModel,
@@ -385,17 +390,21 @@ const arrangeItemNoChildren = (
   };
   const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
 
-  addAttachments(desktopStore, item, geometry.boundsPx, itemVisualElementSignal);
+  arrangeItemAttachments(desktopStore, itemVisualElementSignal);
 
   return itemVisualElementSignal;
 }
 
-function addAttachments(desktopStore: DesktopStoreContextModel, item: Item, itemBoundsPx: BoundingBox, itemVisualElementSignal: VisualElementSignal) {
-  if (isAttachmentsItem(item)) {
-    const attachmentsItem = asAttachmentsItem(item);
+
+function arrangeItemAttachments(desktopStore: DesktopStoreContextModel, itemVisualElementSignal: VisualElementSignal) {
+  const itemVisualElement = itemVisualElementSignal.get();
+  const itemBoundsPx = itemVisualElement.boundsPx;
+
+  if (isAttachmentsItem(itemVisualElement.item)) {
+    const attachmentsItem = asAttachmentsItem(itemVisualElement.item);
     for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
-      const attachment = attachmentsItem.computed_attachments[i];
-      const attachmentItem = desktopStore.getItem(attachment)!;
+      const attachmentId = attachmentsItem.computed_attachments[i];
+      const attachmentItem = desktopStore.getItem(attachmentId)!;
       const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, i, desktopStore.getItem);
 
       const attachmentVisualElement: VisualElement = {
@@ -422,6 +431,7 @@ function addAttachments(desktopStore: DesktopStoreContextModel, item: Item, item
     }
   }
 }
+
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);

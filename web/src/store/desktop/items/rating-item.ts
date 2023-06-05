@@ -19,10 +19,17 @@
 import { GRID_SIZE } from '../../../constants';
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { panic } from '../../../util/lang';
+import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './base/item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
+import { newUid, Uid } from '../../../util/uid';
+import { VisualElement } from '../visual-element';
+import { DesktopStoreContextModel } from '../DesktopStoreProvider';
+import { UserStoreContextModel } from '../../UserStoreProvider';
+import { server } from '../../../server';
+import { arrangeItem, rearrangeVisualElement } from '../layout/arrange';
+import { VisualElementSignal } from '../../../util/signals';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -30,6 +37,23 @@ export interface RatingItem extends RatingMeasurable, Item {
 }
 
 export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin {}
+
+
+export function newRatingItem(ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem {
+  return {
+    itemType: ITEM_TYPE_RATING,
+    ownerId,
+    id: newUid(),
+    parentId,
+    relationshipToParent,
+    creationDate: currentUnixTimeSeconds(),
+    lastModifiedDate: currentUnixTimeSeconds(),
+    ordering,
+    spatialPositionGr: { x: 0.0, y: 0.0 },
+
+    rating,
+  };
+}
 
 
 export function ratingFromObject(o: any): RatingItem {
@@ -71,7 +95,7 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions 
 }
 
 export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
-  const _innerBoundsPx = {
+  const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
     w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
@@ -85,7 +109,10 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
   };
   return {
     boundsPx,
-    hitboxes: [],
+    hitboxes: [
+      { type: HitboxType.Move, boundsPx: innerBoundsPx },
+      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+    ],
   }
 }
 
@@ -128,6 +155,22 @@ export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBo
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
   });
+}
+
+export function handleRatingClick(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void {
+  const item = asRatingItem(visualElementSignal.get().item);
+  item.rating += 1;
+  if (item.rating == 6) { item.rating = 0; }
+  rearrangeVisualElement(desktopStore, visualElementSignal)
+
+  const PERSIST_AFTER_MS = 1000;
+  let clickTimer: number | null = null;
+    function clickTimerHandler() {
+    server.updateItem(item);
+    clickTimer = null;
+  }
+  if (clickTimer != null) { clearTimeout(clickTimer); }
+  clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
 }
 
 export function isRating(item: ItemTypeMixin | null): boolean {

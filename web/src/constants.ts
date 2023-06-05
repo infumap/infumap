@@ -24,6 +24,8 @@ export const RESIZE_BOX_SIZE_PX = 8;
 
 export const ATTACH_AREA_SIZE_PX = 10;
 
+export const FONT_SIZE_PX = 16;
+
 export const LINE_HEIGHT_PX = 24;
 
 export const NOTE_PADDING_PX = 5;

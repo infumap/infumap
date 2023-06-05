@@ -18,23 +18,27 @@
 
 import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../store/desktop/items/rating-item";
-import { GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
 import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../store/desktop/items/table-item";
 
 
 export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-  const _ratingItem = () => asRatingItem(props.visualElement.item);
+  const ratingItem = () => asRatingItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
+  const naturalHeightPx = () => LINE_HEIGHT_PX;
+  const naturalWidthPx = () => LINE_HEIGHT_PX;
+  const widthScale = () => boundsPx().w / naturalWidthPx();
+  const heightScale = () => boundsPx().h / naturalHeightPx();
+  const scale = () => Math.min(heightScale(), widthScale());
+  const starSizeProp = () => ratingItem().rating / 5 * 1.2;
 
   return (
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div class={`absolute`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <Show when={props.visualElement.isInteractive}>
-        <i class={`fas fa-star text-yellow-400`} />
-      </Show>
+      <div class={`fas fa-star text-gray-400 absolute`} style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
+      <div class={`fas fa-star text-yellow-400 absolute`} style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
     </div>
   );
 }

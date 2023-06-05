@@ -18,6 +18,7 @@
 
 import { BoundingBox, Dimensions } from '../../../../util/geometry';
 import { panic, throwExpression } from '../../../../util/lang';
+import { VisualElementSignal } from '../../../../util/signals';
 import { Uid } from '../../../../util/uid';
 import { UserStoreContextModel } from '../../../UserStoreProvider';
 import { DesktopStoreContextModel } from '../../DesktopStoreProvider';
@@ -28,7 +29,7 @@ import { asImageItem, asImageMeasurable, calcGeometryOfImageAttachmentItem, calc
 import { asLinkItem, calcGeometryOfLinkAttachmentItem, calcGeometryOfLinkItem, calcGeometryOfLinkItemInCell, calcGeometryOfLinkItemInTable, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject } from '../link-item';
 import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteAttachmentItem, calcGeometryOfNoteItem, calcGeometryOfNoteItemInCell, calcGeometryOfNoteItemInTable, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject } from '../note-item';
 import { asPageItem, asPageMeasurable, calcGeometryOfPageAttachmentItem, calcGeometryOfPageItem, calcGeometryOfPageItemInCell, calcGeometryOfPageItemInTable, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject } from '../page-item';
-import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingAttachmentItem, calcGeometryOfRatingItem, calcGeometryOfRatingItemInCell, calcGeometryOfRatingItemInTable, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, isRating, ratingFromObject, ratingToObject } from '../rating-item';
+import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingAttachmentItem, calcGeometryOfRatingItem, calcGeometryOfRatingItemInCell, calcGeometryOfRatingItemInTable, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject } from '../rating-item';
 import { asTableItem, asTableMeasurable, calcGeometryOfTableAttachmentItem, calcGeometryOfTableItem, calcGeometryOfTableItemInCell, calcGeometryOfTableItemInTable, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject } from '../table-item';
 import { Item, Measurable } from './item';
 
@@ -112,14 +113,14 @@ export function itemToObject(item: Item): object {
   throwExpression(`Unknown item type: ${item.itemType}`);
 }
 
-export function handleClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  const item = visualElement.item;
-  if (isPage(item)) { handlePageClick(visualElement, desktopStore, userStore); }
+export function handleClick(visualElementSignal: VisualElementSignal, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
+  const item = visualElementSignal.get().item;
+  if (isPage(item)) { handlePageClick(visualElementSignal.get(), desktopStore, userStore); }
   else if (isTable(item)) { }
   else if (isNote(item)) { handleNoteClick(asNoteItem(item)); }
   else if (isImage(item)) { handleImageClick(asImageItem(item)); }
   else if (isFile(item)) { handleFileClick(asFileItem(item)); }
-  else if (isRating(item)) { }
+  else if (isRating(item)) { handleRatingClick(desktopStore, visualElementSignal); }
   else if (isLink(item)) { }
   else { throwExpression(`Unknown item type: ${item.itemType}`); }
 }
