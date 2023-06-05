@@ -115,7 +115,7 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
 
 export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
-    x: containerBoundsPx.w - (20 * index),
+    x: containerBoundsPx.w - (20 * (index+1)),
     y: -5,
     w: 15,
     h: 10,

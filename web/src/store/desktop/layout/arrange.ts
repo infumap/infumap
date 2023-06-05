@@ -23,7 +23,7 @@ import { Uid } from "../../../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ITEM_TYPE_LINK, Item } from "../items/base/item";
-import { calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
+import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { VisualElement } from "../visual-element";
@@ -219,7 +219,7 @@ export const arrangeItem = (
     : item.parentId == desktopStore.topLevelPageId()
       ? RenderStyle.Full
       : RenderStyle.Placeholder;
-  return arrangeItemNoChildren(item, linkItemMaybe, geometry, parentSignalUnderConstruction, renderStyle);
+  return arrangeItemNoChildren(desktopStore, item, linkItemMaybe, geometry, parentSignalUnderConstruction, renderStyle);
 }
 
 const arrangeTable = (
@@ -301,9 +301,7 @@ const arrangeTable = (
     return tableVeChildren;
   })();
 
-  tableItem.computed_attachments.forEach(attachment => {
-    console.log("attachment (of table):", attachment);
-  });
+  addAttachments(desktopStore, tableItem, geometry.boundsPx, tableVisualElementSignal);
 
   return tableVisualElementSignal;
 }
@@ -350,17 +348,16 @@ const arrangePageWithChildren = (
       return arrangeItem(desktopStore, innerChildItem, pageWithChildrenVisualElement.childAreaBoundsPx!, pageWithChildrenVisualElementSignal, true, false);
     }
     const geometry = calcGeometryOfItemInPage(innerChildItem, innerBoundsPx, innerDimensionsBl, true, false, desktopStore.getItem);
-    return arrangeItemNoChildren(innerChildItem, null, geometry, pageWithChildrenVisualElementSignal, RenderStyle.Placeholder);
+    return arrangeItemNoChildren(desktopStore, innerChildItem, null, geometry, pageWithChildrenVisualElementSignal, RenderStyle.Placeholder);
   });
 
-  pageItem.computed_attachments.forEach(attachment => {
-    console.log("attachment (of page with children):", attachment);
-  });
+  addAttachments(desktopStore, pageItem, geometry.boundsPx, pageWithChildrenVisualElementSignal);
 
   return pageWithChildrenVisualElementSignal;
 }
 
 const arrangeItemNoChildren = (
+    desktopStore: DesktopStoreContextModel,
     item: Item,
     linkItemMaybe: LinkItem | null,
     geometry: ItemGeometry,
@@ -386,17 +383,45 @@ const arrangeItemNoChildren = (
     movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
   };
+  const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
 
-  if (isAttachmentsItem(item)) {
-    const attachmentsItem = asAttachmentsItem(item);
-    attachmentsItem.computed_attachments.forEach(attachment => {
-      console.log("attachment (of item with no children):", attachment);
-    });
-  }
+  addAttachments(desktopStore, item, geometry.boundsPx, itemVisualElementSignal);
 
-  return createVisualElementSignal(itemVisualElement);
+  return itemVisualElementSignal;
 }
 
+function addAttachments(desktopStore: DesktopStoreContextModel, item: Item, itemBoundsPx: BoundingBox, itemVisualElementSignal: VisualElementSignal) {
+  if (isAttachmentsItem(item)) {
+    const attachmentsItem = asAttachmentsItem(item);
+    for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
+      const attachment = attachmentsItem.computed_attachments[i];
+      const attachmentItem = desktopStore.getItem(attachment)!;
+      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, i, desktopStore.getItem);
+
+      const attachmentVisualElement: VisualElement = {
+        item: attachmentItem,
+        linkItemMaybe: null,
+        isInteractive: false,
+        isPopup: false,
+        isInsideTable: false,
+        isDragOverPositioning: false,
+        resizingFromBoundsPx: null,
+        boundsPx: attachmentGeometry.boundsPx,
+        childAreaBoundsPx: null,
+        hitboxes: attachmentGeometry.hitboxes,
+        children: [],
+        attachments: [],
+        parent: itemVisualElementSignal,
+        mouseIsOver: createBooleanSignal(false),
+        movingItemIsOver: createBooleanSignal(false),
+        movingItemIsOverAttach: createBooleanSignal(false),
+        moveOverRowNumber: createNumberSignal(-1),
+      };
+
+      itemVisualElementSignal.get().attachments.push(createVisualElementSignal(attachmentVisualElement));
+    }
+  }
+}
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);

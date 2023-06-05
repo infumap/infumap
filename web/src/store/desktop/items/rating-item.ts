@@ -91,7 +91,7 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
 
 export function calcGeometryOfRatingAttachmentItem(_rating: RatingMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
   const boundsPx = {
-    x: containerBoundsPx.w - (20 * index),
+    x: containerBoundsPx.w - (20 * (index+1)),
     y: -5,
     w: 15,
     h: 10,

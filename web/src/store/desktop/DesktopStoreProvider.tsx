@@ -40,6 +40,7 @@ export interface DesktopStoreContextModel {
   addItem: (item: Item) => void,
   deleteItem: (id: Uid) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
+  newOrderingAtEndOfAttachments: (parentId: Uid) => Uint8Array,
   newOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
 
   desktopBoundsPx: () => BoundingBox,
@@ -233,6 +234,13 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
+  const newOrderingAtEndOfAttachments = (parentId: Uid): Uint8Array => {
+    let parent = asAttachmentsItem(items[parentId]);
+    let attachmentOrderings = parent.computed_attachments.map(c => items[c].ordering);
+    return newOrderingAtEnd(attachmentOrderings);
+  }
+
+
   const newOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
     let parent = asContainerItem(items[parentId]);
     let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
@@ -321,6 +329,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setAttachmentItemsFromServerObjects,
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
+    newOrderingAtEndOfAttachments,
     newOrderingAtPosition,
     topLevelVisualElement, setTopLevelVisualElement,
     clearBreadcrumbs,

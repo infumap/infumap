@@ -80,10 +80,10 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
                         `background-color: #ff0000;`}>
             </div>
           </Show>
+          <For each={props.visualElement.attachments}>{attachmentVe =>
+            <VisualElementOnDesktop visualElement={attachmentVe.get()} />
+          }</For>
         </div>
-        <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementOnDesktop visualElement={attachment.get()} />
-        }</For>
         <TableChildArea visualElement={props.visualElement} />
         <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1}>
           <div class={`absolute border border-black`}

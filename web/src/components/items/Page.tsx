@@ -142,6 +142,9 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                         `background-color: #ff0000;`}>
             </div>
           </Show>
+          <For each={props.visualElement.attachments}>{attachmentVe =>
+            <VisualElementOnDesktop visualElement={attachmentVe.get()} />
+          }</For>
         </div>
         <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="flex items-center text-center text-xl font-bold text-white">
