@@ -74,15 +74,32 @@ export function getHitInfo(
         isInside(posRelativeToTopLevelVisualElementPx, popupVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
-      posRelativeToRootVisualElementPx = vectorSubtract(
-        posRelativeToTopLevelVisualElementPx,
-        { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
+      posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
     }
   }
 
   for (let i=rootVisualElement.children.length-1; i>=0; --i) {
     const childVisualElementSignal = rootVisualElement.children[i];
     const childVisualElement = childVisualElementSignal.get();
+
+    // attachments take precedence.
+    const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVisualElementPx, { x: childVisualElement.boundsPx.x, y: childVisualElement.boundsPx.y });
+    for (let j=childVisualElement.attachments.length-1; j>=0; j--) {
+      const attachmentVisualElementSignal = childVisualElement.attachments[j];
+      const attachmentVisualElement = attachmentVisualElementSignal.get();
+      if (!isInside(posRelativeToChildElementPx, attachmentVisualElement.boundsPx)) {
+        continue;
+      }
+      let hitboxType = HitboxType.None;
+      for (let j=attachmentVisualElement.hitboxes.length-1; j>=0; --j) {
+        if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVisualElement.boundsPx)))) {
+          hitboxType |= attachmentVisualElement.hitboxes[j].type;
+        }
+      }
+      if (!ignore.find(a => a == attachmentVisualElement.item.id)) {
+        return ({ hitboxType, visualElementSignal: attachmentVisualElementSignal });
+      }
+    }
 
     if (!isInside(posRelativeToRootVisualElementPx, childVisualElement.boundsPx)) {
       continue;
@@ -124,7 +141,7 @@ export function getHitInfo(
       }
     }
 
-    // handle inside any other item (including pages, which can't clicked in).
+    // handle inside any other item (including pages, which can't be clicked in).
     let hitboxType = HitboxType.None;
     for (let j=childVisualElement.hitboxes.length-1; j>=0; --j) {
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {

@@ -39,10 +39,12 @@ export function isAttachmentsItem(item: ItemTypeMixin | null): boolean {
   return ITEM_TYPES.find(t => t == item.itemType) != null;
 }
 
+
 export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
   if (isAttachmentsItem(item)) { return item as AttachmentsItem; }
   panic();
 }
+
 
 export function calcGeometryOfAttachmentItemImpl(page: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   const SCALE_DOWN_PROP = 0.8;
@@ -77,7 +79,6 @@ export function calcGeometryOfAttachmentItemImpl(page: Measurable, parentBoundsP
     };
   }
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-
   return {
     boundsPx,
     hitboxes: [
