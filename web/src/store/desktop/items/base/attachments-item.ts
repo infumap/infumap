@@ -16,9 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../../util/geometry";
 import { panic } from "../../../../util/lang";
 import { Uid } from "../../../../util/uid";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
+import { HitboxType } from "../../hitbox";
+import { ItemGeometry } from "../../item-geometry";
+import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable } from "./item";
+import { calcSizeForSpatialBl } from "./item-polymorphism";
 
 
 const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE];
@@ -38,4 +42,47 @@ export function isAttachmentsItem(item: ItemTypeMixin | null): boolean {
 export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
   if (isAttachmentsItem(item)) { return item as AttachmentsItem; }
   panic();
+}
+
+export function calcGeometryOfAttachmentItemImpl(page: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  const SCALE_DOWN_PROP = 0.8;
+  const blockSizePx = parentBoundsPx.w / parentInnerSizeBl.w;
+  const scaleDownBlockSizePx = blockSizePx * SCALE_DOWN_PROP;
+  const scaleDownMarginPx = (blockSizePx - scaleDownBlockSizePx) / 2.0;
+  const itemSizeBl = calcSizeForSpatialBl(page, getItem);
+  let boundsPx: BoundingBox;
+  if (itemSizeBl.w > itemSizeBl.h) {
+    const wPx = scaleDownBlockSizePx;
+    let hPx = scaleDownBlockSizePx * itemSizeBl.h / itemSizeBl.w;
+    if (hPx < scaleDownBlockSizePx / 5.0) { hPx = scaleDownBlockSizePx / 5.0; }
+    const marginH = (scaleDownBlockSizePx - hPx) / 2.0;
+    const marginW = 0;
+    boundsPx = {
+      x: parentBoundsPx.w - (blockSizePx * (index+1)) + marginW + scaleDownMarginPx,
+      y: -blockSizePx/2.0 + marginH + scaleDownMarginPx,
+      w: wPx,
+      h: hPx,
+    }
+  } else {
+    let wPx = scaleDownBlockSizePx * itemSizeBl.w / itemSizeBl.h;
+    if (wPx < scaleDownBlockSizePx / 5.0) { wPx = scaleDownBlockSizePx / 5.0; }
+    const hPx = scaleDownBlockSizePx;
+    const marginH = 0;
+    const marginW = (scaleDownBlockSizePx - wPx) / 2.0;
+    boundsPx = {
+      x: parentBoundsPx.w - (blockSizePx * (index+1)) + marginW + scaleDownMarginPx,
+      y: -blockSizePx/2.0 + marginH + scaleDownMarginPx,
+      w: wPx,
+      h: hPx,
+    };
+  }
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+
+  return {
+    boundsPx,
+    hitboxes: [
+      { type: HitboxType.Move, boundsPx: innerBoundsPx },
+      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+    ],
+  }
 }

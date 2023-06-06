@@ -23,7 +23,7 @@ import { Uid } from "../../../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ITEM_TYPE_LINK, Item } from "../items/base/item";
-import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable } from "../items/base/item-polymorphism";
+import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { VisualElement, createVisualElement } from "../visual-element";
@@ -344,13 +344,14 @@ const arrangeItemNoChildren = (
 function arrangeItemAttachments(desktopStore: DesktopStoreContextModel, itemVisualElementSignal: VisualElementSignal) {
   const itemVisualElement = itemVisualElementSignal.get();
   const itemBoundsPx = itemVisualElement.boundsPx;
+  const itemSizeBl = calcSizeForSpatialBl(itemVisualElement.item, desktopStore.getItem);
 
   if (isAttachmentsItem(itemVisualElement.item)) {
     const attachmentsItem = asAttachmentsItem(itemVisualElement.item);
     for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
       const attachmentId = attachmentsItem.computed_attachments[i];
       const attachmentItem = desktopStore.getItem(attachmentId)!;
-      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, i, desktopStore.getItem);
+      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, itemSizeBl, i, desktopStore.getItem);
 
       const attachmentVisualElement = createVisualElement({
         item: attachmentItem,

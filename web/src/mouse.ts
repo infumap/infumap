@@ -68,7 +68,7 @@ export function getHitInfo(
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
   if (topLevelVisualElement.children.length > 0) {
-    // The ve of the popup, if there is one, is always the last of the children.
+    // The visual element of the popup, if there is one, is always the last of the children.
     const popupVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
     if (popupVeMaybe.isPopup &&
         isInside(posRelativeToTopLevelVisualElementPx, popupVeMaybe.boundsPx)) {

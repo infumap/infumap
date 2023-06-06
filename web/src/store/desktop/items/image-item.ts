@@ -20,13 +20,14 @@ import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../con
 import { HitboxType } from "../hitbox";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
-import { AttachmentsItem } from "./base/attachments-item";
+import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { ItemTypeMixin, ITEM_TYPE_IMAGE, ITEM_BORDER_WIDTH_PX } from "./base/item";
+import { ItemTypeMixin, ITEM_TYPE_IMAGE, ITEM_BORDER_WIDTH_PX, Item } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../item-geometry";
 import { PositionalMixin } from "./base/positional-item";
+import { Uid } from "../../../util/uid";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -139,17 +140,8 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
   }
 }
 
-export function calcGeometryOfImageAttachmentItem(_image: ImageMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
-    x: containerBoundsPx.w - (20 * (index+1)),
-    y: -5,
-    w: 15,
-    h: 10,
-  };
-  return {
-    boundsPx,
-    hitboxes: [],
-  }
+export function calcGeometryOfImageAttachmentItem(image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

@@ -20,14 +20,15 @@ import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../con
 import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { panic } from '../../../util/lang';
-import { AttachmentsItem } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_FILE, ITEM_BORDER_WIDTH_PX } from './base/item';
+import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { ItemTypeMixin, ITEM_TYPE_FILE, ITEM_BORDER_WIDTH_PX, Item } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../../../util/html';
+import { Uid } from '../../../util/uid';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -113,17 +114,8 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
   }
 }
 
-export function calcGeometryOfFileAttachmentItem(_file: FileMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
-    x: containerBoundsPx.w - (20 * (index+1)),
-    y: -5,
-    w: 15,
-    h: 10,
-  };
-  return {
-    boundsPx,
-    hitboxes: [],
-  }
+export function calcGeometryOfFileAttachmentItem(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

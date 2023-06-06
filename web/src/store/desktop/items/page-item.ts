@@ -21,7 +21,7 @@ import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../../../util/uid';
-import { AttachmentsItem } from './base/attachments-item';
+import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, ITEM_BORDER_WIDTH_PX } from './base/item';
 import { TitledItem } from './base/titled-item';
@@ -34,6 +34,7 @@ import { arrange, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../../../util/signals';
 import { getHitInfo } from '../../../mouse';
 import { VisualElement } from '../visual-element';
+import { calcSizeForSpatialBl } from './base/item-polymorphism';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -217,17 +218,8 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
 }
 
 
-export function calcGeometryOfPageAttachmentItem(_page: PageMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
-    x: containerBoundsPx.w - (20 * (index+1)),
-    y: -5,
-    w: 15,
-    h: 10,
-  };
-  return {
-    boundsPx,
-    hitboxes: [],
-  }
+export function calcGeometryOfPageAttachmentItem(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 

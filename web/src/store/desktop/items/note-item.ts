@@ -21,8 +21,8 @@ import { HitboxType } from '../hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../../../util/lang';
 import { newUid, Uid } from '../../../util/uid';
-import { AttachmentsItem } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE, ITEM_BORDER_WIDTH_PX } from './base/item';
+import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE, ITEM_BORDER_WIDTH_PX, Item } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../item-geometry';
@@ -135,17 +135,8 @@ export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: 
   }
 }
 
-export function calcGeometryOfNoteAttachmentItem(_note: NoteMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
-    x: containerBoundsPx.w - (20 * (index+1)),
-    y: -5,
-    w: 15,
-    h: 10,
-  };
-  return {
-    boundsPx,
-    hitboxes: [],
-  }
+export function calcGeometryOfNoteAttachmentItem(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

@@ -21,7 +21,7 @@ import { HitboxType } from "../hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../../../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../../../util/lang";
 import { newUid, Uid } from "../../../util/uid";
-import { AttachmentsItem } from "./base/attachments-item";
+import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_BORDER_WIDTH_PX } from "./base/item";
 import { TitledItem } from "./base/titled-item";
@@ -156,17 +156,8 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
   };
 }
 
-export function calcGeometryOfTableAttachmentItem(_table: TableMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
-    x: containerBoundsPx.w - (20 * (index+1)),
-    y: -5,
-    w: 15,
-    h: 10,
-  };
-  return {
-    boundsPx,
-    hitboxes: [],
-  }
+export function calcGeometryOfTableAttachmentItem(table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(table, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

@@ -58,14 +58,14 @@ export function calcGeometryOfItemInPage(measurable: Measurable, containerBounds
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function calcGeometryOfAttachmentItem(measurable: Measurable, containerBoundsPx: BoundingBox, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  if (isPage(measurable)) { return calcGeometryOfPageAttachmentItem(asPageMeasurable(measurable), containerBoundsPx, index); }
-  if (isTable(measurable)) { return calcGeometryOfTableAttachmentItem(asTableMeasurable(measurable), containerBoundsPx, index); }
-  if (isNote(measurable)) { return calcGeometryOfNoteAttachmentItem(asNoteMeasurable(measurable), containerBoundsPx, index); }
-  if (isImage(measurable)) { return calcGeometryOfImageAttachmentItem(asImageMeasurable(measurable), containerBoundsPx, index); }
-  if (isFile(measurable)) { return calcGeometryOfFileAttachmentItem(asFileMeasurable(measurable), containerBoundsPx, index); }
-  if (isRating(measurable)) { return calcGeometryOfRatingAttachmentItem(asRatingMeasurable(measurable), containerBoundsPx, index); }
-  if (isLink(measurable)) { return calcGeometryOfLinkAttachmentItem(asLinkItem(measurable), containerBoundsPx, index, getItem); }
+export function calcGeometryOfAttachmentItem(measurable: Measurable, parentBoundsPx: BoundingBox, parentSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  if (isPage(measurable)) { return calcGeometryOfPageAttachmentItem(asPageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isTable(measurable)) { return calcGeometryOfTableAttachmentItem(asTableMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isNote(measurable)) { return calcGeometryOfNoteAttachmentItem(asNoteMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isImage(measurable)) { return calcGeometryOfImageAttachmentItem(asImageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isFile(measurable)) { return calcGeometryOfFileAttachmentItem(asFileMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isRating(measurable)) { return calcGeometryOfRatingAttachmentItem(asRatingMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isLink(measurable)) { return calcGeometryOfLinkAttachmentItem(asLinkItem(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 

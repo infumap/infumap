@@ -30,6 +30,7 @@ import { UserStoreContextModel } from '../../UserStoreProvider';
 import { server } from '../../../server';
 import { arrangeItem, rearrangeVisualElement } from '../layout/arrange';
 import { VisualElementSignal } from '../../../util/signals';
+import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -116,17 +117,8 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
   }
 }
 
-export function calcGeometryOfRatingAttachmentItem(_rating: RatingMeasurable, containerBoundsPx: BoundingBox, index: number): ItemGeometry {
-  const boundsPx = {
-    x: containerBoundsPx.w - (20 * (index+1)),
-    y: -5,
-    w: 15,
-    h: 10,
-  };
-  return {
-    boundsPx,
-    hitboxes: [],
-  }
+export function calcGeometryOfRatingAttachmentItem(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
