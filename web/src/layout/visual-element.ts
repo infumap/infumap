@@ -120,7 +120,7 @@ export function createVisualElement(override: any): VisualElement {
   return result;
 }
 
-export function visualElementToPathString(visualElement: VisualElement): VisualElementPath {
+export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
   function impl(visualElement: VisualElement, current: string): string {
     const ve = visualElement;
     if (current != "") { current += "-"; }
@@ -135,7 +135,7 @@ export function visualElementToPathString(visualElement: VisualElement): VisualE
   return impl(visualElement, "");
 }
 
-export function visualElementSignalFromPathString(
+export function visualElementSignalFromPath(
     desktopStore: DesktopStoreContextModel, pathString: VisualElementPath): VisualElementSignal {
   const parts = pathString.split("-");
   let ves = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
