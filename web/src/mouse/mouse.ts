@@ -231,13 +231,12 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     return;
   }
 
-  const deltaBl = {
-    x: deltaPx.x * mouseActionState.onePxSizeBl.x,
-    y: deltaPx.y * mouseActionState.onePxSizeBl.y
-  };
-
   // ### Resizing
   if (mouseActionState.action == MouseAction.Resizing) {
+    const deltaBl = {
+      x: deltaPx.x * mouseActionState.onePxSizeBl.x,
+      y: deltaPx.y * mouseActionState.onePxSizeBl.y
+    };
 
     let newWidthBl = mouseActionState!.startWidthBl! + deltaBl.x;
     newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
@@ -294,6 +293,11 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       handleMoveOverTable(hitInfo.overContainerVe!, desktopPxFromMouseEvent(ev));
     }
 
+    const deltaBl = {
+      x: deltaPx.x * mouseActionState.onePxSizeBl.x,
+      y: deltaPx.y * mouseActionState.onePxSizeBl.y
+    };
+
     let newPosBl = vectorAdd(mouseActionState.startPosBl!, deltaBl);
     newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
@@ -342,8 +346,7 @@ export function handleMoveOverTable(moveToVe: VisualElement, desktopPx: Vector) 
 }
 
 export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
-  const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get();
-  const activeItem = activeVisualElement.item;
+  const activeItem = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get().item;
   const currentParent = desktopStore.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.item);
   const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
@@ -366,8 +369,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveToVe.item.id);
   activeItem.spatialPositionGr = newItemPosGr;
   activeItem.relationshipToParent = Child;
-  moveToPage.computed_children
-    = [activeItem.id, ...moveToPage.computed_children];
+  moveToPage.computed_children = [activeItem.id, ...moveToPage.computed_children];
   if (isContainer(currentParent)) {
     asContainerItem(currentParent).computed_children
       = asContainerItem(currentParent).computed_children.filter(childItem => childItem != activeItem.id);
@@ -379,8 +381,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   arrange(desktopStore);
 
   let done = false;
-  let otherVes = [];
-  visualElementsWithId(desktopStore, activeVisualElement.item.id).forEach(ve => {
+  visualElementsWithId(desktopStore, activeItem.id).forEach(ve => {
     if (visualElementToPathString(ve.get().parent!.get()) == moveToVisualPathString) {
       mouseActionState!.activeElement = visualElementToPathString(ve.get());
       let boundsPx = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement).get().boundsPx;
@@ -389,20 +390,15 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
         y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / boundsPx.h
       };
       done = true;
-    } else {
-      otherVes.push(ve);
     }
   });
   if (!done) { panic(); }
 
   done = false;
-  otherVes = [];
   visualElementsWithId(desktopStore, moveToPage.id).forEach(ve => {
     if (visualElementToPathString(ve.get()) == moveToVisualPathString) {
       mouseActionState!.scaleDefiningElement = visualElementToPathString(ve.get());
       done = true;
-    } else {
-      otherVes.push(ve);
     }
   });
   if (!done) { panic(); }
