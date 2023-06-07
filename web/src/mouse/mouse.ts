@@ -171,17 +171,6 @@ export function mouseRightDownHandler(
     return;
   }
 
-  let parentId = desktopStore.getItem(desktopStore.topLevelPageId()!)!.parentId;
-  let loopCount = 0;
-  while (!isPage(desktopStore.getItem(parentId!)!)) {
-    if (parentId == EMPTY_UID) {
-      // At the root page.
-      return;
-    }
-    parentId = desktopStore.getItem(parentId)!.parentId;
-    if (loopCount++ > 10) { panic(); }
-  }
-
   desktopStore.popTopLevelPageId();
   arrange(desktopStore);
 }
