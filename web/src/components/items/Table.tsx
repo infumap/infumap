@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 import { Component, For, onMount, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
-import { asTableItem } from "../../store/desktop/items/table-item";
+import { asTableItem } from "../../items/table-item";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";

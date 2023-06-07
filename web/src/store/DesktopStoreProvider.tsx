@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,18 +18,18 @@
 
 import { Accessor, batch, createSignal, JSX, Setter } from "solid-js";
 import { createContext, useContext } from "solid-js";
-import { panic, throwExpression } from "../../util/lang";
-import { Item } from "./items/base/item";
-import { EMPTY_UID, Uid } from "../../util/uid";
-import { Attachment, Child, NoParent } from "./relationship-to-parent";
-import { asContainerItem, ContainerItem, isContainer } from "./items/base/container-item";
-import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../../util/ordering";
-import { BoundingBox, Dimensions, Vector } from "../../util/geometry";
-import { TOOLBAR_WIDTH } from "../../constants";
-import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
-import { itemFromObject } from "./items/base/item-polymorphism";
-import { NONE_VISUAL_ELEMENT, VisualElement } from "./visual-element";
-import { VisualElementSignal } from "../../util/signals";
+import { panic, throwExpression } from "../util/lang";
+import { Item } from "../items/base/item";
+import { EMPTY_UID, Uid } from "../util/uid";
+import { Attachment, Child, NoParent } from "../layout/relationship-to-parent";
+import { asContainerItem, ContainerItem, isContainer } from "../items/base/container-item";
+import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
+import { BoundingBox, Dimensions, Vector } from "../util/geometry";
+import { TOOLBAR_WIDTH } from "../constants";
+import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { itemFromObject } from "../items/base/item-polymorphism";
+import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
+import { VisualElementSignal } from "../util/signals";
 
 
 export interface DesktopStoreContextModel {

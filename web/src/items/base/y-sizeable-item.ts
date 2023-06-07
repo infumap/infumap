@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,25 +16,26 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { panic } from "../../../../util/lang";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
+import { panic } from "../../util/lang";
+import { NumberSignal } from "../../util/signals";
+import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./item";
 
 
-const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_NOTE, ITEM_TYPE_TABLE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE];
+const ITEM_TYPES = [ITEM_TYPE_TABLE];
 
-export interface TitledMixin {
-  title: string
+export interface YSizableMixin {
+  spatialHeightGr: number
 }
 
-export interface TitledItem extends TitledMixin, Item { }
+export interface YSizableItem extends YSizableMixin, Item { }
 
 
-export function isTitledItem(item: ItemTypeMixin | null): boolean {
+export function isYSizableItem(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
   return ITEM_TYPES.find(t => t == item.itemType) != null;
 }
 
-export function asTitledItem(item: ItemTypeMixin): TitledItem {
-  if (isTitledItem(item)) { return item as TitledItem; }
+export function asYSizableItem(item: ItemTypeMixin): YSizableItem {
+  if (isYSizableItem(item)) { return item as YSizableItem; }
   panic();
 }

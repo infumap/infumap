@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,14 +18,14 @@
 
 import { GRID_SIZE } from "./constants";
 import { server } from "./server";
-import { calcBlockPositionGr, PageItem } from "./store/desktop/items/page-item";
-import { DesktopStoreContextModel } from "./store/desktop/DesktopStoreProvider";
+import { calcBlockPositionGr, PageItem } from "./items/page-item";
+import { DesktopStoreContextModel } from "./store/DesktopStoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
-import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./store/desktop/items/base/item";
-import { itemFromObject } from "./store/desktop/items/base/item-polymorphism";
-import { arrange } from "./store/desktop/layout/arrange";
+import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./items/base/item";
+import { itemFromObject } from "./items/base/item-polymorphism";
+import { arrange } from "./layout/arrange";
 
 
 export async function handleUpload(

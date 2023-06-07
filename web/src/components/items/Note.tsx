@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,11 @@
 */
 
 import { Component, createMemo, For, Show } from "solid-js";
-import { asNoteItem, calcNoteSizeForSpatialBl } from "../../store/desktop/items/note-item";
+import { asNoteItem, calcNoteSizeForSpatialBl } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
-import { asTableItem } from "../../store/desktop/items/table-item";
+import { asTableItem } from "../../items/table-item";
 import { BoundingBox } from "../../util/geometry";
 
 

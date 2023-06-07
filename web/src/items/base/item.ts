@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { EMPTY_UID, Uid } from '../../../../util/uid';
+import { EMPTY_UID, Uid } from '../../util/uid';
 import { PositionalMixin } from './positional-item';
 
 export const ITEM_TYPE_NONE = "none";

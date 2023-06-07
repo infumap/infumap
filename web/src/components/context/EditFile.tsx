@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,11 +18,11 @@
 
 import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
-import { asFileItem, FileItem } from "../../store/desktop/items/file-item";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { asFileItem, FileItem } from "../../items/file-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
+import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {

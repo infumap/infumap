@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,18 +17,18 @@
 */
 
 import { Component } from "solid-js";
-import { Child } from "../../store/desktop/relationship-to-parent";
-import { newNoteItem } from "../../store/desktop/items/note-item";
-import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../store/desktop/items/page-item";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { Child } from "../../layout/relationship-to-parent";
+import { newNoteItem } from "../../items/note-item";
+import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../items/page-item";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Vector } from "../../util/geometry";
 import ToolbarIcon from "../ToolbarIcon";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { newTableItem } from "../../store/desktop/items/table-item";
-import { Item } from "../../store/desktop/items/base/item";
-import { arrange } from "../../store/desktop/layout/arrange";
-import { newRatingItem } from "../../store/desktop/items/rating-item";
+import { newTableItem } from "../../items/table-item";
+import { Item } from "../../items/base/item";
+import { arrange } from "../../layout/arrange";
+import { newRatingItem } from "../../items/rating-item";
 
 
 type ContexMenuProps = {

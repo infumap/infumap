@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,16 +17,16 @@
 */
 
 import { Component, createMemo, For, Show } from "solid-js";
-import { asPageItem } from "../../store/desktop/items/page-item";
+import { asPageItem } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
-import { asTableItem } from "../../store/desktop/items/table-item";
-import { calcSizeForSpatialBl } from "../../store/desktop/items/base/item-polymorphism";
-import { HitboxType } from "../../store/desktop/hitbox";
+import { asTableItem } from "../../items/table-item";
+import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
+import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
 
 

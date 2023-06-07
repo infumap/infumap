@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,18 +16,18 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from '../../../constants';
-import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { currentUnixTimeSeconds, panic } from '../../../util/lang';
+import { GRID_SIZE } from '../constants';
+import { HitboxType } from '../layout/hitbox';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
+import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './base/item';
-import { ItemGeometry } from '../item-geometry';
+import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { newUid, Uid } from '../../../util/uid';
-import { DesktopStoreContextModel } from '../DesktopStoreProvider';
-import { server } from '../../../server';
+import { newUid, Uid } from '../util/uid';
+import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { server } from '../server';
 import { rearrangeVisualElement } from '../layout/arrange';
-import { VisualElementSignal } from '../../../util/signals';
+import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 
 

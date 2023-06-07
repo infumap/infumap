@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -19,15 +19,15 @@
 import { useNavigate } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { server } from "../server";
-import { switchToPage } from "../store/desktop/layout/arrange";
-import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
+import { switchToPage } from "../layout/arrange";
+import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
 import { Toolbar } from "./Toolbar";
 import { EMPTY_UID } from "../util/uid";
-import { ITEM_TYPE_NONE } from "../store/desktop/items/base/item";
-import { childrenLoadInitiatedOrComplete } from "../store/desktop/layout/load";
+import { ITEM_TYPE_NONE } from "../items/base/item";
+import { childrenLoadInitiatedOrComplete } from "../layout/load";
 
 
 export let logout: (() => Promise<void>) | null = null;

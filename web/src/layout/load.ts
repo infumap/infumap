@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,9 +17,9 @@
 */
 
 import { batch } from "solid-js";
-import { server } from "../../../server";
-import { Uid } from "../../../util/uid";
-import { DesktopStoreContextModel } from "../DesktopStoreProvider";
+import { server } from "../server";
+import { Uid } from "../util/uid";
+import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
 import { rearrangeVisualElementsWithId } from "./arrange";
 

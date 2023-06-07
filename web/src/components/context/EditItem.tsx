@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,12 +17,12 @@
 */
 
 import { Component, Match, Switch } from "solid-js";
-import { Item } from "../../store/desktop/items/base/item";
-import { asFileItem, isFile } from "../../store/desktop/items/file-item";
-import { asImageItem, isImage } from "../../store/desktop/items/image-item";
-import { asNoteItem, isNote } from "../../store/desktop/items/note-item";
-import { asPageItem, isPage } from "../../store/desktop/items/page-item";
-import { asTableItem, isTable } from "../../store/desktop/items/table-item";
+import { Item } from "../../items/base/item";
+import { asFileItem, isFile } from "../../items/file-item";
+import { asImageItem, isImage } from "../../items/image-item";
+import { asNoteItem, isNote } from "../../items/note-item";
+import { asPageItem, isPage } from "../../items/page-item";
+import { asTableItem, isTable } from "../../items/table-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { EditFile } from "./EditFile";
 import { EditImage } from "./EditImage";

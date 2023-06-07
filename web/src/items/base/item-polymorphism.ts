@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, Dimensions } from '../../../../util/geometry';
-import { panic, throwExpression } from '../../../../util/lang';
-import { VisualElementSignal } from '../../../../util/signals';
-import { Uid } from '../../../../util/uid';
-import { UserStoreContextModel } from '../../../UserStoreProvider';
-import { DesktopStoreContextModel } from '../../DesktopStoreProvider';
-import { ItemGeometry } from '../../item-geometry';
-import { VisualElement } from '../../visual-element';
+import { BoundingBox, Dimensions } from '../../util/geometry';
+import { panic, throwExpression } from '../../util/lang';
+import { VisualElementSignal } from '../../util/signals';
+import { Uid } from '../../util/uid';
+import { UserStoreContextModel } from '../../store/UserStoreProvider';
+import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
+import { ItemGeometry } from '../../layout/item-geometry';
+import { VisualElement } from '../../layout/visual-element';
 import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileAttachmentItem, calcGeometryOfFileItem, calcGeometryOfFileItemInCell, calcGeometryOfFileItemInTable, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile } from '../file-item';
 import { asImageItem, asImageMeasurable, calcGeometryOfImageAttachmentItem, calcGeometryOfImageItem, calcGeometryOfImageItemInCell, calcGeometryOfImageItemInTable, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage } from '../image-item';
 import { asLinkItem, calcGeometryOfLinkAttachmentItem, calcGeometryOfLinkItem, calcGeometryOfLinkItemInCell, calcGeometryOfLinkItemInTable, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject } from '../link-item';

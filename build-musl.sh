@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2023 The Infumap Authors
+# Copyright (C) The Infumap Authors
 # This file is part of Infumap.
 #
 # This program is free software: you can redistribute it and/or modify

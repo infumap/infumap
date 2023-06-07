@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,12 +16,32 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox } from "../../util/geometry";
-import { Hitbox } from "./hitbox";
+import { BoundingBox, cloneBoundingBox } from "../util/geometry";
 
 
-export interface ItemGeometry {
-  boundsPx: BoundingBox, // relative to containing render area.
-  // innerBoundsPx: BoundingBox, // x, y are 0.0.
-  hitboxes: Array<Hitbox>, // higher index => takes precedence.
+export enum HitboxType {
+  None = 0,
+  Click = 1,
+  Move = 2,
+  Resize = 4,
+  OpenPopup = 8,
+  Attach = 16,
+}
+
+export interface Hitbox {
+  type: HitboxType,
+  boundsPx: BoundingBox,
+}
+
+export function cloneHitbox(hitbox: Hitbox | null): Hitbox | null {
+  if (hitbox == null) { return null; }
+  return {
+    type: hitbox.type,
+    boundsPx: cloneBoundingBox(hitbox.boundsPx)!
+  };
+}
+
+export function cloneHitboxes(hitboxes: Array<Hitbox> |  null): Array<Hitbox> | null {
+  if (hitboxes == null) { return null; }
+  return hitboxes.map(h => cloneHitbox(h)!)
 }

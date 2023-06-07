@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,20 +17,21 @@
 */
 
 import { Component, onCleanup, onMount } from "solid-js";
-import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
+import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { TOOLBAR_WIDTH } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
-import { getHitInfo, mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse";
+import { mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse/mouse";
 import { handleUpload } from "../upload";
-import { HitboxType } from "../store/desktop/hitbox";
-import { asPageItem, isPage } from "../store/desktop/items/page-item";
+import { HitboxType } from "../layout/hitbox";
+import { asPageItem, isPage } from "../items/page-item";
 import { EditDialog } from "./context/EditDialog";
 import { Page } from "./items/Page";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
-import { VisualElement } from "../store/desktop/visual-element";
-import { arrange } from "../store/desktop/layout/arrange";
+import { VisualElement } from "../layout/visual-element";
+import { arrange } from "../layout/arrange";
+import { getHitInfo } from "../mouse/hit";
 
 
 export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
 */
 
 import { Component, onMount, Show } from "solid-js";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { EditItem } from "./EditItem";
 

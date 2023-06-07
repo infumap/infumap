@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,22 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Vector } from "../../../../util/geometry";
-import { Item, ItemTypeMixin } from "./item";
-
-
-export interface PositionalMixin {
-  spatialPositionGr: Vector,
-}
-
-export interface PositionalItem extends PositionalMixin, Item { }
-
-
-export function isPositionalItem(item: ItemTypeMixin | null): boolean {
-  if (item == null) { return false; }
-  return true;
-}
-
-export function asPositionalItem(item: ItemTypeMixin): PositionalItem {
-  return item as PositionalItem;
-}
+export const NoParent = "no-parent";
+export const Child = "child";
+export const Attachment = "attachment";
+export const Unknown = "unknown";

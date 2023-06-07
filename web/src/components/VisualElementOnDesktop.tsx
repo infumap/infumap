@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,19 +17,19 @@
 */
 
 import { Component, Match, Switch } from "solid-js";
-import { isFile } from "../store/desktop/items/file-item";
-import { isImage } from "../store/desktop/items/image-item";
-import { isNote } from "../store/desktop/items/note-item";
-import { isPage } from "../store/desktop/items/page-item";
-import { isRating } from "../store/desktop/items/rating-item";
-import { isTable } from "../store/desktop/items/table-item";
+import { isFile } from "../items/file-item";
+import { isImage } from "../items/image-item";
+import { isNote } from "../items/note-item";
+import { isPage } from "../items/page-item";
+import { isRating } from "../items/rating-item";
+import { isTable } from "../items/table-item";
 import { Note } from "./items/Note";
 import { Page } from "./items/Page";
 import { Rating } from "./items/Rating";
 import { Table } from "./items/Table";
 import { Image } from "./items/Image";
 import { File } from "./items/File";
-import { VisualElement } from "../store/desktop/visual-element";
+import { VisualElement } from "../layout/visual-element";
 
 
 export interface VisualElementOnDesktopProps {

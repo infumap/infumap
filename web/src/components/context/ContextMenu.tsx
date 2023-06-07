@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { AddItem } from "./AddItem";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
 const ContextMenuInner: Component = () => {

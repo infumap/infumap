@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -20,12 +20,12 @@ import imgUrl from '../assets/circle.png'
 
 import { Component, Show } from "solid-js";
 import { TOOLBAR_WIDTH } from "../constants";
-import { asPageItem } from "../store/desktop/items/page-item";
-import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
+import { asPageItem } from "../items/page-item";
+import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
 import { logout } from "./Main";
-import { NONE_VISUAL_ELEMENT } from '../store/desktop/visual-element';
+import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
 
 
 export const Toolbar: Component = () => {

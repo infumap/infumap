@@ -1,6 +1,6 @@
 /* @refresh reload */
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ import { Router } from "@solidjs/router";
 import App from './components/App';
 import "tailwindcss/tailwind.css";
 import './index.css';
-import { DesktopStoreProvider } from './store/desktop/DesktopStoreProvider';
+import { DesktopStoreProvider } from './store/DesktopStoreProvider';
 import { GeneralStoreProvider } from './store/GeneralStoreProvider';
 import { UserStoreProvider } from './store/UserStoreProvider';
 

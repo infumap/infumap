@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,12 @@
 
 import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
-import { asNoteItem, NoteItem } from "../../store/desktop/items/note-item";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { asNoteItem, NoteItem } from "../../items/note-item";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuTextArea } from "../library/InfuTextArea";
-import { arrange, rearrangeVisualElementsWithId } from "../../store/desktop/layout/arrange";
+import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {

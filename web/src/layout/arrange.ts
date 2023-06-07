@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,27 +17,27 @@
 */
 
 import { batch } from "solid-js";
-import { HEADER_HEIGHT_BL } from "../../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../../../constants";
-import { Uid } from "../../../util/uid";
-import { DesktopStoreContextModel, visualElementsWithId } from "../DesktopStoreProvider";
+import { HEADER_HEIGHT_BL } from "../components/items/Table";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE } from "../constants";
+import { Uid } from "../util/uid";
+import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ITEM_TYPE_LINK, Item } from "../items/base/item";
 import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { createVisualElement } from "../visual-element";
-import { VisualElementSignal, createVisualElementSignal } from "../../../util/signals";
-import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
+import { createVisualElement } from "./visual-element";
+import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, isLink, newLinkItem } from "../items/link-item";
-import { ItemGeometry } from "../item-geometry";
-import { Child } from "../relationship-to-parent";
-import { newOrdering } from "../../../util/ordering";
+import { ItemGeometry } from "./item-geometry";
+import { Child } from "./relationship-to-parent";
+import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
-import { panic } from "../../../util/lang";
+import { panic } from "../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
-import { mouseMoveNoButtonDownHandler } from "../../../mouse";
-import { newUid } from "../../../util/uid";
+import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
+import { newUid } from "../util/uid";
 
 
 const POPUP_LINK_ID = newUid();

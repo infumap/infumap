@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,19 +16,19 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../../../constants';
-import { HitboxType } from '../hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../../../util/geometry';
-import { panic } from '../../../util/lang';
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
+import { HitboxType } from '../layout/hitbox';
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
+import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_FILE, ITEM_BORDER_WIDTH_PX, Item } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
-import { ItemGeometry } from '../item-geometry';
+import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { measureLineCount } from '../../../util/html';
-import { Uid } from '../../../util/uid';
+import { measureLineCount } from '../util/html';
+import { Uid } from '../util/uid';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }

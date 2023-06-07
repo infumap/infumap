@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,20 +16,20 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../../../constants";
-import { HitboxType } from "../hitbox";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../../../util/geometry";
-import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { newUid, Uid } from "../../../util/uid";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
+import { HitboxType } from "../layout/hitbox";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../util/geometry";
+import { currentUnixTimeSeconds, panic } from "../util/lang";
+import { newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_BORDER_WIDTH_PX } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
-import { ItemGeometry } from "../item-geometry";
+import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createNumberSignal, NumberSignal } from "../../../util/signals";
+import { createNumberSignal, NumberSignal } from "../util/signals";
 
 
 export interface TableColumn {

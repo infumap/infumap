@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, cloneBoundingBox } from "../util/geometry";
 import { Hitbox } from "./hitbox";
-import { Item, EMPTY_ITEM } from "./items/base/item";
-import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../../util/signals";
-import { LinkItem } from "./items/link-item";
-import { DesktopStoreContextModel } from "./DesktopStoreProvider";
-import { EMPTY_UID, Uid } from "../../util/uid";
-import { panic } from "../../util/lang";
+import { Item, EMPTY_ITEM } from "../items/base/item";
+import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
+import { LinkItem } from "../items/link-item";
+import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { EMPTY_UID, Uid } from "../util/uid";
+import { panic } from "../util/lang";
 
 
 export type VisualElementPath = string;

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 import { Accessor, createSignal, Setter } from "solid-js";
 import { Vector } from "./geometry";
 import { Uid } from "./uid";
-import { VisualElement } from "../store/desktop/visual-element";
+import { VisualElement } from "../layout/visual-element";
 
 
 export interface NumberSignal {

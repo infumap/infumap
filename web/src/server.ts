@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022-2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -17,8 +17,8 @@
 */
 
 import { logout } from "./components/Main";
-import { Item } from "./store/desktop/items/base/item";
-import { itemToObject } from "./store/desktop/items/base/item-polymorphism";
+import { Item } from "./items/base/item";
+import { itemToObject } from "./items/base/item-polymorphism";
 import { throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 

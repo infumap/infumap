@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,11 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../../../util/geometry";
-import { panic } from "../../../../util/lang";
-import { Uid } from "../../../../util/uid";
-import { HitboxType } from "../../hitbox";
-import { ItemGeometry } from "../../item-geometry";
+import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { panic } from "../../util/lang";
+import { Uid } from "../../util/uid";
+import { HitboxType } from "../../layout/hitbox";
+import { ItemGeometry } from "../../layout/item-geometry";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable } from "./item";
 import { calcSizeForSpatialBl } from "./item-polymorphism";
 

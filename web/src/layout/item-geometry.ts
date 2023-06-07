@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,27 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { panic } from "../../../../util/lang";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./item";
+import { BoundingBox } from "../util/geometry";
+import { Hitbox } from "./hitbox";
 
 
-const ITEM_TYPES = [ITEM_TYPE_IMAGE, ITEM_TYPE_FILE];
-
-export interface DataMixin {
-  originalCreationDate: number,
-  mimeType: string,
-  fileSizeBytes: number,
-}
-
-export interface DataItem extends DataMixin, Item { }
-
-
-export function isDataItem(item: ItemTypeMixin | null): boolean {
-  if (item == null) { return false; }
-  return ITEM_TYPES.find(t => t == item.itemType) != null;
-}
-
-export function asDataItem(item: ItemTypeMixin): DataItem {
-  if (isDataItem(item)) { return item as DataItem; }
-  panic();
+export interface ItemGeometry {
+  boundsPx: BoundingBox, // relative to containing render area.
+  // innerBoundsPx: BoundingBox, // x, y are 0.0.
+  hitboxes: Array<Hitbox>, // higher index => takes precedence.
 }

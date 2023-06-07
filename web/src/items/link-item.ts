@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2023 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,11 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../../../constants";
-import { BoundingBox, Dimensions } from "../../../util/geometry";
-import { currentUnixTimeSeconds, panic } from "../../../util/lang";
-import { newUid, Uid } from "../../../util/uid";
-import { ItemGeometry } from "../item-geometry";
+import { GRID_SIZE } from "../constants";
+import { BoundingBox, Dimensions } from "../util/geometry";
+import { currentUnixTimeSeconds, panic } from "../util/lang";
+import { newUid, Uid } from "../util/uid";
+import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
 import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
 import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable, calcSizeForSpatialBl, cloneMeasurableFields } from "./base/item-polymorphism";

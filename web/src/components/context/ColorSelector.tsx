@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -18,9 +18,9 @@
 
 import { Component } from "solid-js";
 import { server } from "../../server";
-import { Item } from "../../store/desktop/items/base/item";
-import { asPageItem } from "../../store/desktop/items/page-item";
-import { useDesktopStore } from "../../store/desktop/DesktopStoreProvider";
+import { Item } from "../../items/base/item";
+import { asPageItem } from "../../items/page-item";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Colors } from "../../style";
 
 

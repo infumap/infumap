@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022 The Infumap Authors
+  Copyright (C) The Infumap Authors
   This file is part of Infumap.
 
   This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { panic } from "../../../../util/lang";
+import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
 
 
