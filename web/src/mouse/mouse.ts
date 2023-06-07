@@ -88,6 +88,7 @@ export function mouseDownHandler(
 }
 
 
+// **** LEFT DOWN ****
 export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
     ev: MouseEvent) {
@@ -149,6 +150,7 @@ export function mouseLeftDownHandler(
 }
 
 
+// **** RIGHT DOWN ****
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
     _ev: MouseEvent) {
@@ -166,6 +168,7 @@ export function mouseRightDownHandler(
   if (desktopStore.popupId() != null) {
     desktopStore.popPopupId();
     arrange(desktopStore);
+    return;
   }
 
   let parentId = desktopStore.getItem(desktopStore.topLevelPageId()!)!.parentId;
@@ -183,28 +186,8 @@ export function mouseRightDownHandler(
   arrange(desktopStore);
 }
 
-export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
-  const ev = desktopStore.lastMouseMoveEvent();
-  let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
-  let overElementVes = currentHitInfo.overElementVes;
-  if (overElementVes != lastMouseOverVes) {
-    if (lastMouseOverVes != null) {
-      lastMouseOverVes.get().mouseIsOver.set(false);
-      lastMouseOverVes = null;
-    }
-  }
-  if (overElementVes!.get().item.id != desktopStore.topLevelPageId() &&
-      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get()) {
-    overElementVes!.get().mouseIsOver.set(true);
-    lastMouseOverVes = overElementVes;
-  }
-  if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
-    document.body.style.cursor = "nwse-resize";
-  } else {
-    document.body.style.cursor = "default";
-  }
-}
 
+// **** MOVE ****
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   if (desktopStore.topLevelPageId() == null) { return; }
 
@@ -332,6 +315,28 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
+  }
+}
+
+export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
+  const ev = desktopStore.lastMouseMoveEvent();
+  let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+  let overElementVes = currentHitInfo.overElementVes;
+  if (overElementVes != lastMouseOverVes) {
+    if (lastMouseOverVes != null) {
+      lastMouseOverVes.get().mouseIsOver.set(false);
+      lastMouseOverVes = null;
+    }
+  }
+  if (overElementVes!.get().item.id != desktopStore.topLevelPageId() &&
+      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get()) {
+    overElementVes!.get().mouseIsOver.set(true);
+    lastMouseOverVes = overElementVes;
+  }
+  if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
+    document.body.style.cursor = "nwse-resize";
+  } else {
+    document.body.style.cursor = "default";
   }
 }
 
@@ -465,6 +470,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   if (!done) { panic(); }
 }
 
+
+// **** UP ****
 export function mouseUpHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {

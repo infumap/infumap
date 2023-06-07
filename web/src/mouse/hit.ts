@@ -38,10 +38,10 @@ interface HitInfo {
 export function getHitInfo(
     desktopStore: DesktopStoreContextModel,
     posOnDesktopPx: Vector,
-    ignore: Array<Uid>,
+    ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
 
-  function makeComprehensiveMaybe(hitboxType: HitboxType, overElementVes: VisualElementSignal): HitInfo {
+  function finalize(hitboxType: HitboxType, overElementVes: VisualElementSignal): HitInfo {
     const overVe = overElementVes.get();
     if (overVe.isInsideTable) {
       assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
@@ -109,8 +109,8 @@ export function getHitInfo(
             hitboxType |= attachmentVisualElement.hitboxes[j].type;
           }
         }
-        if (!ignore.find(a => a == attachmentVisualElement.item.id)) {
-          const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignore, true);
+        if (!ignoreItems.find(a => a == attachmentVisualElement.item.id)) {
+          const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
           return { hitboxType, overElementVes: attachmentVisualElementSignal, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
         }
       }
@@ -129,7 +129,7 @@ export function getHitInfo(
       let resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-        return makeComprehensiveMaybe(HitboxType.Resize, tableVisualElementSignal);
+        return finalize(HitboxType.Resize, tableVisualElementSignal);
       }
 
       let tableItem = asTableItem(tableVisualElement.item);
@@ -149,8 +149,8 @@ export function getHitInfo(
               hitboxType |= tableChildVe.hitboxes[k].type;
             }
           }
-          if (!ignore.find(a => a == tableChildVe.item.id)) {
-            return makeComprehensiveMaybe(hitboxType, tableChildVes);
+          if (!ignoreItems.find(a => a == tableChildVe.item.id)) {
+            return finalize(hitboxType, tableChildVes);
           }
         }
       }
@@ -163,11 +163,10 @@ export function getHitInfo(
         hitboxType |= childVisualElement.hitboxes[j].type;
       }
     }
-    if (!ignore.find(a => a == childVisualElement.item.id)) {
-      return makeComprehensiveMaybe(hitboxType, rootVisualElement.children[i]);
+    if (!ignoreItems.find(a => a == childVisualElement.item.id)) {
+      return finalize(hitboxType, rootVisualElement.children[i]);
     }
   }
 
-  return makeComprehensiveMaybe(HitboxType.None, rootVisualElementSignal);
+  return finalize(HitboxType.None, rootVisualElementSignal);
 }
-
