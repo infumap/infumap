@@ -245,10 +245,7 @@ const arrangeTable = (
     for (let idx=0; idx<tableItem.computed_children.length; ++idx) {
       const childId = tableItem.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
-      if (isLink(childItem)) {
-        // TODO.
-        panic();
-      }
+      if (isLink(childItem)) { panic(); }  // TODO (MEDIUM).
       const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
 
       const tableItemVe = createVisualElement({

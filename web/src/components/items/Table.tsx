@@ -30,7 +30,6 @@ export const HEADER_HEIGHT_BL = 1.0;
 
 
 export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const blockSizePx = () => {
@@ -139,18 +138,12 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
     }
 
     const drawChild = (child: VisualElementSignal) => {
-      // const item = desktopStore.getItem(childId)!;
-      // let attachments: Array<Item> = [];
-      // if (isAttachmentsItem(item)) {
-      //   attachments = asAttachmentsItem(item).computed_attachments.map(attachmentId => desktopStore.getItem(attachmentId)!);
-      // }
-
       return (
         <>
           <VisualElementInTable visualElement={child.get()} parentVisualElement={props.visualElement} />
-          {/* <For each={attachments}>{attachmentItem =>
-            <ItemInTable item={attachmentItem} parentTable={tableItem()} renderArea={props.renderArea} renderTreeParentId={tableItem().id} />
-          }</For> */}
+          <For each={child.get().attachments}>{attachmentItem =>
+            <VisualElementInTable visualElement={attachmentItem.get()} parentVisualElement={child.get()} />
+          }</For>
         </>
       );
     }

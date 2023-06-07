@@ -26,7 +26,6 @@ import { BoundingBox } from "../../util/geometry";
 
 
 export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
-
   const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -69,7 +68,6 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 
 
 export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
-
   const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
