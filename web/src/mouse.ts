@@ -30,13 +30,14 @@ import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, ve
 import { assert, panic, throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 import { compareOrderings } from "./util/ordering";
-import { VisualElement, VisualElementPathString, itemIdFromVisualElementPath, visualElementDesktopBoundsPx, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
+import { VisualElement, VisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx, visualElementSignalFromPathString, visualElementToPathString } from "./store/desktop/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "./store/desktop/layout/arrange";
 import { editDialogSizePx } from "./components/context/EditDialog";
 import { VisualElementSignal } from "./util/signals";
 import { batch } from "solid-js";
-import { asAttachmentsItem } from "./store/desktop/items/base/attachments-item";
-import { Attachment } from "./store/desktop/relationship-to-parent";
+import { asAttachmentsItem, isAttachmentsItem } from "./store/desktop/items/base/attachments-item";
+import { Attachment, Child } from "./store/desktop/relationship-to-parent";
+import { asContainerItem, isContainer } from "./store/desktop/items/base/container-item";
 
 
 const MOUSE_LEFT = 0;
@@ -50,14 +51,47 @@ enum MouseAction {
 
 interface HitInfo {
   hitboxType: HitboxType,
-  visualElementSignal: VisualElementSignal
+  overElementVes: VisualElementSignal,       // the visual element under the specified position.
+  overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
+  overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position.
 }
 
 
 export function getHitInfo(
     desktopStore: DesktopStoreContextModel,
     posOnDesktopPx: Vector,
-    ignore: Array<Uid>): HitInfo {
+    ignore: Array<Uid>,
+    ignoreAttachments: boolean): HitInfo {
+
+  function makeComprehensiveMaybe(hitboxType: HitboxType, overElementVes: VisualElementSignal): HitInfo {
+    const overVe = overElementVes.get();
+    if (overVe.isInsideTable) {
+      assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
+      const parentTableVe = overVe.parent!.get();
+      const tableParentPageVe = parentTableVe.parent!.get();
+      assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
+      assert(tableParentPageVe.isDragOverPositioning, "page containing table does not drag in positioning.");
+      return { hitboxType, overElementVes, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
+    }
+
+    if (isTable(overVe.item)) {
+      assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
+      assert(overVe.parent!.get().isDragOverPositioning, "page containing table does not allow drag in positioning.");
+      return { hitboxType, overElementVes, overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
+    }
+
+    if (isPage(overVe.item) && overVe.isDragOverPositioning) {
+      return { hitboxType, overElementVes, overContainerVe: overVe, overPositionableVe: overVe };
+    }
+
+    const overVeParent = overVe.parent!.get();
+    assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
+    assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
+    if (isPage(overVe.item)) {
+      return { hitboxType, overElementVes, overContainerVe: overVe, overPositionableVe: overVeParent };
+    }
+    return { hitboxType, overElementVes, overContainerVe: overVeParent, overPositionableVe: overVeParent };
+  }
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
   const topLevelPage = asPageItem(topLevelVisualElement!.item);
@@ -83,21 +117,24 @@ export function getHitInfo(
     const childVisualElement = childVisualElementSignal.get();
 
     // attachments take precedence.
-    const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVisualElementPx, { x: childVisualElement.boundsPx.x, y: childVisualElement.boundsPx.y });
-    for (let j=childVisualElement.attachments.length-1; j>=0; j--) {
-      const attachmentVisualElementSignal = childVisualElement.attachments[j];
-      const attachmentVisualElement = attachmentVisualElementSignal.get();
-      if (!isInside(posRelativeToChildElementPx, attachmentVisualElement.boundsPx)) {
-        continue;
-      }
-      let hitboxType = HitboxType.None;
-      for (let j=attachmentVisualElement.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVisualElement.boundsPx)))) {
-          hitboxType |= attachmentVisualElement.hitboxes[j].type;
+    if (!ignoreAttachments) {
+      const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVisualElementPx, { x: childVisualElement.boundsPx.x, y: childVisualElement.boundsPx.y });
+      for (let j=childVisualElement.attachments.length-1; j>=0; j--) {
+        const attachmentVisualElementSignal = childVisualElement.attachments[j];
+        const attachmentVisualElement = attachmentVisualElementSignal.get();
+        if (!isInside(posRelativeToChildElementPx, attachmentVisualElement.boundsPx)) {
+          continue;
         }
-      }
-      if (!ignore.find(a => a == attachmentVisualElement.item.id)) {
-        return ({ hitboxType, visualElementSignal: attachmentVisualElementSignal });
+        let hitboxType = HitboxType.None;
+        for (let j=attachmentVisualElement.hitboxes.length-1; j>=0; --j) {
+          if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVisualElement.boundsPx)))) {
+            hitboxType |= attachmentVisualElement.hitboxes[j].type;
+          }
+        }
+        if (!ignore.find(a => a == attachmentVisualElement.item.id)) {
+          const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignore, true);
+          return { hitboxType, overElementVes: attachmentVisualElementSignal, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
+        }
       }
     }
 
@@ -114,7 +151,7 @@ export function getHitInfo(
       let resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-        return ({ hitboxType: HitboxType.Resize, visualElementSignal: tableVisualElementSignal });
+        return makeComprehensiveMaybe(HitboxType.Resize, tableVisualElementSignal);
       }
 
       let tableItem = asTableItem(tableVisualElement.item);
@@ -135,7 +172,7 @@ export function getHitInfo(
             }
           }
           if (!ignore.find(a => a == tableChildVe.item.id)) {
-            return ({ hitboxType, visualElementSignal: tableChildVes });
+            return makeComprehensiveMaybe(hitboxType, tableChildVes);
           }
         }
       }
@@ -149,53 +186,20 @@ export function getHitInfo(
       }
     }
     if (!ignore.find(a => a == childVisualElement.item.id)) {
-      return ({ hitboxType, visualElementSignal: rootVisualElement.children[i] });
+      return makeComprehensiveMaybe(hitboxType, rootVisualElement.children[i]);
     }
   }
 
-  return { hitboxType: HitboxType.None, visualElementSignal: rootVisualElementSignal };
+  return makeComprehensiveMaybe(HitboxType.None, rootVisualElementSignal);
 }
 
-export interface FindVisualElementsResult {
-  overContainerVe: VisualElement,
-  overPositionableVe: VisualElement,
-}
-
-function findVisualElements(overVe: VisualElement): FindVisualElementsResult {
-  if (overVe.isInsideTable) {
-    assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
-    const parentTableVe = overVe.parent!.get();
-    const tableParentPageVe = parentTableVe.parent!.get();
-    assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
-    assert(tableParentPageVe.isDragOverPositioning, "page containing table does not drag in positioning.");
-    return { overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe};
-  }
-
-  if (isTable(overVe.item)) {
-    assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
-    assert(overVe.parent!.get().isDragOverPositioning, "page containing table does not allow drag in positioning.");
-    return { overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
-  }
-
-  if (isPage(overVe.item) && overVe.isDragOverPositioning) {
-    return { overContainerVe: overVe, overPositionableVe: overVe };
-  }
-
-  const overVeParent = overVe.parent!.get();
-  assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
-  assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
-  if (isPage(overVe.item)) {
-    return { overContainerVe: overVe, overPositionableVe: overVeParent };
-  }
-  return { overContainerVe: overVeParent, overPositionableVe: overVeParent };
-}
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
-  activeElement: VisualElementPathString,
-  moveOverContainerElement: VisualElementPathString | null,
-  moveOverAttachElement: VisualElementPathString | null,
-  scaleDefiningElement: VisualElementPathString | null,
+  activeElement: VisualElementPath,
+  moveOverContainerElement: VisualElementPath | null,
+  moveOverAttachElement: VisualElementPath | null,
+  scaleDefiningElement: VisualElementPath | null,
   startPx: Vector,
   startPosBl: Vector | null,
   clickOffsetProp: Vector | null,
@@ -248,25 +252,21 @@ export function mouseLeftDownHandler(
     desktopStore.setEditDialogInfo(null); return;
   }
 
-  const hitInfo = getHitInfo(desktopStore, desktopPosPx, []);
+  const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
-    if (hitInfo.visualElementSignal.get().isPopup) {
-      switchToPage(desktopStore, hitInfo.visualElementSignal.get().item.id);
+    if (hitInfo.overElementVes.get().isPopup) {
+      switchToPage(desktopStore, hitInfo.overElementVes.get().item.id);
     }
     mouseActionState = null;
     return;
   }
 
-  const ves = findVisualElements(
-    getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [hitInfo.visualElementSignal.get().item.id]).visualElementSignal.get()
-  );
-
   const startPosBl = null;
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPxFromMouseEvent(ev);
-  const activeItem = desktopStore.getItem(hitInfo.visualElementSignal.get().item.id)!;
-  let desktopBoundsPx = visualElementDesktopBoundsPx(hitInfo.visualElementSignal.get());
+  const activeItem = desktopStore.getItem(hitInfo.overElementVes.get().item.id)!;
+  let desktopBoundsPx = visualElementDesktopBoundsPx(hitInfo.overElementVes.get());
   const onePxSizeBl = {
     x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / desktopBoundsPx.w,
     y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / desktopBoundsPx.h
@@ -276,10 +276,11 @@ export function mouseLeftDownHandler(
     y: (startPx.y - desktopBoundsPx.y) / desktopBoundsPx.h
   };
   mouseActionState = {
-    activeElement: visualElementToPathString(hitInfo.visualElementSignal.get()),
+    activeElement: visualElementToPathString(hitInfo.overElementVes.get()),
     moveOverContainerElement: null,
     moveOverAttachElement: null,
-    scaleDefiningElement: visualElementToPathString(ves.overPositionableVe),
+    scaleDefiningElement: visualElementToPathString(
+      getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [hitInfo.overElementVes.get().item.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
     startPx,
@@ -328,8 +329,8 @@ export function mouseRightDownHandler(
 
 export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
   const ev = desktopStore.lastMouseMoveEvent();
-  let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
-  let overElementVes = currentHitInfo.visualElementSignal;
+  let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+  let overElementVes = currentHitInfo.overElementVes;
   if (overElementVes != lastMouseOverVes) {
     if (lastMouseOverVes != null) {
       lastMouseOverVes.get().mouseIsOver.set(false);
@@ -430,18 +431,17 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
 
-    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id]);
-    const overVe = hitInfo.visualElementSignal.get();
-    const ves = findVisualElements(overVe);
+    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id], false);
+    const overVe = hitInfo.overElementVes.get();
 
     // update move over element state.
     if (mouseActionState.moveOverContainerElement == null ||
-        mouseActionState.moveOverContainerElement! != visualElementToPathString(ves.overContainerVe)) {
+        mouseActionState.moveOverContainerElement! != visualElementToPathString(hitInfo.overContainerVe!)) {
       if (mouseActionState.moveOverContainerElement != null) {
         visualElementSignalFromPathString(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);
       }
-      ves.overContainerVe.movingItemIsOver.set(true);
-      mouseActionState.moveOverContainerElement = visualElementToPathString(ves.overContainerVe);
+      hitInfo.overContainerVe!.movingItemIsOver.set(true);
+      mouseActionState.moveOverContainerElement = visualElementToPathString(hitInfo.overContainerVe!);
     }
 
     // update move over attach state.
@@ -450,19 +450,20 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
         visualElementSignalFromPathString(desktopStore, mouseActionState!.moveOverAttachElement).get().movingItemIsOverAttach.set(false);
       }
       if (hitInfo.hitboxType & HitboxType.Attach) {
-        hitInfo.visualElementSignal.get().movingItemIsOverAttach.set(true);
-        mouseActionState!.moveOverAttachElement = visualElementToPathString(hitInfo.visualElementSignal.get());
+        hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
+        mouseActionState!.moveOverAttachElement = visualElementToPathString(hitInfo.overElementVes.get());
       } else {
         mouseActionState!.moveOverAttachElement = null;
       }
     });
 
-    if (visualElementSignalFromPathString(desktopStore, mouseActionState.scaleDefiningElement!).get().item != ves.overPositionableVe.item) {
-      moveActiveItemToDifferentPage(desktopStore, ves.overPositionableVe, desktopPxFromMouseEvent(ev));
+    if (visualElementSignalFromPathString(desktopStore, mouseActionState.scaleDefiningElement!).get().item != hitInfo.overPositionableVe!.item ||
+        activeItem.relationshipToParent == Attachment) {
+      moveActiveItemToDifferentPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev));
     }
 
-    if (isTable(ves.overContainerVe.item)) {
-      handleMoveOverTable(ves.overContainerVe, desktopPxFromMouseEvent(ev));
+    if (isTable(hitInfo.overContainerVe!.item)) {
+      handleMoveOverTable(hitInfo.overContainerVe!, desktopPxFromMouseEvent(ev));
     }
 
     let newPosBl = vectorAdd(mouseActionState.startPosBl!, deltaBl);
@@ -493,7 +494,7 @@ export function handleMoveOverTable(moveToVe: VisualElement, desktopPx: Vector) 
 export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
   const activeVisualElement = visualElementSignalFromPathString(desktopStore, mouseActionState!.activeElement!).get();
   const activeItem = activeVisualElement.item;
-  const currentPage = asPageItem(desktopStore.getItem(activeItem.parentId)!);
+  const currentParent = desktopStore.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.item);
   const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
   const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
@@ -514,10 +515,17 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   activeItem.parentId = moveToVe.item.id;
   activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveToVe.item.id);
   activeItem.spatialPositionGr = newItemPosGr;
+  activeItem.relationshipToParent = Child;
   moveToPage.computed_children
     = [activeItem.id, ...moveToPage.computed_children];
-  currentPage.computed_children
-    = currentPage.computed_children.filter(childItem => childItem != activeItem.id);
+  if (isContainer(currentParent)) {
+    asContainerItem(currentParent).computed_children
+      = asContainerItem(currentParent).computed_children.filter(childItem => childItem != activeItem.id);
+  }
+  if (isAttachmentsItem(currentParent)) {
+    asAttachmentsItem(currentParent).computed_attachments
+      = asAttachmentsItem(currentParent).computed_attachments.filter(childItem => childItem != activeItem.id);
+  }
   arrange(desktopStore);
 
   let done = false;
@@ -599,7 +607,6 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
     }
   });
   if (!done) { panic(); }
-
 }
 
 export function mouseUpHandler(

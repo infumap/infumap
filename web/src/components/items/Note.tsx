@@ -52,9 +52,9 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-          <Show when={noteItem().url != null && hitboxes.length > 0}
+          <Show when={noteItem().url != null && noteItem().url != ""}
                 fallback={<span>{noteItem().title}</span>}>
-            <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
+            <span class={`text-blue-800 cursor-pointer`}>{noteItem().title}</span>
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>

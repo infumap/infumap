@@ -26,7 +26,7 @@ import { EMPTY_UID, Uid } from "../../util/uid";
 import { panic } from "../../util/lang";
 
 
-export type VisualElementPathString = string;
+export type VisualElementPath = string;
 
 export interface VisualElement {
   item: Item,
@@ -41,6 +41,7 @@ export interface VisualElement {
   isInteractive: boolean,          // the visual element can be interacted with.
   isPopup: boolean,                // the visual element is a popup (and thus also a page).
   isInsideTable: boolean,          // the visual element is inside a table.
+  isAttachment: boolean,           // the visual element is an attachment.
   isDragOverPositioning: boolean,  // an item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
 
   // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
@@ -73,6 +74,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   isInteractive: false,
   isPopup: false,
   isInsideTable: false,
+  isAttachment: false,
   isDragOverPositioning: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
@@ -95,6 +97,7 @@ export function createVisualElement(override: any): VisualElement {
     isInteractive: false,
     isPopup: false,
     isInsideTable: false,
+    isAttachment: false,
     isDragOverPositioning: false,
     boundsPx: { x: 0, y: 0, w: 0, h: 0 },
     childAreaBoundsPx: null,
@@ -117,7 +120,7 @@ export function createVisualElement(override: any): VisualElement {
   return result;
 }
 
-export function visualElementToPathString(visualElement: VisualElement): VisualElementPathString {
+export function visualElementToPathString(visualElement: VisualElement): VisualElementPath {
   function impl(visualElement: VisualElement, current: string): string {
     const ve = visualElement;
     if (current != "") { current += "-"; }
@@ -133,7 +136,7 @@ export function visualElementToPathString(visualElement: VisualElement): VisualE
 }
 
 export function visualElementSignalFromPathString(
-    desktopStore: DesktopStoreContextModel, pathString: VisualElementPathString): VisualElementSignal {
+    desktopStore: DesktopStoreContextModel, pathString: VisualElementPath): VisualElementSignal {
   const parts = pathString.split("-");
   let ves = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
   let { itemId } = getIds(parts[parts.length-1]);
@@ -165,7 +168,7 @@ export function visualElementSignalFromPathString(
   return ves;
 }
 
-export function itemIdFromVisualElementPath(pathString: VisualElementPathString): Uid {
+export function itemIdFromVisualElementPath(pathString: VisualElementPath): Uid {
   const parts = pathString.split("-");
   let { itemId } = getIds(parts[0]);
   return itemId;

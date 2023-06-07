@@ -24,11 +24,9 @@ import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './b
 import { ItemGeometry } from '../item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { newUid, Uid } from '../../../util/uid';
-import { VisualElement } from '../visual-element';
 import { DesktopStoreContextModel } from '../DesktopStoreProvider';
-import { UserStoreContextModel } from '../../UserStoreProvider';
 import { server } from '../../../server';
-import { arrangeItem, rearrangeVisualElement } from '../layout/arrange';
+import { rearrangeVisualElement } from '../layout/arrange';
 import { VisualElementSignal } from '../../../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 

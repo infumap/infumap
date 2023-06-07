@@ -286,9 +286,9 @@ export function asPageMeasurable(item: ItemTypeMixin): PageMeasurable {
 
 
 export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page: PageItem, desktopPosPx: Vector): Vector => {
-  const hbi = getHitInfo(desktopStore, desktopPosPx, []);
-  const propX = (desktopPosPx.x - hbi.visualElementSignal.get().boundsPx.x) / hbi.visualElementSignal.get().boundsPx.w;
-  const propY = (desktopPosPx.y - hbi.visualElementSignal.get().boundsPx.y) / hbi.visualElementSignal.get().boundsPx.h;
+  const hbi = getHitInfo(desktopStore, desktopPosPx, [], false);
+  const propX = (desktopPosPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
+  const propY = (desktopPosPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
   return {
     x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
     y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE

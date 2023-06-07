@@ -18,7 +18,6 @@
 
 import { Component, onCleanup, onMount } from "solid-js";
 import { useDesktopStore } from "../store/desktop/DesktopStoreProvider";
-import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { TOOLBAR_WIDTH } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
@@ -37,7 +36,6 @@ import { arrange } from "../store/desktop/layout/arrange";
 export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
 
   let desktopDiv: HTMLDivElement | undefined;
 
@@ -48,8 +46,8 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
 
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
     if (ev.code != "Slash" && ev.code != "Backslash") { return; }
-    let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), []);
-    let item = hbi.visualElementSignal.get().item;
+    let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), [], false);
+    let item = hbi.overElementVes.get().item;
     if (ev.code == "Slash") {
       ev.preventDefault();
       desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), item });
@@ -93,12 +91,12 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), []);
+      let hi = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
       if (hi.hitboxType != HitboxType.None) {
         console.log("must upload on background.");
         return;
       }
-      let item = hi.visualElementSignal.get().item;
+      let item = hi.overElementVes.get().item;
       if (!isPage(item)) {
         console.log("must upload on page.");
         return;
