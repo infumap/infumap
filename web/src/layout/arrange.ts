@@ -423,13 +423,13 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
 
-export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid, pageChildrenOnly: boolean): void => {
-  if (!pageChildrenOnly) { panic(); } // TODO
-
+export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
   visualElementsWithId(desktopStore, id).forEach(ve => {
     const parentIsPage = ve.get().parent == null || isPage(ve.get().parent!.get().item);
     if (parentIsPage) {
       rearrangeVisualElement(desktopStore, ve);
+    } else {
+      console.log("TODO: rearrange table children")
     }
   });
 }

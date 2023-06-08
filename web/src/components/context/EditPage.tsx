@@ -41,27 +41,27 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
-      rearrangeVisualElementsWithId(desktopStore, pageId, true);
+      rearrangeVisualElementsWithId(desktopStore, pageId);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).naturalAspect = parseFloat(v);
-      rearrangeVisualElementsWithId(desktopStore, pageId, true);
+      rearrangeVisualElementsWithId(desktopStore, pageId);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
-      rearrangeVisualElementsWithId(desktopStore, pageId, true);
+      rearrangeVisualElementsWithId(desktopStore, pageId);
     }
   }
 
   const handleTitleInput = (v: string) => {
     asPageItem(desktopStore.getItem(pageId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, pageId, true);
+    rearrangeVisualElementsWithId(desktopStore, pageId);
   };
 
   const deletePage = async () => {
@@ -74,14 +74,14 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const setAspectToMatchScreen = async () => {
     asPageItem(desktopStore.getItem(pageId)!).naturalAspect = screenAspect();
-    rearrangeVisualElementsWithId(desktopStore, pageId, true);
+    rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 
   let checkElement: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
     asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch");
-    rearrangeVisualElementsWithId(desktopStore, pageId, true);
+    rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 
   onCleanup(() => {

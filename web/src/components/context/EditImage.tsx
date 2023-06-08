@@ -33,7 +33,7 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
 
   const handleTitleChange = (v: string) => {
     asImageItem(desktopStore.getItem(imageId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, imageId, true);
+    rearrangeVisualElementsWithId(desktopStore, imageId);
   };
 
   const deleteImage = async () => {

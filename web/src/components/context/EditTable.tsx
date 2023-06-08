@@ -16,24 +16,28 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, onCleanup, onMount } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../items/table-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { NumberSignal, createNumberSignal } from "../../util/signals";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
   const desktopStore = useDesktopStore();
 
   const tableId = props.tableItem.id;
+  const table = () => props.tableItem;
+  let colCountSignal: NumberSignal = createNumberSignal(table().tableColumns.length);
+
   let deleted = false;
 
   const handleTitleInput = (v: string) => {
     asTableItem(desktopStore.getItem(tableId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, tableId, true);
+    rearrangeVisualElementsWithId(desktopStore, tableId);
   };
 
   const deleteTable = async () => {
@@ -42,6 +46,20 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
     desktopStore.deleteItem(tableId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
+  }
+
+  const addCol = () => {
+    if (table().tableColumns.length > 9) { return; }
+    table().tableColumns.push({ name: `col ${table().tableColumns.length}`, widthGr: 120 });
+    colCountSignal.set(colCountSignal.get() + 1);
+    rearrangeVisualElementsWithId(desktopStore, tableId);
+  }
+
+  const deleteCol = () => {
+    if (table().tableColumns.length == 1) { return; }
+    table().tableColumns.pop();
+    colCountSignal.set(colCountSignal.get() - 1);
+    rearrangeVisualElementsWithId(desktopStore, tableId);
   }
 
   onCleanup(() => {
@@ -53,6 +71,11 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   return (
     <div>
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleInput} focus={true} /></div>
+      <div>
+        <InfuButton text="add col" onClick={addCol} />
+        <InfuButton text="delete col" onClick={deleteCol} />
+        <div>num cols: {colCountSignal!.get()}</div>
+      </div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>
   );

@@ -34,13 +34,13 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
 
   const handleTextInput = (v: string) => {
     asNoteItem(desktopStore.getItem(noteId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, noteId, true);
+    rearrangeVisualElementsWithId(desktopStore, noteId);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
       asNoteItem(desktopStore.getItem(noteId)!).url = v;
-      rearrangeVisualElementsWithId(desktopStore, noteId, true);
+      rearrangeVisualElementsWithId(desktopStore, noteId);
     }
   };
 
