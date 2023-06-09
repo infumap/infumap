@@ -33,7 +33,7 @@ import { createNumberSignal, NumberSignal } from "../util/signals";
 
 
 export interface TableColumn {
-  name: String,
+  name: string,
   widthGr: number,
 }
 

@@ -32,6 +32,7 @@ export const HEADER_HEIGHT_BL = 1.0;
 export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
+  const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
   const blockSizePx = () => {
     const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
@@ -53,6 +54,19 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
       h: ATTACH_AREA_SIZE_PX,
     }
   }
+  const columnPositions = () => {
+    const colsBl = [];
+    let accumBl = 0;
+    for (let i=0; i<tableItem().tableColumns.length-1; ++i) {
+      let tc = tableItem().tableColumns[i];
+      accumBl += tc.widthGr / GRID_SIZE;
+      if (accumBl >= tableItem().spatialWidthGr / GRID_SIZE) {
+        break;
+      }
+      colsBl.push(accumBl);
+    }
+    return colsBl.map(bl => bl * blockSizePx().w);
+  };
 
   return (
     <>
@@ -84,6 +98,14 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           }</For>
         </div>
         <TableChildArea visualElement={props.visualElement} />
+        <div class="absolute"
+             style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
+                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px;`}>
+          <For each={columnPositions()}>{posPx=>
+            <div class="absolute bg-slate-700"
+                 style={`left: ${posPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h}px`}></div>
+          }</For>
+        </div>
         <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1}>
           <div class={`absolute border border-black`}
                style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 2px;`}></div>

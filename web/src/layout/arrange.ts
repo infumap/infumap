@@ -260,9 +260,24 @@ const arrangeTable = (
 
       if (isAttachmentsItem(childItem)) {
         const attachmentsItem = asAttachmentsItem(childItem);
-        attachmentsItem.computed_attachments.forEach(attachment => {
-          console.log("attachment (of table child item):", attachment);
-        });
+        let leftBl = tableItem.tableColumns[0].widthGr / GRID_SIZE;
+        for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
+          if (i >= tableItem.tableColumns.length-1) { break; }
+          const attachmentId = attachmentsItem.computed_attachments[i];
+          const attachmentItem = desktopStore.getItem(attachmentId)!;
+          const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, leftBl, sizeBl.w, desktopStore.getItem);
+          const tableItemVe = createVisualElement({
+            item: attachmentItem,
+            isInteractive: true,
+            isInsideTable: true,
+            isAttachment: true,
+            boundsPx: geometry.boundsPx,
+            hitboxes: geometry.hitboxes,
+            parent: tableVisualElementSignal,
+          });
+          tableVeChildren.push(createVisualElementSignal(tableItemVe));
+          leftBl += tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+        }
       }
     };
     return tableVeChildren;
