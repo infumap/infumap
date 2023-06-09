@@ -98,7 +98,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           }</For>
         </div>
         <TableChildArea visualElement={props.visualElement} />
-        <div class="absolute"
+        <div class="absolute pointer-events-none"
              style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
                     `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px;`}>
           <For each={columnPositions()}>{posPx=>
@@ -163,8 +163,8 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
       return (
         <>
           <VisualElementInTable visualElement={child.get()} parentVisualElement={props.visualElement} />
-          <For each={child.get().attachments}>{attachmentItem =>
-            <VisualElementInTable visualElement={attachmentItem.get()} parentVisualElement={child.get()} />
+          <For each={child.get().attachments}>{attachment =>
+            <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.visualElement} />
           }</For>
         </>
       );
@@ -214,9 +214,6 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span>{tableItem().title}</span>
-        <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.parentVisualElement} />
-        }</For>
       </div>
     </>
   );

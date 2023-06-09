@@ -146,9 +146,6 @@ export const ImageInTable: Component<VisualElementInTableProps> = (props: Visual
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <i class={`fas fa-image`} />
-        <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.parentVisualElement} />
-        }</For>
       </div>
       <div ref={nodeElement}
            id={props.visualElement.item.id}

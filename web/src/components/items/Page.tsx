@@ -261,9 +261,6 @@ export const PageInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         {pageItem().title}
-        <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.parentVisualElement} />
-        }</For>
       </div>
     </>
   );

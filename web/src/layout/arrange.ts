@@ -256,9 +256,11 @@ const arrangeTable = (
         hitboxes: geometry.hitboxes,
         parent: tableVisualElementSignal,
       });
-      tableVeChildren.push(createVisualElementSignal(tableItemVe));
+      const tableItemVisualElementSignal = createVisualElementSignal(tableItemVe);
+      tableVeChildren.push(tableItemVisualElementSignal);
 
       if (isAttachmentsItem(childItem)) {
+        let tableItemVeAttachments: Array<VisualElementSignal> = [];
         const attachmentsItem = asAttachmentsItem(childItem);
         let leftBl = tableItem.tableColumns[0].widthGr / GRID_SIZE;
         for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
@@ -266,18 +268,19 @@ const arrangeTable = (
           const attachmentId = attachmentsItem.computed_attachments[i];
           const attachmentItem = desktopStore.getItem(attachmentId)!;
           const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, leftBl, sizeBl.w, desktopStore.getItem);
-          const tableItemVe = createVisualElement({
+          const tableItemAttachmentVe = createVisualElement({
             item: attachmentItem,
             isInteractive: true,
             isInsideTable: true,
             isAttachment: true,
             boundsPx: geometry.boundsPx,
             hitboxes: geometry.hitboxes,
-            parent: tableVisualElementSignal,
+            parent: tableItemVisualElementSignal,
           });
-          tableVeChildren.push(createVisualElementSignal(tableItemVe));
+          tableItemVeAttachments.push(createVisualElementSignal(tableItemAttachmentVe));
           leftBl += tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
         }
+        tableItemVe.attachments = tableItemVeAttachments;
       }
     };
     return tableVeChildren;

@@ -92,9 +92,6 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
-        <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.parentVisualElement} />
-        }</For>
       </div>
     </>
   );
