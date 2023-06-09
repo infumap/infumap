@@ -75,21 +75,29 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
-    const widthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return boundsPx().w / widthBl;
+    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
+    return props.parentVisualElement.boundsPx.w / tableWidthBl;
   }
+  const leftPx = () => props.visualElement.isAttachment
+    ? boundsPx().x
+    : boundsPx().x + oneBlockWidthPx();
+  const widthPx = () => props.visualElement.isAttachment
+    ? boundsPx().w
+    : boundsPx().w - oneBlockWidthPx();
 
   return (
     <>
-      <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-sticky-note`} />
-      </div>
-      <div class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+      <Show when={!props.visualElement.isAttachment}>
+        <div class="absolute text-center"
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                    `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                    `transform: scale(${scale()}); transform-origin: top left;`}>
+          <i class={`fas fa-sticky-note`} />
+        </div>
+      </Show>
+      <div class="absolute overflow-hidden whitespace-nowrap"
+           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+                  `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
       </div>

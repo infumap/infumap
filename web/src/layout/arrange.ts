@@ -246,7 +246,11 @@ const arrangeTable = (
       const childId = tableItem.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
       if (isLink(childItem)) { panic(); }  // TODO (MEDIUM).
-      const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, sizeBl.w, desktopStore.getItem);
+      let widthBl = tableItem.tableColumns.length == 1
+        ? sizeBl.w
+        : Math.min(tableItem.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
+
+      const geometry = calcGeometryOfItemInTable(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
       const tableItemVe = createVisualElement({
         item: childItem,
@@ -265,9 +269,12 @@ const arrangeTable = (
         let leftBl = tableItem.tableColumns[0].widthGr / GRID_SIZE;
         for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
           if (i >= tableItem.tableColumns.length-1) { break; }
+          let widthBl = i == tableItem.tableColumns.length - 2
+            ? sizeBl.w - leftBl
+            : tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
           const attachmentId = attachmentsItem.computed_attachments[i];
           const attachmentItem = desktopStore.getItem(attachmentId)!;
-          const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, leftBl, sizeBl.w, desktopStore.getItem);
+          const geometry = calcGeometryOfItemInTable(attachmentItem, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
           const tableItemAttachmentVe = createVisualElement({
             item: attachmentItem,
             isInteractive: true,
