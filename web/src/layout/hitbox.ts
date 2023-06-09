@@ -26,18 +26,25 @@ export enum HitboxType {
   Resize = 4,
   OpenPopup = 8,
   Attach = 16,
+  ColResize = 32,
 }
 
 export interface Hitbox {
   type: HitboxType,
   boundsPx: BoundingBox,
+  meta: object | null,
+}
+
+export function createHitbox(type: HitboxType, boundsPx: BoundingBox, meta?: any ) {
+  return ({ type, boundsPx, meta: (typeof meta !== 'undefined') ? meta : null });
 }
 
 export function cloneHitbox(hitbox: Hitbox | null): Hitbox | null {
   if (hitbox == null) { return null; }
   return {
     type: hitbox.type,
-    boundsPx: cloneBoundingBox(hitbox.boundsPx)!
+    boundsPx: cloneBoundingBox(hitbox.boundsPx)!,
+    meta: Object.assign({}, hitbox)
   };
 }
 

@@ -30,6 +30,7 @@ import { Uid } from "../util/uid";
 interface HitInfo {
   hitboxType: HitboxType,
   overElementVes: VisualElementSignal,       // the visual element under the specified position.
+  overElementMeta: any | null,               // meta data from hit hitbox of visual element under specified position.
   overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
   overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position.
 }
@@ -41,7 +42,7 @@ export function getHitInfo(
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
 
-  function finalize(hitboxType: HitboxType, overElementVes: VisualElementSignal): HitInfo {
+  function finalize(hitboxType: HitboxType, overElementVes: VisualElementSignal, overElementMeta: object | null): HitInfo {
     const overVe = overElementVes.get();
     if (overVe.isInsideTable) {
       assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
@@ -49,26 +50,26 @@ export function getHitInfo(
       const tableParentPageVe = parentTableVe.parent!.get();
       assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
       assert(tableParentPageVe.isDragOverPositioning, "page containing table does not drag in positioning.");
-      return { hitboxType, overElementVes, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
+      return { hitboxType, overElementVes, overElementMeta, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
     }
 
     if (isTable(overVe.item)) {
       assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
       assert(overVe.parent!.get().isDragOverPositioning, "page containing table does not allow drag in positioning.");
-      return { hitboxType, overElementVes, overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
+      return { hitboxType, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
     }
 
     if (isPage(overVe.item) && overVe.isDragOverPositioning) {
-      return { hitboxType, overElementVes, overContainerVe: overVe, overPositionableVe: overVe };
+      return { hitboxType, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe };
     }
 
     const overVeParent = overVe.parent!.get();
     assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
     assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
     if (isPage(overVe.item)) {
-      return { hitboxType, overElementVes, overContainerVe: overVe, overPositionableVe: overVeParent };
+      return { hitboxType, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVeParent };
     }
-    return { hitboxType, overElementVes, overContainerVe: overVeParent, overPositionableVe: overVeParent };
+    return { hitboxType, overElementVes, overElementMeta, overContainerVe: overVeParent, overPositionableVe: overVeParent };
   }
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
@@ -104,14 +105,16 @@ export function getHitInfo(
           continue;
         }
         let hitboxType = HitboxType.None;
+        let meta = null;
         for (let j=attachmentVisualElement.hitboxes.length-1; j>=0; --j) {
           if (isInside(posRelativeToChildElementPx, offsetBoundingBoxTopLeftBy(attachmentVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(attachmentVisualElement.boundsPx)))) {
             hitboxType |= attachmentVisualElement.hitboxes[j].type;
+            if (attachmentVisualElement.hitboxes[j].meta != null) { meta = attachmentVisualElement.hitboxes[j].meta; }
           }
         }
         if (!ignoreItems.find(a => a == attachmentVisualElement.item.id)) {
           const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
-          return { hitboxType, overElementVes: attachmentVisualElementSignal, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
+          return { hitboxType, overElementVes: attachmentVisualElementSignal, overElementMeta: meta, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
         }
       }
     }
@@ -129,7 +132,15 @@ export function getHitInfo(
       let resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-        return finalize(HitboxType.Resize, tableVisualElementSignal);
+        return finalize(HitboxType.Resize, tableVisualElementSignal, resizeHitbox.meta);
+      }
+      // col resize also takes precedence over anything in the child area.
+      for (let j=tableVisualElement.hitboxes.length-2; j>=0; j--) {
+        const hb = tableVisualElement.hitboxes[j];
+        if (hb.type != HitboxType.ColResize) { break; }
+        if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
+          return finalize(HitboxType.ColResize, tableVisualElementSignal, hb.meta);
+        }
       }
 
       let tableItem = asTableItem(tableVisualElement.item);
@@ -144,13 +155,15 @@ export function getHitInfo(
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;
+          let meta = null;
           for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
             if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(tableChildVe.boundsPx)))) {
               hitboxType |= tableChildVe.hitboxes[k].type;
+              if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
             }
           }
           if (!ignoreItems.find(a => a == tableChildVe.item.id)) {
-            return finalize(hitboxType, tableChildVes);
+            return finalize(hitboxType, tableChildVes, meta);
           }
         }
       }
@@ -158,15 +171,17 @@ export function getHitInfo(
 
     // handle inside any other item (including pages, which can't be clicked in).
     let hitboxType = HitboxType.None;
+    let meta = null;
     for (let j=childVisualElement.hitboxes.length-1; j>=0; --j) {
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {
         hitboxType |= childVisualElement.hitboxes[j].type;
+        if (childVisualElement.hitboxes[j].meta != null) { meta = childVisualElement.hitboxes[j].meta; }
       }
     }
     if (!ignoreItems.find(a => a == childVisualElement.item.id)) {
-      return finalize(hitboxType, rootVisualElement.children[i]);
+      return finalize(hitboxType, rootVisualElement.children[i], meta);
     }
   }
 
-  return finalize(HitboxType.None, rootVisualElementSignal);
+  return finalize(HitboxType.None, rootVisualElementSignal, null);
 }

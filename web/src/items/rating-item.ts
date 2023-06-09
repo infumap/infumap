@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE } from '../constants';
-import { HitboxType } from '../layout/hitbox';
+import { createHitbox, HitboxType } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './base/item';
@@ -109,8 +109,8 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
   return {
     boundsPx,
     hitboxes: [
-      { type: HitboxType.Move, boundsPx: innerBoundsPx },
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.Click, innerBoundsPx),
     ],
   }
 }
@@ -135,7 +135,7 @@ export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, block
   return {
     boundsPx,
     hitboxes: [
-      { type: HitboxType.Move, boundsPx: innerBoundsPx }
+      createHitbox(HitboxType.Move, innerBoundsPx)
     ],
   };
 }
@@ -143,7 +143,9 @@ export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, block
 export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
-    hitboxes: [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
+    hitboxes: [
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+    ]
   });
 }
 

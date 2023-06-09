@@ -19,7 +19,7 @@
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
-import { HitboxType } from "../../layout/hitbox";
+import { HitboxType, createHitbox } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable } from "./item";
 import { calcSizeForSpatialBl } from "./item-polymorphism";
@@ -82,8 +82,8 @@ export function calcGeometryOfAttachmentItemImpl(page: Measurable, parentBoundsP
   return {
     boundsPx,
     hitboxes: [
-      { type: HitboxType.Move, boundsPx: innerBoundsPx },
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
+      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.Click, innerBoundsPx),
     ],
   }
 }

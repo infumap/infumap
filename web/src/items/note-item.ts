@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
-import { HitboxType } from '../layout/hitbox';
+import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { newUid, Uid } from '../util/uid';
@@ -123,14 +123,10 @@ export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: 
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx },
-      { type: HitboxType.Attach,
-        boundsPx: { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0,
-                    w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX } },
-      { type: HitboxType.Resize,
-        boundsPx: { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2,
-                    w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } },
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   }
 }
@@ -155,8 +151,8 @@ export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx
   return {
     boundsPx,
     hitboxes: [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx }
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx)
     ],
   };
 }
@@ -164,7 +160,9 @@ export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx
 export function calcGeometryOfNoteItemInCell(_note: NoteMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
-    hitboxes: [{ type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(cellBoundsPx) }]
+    hitboxes: [
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+    ]
   });
 }
 

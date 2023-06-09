@@ -48,6 +48,7 @@ enum MouseAction {
   Ambiguous,
   Moving,
   Resizing,
+  ColResizing,
 }
 
 interface MouseActionState {
@@ -61,6 +62,7 @@ interface MouseActionState {
   clickOffsetProp: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
+  hitMeta: any | null,
   action: MouseAction,
   onePxSizeBl: Vector,
 }
@@ -146,6 +148,7 @@ export function mouseLeftDownHandler(
     startWidthBl,
     startHeightBl,
     onePxSizeBl,
+    hitMeta: hitInfo.overElementMeta,
   }
 }
 
@@ -211,13 +214,22 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
         mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
         if (isYSizableItem(activeItem)) {
           mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
+        } else {
+          mouseActionState.startHeightBl = null;
         }
         mouseActionState.action = MouseAction.Resizing;
+      } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
+        mouseActionState.startPosBl = null;
+        mouseActionState.startHeightBl = null;
+        const colNum: number = mouseActionState.hitMeta!;
+        mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+        mouseActionState.action = MouseAction.ColResizing;
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         if (isTable(desktopStore.getItem(activeItem.parentId)!)) {
           moveActiveItemOutOfTable(desktopStore);
         }
         mouseActionState.startWidthBl = null;
+        mouseActionState.startHeightBl = null;
         mouseActionState.startPosBl = {
           x: activeItem.spatialPositionGr.x / GRID_SIZE,
           y: activeItem.spatialPositionGr.y / GRID_SIZE
@@ -250,6 +262,23 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       if (newHeightBl < 1) { newHeightBl = 1.0; }
       asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
     }
+
+    visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
+      rearrangeVisualElement(desktopStore, ve);
+    });
+
+  // ### Col Resizing
+  } else if (mouseActionState.action == MouseAction.ColResizing) {
+    const deltaBl = {
+      x: deltaPx.x * mouseActionState.onePxSizeBl.x,
+      y: deltaPx.y * mouseActionState.onePxSizeBl.y
+    };
+
+    let newWidthBl = mouseActionState!.startWidthBl! + deltaBl.x;
+    newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+    if (newWidthBl < 1) { newWidthBl = 1.0; }
+
+    asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta].widthGr = newWidthBl * GRID_SIZE;
 
     visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
@@ -332,6 +361,8 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   }
   if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
     document.body.style.cursor = "nwse-resize";
+  } else if ((currentHitInfo.hitboxType & HitboxType.ColResize) > 0) {
+    document.body.style.cursor = "ew-resize";
   } else {
     document.body.style.cursor = "default";
   }
@@ -558,6 +589,12 @@ export function mouseUpHandler(
       // mouseActionState.activeVisualElement.update(ve => {
       //   ve.resizingFromBoundsPx = null;
       // });
+      break;
+
+    case MouseAction.ColResizing:
+      if (mouseActionState.startWidthBl! * GRID_SIZE != asTableItem(activeItem).tableColumns[mouseActionState.hitMeta].widthGr) {
+        server.updateItem(desktopStore.getItem(activeItem.id)!);
+      }
       break;
 
     case MouseAction.Ambiguous:

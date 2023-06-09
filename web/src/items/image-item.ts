@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxType, createHitbox } from "../layout/hitbox";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
@@ -128,14 +128,10 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx },
-      { type: HitboxType.Attach,
-        boundsPx: { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0,
-                    w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX } },
-      { type: HitboxType.Resize,
-        boundsPx: { x: boundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: boundsPx.h - RESIZE_BOX_SIZE_PX + 2,
-                    w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX } },
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      createHitbox(HitboxType.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: boundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ],
   }
 }
@@ -160,8 +156,8 @@ export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSiz
   return {
     boundsPx,
     hitboxes: [
-      { type: HitboxType.Click, boundsPx: innerBoundsPx },
-      { type: HitboxType.Move, boundsPx: innerBoundsPx }
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx)
     ],
   };
 }
@@ -192,7 +188,9 @@ export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBounds
 
   return ({
     boundsPx,
-    hitboxes: [ { type: HitboxType.Click, boundsPx: zeroBoundingBoxTopLeft(boundsPx) } ]
+    hitboxes: [
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
+    ]
   });
 }
 
