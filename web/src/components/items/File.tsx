@@ -20,7 +20,7 @@ import { Component, createMemo, For, Show } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../items/table-item";
 import { BoundingBox } from "../../util/geometry";
 

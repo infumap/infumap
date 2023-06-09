@@ -23,7 +23,7 @@ import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../items/table-item";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const GRID_SIZE = 60.0;
+export const GRID_SIZE = 60;
 
 export const TOOLBAR_WIDTH = 40;
 

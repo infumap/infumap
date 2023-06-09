@@ -207,7 +207,7 @@ export const TableInTable: Component<VisualElementInTableProps> = (props: Visual
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-sticky-note`} />
+        <i class={`fas fa-table`} />
       </div>
       <div class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +

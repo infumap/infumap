@@ -20,7 +20,7 @@ import { Component, createMemo, For, Show } from "solid-js";
 import { asNoteItem, calcNoteSizeForSpatialBl } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTableProps } from "../VisualElementInTable";
 import { asTableItem } from "../../items/table-item";
 import { BoundingBox } from "../../util/geometry";
 
@@ -79,10 +79,10 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
     return props.parentVisualElement.boundsPx.w / tableWidthBl;
   }
   const leftPx = () => props.visualElement.isAttachment
-    ? boundsPx().x
+    ? boundsPx().x + oneBlockWidthPx() * 0.15
     : boundsPx().x + oneBlockWidthPx();
   const widthPx = () => props.visualElement.isAttachment
-    ? boundsPx().w
+    ? boundsPx().w - oneBlockWidthPx() * 0.15
     : boundsPx().w - oneBlockWidthPx();
 
   return (
@@ -95,7 +95,7 @@ export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualE
           <i class={`fas fa-sticky-note`} />
         </div>
       </Show>
-      <div class="absolute overflow-hidden whitespace-nowrap"
+      <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
            style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>

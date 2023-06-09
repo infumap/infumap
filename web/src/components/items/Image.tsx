@@ -22,7 +22,7 @@ import { asImageItem } from "../../items/image-item";
 import { asTableItem } from "../../items/table-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementInTableProps } from "../VisualElementInTable";
 import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
 import { getImage, releaseImage } from "../../imageManager";
 
