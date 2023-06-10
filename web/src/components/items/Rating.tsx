@@ -47,22 +47,22 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   const ratingItem = () => asRatingItem(props.visualElement.item);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
-  const boundsPx = () => props.visualElement.boundsPx;
-  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => {
     const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
     return props.parentVisualElement.boundsPx.w / tableWidthBl;
   }
+  const boundsPx = () => {
+    let result = props.visualElement.boundsPx;
+    result.w = oneBlockWidthPx();
+    return result;
+  }
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
 
   return (
-    <>
-      <div class="absolute"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <div class={`fas fa-star text-gray-400 absolute`} style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; width: ${oneBlockWidthPx()-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
-        <div class={`fas fa-star text-yellow-400 absolute`} style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; width: ${oneBlockWidthPx()-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
-      </div>
-    </>
+    <div class={`absolute`}
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+      <div class={`fas fa-star text-gray-400 absolute`} style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
+      <div class={`fas fa-star text-yellow-400 absolute`} style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
+    </div>
   );
 }
