@@ -26,7 +26,7 @@ import { PositionalMixin } from './base/positional-item';
 import { newUid, Uid } from '../util/uid';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { server } from '../server';
-import { rearrangeVisualElement } from '../layout/arrange';
+import { arrange, rearrangeVisualElement } from '../layout/arrange';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 
@@ -135,7 +135,8 @@ export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, block
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Move, innerBoundsPx)
+      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.Click, innerBoundsPx)
     ],
   };
 }
@@ -153,7 +154,7 @@ export function handleRatingClick(desktopStore: DesktopStoreContextModel, visual
   const item = asRatingItem(visualElementSignal.get().item);
   item.rating += 1;
   if (item.rating == 6) { item.rating = 0; }
-  rearrangeVisualElement(desktopStore, visualElementSignal)
+  arrange(desktopStore); // TODO (LOW): only need to rearrange the element.
 
   const PERSIST_AFTER_MS = 1000;
   let clickTimer: number | null = null;

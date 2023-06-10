@@ -495,15 +495,18 @@ function rearrangeAttachment(desktopStore: DesktopStoreContextModel, visualEleme
   }
   if (index == -1) { panic(); }
 
-  const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.item, desktopStore.getItem);
-  const attachmentGeometry = calcGeometryOfAttachmentItem(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, desktopStore.getItem);
-  const attachmentVisualElement = createVisualElement({
-    item: visualElement.item,
-    boundsPx: attachmentGeometry.boundsPx,
-    hitboxes: attachmentGeometry.hitboxes,
-    parent: visualElement.parent!,
-    isAttachment: true,
-  });
-
-  visualElementSignal.set(attachmentVisualElement);
+  if (!visualElement.isInsideTable) {
+    const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.item, desktopStore.getItem);
+    const attachmentGeometry = calcGeometryOfAttachmentItem(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, desktopStore.getItem);
+    const attachmentVisualElement = createVisualElement({
+      item: visualElement.item,
+      boundsPx: attachmentGeometry.boundsPx,
+      hitboxes: attachmentGeometry.hitboxes,
+      parent: visualElement.parent!,
+      isAttachment: true,
+    });
+    visualElementSignal.set(attachmentVisualElement);
+  } else {
+    console.log("TODO: rearrange attachments inside tables.");
+  }
 }
