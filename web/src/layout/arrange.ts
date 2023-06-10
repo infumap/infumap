@@ -373,7 +373,7 @@ function arrangeItemAttachments(desktopStore: DesktopStoreContextModel, itemVisu
     for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
       const attachmentId = attachmentsItem.computed_attachments[i];
       const attachmentItem = desktopStore.getItem(attachmentId)!;
-      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, itemSizeBl, i, desktopStore.getItem);
+      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, itemSizeBl, attachmentsItem.computed_attachments.length - i - 1, desktopStore.getItem);
 
       const attachmentVisualElement = createVisualElement({
         item: attachmentItem,

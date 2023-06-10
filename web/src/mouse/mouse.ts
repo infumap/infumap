@@ -591,17 +591,18 @@ export function mouseUpHandler(
           if (isTable(overVe.item)) {
             if (overVe.moveOverColAttachmentNumber.get() >= 0) {
               const tableItem = asTableItem(overVe.item);
-              let position = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get() - 1;
-              if (position < 0) { position = 0; }
+              let rowNumber = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get() - 1;
+              if (rowNumber < 0) { rowNumber = 0; }
 
-              const childId = tableItem.computed_children[position];
+              const childId = tableItem.computed_children[rowNumber];
               const child = asAttachmentsItem(desktopStore.getItem(childId)!);
-              activeItem.ordering = desktopStore.newAttachmentOrderingAtPosition(childId, position);
+              const insertPosition = overVe.moveOverColAttachmentNumber.get();
+              activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
               activeItem.relationshipToParent = Attachment;
               activeItem.parentId = childId;
-              const childAttachmnets = [activeItem.id, ...child.computed_attachments];
-              childAttachmnets.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-              child.computed_attachments = childAttachmnets;
+              const childAttachments = [activeItem.id, ...child.computed_attachments];
+              childAttachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+              child.computed_attachments = childAttachments;
 
               const prevParent = desktopStore.getContainerItem(prevParentId)!;
               prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
@@ -613,7 +614,7 @@ export function mouseUpHandler(
 
             } // else {
             const insertPosition = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get();
-            activeItem.ordering = desktopStore.newChildOrderingAtPosition(moveOverContainerId, insertPosition);
+            activeItem.ordering = desktopStore.newOrderingAtChildrenPosition(moveOverContainerId, insertPosition);
             // }
           } else {
             activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);

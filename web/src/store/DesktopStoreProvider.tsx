@@ -41,8 +41,8 @@ export interface DesktopStoreContextModel {
   deleteItem: (id: Uid) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
   newOrderingAtEndOfAttachments: (parentId: Uid) => Uint8Array,
-  newChildOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
-  newAttachmentOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
+  newOrderingAtChildrenPosition: (parentId: Uid, position: number) => Uint8Array,
+  newOrderingAtAttachmentsPosition: (parentId: Uid, position: number) => Uint8Array,
 
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
@@ -242,7 +242,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
-  const newChildOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
+  const newOrderingAtChildrenPosition = (parentId: Uid, position: number): Uint8Array => {
     let parent = asContainerItem(items[parentId]);
     let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
     if (position <= 0) {
@@ -255,7 +255,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
-  const newAttachmentOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
+  const newOrderingAtAttachmentsPosition = (parentId: Uid, position: number): Uint8Array => {
     let parent = asAttachmentsItem(items[parentId]);
     let attachmentOrderings = parent.computed_attachments.map(c => items[c].ordering);
     if (position <= 0) {
@@ -344,7 +344,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
     newOrderingAtEndOfAttachments,
-    newChildOrderingAtPosition, newAttachmentOrderingAtPosition,
+    newOrderingAtChildrenPosition, newOrderingAtAttachmentsPosition,
     topLevelVisualElement, setTopLevelVisualElement,
     clearBreadcrumbs,
     pushTopLevelPageId, popTopLevelPageId, topLevelPageId,

@@ -120,9 +120,12 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
           </Show>
         </Show>
       </div>
-      <For each={props.visualElement.attachments}>{attachment =>
-        <VisualElementOnDesktop visualElement={attachment.get()} />
-      }</For>
+      <div class="absolute pointer-events-none"
+           style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+        <For each={props.visualElement.attachments}>{attachment =>
+          <VisualElementOnDesktop visualElement={attachment.get()} />
+        }</For>
+      </div>
     </Show>
   );
 }
