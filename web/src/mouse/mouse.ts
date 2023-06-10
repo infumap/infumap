@@ -377,7 +377,11 @@ export function handleMoveOverTable(moveToVe: VisualElement, desktopPx: Vector) 
   const tableBoundsPx = visualElementDesktopBoundsPx(moveToVe);
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const tableRowNumber = Math.floor(mousePropY * tableDimensionsBl.h);
-  moveToVe.moveOverRowNumber.set(tableRowNumber);
+  const insertPosition = tableRowNumber + tableItem.scrollYProp.get();
+  const adjustPosBy = insertPosition > tableItem.computed_children.length
+    ? insertPosition - tableItem.computed_children.length
+    : 0;
+  moveToVe.moveOverRowNumber.set(tableRowNumber - adjustPosBy);
 }
 
 export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
