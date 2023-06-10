@@ -41,7 +41,8 @@ export interface DesktopStoreContextModel {
   deleteItem: (id: Uid) => void,
   newOrderingAtEndOfChildren: (parentId: Uid) => Uint8Array,
   newOrderingAtEndOfAttachments: (parentId: Uid) => Uint8Array,
-  newOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
+  newChildOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
+  newAttachmentOrderingAtPosition: (parentId: Uid, position: number) => Uint8Array,
 
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
@@ -241,7 +242,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
-  const newOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
+  const newChildOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
     let parent = asContainerItem(items[parentId]);
     let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
     if (position <= 0) {
@@ -250,6 +251,19 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       return newOrderingAtEnd(childrenOrderings);
     } else {
       return newOrderingBetween(childrenOrderings[position-1], childrenOrderings[position]);
+    }
+  }
+
+
+  const newAttachmentOrderingAtPosition = (parentId: Uid, position: number): Uint8Array => {
+    let parent = asAttachmentsItem(items[parentId]);
+    let attachmentOrderings = parent.computed_attachments.map(c => items[c].ordering);
+    if (position <= 0) {
+      return newOrderingAtBeginning(attachmentOrderings);
+    } else if (position >= attachmentOrderings.length) {
+      return newOrderingAtEnd(attachmentOrderings);
+    } else {
+      return newOrderingBetween(attachmentOrderings[position-1], attachmentOrderings[position]);
     }
   }
 
@@ -330,7 +344,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,
     newOrderingAtEndOfAttachments,
-    newOrderingAtPosition,
+    newChildOrderingAtPosition, newAttachmentOrderingAtPosition,
     topLevelVisualElement, setTopLevelVisualElement,
     clearBreadcrumbs,
     pushTopLevelPageId, popTopLevelPageId, topLevelPageId,

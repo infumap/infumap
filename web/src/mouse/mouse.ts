@@ -586,15 +586,40 @@ export function mouseUpHandler(
         if (parentChanged) {
           const prevParentId = activeItem.parentId;
 
-          activeItem.parentId = moveOverContainerId;
           activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
 
           if (isTable(overVe.item)) {
+            if (overVe.moveOverColAttachmentNumber.get() >= 0) {
+              const tableItem = asTableItem(overVe.item);
+              let position = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get() - 1;
+              if (position < 0) { position = 0; }
+
+              const childId = tableItem.computed_children[position];
+              const child = asAttachmentsItem(desktopStore.getItem(childId)!);
+              activeItem.ordering = desktopStore.newAttachmentOrderingAtPosition(childId, position);
+              activeItem.relationshipToParent = Attachment;
+              activeItem.parentId = childId;
+              const childAttachmnets = [activeItem.id, ...child.computed_attachments];
+              childAttachmnets.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+              child.computed_attachments = childAttachmnets;
+
+              const prevParent = desktopStore.getContainerItem(prevParentId)!;
+              prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
+
+              arrange(desktopStore);
+
+              server.updateItem(desktopStore.getItem(activeItem.id)!);
+              break;
+
+            } // else {
             const insertPosition = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get();
-            activeItem.ordering = desktopStore.newOrderingAtPosition(moveOverContainerId, insertPosition);
+            activeItem.ordering = desktopStore.newChildOrderingAtPosition(moveOverContainerId, insertPosition);
+            // }
           } else {
             activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
           }
+
+          activeItem.parentId = moveOverContainerId;
 
           const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
           const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
