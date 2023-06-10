@@ -166,6 +166,26 @@ export function getHitInfo(
             return finalize(hitboxType, tableChildVes, meta);
           }
         }
+        if (!ignoreAttachments) {
+          for (let k=0; k<tableChildVe.attachments.length; ++k) {
+            const attachmentVes = tableChildVe.attachments[k];
+            const attachmentVe = attachmentVes.get();
+            if (isInside(posRelativeToTableChildAreaPx, attachmentVe.boundsPx)) {
+              let hitboxType = HitboxType.None;
+              let meta = null;
+              for (let l=attachmentVe.hitboxes.length-1; l>=0; --l) {
+                if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[l].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
+                  hitboxType |= attachmentVe.hitboxes[l].type;
+                  if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
+                }
+              }
+              if (!ignoreItems.find(a => a == attachmentVe.item.id)) {
+                const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
+                return { hitboxType, overElementVes: attachmentVes, overElementMeta: meta, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
+              }
+            }
+          }
+        }
       }
     }
 
