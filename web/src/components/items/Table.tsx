@@ -39,13 +39,26 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
   }
   const headerHeightPx = () => blockSizePx().h * HEADER_HEIGHT_BL;
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
-  const overPosRowPx = () => {
+  const overPosRowPx = (): number => {
     const heightBl = tableItem().spatialHeightGr / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
     const rowNumber = props.visualElement.moveOverRowNumber.get() + 1;
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
+  const insertBoundsPx = (): BoundingBox => {
+    const colNum = props.visualElement.moveOverColAttachmentNumber.get();
+    let offsetBl = 0;
+    for (let i=0; i<=colNum; ++i) {
+      offsetBl += tableItem().tableColumns[i].widthGr / GRID_SIZE;
+    }
+    return {
+      x: blockSizePx().w * offsetBl + boundsPx().x,
+      y: overPosRowPx() - blockSizePx().h,
+      w: 4,
+      h: blockSizePx().h
+    };
+  }
   const attachBoundsPx = (): BoundingBox => {
     return {
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
@@ -106,9 +119,13 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
                  style={`left: ${posPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h}px`}></div>
           }</For>
         </div>
-        <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1}>
+        <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
           <div class={`absolute border border-black`}
                style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 2px;`}></div>
+        </Show>
+        <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverColAttachmentNumber.get() >= 0}>
+          <div class={`absolute border border-black bg-black`}
+               style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;`}></div>
         </Show>
       </Show>
     </>

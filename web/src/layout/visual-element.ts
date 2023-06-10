@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, cloneBoundingBox } from "../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
@@ -60,6 +60,7 @@ export interface VisualElement {
   movingItemIsOver: BooleanSignal,       // for containers only.
   movingItemIsOverAttach: BooleanSignal, // for attachment items only.
   moveOverRowNumber: NumberSignal,       // for tables only.
+  moveOverColAttachmentNumber: NumberSignal,       // for tables only.
 }
 
 
@@ -87,6 +88,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   movingItemIsOver: createBooleanSignal(false),
   movingItemIsOverAttach: createBooleanSignal(false),
   moveOverRowNumber: createNumberSignal(-1),
+  moveOverColAttachmentNumber: createNumberSignal(-1),
 };
 
 export function createVisualElement(override: any): VisualElement {
@@ -110,6 +112,7 @@ export function createVisualElement(override: any): VisualElement {
     movingItemIsOver: createBooleanSignal(false),
     movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
+    moveOverColAttachmentNumber: createNumberSignal(-1),
   };
   const allPropertyNames = Object.getOwnPropertyNames(result);
   const overridePropertyNames = Object.getOwnPropertyNames(override);
