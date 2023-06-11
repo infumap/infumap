@@ -47,12 +47,12 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     }
   }
 
-  const opaqueTitleScale = createMemo((): number => {
+  const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
     outerDiv.setAttribute("class", "flex items-center justify-center");
     outerDiv.setAttribute("style", `width: ${boundsPx().w}px; height: ${boundsPx().h}px;`);
     const innerDiv = document.createElement("div");
-    innerDiv.setAttribute("class", "flex items-center text-center text-xs font-bold text-white");
+    innerDiv.setAttribute("class", `flex items-center text-center text-${textSize} font-bold text-white`);
     outerDiv.appendChild(innerDiv);
     const txt = document.createTextNode(pageItem().title);
     innerDiv.appendChild(txt);
@@ -60,7 +60,9 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
     let scale = 0.85 / Math.max(innerDiv.offsetWidth / boundsPx().w, innerDiv.offsetHeight / boundsPx().h); // 0.85 -> margin.
     document.body.removeChild(outerDiv);
     return scale > 1.0 ? 1.0 : scale;
-  });
+  }
+
+  const opaqueTitleScale = createMemo((): number => calcTitleScale("xs"));
 
   const drawAsOpaque = () => {
     return (
@@ -102,6 +104,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       </div>
     );
   }
+
+  const translucentTitleScale = createMemo((): number => calcTitleScale("gl"));
 
   const drawAsTranslucent = () => {
     return (
@@ -147,7 +151,8 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
           }</For>
         </div>
         <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-          <div class="flex items-center text-center text-xl font-bold text-white">
+          <div class="flex items-center text-center text-xl font-bold text-white"
+               style={`transform: scale(${translucentTitleScale()}); transform-origin: center center;`}>
             {pageItem().title}
           </div>
         </div>
