@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, GRID_PAGE_CELL_ASPECT, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -159,14 +159,13 @@ export function pageToObject(p: PageItem): object {
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
   if (page.arrangeAlgorithm == "grid") {
     if (page.childrenLoaded) {
-      const numCols = () => page.gridNumberOfColumns;
-      const numRows = () => Math.ceil(page.computed_children.length / numCols());
-      const colAspect = () => 1.5;
-      const cellHGr = () => page.spatialWidthGr / numCols() * (1.0/colAspect());
-      const pageHeightGr = () => cellHGr() * numRows();
-      const pageHeightBl = () => Math.ceil(pageHeightGr() / GRID_SIZE);
-      let w = page.spatialWidthGr / GRID_SIZE;
-      return { w: page.spatialWidthGr / GRID_SIZE, h: pageHeightBl() < 1.0 ? 1.0 : pageHeightBl() };
+      const numCols = page.gridNumberOfColumns;
+      const numRows = Math.ceil(page.computed_children.length / numCols);
+      const cellWGr = page.spatialWidthGr / numCols;
+      const cellHGr = cellWGr * (1.0/GRID_PAGE_CELL_ASPECT);
+      const pageHeightGr = cellHGr * numRows;
+      const pageHeightBl = Math.ceil(pageHeightGr / GRID_SIZE);
+      return { w: page.spatialWidthGr / GRID_SIZE, h: pageHeightBl < 1.0 ? 1.0 : pageHeightBl };
     }
     return { w: page.spatialWidthGr / GRID_SIZE, h: 0.5 };
   } else {
