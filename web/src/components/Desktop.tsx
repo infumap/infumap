@@ -26,12 +26,13 @@ import { mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse/mou
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
-import { EditDialog } from "./context/EditDialog";
+import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
 import { Page } from "./items/Page";
 import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
 import { VisualElement } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
-import { getHitInfo } from "../mouse/hit";
+import { getHitInfo } from "../mouse/hitInfo";
+import { panic } from "../util/lang";
 
 
 export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
@@ -44,21 +45,29 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
     if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null) {
       return;
     }
+    if (ev.code != "Slash" && ev.code != "Backslash") {
+      return;
+    }
 
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
-    if (ev.code != "Slash" && ev.code != "Backslash") { return; }
-    let hbi = getHitInfo(desktopStore, desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), [], false);
-    let item = hbi.overElementVes.get().item;
+
+    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), [], false);
+
     if (ev.code == "Slash") {
       ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), item });
+      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), hitInfo });
     }
-    if (ev.code == "Backslash") {
+
+    else if (ev.code == "Backslash") {
       ev.preventDefault();
       desktopStore.setEditDialogInfo({
-        desktopBoundsPx: { x: 0, y: 0, w: 0, h: 0 },
-        item
+        desktopBoundsPx: initialEditDialogBounds(desktopStore),
+        item: hitInfo.overElementVes.get().item
       });
+    }
+
+    else {
+      panic();
     }
   };
 

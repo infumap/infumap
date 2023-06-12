@@ -18,7 +18,7 @@
 
 import { asPageItem, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { VisualElement } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
@@ -27,10 +27,10 @@ import { VisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 
 
-interface HitInfo {
+export interface HitInfo {
   hitboxType: HitboxType,
   overElementVes: VisualElementSignal,       // the visual element under the specified position.
-  overElementMeta: any | null,               // meta data from hit hitbox of visual element under specified position.
+  overElementMeta: HitboxMeta | null,        // meta data from hit hitbox of visual element under specified position.
   overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
   overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position.
 }
@@ -42,7 +42,7 @@ export function getHitInfo(
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
 
-  function finalize(hitboxType: HitboxType, overElementVes: VisualElementSignal, overElementMeta: object | null): HitInfo {
+  function finalize(hitboxType: HitboxType, overElementVes: VisualElementSignal, overElementMeta: HitboxMeta | null): HitInfo {
     const overVe = overElementVes.get();
     if (overVe.isInsideTable) {
       assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");

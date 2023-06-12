@@ -30,6 +30,7 @@ import { NoteInTable } from "./items/Note";
 import { PageInTable } from "./items/Page";
 import { RatingInTable } from "./items/Rating";
 import { TableInTable } from "./items/Table";
+import { EMPTY_ITEM } from "../items/base/item";
 
 
 export interface VisualElementInTableProps {
@@ -39,7 +40,8 @@ export interface VisualElementInTableProps {
 
 export const VisualElementInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return (
-    <Switch fallback={<div>unkown item type '{props.visualElement.item.itemType}'</div>}>
+    <Switch fallback={<div>unknown item type '{props.visualElement.item.itemType}'</div>}>
+      <Match when={props.visualElement.item == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
       <Match when={isPage(props.visualElement.item)}><PageInTable {...props} /></Match>
       <Match when={isTable(props.visualElement.item)}><TableInTable {...props} /></Match>
       <Match when={isNote(props.visualElement.item)}><NoteInTable {...props} /></Match>

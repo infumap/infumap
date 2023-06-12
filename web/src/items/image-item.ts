@@ -158,7 +158,7 @@ export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSiz
     hitboxes: [
       createHitbox(HitboxType.Click, innerBoundsPx),
       createHitbox(HitboxType.Move, innerBoundsPx)
-    ],
+    ]
   };
 }
 

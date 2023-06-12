@@ -22,7 +22,7 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE } from "
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { ITEM_TYPE_LINK, Item } from "../items/base/item";
+import { EMPTY_ITEM, ITEM_TYPE_LINK, Item } from "../items/base/item";
 import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
@@ -259,6 +259,8 @@ const arrangeTable = (
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         parent: tableVisualElementSignal,
+        col: 0,
+        row: idx,
       });
       const tableItemVisualElementSignal = createVisualElementSignal(tableItemVe);
       tableVeChildren.push(tableItemVisualElementSignal);
@@ -267,8 +269,10 @@ const arrangeTable = (
         let tableItemVeAttachments: Array<VisualElementSignal> = [];
         const attachmentsItem = asAttachmentsItem(childItem);
         let leftBl = tableItem.tableColumns[0].widthGr / GRID_SIZE;
-        for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
+        let i=0;
+        for (; i<attachmentsItem.computed_attachments.length; ++i) {
           if (i >= tableItem.tableColumns.length-1) { break; }
+          if (leftBl >= tableItem.spatialWidthGr / GRID_SIZE) { break; }
           let widthBl = i == tableItem.tableColumns.length - 2
             ? sizeBl.w - leftBl
             : tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
@@ -282,6 +286,29 @@ const arrangeTable = (
             isAttachment: true,
             boundsPx: geometry.boundsPx,
             hitboxes: geometry.hitboxes,
+            col: i + 1,
+            row: idx,
+            parent: tableItemVisualElementSignal,
+          });
+          tableItemVeAttachments.push(createVisualElementSignal(tableItemAttachmentVe));
+          leftBl += tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+        }
+        // create 'empty' item visual elements for table cells without an associated attachment.
+        for (; i<tableItem.tableColumns.length-1; ++i) {
+          if (leftBl >= tableItem.spatialWidthGr / GRID_SIZE) { break; }
+          let widthBl = i == tableItem.tableColumns.length - 2
+            ? sizeBl.w - leftBl
+            : tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+          const geometry = calcGeometryOfItemInTable(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
+          const tableItemAttachmentVe = createVisualElement({
+            item: EMPTY_ITEM,
+            isInteractive: false,
+            isInsideTable: true,
+            isAttachment: true,
+            boundsPx: geometry.boundsPx,
+            hitboxes: geometry.hitboxes,
+            col: i + 1,
+            row: idx,
             parent: tableItemVisualElementSignal,
           });
           tableItemVeAttachments.push(createVisualElementSignal(tableItemAttachmentVe));
@@ -377,14 +404,14 @@ function arrangeItemAttachments(desktopStore: DesktopStoreContextModel, itemVisu
     for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
       const attachmentId = attachmentsItem.computed_attachments[i];
       const attachmentItem = desktopStore.getItem(attachmentId)!;
-      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, itemSizeBl, attachmentsItem.computed_attachments.length - i - 1, desktopStore.getItem);
+      const attachmentGeometry = calcGeometryOfAttachmentItem(attachmentItem, itemBoundsPx, itemSizeBl, i, desktopStore.getItem);
 
       const attachmentVisualElement = createVisualElement({
         item: attachmentItem,
         boundsPx: attachmentGeometry.boundsPx,
         hitboxes: attachmentGeometry.hitboxes,
         parent: itemVisualElementSignal,
-        isAttachment: true,
+        isAttachment: true
       });
 
       itemVisualElementSignal.get().attachments.push(createVisualElementSignal(attachmentVisualElement));

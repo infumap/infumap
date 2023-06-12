@@ -31,7 +31,7 @@ import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteAttachmentItem, calcGeo
 import { asPageItem, asPageMeasurable, calcGeometryOfPageAttachmentItem, calcGeometryOfPageItem, calcGeometryOfPageItemInCell, calcGeometryOfPageItemInTable, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject } from '../page-item';
 import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingAttachmentItem, calcGeometryOfRatingItem, calcGeometryOfRatingItemInCell, calcGeometryOfRatingItemInTable, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject } from '../rating-item';
 import { asTableItem, asTableMeasurable, calcGeometryOfTableAttachmentItem, calcGeometryOfTableItem, calcGeometryOfTableItemInCell, calcGeometryOfTableItemInTable, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject } from '../table-item';
-import { Item, Measurable } from './item';
+import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItemInTable } from './item';
 
 
 // Poor man's polymorphism
@@ -70,6 +70,7 @@ export function calcGeometryOfAttachmentItem(measurable: Measurable, parentBound
 }
 
 export function calcGeometryOfItemInTable(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  if (measurable == EMPTY_ITEM) { return calcGeometryOfEmptyItemInTable(measurable, blockSizePx, row, col, widthBl); }
   if (isPage(measurable)) { return calcGeometryOfPageItemInTable(asPageMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isTable(measurable)) { return calcGeometryOfTableItemInTable(asTableMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isNote(measurable)) { return calcGeometryOfNoteItemInTable(asNoteMeasurable(measurable), blockSizePx, row, col, widthBl); }

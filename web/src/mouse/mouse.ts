@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { server } from "../server";
 import { calcSizeForSpatialBl, handleClick, handlePopupClick } from "../items/base/item-polymorphism";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
@@ -38,7 +38,7 @@ import { batch } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem, isContainer } from "../items/base/container-item";
-import { getHitInfo } from "./hit";
+import { getHitInfo } from "./hitInfo";
 
 
 const MOUSE_LEFT = 0;
@@ -62,7 +62,7 @@ interface MouseActionState {
   clickOffsetProp: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
-  hitMeta: any | null,
+  hitMeta: HitboxMeta | null,
   action: MouseAction,
   onePxSizeBl: Vector,
 }
@@ -221,7 +221,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
         mouseActionState.startPosBl = null;
         mouseActionState.startHeightBl = null;
-        const colNum: number = mouseActionState.hitMeta!;
+        const colNum = mouseActionState.hitMeta?.resizeColNumber!;
         mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
         mouseActionState.action = MouseAction.ColResizing;
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
@@ -278,7 +278,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
     if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-    asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta].widthGr = newWidthBl * GRID_SIZE;
+    asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
 
     visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
@@ -288,7 +288,6 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   } else if (mouseActionState.action == MouseAction.Moving) {
 
     const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id], false);
-    const overVe = hitInfo.overElementVes.get();
 
     // update move over element state.
     if (mouseActionState.moveOverContainerElement == null ||
@@ -319,7 +318,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     }
 
     if (isTable(hitInfo.overContainerVe!.item)) {
-      handleMoveOverTable(desktopStore, hitInfo.overContainerVe!, desktopPxFromMouseEvent(ev));
+      handleOverTable(desktopStore, hitInfo.overContainerVe!, desktopPxFromMouseEvent(ev));
     }
 
     const deltaBl = {
@@ -346,8 +345,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
 export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
   const ev = desktopStore.lastMouseMoveEvent();
-  let currentHitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
-  let overElementVes = currentHitInfo.overElementVes;
+  let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+  let overElementVes = hitInfo.overElementVes;
   if (overElementVes != lastMouseOverVes) {
     if (lastMouseOverVes != null) {
       lastMouseOverVes.get().mouseIsOver.set(false);
@@ -359,22 +358,22 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
-  if ((currentHitInfo.hitboxType & HitboxType.Resize) > 0) {
+  if ((hitInfo.hitboxType & HitboxType.Resize) > 0) {
     document.body.style.cursor = "nwse-resize";
-  } else if ((currentHitInfo.hitboxType & HitboxType.ColResize) > 0) {
+  } else if ((hitInfo.hitboxType & HitboxType.ColResize) > 0) {
     document.body.style.cursor = "ew-resize";
   } else {
     document.body.style.cursor = "default";
   }
 }
 
-export function handleMoveOverTable(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
-  const tableItem = asTableItem(moveToVe.item);
+export function handleOverTable(desktopStore: DesktopStoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
+  const tableItem = asTableItem(overContainerVe.item);
   const tableDimensionsBl: Dimensions = {
     w: tableItem.spatialWidthGr / GRID_SIZE,
     h: tableItem.spatialHeightGr / GRID_SIZE
   };
-  const tableBoundsPx = visualElementDesktopBoundsPx(moveToVe);
+  const tableBoundsPx = visualElementDesktopBoundsPx(overContainerVe);
 
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
@@ -384,7 +383,7 @@ export function handleMoveOverTable(desktopStore: DesktopStoreContextModel, move
   const adjustPosBy = insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length
     : 0;
-  moveToVe.moveOverRowNumber.set(tableRowNumber - adjustPosBy);
+  overContainerVe.moveOverRowNumber.set(tableRowNumber - adjustPosBy);
 
   // col
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
@@ -411,9 +410,9 @@ export function handleMoveOverTable(desktopStore: DesktopStoreContextModel, move
     if (attachmentPos > numAttachments) {
       attachmentPos = numAttachments;
     }
-    moveToVe.moveOverColAttachmentNumber.set(attachmentPos);
+    overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
   } else {
-    moveToVe.moveOverColAttachmentNumber.set(-1);
+    overContainerVe.moveOverColAttachmentNumber.set(-1);
   }
 }
 
@@ -655,7 +654,7 @@ export function mouseUpHandler(
       break;
 
     case MouseAction.ColResizing:
-      if (mouseActionState.startWidthBl! * GRID_SIZE != asTableItem(activeItem).tableColumns[mouseActionState.hitMeta].widthGr) {
+      if (mouseActionState.startWidthBl! * GRID_SIZE != asTableItem(activeItem).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }
       break;

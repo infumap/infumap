@@ -48,6 +48,9 @@ export interface VisualElement {
   boundsPx: BoundingBox,
   childAreaBoundsPx: BoundingBox | null,
 
+  row: number | null,  // set only if inside table. the actual row number - i.e. not necessarily the visible row number.
+  col: number | null,  // set only if inside table.
+
   // higher index => higher precedence.
   hitboxes: Array<Hitbox>,
 
@@ -62,7 +65,6 @@ export interface VisualElement {
   moveOverRowNumber: NumberSignal,       // for tables only.
   moveOverColAttachmentNumber: NumberSignal,       // for tables only.
 }
-
 
 /**
  * Used when there is no top level visual element. This makes typing much easier to deal with
@@ -79,6 +81,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   isDragOverPositioning: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
+  col: null,
+  row: null,
   hitboxes: [],
   children: [],
   attachments: [],
@@ -91,8 +95,26 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   moveOverColAttachmentNumber: createNumberSignal(-1),
 };
 
-export function createVisualElement(override: any): VisualElement {
-  let result: any = {
+export interface VisualElementOverride {
+  item: Item,
+  linkItemMaybe?: LinkItem | null,
+  isPopup?: boolean,
+  isInteractive?: boolean,
+  isInsideTable?: boolean
+  isAttachment?: boolean,
+  isDragOverPositioning?: boolean,
+  boundsPx: BoundingBox,
+  childAreaBoundsPx?: BoundingBox,
+  col?: number,
+  row?: number,
+  hitboxes?: Array<Hitbox>,
+  parent?: VisualElementSignal,
+  children?: Array<VisualElementSignal>,
+  attachments?: Array<VisualElementSignal>,
+}
+
+export function createVisualElement(override: VisualElementOverride): VisualElement {
+  let result: VisualElement = {
     item: EMPTY_ITEM,
     linkItemMaybe: null,
     resizingFromBoundsPx: null,
@@ -103,6 +125,8 @@ export function createVisualElement(override: any): VisualElement {
     isDragOverPositioning: false,
     boundsPx: { x: 0, y: 0, w: 0, h: 0 },
     childAreaBoundsPx: null,
+    col: null,
+    row: null,
     hitboxes: [],
     children: [],
     attachments: [],
@@ -114,12 +138,21 @@ export function createVisualElement(override: any): VisualElement {
     moveOverRowNumber: createNumberSignal(-1),
     moveOverColAttachmentNumber: createNumberSignal(-1),
   };
-  const allPropertyNames = Object.getOwnPropertyNames(result);
-  const overridePropertyNames = Object.getOwnPropertyNames(override);
-  overridePropertyNames.forEach(name => {
-    if (!allPropertyNames.find(e => e == name)) { panic(); }
-    result[name] = override[name];
-  });
+  result.item = override.item;
+  if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
+  if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
+  if (typeof(override.isInteractive) != 'undefined') { result.isInteractive = override.isInteractive; }
+  if (typeof(override.isInsideTable) != 'undefined') { result.isInsideTable = override.isInsideTable; }
+  if (typeof(override.isAttachment) != 'undefined') { result.isAttachment = override.isAttachment; }
+  if (typeof(override.isDragOverPositioning) != 'undefined') { result.isDragOverPositioning = override.isDragOverPositioning; }
+  if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
+  if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+  if (typeof(override.col) != 'undefined') { result.col = override.col; }
+  if (typeof(override.row) != 'undefined') { result.row = override.row; }
+  if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
+  if (typeof(override.parent) != 'undefined') { result.parent = override.parent; }
+  if (typeof(override.children) != 'undefined') { result.children = override.children; }
+  if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
   return result;
 }
 

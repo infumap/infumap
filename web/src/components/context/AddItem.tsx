@@ -29,96 +29,87 @@ import { newTableItem } from "../../items/table-item";
 import { Item } from "../../items/base/item";
 import { arrange } from "../../layout/arrange";
 import { newRatingItem } from "../../items/rating-item";
+import { initialEditDialogBounds } from "./EditDialog";
+import { VisualElement } from "../../layout/visual-element";
+import { panic } from "../../util/lang";
+import { HitInfo } from "../../mouse/hitInfo";
 
 
 type ContexMenuProps = {
   desktopPosPx: Vector,
-  contextItem: Item
+  hitInfo: HitInfo
 };
 
 export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
 
-  const newPageInContext = () => {
-    if (isPage(props.contextItem)) {
-      let newPage = newPageItem(
-        userStore.getUser().userId,
-        props.contextItem?.id!,
-        Child,
-        "",
-        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newPage.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
-      server.addItem(newPage, null);
-      desktopStore.addItem(newPage);
-      desktopStore.setContextMenuInfo(null);
-      desktopStore.setEditDialogInfo({
-        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
-        item: newPage
-      });
-      arrange(desktopStore);
-    }
-  };
+  const newPageInContext = () => newItemInContext("page");
+  const newNoteInContext = () => newItemInContext("note");
+  const newTableInContext = () => newItemInContext("table");
+  const newRatingInContext = () => newItemInContext("rating");
 
-  const newNoteInContext = () => {
-    if (isPage(props.contextItem)) {
-      let newNote = newNoteItem(
-        userStore.getUser().userId,
-        props.contextItem?.id!,
-        Child,
-        "",
-        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newNote.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
-      desktopStore.addItem(newNote);
-      server.addItem(newNote, null);
-      desktopStore.setContextMenuInfo(null);
-      desktopStore.setEditDialogInfo({
-        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
-        item: newNote
-      });
-      arrange(desktopStore);
-    }
-  };
+  const newItemInContext = (type: string) => {
+    const overElementVe = props.hitInfo.overElementVes.get();
+    if (overElementVe.isInsideTable) {
+      const attachmentNumber = props.hitInfo.overElementVes.get();
+      console.log(attachmentNumber);
 
-  const newTableInContext = () => {
-    if (isPage(props.contextItem)) {
-      let newTable = newTableItem(
-        userStore.getUser().userId,
-        props.contextItem?.id!,
-        Child,
-        "",
-        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newTable.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
-      server.addItem(newTable, null);
-      desktopStore.addItem(newTable);
-      desktopStore.setContextMenuInfo(null);
-      desktopStore.setEditDialogInfo({
-        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
-        item: newTable
-      });
-      arrange(desktopStore);
-    }
-  };
+      panic();
+    } else if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
 
-  const newRatingInContext = () => {
-    if (isPage(props.contextItem)) {
-      let newRating = newRatingItem(
+    } else {
+      console.log("unsupported add position");
+    }
+
+    let newItem = null;
+    if (type == "rating") {
+      newItem = newRatingItem(
         userStore.getUser().userId,
-        props.contextItem?.id!,
+        overElementVe.item.id,
         3,
         Child,
-        desktopStore.newOrderingAtEndOfChildren(props.contextItem?.id!));
-      newRating.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(props.contextItem!), props.desktopPosPx);
-      desktopStore.addItem(newRating);
-      server.addItem(newRating, null);
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id))
+    } else if (type == "table") {
+      newItem = newTableItem(
+        userStore.getUser().userId,
+        overElementVe.item.id,
+        Child,
+        "",
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
+    } else if (type == "note") {
+      newItem = newNoteItem(
+        userStore.getUser().userId,
+        overElementVe.item.id,
+        Child,
+        "",
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
+    } else if (type == "page") {
+      newItem = newPageItem(
+        userStore.getUser().userId,
+        overElementVe.item.id!,
+        Child,
+        "",
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id))
+    } else {
+      panic();
+    }
+
+    if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
+      newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.item), props.desktopPosPx);
+      server.addItem(newItem, null);
+      desktopStore.addItem(newItem);
       desktopStore.setContextMenuInfo(null);
       desktopStore.setEditDialogInfo({
-        desktopBoundsPx: { x:0, y:0, w:0, h:0 },
-        item: newRating
+        desktopBoundsPx: initialEditDialogBounds(desktopStore),
+        item: newItem
       });
       arrange(desktopStore);
+      return;
     }
-  };
+
+    panic();
+  }
 
   return (
     <div class="border rounded w-[250px] h-[55px] bg-slate-50 mb-1">

@@ -132,7 +132,7 @@ export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx
     hitboxes: [
       createHitbox(HitboxType.Click, innerBoundsPx),
       createHitbox(HitboxType.Move, innerBoundsPx)
-    ],
+    ]
   };
 }
 

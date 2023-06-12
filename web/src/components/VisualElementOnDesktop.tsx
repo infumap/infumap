@@ -38,7 +38,7 @@ export interface VisualElementOnDesktopProps {
 
 export const VisualElementOnDesktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return (
-    <Switch fallback={<div>unkown item type '{props.visualElement.item.itemType}'</div>}>
+    <Switch fallback={<div>unknown item type '{props.visualElement.item.itemType}'</div>}>
       <Match when={isPage(props.visualElement.item)}><Page {...props} /></Match>
       <Match when={isNote(props.visualElement.item)}><Note {...props} /></Match>
       <Match when={isTable(props.visualElement.item)}><Table {...props} /></Match>

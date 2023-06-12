@@ -16,26 +16,26 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onMount, Show } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { Component, Show } from "solid-js";
+import { DesktopStoreContextModel, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { EditItem } from "./EditItem";
 
 
 export const editDialogSizePx = { w: 400, h: 400 };
 
+export function initialEditDialogBounds(desktopStore: DesktopStoreContextModel) {
+  let posPx = {
+    x: (desktopStore.desktopBoundsPx().w / 2.0) - 200,
+    y: 120.0
+  };
+  return boundingBoxFromPosSize(posPx, { ...editDialogSizePx }); 
+}
+
 export const EditDialogInner: Component = () => {
   const desktopStore = useDesktopStore();
 
   let editDialogDiv: HTMLDivElement | undefined;
-
-  onMount(() => {
-    let posPx = {
-      x: (desktopStore.desktopBoundsPx().w / 2.0) - 200,
-      y: 120.0
-    };
-    desktopStore.setEditDialogInfo({ item: item(), desktopBoundsPx: boundingBoxFromPosSize(posPx, { ...editDialogSizePx }) });
-  });
 
   const item = () => desktopStore.editDialogInfo()!.item;
   const posPx = () => getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx);

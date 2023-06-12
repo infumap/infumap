@@ -30,6 +30,7 @@ import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "../items/
 import { itemFromObject } from "../items/base/item-polymorphism";
 import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
+import { HitInfo } from "../mouse/hitInfo";
 
 
 export interface DesktopStoreContextModel {
@@ -72,7 +73,7 @@ export interface DesktopStoreContextModel {
 
 export interface ContextMenuInfo {
   posPx: Vector,
-  item: Item
+  hitInfo: HitInfo
 }
 
 export interface EditDialogInfo {

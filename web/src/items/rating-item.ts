@@ -137,7 +137,7 @@ export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, block
     hitboxes: [
       createHitbox(HitboxType.Move, innerBoundsPx),
       createHitbox(HitboxType.Click, innerBoundsPx)
-    ],
+    ]
   };
 }
 

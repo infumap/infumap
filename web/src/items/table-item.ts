@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
-import { HitboxType, createHitbox } from "../layout/hitbox";
+import { HitboxType, createHitbox, createHitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { newUid, Uid } from "../util/uid";
@@ -152,7 +152,12 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
   for (let i=0; i<table.tableColumns.length; ++i) {
     accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
     if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
-    colResizeHitboxes.push(createHitbox(HitboxType.ColResize, { x: accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX/2, y: 0, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h }, i))
+    colResizeHitboxes.push(
+      createHitbox(
+        HitboxType.ColResize,
+        { x: accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX/2, y: 0, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h },
+        createHitboxMeta({ resizeColNumber: i })
+      ));
   }
   return {
     boundsPx,
@@ -184,7 +189,7 @@ export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSiz
   };
   return {
     boundsPx,
-    hitboxes: [ createHitbox(HitboxType.Move, innerBoundsPx) ],
+    hitboxes: [ createHitbox(HitboxType.Move, innerBoundsPx) ]
   };
 }
 

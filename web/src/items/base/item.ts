@@ -16,6 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { HitboxType, createHitbox } from '../../layout/hitbox';
+import { ItemGeometry } from '../../layout/item-geometry';
+import { Dimensions } from '../../util/geometry';
 import { EMPTY_UID, Uid } from '../../util/uid';
 import { PositionalMixin } from './positional-item';
 
@@ -57,3 +60,25 @@ export const EMPTY_ITEM: Item = {
   ordering: Uint8Array.from([]),
   spatialPositionGr: { x: 0, y: 0 }
 };
+
+export function calcGeometryOfEmptyItemInTable(_empty: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+  const innerBoundsPx = {
+    x: 0.0,
+    y: 0.0,
+    w: blockSizePx.w * widthBl,
+    h: blockSizePx.h
+  };
+  const boundsPx = {
+    x: blockSizePx.w * col,
+    y: blockSizePx.h * row,
+    w: blockSizePx.w * widthBl,
+    h: blockSizePx.h
+  };
+  return {
+    boundsPx,
+    hitboxes: [
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx)
+    ]
+  };
+}

@@ -32,10 +32,10 @@ export enum HitboxType {
 export interface Hitbox {
   type: HitboxType,
   boundsPx: BoundingBox,
-  meta: object | null,
+  meta: HitboxMeta | null,
 }
 
-export function createHitbox(type: HitboxType, boundsPx: BoundingBox, meta?: any ) {
+export function createHitbox(type: HitboxType, boundsPx: BoundingBox, meta?: HitboxMeta ) {
   return ({ type, boundsPx, meta: (typeof meta !== 'undefined') ? meta : null });
 }
 
@@ -44,11 +44,21 @@ export function cloneHitbox(hitbox: Hitbox | null): Hitbox | null {
   return {
     type: hitbox.type,
     boundsPx: cloneBoundingBox(hitbox.boundsPx)!,
-    meta: Object.assign({}, hitbox)
+    meta: hitbox.meta == null ? null : Object.assign({}, hitbox.meta) as HitboxMeta
   };
 }
 
 export function cloneHitboxes(hitboxes: Array<Hitbox> |  null): Array<Hitbox> | null {
   if (hitboxes == null) { return null; }
   return hitboxes.map(h => cloneHitbox(h)!)
+}
+
+export interface HitboxMeta {
+  resizeColNumber?: number
+}
+
+export function createHitboxMeta(meta: HitboxMeta) {
+  let result: HitboxMeta = {};
+  if (typeof(meta.resizeColNumber) != 'undefined') { result.resizeColNumber = meta.resizeColNumber; }
+  return result;
 }

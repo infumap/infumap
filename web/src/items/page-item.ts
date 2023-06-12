@@ -33,7 +33,7 @@ import { PositionalMixin } from './base/positional-item';
 import { arrange, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
-import { getHitInfo } from '../mouse/hit';
+import { getHitInfo } from '../mouse/hitInfo';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -248,7 +248,7 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
       createHitbox(HitboxType.Click, clickAreaBoundsPx),
       createHitbox(HitboxType.OpenPopup, popupClickAreaBoundsPx),
       createHitbox(HitboxType.Move, innerBoundsPx)
-    ],
+    ]
   };
 }
 

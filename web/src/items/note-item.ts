@@ -107,7 +107,7 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
   return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -153,7 +153,7 @@ export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx
     hitboxes: [
       createHitbox(HitboxType.Click, innerBoundsPx),
       createHitbox(HitboxType.Move, innerBoundsPx)
-    ],
+    ]
   };
 }
 

@@ -30,13 +30,13 @@ const ContextMenuInner: Component = () => {
   }
 
   const posPx = () => desktopStore.contextMenuInfo()!.posPx;
-  const item = () => desktopStore.contextMenuInfo()!.item;
+  const hitInfo = () => desktopStore.contextMenuInfo()!.hitInfo;
 
   return (
     <div class="absolute"
          style={`left: ${posPx().x}px; top: ${posPx().y}px`}
          onMouseDown={mouseDownListener}>
-      <AddItem desktopPosPx={posPx()} contextItem={item()} />
+      <AddItem desktopPosPx={posPx()} hitInfo={hitInfo()} />
     </div>
   );
 }
