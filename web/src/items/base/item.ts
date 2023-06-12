@@ -39,7 +39,7 @@ export interface ItemTypeMixin {
 
 export interface Measurable extends ItemTypeMixin { }
 
-export interface Item extends ItemTypeMixin, PositionalMixin {
+export interface Item extends ItemTypeMixin {
   ownerId: Uid,
   id: Uid,
   parentId: Uid,
@@ -58,7 +58,6 @@ export const EMPTY_ITEM: Item = {
   creationDate: 0,
   lastModifiedDate: 0,
   ordering: Uint8Array.from([]),
-  spatialPositionGr: { x: 0, y: 0 }
 };
 
 export function calcGeometryOfEmptyItemInTable(_empty: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

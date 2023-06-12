@@ -156,7 +156,8 @@ pub enum ItemType {
   File,
   Image,
   Rating,
-  Link
+  Link,
+  Placeholder
 }
 
 impl ItemType {
@@ -169,6 +170,7 @@ impl ItemType {
       ItemType::Image => "image",
       ItemType::Rating => "rating",
       ItemType::Link => "link",
+      ItemType::Placeholder => "placeholder",
     }
   }
 
@@ -181,6 +183,7 @@ impl ItemType {
       "image" => Ok(ItemType::Image),
       "rating" => Ok(ItemType::Rating),
       "link" => Ok(ItemType::Link),
+      "placeholder" => Ok(ItemType::Placeholder),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into())
     }
   }
@@ -190,6 +193,10 @@ impl std::fmt::Display for ItemType {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str(self.as_str())
   }
+}
+
+pub fn is_positionable(item_type: ItemType) -> bool {
+  item_type != ItemType::Placeholder
 }
 
 pub fn is_attachments_item(item_type: ItemType) -> bool {
@@ -257,7 +264,9 @@ pub struct Item {
   pub creation_date: i64,
   pub last_modified_date: i64,
   pub ordering: Vec<u8>,
-  pub spatial_position_gr: Vector<i64>,
+
+  // positionable (everything but placeholder).
+  pub spatial_position_gr: Option<Vector<i64>>,
 
   // x-sizeable
   pub spatial_width_gr: Option<i64>,
@@ -401,7 +410,14 @@ impl JsonLogSerializable<Item> for Item {
     if old.creation_date != new.creation_date { cannot_modify_err("creationDate", &old.id)?; }
     if old.last_modified_date != new.last_modified_date { result.insert(String::from("lastModifiedDate"), Value::Number(new.last_modified_date.into())); }
     if old.ordering != new.ordering { result.insert(String::from("ordering"), Value::Array(new.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>())); }
-    if old.spatial_position_gr != new.spatial_position_gr { result.insert(String::from("spatialPositionGr"), json::vector_to_object(&new.spatial_position_gr)); }
+
+    // positionable
+    if let Some(new_spatial_position_gr) = &new.spatial_position_gr {
+      if match &old.spatial_position_gr { Some(o) => o.x != new_spatial_position_gr.x || o.y != new_spatial_position_gr.y, None => { true } } {
+        if !is_positionable(old.item_type) { cannot_modify_err("spatialPositionGr", &old.id)?; }
+        result.insert(String::from("spatialPositionGr"), json::vector_to_object(&new_spatial_position_gr));
+      }
+    }
 
     // x-sizable
     if let Some(new_spatial_width_gr) = new.spatial_width_gr {
@@ -587,7 +603,12 @@ impl JsonLogSerializable<Item> for Item {
           None => None })
         .collect::<Option<Vec<_>>>().ok_or(format!("One or more element of the 'ordering' field in an update for item '{}' was invalid.", &self.id))?;
     }
-    if let Some(u) = json::get_vector_field(map, "spatialPositionGr")? { self.spatial_position_gr = u; }
+
+    // positionable
+    if let Some(u) = json::get_vector_field(map, "spatialPositionGr")? {
+      if !is_positionable(self.item_type) { not_applicable_err("spatialPositionGr", self.item_type, &self.id)?; }
+      self.spatial_position_gr = Some(u);
+    }
 
     // x-sizable
     if let Some(v) = json::get_integer_field(map, "spatialWidthGr")? {
@@ -708,7 +729,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
   result.insert(String::from("ordering"), Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
-  result.insert(String::from("spatialPositionGr"), json::vector_to_object(&item.spatial_position_gr));
+
+  // positionable
+  if let Some(spatial_position_gr) = &item.spatial_position_gr {
+    if !is_positionable(item.item_type) { unexpected_field_err("spatialPositionGr", &item.id, item.item_type)? }
+    result.insert(String::from("spatialPositionGr"), json::vector_to_object(&spatial_position_gr));
+  }
 
   // x-sizeable
   if let Some(spatial_width_gr) = item.spatial_width_gr {
@@ -863,7 +889,12 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         None => None
       })
       .collect::<Option<Vec<_>>>().ok_or(format!("One or more element of the 'ordering' field for item '{}' was invalid.", &id))?,
-    spatial_position_gr: json::get_vector_field(map, "spatialPositionGr")?.ok_or("'spatialPositionGr' field was missing.")?,
+
+    // positionable
+    spatial_position_gr: match json::get_vector_field(map, "spatialPositionGr")? {
+      Some(v) => { if is_positionable(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialPositionGr", item_type, &id)) } },
+      None => { if is_positionable(item_type) { Err(expected_for_err("spatialPositionGr", item_type, &id)) } else { Ok(None) } }
+    }?,
 
     // x-sizeable
     spatial_width_gr: match json::get_integer_field(map, "spatialWidthGr")? {

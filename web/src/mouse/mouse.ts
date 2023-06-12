@@ -39,6 +39,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { getHitInfo } from "./hitInfo";
+import { asPositionalItem } from "../items/base/positional-item";
 
 
 const MOUSE_LEFT = 0;
@@ -205,7 +206,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   const deltaPx = vectorSubtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
 
-  const activeItem = visualElementSignalFromPath(desktopStore, mouseActionState.activeElement).get().item;
+  const activeItem = asPositionalItem(visualElementSignalFromPath(desktopStore, mouseActionState.activeElement).get().item);
 
   if (mouseActionState.action == MouseAction.Ambiguous) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
@@ -417,7 +418,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 }
 
 export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
-  const activeItem = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get().item;
+  const activeItem = asPositionalItem(visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get().item);
   const currentParent = desktopStore.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.item);
   const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
@@ -478,7 +479,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get();
   const tableVisualElement = activeVisualElement.parent!.get();
-  const activeItem = activeVisualElement.item;
+  const activeItem = asPositionalItem(activeVisualElement.item);
   const tableItem = asTableItem(tableVisualElement.item);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
@@ -538,7 +539,7 @@ export function mouseUpHandler(
 
   const activeVisualElementSignal = visualElementSignalFromPath(desktopStore, mouseActionState.activeElement);
   const activeVisualElement = activeVisualElementSignal.get();
-  const activeItem = activeVisualElement.item;
+  const activeItem = asPositionalItem(activeVisualElement.item);
 
   if (mouseActionState.moveOverContainerElement != null) {
     visualElementSignalFromPath(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);

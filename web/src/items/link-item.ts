@@ -24,7 +24,7 @@ import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
 import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
 import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable, calcSizeForSpatialBl, cloneMeasurableFields } from "./base/item-polymorphism";
-import { asPositionalItem, isPositionalItem } from "./base/positional-item";
+import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
 
@@ -33,7 +33,7 @@ import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-
 // If the linked-to item can not have attachments, then neither can the link item.
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 
-export interface LinkItem extends XSizableItem, YSizableItem, AttachmentsItem {
+export interface LinkItem extends PositionalItem, XSizableItem, YSizableItem, AttachmentsItem {
   linkToId: Uid,
 }
 
