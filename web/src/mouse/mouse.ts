@@ -804,10 +804,14 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   }
   if (insertPosition < child.computed_attachments.length) {
     const overAttachmentId = child.computed_attachments[insertPosition];
-    const placeholderToReplace = desktopStore.getItem(overAttachmentId)!;
-    activeItem.ordering = placeholderToReplace.ordering;
-    desktopStore.deleteItem(overAttachmentId);
-    server.deleteItem(overAttachmentId);
+    const placeholderToReplaceMaybe = desktopStore.getItem(overAttachmentId)!;
+    if (isPlaceholder(placeholderToReplaceMaybe)) {
+      activeItem.ordering = placeholderToReplaceMaybe.ordering;
+      desktopStore.deleteItem(overAttachmentId);
+      server.deleteItem(overAttachmentId);
+    } else {
+      activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
+    }
   } else {
     activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
   }
