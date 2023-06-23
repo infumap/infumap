@@ -438,12 +438,9 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
         break;
       }
     }
-    // then work out position in attachments from that.
+
     const numAttachments = asAttachmentsItem(childItem!).computed_attachments.length;
     let attachmentPos = colNumber - 1;
-    if (attachmentPos > numAttachments) {
-      attachmentPos = numAttachments;
-    }
     overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
   } else {
     overContainerVe.moveOverColAttachmentNumber.set(-1);
@@ -799,6 +796,12 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const childId = tableItem.computed_children[rowNumber];
   const child = asAttachmentsItem(desktopStore.getItem(childId)!);
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
+  const numPlaceholdersToCreate = insertPosition > child.computed_attachments.length ? insertPosition - child.computed_attachments.length : 0;
+  for (let i=0; i<numPlaceholdersToCreate; ++i) {
+    const placeholderItem = newPlaceholderItem(activeItem.ownerId, child.id, Attachment, desktopStore.newOrderingAtEndOfAttachments(childId));
+    desktopStore.addItem(placeholderItem);
+    server.addItem(placeholderItem, null);
+  }
   activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
   activeItem.relationshipToParent = Attachment;
   activeItem.parentId = childId;
