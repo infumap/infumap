@@ -802,7 +802,15 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
     desktopStore.addItem(placeholderItem);
     server.addItem(placeholderItem, null);
   }
-  activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
+  if (insertPosition < child.computed_attachments.length) {
+    const overAttachmentId = child.computed_attachments[insertPosition];
+    const placeholderToReplace = desktopStore.getItem(overAttachmentId)!;
+    activeItem.ordering = placeholderToReplace.ordering;
+    desktopStore.deleteItem(overAttachmentId);
+    server.deleteItem(overAttachmentId);
+  } else {
+    activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
+  }
   activeItem.relationshipToParent = Attachment;
   activeItem.parentId = childId;
   const childAttachments = [activeItem.id, ...child.computed_attachments];
