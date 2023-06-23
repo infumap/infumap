@@ -20,7 +20,7 @@ import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants
 import { HitboxType, createHitbox, createHitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
-import { newUid, Uid } from "../util/uid";
+import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_BORDER_WIDTH_PX } from "./base/item";
@@ -47,6 +47,7 @@ export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizabl
 
 
 export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem {
+  if (parentId == EMPTY_UID) { panic(); }
   return {
     itemType: ITEM_TYPE_TABLE,
     ownerId,

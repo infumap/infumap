@@ -32,7 +32,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent, ItemType};
+use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable};
 use crate::storage::db::item::{is_data_item, is_image_item, is_container_item, is_attachments_item};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
@@ -286,7 +286,9 @@ async fn handle_add_item(
   }
 
   if !item_map.contains_key("spatialPositionGr") {
-    item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+    if is_positionable(ItemType::from_str(&item_type)?) {
+      item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
+    }
   }
 
   if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
@@ -354,6 +356,10 @@ async fn handle_add_item(
 
   if item.ordering.len() == 0 {
     return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", session_user_id).into());
+  }
+
+  if item.item_type == ItemType::Placeholder && item.relationship_to_parent != RelationshipToParent::Attachment {
+    return Err(format!("Attempt was made to add a placeholder item where relationship to parent is not Attachment.").into());
   }
 
   if is_data_item(item.item_type) {

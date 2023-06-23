@@ -30,6 +30,7 @@ export const ITEM_TYPE_FILE = "file";
 export const ITEM_TYPE_IMAGE = "image";
 export const ITEM_TYPE_RATING = "rating";
 export const ITEM_TYPE_LINK = "link";
+export const ITEM_TYPE_PLACEHOLDER = "placeholder";
 
 export const ITEM_BORDER_WIDTH_PX = 1;
 

@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../constants";
 import { BoundingBox, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
-import { newUid, Uid } from "../util/uid";
+import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
 import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
@@ -39,6 +39,7 @@ export interface LinkItem extends PositionalItem, XSizableItem, YSizableItem, At
 
 
 export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkToId: Uid): LinkItem {
+  if (parentId == EMPTY_UID) { panic(); }
   return {
     itemType: ITEM_TYPE_LINK,
     ownerId,

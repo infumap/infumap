@@ -30,6 +30,8 @@ import { Table } from "./items/Table";
 import { Image } from "./items/Image";
 import { File } from "./items/File";
 import { VisualElement } from "../layout/visual-element";
+import { isPlaceholder } from "../items/placeholder-item";
+import { Placeholder } from "./items/Placeholder";
 
 
 export interface VisualElementOnDesktopProps {
@@ -38,13 +40,14 @@ export interface VisualElementOnDesktopProps {
 
 export const VisualElementOnDesktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
   return (
-    <Switch fallback={<div>unknown item type '{props.visualElement.item.itemType}'</div>}>
+    <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.item.itemType}'</div>}>
       <Match when={isPage(props.visualElement.item)}><Page {...props} /></Match>
       <Match when={isNote(props.visualElement.item)}><Note {...props} /></Match>
       <Match when={isTable(props.visualElement.item)}><Table {...props} /></Match>
       <Match when={isImage(props.visualElement.item)}><Image {...props} /></Match>
       <Match when={isFile(props.visualElement.item)}><File {...props} /></Match>
       <Match when={isRating(props.visualElement.item)}><Rating {...props} /></Match>
+      <Match when={isPlaceholder(props.visualElement.item)}><Placeholder {...props} /></Match>
     </Switch>
   );
 }

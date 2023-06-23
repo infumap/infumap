@@ -32,6 +32,7 @@ import { asPageItem, asPageMeasurable, calcGeometryOfPageAttachmentItem, calcGeo
 import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingAttachmentItem, calcGeometryOfRatingItem, calcGeometryOfRatingItemInCell, calcGeometryOfRatingItemInTable, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject } from '../rating-item';
 import { asTableItem, asTableMeasurable, calcGeometryOfTableAttachmentItem, calcGeometryOfTableItem, calcGeometryOfTableItemInCell, calcGeometryOfTableItemInTable, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject } from '../table-item';
 import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItemInTable } from './item';
+import { asPlaceholderItem, calcGeometryOfPlaceholderAttachmentItem, calcGeometryOfPlaceholderItem, calcGeometryOfPlaceholderItemInCell, calcGeometryOfPlaceholderItemInTable, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject } from '../placeholder-item';
 
 
 // Poor man's polymorphism
@@ -44,6 +45,7 @@ export function calcSizeForSpatialBl(measurable: Measurable, getItem: (id: Uid) 
   if (isFile(measurable)) { return calcFileSizeForSpatialBl(asFileMeasurable(measurable)); }
   if (isRating(measurable)) { return calcRatingSizeForSpatialBl(asRatingMeasurable(measurable)); }
   if (isLink(measurable)) { return calcLinkSizeForSpatialBl(asLinkItem(measurable), getItem); }
+  if (isPlaceholder(measurable)) { return calcPlaceholderSizeForSpatialBl(asPlaceholderItem(measurable)); }
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
@@ -55,6 +57,7 @@ export function calcGeometryOfItemInPage(measurable: Measurable, containerBounds
   if (isFile(measurable)) { return calcGeometryOfFileItem(asFileMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup); }
   if (isRating(measurable)) { return calcGeometryOfRatingItem(asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup); }
   if (isLink(measurable)) { return calcGeometryOfLinkItem(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup, getItem); }
+  if (isPlaceholder(measurable)) { return calcGeometryOfPlaceholderItem(asPlaceholderItem(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup); }
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
@@ -66,6 +69,7 @@ export function calcGeometryOfAttachmentItem(measurable: Measurable, parentBound
   if (isFile(measurable)) { return calcGeometryOfFileAttachmentItem(asFileMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
   if (isRating(measurable)) { return calcGeometryOfRatingAttachmentItem(asRatingMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
   if (isLink(measurable)) { return calcGeometryOfLinkAttachmentItem(asLinkItem(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
+  if (isPlaceholder(measurable)) { return calcGeometryOfPlaceholderAttachmentItem(asPlaceholderItem(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
@@ -78,6 +82,7 @@ export function calcGeometryOfItemInTable(measurable: Measurable, blockSizePx: D
   if (isFile(measurable)) { return calcGeometryOfFileItemInTable(asFileMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isRating(measurable)) { return calcGeometryOfRatingItemInTable(asRatingMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isLink(measurable)) { return calcGeometryOfLinkItemInTable(asLinkItem(measurable), blockSizePx, row, col, widthBl, getItem); }
+  if (isPlaceholder(measurable)) { return calcGeometryOfPlaceholderItemInTable(asPlaceholderItem(measurable), blockSizePx, row, col, widthBl); }
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
@@ -89,6 +94,7 @@ export function calcGeometryOfItemInCell(measurable: Measurable, cellBoundsPx: B
   if (isFile(measurable)) { return calcGeometryOfFileItemInCell(asFileMeasurable(measurable), cellBoundsPx); }
   if (isRating(measurable)) { return calcGeometryOfRatingItemInCell(asRatingMeasurable(measurable), cellBoundsPx); }
   if (isLink(measurable)) { return calcGeometryOfLinkItemInCell(asLinkItem(measurable), cellBoundsPx, getItem); }
+  if (isPlaceholder(measurable)) { return calcGeometryOfPlaceholderItemInCell(asPlaceholderItem(measurable), cellBoundsPx); }
   throw throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
@@ -100,6 +106,7 @@ export function itemFromObject(o: any): Item {
   if (isFile(o)) { return fileFromObject(o); }
   if (isRating(o)) { return ratingFromObject(o); }
   if (isLink(o)) { return linkFromObject(o); }
+  if (isPlaceholder(o)) { return placeholderFromObject(o); }
   throwExpression(`Unknown item type: ${o.itemType}`);
 }
 
@@ -111,6 +118,7 @@ export function itemToObject(item: Item): object {
   if (isFile(item)) { return fileToObject(asFileItem(item)); }
   if (isRating(item)) { return ratingToObject(asRatingItem(item)); }
   if (isLink(item)) { return linkToObject(asLinkItem(item)); }
+  if (isPlaceholder(item)) { return placeholderToObject(asPlaceholderItem(item)); }
   throwExpression(`Unknown item type: ${item.itemType}`);
 }
 
@@ -123,6 +131,7 @@ export function handleClick(visualElementSignal: VisualElementSignal, desktopSto
   else if (isFile(item)) { handleFileClick(asFileItem(item)); }
   else if (isRating(item)) { handleRatingClick(desktopStore, visualElementSignal); }
   else if (isLink(item)) { }
+  else if (isPlaceholder(item)) { panic(); }
   else { throwExpression(`Unknown item type: ${item.itemType}`); }
 }
 
@@ -135,6 +144,7 @@ export function handlePopupClick(visualElement: VisualElement, desktopStore: Des
   else if (isFile(item)) { }
   else if (isRating(item)) { }
   else if (isLink(item)) { }
+  else if (isPlaceholder(item)) { panic!() }
   else { throwExpression(`Unknown item type: ${item.itemType}`); }
 }
 
@@ -146,5 +156,6 @@ export function cloneMeasurableFields(measurable: Measurable): Measurable {
   else if (isFile(measurable)) { return cloneFileMeasurableFields(asFileMeasurable(measurable)); }
   else if (isRating(measurable)) { return cloneRatingMeasurableFields(asRatingMeasurable(measurable)); }
   else if (isLink(measurable)) { panic(); }
+  else if (isPlaceholder(measurable)) { return clonePlaceholderMeasurableFields(asPlaceholderItem(measurable)); }
   else { throwExpression(`Unknown item type: ${measurable.itemType}`); }
 }

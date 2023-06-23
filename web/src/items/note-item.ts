@@ -20,7 +20,7 @@ import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants
 import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { newUid, Uid } from '../util/uid';
+import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_NOTE, ITEM_BORDER_WIDTH_PX, Item } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
@@ -40,6 +40,7 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem {
+  if (parentId == EMPTY_UID) { panic(); }
   return {
     itemType: ITEM_TYPE_NOTE,
     ownerId,

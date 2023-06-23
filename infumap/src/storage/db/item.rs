@@ -892,7 +892,9 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
 
     // positionable
     spatial_position_gr: match json::get_vector_field(map, "spatialPositionGr")? {
-      Some(v) => { if is_positionable(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialPositionGr", item_type, &id)) } },
+      Some(v) => {
+        if is_positionable(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialPositionGr", item_type, &id)) }
+      },
       None => { if is_positionable(item_type) { Err(expected_for_err("spatialPositionGr", item_type, &id)) } else { Ok(None) } }
     }?,
 

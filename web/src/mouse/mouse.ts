@@ -22,24 +22,25 @@ import { server } from "../server";
 import { calcSizeForSpatialBl, handleClick, handlePopupClick } from "../items/base/item-polymorphism";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
+import { asPageItem, calcPageInnerSpatialDimensionsBl } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { EMPTY_UID } from "../util/uid";
 import { compareOrderings } from "../util/ordering";
 import { VisualElement, VisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { batch } from "solid-js";
-import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { getHitInfo } from "./hitInfo";
-import { asPositionalItem } from "../items/base/positional-item";
+import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
+import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
+import { Item } from "../items/base/item";
 
 
 const MOUSE_LEFT = 0;
@@ -55,17 +56,19 @@ enum MouseAction {
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
   activeElement: VisualElementPath,
-  moveOverContainerElement: VisualElementPath | null,
-  moveOverAttachElement: VisualElementPath | null,
-  scaleDefiningElement: VisualElementPath | null,
+  moveOver_containerElement: VisualElementPath | null,
+  moveOver_attachHitboxElement: VisualElementPath | null,
+  moveOver_scaleDefiningElement: VisualElementPath | null,
   startPx: Vector,
   startPosBl: Vector | null,
-  clickOffsetProp: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
+  startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
+  clickOffsetProp: Vector | null,
   hitMeta: HitboxMeta | null,
   action: MouseAction,
   onePxSizeBl: Vector,
+  newPlaceholderItem: PlaceholderItem | null,
 }
 let mouseActionState: MouseActionState | null = null;
 
@@ -135,24 +138,48 @@ export function mouseLeftDownHandler(
     x: (startPx.x - desktopBoundsPx.x) / desktopBoundsPx.w,
     y: (startPx.y - desktopBoundsPx.y) / desktopBoundsPx.h
   };
+  const startAttachmentsItem = calcStartTableItemMaybe(desktopStore, activeItem);
   mouseActionState = {
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
-    moveOverContainerElement: null,
-    moveOverAttachElement: null,
-    scaleDefiningElement: visualElementToPath(
+    moveOver_containerElement: null,
+    moveOver_attachHitboxElement: null,
+    moveOver_scaleDefiningElement: visualElementToPath(
       getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [hitInfo.overElementVes.get().item.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
     startPx,
     startPosBl,
-    clickOffsetProp,
     startWidthBl,
     startHeightBl,
+    startAttachmentsItem,
+    clickOffsetProp,
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
+    newPlaceholderItem: null,
   }
 }
 
+function calcStartTableItemMaybe(desktopStore: DesktopStoreContextModel, item: Item): AttachmentsItem | null {
+  if (item.parentId == null) {
+    return null;
+  }
+
+  if (item.relationshipToParent != "attachment") {
+    return null;
+  }
+
+  let parent = desktopStore.getItem(item.parentId)!;
+  if (parent.parentId == null) {
+    return null;
+  }
+
+  let parentParent = desktopStore.getItem(parent.parentId)!;
+  if (!isTable(parentParent)) {
+    return null;
+  }
+
+  return asAttachmentsItem(parent);
+}
 
 // **** RIGHT DOWN ****
 export function mouseRightDownHandler(
@@ -219,14 +246,17 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           mouseActionState.startHeightBl = null;
         }
         mouseActionState.action = MouseAction.Resizing;
+
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
         mouseActionState.startPosBl = null;
         mouseActionState.startHeightBl = null;
         const colNum = mouseActionState.hitMeta?.resizeColNumber!;
         mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
         mouseActionState.action = MouseAction.ColResizing;
+
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
-        if (isTable(desktopStore.getItem(activeItem.parentId)!)) {
+        const parentItem = desktopStore.getItem(activeItem.parentId)!;
+        if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
           moveActiveItemOutOfTable(desktopStore);
         }
         mouseActionState.startWidthBl = null;
@@ -236,6 +266,10 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           y: activeItem.spatialPositionGr.y / GRID_SIZE
         };
         mouseActionState.action = MouseAction.Moving;
+        const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+        if (activeItem.relationshipToParent == Attachment) {
+          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev), Attachment);
+        }
       }
     }
   }
@@ -291,31 +325,30 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id], false);
 
     // update move over element state.
-    if (mouseActionState.moveOverContainerElement == null ||
-        mouseActionState.moveOverContainerElement! != visualElementToPath(hitInfo.overContainerVe!)) {
-      if (mouseActionState.moveOverContainerElement != null) {
-        visualElementSignalFromPath(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);
+    if (mouseActionState.moveOver_containerElement == null ||
+        mouseActionState.moveOver_containerElement! != visualElementToPath(hitInfo.overContainerVe!)) {
+      if (mouseActionState.moveOver_containerElement != null) {
+        visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_containerElement).get().movingItemIsOver.set(false);
       }
       hitInfo.overContainerVe!.movingItemIsOver.set(true);
-      mouseActionState.moveOverContainerElement = visualElementToPath(hitInfo.overContainerVe!);
+      mouseActionState.moveOver_containerElement = visualElementToPath(hitInfo.overContainerVe!);
     }
 
     // update move over attach state.
     batch(() => {
-      if (mouseActionState!.moveOverAttachElement != null) {
-        visualElementSignalFromPath(desktopStore, mouseActionState!.moveOverAttachElement).get().movingItemIsOverAttach.set(false);
+      if (mouseActionState!.moveOver_attachHitboxElement != null) {
+        visualElementSignalFromPath(desktopStore, mouseActionState!.moveOver_attachHitboxElement).get().movingItemIsOverAttach.set(false);
       }
       if (hitInfo.hitboxType & HitboxType.Attach) {
         hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
-        mouseActionState!.moveOverAttachElement = visualElementToPath(hitInfo.overElementVes.get());
+        mouseActionState!.moveOver_attachHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
       } else {
-        mouseActionState!.moveOverAttachElement = null;
+        mouseActionState!.moveOver_attachHitboxElement = null;
       }
     });
 
-    if (visualElementSignalFromPath(desktopStore, mouseActionState.scaleDefiningElement!).get().item != hitInfo.overPositionableVe!.item ||
-        activeItem.relationshipToParent == Attachment) {
-      moveActiveItemToDifferentPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev));
+    if (visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_scaleDefiningElement!).get().item != hitInfo.overPositionableVe!.item) {
+      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev), Child);
     }
 
     if (isTable(hitInfo.overContainerVe!.item)) {
@@ -330,7 +363,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     let newPosBl = vectorAdd(mouseActionState.startPosBl!, deltaBl);
     newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
-    const inElement = visualElementSignalFromPath(desktopStore, mouseActionState.scaleDefiningElement!).get().item;
+    const inElement = visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_scaleDefiningElement!).get().item;
     const dimBl = calcPageInnerSpatialDimensionsBl(asPageItem(inElement));
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
@@ -417,7 +450,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   }
 }
 
-export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector) {
+export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string) {
   const activeItem = asPositionalItem(visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get().item);
   const currentParent = desktopStore.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.item);
@@ -428,28 +461,37 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
     y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
   const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem, desktopStore.getItem);
-  const clickOffsetInActiveItemBl = {
-    x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x * 2.0) / 2.0,
-    y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y * 2.0) / 2.0
-  }
+  const clickOffsetInActiveItemBl = relationshipToParent == Child
+    ? { x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x * 2.0) / 2.0,
+        y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y * 2.0) / 2.0 }
+    : { x: 0, y: 0 };
   const newItemPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
   const newItemPosGr = { x: newItemPosBl.x * GRID_SIZE, y: newItemPosBl.y * GRID_SIZE };
   mouseActionState!.startPx = desktopPx;
   mouseActionState!.startPosBl = newItemPosBl;
   const moveToVisualPathString = visualElementToPath(moveToVe);
   activeItem.parentId = moveToVe.item.id;
+  let oldActiveItemOrdering = activeItem.ordering;
   activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveToVe.item.id);
   activeItem.spatialPositionGr = newItemPosGr;
   activeItem.relationshipToParent = Child;
   moveToPage.computed_children = [activeItem.id, ...moveToPage.computed_children];
-  if (isContainer(currentParent)) {
+  if (relationshipToParent == Child) {
     asContainerItem(currentParent).computed_children
       = asContainerItem(currentParent).computed_children.filter(childItem => childItem != activeItem.id);
   }
-  if (isAttachmentsItem(currentParent)) {
-    asAttachmentsItem(currentParent).computed_attachments
-      = asAttachmentsItem(currentParent).computed_attachments.filter(childItem => childItem != activeItem.id);
+  else if (relationshipToParent == Attachment) {
+    const parent = asAttachmentsItem(currentParent);
+    const isLast = parent.computed_attachments[asAttachmentsItem(currentParent).computed_attachments.length-1] == activeItem.id;
+    parent.computed_attachments = parent.computed_attachments.filter(childItem => childItem != activeItem.id);
+    if (!isLast) {
+      const placeholderItem = newPlaceholderItem(activeItem.ownerId, currentParent.id, Attachment, oldActiveItemOrdering);
+      desktopStore.addItem(placeholderItem);
+      mouseActionState!.newPlaceholderItem = placeholderItem;
+    }
+    mouseActionState!.startAttachmentsItem = parent;
   }
+
   arrange(desktopStore);
 
   let done = false;
@@ -469,7 +511,7 @@ export function moveActiveItemToDifferentPage(desktopStore: DesktopStoreContextM
   done = false;
   visualElementsWithId(desktopStore, moveToPage.id).forEach(ve => {
     if (visualElementToPath(ve.get()) == moveToVisualPathString) {
-      mouseActionState!.scaleDefiningElement = visualElementToPath(ve.get());
+      mouseActionState!.moveOver_scaleDefiningElement = visualElementToPath(ve.get());
       done = true;
     }
   });
@@ -541,106 +583,9 @@ export function mouseUpHandler(
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(activeVisualElement.item);
 
-  if (mouseActionState.moveOverContainerElement != null) {
-    visualElementSignalFromPath(desktopStore, mouseActionState.moveOverContainerElement).get().movingItemIsOver.set(false);
-  }
-
   switch (mouseActionState.action) {
     case MouseAction.Moving:
-      const overVe = visualElementSignalFromPath(desktopStore, mouseActionState.moveOverContainerElement!).get();
-
-      if (mouseActionState.moveOverAttachElement != null) {
-        const prevParentId = activeItem.parentId;
-
-        const attachToVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState.moveOverAttachElement).get();
-        const attachmentsItem = asAttachmentsItem(attachToVisualElement.item);
-        attachToVisualElement.movingItemIsOverAttach.set(false);
-        mouseActionState.moveOverAttachElement = null;
-
-        activeItem.parentId = attachToVisualElement.item.id;
-        activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-        activeItem.ordering = desktopStore.newOrderingAtEndOfAttachments(attachmentsItem.id);
-        activeItem.relationshipToParent = Attachment;
-
-        const attachments = [activeItem.id, ...attachmentsItem.computed_attachments];
-        attachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-        attachmentsItem.computed_attachments = attachments;
-
-        const prevParent = desktopStore.getContainerItem(prevParentId)!;
-        prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
-        arrange(desktopStore);
-
-        server.updateItem(desktopStore.getItem(activeItem.id)!);
-      }
-
-      else {
-        const moveOverContainerId = overVe.item.id;
-        if (moveOverContainerId == activeItem.id) {
-          // TODO (HIGH): more rigorous check of entire hierarchy.
-          // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
-          throwExpression("Attempt was made to move an item into itself.");
-        }
-
-        const parentChanged = moveOverContainerId != activeItem.parentId;
-        if (parentChanged) {
-          const prevParentId = activeItem.parentId;
-
-          activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-
-          if (isTable(overVe.item)) {
-            if (overVe.moveOverColAttachmentNumber.get() >= 0) {
-              const tableItem = asTableItem(overVe.item);
-              let rowNumber = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get() - 1;
-              if (rowNumber < 0) { rowNumber = 0; }
-
-              const childId = tableItem.computed_children[rowNumber];
-              const child = asAttachmentsItem(desktopStore.getItem(childId)!);
-              const insertPosition = overVe.moveOverColAttachmentNumber.get();
-              activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
-              activeItem.relationshipToParent = Attachment;
-              activeItem.parentId = childId;
-              const childAttachments = [activeItem.id, ...child.computed_attachments];
-              childAttachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-              child.computed_attachments = childAttachments;
-
-              const prevParent = desktopStore.getContainerItem(prevParentId)!;
-              prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
-              arrange(desktopStore);
-
-              server.updateItem(desktopStore.getItem(activeItem.id)!);
-              break;
-
-            } // else {
-            const insertPosition = overVe.moveOverRowNumber.get() + asTableItem(overVe.item).scrollYProp.get();
-            activeItem.ordering = desktopStore.newOrderingAtChildrenPosition(moveOverContainerId, insertPosition);
-            // }
-          } else {
-            activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
-          }
-
-          activeItem.parentId = moveOverContainerId;
-
-          const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
-          const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
-          moveOverContainerChildren.sort(
-            (a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
-          moveOverContainer.computed_children = moveOverContainerChildren;
-
-          const prevParent = desktopStore.getContainerItem(prevParentId)!;
-          prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
-          arrange(desktopStore);
-        }
-
-        if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-            mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y ||
-            parentChanged) {
-          server.updateItem(desktopStore.getItem(activeItem.id)!);
-        }
-      }
-
+      mouseUpHandler_moving(desktopStore, activeItem);
       break;
 
     case MouseAction.Resizing:
@@ -674,4 +619,199 @@ export function mouseUpHandler(
   }
 
   mouseActionState = null;
+}
+
+
+function mouseUpHandler_moving(
+    desktopStore: DesktopStoreContextModel,
+    activeItem: PositionalItem) {
+  if (mouseActionState == null) { return; } // make typsecript happy
+
+  if (mouseActionState.moveOver_containerElement != null) {
+    visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_containerElement).get()
+      .movingItemIsOver.set(false);
+  }
+
+  if (mouseActionState.moveOver_attachHitboxElement != null) {
+    // does not include case of move into table cells that are attachments.
+    mouseUpHandler_moving_hitboxAttachTo(desktopStore, activeItem);
+    return;
+  }
+
+  const overContainerVe = visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_containerElement!).get();
+
+  if (isTable(overContainerVe.item)) {
+    mouseUpHandler_moving_toTable(desktopStore, activeItem, overContainerVe);
+    return;
+  }
+
+  if (overContainerVe.item.id != activeItem.parentId) {
+    mouseUpHandler_moving_toOpaquePage(desktopStore, activeItem, overContainerVe);
+    return;
+  }
+
+  // root page
+  if (mouseActionState.startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
+      mouseActionState.startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+    server.updateItem(desktopStore.getItem(activeItem.id)!);
+  }
+
+  cleanupAndPersistPlaceholders(desktopStore);
+
+  arrange(desktopStore);
+}
+
+function cleanupAndPersistPlaceholders(desktopStore: DesktopStoreContextModel) {
+  if (mouseActionState!.startAttachmentsItem == null) {
+    return;
+  }
+
+  if (mouseActionState!.newPlaceholderItem != null) {
+    server.addItem(mouseActionState!.newPlaceholderItem!, null);
+  }
+
+  const placeholderParent = mouseActionState!.startAttachmentsItem!;
+
+  while (true) {
+    const attachments = placeholderParent.computed_attachments;
+    if (attachments.length == 0) { break; }
+    const attachmentId = placeholderParent.computed_attachments[placeholderParent.computed_attachments.length-1];
+    const attachment = desktopStore.getItem(attachmentId)!;
+    if (attachment == null) { panic(); }
+    if (!isPlaceholder(attachment)) {
+      break;
+    }
+    server.deleteItem(attachment.id);
+    desktopStore.deleteItem(attachment.id);
+  }
+
+  mouseActionState!.newPlaceholderItem = null;
+  mouseActionState!.startAttachmentsItem = null;
+}
+
+function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+  const prevParentId = activeItem.parentId;
+
+  const attachToVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState!.moveOver_attachHitboxElement!).get();
+  const attachmentsItem = asAttachmentsItem(attachToVisualElement.item);
+  attachToVisualElement.movingItemIsOverAttach.set(false);
+  mouseActionState!.moveOver_attachHitboxElement = null;
+
+  if (attachmentsItem.id == activeItem.id) {
+    // TODO (MEDIUM): More rigorous recursive check. also server side.
+    throwExpression("Attempt was made to attach an item to itself.");
+  }
+
+  activeItem.parentId = attachToVisualElement.item.id;
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  activeItem.ordering = desktopStore.newOrderingAtEndOfAttachments(attachmentsItem.id);
+  activeItem.relationshipToParent = Attachment;
+
+  const attachments = [activeItem.id, ...attachmentsItem.computed_attachments];
+  attachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+  attachmentsItem.computed_attachments = attachments;
+
+  const prevParent = desktopStore.getContainerItem(prevParentId)!;
+  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
+
+  cleanupAndPersistPlaceholders(desktopStore);
+
+  arrange(desktopStore);
+
+  server.updateItem(desktopStore.getItem(activeItem.id)!);
+}
+
+function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  const moveOverContainerId = overContainerVe.item.id;
+
+  if (moveOverContainerId == activeItem.id) {
+    // TODO (HIGH): more rigorous check of entire hierarchy.
+    // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
+    throwExpression("Attempt was made to move an item into itself.");
+  }
+
+  const prevParentId = activeItem.parentId;
+
+  if (isTable(overContainerVe.item)) {
+    panic();
+  }
+
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 }; // case only covers move into opaque pages. parent changed during move for translucent.
+  activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(moveOverContainerId);
+  activeItem.parentId = moveOverContainerId;
+
+  const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
+  const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
+  moveOverContainerChildren.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+  moveOverContainer.computed_children = moveOverContainerChildren;
+
+  const prevParent = desktopStore.getContainerItem(prevParentId)!;
+  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
+
+  server.updateItem(desktopStore.getItem(activeItem.id)!);
+
+  cleanupAndPersistPlaceholders(desktopStore);
+
+  arrange(desktopStore);
+}
+
+function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  const prevParentId = activeItem.parentId;
+  const moveOverContainerId = overContainerVe.item.id;
+
+  if (moveOverContainerId == activeItem.id) {
+    // TODO (HIGH): more rigorous check of entire hierarchy.
+    // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
+    throwExpression("Attempt was made to move an item into itself.");
+  }
+
+  if (overContainerVe.moveOverColAttachmentNumber.get() >= 0) {
+    mouseUpHandler_moving_toTable_attachmentCell(desktopStore, activeItem, overContainerVe);
+    return;
+  }
+
+  const insertPosition = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get();
+  activeItem.ordering = desktopStore.newOrderingAtChildrenPosition(moveOverContainerId, insertPosition);
+  activeItem.parentId = moveOverContainerId;
+
+  const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
+  const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
+  moveOverContainerChildren.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+  moveOverContainer.computed_children = moveOverContainerChildren;
+
+  const prevParent = desktopStore.getContainerItem(prevParentId)!;
+  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
+
+  cleanupAndPersistPlaceholders(desktopStore);
+
+  arrange(desktopStore);
+
+  server.updateItem(desktopStore.getItem(activeItem.id)!);
+}
+
+function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  const prevParentId = activeItem.parentId;
+
+  const tableItem = asTableItem(overContainerVe.item);
+  let rowNumber = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get() - 1;
+  if (rowNumber < 0) { rowNumber = 0; }
+
+  const childId = tableItem.computed_children[rowNumber];
+  const child = asAttachmentsItem(desktopStore.getItem(childId)!);
+  const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
+  activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
+  activeItem.relationshipToParent = Attachment;
+  activeItem.parentId = childId;
+  const childAttachments = [activeItem.id, ...child.computed_attachments];
+  childAttachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
+  child.computed_attachments = childAttachments;
+
+  const prevParent = desktopStore.getContainerItem(prevParentId)!;
+  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
+
+  cleanupAndPersistPlaceholders(desktopStore);
+
+  arrange(desktopStore);
+
+  server.updateItem(desktopStore.getItem(activeItem.id)!);
 }

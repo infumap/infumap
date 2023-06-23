@@ -32,7 +32,7 @@ export interface HitInfo {
   overElementVes: VisualElementSignal,       // the visual element under the specified position.
   overElementMeta: HitboxMeta | null,        // meta data from hit hitbox of visual element under specified position.
   overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
-  overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position.
+  overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position (for a table this is it's parent page).
 }
 
 

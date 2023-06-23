@@ -31,6 +31,8 @@ import { PageInTable } from "./items/Page";
 import { RatingInTable } from "./items/Rating";
 import { TableInTable } from "./items/Table";
 import { EMPTY_ITEM } from "../items/base/item";
+import { isPlaceholder } from "../items/placeholder-item";
+import { PlaceholderInTable } from "./items/Placeholder";
 
 
 export interface VisualElementInTableProps {
@@ -40,7 +42,7 @@ export interface VisualElementInTableProps {
 
 export const VisualElementInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
   return (
-    <Switch fallback={<div>unknown item type '{props.visualElement.item.itemType}'</div>}>
+    <Switch fallback={<div>VisualElementInTable: unknown item type '{props.visualElement.item.itemType}'</div>}>
       <Match when={props.visualElement.item == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
       <Match when={isPage(props.visualElement.item)}><PageInTable {...props} /></Match>
       <Match when={isTable(props.visualElement.item)}><TableInTable {...props} /></Match>
@@ -48,6 +50,7 @@ export const VisualElementInTable: Component<VisualElementInTableProps> = (props
       <Match when={isImage(props.visualElement.item)}><ImageInTable {...props} /></Match>
       <Match when={isFile(props.visualElement.item)}><FileInTable {...props} /></Match>
       <Match when={isRating(props.visualElement.item)}><RatingInTable {...props} /></Match>
+      <Match when={isPlaceholder(props.visualElement.item)}><PlaceholderInTable {...props} /></Match>
     </Switch>
   );
 }

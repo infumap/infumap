@@ -23,10 +23,10 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './base/item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { newUid, Uid } from '../util/uid';
+import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { server } from '../server';
-import { arrange, rearrangeVisualElement } from '../layout/arrange';
+import { arrange } from '../layout/arrange';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 
@@ -39,6 +39,7 @@ export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin {}
 
 
 export function newRatingItem(ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem {
+  if (parentId == EMPTY_UID) { panic(); }
   return {
     itemType: ITEM_TYPE_RATING,
     ownerId,

@@ -194,38 +194,39 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const setAttachmentItemsFromServerObjects = (parentId: Uid, attachmentItemObject: Array<object>): void => {
     let attachmentItems = attachmentItemObject.map(aio => itemFromObject(aio));
-    batch(() => {
-      if (!isAttachmentsItem(getItem(parentId)!)) {
-        throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${getItem(parentId)!.itemType}' which does not allow attachments.`);
+    if (!isAttachmentsItem(getItem(parentId)!)) {
+      throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${getItem(parentId)!.itemType}' which does not allow attachments.`);
+    }
+    const parent = getAttachmentsItem(parentId)!;
+    let attachments: Array<Uid> = [];
+    attachmentItems.forEach(attachmentItem => {
+      items[attachmentItem.id] = attachmentItem;
+      if (attachmentItem.parentId != parentId) {
+        throwExpression(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
       }
-      const parent = getAttachmentsItem(parentId)!;
-      let attachments: Array<Uid> = [];
-      attachmentItems.forEach(attachmentItem => {
-        items[attachmentItem.id] = attachmentItem;
-        if (attachmentItem.parentId != parentId) {
-          throwExpression(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
-        }
-        if (attachmentItem.relationshipToParent != Attachment) {
-          throwExpression(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
-        }
-        attachments.push(attachmentItem.id);
-      });
-      attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
-      parent.computed_attachments = attachments;
+      if (attachmentItem.relationshipToParent != Attachment) {
+        throwExpression(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
+      }
+      attachments.push(attachmentItem.id);
     });
+    attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+    parent.computed_attachments = attachments;
   };
 
 
   const addItem = (item: Item): void => {
-    batch(() => {
-      items[item.id] = item;
-      if (item.relationshipToParent == Child) {
-        const parentItem = getContainerItem(item.parentId)!;
-        parentItem.computed_children = [...parentItem.computed_children, item.id];
-      } else {
-        throwExpression("only support child relationships currently");
-      }
-    });
+    items[item.id] = item;
+    if (item.relationshipToParent == Child) {
+      const parentItem = getContainerItem(item.parentId)!;
+      parentItem.computed_children = [...parentItem.computed_children, item.id];
+      parentItem.computed_children.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+    } else if (item.relationshipToParent == Attachment) {
+      const parentItem = getAttachmentsItem(item.parentId)!;
+      parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
+      parentItem.computed_attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+    } else {
+      throwExpression(`unsupported relationship to parent: ${item.relationshipToParent}.`);
+    }
   }
 
 
