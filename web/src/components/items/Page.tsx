@@ -38,6 +38,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
   const boundsPx = () => props.visualElement.boundsPx;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
+  const hasPopupClickBoundsPx = (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup) != undefined;
   const attachBoundsPx = (): BoundingBox => {
     return {
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
@@ -80,10 +81,12 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
             </div>
-            <div class={`absolute rounded-sm`}
-                 style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                        `background-color: #ffffff44;`}>
-            </div>
+            <Show when={hasPopupClickBoundsPx()}>
+              <div class={`absolute rounded-sm`}
+                  style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
+                          `background-color: #ffffff44;`}>
+              </div>
+            </Show>
           </Show>
           <Show when={props.visualElement.movingItemIsOver.get()}>
             <div class={`absolute rounded-sm`}
@@ -129,10 +132,12 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
             </div>
-            <div class={`absolute rounded-sm`}
-                 style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                        `background-color: #ffffff44;`}>
-            </div>
+            <Show when={hasPopupClickBoundsPx()}>
+              <div class={`absolute rounded-sm`}
+                  style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
+                          `background-color: #ffffff44;`}>
+              </div>
+            </Show>
           </Show>
           <Show when={props.visualElement.movingItemIsOver.get()}>
             <div class={`absolute rounded-sm`}

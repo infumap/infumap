@@ -62,7 +62,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem {
-  return {
+  return ({
     itemType: ITEM_TYPE_PAGE,
     ownerId,
     id: newUid(),
@@ -91,7 +91,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-  };
+  });
 }
 
 export function pageFromObject(o: any): PageItem {
@@ -176,10 +176,10 @@ export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
 
 
 export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensions {
-  return {
+  return ({
     w: page.innerSpatialWidthGr / GRID_SIZE,
     h: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect)
-  };
+  });
 }
 
 
@@ -199,7 +199,7 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
   };
-  return {
+  return ({
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
       createHitbox(HitboxType.Move, innerBoundsPx),
@@ -208,7 +208,7 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
       createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX } ),
       createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ],
-  };
+  });
 }
 
 
@@ -242,14 +242,14 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
     w: blockSizePx.w * (widthBl - 1),
     h: blockSizePx.h
   };
-  return {
+  return ({
     boundsPx,
     hitboxes: [
       createHitbox(HitboxType.Click, clickAreaBoundsPx),
       createHitbox(HitboxType.OpenPopup, popupClickAreaBoundsPx),
       createHitbox(HitboxType.Move, innerBoundsPx)
     ]
-  };
+  });
 }
 
 
@@ -283,10 +283,10 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
   const hbi = getHitInfo(desktopStore, desktopPosPx, [], false);
   const propX = (desktopPosPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
   const propY = (desktopPosPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
-  return {
+  return ({
     x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
     y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-  };
+  });
 }
 
 
