@@ -26,10 +26,32 @@ import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
 import { logout } from "./Main";
 import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
+import { arrange } from '../layout/arrange';
+import { server } from '../server';
 
+
+const PERSIST_AFTER_MS = 1000;
+let clickTimer: number | null = null;
 
 export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
+
+  const rotateArrangeAlgorithm = () => {
+    const page = asPageItem(desktopStore.topLevelVisualElement()!.item);
+    if (page.arrangeAlgorithm == "grid") {
+      page.arrangeAlgorithm = "spatial-stretch";
+    } else {
+      page.arrangeAlgorithm = "grid";
+    }
+    arrange(desktopStore);
+
+    function clickTimerHandler() {
+      server.updateItem(page);
+      clickTimer = null;
+    }
+    if (clickTimer != null) { clearTimeout(clickTimer); }
+    clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
+  };
 
   return (
     <Show when={desktopStore.topLevelVisualElement().item.itemType != NONE_VISUAL_ELEMENT.item.itemType}>
@@ -43,6 +65,9 @@ export const Toolbar: Component = () => {
           {asPageItem(desktopStore.topLevelVisualElement()!.item).title}
         </div>
         <div class="absolute bottom-0">
+          <div class="ml-[12px] mb-[12px]">
+            <i class="fa fa-refresh cursor-pointer" onclick={rotateArrangeAlgorithm!} />
+          </div>
           <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-user cursor-pointer" onclick={logout!} />
           </div>

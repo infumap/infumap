@@ -151,15 +151,16 @@ export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBo
   });
 }
 
+const PERSIST_AFTER_MS = 1000;
+let clickTimer: number | null = null;
+
 export function handleRatingClick(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void {
   const item = asRatingItem(visualElementSignal.get().item);
   item.rating += 1;
   if (item.rating == 6) { item.rating = 0; }
   arrange(desktopStore); // TODO (LOW): only need to rearrange the element.
 
-  const PERSIST_AFTER_MS = 1000;
-  let clickTimer: number | null = null;
-    function clickTimerHandler() {
+  function clickTimerHandler() {
     server.updateItem(item);
     clickTimer = null;
   }
