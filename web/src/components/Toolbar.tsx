@@ -26,8 +26,9 @@ import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
 import { logout } from "./Main";
 import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
-import { arrange } from '../layout/arrange';
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
 import { server } from '../server';
+import { panic } from '../util/lang';
 
 
 const PERSIST_AFTER_MS = 1000;
@@ -38,11 +39,16 @@ export const Toolbar: Component = () => {
 
   const rotateArrangeAlgorithm = () => {
     const page = asPageItem(desktopStore.topLevelVisualElement()!.item);
-    if (page.arrangeAlgorithm == "grid") {
-      page.arrangeAlgorithm = "spatial-stretch";
+    if (page.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
+      page.arrangeAlgorithm = ARRANGE_ALGO_GRID;
+    } else if (page.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
+      page.arrangeAlgorithm = ARRANGE_ALGO_LIST;
+    } else if (page.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+      page.arrangeAlgorithm = ARRANGE_ALGO_SPATIAL_STRETCH;
     } else {
-      page.arrangeAlgorithm = "grid";
+      panic();
     }
+
     arrange(desktopStore);
 
     function clickTimerHandler() {

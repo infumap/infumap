@@ -30,7 +30,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { arrange, switchToPage } from '../layout/arrange';
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
@@ -79,11 +79,11 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     innerSpatialWidthGr: 60.0 * GRID_SIZE,
     naturalAspect: 2.0,
     backgroundColorIndex: 0,
-    arrangeAlgorithm: "spatial-stretch",
+    arrangeAlgorithm: ARRANGE_ALGO_SPATIAL_STRETCH,
     popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
     popupAlignmentPoint: "center",
     popupWidthGr: 10.0 * GRID_SIZE,
-    gridNumberOfColumns: 10,
+    gridNumberOfColumns: 6,
 
     computed_children: [],
     computed_attachments: [],
@@ -157,7 +157,7 @@ export function pageToObject(p: PageItem): object {
 
 
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
-  if (page.arrangeAlgorithm == "grid") {
+  if (page.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     if (page.childrenLoaded) {
       const numCols = page.gridNumberOfColumns;
       const numRows = Math.ceil(page.computed_children.length / numCols);

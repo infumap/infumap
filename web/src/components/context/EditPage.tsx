@@ -24,7 +24,8 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
-import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { panic } from "../../util/lang";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
@@ -77,10 +78,22 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 
-  let checkElement: HTMLInputElement | undefined;
+  let checkElement_spatial_stretch: HTMLInputElement | undefined;
+  let checkElement_grid: HTMLInputElement | undefined;
+  let checkElement_list: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
-    asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = (checkElement?.checked ? "grid" : "spatial-stretch");
+    let t;
+    if (checkElement_spatial_stretch?.checked) {
+      t = ARRANGE_ALGO_SPATIAL_STRETCH;
+    } else if (checkElement_grid?.checked) {
+      t = ARRANGE_ALGO_GRID;
+    } else if (checkElement_list?.checked) {
+      t = ARRANGE_ALGO_LIST;
+    } else {
+      panic();
+    }
+    asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = t;
     rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 
@@ -98,7 +111,20 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
       <ColorSelector item={props.pageItem} />
       <div><InfuButton text="delete" onClick={deletePage} /></div>
-      <div>is grid: <input ref={checkElement} type="checkbox" checked={props.pageItem.arrangeAlgorithm == "grid"} onClick={changeArrangeAlgo} /></div>
+      <div>
+        <div>
+          <input name="aa" type="radio" ref={checkElement_spatial_stretch} id={ARRANGE_ALGO_SPATIAL_STRETCH} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH} onClick={changeArrangeAlgo} />
+          <label for={ARRANGE_ALGO_SPATIAL_STRETCH}>spatial</label>
+        </div>
+        <div>
+          <input name="aa" type="radio" ref={checkElement_grid} id={ARRANGE_ALGO_GRID} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_GRID} onClick={changeArrangeAlgo} />
+          <label for={ARRANGE_ALGO_GRID}>grid</label>
+        </div>
+        <div>
+          <input name="aa" type="radio" ref={checkElement_list} id={ARRANGE_ALGO_LIST} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_LIST} onClick={changeArrangeAlgo} />
+          <label for={ARRANGE_ALGO_LIST}>list</label>
+        </div>
+      </div>
       <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
     </div>
   );

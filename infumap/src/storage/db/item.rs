@@ -67,6 +67,7 @@ pub enum ArrangeAlgorithm {
   SpatialStretch,
   // SpatialFit,
   Grid,
+  List,
   // Justified,
   // Gallery,
 }
@@ -77,6 +78,7 @@ impl ArrangeAlgorithm {
       ArrangeAlgorithm::SpatialStretch => "spatial-stretch",
       // ArrangeAlgorithm::SpatialFit => "spatial-fit",
       ArrangeAlgorithm::Grid => "grid",
+      ArrangeAlgorithm::List => "list",
       // ArrangeAlgorithm::Justified => "justified",
       // ArrangeAlgorithm::Gallery => "gallery",
     }
@@ -87,6 +89,7 @@ impl ArrangeAlgorithm {
       "spatial-stretch" => Ok(ArrangeAlgorithm::SpatialStretch),
       // "spatial-fit" => Ok(ArrangeAlgorithm::SpatialFit),
       "grid" => Ok(ArrangeAlgorithm::Grid),
+      "list" => Ok(ArrangeAlgorithm::List),
       // "justivied" => Ok(ArrangeAlgorithm::Justified),
       // "gallery" => Ok(ArrangeAlgorithm::Gallery),
       other => Err(format!("Invalid ArrangeAlgorithm value: '{}'.", other).into())

@@ -39,9 +39,12 @@ import { initiateLoadChildItemsIfNotLoaded } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 
+export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
+export const ARRANGE_ALGO_GRID = "grid";
+export const ARRANGE_ALGO_LIST = "list";
+
 
 const POPUP_LINK_ID = newUid();
-
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
   batch(() => {
@@ -84,14 +87,29 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.topLevelPageId() == null) { return; }
   initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.topLevelPageId()!);
   let currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
-  if (currentPage.arrangeAlgorithm == "grid") {
+  if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     arrange_grid(desktopStore);
-  } else {
+  } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
     arrange_spatialStretch(desktopStore);
+  } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    arrange_list(desktopStore);
   }
   mouseMoveNoButtonDownHandler(desktopStore);
 }
 
+const arrange_list = (desktopStore: DesktopStoreContextModel) => {
+  const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
+  const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
+  const topLevelVisualElement = createVisualElement({
+    item: currentPage,
+    isInteractive: true,
+    isDragOverPositioning: true,
+    boundsPx: topLevelPageBoundsPx,
+    childAreaBoundsPx: topLevelPageBoundsPx,
+  });
+
+  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+}
 
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
@@ -187,7 +205,7 @@ export const arrangeItemOnPage = (
     }
   }
 
-  if (isPage(item) && asPageItem(item).arrangeAlgorithm == "grid") {
+  if (isPage(item) && asPageItem(item).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     // Always make sure child items of grid pages are loaded, even if not visible,
     // because they are needed to to calculate the height.
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
@@ -351,7 +369,7 @@ const arrangePageWithChildren = (
   const innerDimensionsBl = calcPageInnerSpatialDimensionsBl(pageItem);
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-  if (pageItem.arrangeAlgorithm == "grid") {
+  if (pageItem.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     console.log("TODO: arrange child grid page.");
   } else {
     pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {

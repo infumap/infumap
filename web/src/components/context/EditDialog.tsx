@@ -22,7 +22,7 @@ import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } fro
 import { EditItem } from "./EditItem";
 
 
-export const editDialogSizePx = { w: 400, h: 400 };
+export const editDialogSizePx = { w: 400, h: 500 };
 
 export function initialEditDialogBounds(desktopStore: DesktopStoreContextModel) {
   let posPx = {
