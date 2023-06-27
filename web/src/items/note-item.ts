@@ -108,7 +108,7 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
   return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -132,11 +132,11 @@ export function calcGeometryOfNoteItem(note: NoteMeasurable, containerBoundsPx: 
   }
 }
 
-export function calcGeometryOfNoteAttachmentItem(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfNoteItem_Attachment(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfNoteItem_ListItem(_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -158,7 +158,7 @@ export function calcGeometryOfNoteItemInTable(_note: NoteMeasurable, blockSizePx
   };
 }
 
-export function calcGeometryOfNoteItemInCell(_note: NoteMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfNoteItem_Cell(_note: NoteMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [

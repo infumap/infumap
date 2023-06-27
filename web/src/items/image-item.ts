@@ -112,7 +112,7 @@ export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
   return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
 }
 
-export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfImageItem_Desktop(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -136,11 +136,11 @@ export function calcGeometryOfImageItem(image: ImageMeasurable, containerBoundsP
   }
 }
 
-export function calcGeometryOfImageAttachmentItem(image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfImageItem_Attachment(image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfImageItem_LineItem(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -162,7 +162,7 @@ export function calcGeometryOfImageItemInTable(_image: ImageMeasurable, blockSiz
   };
 }
 
-export function calcGeometryOfImageItemInCell(image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfImageItem_Cell(image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   const imageAspect = image.imageSizePx.w / image.imageSizePx.h;
   let boundsPx = (() => {
     let result: BoundingBox;

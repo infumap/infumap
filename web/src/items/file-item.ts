@@ -86,7 +86,7 @@ export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
   return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -110,11 +110,11 @@ export function calcGeometryOfFileItem(file: FileMeasurable, containerBoundsPx: 
   }
 }
 
-export function calcGeometryOfFileAttachmentItem(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfFileItem_LineItem(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -136,7 +136,7 @@ export function calcGeometryOfFileItemInTable(_file: FileMeasurable, blockSizePx
   };
 }
 
-export function calcGeometryOfFileItemInCell(_file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfFileItem_Cell(_file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [

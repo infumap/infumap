@@ -74,15 +74,15 @@ export function calcPlaceholderSizeForSpatialBl(_item: PlaceholderMeasurable): D
   return { w: 1.0, h: 1.0 };
 }
 
-export function calcGeometryOfPlaceholderItem(_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfPlaceholderItem_Desktop(_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
   panic();
 }
 
-export function calcGeometryOfPlaceholderAttachmentItem(placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfPlaceholderItem_Attachment(placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfPlaceholderItemInTable(_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfPlaceholderItem_LineItem(_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,
@@ -95,7 +95,7 @@ export function calcGeometryOfPlaceholderItemInTable(_placeholder: PlaceholderMe
   };
 }
 
-export function calcGeometryOfPlaceholderItemInCell(_placeholder: PlaceholderMeasurable, _cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfPlaceholderItem_Cell(_placeholder: PlaceholderMeasurable, _cellBoundsPx: BoundingBox): ItemGeometry {
   panic();
 }
 

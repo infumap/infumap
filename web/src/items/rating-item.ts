@@ -94,7 +94,7 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions 
   return { w: 1.0, h: 1.0 };
 }
 
-export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -116,11 +116,11 @@ export function calcGeometryOfRatingItem(rating: RatingMeasurable, containerBoun
   }
 }
 
-export function calcGeometryOfRatingAttachmentItem(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfRatingItem_Attachment(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfRatingItem_ListItem(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -142,7 +142,7 @@ export function calcGeometryOfRatingItemInTable(_rating: RatingMeasurable, block
   };
 }
 
-export function calcGeometryOfRatingItemInCell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfRatingItem_Cell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [

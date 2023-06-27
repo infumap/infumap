@@ -122,19 +122,19 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
   return calcSizeForSpatialBl(constructLinkToMeasurable(link, getItem), getItem);
 }
 
-export function calcGeometryOfLinkItem(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfItem_Desktop(constructLinkToMeasurable(link, getItem), parentBoundsPx, parentInnerSizeBl, emitHitboxes, parentIsPopup, getItem)
 }
 
-export function calcGeometryOfLinkAttachmentItem(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_Attachment(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfItem_Attachment(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfLinkItemInTable(link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_LineItem(link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfItem_LineItem(constructLinkToMeasurable(link, getItem), blockSizePx, row, col, widthBl, getItem);
 }
 
-export function calcGeometryOfLinkItemInCell(link: LinkItem, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfItem_Cell(constructLinkToMeasurable(link, getItem), cellBoundsPx, getItem);
 }
 

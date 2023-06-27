@@ -130,7 +130,7 @@ export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
   return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
 }
 
-export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const tableSizeBl: Dimensions = calcTableSizeForSpatialBl(table);
   const innerBoundsPx: BoundingBox = {
     x: 0.0,
@@ -171,11 +171,11 @@ export function calcGeometryOfTableItem(table: TableMeasurable, containerBoundsP
   };
 }
 
-export function calcGeometryOfTableAttachmentItem(table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfTableItem_Attachment(table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(table, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
-export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfTableItem_ListItem(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -194,7 +194,7 @@ export function calcGeometryOfTableItemInTable(_table: TableMeasurable, blockSiz
   };
 }
 
-export function calcGeometryOfTableItemInCell(_table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfTableItem_Cell(_table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return {
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [ createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx)) ]

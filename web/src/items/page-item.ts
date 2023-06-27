@@ -183,7 +183,7 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 }
 
 
-export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0, y: 0.0,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
@@ -212,12 +212,12 @@ export function calcGeometryOfPageItem(page: PageMeasurable, containerBoundsPx: 
 }
 
 
-export function calcGeometryOfPageAttachmentItem(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, getItem);
 }
 
 
-export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfPageItem_LineItem(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,
@@ -253,7 +253,7 @@ export function calcGeometryOfPageItemInTable(_page: PageMeasurable, blockSizePx
 }
 
 
-export function calcGeometryOfPageItemInCell(_page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfPageItem_Cell(_page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   return ({
     boundsPx: cloneBoundingBox(cellBoundsPx)!,
     hitboxes: [
