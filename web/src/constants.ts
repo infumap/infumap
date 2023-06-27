@@ -36,5 +36,7 @@ export const MOUSE_MOVE_AMBIGUOUS_PX = 5;
 
 export const CHILD_ITEMS_VISIBLE_WIDTH_BL = 6;
 
+export const LIST_PAGE_LIST_WIDTH_BL = 8;
+
 // TODO (MEDIUM)
 export const CHILD_ITEMS_INTERACTABLE_WIDTH_BL = 20;

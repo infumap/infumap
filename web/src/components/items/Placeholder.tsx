@@ -17,12 +17,11 @@
 */
 
 import { Component } from "solid-js";
-import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
 
 
-export const Placeholder: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Placeholder_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const boundsPx = () => props.visualElement.boundsPx;
 
   return (
@@ -34,7 +33,7 @@ export const Placeholder: Component<VisualElementOnDesktopProps> = (props: Visua
 }
 
 
-export const PlaceholderInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const Placeholder_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const boundsPx = () => {
     let result = cloneBoundingBox(props.visualElement.boundsPx)!;
     result.y = result.y + 2;

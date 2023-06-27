@@ -22,12 +22,11 @@ import { asImageItem } from "../../items/image-item";
 import { asTableItem } from "../../items/table-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
-import { VisualElementInTableProps } from "../VisualElementInTable";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 
 
-export const Image: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.item);
@@ -123,7 +122,7 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
       <div class="absolute pointer-events-none"
            style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementOnDesktop visualElement={attachment.get()} />
+          <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
       </div>
     </Show>
@@ -131,16 +130,13 @@ export const Image: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 }
 
 
-export const ImageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const Image_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => {
-    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return props.parentVisualElement.boundsPx.w / tableWidthBl;
-  }
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
 
   return (
     <>

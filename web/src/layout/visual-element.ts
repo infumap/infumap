@@ -38,6 +38,7 @@ export interface VisualElement {
   // If set, the element is currently being resized, and these were the original bounds.
   resizingFromBoundsPx: BoundingBox | null,
 
+  isLineItem: boolean,             // whether or not to render as a line item or deskop item.
   isInteractive: boolean,          // the visual element can be interacted with.
   isPopup: boolean,                // the visual element is a popup (and thus also a page).
   isInsideTable: boolean,          // the visual element is inside a table.
@@ -47,6 +48,8 @@ export interface VisualElement {
   // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
   boundsPx: BoundingBox,
   childAreaBoundsPx: BoundingBox | null,
+
+  oneBlockWidthPx: number | null,  // for line items only.
 
   row: number | null,  // set only if inside table. the actual row number - i.e. not necessarily the visible row number.
   col: number | null,  // set only if inside table.
@@ -60,10 +63,10 @@ export interface VisualElement {
 
   mouseIsOver: BooleanSignal,
 
-  movingItemIsOver: BooleanSignal,       // for containers only.
-  movingItemIsOverAttach: BooleanSignal, // for attachment items only.
-  moveOverRowNumber: NumberSignal,       // for tables only.
-  moveOverColAttachmentNumber: NumberSignal,       // for tables only.
+  movingItemIsOver: BooleanSignal,            // for containers only.
+  movingItemIsOverAttach: BooleanSignal,      // for attachment items only.
+  moveOverRowNumber: NumberSignal,            // for tables only.
+  moveOverColAttachmentNumber: NumberSignal,  // for tables only.
 }
 
 /**
@@ -74,6 +77,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   item: EMPTY_ITEM,
   linkItemMaybe: null,
   resizingFromBoundsPx: null,
+  isLineItem: false,
   isInteractive: false,
   isPopup: false,
   isInsideTable: false,
@@ -81,6 +85,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   isDragOverPositioning: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
+  oneBlockWidthPx: null,
   col: null,
   row: null,
   hitboxes: [],
@@ -98,6 +103,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 export interface VisualElementOverride {
   item: Item,
   linkItemMaybe?: LinkItem | null,
+  isLineItem?: boolean,
   isPopup?: boolean,
   isInteractive?: boolean,
   isInsideTable?: boolean
@@ -105,6 +111,7 @@ export interface VisualElementOverride {
   isDragOverPositioning?: boolean,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
+  oneBlockWidthPx?: number,
   col?: number,
   row?: number,
   hitboxes?: Array<Hitbox>,
@@ -118,6 +125,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     item: EMPTY_ITEM,
     linkItemMaybe: null,
     resizingFromBoundsPx: null,
+    isLineItem: false,
     isInteractive: false,
     isPopup: false,
     isInsideTable: false,
@@ -125,6 +133,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     isDragOverPositioning: false,
     boundsPx: { x: 0, y: 0, w: 0, h: 0 },
     childAreaBoundsPx: null,
+    oneBlockWidthPx: null,
     col: null,
     row: null,
     hitboxes: [],
@@ -141,12 +150,14 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   result.item = override.item;
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
+  if (typeof(override.isLineItem) != 'undefined') { result.isLineItem = override.isLineItem; }
   if (typeof(override.isInteractive) != 'undefined') { result.isInteractive = override.isInteractive; }
   if (typeof(override.isInsideTable) != 'undefined') { result.isInsideTable = override.isInsideTable; }
   if (typeof(override.isAttachment) != 'undefined') { result.isAttachment = override.isAttachment; }
   if (typeof(override.isDragOverPositioning) != 'undefined') { result.isDragOverPositioning = override.isDragOverPositioning; }
   if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
   if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+  if (typeof(override.oneBlockWidthPx) != 'undefined') { result.oneBlockWidthPx = override.oneBlockWidthPx; }
   if (typeof(override.col) != 'undefined') { result.col = override.col; }
   if (typeof(override.row) != 'undefined') { result.row = override.row; }
   if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }

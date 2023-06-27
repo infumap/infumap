@@ -27,15 +27,15 @@ import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
-import { Page } from "./items/Page";
-import { VisualElementOnDesktopProps } from "./VisualElementOnDesktop";
+import { Page_Desktop } from "./items/Page";
+import { VisualElementProps_Desktop } from "./VisualElement";
 import { VisualElement } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 
 
-export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
 
@@ -173,7 +173,7 @@ export const Desktop: Component<VisualElementOnDesktopProps> = (props: VisualEle
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}
          onscroll={scrollHandler}>
-      <Page visualElement={props.visualElement} />
+      <Page_Desktop visualElement={props.visualElement} />
       <ContextMenu />
       <EditDialog />
     </div>

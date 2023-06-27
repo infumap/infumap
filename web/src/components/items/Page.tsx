@@ -18,19 +18,19 @@
 
 import { Component, createMemo, For, Show } from "solid-js";
 import { asPageItem } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
+import { ARRANGE_ALGO_LIST } from "../../layout/arrange";
 
 
-export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const desktopStore = useDesktopStore();
 
   const SMALL_TOOLBAR_WIDTH_PX = 28;
@@ -101,7 +101,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
             </div>
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
-            <VisualElementOnDesktop visualElement={attachmentVe.get()} />
+            <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
         </Show>
       </div>
@@ -121,7 +121,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
                style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
                       `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
             <For each={props.visualElement.children}>{childVe =>
-              <VisualElementOnDesktop visualElement={childVe.get()} />
+              <VisualElement_Desktop visualElement={childVe.get()} />
             }</For>
           </div>
         </Show>
@@ -152,7 +152,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
             </div>
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
-            <VisualElementOnDesktop visualElement={attachmentVe.get()} />
+            <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
         </div>
         <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
@@ -188,7 +188,7 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
              style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
                     `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
           <For each={props.visualElement.children}>{childVe =>
-            <VisualElementOnDesktop visualElement={childVe.get()} />
+            <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
         </div>
       </>
@@ -200,8 +200,14 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
       <div class={`absolute`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children}>{childVe =>
-          <VisualElementOnDesktop visualElement={childVe.get()} />
+          childVe.get().isLineItem
+            ? <VisualElement_LineItem visualElement={childVe.get()} />
+            : <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
+        <Show when={asPageItem(props.visualElement.item).arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+          <div class={`absolute bg-slate-700`}
+               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}></div>
+        </Show>
       </div>
     );
   }
@@ -225,16 +231,13 @@ export const Page: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 }
 
 
-export const PageInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const desktopStore = useDesktopStore();
 
   const pageItem = () => asPageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => {
-    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return props.parentVisualElement.boundsPx.w / tableWidthBl;
-  }
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
   const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), desktopStore.getItem);
   const aspect = () => dimensionsBl().w / dimensionsBl().h;
   const thumbBoundsPx = () => {

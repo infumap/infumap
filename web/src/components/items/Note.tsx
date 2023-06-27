@@ -19,13 +19,12 @@
 import { Component, createMemo, For, Show } from "solid-js";
 import { asNoteItem, calcNoteSizeForSpatialBl } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
 import { BoundingBox } from "../../util/geometry";
 
 
-export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem()));
@@ -56,7 +55,7 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementOnDesktop visualElement={attachment.get()} />
+          <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
       </Show>
       <Show when={props.visualElement.movingItemIsOverAttach.get()}>
@@ -70,14 +69,11 @@ export const Note: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 }
 
 
-export const NoteInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => {
-    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return props.parentVisualElement.boundsPx.w / tableWidthBl;
-  }
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
   const leftPx = () => props.visualElement.isAttachment
     ? boundsPx().x + oneBlockWidthPx() * 0.15
     : boundsPx().x + oneBlockWidthPx();

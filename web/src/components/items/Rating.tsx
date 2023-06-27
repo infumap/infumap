@@ -19,12 +19,11 @@
 import { Component } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
-import { VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
 
 
-export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const ratingItem = () => asRatingItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const naturalHeightPx = () => LINE_HEIGHT_PX;
@@ -44,13 +43,10 @@ export const Rating: Component<VisualElementOnDesktopProps> = (props: VisualElem
 }
 
 
-export const RatingInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const Rating_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const ratingItem = () => asRatingItem(props.visualElement.item);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
-  const oneBlockWidthPx = () => {
-    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return props.parentVisualElement.boundsPx.w / tableWidthBl;
-  }
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
   const boundsPx = () => {
     let result = props.visualElement.boundsPx;
     result.w = oneBlockWidthPx();

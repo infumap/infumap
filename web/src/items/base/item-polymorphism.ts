@@ -49,7 +49,7 @@ export function calcSizeForSpatialBl(measurable: Measurable, getItem: (id: Uid) 
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function calcGeometryOfItemInPage(measurable: Measurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfItem_Desktop(measurable: Measurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageItem(asPageMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup); }
   if (isTable(measurable)) { return calcGeometryOfTableItem(asTableMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem(asNoteMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, emitHitboxes, parentIsPopup); }
@@ -61,7 +61,7 @@ export function calcGeometryOfItemInPage(measurable: Measurable, containerBounds
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function calcGeometryOfAttachmentItem(measurable: Measurable, parentBoundsPx: BoundingBox, parentSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfItem_Attachment(measurable: Measurable, parentBoundsPx: BoundingBox, parentSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageAttachmentItem(asPageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
   if (isTable(measurable)) { return calcGeometryOfTableAttachmentItem(asTableMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
   if (isNote(measurable)) { return calcGeometryOfNoteAttachmentItem(asNoteMeasurable(measurable), parentBoundsPx, parentSizeBl, index, getItem); }
@@ -73,7 +73,7 @@ export function calcGeometryOfAttachmentItem(measurable: Measurable, parentBound
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function calcGeometryOfItemInTable(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfItem_LineItem(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   if (measurable == EMPTY_ITEM) { return calcGeometryOfEmptyItemInTable(measurable, blockSizePx, row, col, widthBl); }
   if (isPage(measurable)) { return calcGeometryOfPageItemInTable(asPageMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isTable(measurable)) { return calcGeometryOfTableItemInTable(asTableMeasurable(measurable), blockSizePx, row, col, widthBl); }
@@ -86,7 +86,7 @@ export function calcGeometryOfItemInTable(measurable: Measurable, blockSizePx: D
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function calcGeometryOfItemInCell(measurable: Measurable, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfItem_Cell(measurable: Measurable, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageItemInCell(asPageMeasurable(measurable), cellBoundsPx); }
   if (isTable(measurable)) { return calcGeometryOfTableItemInCell(asTableMeasurable(measurable), cellBoundsPx); }
   if (isNote(measurable)) { return calcGeometryOfNoteItemInCell(asNoteMeasurable(measurable), cellBoundsPx); }

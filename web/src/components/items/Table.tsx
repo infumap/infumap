@@ -20,16 +20,16 @@ import { Component, For, onMount, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { HTMLDivElementWithData } from "../../util/html";
-import { VisualElementInTable, VisualElementInTableProps } from "../VisualElementInTable";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
+import { VisualElement_LineItem, VisualElementProps_LineItem, VisualElement_Desktop, VisualElementProps_Desktop } from "../VisualElement";
 import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
+import { panic } from "../../util/lang";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
 
 
-export const Table: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
@@ -107,7 +107,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
             </div>
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
-            <VisualElementOnDesktop visualElement={attachmentVe.get()} />
+            <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
         </div>
         <TableChildArea visualElement={props.visualElement} />
@@ -133,7 +133,7 @@ export const Table: Component<VisualElementOnDesktopProps> = (props: VisualEleme
 }
 
 
-const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   let outerDiv: HTMLDivElementWithData | undefined;
 
   const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
@@ -177,11 +177,12 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
     }
 
     const drawChild = (child: VisualElementSignal) => {
+      if (!child.get().isLineItem) { panic(); }
       return (
         <>
-          <VisualElementInTable visualElement={child.get()} parentVisualElement={props.visualElement} />
+          <VisualElement_LineItem visualElement={child.get()} />
           <For each={child.get().attachments}>{attachment =>
-            <VisualElementInTable visualElement={attachment.get()} parentVisualElement={props.visualElement} />
+            <VisualElement_LineItem visualElement={attachment.get()} />
           }</For>
         </>
       );
@@ -209,14 +210,11 @@ const TableChildArea: Component<VisualElementOnDesktopProps> = (props: VisualEle
 }
 
 
-export const TableInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const Table_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => {
-    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return props.parentVisualElement.boundsPx.w / tableWidthBl;
-  }
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
 
   return (
     <>

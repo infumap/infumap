@@ -124,7 +124,7 @@ export function getHitInfo(
     }
 
     // handle inside table child area.
-    if (isTable(childVisualElement.item) && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+    if (isTable(childVisualElement.item) && !childVisualElement.isLineItem && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
       const tableVisualElementSignal = childVisualElementSignal;
       const tableVisualElement = childVisualElement;
 

@@ -23,7 +23,7 @@ import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem } from "./base/attachments-item";
 import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
-import { calcGeometryOfAttachmentItem, calcGeometryOfItemInCell, calcGeometryOfItemInPage, calcGeometryOfItemInTable, calcSizeForSpatialBl, cloneMeasurableFields } from "./base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_LineItem, calcSizeForSpatialBl, cloneMeasurableFields } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
@@ -123,19 +123,19 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
 }
 
 export function calcGeometryOfLinkItem(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfItemInPage(constructLinkToMeasurable(link, getItem), parentBoundsPx, parentInnerSizeBl, emitHitboxes, parentIsPopup, getItem)
+  return calcGeometryOfItem_Desktop(constructLinkToMeasurable(link, getItem), parentBoundsPx, parentInnerSizeBl, emitHitboxes, parentIsPopup, getItem)
 }
 
 export function calcGeometryOfLinkAttachmentItem(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItem(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, index, getItem);
+  return calcGeometryOfItem_Attachment(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, index, getItem);
 }
 
 export function calcGeometryOfLinkItemInTable(link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfItemInTable(constructLinkToMeasurable(link, getItem), blockSizePx, row, col, widthBl, getItem);
+  return calcGeometryOfItem_LineItem(constructLinkToMeasurable(link, getItem), blockSizePx, row, col, widthBl, getItem);
 }
 
 export function calcGeometryOfLinkItemInCell(link: LinkItem, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfItemInCell(constructLinkToMeasurable(link, getItem), cellBoundsPx, getItem);
+  return calcGeometryOfItem_Cell(constructLinkToMeasurable(link, getItem), cellBoundsPx, getItem);
 }
 
 export function isLink(item: ItemTypeMixin | null): boolean {

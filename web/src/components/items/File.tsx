@@ -19,13 +19,12 @@
 import { Component, createMemo, For, Show } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElementOnDesktop, VisualElementOnDesktopProps } from "../VisualElementOnDesktop";
-import { VisualElementInTableProps } from "../VisualElementInTable";
+import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
 import { BoundingBox } from "../../util/geometry";
 
 
-export const File: Component<VisualElementOnDesktopProps> = (props: VisualElementOnDesktopProps) => {
+export const File: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -53,7 +52,7 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
           <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
-          <VisualElementOnDesktop visualElement={attachment.get()} />
+          <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
@@ -67,14 +66,11 @@ export const File: Component<VisualElementOnDesktopProps> = (props: VisualElemen
 }
 
 
-export const FileInTable: Component<VisualElementInTableProps> = (props: VisualElementInTableProps) => {
+export const FileLineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => {
-    const tableWidthBl = asTableItem(props.parentVisualElement.item).spatialWidthGr / GRID_SIZE;
-    return props.parentVisualElement.boundsPx.w / tableWidthBl;
-  }
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
   const leftPx = () => props.visualElement.isAttachment
     ? boundsPx().x
     : boundsPx().x + oneBlockWidthPx();
