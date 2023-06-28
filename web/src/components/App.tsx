@@ -69,6 +69,7 @@ const App: Component = () => {
       <Route path="/login" component={LoginMaybe} />
       <Route path="/signup" component={SignUpMaybe} />
       <Route path="/setup" component={SetupMaybe} />
+      <Route path="/:id" component={MainMaybe} />
       <Route path="/" component={MainMaybe} />
     </Routes>
   );

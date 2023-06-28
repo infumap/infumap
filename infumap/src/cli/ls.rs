@@ -69,6 +69,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         return Err(format!("Invalid item id: '{}'.", uid_maybe).into());
       }
       request_data.insert("parentId".to_owned(), Value::String(uid_maybe.to_owned()));
+      request_data.insert("childrenAndTheirAttachmentsOnly".to_owned(), Value::Bool(true));
       Some(uid_maybe)
     },
     None => {
@@ -84,7 +85,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   let get_children_request = serde_json::to_string(&request_data)?;
   let send_reqest = SendRequest {
-    command: "get-children-with-their-attachments".to_owned(),
+    command: "get-items".to_owned(),
     json_data: get_children_request,
     base64_data: None,
   };
@@ -99,19 +100,19 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     .await.map_err(|e| format!("{}", e))?;
 
   if !get_children_response.success {
-    return Err("Infumap rejected the get-children-with-their-attachments command. Has your session expired?".into());
+    return Err("Infumap rejected the get-items command. Has your session expired?".into());
   }
   let children_json = match get_children_response.json_data {
     Some(json) => json,
-    None => return Err("Unexpected get-children-with-their-attachments response.".into())
+    None => return Err("Unexpected get-items response.".into())
   };
 
   let deserializer = serde_json::Deserializer::from_str(&children_json);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
-  let result_map_maybe = iterator.next().ok_or("get-children-with-their-attachments response had no value.")??;
-  let result_map = result_map_maybe.as_object().ok_or("get-children-with-their-attachments response is not a JSON object.")?;
-  let children_value = result_map.get("children").ok_or("get-children-with-their-attachments response has no 'children' field.")?;
-  let children_array = children_value.as_array().ok_or("get-children-with-their-attachments response has a 'children' field that is not an array.")?;
+  let result_map_maybe = iterator.next().ok_or("get-items response had no value.")??;
+  let result_map = result_map_maybe.as_object().ok_or("get-items response is not a JSON object.")?;
+  let children_value = result_map.get("children").ok_or("get-items response has no 'children' field.")?;
+  let children_array = children_value.as_array().ok_or("get-items response has a 'children' field that is not an array.")?;
 
   let get_attachments_request = serde_json::to_string(&request_data)?;
   let send_reqest = SendRequest {

@@ -152,9 +152,9 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   // Get children of container.
-  let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id_maybe: Some(container_id.clone()) }).unwrap();
+  let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id_maybe: Some(container_id.clone()), children_and_their_attachments_only: true }).unwrap();
   let send_reqest = SendRequest {
-    command: "get-children-with-their-attachments".to_owned(),
+    command: "get-items".to_owned(),
     json_data: get_children_request,
     base64_data: None,
   };

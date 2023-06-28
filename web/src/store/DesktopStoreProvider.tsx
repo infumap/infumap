@@ -34,6 +34,7 @@ import { HitInfo } from "../mouse/hitInfo";
 
 
 export interface DesktopStoreContextModel {
+  setItemFromServerObject: (item: object) => void,
   setChildItemsFromServerObjects: (parentId: Uid, items: Array<object>) => void,
   setAttachmentItemsFromServerObjects: (parentId: Uid, items: Array<object>) => void
   getItem: (id: Uid) => (Item | null) | null,
@@ -154,6 +155,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       panic();
     }
     delete items[id];
+  }
+
+  const setItemFromServerObject = (itemObject: object): void => {
+    let item = itemFromObject(itemObject);
+    items[item.id] = item;
   }
 
   /**
@@ -342,6 +348,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
     setChildItemsFromServerObjects,
+    setItemFromServerObject,
     setAttachmentItemsFromServerObjects,
     getItem, getContainerItem, addItem,
     deleteItem, newOrderingAtEndOfChildren,

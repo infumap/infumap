@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { useNavigate } from "@solidjs/router";
+import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
-import { server } from "../server";
+import { ItemsAndTheirAttachments, server } from "../server";
 import { switchToPage } from "../layout/arrange";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
@@ -33,6 +33,7 @@ import { childrenLoadInitiatedOrComplete } from "../layout/load";
 export let logout: (() => Promise<void>) | null = null;
 
 export const Main: Component = () => {
+  const params = useParams();
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
   const generalStore = useGeneralStore();
@@ -48,10 +49,23 @@ export const Main: Component = () => {
     }
 
     try {
-      const result = await server.fetchChildrenWithTheirAttachments(null);
-      const rootPage = result.items.find((a: any) => a['parentId'] == EMPTY_UID) as any;
-      const rootId = rootPage.id;
-      childrenLoadInitiatedOrComplete[rootId] = true;
+      let result: ItemsAndTheirAttachments;
+      let rootId: string;
+      if (!params.id) {
+        result = await server.fetchItems(null, true);
+        const rootPageObject = result.items.find((a: any) => a['parentId'] == EMPTY_UID) as any;
+        rootId = rootPageObject.id;
+        childrenLoadInitiatedOrComplete[rootId] = true;
+      } else {
+        result = await server.fetchItems(params.id, false);
+        const rootPageObject = result.item as any;
+        rootId = rootPageObject.id;
+        desktopStore.setItemFromServerObject(rootPageObject);
+        if (result.attachments[rootId]) {
+          desktopStore.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
+        }
+        childrenLoadInitiatedOrComplete[rootId] = true;
+      }
       desktopStore.setChildItemsFromServerObjects(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {
         desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);

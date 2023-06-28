@@ -36,17 +36,19 @@ export async function post(path: string, json: any) {
 }
 
 export interface ItemsAndTheirAttachments {
+  item: object,
   items: Array<object>,
   attachments: { [id: string]: Array<object> }
 }
 
 export const server = {
-  fetchChildrenWithTheirAttachments: async (parentId: Uid | null): Promise<ItemsAndTheirAttachments> => {
-    let r = await send("get-children-with-their-attachments", parentId == null ? { } : { parentId }, null);
+  fetchItems: async (parentId: Uid | null, childrenAndTheirAttachmentsOnly: boolean): Promise<ItemsAndTheirAttachments> => {
+    let r = await send("get-items", parentId == null ? { childrenAndTheirAttachmentsOnly } : { parentId, childrenAndTheirAttachmentsOnly }, null);
     // Server side, parentId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
     return ({
+      item: r.item,
       items: r.children,
       attachments: r.attachments
     });

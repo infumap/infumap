@@ -31,7 +31,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
     return;
   }
   childrenLoadInitiatedOrComplete[containerId] = true;
-  server.fetchChildrenWithTheirAttachments(containerId)
+  server.fetchItems(containerId, true)
     .then(result => {
       if (result != null) {
         batch(() => {

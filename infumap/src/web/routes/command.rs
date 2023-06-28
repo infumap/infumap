@@ -118,7 +118,7 @@ pub async fn serve_command_route(
   debug!("Received '{}' command for user '{}'.", request.command, session.user_id);
 
   let response_data_maybe = match request.command.as_str() {
-    "get-children-with-their-attachments" => handle_get_children_with_their_attachments(db, &request.json_data, &session.user_id).await,
+    "get-items" => handle_get_items(db, &request.json_data, &session.user_id).await,
     "get-attachments" => handle_get_attachments(db, &request.json_data, &session.user_id).await,
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
     "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
@@ -150,9 +150,11 @@ pub async fn serve_command_route(
 pub struct GetChildrenRequest {
   #[serde(rename="parentId")]
   pub parent_id_maybe: Option<String>,
+  #[serde(rename="childrenAndTheirAttachmentsOnly")]
+  pub children_and_their_attachments_only: bool
 }
 
-async fn handle_get_children_with_their_attachments(
+async fn handle_get_items(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
     session_user_id: &String) -> InfuResult<Option<String>> {
@@ -171,6 +173,10 @@ async fn handle_get_children_with_their_attachments(
   if &parent_item.owner_id != session_user_id {
     return Err(format!("User '{}' does not own item '{}'.", session_user_id, parent_id).into());
   }
+  let parent_json_map = match parent_item.to_api_json() {
+    Ok(r) => r,
+    Err(e) => return Err(format!("Error occurred getting item {} for user {}: {}", parent_id, session_user_id, e).into())
+  };
 
   let child_items = db.item
     .get_children(parent_id)?;
@@ -193,7 +199,16 @@ async fn handle_get_children_with_their_attachments(
     }
   }
 
+  let parent_attachents_result = db.item.get_attachments(parent_id)?.iter()
+    .map(|v| v.to_api_json().ok())
+    .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
+    .ok_or(format!("Error occurred getting attachments for parent {}", parent_id))?;
+  if parent_attachents_result.len() > 0 {
+    attachments_result.insert(parent_id.clone(), Value::from(parent_attachents_result));
+  }
+
   let mut result = serde_json::Map::new();
+  result.insert(String::from("item"), Value::from(parent_json_map));
   result.insert(String::from("children"), Value::from(children_result));
   result.insert(String::from("attachments"), Value::from(attachments_result));
 
