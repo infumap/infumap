@@ -30,8 +30,8 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
-import { createNumberSignal, NumberSignal } from '../util/signals';
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
+import { createNumberSignal, createUidSignal, NumberSignal, UidSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 
@@ -48,6 +48,7 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
+  selectedItem: UidSignal;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
@@ -91,6 +92,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
+    selectedItem: createUidSignal(EMPTY_UID),
   });
 }
 
@@ -126,6 +128,7 @@ export function pageFromObject(o: any): PageItem {
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
+    selectedItem: createUidSignal(EMPTY_UID),
   });
 }
 
@@ -291,16 +294,27 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
+  const parentItem = desktopStore.getItem(visualElement.item.parentId)!
+  if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    const parentPage = asPageItem(parentItem);
+    parentPage.selectedItem.set(visualElement.item.id);
+    arrange(desktopStore);
+    return;
+  }
+
   switchToPage(desktopStore, visualElement.item.id);
 }
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  if (visualElement.parent!.get().isPopup) {
+  if (visualElement.isLineItem) {
+    console.log("select item 2");
+  } else if (visualElement.parent!.get().isPopup) {
     desktopStore.pushPopupId(visualElement.item.id);
   } else {
     desktopStore.replacePopupId(visualElement.item.id);
   }
+
   arrange(desktopStore); // TODO (LOW): no need to arrange entire page.
 }
 

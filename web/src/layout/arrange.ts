@@ -19,7 +19,7 @@
 import { batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../constants";
-import { Uid } from "../util/uid";
+import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { EMPTY_ITEM, ITEM_TYPE_LINK, Item } from "../items/base/item";
@@ -122,6 +122,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 
       const listItemVe = createVisualElement({
         item: childItem,
+        isSelected: currentPage.selectedItem.get() == childId,
         isLineItem: true,
         isInteractive: true,
         boundsPx: geometry.boundsPx,
@@ -137,7 +138,41 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
     return listVeChildren;
   })();
 
+  if (currentPage.selectedItem.get() != EMPTY_UID) {
+    const boundsPx = {
+      x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX,
+      y: LINE_HEIGHT_PX,
+      w: desktopStore.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL+2) * LINE_HEIGHT_PX),
+      h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
+    };
+    topLevelVisualElement.children.push(
+      arrangeInBounds(desktopStore, currentPage.selectedItem.get(), boundsPx));
+  }
+
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+}
+
+function arrangeInBounds(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
+  const item = desktopStore.getItem(id)!;
+  const geometry = calcGeometryOfItem_Cell(item, boundsPx, desktopStore.getItem);
+
+  return arrangePageWithChildren(
+    desktopStore,
+    asPageItem(item),
+    null,
+    geometry,
+    { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
+    false);
+
+  // const itemVe = createVisualElement({
+  //   item: item,
+  //   isInteractive: true,
+  //   boundsPx: geometry.boundsPx,
+  //   hitboxes: geometry.hitboxes,
+  //   parent: { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement },
+  // });
+
+  // return createVisualElementSignal(itemVe);
 }
 
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {

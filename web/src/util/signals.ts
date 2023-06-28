@@ -76,3 +76,12 @@ export function createVisualElementSignal(v: VisualElement): VisualElementSignal
   return { get: visualElementAccessor, set: visualElementSetter };
 }
 
+export interface UidSignal {
+  get: Accessor<Uid>,
+  set: Setter<Uid>,
+}
+
+export function createUidSignal(uid: Uid): UidSignal {
+  let [uidAccessor, uidSetter] = createSignal<Uid>(uid, { equals: false });
+  return { get: uidAccessor, set: uidSetter };
+}

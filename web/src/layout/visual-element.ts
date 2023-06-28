@@ -38,6 +38,7 @@ export interface VisualElement {
   // If set, the element is currently being resized, and these were the original bounds.
   resizingFromBoundsPx: BoundingBox | null,
 
+  isSelected: boolean,             // the item is selected.
   isLineItem: boolean,             // whether or not to render as a line item or deskop item.
   isInteractive: boolean,          // the visual element can be interacted with.
   isPopup: boolean,                // the visual element is a popup (and thus also a page).
@@ -77,6 +78,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   item: EMPTY_ITEM,
   linkItemMaybe: null,
   resizingFromBoundsPx: null,
+  isSelected: false,
   isLineItem: false,
   isInteractive: false,
   isPopup: false,
@@ -103,6 +105,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 export interface VisualElementOverride {
   item: Item,
   linkItemMaybe?: LinkItem | null,
+  isSelected?: boolean,
   isLineItem?: boolean,
   isPopup?: boolean,
   isInteractive?: boolean,
@@ -125,6 +128,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     item: EMPTY_ITEM,
     linkItemMaybe: null,
     resizingFromBoundsPx: null,
+    isSelected: false,
     isLineItem: false,
     isInteractive: false,
     isPopup: false,
@@ -150,6 +154,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   result.item = override.item;
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
+  if (typeof(override.isSelected) != 'undefined') { result.isSelected = override.isSelected; }
   if (typeof(override.isLineItem) != 'undefined') { result.isLineItem = override.isLineItem; }
   if (typeof(override.isInteractive) != 'undefined') { result.isInteractive = override.isInteractive; }
   if (typeof(override.isInsideTable) != 'undefined') { result.isInsideTable = override.isInsideTable; }
