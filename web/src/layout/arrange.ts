@@ -38,6 +38,7 @@ import { panic } from "../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
+import { updateHref } from "../util/browser";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -61,6 +62,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
     page.scrollYPx.set(0);
     arrange(desktopStore);
   });
+  updateHref(desktopStore);
 }
 
 

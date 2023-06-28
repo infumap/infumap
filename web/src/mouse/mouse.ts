@@ -40,7 +40,9 @@ import { asContainerItem, isContainer } from "../items/base/container-item";
 import { getHitInfo } from "./hitInfo";
 import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
 import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
-import { Item } from "../items/base/item";
+import { EMPTY_ITEM, Item } from "../items/base/item";
+import { EMPTY_UID } from "../util/uid";
+import { updateHref } from "../util/browser";
 
 
 const MOUSE_LEFT = 0;
@@ -203,6 +205,7 @@ export function mouseRightDownHandler(
   }
 
   desktopStore.popTopLevelPageId();
+  updateHref(desktopStore);
   arrange(desktopStore);
 }
 
