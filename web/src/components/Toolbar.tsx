@@ -59,6 +59,14 @@ export const Toolbar: Component = () => {
     clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
   };
 
+  const handleBack = () => {
+    console.log("back");
+  };
+
+  const handleUp = () => {
+    console.log("up");
+  }
+
   return (
     <Show when={desktopStore.topLevelVisualElement().item.itemType != NONE_VISUAL_ELEMENT.item.itemType}>
       <div class="fixed left-0 top-0 bottom-0 border-r border-gray-800 text-gray-100"
@@ -72,7 +80,13 @@ export const Toolbar: Component = () => {
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-refresh cursor-pointer" onclick={rotateArrangeAlgorithm!} />
+            <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
+          </div>
+          <div class="ml-[12px] mb-[12px]">
+            <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
+          </div>
+          <div class="ml-[12px] mb-[12px]">
+            <i class="fa fa-refresh cursor-pointer" onclick={rotateArrangeAlgorithm} />
           </div>
           <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-user cursor-pointer" onclick={logout!} />

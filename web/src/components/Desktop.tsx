@@ -22,7 +22,7 @@ import { TOOLBAR_WIDTH } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
-import { mouseDownHandler, mouseMoveHandler, mouseUpHandler } from "../mouse/mouse";
+import { mouseDownHandler, mouseMoveHandler, mouseMoveNoButtonDownHandler, mouseUpHandler } from "../mouse/mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
@@ -56,6 +56,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
     if (ev.code == "Slash") {
       ev.preventDefault();
       desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), hitInfo });
+      mouseMoveNoButtonDownHandler(desktopStore);
     }
 
     else if (ev.code == "Backslash") {
@@ -64,6 +65,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
         desktopBoundsPx: initialEditDialogBounds(desktopStore),
         item: hitInfo.overElementVes.get().item
       });
+      mouseMoveNoButtonDownHandler(desktopStore);
     }
 
     else {
@@ -78,7 +80,6 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const mouseMoveListener = (ev: MouseEvent) => {
     desktopStore.setLastMouseMoveEvent(ev);
-    ev.preventDefault();
     mouseMoveHandler(desktopStore);
   }
 

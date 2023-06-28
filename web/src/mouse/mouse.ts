@@ -24,7 +24,7 @@ import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-it
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, calcPageInnerSpatialDimensionsBl } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
+import { DesktopStoreContextModel, EditDialogInfo, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
@@ -114,7 +114,8 @@ export function mouseLeftDownHandler(
       return;
     }
 
-    desktopStore.setEditDialogInfo(null); return;
+    desktopStore.setEditDialogInfo(null);
+    return;
   }
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
@@ -190,11 +191,13 @@ export function mouseRightDownHandler(
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
+    mouseMoveNoButtonDownHandler(desktopStore);
     return;
   }
 
   if (desktopStore.editDialogInfo() != null) {
     desktopStore.setEditDialogInfo(null);
+    mouseMoveNoButtonDownHandler(desktopStore);
     return;
   }
 
@@ -215,18 +218,25 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   if (desktopStore.topLevelPageId() == null) { return; }
 
   const ev = desktopStore.lastMouseMoveEvent();
+  const desktopPosPx = desktopPxFromMouseEvent(ev);
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
-  if (dialogMoveState != null) {
-    let currentMousePosPx = desktopPxFromMouseEvent(ev);
-    let changePx = vectorSubtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
-    desktopStore.setEditDialogInfo(({
-      item: desktopStore.editDialogInfo()!.item,
-      desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
-    }));
-    dialogMoveState.lastMousePosPx = currentMousePosPx;
-    return;
+  if (desktopStore.editDialogInfo() != null) {
+    if (dialogMoveState != null) {
+      let currentMousePosPx = desktopPxFromMouseEvent(ev);
+      let changePx = vectorSubtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
+      desktopStore.setEditDialogInfo(({
+        item: desktopStore.editDialogInfo()!.item,
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+      }));
+      dialogMoveState.lastMousePosPx = currentMousePosPx;
+      return;
+    }
+    if (isInside(desktopPosPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
+      mouseMoveNoButtonDownHandler(desktopStore);
+      return;
+    }
   }
 
   if (mouseActionState == null) {
@@ -381,17 +391,21 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 }
 
 export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
+  const dialogInfo = desktopStore.editDialogInfo();
+  const contextMenuInfo = desktopStore.contextMenuInfo();
+  const hasModal = dialogInfo != null || contextMenuInfo != null;
   const ev = desktopStore.lastMouseMoveEvent();
   let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
   let overElementVes = hitInfo.overElementVes;
-  if (overElementVes != lastMouseOverVes) {
+  if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
       lastMouseOverVes.get().mouseIsOver.set(false);
       lastMouseOverVes = null;
     }
   }
   if (overElementVes!.get().item.id != desktopStore.topLevelPageId() &&
-      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get()) {
+      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get() &&
+      !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
