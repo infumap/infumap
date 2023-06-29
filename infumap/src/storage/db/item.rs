@@ -236,7 +236,7 @@ pub fn is_image_item(item_type: ItemType) -> bool {
   item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 30] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 31] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -244,7 +244,7 @@ const ALL_JSON_FIELDS: [&'static str; 30] = ["__recordType",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
-  "linkToId", "gridNumberOfColumns"];
+  "linkToId", "gridNumberOfColumns", "orderChildrenBy"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -267,6 +267,9 @@ pub struct Item {
   pub creation_date: i64,
   pub last_modified_date: i64,
   pub ordering: Vec<u8>,
+
+  // container
+  pub order_children_by: Option<String>, // format e.g.: title[DESC],creation date[ASC],last modified date[ASC],my column name[DESC],...
 
   // positionable (everything but placeholder).
   pub spatial_position_gr: Option<Vector<i64>>,
@@ -346,6 +349,7 @@ impl Clone for Item {
       thumbnail: self.thumbnail.clone(),
       rating: self.rating.clone(),
       link_to_id: self.link_to_id.clone(),
+      order_children_by: self.order_children_by.clone(),
     }
   }
 }
@@ -413,6 +417,14 @@ impl JsonLogSerializable<Item> for Item {
     if old.creation_date != new.creation_date { cannot_modify_err("creationDate", &old.id)?; }
     if old.last_modified_date != new.last_modified_date { result.insert(String::from("lastModifiedDate"), Value::Number(new.last_modified_date.into())); }
     if old.ordering != new.ordering { result.insert(String::from("ordering"), Value::Array(new.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>())); }
+
+    // container
+    if let Some(new_order_children_by) = &new.order_children_by {
+      if match &old.order_children_by { Some(o) => o != new_order_children_by, None => { true } } {
+        if !is_container_item(old.item_type) { cannot_modify_err("orderChildrenBy", &old.id)?; }
+        result.insert(String::from("orderChildrenBy"), Value::String(new_order_children_by.clone()));
+      }
+    }
 
     // positionable
     if let Some(new_spatial_position_gr) = &new.spatial_position_gr {
@@ -607,6 +619,12 @@ impl JsonLogSerializable<Item> for Item {
         .collect::<Option<Vec<_>>>().ok_or(format!("One or more element of the 'ordering' field in an update for item '{}' was invalid.", &self.id))?;
     }
 
+    // container
+    if let Some(u) = json::get_string_field(map, "orderChildrenBy")? {
+      if !is_container_item(self.item_type) { not_applicable_err("orderChildrenBy", self.item_type, &self.id)?; }
+      self.order_children_by = Some(u);
+    }
+
     // positionable
     if let Some(u) = json::get_vector_field(map, "spatialPositionGr")? {
       if !is_positionable(self.item_type) { not_applicable_err("spatialPositionGr", self.item_type, &self.id)?; }
@@ -732,6 +750,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
   result.insert(String::from("ordering"), Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()));
+
+  // container
+  if let Some(order_children_by) = &item.order_children_by {
+    if !is_container_item(item.item_type) { unexpected_field_err("orderChildrenBy", &item.id, item.item_type)? }
+    result.insert(String::from("orderChildrenBy"), Value::String(order_children_by.clone()));
+  }
 
   // positionable
   if let Some(spatial_position_gr) = &item.spatial_position_gr {
@@ -892,6 +916,14 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         None => None
       })
       .collect::<Option<Vec<_>>>().ok_or(format!("One or more element of the 'ordering' field for item '{}' was invalid.", &id))?,
+
+    // container
+    order_children_by: match json::get_string_field(map, "orderChildrenBy")? {
+      Some(v) => {
+        if is_container_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("orderChildrenBy", item_type, &id)) }
+      },
+      None => { Ok(None) }
+    }?,
 
     // positionable
     spatial_position_gr: match json::get_vector_field(map, "spatialPositionGr")? {
