@@ -68,6 +68,8 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       widthGr: 8 * GRID_SIZE,
     }],
 
+    orderChildrenBy: null,
+
     computed_children: [],
     computed_attachments: [],
 
@@ -96,6 +98,8 @@ export function tableFromObject(o: any): TableItem {
 
     tableColumns: o.tableColumns,
 
+    orderChildrenBy: o.orderChildrenBy,
+
     computed_children: [],
     computed_attachments: [],
 
@@ -122,6 +126,8 @@ export function tableToObject(t: TableItem): object {
     spatialHeightGr: t.spatialHeightGr,
 
     tableColumns: t.tableColumns,
+
+    orderChildrenBy: t.orderChildrenBy,
   });
 }
 

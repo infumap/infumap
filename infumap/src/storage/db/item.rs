@@ -922,7 +922,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => {
         if is_container_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("orderChildrenBy", item_type, &id)) }
       },
-      None => { Ok(None) }
+      None => { if is_container_item(item_type) { Err(expected_for_err("orderChildrenBy", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // positionable

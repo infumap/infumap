@@ -26,6 +26,7 @@ import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
 import { panic } from "../../util/lang";
+import { compareOrderings } from "../../util/ordering";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
@@ -81,6 +82,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   let checkElement_spatial_stretch: HTMLInputElement | undefined;
   let checkElement_grid: HTMLInputElement | undefined;
   let checkElement_list: HTMLInputElement | undefined;
+  let checkElement_ord: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
     let t;
@@ -95,6 +97,17 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     }
     asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = t;
     rearrangeVisualElementsWithId(desktopStore, pageId);
+  }
+
+  const changeOrderChildrenBy = async () => {
+    const orderByTitle = checkElement_ord?.checked;
+    if (orderByTitle) {
+      asPageItem(desktopStore.getItem(pageId)!).orderChildrenBy = "title[ASC]";
+    } else {
+      asPageItem(desktopStore.getItem(pageId)!).orderChildrenBy = "";
+    }
+    desktopStore.sortChildren(pageId);
+    arrange(desktopStore);
   }
 
   onCleanup(() => {
@@ -124,6 +137,10 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
           <input name="aa" type="radio" ref={checkElement_list} id={ARRANGE_ALGO_LIST} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_LIST} onClick={changeArrangeAlgo} />
           <label for={ARRANGE_ALGO_LIST}>list</label>
         </div>
+      </div>
+      <div>
+        <input id="ord" name="ord" type="checkbox" ref={checkElement_ord} checked={props.pageItem.orderChildrenBy == "title[ASC]"} onClick={changeOrderChildrenBy} />
+        <label for="ord">order by title</label>
       </div>
       <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
     </div>

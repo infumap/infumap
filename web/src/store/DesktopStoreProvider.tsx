@@ -31,6 +31,7 @@ import { itemFromObject } from "../items/base/item-polymorphism";
 import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../mouse/hitInfo";
+import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 
 
 export interface DesktopStoreContextModel {
@@ -45,6 +46,9 @@ export interface DesktopStoreContextModel {
   newOrderingAtEndOfAttachments: (parentId: Uid) => Uint8Array,
   newOrderingAtChildrenPosition: (parentId: Uid, position: number) => Uint8Array,
   newOrderingAtAttachmentsPosition: (parentId: Uid, position: number) => Uint8Array,
+
+  sortChildren: (parentId: Uid) => void,
+  sortAttachments: (parentId: Uid) => void,
 
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
@@ -165,6 +169,30 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     items[item.id] = item;
   }
 
+  const sortChildren = (parentId: Uid): void => {
+    const container = asContainerItem(getItem(parentId)!);
+    if (container.orderChildrenBy == "") {
+      container.computed_children.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+    } else if (container.orderChildrenBy == "title[ASC]") {
+      container.computed_children.sort((a, b) => {
+        let aTitle = "";
+        const aItem = getItem(a)!
+        if (isTitledItem(aItem)) { aTitle = asTitledItem(aItem).title; }
+        aTitle.toLocaleLowerCase();
+        let bTitle = "";
+        const bItem = getItem(b)!
+        if (isTitledItem(bItem)) { bTitle = asTitledItem(bItem).title; }
+        bTitle.toLocaleLowerCase();
+        return aTitle.localeCompare(bTitle);
+      });
+    }
+  }
+
+  const sortAttachments = (parentId: Uid): void => {
+    const container = asAttachmentsItem(getItem(parentId)!);
+    container.computed_attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+  }
+
   /**
    * Set all the child items of a container.
    * Special Case (for efficiency): If the container is the root page, then the child items list contains
@@ -195,8 +223,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
           children.push(childItem.id);
         }
       });
-      children.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
       parent.computed_children = children;
+      sortChildren(parentId)
     });
   };
 
@@ -218,8 +246,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
       }
       attachments.push(attachmentItem.id);
     });
-    attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
     parent.computed_attachments = attachments;
+    sortAttachments(parentId);
   };
 
 
@@ -228,11 +256,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     if (item.relationshipToParent == Child) {
       const parentItem = getContainerItem(item.parentId)!;
       parentItem.computed_children = [...parentItem.computed_children, item.id];
-      parentItem.computed_children.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+      sortChildren(parentItem.id);
     } else if (item.relationshipToParent == Attachment) {
       const parentItem = getAttachmentsItem(item.parentId)!;
       parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
-      parentItem.computed_attachments.sort((a, b) => compareOrderings(getItem(a)!.ordering, getItem(b)!.ordering));
+      sortAttachments(parentItem.id);
     } else {
       throwExpression(`unsupported relationship to parent: ${item.relationshipToParent}.`);
     }
@@ -357,6 +385,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     deleteItem, newOrderingAtEndOfChildren,
     newOrderingAtEndOfAttachments,
     newOrderingAtChildrenPosition, newOrderingAtAttachmentsPosition,
+    sortChildren, sortAttachments,
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,
     clearBreadcrumbs,

@@ -24,6 +24,8 @@ import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
 const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE];
 
 export interface ContainerMixin {
+  orderChildrenBy: string | null;
+
   computed_children: Array<Uid>;
 
   childrenLoaded: boolean;

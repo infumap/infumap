@@ -86,6 +86,8 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     popupWidthGr: 10.0 * GRID_SIZE,
     gridNumberOfColumns: 6,
 
+    orderChildrenBy: null,
+
     computed_children: [],
     computed_attachments: [],
     childrenLoaded: false,
@@ -121,6 +123,8 @@ export function pageFromObject(o: any): PageItem {
     popupWidthGr: o.popupWidthGr,
     gridNumberOfColumns: o.gridNumberOfColumns,
 
+    orderChildrenBy: o.orderChildrenBy,
+
     computed_children: [],
     computed_attachments: [],
 
@@ -155,6 +159,8 @@ export function pageToObject(p: PageItem): object {
     popupAlignmentPoint: p.popupAlignmentPoint,
     popupWidthGr: p.popupWidthGr,
     gridNumberOfColumns: p.gridNumberOfColumns,
+
+    orderChildrenBy: p.orderChildrenBy,
   });
 }
 

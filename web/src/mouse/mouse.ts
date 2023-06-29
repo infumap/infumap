@@ -722,8 +722,8 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
   activeItem.relationshipToParent = Attachment;
 
   const attachments = [activeItem.id, ...attachmentsItem.computed_attachments];
-  attachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
   attachmentsItem.computed_attachments = attachments;
+  desktopStore.sortAttachments(attachmentsItem.id);
 
   const prevParent = desktopStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
@@ -756,8 +756,8 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
 
   const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
   const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
-  moveOverContainerChildren.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
   moveOverContainer.computed_children = moveOverContainerChildren;
+  desktopStore.sortChildren(moveOverContainer.id);
 
   const prevParent = desktopStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
@@ -790,8 +790,8 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
 
   const moveOverContainer = desktopStore.getContainerItem(moveOverContainerId)!;
   const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
-  moveOverContainerChildren.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
   moveOverContainer.computed_children = moveOverContainerChildren;
+  desktopStore.sortChildren(moveOverContainer.id);
 
   const prevParent = desktopStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
@@ -835,8 +835,8 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   activeItem.relationshipToParent = Attachment;
   activeItem.parentId = childId;
   const childAttachments = [activeItem.id, ...child.computed_attachments];
-  childAttachments.sort((a, b) => compareOrderings(desktopStore.getItem(a)!.ordering, desktopStore.getItem(b)!.ordering));
   child.computed_attachments = childAttachments;
+  desktopStore.sortAttachments(child.id);
 
   const prevParent = desktopStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
