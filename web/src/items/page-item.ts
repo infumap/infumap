@@ -186,13 +186,13 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 }
 
 
-export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, renderChildrenAsFull: boolean): ItemGeometry {
+export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0, y: 0.0,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
-  const popupClickBoundsPx = renderChildrenAsFull
+  const popupClickBoundsPx = parentIsPopup
     ? cloneBoundingBox(innerBoundsPx)!
     : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
         w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };

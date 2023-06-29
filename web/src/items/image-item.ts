@@ -112,7 +112,7 @@ export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
   return { w: image.spatialWidthGr / GRID_SIZE, h: heightBl };
 }
 
-export function calcGeometryOfImageItem_Desktop(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _renderChildrenAsFull: boolean): ItemGeometry {
+export function calcGeometryOfImageItem_Desktop(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

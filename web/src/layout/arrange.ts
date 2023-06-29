@@ -212,7 +212,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
       topLevelPageBoundsPx,
       calcPageInnerSpatialDimensionsBl(currentPage),
       desktopStore.topLevelVisualElementSignal(),
-      false, // render children as full
+      true,  // render children as full
+      false, // parent is popup
       false  // is popup
     ));
 
@@ -231,8 +232,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
         topLevelPageBoundsPx,
         calcPageInnerSpatialDimensionsBl(currentPage),
         desktopStore.topLevelVisualElementSignal(),
-        false, // render children as full
-        true   // is popup
+        true, // render children as full
+        true, // parent is popup
+        true  // is popup
       ));
   }
 
@@ -247,6 +249,7 @@ const arrangeDesktopItem = (
     containerInnerDimensionsBl: Dimensions,
     parentSignal_underConstruction: VisualElementSignal, // used to establish back references only, not called.
     renderChildrenAsFull: boolean,
+    parentIsPopup: boolean,
     isPopup: boolean): VisualElementSignal => {
 
   if (isPopup) {
@@ -256,7 +259,7 @@ const arrangeDesktopItem = (
   }
 
   const pageBoundsPx = zeroBoundingBoxTopLeft(containerBoundsPx);
-  const geometry = calcGeometryOfItem_Desktop(item, pageBoundsPx, containerInnerDimensionsBl, true, renderChildrenAsFull, desktopStore.getItem);
+  const geometry = calcGeometryOfItem_Desktop(item, pageBoundsPx, containerInnerDimensionsBl, true, parentIsPopup, desktopStore.getItem);
 
   let spatialWidthGr = isXSizableItem(item)
     ? asXSizableItem(item).spatialWidthGr
@@ -291,9 +294,7 @@ const arrangeDesktopItem = (
 
   const renderStyle = renderChildrenAsFull
     ? RenderStyle.Full
-    : item.parentId == desktopStore.topLevelPageId()
-      ? RenderStyle.Full
-      : RenderStyle.Outline;
+    : RenderStyle.Outline;
 
   return arrangeItemNoChildren(desktopStore, item, linkItemMaybe, geometry, parentSignal_underConstruction, renderStyle);
 }
@@ -443,7 +444,6 @@ const arrangePageWithChildren = (
     console.log("TODO: arrange child grid page.");
   } else {
     pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
-      console.log(childId);
       const innerChildItem = desktopStore.getItem(childId)!;
       if (isLink(innerChildItem)) { panic(); } // TODO
       if (isPopup) {
@@ -453,8 +453,9 @@ const arrangePageWithChildren = (
           pageWithChildrenVisualElement.childAreaBoundsPx!,
           calcPageInnerSpatialDimensionsBl(pageItem),
           pageWithChildrenVisualElementSignal,
-          true,  // render children as full
-          false  // is popup
+          true,    // render children as full
+          isPopup, // parent is popup
+          false    // is popup
         );
       }
       const geometry = calcGeometryOfItem_Desktop(innerChildItem, innerBoundsPx, innerDimensionsBl, true, false, desktopStore.getItem);
@@ -585,28 +586,29 @@ export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextM
 }
 
 export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
-  const visualElement = visualElementSignal.get();
-  if (desktopStore.topLevelPageId() == visualElement.item.id) {
-    arrange(desktopStore);
-    return;
-  }
+  arrange(desktopStore);
+  // const visualElement = visualElementSignal.get();
+  // if (desktopStore.topLevelPageId() == visualElement.item.id) {
+  //   arrange(desktopStore);
+  //   return;
+  // }
 
-  if (visualElement.isAttachment) {
-    rearrangeAttachment(desktopStore, visualElementSignal);
-  } else {
-    const item = visualElement.linkItemMaybe != null
-      ? visualElement.linkItemMaybe!
-      : visualElement.item;
-    const rearrangedVisualElement = arrangeDesktopItem(
-      desktopStore,
-      item,
-      visualElement.parent!.get().childAreaBoundsPx!,
-      calcPageInnerSpatialDimensionsBl(asPageItem(visualElement.parent!.get().item)),
-      visualElement.parent!,
-      visualElement.parent!.get().isPopup,
-      visualElement.isPopup).get();
-    visualElementSignal.set(rearrangedVisualElement);
-  }
+  // if (visualElement.isAttachment) {
+  //   rearrangeAttachment(desktopStore, visualElementSignal);
+  // } else {
+  //   const item = visualElement.linkItemMaybe != null
+  //     ? visualElement.linkItemMaybe!
+  //     : visualElement.item;
+  //   const rearrangedVisualElement = arrangeDesktopItem(
+  //     desktopStore,
+  //     item,
+  //     visualElement.parent!.get().childAreaBoundsPx!,
+  //     calcPageInnerSpatialDimensionsBl(asPageItem(visualElement.parent!.get().item)),
+  //     visualElement.parent!,
+  //     visualElement.parent!.get().isPopup,
+  //     visualElement.isPopup).get();
+  //   visualElementSignal.set(rearrangedVisualElement);
+  // }
 }
 
 function rearrangeAttachment(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal) {

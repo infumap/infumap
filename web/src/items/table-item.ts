@@ -130,7 +130,7 @@ export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
   return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
 }
 
-export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _renderChildrenAsFull: boolean): ItemGeometry {
+export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
   const tableSizeBl: Dimensions = calcTableSizeForSpatialBl(table);
   const innerBoundsPx: BoundingBox = {
     x: 0.0,
