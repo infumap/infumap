@@ -79,7 +79,7 @@ export function getHitInfo(
   // Root is either the top level page, or popup if mouse is over the popup.
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
-  let rootVisualElementSignal = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
+  let rootVisualElementSignal = desktopStore.topLevelVisualElementSignal();
   if (topLevelVisualElement.children.length > 0) {
     // The visual element of the popup, if there is one, is always the last of the children.
     const popupVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();

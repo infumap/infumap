@@ -61,6 +61,7 @@ export interface DesktopStoreContextModel {
 
   topLevelVisualElement: Accessor<VisualElement>,
   setTopLevelVisualElement: Setter<VisualElement>,
+  topLevelVisualElementSignal: () => VisualElementSignal,
 
   setLastMouseMoveEvent: (ev: MouseEvent) => void,
   lastMouseMoveEvent: () => MouseEvent,
@@ -97,9 +98,11 @@ interface PageBreadcrumb {
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   let items: { [id: Uid]: Item } = {};
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
-  const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
+  const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
+
+  const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
 
   let breadcrumbs: Array<PageBreadcrumb> = [];
 
@@ -355,6 +358,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     newOrderingAtEndOfAttachments,
     newOrderingAtChildrenPosition, newOrderingAtAttachmentsPosition,
     topLevelVisualElement, setTopLevelVisualElement,
+    topLevelVisualElementSignal,
     clearBreadcrumbs,
     pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
     replacePopupId, pushPopupId, popPopupId, popupId,

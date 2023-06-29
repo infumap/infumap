@@ -186,13 +186,13 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 }
 
 
-export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, renderChildrenAsFull: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0, y: 0.0,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
     h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
   };
-  const popupClickBoundsPx = parentIsPopup
+  const popupClickBoundsPx = renderChildrenAsFull
     ? cloneBoundingBox(innerBoundsPx)!
     : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
         w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
@@ -307,8 +307,10 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  if (visualElement.isLineItem) {
-    console.log("select item 2");
+  const parentItem = desktopStore.getItem(visualElement.item.parentId)!;
+  if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    const parentPage = asPageItem(parentItem);
+    parentPage.selectedItem.set(visualElement.item.id);
   } else if (visualElement.parent!.get().isPopup) {
     desktopStore.pushPopupId(visualElement.item.id);
   } else {

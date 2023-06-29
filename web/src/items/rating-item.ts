@@ -94,7 +94,7 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions 
   return { w: 1.0, h: 1.0 };
 }
 
-export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, _renderChildrenAsFull: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

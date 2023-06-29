@@ -86,7 +86,7 @@ export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
   return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, renderChildrenAsFull: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

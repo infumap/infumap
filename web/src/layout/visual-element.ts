@@ -190,7 +190,7 @@ export function visualElementToPath(visualElement: VisualElement): VisualElement
 export function visualElementSignalFromPath(
     desktopStore: DesktopStoreContextModel, pathString: VisualElementPath): VisualElementSignal {
   const parts = pathString.split("-");
-  let ves = { get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement };
+  let ves = desktopStore.topLevelVisualElementSignal();
   let { itemId } = getIds(parts[parts.length-1]);
   if (ves.get().item.id != itemId) { panic(); }
 
