@@ -23,7 +23,7 @@ import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { EMPTY_ITEM, ITEM_TYPE_LINK, Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_LineItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_LineItem, calcSizeForSpatialBl, cloneMeasurableFields } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { createVisualElement } from "./visual-element";
@@ -50,6 +50,7 @@ enum RenderStyle {
 }
 
 const POPUP_LINK_ID = newUid();
+const LIST_FOCUS_ID = newUid();
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -97,7 +98,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     arrange_grid(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
-    arrange_spatialStretch(desktopStore);
+    arrange_spatialStretch_topLevel(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     arrange_list(desktopStore);
   }
@@ -151,36 +152,39 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
     topLevelVisualElement.children.push(
-      arrangeInBounds(desktopStore, currentPage.selectedItem.get(), boundsPx));
+      arrangeInCell(desktopStore, currentPage.selectedItem.get(), boundsPx));
   }
 
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
 
-function arrangeInBounds(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
+function arrangeInCell(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
   const item = desktopStore.getItem(id)!;
-  const geometry = calcGeometryOfItem_Cell(item, boundsPx, desktopStore.getItem);
+
+  if (isPage(item) || isTable(item)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
+  }
+
+  let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), id);
+  li.id = LIST_FOCUS_ID;
+  let widthGr = 10 * GRID_SIZE;
+  li.spatialWidthGr = widthGr;
+  li.spatialPositionGr = { x: 0.0, y: 0.0 };
+
+  const geometry = calcGeometryOfItem_Cell(li, boundsPx, desktopStore.getItem);
 
   return arrangePageWithChildren(
     desktopStore,
     asPageItem(item),
-    null,
+    li,
     geometry,
     desktopStore.topLevelVisualElementSignal(),
-    false);
-
-  // const itemVe = createVisualElement({
-  //   item: item,
-  //   isInteractive: true,
-  //   boundsPx: geometry.boundsPx,
-  //   hitboxes: geometry.hitboxes,
-  //   parent: desktopStore.topLevelVisualElementSignal(),
-  // });
-
-  // return createVisualElementSignal(itemVe);
+    false,  // is popup.
+    true    // is full.
+  );
 }
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
+const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = currentPage.naturalAspect;
@@ -197,21 +201,25 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     return result;
   })();
 
-  const topLevelVisualElement = createVisualElement({
-    item: currentPage,
+  arrange_spatialStretch(desktopStore, topLevelPageBoundsPx, currentPage, desktopStore.topLevelVisualElementSignal());
+}
+
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoundsPx: BoundingBox, pageItem: PageItem, ves: VisualElementSignal) => {
+  const visualElement = createVisualElement({
+    item: pageItem,
     isInteractive: true,
     isDragOverPositioning: true,
-    boundsPx: topLevelPageBoundsPx,
-    childAreaBoundsPx: topLevelPageBoundsPx,
+    boundsPx: pageBoundsPx,
+    childAreaBoundsPx: pageBoundsPx,
   });
 
-  topLevelVisualElement.children = currentPage.computed_children
+  visualElement.children = pageItem.computed_children
     .map(childId => arrangeDesktopItem(
       desktopStore,
       desktopStore.getItem(childId)!,
-      topLevelPageBoundsPx,
-      calcPageInnerSpatialDimensionsBl(currentPage),
-      desktopStore.topLevelVisualElementSignal(),
+      pageBoundsPx,
+      calcPageInnerSpatialDimensionsBl(pageItem),
+      ves,
       true,  // render children as full
       false, // parent is popup
       false  // is popup
@@ -219,26 +227,26 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 
   let popupId = desktopStore.popupId();
   if (popupId != null) {
-    let li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupId);
+    let li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupId);
     li.id = POPUP_LINK_ID;
-    let widthGr = Math.round((currentPage.innerSpatialWidthGr / GRID_SIZE) / 2.0) * GRID_SIZE;
-    let heightGr = Math.round((currentPage.innerSpatialWidthGr / currentPage.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
+    let widthGr = Math.round((pageItem.innerSpatialWidthGr / GRID_SIZE) / 2.0) * GRID_SIZE;
+    let heightGr = Math.round((pageItem.innerSpatialWidthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr = widthGr;
     li.spatialPositionGr = { x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE };
-    topLevelVisualElement.children.push(
+    visualElement.children.push(
       arrangeDesktopItem(
         desktopStore,
         li,
-        topLevelPageBoundsPx,
-        calcPageInnerSpatialDimensionsBl(currentPage),
-        desktopStore.topLevelVisualElementSignal(),
+        pageBoundsPx,
+        calcPageInnerSpatialDimensionsBl(pageItem),
+        ves,
         true, // render children as full
         true, // parent is popup
         true  // is popup
       ));
   }
 
-  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+  ves.set(visualElement);
 }
 
 
@@ -284,7 +292,7 @@ const arrangeDesktopItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePageWithChildren(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignal_underConstruction, isPopup);
+    return arrangePageWithChildren(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignal_underConstruction, isPopup, false);
   }
 
   if (isTable(item) && (item.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
@@ -422,13 +430,15 @@ const arrangePageWithChildren = (
     linkItemMaybe: LinkItem | null,
     geometry: ItemGeometry,
     parentSignalUnderConstruction: VisualElementSignal,
-    isPopup: boolean): VisualElementSignal => {
+    isPopup: boolean,
+    isFull: boolean): VisualElementSignal => {
 
   const pageWithChildrenVisualElement = createVisualElement({
     item: pageItem,
     linkItemMaybe,
     isInteractive: true,
     isPopup,
+    isFull,
     isDragOverPositioning: true,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx: geometry.boundsPx,
@@ -446,7 +456,7 @@ const arrangePageWithChildren = (
     pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
       const innerChildItem = desktopStore.getItem(childId)!;
       if (isLink(innerChildItem)) { panic(); } // TODO
-      if (isPopup) {
+      if (isPopup || isFull) {
         return arrangeDesktopItem(
           desktopStore,
           innerChildItem,

@@ -195,9 +195,9 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     );
   }
 
-  const drawAsTopLevelPage = () => {
+  const drawAsFull = () => {
     return (
-      <div class={`absolute`}
+      <div class={`absolute ${props.visualElement.isFull ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children}>{childVe =>
           childVe.get().isLineItem
@@ -214,13 +214,13 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == desktopStore.topLevelPageId()}>
-        {drawAsTopLevelPage()}
+      <Show when={pageItem().id == desktopStore.topLevelPageId() || props.visualElement.isFull}>
+        {drawAsFull()}
       </Show>
-      <Show when={!props.visualElement.isInteractive || (!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+      <Show when={!props.visualElement.isInteractive || (!props.visualElement.isFull && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isFull && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
       <Show when={props.visualElement.isPopup}>

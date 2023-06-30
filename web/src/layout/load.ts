@@ -21,7 +21,7 @@ import { server } from "../server";
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
-import { rearrangeVisualElementsWithId } from "./arrange";
+import { arrange } from "./arrange";
 
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
@@ -41,7 +41,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           });
           asContainerItem(desktopStore.getItem(containerId)!).childrenLoaded = true;
           try {
-            rearrangeVisualElementsWithId(desktopStore, containerId);
+            arrange(desktopStore);
           } catch (e: any) {
             throw new Error(`rearrangeVisualElementsWithId failed ${e}`);
           };

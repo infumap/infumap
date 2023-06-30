@@ -76,15 +76,15 @@ export function getHitInfo(
   const topLevelPage = asPageItem(topLevelVisualElement!.item);
   const posRelativeToTopLevelVisualElementPx = vectorAdd(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
-  // Root is either the top level page, or popup if mouse is over the popup.
+  // Root is either the top level page, or popup if mouse is over the popup, or selected page.
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = desktopStore.topLevelVisualElementSignal();
   if (topLevelVisualElement.children.length > 0) {
-    // The visual element of the popup, if there is one, is always the last of the children.
-    const popupVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
-    if (popupVeMaybe.isPopup &&
-        isInside(posRelativeToTopLevelVisualElementPx, popupVeMaybe.boundsPx)) {
+    // The visual element of the popup or selected list item, if there is one, is always the last of the children.
+    const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
+    if ((newRootVeMaybe.isPopup || newRootVeMaybe.isFull) &&
+        isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
       posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });

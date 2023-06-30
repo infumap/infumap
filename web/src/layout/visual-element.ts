@@ -42,6 +42,7 @@ export interface VisualElement {
   isLineItem: boolean,             // whether or not to render as a line item or deskop item.
   isInteractive: boolean,          // the visual element can be interacted with.
   isPopup: boolean,                // the visual element is a popup (and thus also a page).
+  isFull: boolean                  // render as topLevel.
   isInsideTable: boolean,          // the visual element is inside a table.
   isAttachment: boolean,           // the visual element is an attachment.
   isDragOverPositioning: boolean,  // an item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
@@ -82,6 +83,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   isLineItem: false,
   isInteractive: false,
   isPopup: false,
+  isFull: false,
   isInsideTable: false,
   isAttachment: false,
   isDragOverPositioning: false,
@@ -108,6 +110,7 @@ export interface VisualElementOverride {
   isSelected?: boolean,
   isLineItem?: boolean,
   isPopup?: boolean,
+  isFull?: boolean,
   isInteractive?: boolean,
   isInsideTable?: boolean
   isAttachment?: boolean,
@@ -132,6 +135,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     isLineItem: false,
     isInteractive: false,
     isPopup: false,
+    isFull: false,
     isInsideTable: false,
     isAttachment: false,
     isDragOverPositioning: false,
@@ -154,6 +158,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   result.item = override.item;
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
+  if (typeof(override.isFull) != 'undefined') { result.isFull = override.isFull; }
   if (typeof(override.isSelected) != 'undefined') { result.isSelected = override.isSelected; }
   if (typeof(override.isLineItem) != 'undefined') { result.isLineItem = override.isLineItem; }
   if (typeof(override.isInteractive) != 'undefined') { result.isInteractive = override.isInteractive; }
