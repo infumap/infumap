@@ -586,29 +586,29 @@ export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextM
 }
 
 export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
-  arrange(desktopStore);
-  // const visualElement = visualElementSignal.get();
-  // if (desktopStore.topLevelPageId() == visualElement.item.id) {
-  //   arrange(desktopStore);
-  //   return;
-  // }
+  const visualElement = visualElementSignal.get();
+  if (desktopStore.topLevelPageId() == visualElement.item.id) {
+    arrange(desktopStore);
+    return;
+  }
 
-  // if (visualElement.isAttachment) {
-  //   rearrangeAttachment(desktopStore, visualElementSignal);
-  // } else {
-  //   const item = visualElement.linkItemMaybe != null
-  //     ? visualElement.linkItemMaybe!
-  //     : visualElement.item;
-  //   const rearrangedVisualElement = arrangeDesktopItem(
-  //     desktopStore,
-  //     item,
-  //     visualElement.parent!.get().childAreaBoundsPx!,
-  //     calcPageInnerSpatialDimensionsBl(asPageItem(visualElement.parent!.get().item)),
-  //     visualElement.parent!,
-  //     visualElement.parent!.get().isPopup,
-  //     visualElement.isPopup).get();
-  //   visualElementSignal.set(rearrangedVisualElement);
-  // }
+  if (visualElement.isAttachment) {
+    rearrangeAttachment(desktopStore, visualElementSignal);
+  } else {
+    const item = visualElement.linkItemMaybe != null
+      ? visualElement.linkItemMaybe!
+      : visualElement.item;
+    const rearrangedVisualElement = arrangeDesktopItem(
+      desktopStore,
+      item,
+      visualElement.parent!.get().childAreaBoundsPx!,
+      calcPageInnerSpatialDimensionsBl(asPageItem(visualElement.parent!.get().item)),
+      visualElement.parent!,
+      visualElement.parent!.get().isPopup,
+      visualElement.parent!.get().isPopup,
+      visualElement.isPopup).get();
+    visualElementSignal.set(rearrangedVisualElement);
+  }
 }
 
 function rearrangeAttachment(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal) {
