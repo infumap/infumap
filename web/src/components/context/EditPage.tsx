@@ -143,6 +143,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
         <label for="ord">order by title</label>
       </div>
       <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
+      <div>Num children: {props.pageItem.computed_children.length}</div>
     </div>
   );
 }
