@@ -17,7 +17,7 @@
 use bytes::Bytes;
 use config::Config;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
-use hyper::{Request, Response, StatusCode};
+use hyper::{Request, Response, StatusCode, Method};
 use log::{error, debug};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -29,6 +29,8 @@ use crate::storage::db::Db;
 use crate::storage::cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
+use crate::util::uid::is_uid;
+use crate::web::dist_handlers::serve_index;
 
 use super::dist_handlers::serve_dist_routes;
 use super::routes::account::serve_account_route;
@@ -77,7 +79,14 @@ pub async fn http_serve(
     }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, &req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
-    else { not_found_response() }
+    else if req.method() == Method::GET &&
+            req.uri().path().len() > 32 &&
+            is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
+      // TODO: support users other than root & tighter condition than the above.
+      serve_index()
+    } else {
+      not_found_response()
+    }
   )
 }
 

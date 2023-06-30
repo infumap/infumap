@@ -83,6 +83,10 @@ for f in ico_files:
 output += """    _ => None
   }
 }
+
+pub fn serve_index() -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()
+}
 """
 
 with open("../infumap/src/web/dist_handlers.rs", "w") as rs_file:
