@@ -27,6 +27,10 @@ Then reload:
 systemctl reload caddy
 ```
 
+## Use Veracrypt
+
+TODO
+
 
 ## Guarding Against Loss of Access to Your Information
 

@@ -42,27 +42,27 @@ const App: Component = () => {
   const fallback = () => { return <div>waiting ...</div> };
   const fallback2 = () => { return <Navigate href="/setup" /> };
   const LoginMaybe: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback}>
-      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2}>
+    <Show when={generalStore.installationState() != null} fallback={fallback()}>
+      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <Login />
       </Show>
     </Show>;
   const SignUpMaybe: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback}>
-      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2}>
+    <Show when={generalStore.installationState() != null} fallback={fallback()}>
+      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <SignUp />
       </Show>
     </Show>;
   const MainMaybe: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback}>
-      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2}>
+    <Show when={generalStore.installationState() != null} fallback={fallback()}>
+      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <Main />
       </Show>
     </Show>;
   const SetupMaybe: Component = () =>
-  <Show when={generalStore.installationState() != null} fallback={fallback}>
-    <SignUp />
-  </Show>;
+    <Show when={generalStore.installationState() != null} fallback={fallback()}>
+      <SignUp />
+    </Show>;
 
   return (
     <Routes>
