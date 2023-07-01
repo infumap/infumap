@@ -195,10 +195,14 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     );
   }
 
+  const fullBgColorVal = () => {
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.12)}; `;
+  }
+
   const drawAsFull = () => {
     return (
       <div class={`absolute ${props.visualElement.isFull ? "border border-slate-700" : ""}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${props.visualElement.isFull ? fullBgColorVal() : "#ffffff"}`}>
         <For each={props.visualElement.children}>{childVe =>
           childVe.get().isLineItem
             ? <VisualElement_LineItem visualElement={childVe.get()} />
