@@ -18,6 +18,7 @@
 
 pushd "$(dirname "$0")"
 rm -rf ./dist
+npm install
 npm run build
 python3 generate_dist_handlers.py
 rm -rf ../infumap/dist
