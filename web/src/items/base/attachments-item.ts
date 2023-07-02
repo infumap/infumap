@@ -23,6 +23,7 @@ import { HitboxType, createHitbox } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable } from "./item";
 import { calcSizeForSpatialBl } from "./item-polymorphism";
+import { RESIZE_BOX_SIZE_PX } from "../../constants";
 
 
 const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE];
@@ -102,7 +103,7 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
     h: itemSizeBl.h * blockSizePx.h
   };
   const boundsPx = {
-    x: parentBoundsPx.w - itemSizePx.w / 2.0,
+    x: parentBoundsPx.w - itemSizePx.w / 2.0 - (index + 0.5) * blockSizePx.w,
     y: -itemSizePx.h / 2.0,
     w: itemSizePx.w,
     h: itemSizePx.h,
@@ -113,6 +114,7 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
     hitboxes: [
       createHitbox(HitboxType.Move, innerBoundsPx),
       createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   }
 }

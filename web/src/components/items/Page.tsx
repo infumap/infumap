@@ -35,7 +35,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const SMALL_TOOLBAR_WIDTH_PX = 28;
   const pageItem = () => asPageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
-  const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click)!.boundsPx;
+  const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click || hb.type == HitboxType.OpenAttachment)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
   const hasPopupClickBoundsPx = (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup) != undefined;
   const attachBoundsPx = (): BoundingBox => {

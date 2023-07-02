@@ -665,10 +665,12 @@ function rearrangeAttachment(desktopStore: DesktopStoreContextModel, visualEleme
     }
   }
   if (index == -1) { panic(); }
+  const parentParentVisualElement = parentVisualElement.parent!.get();
+  const pageItem = asPageItem(parentParentVisualElement.item);
 
   if (!visualElement.isInsideTable) {
     const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.item, desktopStore.getItem);
-    const attachmentGeometry = calcGeometryOfItem_Attachment(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, false, desktopStore.getItem);
+    const attachmentGeometry = calcGeometryOfItem_Attachment(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, pageItem.selectedAttachment == visualElement.item.id, desktopStore.getItem);
     const attachmentVisualElement = createVisualElement({
       item: visualElement.item,
       boundsPx: attachmentGeometry.boundsPx,

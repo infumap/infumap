@@ -415,18 +415,24 @@ export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id:
   if (rootVe.item.id == id) {
     result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
-  result = result.concat(childVisualElementsWithId(desktopStore, rootVe, id));
+  result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, rootVe, id));
   return result;
 }
 
 
-const childVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
+const childAndAttachmentVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
     if (childVes.get().item.id == id) {
       result.push(childVes);
     }
-    result = result.concat(childVisualElementsWithId(desktopStore, childVes.get(), id));
+    result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, childVes.get(), id));
+  });
+  ve.attachments.forEach(attachmentVes => {
+    if (attachmentVes.get().item.id == id) {
+      result.push(attachmentVes);
+    }
+    result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, attachmentVes.get(), id));
   });
   return result;
 }
