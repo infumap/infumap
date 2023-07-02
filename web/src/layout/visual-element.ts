@@ -126,6 +126,7 @@ export interface VisualElementOverride {
   attachments?: Array<VisualElementSignal>,
 }
 
+
 export function createVisualElement(override: VisualElementOverride): VisualElement {
   let result: VisualElement = {
     item: EMPTY_ITEM,
@@ -177,6 +178,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   return result;
 }
 
+
 export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
   function impl(visualElement: VisualElement, current: string): string {
     const ve = visualElement;
@@ -225,11 +227,13 @@ export function visualElementSignalFromPath(
   return ves;
 }
 
+
 export function itemIdFromVisualElementPath(pathString: VisualElementPath): Uid {
   const parts = pathString.split("-");
   let { itemId } = getIds(parts[0]);
   return itemId;
 }
+
 
 function getIds(part: string): { itemId: Uid, linkId: Uid | null } {
   let itemId = part;
@@ -242,6 +246,7 @@ function getIds(part: string): { itemId: Uid, linkId: Uid | null } {
   }
   return { itemId, linkId };
 }
+
 
 export function visualElementDesktopBoundsPx(visualElement: VisualElement): BoundingBox {
   let ve: VisualElement | null = visualElement;

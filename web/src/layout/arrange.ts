@@ -23,14 +23,13 @@ import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { EMPTY_ITEM, ITEM_TYPE_LINK, Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_LineItem, calcSizeForSpatialBl, cloneMeasurableFields } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_LineItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { createVisualElement } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
-import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, isLink, newLinkItem } from "../items/link-item";
-import { ItemGeometry } from "./item-geometry";
 import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -39,8 +38,7 @@ import { initiateLoadChildItemsIfNotLoaded } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
-import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
+import { isPositionalItem } from "../items/base/positional-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -266,61 +264,74 @@ const arrangeItem_Desktop = (
 
   const parentPageInnerBoundsPx = zeroBoundingBoxTopLeft(parentPageBoundsPx);
 
-  let spatialWidthGr = isXSizableItem(item)
-    ? asXSizableItem(item).spatialWidthGr
-    : 0;
-
   let linkItemMaybe: LinkItem | null = null;
+  let canonicalItem = item;
+  let spatialWidthGr = isXSizableItem(canonicalItem)
+    ? asXSizableItem(canonicalItem).spatialWidthGr
+    : 0;
   if (item.itemType == ITEM_TYPE_LINK) {
     linkItemMaybe = asLinkItem(item);
-    item = desktopStore.getItem(linkItemMaybe.linkToId)!;
-    if (isXSizableItem(item)) {
+    canonicalItem = desktopStore.getItem(linkItemMaybe.linkToId)!;
+    if (isXSizableItem(canonicalItem)) {
       spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }
   }
 
-  if (isPage(item) && asPageItem(item).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
+  if (isPage(canonicalItem) && asPageItem(canonicalItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     // Always make sure child items of grid pages are loaded, even if not visible,
     // because they are needed to to calculate the height.
-    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
+    initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
   }
 
-  if (isPage(item) &&
+  if (isPage(canonicalItem) &&
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePageWithChildren_Desktop(desktopStore, asPageItem(item), parentPage, parentPageInnerBoundsPx, parentIsPopup, linkItemMaybe, parentSignal_underConstruction, isPopup, false);
+    initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
+    return arrangePageWithChildren_Desktop(
+      desktopStore,
+      asPageItem(canonicalItem), linkItemMaybe,
+      parentPage, parentPageInnerBoundsPx, parentIsPopup, 
+      parentSignal_underConstruction,
+      isPopup, false);
   }
 
-  if (isTable(item) && (item.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangeTable_Desktop(desktopStore, asTableItem(item), parentPage, parentPageInnerBoundsPx, parentIsPopup, linkItemMaybe, parentSignal_underConstruction);
+  if (isTable(canonicalItem) && (canonicalItem.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
+    return arrangeTable_Desktop(
+      desktopStore,
+      asTableItem(canonicalItem), linkItemMaybe,
+      parentPage, parentPageInnerBoundsPx, parentIsPopup,
+      parentSignal_underConstruction);
   }
 
   const renderStyle = renderChildrenAsFull
     ? RenderStyle.Full
     : RenderStyle.Outline;
 
-  return arrangeItemNoChildren_Desktop(desktopStore, item, parentPage, parentPageInnerBoundsPx, linkItemMaybe, parentSignal_underConstruction, renderStyle);
+  return arrangeItemNoChildren_Desktop(
+    desktopStore,
+    canonicalItem, linkItemMaybe,
+    parentPage, parentPageInnerBoundsPx,
+    parentSignal_underConstruction,
+    renderStyle);
 }
 
 
 const arrangePageWithChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    pageItem: PageItem,
-    parentPage: PageItem,
-    parentPageInnerBoundsPx: BoundingBox,
-    parentIsPopup: boolean,
-    linkItemMaybe: LinkItem | null,
+    canonicalItem_page: PageItem, linkItemMaybe: LinkItem | null,
+    parentPage: PageItem, parentPageInnerBoundsPx: BoundingBox, parentIsPopup: boolean,
     parentSignal_underConstruction: VisualElementSignal,
     isPopup: boolean,
     isFull: boolean): VisualElementSignal => {
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const geometry = calcGeometryOfItem_Desktop(pageItem, parentPageInnerBoundsPx, parentPageInnerDimensionsBl, true, parentIsPopup, desktopStore.getItem);
+  const geometry = calcGeometryOfItem_Desktop(
+    linkItemMaybe ? linkItemMaybe : canonicalItem_page,
+    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
 
   const pageWithChildrenVisualElement = createVisualElement({
-    item: pageItem,
+    item: canonicalItem_page,
     linkItemMaybe,
     isInteractive: true,
     isPopup,
@@ -335,17 +346,18 @@ const arrangePageWithChildren_Desktop = (
 
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-  if (pageItem.arrangeAlgorithm == ARRANGE_ALGO_GRID || pageItem.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  if (canonicalItem_page.arrangeAlgorithm == ARRANGE_ALGO_GRID || canonicalItem_page.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     console.log("TODO: arrange child grid page.");
   } else {
-    pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
+    pageWithChildrenVisualElement.children = canonicalItem_page.computed_children.map(childId => {
       const childItem = desktopStore.getItem(childId)!;
       if (isLink(childItem)) { panic(); } // TODO (medium).
       if (isPopup || isFull) {
+        console.log()
         return arrangeItem_Desktop(
           desktopStore,
           childItem,
-          pageItem,
+          canonicalItem_page,
           pageWithChildrenVisualElement.childAreaBoundsPx!,
           pageWithChildrenVisualElementSignal,
           true,    // render children as full
@@ -354,7 +366,7 @@ const arrangePageWithChildren_Desktop = (
         );
       } else {
         return arrangeItemNoChildren_Desktop(
-          desktopStore, childItem, pageItem, innerBoundsPx, null, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
+          desktopStore, childItem, null, canonicalItem_page, innerBoundsPx, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
       }
     });
   }
@@ -367,17 +379,19 @@ const arrangePageWithChildren_Desktop = (
 
 const arrangeTable_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    tableItem: TableItem,
+    canonicalItem_Table: TableItem,
+    linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
     parentPageInnerBoundsPx: BoundingBox,
     parentIsPopup: boolean,
-    linkItemMaybe: LinkItem | null,
     parentSignal_underConstruction: VisualElementSignal): VisualElementSignal => {
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const geometry = calcGeometryOfItem_Desktop(tableItem, parentPageInnerBoundsPx, parentPageInnerDimensionsBl, true, parentIsPopup, desktopStore.getItem);
+  const geometry = calcGeometryOfItem_Desktop(
+    linkItemMaybe ? linkItemMaybe : canonicalItem_Table,
+    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
 
-  const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
+  const sizeBl = { w: canonicalItem_Table.spatialWidthGr / GRID_SIZE, h: canonicalItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
 
@@ -387,7 +401,7 @@ const arrangeTable_Desktop = (
   };
 
   const tableVisualElement = createVisualElement({
-    item: tableItem,
+    item: canonicalItem_Table,
     linkItemMaybe,
     isInteractive: true,
     boundsPx: geometry.boundsPx,
@@ -399,13 +413,13 @@ const arrangeTable_Desktop = (
 
   tableVisualElement.children = (() => {
     let tableVeChildren: Array<VisualElementSignal> = [];
-    for (let idx=0; idx<tableItem.computed_children.length; ++idx) {
-      const childId = tableItem.computed_children[idx];
+    for (let idx=0; idx<canonicalItem_Table.computed_children.length; ++idx) {
+      const childId = canonicalItem_Table.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
       if (isLink(childItem)) { panic(); }  // TODO (MEDIUM).
-      let widthBl = tableItem.tableColumns.length == 1
+      let widthBl = canonicalItem_Table.tableColumns.length == 1
         ? sizeBl.w
-        : Math.min(tableItem.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
+        : Math.min(canonicalItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
       const geometry = calcGeometryOfItem_LineItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
@@ -427,14 +441,14 @@ const arrangeTable_Desktop = (
       if (isAttachmentsItem(childItem)) {
         let tableItemVeAttachments: Array<VisualElementSignal> = [];
         const attachmentsItem = asAttachmentsItem(childItem);
-        let leftBl = tableItem.tableColumns[0].widthGr / GRID_SIZE;
+        let leftBl = canonicalItem_Table.tableColumns[0].widthGr / GRID_SIZE;
         let i=0;
         for (; i<attachmentsItem.computed_attachments.length; ++i) {
-          if (i >= tableItem.tableColumns.length-1) { break; }
-          if (leftBl >= tableItem.spatialWidthGr / GRID_SIZE) { break; }
-          let widthBl = i == tableItem.tableColumns.length - 2
+          if (i >= canonicalItem_Table.tableColumns.length-1) { break; }
+          if (leftBl >= canonicalItem_Table.spatialWidthGr / GRID_SIZE) { break; }
+          let widthBl = i == canonicalItem_Table.tableColumns.length - 2
             ? sizeBl.w - leftBl
-            : tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+            : canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
           const attachmentId = attachmentsItem.computed_attachments[i];
           const attachmentItem = desktopStore.getItem(attachmentId)!;
           const geometry = calcGeometryOfItem_LineItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
@@ -451,14 +465,14 @@ const arrangeTable_Desktop = (
             oneBlockWidthPx: blockSizePx.w
           });
           tableItemVeAttachments.push(createVisualElementSignal(tableItemAttachmentVe));
-          leftBl += tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+          leftBl += canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
         }
         // create 'empty' item visual elements for table cells without an associated attachment.
-        for (; i<tableItem.tableColumns.length-1; ++i) {
-          if (leftBl >= tableItem.spatialWidthGr / GRID_SIZE) { break; }
-          let widthBl = i == tableItem.tableColumns.length - 2
+        for (; i<canonicalItem_Table.tableColumns.length-1; ++i) {
+          if (leftBl >= canonicalItem_Table.spatialWidthGr / GRID_SIZE) { break; }
+          let widthBl = i == canonicalItem_Table.tableColumns.length - 2
             ? sizeBl.w - leftBl
-            : tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+            : canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
           const geometry = calcGeometryOfItem_LineItem(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
           const tableItemAttachmentVe = createVisualElement({
             item: EMPTY_ITEM,
@@ -472,7 +486,7 @@ const arrangeTable_Desktop = (
             parent: tableItemVisualElementSignal,
           });
           tableItemVeAttachments.push(createVisualElementSignal(tableItemAttachmentVe));
-          leftBl += tableItem.tableColumns[i+1].widthGr / GRID_SIZE;
+          leftBl += canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
         }
         tableItemVe.attachments = tableItemVeAttachments;
       }
@@ -488,18 +502,20 @@ const arrangeTable_Desktop = (
 
 const arrangeItemNoChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    item: Item,
+    canonicalItem: Item,
+    linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
     parentPageInnerBoundsPx: BoundingBox,
-    linkItemMaybe: LinkItem | null,
     parentSignal_underConstruction: VisualElementSignal,
     renderStyle: RenderStyle): VisualElementSignal => {
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const itemGeometry = calcGeometryOfItem_Desktop(item, parentPageInnerBoundsPx, parentPageInnerDimensionsBl, true, false, desktopStore.getItem);
+  const itemGeometry = calcGeometryOfItem_Desktop(
+    linkItemMaybe ? linkItemMaybe : canonicalItem,
+    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, false, true, desktopStore.getItem);
 
   const itemVisualElement = createVisualElement({
-    item,
+    item: canonicalItem,
     linkItemMaybe,
     isInteractive: renderStyle != RenderStyle.Outline,
     boundsPx: itemGeometry.boundsPx,

@@ -108,7 +108,7 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
   return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
 }
 
-export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

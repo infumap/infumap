@@ -74,7 +74,7 @@ export function calcPlaceholderSizeForSpatialBl(_item: PlaceholderMeasurable): D
   return { w: 1.0, h: 1.0 };
 }
 
-export function calcGeometryOfPlaceholderItem_Desktop(_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _emitHitboxes: boolean, _parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfPlaceholderItem_Desktop(_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry {
   panic();
 }
 

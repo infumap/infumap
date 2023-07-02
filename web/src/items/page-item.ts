@@ -196,7 +196,7 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 }
 
 
-export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, emitHitboxes: boolean, parentIsPopup: boolean): ItemGeometry {
+export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0, y: 0.0,
     w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
