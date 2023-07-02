@@ -110,8 +110,8 @@ export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBo
   }
 }
 
-export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, getItem);
+export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
 export function calcGeometryOfFileItem_LineItem(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

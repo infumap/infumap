@@ -31,7 +31,7 @@ import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
-import { createNumberSignal, createUidSignal, NumberSignal, UidSignal } from '../util/signals';
+import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 
@@ -44,11 +44,13 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
-  gridNumberOfColumns: number,
+  gridNumberOfColumns: number;
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
-  selectedItem: UidSignal;
+
+  selectedItem: Uid;
+  selectedAttachment: Uid,
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
@@ -94,7 +96,8 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-    selectedItem: createUidSignal(EMPTY_UID),
+    selectedItem: EMPTY_UID,
+    selectedAttachment: EMPTY_UID,
   });
 }
 
@@ -132,7 +135,8 @@ export function pageFromObject(o: any): PageItem {
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-    selectedItem: createUidSignal(EMPTY_UID),
+    selectedItem: EMPTY_UID,
+    selectedAttachment: EMPTY_UID,
   });
 }
 
@@ -221,8 +225,8 @@ export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBo
 }
 
 
-export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, getItem);
+export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
 
@@ -303,7 +307,7 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
   const parentItem = desktopStore.getItem(visualElement.item.parentId)!
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem.set(visualElement.item.id);
+    parentPage.selectedItem = visualElement.item.id;
     arrange(desktopStore);
     return;
   }
@@ -316,7 +320,7 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
   const parentItem = desktopStore.getItem(visualElement.item.parentId)!;
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem.set(visualElement.item.id);
+    parentPage.selectedItem = visualElement.item.id;
   } else if (visualElement.parent!.get().isPopup) {
     desktopStore.pushPopupId(visualElement.item.id);
   } else {

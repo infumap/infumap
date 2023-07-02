@@ -46,12 +46,15 @@ export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
 }
 
 
-export function calcGeometryOfAttachmentItemImpl(page: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfAttachmentItemImpl(item: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  if (isSelected) {
+    return calcGeometryOfSelectedAttachmentItemImpl(item, parentBoundsPx, parentInnerSizeBl, index, getItem);
+  }
   const SCALE_DOWN_PROP = 0.8;
   const blockSizePx = parentBoundsPx.w / parentInnerSizeBl.w;
   const scaleDownBlockSizePx = blockSizePx * SCALE_DOWN_PROP;
   const scaleDownMarginPx = (blockSizePx - scaleDownBlockSizePx) / 2.0;
-  const itemSizeBl = calcSizeForSpatialBl(page, getItem);
+  const itemSizeBl = calcSizeForSpatialBl(item, getItem);
   let boundsPx: BoundingBox;
   if (itemSizeBl.w > itemSizeBl.h) {
     const wPx = scaleDownBlockSizePx;
@@ -77,6 +80,32 @@ export function calcGeometryOfAttachmentItemImpl(page: Measurable, parentBoundsP
       w: wPx,
       h: hPx,
     };
+  }
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  return {
+    boundsPx,
+    hitboxes: [
+      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.OpenAttachment, innerBoundsPx),
+    ],
+  }
+}
+
+export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  const blockSizePx = {
+    w: parentBoundsPx.w / parentInnerSizeBl.w,
+    h: parentBoundsPx.h / parentInnerSizeBl.h
+  };
+  const itemSizeBl = calcSizeForSpatialBl(item, getItem);
+  const itemSizePx = {
+    w: itemSizeBl.w * blockSizePx.w,
+    h: itemSizeBl.h * blockSizePx.h
+  };
+  const boundsPx = {
+    x: parentBoundsPx.w - itemSizePx.w / 2.0,
+    y: -itemSizePx.h / 2.0,
+    w: itemSizePx.w,
+    h: itemSizePx.h,
   }
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {

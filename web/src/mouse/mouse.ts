@@ -104,7 +104,8 @@ export function mouseLeftDownHandler(
   const desktopPosPx = desktopPxFromMouseEvent(ev);
 
   if (desktopStore.contextMenuInfo() != null) {
-    desktopStore.setContextMenuInfo(null); return;
+    desktopStore.setContextMenuInfo(null);
+    return;
   }
 
   let dialogInfo = desktopStore.editDialogInfo();
@@ -121,7 +122,11 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (hitInfo.overElementVes.get().isPopup) {
+      asPageItem(desktopStore.topLevelVisualElement().item).selectedAttachment = EMPTY_UID;
       switchToPage(desktopStore, hitInfo.overElementVes.get().item.id);
+    } else {
+      asPageItem(hitInfo.overElementVes.get().item).selectedAttachment = EMPTY_UID;
+      arrange(desktopStore);
     }
     mouseActionState = null;
     return;
@@ -623,6 +628,10 @@ export function mouseUpHandler(
       if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.OpenPopup) {
         handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
+      else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.OpenAttachment) {
+        handleAttachmentClick(activeVisualElement, desktopStore, userStore);
+        arrange(desktopStore);
+      }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Click) {
         handleClick(activeVisualElementSignal, desktopStore, userStore);
       }
@@ -635,6 +644,10 @@ export function mouseUpHandler(
   mouseActionState = null;
 }
 
+function handleAttachmentClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel) {
+  const page = asPageItem(visualElement.parent!.get().parent!.get().item);
+  page.selectedAttachment = visualElement.item.id;
+}
 
 function mouseUpHandler_moving(
     desktopStore: DesktopStoreContextModel,

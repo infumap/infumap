@@ -126,8 +126,8 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
   return calcGeometryOfItem_Desktop(constructLinkToMeasurable(link, getItem), parentBoundsPx, parentInnerSizeBl, emitHitboxes, parentIsPopup, getItem)
 }
 
-export function calcGeometryOfLinkItem_Attachment(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfItem_Attachment(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, index, getItem);
+export function calcGeometryOfLinkItem_Attachment(link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfItem_Attachment(constructLinkToMeasurable(link, getItem), containerBoundsPx, containerInnerSizeBl, index, isSelected, getItem);
 }
 
 export function calcGeometryOfLinkItem_LineItem(link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {

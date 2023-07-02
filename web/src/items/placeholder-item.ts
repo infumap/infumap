@@ -78,8 +78,8 @@ export function calcGeometryOfPlaceholderItem_Desktop(_placeholder: PlaceholderM
   panic();
 }
 
-export function calcGeometryOfPlaceholderItem_Attachment(placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, getItem);
+export function calcGeometryOfPlaceholderItem_Attachment(placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
 export function calcGeometryOfPlaceholderItem_LineItem(_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

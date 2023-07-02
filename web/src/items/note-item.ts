@@ -132,8 +132,8 @@ export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBo
   }
 }
 
-export function calcGeometryOfNoteItem_Attachment(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, getItem);
+export function calcGeometryOfNoteItem_Attachment(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
 export function calcGeometryOfNoteItem_ListItem(_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

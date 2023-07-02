@@ -20,13 +20,14 @@ import { BoundingBox, cloneBoundingBox } from "../util/geometry";
 
 
 export enum HitboxType {
-  None = 0,
-  Click = 1,
-  Move = 2,
-  Resize = 4,
-  OpenPopup = 8,
-  Attach = 16,
-  ColResize = 32,
+  None =           0x000,
+  Click =          0x001,
+  Move =           0x002,
+  Resize =         0x004,
+  OpenPopup =      0x008,
+  Attach =         0x010,
+  ColResize =      0x020,
+  OpenAttachment = 0x040,
 }
 
 export interface Hitbox {
