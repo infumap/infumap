@@ -42,6 +42,7 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
 
   const keyDownHandler = (ev: Event) => {
     if ((ev as KeyboardEvent).code == "Enter" && props.onEnterKeyDown) {
+      ev.preventDefault();
       setTimeout(() => { props.onEnterKeyDown!(); }, 50)
     }
   }
