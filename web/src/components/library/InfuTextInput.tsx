@@ -69,6 +69,7 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
   return (
     <input ref={textElement}
            class="border border-slate-300 p-2 rounded"
+           autocomplete="on"
            value={props.value ? props.value : ""}
            type={props.type ? props.type : "text"}
            onMouseDown={mouseDownHandler}

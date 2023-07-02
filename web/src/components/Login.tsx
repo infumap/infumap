@@ -68,7 +68,9 @@ export const Login: Component = () => {
       </div>
       <div class="mb-3">
         <div class="inline-block w-32">Password</div>
-        <InfuTextInput onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLoginClick} type="password" />
+        <form class="inline-block">
+          <InfuTextInput onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLoginClick} type="password" />
+        </form>
       </div>
       <div>
         <div class="inline-block w-32"></div>
