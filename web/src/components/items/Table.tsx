@@ -83,12 +83,12 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 
   return (
     <>
-      <Show when={!props.visualElement.isInteractive}>
+      <Show when={!props.visualElement.isDetailed}>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; `}>
         </div>
       </Show>
-      <Show when={props.visualElement.isInteractive}>
+      <Show when={props.visualElement.isDetailed}>
         <div class="absolute"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="absolute font-bold"

@@ -68,7 +68,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
-        <Show when={props.visualElement.isInteractive}>
+        <Show when={props.visualElement.isDetailed}>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xs font-bold text-white"
                  style={`transform: scale(${opaqueTitleScale()}); transform-origin: center center;`}>
@@ -200,8 +200,8 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   const drawAsFull = () => {
     return (
-      <div class={`absolute ${props.visualElement.isFull ? "border border-slate-700" : ""}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${props.visualElement.isFull ? fullBgColorVal() : "#ffffff"}`}>
+      <div class={`absolute ${props.visualElement.isRoot ? "border border-slate-700" : ""}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${props.visualElement.isRoot ? fullBgColorVal() : "#ffffff"}`}>
         <For each={props.visualElement.children}>{childVe =>
           childVe.get().isLineItem
             ? <VisualElement_LineItem visualElement={childVe.get()} />
@@ -217,13 +217,13 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == desktopStore.topLevelPageId() || props.visualElement.isFull}>
+      <Show when={pageItem().id == desktopStore.topLevelPageId() || props.visualElement.isRoot}>
         {drawAsFull()}
       </Show>
-      <Show when={!props.visualElement.isInteractive || (!props.visualElement.isFull && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+      <Show when={!props.visualElement.isDetailed || (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!props.visualElement.isFull && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
       <Show when={props.visualElement.isPopup}>

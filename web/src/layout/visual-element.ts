@@ -39,10 +39,10 @@ export interface VisualElement {
   resizingFromBoundsPx: BoundingBox | null,
 
   isSelected: boolean,             // the item is selected.
-  isLineItem: boolean,             // whether or not to render as a line item or deskop item.
-  isInteractive: boolean,          // the visual element can be interacted with.
+  isLineItem: boolean,             // render as a line item (like in a table), not deskop item.
+  isDetailed: boolean,             // the visual element has detail / can be interacted with.
   isPopup: boolean,                // the visual element is a popup (and thus also a page).
-  isFull: boolean                  // render as topLevel.
+  isRoot: boolean                  // render as a root level page (popup, list page, top level page).
   isInsideTable: boolean,          // the visual element is inside a table.
   isAttachment: boolean,           // the visual element is an attachment.
   isDragOverPositioning: boolean,  // an item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
@@ -81,9 +81,9 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   isSelected: false,
   isLineItem: false,
-  isInteractive: false,
+  isDetailed: false,
   isPopup: false,
-  isFull: false,
+  isRoot: false,
   isInsideTable: false,
   isAttachment: false,
   isDragOverPositioning: false,
@@ -110,8 +110,8 @@ export interface VisualElementOverride {
   isSelected?: boolean,
   isLineItem?: boolean,
   isPopup?: boolean,
-  isFull?: boolean,
-  isInteractive?: boolean,
+  isRoot?: boolean,
+  isDetailed?: boolean,
   isInsideTable?: boolean
   isAttachment?: boolean,
   isDragOverPositioning?: boolean,
@@ -134,9 +134,9 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     resizingFromBoundsPx: null,
     isSelected: false,
     isLineItem: false,
-    isInteractive: false,
+    isDetailed: false,
     isPopup: false,
-    isFull: false,
+    isRoot: false,
     isInsideTable: false,
     isAttachment: false,
     isDragOverPositioning: false,
@@ -159,10 +159,10 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   result.item = override.item;
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
-  if (typeof(override.isFull) != 'undefined') { result.isFull = override.isFull; }
+  if (typeof(override.isRoot) != 'undefined') { result.isRoot = override.isRoot; }
   if (typeof(override.isSelected) != 'undefined') { result.isSelected = override.isSelected; }
   if (typeof(override.isLineItem) != 'undefined') { result.isLineItem = override.isLineItem; }
-  if (typeof(override.isInteractive) != 'undefined') { result.isInteractive = override.isInteractive; }
+  if (typeof(override.isDetailed) != 'undefined') { result.isDetailed = override.isDetailed; }
   if (typeof(override.isInsideTable) != 'undefined') { result.isInsideTable = override.isInsideTable; }
   if (typeof(override.isAttachment) != 'undefined') { result.isAttachment = override.isAttachment; }
   if (typeof(override.isDragOverPositioning) != 'undefined') { result.isDragOverPositioning = override.isDragOverPositioning; }

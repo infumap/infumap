@@ -19,7 +19,6 @@
 import { Component, For, Show, onCleanup, onMount } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
-import { asTableItem } from "../../items/table-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
@@ -42,11 +41,11 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   };
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
-  const isInteractive = () => { return props.visualElement.isInteractive; }
+  const isDetailed = () => { return props.visualElement.isDetailed; }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
   const imgSrc = () => { return "/files/" + props.visualElement.item.id + "_" + imageWidthToRequestPx(true); }
   // const imgUrl = () => {
-  //   if (!props.visualElement.isInteractive) {
+  //   if (!props.visualElement.isDetailed) {
   //     return "data:image/png;base64, " + imageItem().thumbnail;
   //   }
   //   return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
@@ -75,11 +74,11 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const BORDER_WIDTH_PX = 1;
 
 
-  let isInteractiveOnLoad = isInteractive();
+  let isDetailedOnLoad = isDetailed();
   let imgSrcOnLoad = imgSrc();
 
   onMount(() => {
-    if (isInteractiveOnLoad) {
+    if (isDetailedOnLoad) {
       // console.debug(`mount: ${imgSrcOnLoad}`);
       getImage(imgSrcOnLoad)
         .then((objectUrl) => {
@@ -90,7 +89,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 
   onCleanup(() => {
     // console.debug(`cleanup: ${imgSrcOnLoad}`);
-    if (isInteractiveOnLoad) {
+    if (isDetailedOnLoad) {
       releaseImage(imgSrcOnLoad);
     }
   });
@@ -99,7 +98,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
     <Show when={boundsPx().w > 5}>
       <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
            style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
-        <Show when={isInteractive()} fallback={
+        <Show when={isDetailed()} fallback={
             <img class="max-w-none absolute"
                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                         `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
