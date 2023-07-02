@@ -192,7 +192,7 @@ function calcStartTableItemMaybe(desktopStore: DesktopStoreContextModel, item: I
 // **** RIGHT DOWN ****
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    _ev: MouseEvent) {
+    ev: MouseEvent) {
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
@@ -203,6 +203,13 @@ export function mouseRightDownHandler(
   if (desktopStore.editDialogInfo() != null) {
     desktopStore.setEditDialogInfo(null);
     mouseMoveNoButtonDownHandler(desktopStore);
+    return;
+  }
+
+  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], true);
+  if (asPageItem(hitInfo.rootVe.item).selectedAttachment != EMPTY_UID) {
+    asPageItem(hitInfo.rootVe.item).selectedAttachment = EMPTY_UID;
+    arrange(desktopStore);
     return;
   }
 
