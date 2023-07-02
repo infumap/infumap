@@ -154,38 +154,37 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       w: desktopStore.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL+2) * LINE_HEIGHT_PX),
       h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
-    topLevelVisualElement.children.push(
-      arrangeInCell(desktopStore, currentPage.selectedItem, boundsPx));
+    // topLevelVisualElement.children.push(
+    //   arrangeInCell(desktopStore, currentPage.selectedItem, boundsPx));
   }
 
   desktopStore.setTopLevelVisualElement(topLevelVisualElement);
 }
 
-function arrangeInCell(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
-  const item = desktopStore.getItem(id)!;
+// function arrangeInCell(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
+//   const item = desktopStore.getItem(id)!;
 
-  if (isPage(item) || isTable(item)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-  }
+//   if (isPage(item) || isTable(item)) {
+//     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
+//   }
 
-  let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), id);
-  li.id = LIST_FOCUS_ID;
-  let widthGr = 10 * GRID_SIZE;
-  li.spatialWidthGr = widthGr;
-  li.spatialPositionGr = { x: 0.0, y: 0.0 };
+//   let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), id);
+//   li.id = LIST_FOCUS_ID;
+//   let widthGr = 10 * GRID_SIZE;
+//   li.spatialWidthGr = widthGr;
+//   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = calcGeometryOfItem_Cell(li, boundsPx, desktopStore.getItem);
+//   const geometry = calcGeometryOfItem_Cell(li, boundsPx, desktopStore.getItem);
 
-  return arrangePageWithChildren(
-    desktopStore,
-    asPageItem(item),
-    li,
-    geometry,
-    desktopStore.topLevelVisualElementSignal(),
-    false,  // is popup.
-    true    // is full.
-  );
-}
+//   return arrangePageWithChildren(
+//     desktopStore,
+//     asPageItem(item),
+//     li,
+//     desktopStore.topLevelVisualElementSignal(),
+//     false,  // is popup.
+//     true    // is full.
+//   );
+// }
 
 const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
@@ -217,12 +216,11 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
   });
 
   visualElement.children = pageItem.computed_children
-    .map(childId => arrangeDesktopItem(
+    .map(childId => arrangeItem_Desktop(
       desktopStore,
       desktopStore.getItem(childId)!,
       pageItem,
       pageBoundsPx,
-      calcPageInnerSpatialDimensionsBl(pageItem),
       ves,
       true,  // render children as full
       false, // parent is popup
@@ -238,12 +236,11 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
     li.spatialWidthGr = widthGr;
     li.spatialPositionGr = { x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE };
     visualElement.children.push(
-      arrangeDesktopItem(
+      arrangeItem_Desktop(
         desktopStore,
         li,
         pageItem,
         pageBoundsPx,
-        calcPageInnerSpatialDimensionsBl(pageItem),
         ves,
         true, // render children as full
         true, // parent is popup
@@ -255,12 +252,11 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
 }
 
 
-const arrangeDesktopItem = (
+const arrangeItem_Desktop = (
     desktopStore: DesktopStoreContextModel,
     item: Item,
     parentPage: PageItem,
-    containerBoundsPx: BoundingBox,
-    containerInnerDimensionsBl: Dimensions,
+    parentPageBoundsPx: BoundingBox,
     parentSignal_underConstruction: VisualElementSignal, // used to establish back references only, not called.
     renderChildrenAsFull: boolean,
     parentIsPopup: boolean,
@@ -268,8 +264,7 @@ const arrangeDesktopItem = (
 
   if (isPopup && !isLink(item)) { panic(); }
 
-  const pageBoundsPx = zeroBoundingBoxTopLeft(containerBoundsPx);
-  const geometry = calcGeometryOfItem_Desktop(item, pageBoundsPx, containerInnerDimensionsBl, true, parentIsPopup, desktopStore.getItem);
+  const parentPageInnerBoundsPx = zeroBoundingBoxTopLeft(parentPageBoundsPx);
 
   let spatialWidthGr = isXSizableItem(item)
     ? asXSizableItem(item).spatialWidthGr
@@ -294,28 +289,93 @@ const arrangeDesktopItem = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangePageWithChildren(desktopStore, asPageItem(item), linkItemMaybe, geometry, parentSignal_underConstruction, isPopup, false);
+    return arrangePageWithChildren_Desktop(desktopStore, asPageItem(item), parentPage, parentPageInnerBoundsPx, parentIsPopup, linkItemMaybe, parentSignal_underConstruction, isPopup, false);
   }
 
   if (isTable(item) && (item.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-    return arrangeTable(desktopStore, asTableItem(item), linkItemMaybe, geometry, parentSignal_underConstruction);
+    return arrangeTable_Desktop(desktopStore, asTableItem(item), parentPage, parentPageInnerBoundsPx, parentIsPopup, linkItemMaybe, parentSignal_underConstruction);
   }
 
   const renderStyle = renderChildrenAsFull
     ? RenderStyle.Full
     : RenderStyle.Outline;
 
-  return arrangeItemNoChildren(desktopStore, item, parentPage, pageBoundsPx, linkItemMaybe, parentSignal_underConstruction, renderStyle);
+  return arrangeItemNoChildren_Desktop(desktopStore, item, parentPage, parentPageInnerBoundsPx, linkItemMaybe, parentSignal_underConstruction, renderStyle);
 }
 
 
-const arrangeTable = (
+const arrangePageWithChildren_Desktop = (
+    desktopStore: DesktopStoreContextModel,
+    pageItem: PageItem,
+    parentPage: PageItem,
+    parentPageInnerBoundsPx: BoundingBox,
+    parentIsPopup: boolean,
+    linkItemMaybe: LinkItem | null,
+    parentSignal_underConstruction: VisualElementSignal,
+    isPopup: boolean,
+    isFull: boolean): VisualElementSignal => {
+
+  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
+  const geometry = calcGeometryOfItem_Desktop(pageItem, parentPageInnerBoundsPx, parentPageInnerDimensionsBl, true, parentIsPopup, desktopStore.getItem);
+
+  const pageWithChildrenVisualElement = createVisualElement({
+    item: pageItem,
+    linkItemMaybe,
+    isInteractive: true,
+    isPopup,
+    isFull,
+    isDragOverPositioning: true,
+    boundsPx: geometry.boundsPx,
+    childAreaBoundsPx: geometry.boundsPx,
+    hitboxes: geometry.hitboxes,
+    parent: parentSignal_underConstruction,
+  });
+  const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
+
+  const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+
+  if (pageItem.arrangeAlgorithm == ARRANGE_ALGO_GRID || pageItem.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    console.log("TODO: arrange child grid page.");
+  } else {
+    pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
+      const childItem = desktopStore.getItem(childId)!;
+      if (isLink(childItem)) { panic(); } // TODO (medium).
+      if (isPopup || isFull) {
+        return arrangeItem_Desktop(
+          desktopStore,
+          childItem,
+          pageItem,
+          pageWithChildrenVisualElement.childAreaBoundsPx!,
+          pageWithChildrenVisualElementSignal,
+          true,    // render children as full
+          isPopup, // parent is popup
+          false    // is popup
+        );
+      } else {
+        return arrangeItemNoChildren_Desktop(
+          desktopStore, childItem, pageItem, innerBoundsPx, null, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
+      }
+    });
+  }
+
+  arrangeItemAttachments(desktopStore, pageWithChildrenVisualElementSignal, parentPage.selectedAttachment);
+
+  return pageWithChildrenVisualElementSignal;
+}
+
+
+const arrangeTable_Desktop = (
     desktopStore: DesktopStoreContextModel,
     tableItem: TableItem,
+    parentPage: PageItem,
+    parentPageInnerBoundsPx: BoundingBox,
+    parentIsPopup: boolean,
     linkItemMaybe: LinkItem | null,
-    geometry: ItemGeometry,
     parentSignal_underConstruction: VisualElementSignal): VisualElementSignal => {
+
+  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
+  const geometry = calcGeometryOfItem_Desktop(tableItem, parentPageInnerBoundsPx, parentPageInnerDimensionsBl, true, parentIsPopup, desktopStore.getItem);
 
   const sizeBl = { w: tableItem.spatialWidthGr / GRID_SIZE, h: tableItem.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
@@ -420,69 +480,13 @@ const arrangeTable = (
     return tableVeChildren;
   })();
 
-  // arrangeItemAttachments(desktopStore, tableVisualElementSignal, pageItem);
+  arrangeItemAttachments(desktopStore, tableVisualElementSignal, parentPage.selectedAttachment);
 
   return tableVisualElementSignal;
 }
 
 
-const arrangePageWithChildren = (
-    desktopStore: DesktopStoreContextModel,
-    pageItem: PageItem,
-    linkItemMaybe: LinkItem | null,
-    geometry: ItemGeometry,
-    parentSignal_underConstruction: VisualElementSignal,
-    isPopup: boolean,
-    isFull: boolean): VisualElementSignal => {
-
-  const pageWithChildrenVisualElement = createVisualElement({
-    item: pageItem,
-    linkItemMaybe,
-    isInteractive: true,
-    isPopup,
-    isFull,
-    isDragOverPositioning: true,
-    boundsPx: geometry.boundsPx,
-    childAreaBoundsPx: geometry.boundsPx,
-    hitboxes: geometry.hitboxes,
-    parent: parentSignal_underConstruction,
-  });
-  const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);
-
-  const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
-
-  if (pageItem.arrangeAlgorithm == ARRANGE_ALGO_GRID || pageItem.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    console.log("TODO: arrange child grid page.");
-  } else {
-    pageWithChildrenVisualElement.children = pageItem.computed_children.map(childId => {
-      const childItem = desktopStore.getItem(childId)!;
-      if (isLink(childItem)) { panic(); } // TODO (medium).
-      if (isPopup || isFull) {
-        return arrangeDesktopItem(
-          desktopStore,
-          childItem,
-          pageItem,
-          pageWithChildrenVisualElement.childAreaBoundsPx!,
-          calcPageInnerSpatialDimensionsBl(pageItem),
-          pageWithChildrenVisualElementSignal,
-          true,    // render children as full
-          isPopup, // parent is popup
-          false    // is popup
-        );
-      } else {
-        return arrangeItemNoChildren(
-          desktopStore, childItem, pageItem, innerBoundsPx, null, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
-      }
-    });
-  }
-
-  // incorrect arrangeItemAttachments(desktopStore, pageWithChildrenVisualElementSignal, pageItem.selectedAttachment);
-
-  return pageWithChildrenVisualElementSignal;
-}
-
-
-const arrangeItemNoChildren = (
+const arrangeItemNoChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
     item: Item,
     parentPage: PageItem,
@@ -621,12 +625,11 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
       ? visualElement.linkItemMaybe!
       : visualElement.item;
     const pageItem = asPageItem(visualElement.parent!.get().item);
-    const rearrangedVisualElement = arrangeDesktopItem(
+    const rearrangedVisualElement = arrangeItem_Desktop(
       desktopStore,
       item,
       pageItem,
       visualElement.parent!.get().childAreaBoundsPx!,
-      calcPageInnerSpatialDimensionsBl(asPageItem(visualElement.parent!.get().item)),
       visualElement.parent!,
       visualElement.parent!.get().isPopup,
       visualElement.parent!.get().isPopup,
