@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { TOOLBAR_WIDTH } from "../constants";
+import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 
 
 export interface BoundingBox {
@@ -114,7 +114,7 @@ function clientPxFromMouseEvent(ev: MouseEvent): Vector {
 }
 
 export function desktopPxFromMouseEvent(ev: MouseEvent): Vector {
-  return vectorSubtract(clientPxFromMouseEvent(ev), { x: TOOLBAR_WIDTH, y: 0 });
+  return vectorSubtract(clientPxFromMouseEvent(ev), { x: MAIN_TOOLBAR_WIDTH_PX, y: 0 });
 }
 
 export function vectorSubtract(a: Vector, b: Vector): Vector {

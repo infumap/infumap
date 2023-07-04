@@ -19,7 +19,7 @@
 import imgUrl from '../assets/circle.png'
 
 import { Component, Show } from "solid-js";
-import { TOOLBAR_WIDTH } from "../constants";
+import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { asPageItem } from "../items/page-item";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { Colors } from "../style";
@@ -73,7 +73,7 @@ export const Toolbar: Component = () => {
           style={`background-image: linear-gradient(270deg, ` +
                  `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.item).backgroundColorIndex], 0.786)}, ` +
                  `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.item).backgroundColorIndex], 0.864)}); ` +
-                 `width: ${TOOLBAR_WIDTH}px`}>
+                 `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
         <img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" />
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
           {asPageItem(desktopStore.topLevelVisualElement()!.item).title}

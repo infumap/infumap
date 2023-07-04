@@ -18,7 +18,7 @@
 
 import { batch } from "solid-js";
 import { HEADER_HEIGHT_BL } from "../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -341,7 +341,7 @@ const arrangePageWithChildren_Desktop = (
     const spatialWidthBl = linkItemMaybe!.spatialWidthGr / GRID_SIZE;
     const widthPx = boundsPx.w;
     const blockWidthPx = widthPx / spatialWidthBl;
-    const toolbarWidthPx = blockWidthPx * 1.0;
+    const toolbarWidthPx = blockWidthPx * POPUP_TOOLBAR_WIDTH_BL;
     boundsPx = {
       x: childAreaBoundsPx.x - toolbarWidthPx,
       y: childAreaBoundsPx.y,

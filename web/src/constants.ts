@@ -20,7 +20,9 @@ export const GRID_PAGE_CELL_ASPECT = 1.5;
 
 export const GRID_SIZE = 60;
 
-export const TOOLBAR_WIDTH = 40;
+export const MAIN_TOOLBAR_WIDTH_PX = 40;
+
+export const POPUP_TOOLBAR_WIDTH_BL = 1.0;
 
 export const RESIZE_BOX_SIZE_PX = 8;
 

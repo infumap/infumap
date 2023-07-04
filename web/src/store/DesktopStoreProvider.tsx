@@ -25,7 +25,7 @@ import { Attachment, Child, NoParent } from "../layout/relationship-to-parent";
 import { asContainerItem, ContainerItem, isContainer } from "../items/base/container-item";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
-import { TOOLBAR_WIDTH } from "../constants";
+import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemFromObject } from "../items/base/item-polymorphism";
 import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
@@ -309,7 +309,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("root") ?? panic();
-    return { w: rootElement.clientWidth - TOOLBAR_WIDTH, h: rootElement.clientHeight };
+    return { w: rootElement.clientWidth - MAIN_TOOLBAR_WIDTH_PX, h: rootElement.clientHeight };
   }
 
 

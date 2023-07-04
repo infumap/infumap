@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
+import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { server } from "../server";
 import { calcSizeForSpatialBl, handleClick, handlePopupClick } from "../items/base/item-polymorphism";
@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, visualElementsWithId } from "../store/Desktop
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -142,15 +142,15 @@ export function mouseLeftDownHandler(
     ? hitInfo.overElementVes.get().parent!.get()
     : hitInfo.rootVe;
   const activeItem = desktopStore.getItem(hitInfo.overElementVes.get().item.id)!;
-  let desktopBoundsPx = visualElementDesktopBoundsPx(hitInfo.overElementVes.get());
+  let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get())
   const onePxSizeBl = hitInfo.overElementVes.get().isPopup
-    ? { x: calcSizeForSpatialBl(activeRootVisualElement.item, desktopStore.getItem).w / desktopBoundsPx.w,
-        y: calcSizeForSpatialBl(activeRootVisualElement.item, desktopStore.getItem).h / desktopBoundsPx.h }
-    : { x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / desktopBoundsPx.w,
-        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / desktopBoundsPx.h };
+    ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!, desktopStore.getItem).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
+        y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!, desktopStore.getItem).h / boundsOnDesktopPx.h }
+    : { x: calcSizeForSpatialBl(activeItem, desktopStore.getItem).w / boundsOnDesktopPx.w,
+        y: calcSizeForSpatialBl(activeItem, desktopStore.getItem).h / boundsOnDesktopPx.h };
   let clickOffsetProp = {
-    x: (startPx.x - desktopBoundsPx.x) / desktopBoundsPx.w,
-    y: (startPx.y - desktopBoundsPx.y) / desktopBoundsPx.h
+    x: (startPx.x - boundsOnDesktopPx.x) / boundsOnDesktopPx.w,
+    y: (startPx.y - boundsOnDesktopPx.y) / boundsOnDesktopPx.h
   };
   const startAttachmentsItem = calcStartTableItemMaybe(desktopStore, activeItem);
   mouseActionState = {
@@ -352,8 +352,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Resizing Popup
   } else if (mouseActionState.action == MouseAction.ResizingPopup) {
     const deltaBl = {
-      x: deltaPx.x * mouseActionState.onePxSizeBl.x,
-      y: deltaPx.y * mouseActionState.onePxSizeBl.y
+      x: deltaPx.x * mouseActionState.onePxSizeBl.x * 2.0, // * 2.0 because it's centered, so mouse distance -> half the desired increase in width.
+      y: deltaPx.y * mouseActionState.onePxSizeBl.y * 2.0
     };
 
     let newWidthBl = mouseActionState!.startWidthBl! + deltaBl.x;
@@ -487,7 +487,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
     w: tableItem.spatialWidthGr / GRID_SIZE,
     h: tableItem.spatialHeightGr / GRID_SIZE
   };
-  const tableBoundsPx = visualElementDesktopBoundsPx(overContainerVe);
+  const tableBoundsPx = visualElementBoundsOnDesktopPx(overContainerVe);
 
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
@@ -531,7 +531,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   const activeItem = asPositionalItem(visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get().item);
   const currentParent = desktopStore.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.item);
-  const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
+  const moveToPageAbsoluteBoundsPx = visualElementBoundsOnDesktopPx(moveToVe);
   const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
