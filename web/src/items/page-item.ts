@@ -88,7 +88,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     popupWidthGr: 10.0 * GRID_SIZE,
     gridNumberOfColumns: 6,
 
-    orderChildrenBy: null,
+    orderChildrenBy: "title[ASC]",
 
     computed_children: [],
     computed_attachments: [],
