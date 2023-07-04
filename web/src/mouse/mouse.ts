@@ -50,6 +50,7 @@ const MOUSE_RIGHT = 2;
 enum MouseAction {
   Ambiguous,
   Moving,
+  MovingPopup,
   Resizing,
   ResizingColumn,
   ResizingPopup,
@@ -284,30 +285,39 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           }
           mouseActionState.action = MouseAction.Resizing;
         }
+
+      } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
+        mouseActionState.startWidthBl = null;
+        mouseActionState.startHeightBl = null;
+        if (activeVisualElement.isPopup) {
+          mouseActionState.action = MouseAction.MovingPopup;
+          const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item;
+          const popupPositionGr = asPageItem(activeRoot).popupPositionGr;
+          mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
+        } else {
+          const parentItem = desktopStore.getItem(activeItem.parentId)!;
+          if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
+            moveActiveItemOutOfTable(desktopStore);
+          }
+          mouseActionState.startPosBl = {
+            x: activeItem.spatialPositionGr.x / GRID_SIZE,
+            y: activeItem.spatialPositionGr.y / GRID_SIZE
+          };
+          mouseActionState.action = MouseAction.Moving;
+          const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+          if (activeItem.relationshipToParent == Attachment) {
+            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev), Attachment);
+          }
+        }
+
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
         mouseActionState.startPosBl = null;
         mouseActionState.startHeightBl = null;
         const colNum = mouseActionState.hitMeta?.resizeColNumber!;
         mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
         mouseActionState.action = MouseAction.ResizingColumn;
-
-      } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
-        const parentItem = desktopStore.getItem(activeItem.parentId)!;
-        if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
-          moveActiveItemOutOfTable(desktopStore);
-        }
-        mouseActionState.startWidthBl = null;
-        mouseActionState.startHeightBl = null;
-        mouseActionState.startPosBl = {
-          x: activeItem.spatialPositionGr.x / GRID_SIZE,
-          y: activeItem.spatialPositionGr.y / GRID_SIZE
-        };
-        mouseActionState.action = MouseAction.Moving;
-        const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
-        if (activeItem.relationshipToParent == Attachment) {
-          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev), Attachment);
-        }
       }
+
     }
   }
 
@@ -370,6 +380,20 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     visualElementsWithId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
+
+  // ### Moving Popup
+  } else if (mouseActionState.action == MouseAction.MovingPopup) {
+    const deltaBl = {
+      x: Math.round(deltaPx.x * mouseActionState.onePxSizeBl.x * 2.0)/2.0,
+      y: Math.round(deltaPx.y * mouseActionState.onePxSizeBl.y * 2.0)/2.0
+    };
+    const newPositionGr = {
+      x: (mouseActionState.startPosBl!.x + deltaBl.x) * GRID_SIZE,
+      y: (mouseActionState.startPosBl!.y + deltaBl.y) * GRID_SIZE
+    };
+    const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
+    asPageItem(activeRoot.item).popupPositionGr = newPositionGr;
+    arrange(desktopStore);
 
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
@@ -641,6 +665,15 @@ export function mouseUpHandler(
       mouseUpHandler_moving(desktopStore, activeItem);
       break;
 
+    case MouseAction.MovingPopup: {
+        const activeRoot = asPageItem(visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item);
+        if (activeRoot.popupPositionGr.x / GRID_SIZE != mouseActionState.startPosBl!.x ||
+            activeRoot.popupPositionGr.y / GRID_SIZE != mouseActionState.startPosBl!.y) {
+          server.updateItem(desktopStore.getItem(activeRoot.id)!);
+        }
+      break;
+    }
+
     case MouseAction.Resizing:
       if (mouseActionState.startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
           (isYSizableItem(activeItem) && mouseActionState.startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
@@ -652,12 +685,13 @@ export function mouseUpHandler(
       // });
       break;
 
-    case MouseAction.ResizingPopup:
+    case MouseAction.ResizingPopup: {
       const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item;
-      if (mouseActionState.startWidthBl! * GRID_SIZE != asPageItem(activeRoot).spatialWidthGr) {
+      if (mouseActionState.startWidthBl! * GRID_SIZE != asPageItem(activeRoot).popupWidthGr) {
         server.updateItem(desktopStore.getItem(activeRoot.id)!);
       }
       break;
+    }
 
     case MouseAction.ResizingColumn:
       if (mouseActionState.startWidthBl! * GRID_SIZE != asTableItem(activeItem).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr) {

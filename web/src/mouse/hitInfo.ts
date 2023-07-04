@@ -206,10 +206,19 @@ export function getHitInfo(
   }
 
   if (rootVisualElement.isPopup) {
-    const resizeHb = rootVisualElement.hitboxes.find(hb => hb.type == HitboxType.Resize);
-    if (isInside(posRelativeToRootVisualElementPx, resizeHb!.boundsPx)) {
-      return finalize(HitboxType.Resize, rootVisualElement, rootVisualElementSignal, null);
+    for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
+      if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
+        return finalize(rootVisualElement.hitboxes[j].type, rootVisualElement, rootVisualElementSignal, null);
+      }
     }
+
+    // console.log(rootVisualElement.hitboxes);
+    // const resizeHb = rootVisualElement.hitboxes.find(hb => hb.type == HitboxType.Resize);
+    // if (isInside(posRelativeToRootVisualElementPx, resizeHb!.boundsPx)) {
+    //   return finalize(HitboxType.Resize, rootVisualElement, rootVisualElementSignal, null);
+    // }
+    // if (isInside(posRelativeToRootVisualElementPx, resizeHb!.boundsPx)) {
+    // }
   }
   return finalize(HitboxType.None, rootVisualElement, rootVisualElementSignal, null);
 }

@@ -33,12 +33,13 @@ import { LinkItem, asLinkItem, isLink, newLinkItem } from "../items/link-item";
 import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
-import { panic } from "../util/lang";
+import { assert, panic } from "../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { isPositionalItem } from "../items/base/positional-item";
+import { HitboxType, createHitbox } from "./hitbox";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -333,7 +334,28 @@ const arrangePageWithChildren_Desktop = (
   const geometry = calcGeometryOfItem_Desktop(
     linkItemMaybe ? linkItemMaybe : canonicalItem_page,
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
-
+  let boundsPx = geometry.boundsPx;
+  let childAreaBoundsPx = geometry.boundsPx;
+  let hitboxes = geometry.hitboxes;
+  if (isPopup) {
+    const spatialWidthBl = linkItemMaybe!.spatialWidthGr / GRID_SIZE;
+    const widthPx = boundsPx.w;
+    const blockWidthPx = widthPx / spatialWidthBl;
+    const toolbarWidthPx = blockWidthPx * 1.0;
+    boundsPx = {
+      x: childAreaBoundsPx.x - toolbarWidthPx,
+      y: childAreaBoundsPx.y,
+      w: childAreaBoundsPx.w + toolbarWidthPx,
+      h: childAreaBoundsPx.h,
+    };
+    const defaultResizeHitbox = geometry.hitboxes.filter(hb => hb.type == HitboxType.Resize)[0];
+    if (defaultResizeHitbox.type != HitboxType.Resize) { panic(); }
+    const rhbBoundsPx = defaultResizeHitbox.boundsPx;
+    hitboxes = [
+      createHitbox(HitboxType.Resize, { x: rhbBoundsPx.x + toolbarWidthPx, y: rhbBoundsPx.y, w: rhbBoundsPx.w, h: rhbBoundsPx.h }),
+      createHitbox(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: boundsPx.h })
+    ];
+  }
   const pageWithChildrenVisualElement = createVisualElement({
     item: canonicalItem_page,
     linkItemMaybe,
@@ -341,9 +363,9 @@ const arrangePageWithChildren_Desktop = (
     isPopup,
     isRoot,
     isDragOverPositioning: true,
-    boundsPx: geometry.boundsPx,
-    childAreaBoundsPx: geometry.boundsPx,
-    hitboxes: geometry.hitboxes,
+    boundsPx,
+    childAreaBoundsPx,
+    hitboxes,
     parent: parentSignal_underConstruction,
   });
   const pageWithChildrenVisualElementSignal = createVisualElementSignal(pageWithChildrenVisualElement);

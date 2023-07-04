@@ -34,6 +34,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   const pageItem = () => asPageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
+  const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click || hb.type == HitboxType.OpenAttachment)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
   const hasPopupClickBoundsPx = (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup) != undefined;
@@ -168,27 +169,23 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   }
 
   const drawAsPopup = () => {
-    const spatialWidthBl = props.visualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
-    const widthPx = props.visualElement.boundsPx.w;
-    const blockWidthPx = widthPx / spatialWidthBl;
-    const toolbarWidthPx = blockWidthPx * 1.0;
     return (
       <>
         <div class={`absolute rounded-sm shadow-xl`}
-             style={`left: ${boundsPx().x-toolbarWidthPx-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w+toolbarWidthPx+2}px; height: ${boundsPx().h+2}px; background-color: #dddddd;}`}>
+             style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w+2}px; height: ${boundsPx().h+2}px; background-color: #dddddd;}`}>
         </div>
         <div class={`absolute border rounded-sm`}
-             style={`left: ${boundsPx().x-toolbarWidthPx}px; top: ${boundsPx().y}px; width: ${boundsPx().w+toolbarWidthPx}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
         </div>
         <div class={`absolute rounded-sm text-gray-100`}
-             style={`left: ${boundsPx().x-toolbarWidthPx}px; top: ${boundsPx().y}px; width: ${toolbarWidthPx}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
             {pageItem().title}
           </div>
         </div>
         <div class="absolute"
-             style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
-                    `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+             style={`left: ${childAreaBoundsPx().x}px; top: ${childAreaBoundsPx().y}px; ` +
+                    `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
           <For each={props.visualElement.children}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
