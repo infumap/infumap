@@ -205,5 +205,11 @@ export function getHitInfo(
     }
   }
 
+  if (rootVisualElement.isPopup) {
+    const resizeHb = rootVisualElement.hitboxes.find(hb => hb.type == HitboxType.Resize);
+    if (isInside(posRelativeToRootVisualElementPx, resizeHb!.boundsPx)) {
+      return finalize(HitboxType.Resize, rootVisualElement, rootVisualElementSignal, null);
+    }
+  }
   return finalize(HitboxType.None, rootVisualElement, rootVisualElementSignal, null);
 }

@@ -229,10 +229,14 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
   if (popupLinkToPageId != null) {
     let li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId);
     li.id = POPUP_LINK_ID;
-    let widthGr = Math.round((pageItem.innerSpatialWidthGr / GRID_SIZE) / 2.0) * GRID_SIZE;
-    let heightGr = Math.round((pageItem.innerSpatialWidthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
+    let widthGr = pageItem.popupWidthGr;
+    let heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr = widthGr;
-    li.spatialPositionGr = { x: Math.round((widthGr / GRID_SIZE) / 2.0) * GRID_SIZE, y: ((heightGr / GRID_SIZE) / 2.0) * GRID_SIZE };
+    // assume center positioning.
+    li.spatialPositionGr = {
+      x: pageItem.popupPositionGr.x - widthGr / 2.0,
+      y: pageItem.popupPositionGr.y - heightGr / 2.0
+    };
     visualElement.children.push(
       arrangeItem_Desktop(
         desktopStore,
@@ -353,7 +357,6 @@ const arrangePageWithChildren_Desktop = (
       const childItem = desktopStore.getItem(childId)!;
       if (isLink(childItem)) { panic(); } // TODO (medium).
       if (isPopup || isRoot) {
-        console.log()
         return arrangeItem_Desktop(
           desktopStore,
           childItem,
