@@ -220,10 +220,15 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       <Show when={pageItem().id == desktopStore.topLevelPageId() || props.visualElement.isRoot}>
         {drawAsFull()}
       </Show>
-      <Show when={!props.visualElement.isDetailed || (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+      <Show when={!props.visualElement.isDetailed ||
+                  (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+      <Show when={!props.visualElement.isRoot &&
+                  !props.visualElement.isPopup &&
+                  props.visualElement.isDetailed &&
+                  pageItem().id != desktopStore.topLevelPageId() &&
+                  (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
       <Show when={props.visualElement.isPopup}>
