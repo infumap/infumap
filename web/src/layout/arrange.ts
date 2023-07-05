@@ -317,6 +317,7 @@ const arrangeItem_Desktop = (
     desktopStore,
     canonicalItem, linkItemMaybe,
     parentPage, parentPageInnerBoundsPx,
+    false, // parentIsPopup.
     parentSignal_underConstruction,
     renderStyle);
 }
@@ -391,7 +392,7 @@ const arrangePageWithChildren_Desktop = (
         );
       } else {
         return arrangeItemNoChildren_Desktop(
-          desktopStore, childItem, null, canonicalItem_page, innerBoundsPx, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
+          desktopStore, childItem, null, canonicalItem_page, innerBoundsPx, isPopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
       }
     });
   }
@@ -531,13 +532,14 @@ const arrangeItemNoChildren_Desktop = (
     linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
     parentPageInnerBoundsPx: BoundingBox,
+    parentIsPopup: boolean,
     parentSignal_underConstruction: VisualElementSignal,
     renderStyle: RenderStyle): VisualElementSignal => {
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const itemGeometry = calcGeometryOfItem_Desktop(
     linkItemMaybe ? linkItemMaybe : canonicalItem,
-    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, false, true, desktopStore.getItem);
+    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
 
   const itemVisualElement = createVisualElement({
     item: canonicalItem,
