@@ -85,11 +85,22 @@ export function getHitInfo(
   if (topLevelVisualElement.children.length > 0) {
     // The visual element of the popup or selected list item, if there is one, is always the last of the children.
     const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
-    if ((newRootVeMaybe.isPopup || newRootVeMaybe.isRoot) &&
+    if (newRootVeMaybe.isPopup &&
         isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
       posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
+      for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
+        if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
+          return finalize(rootVisualElement.hitboxes[j].type, rootVisualElement, rootVisualElementSignal, null);
+        }
+      }
+      posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
+    } else if (newRootVeMaybe.isRoot &&
+        isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
+      rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
+      rootVisualElement = rootVisualElementSignal.get();
+      posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
     }
   }
 
@@ -153,7 +164,8 @@ export function getHitInfo(
         const tableBlockHeightPx = tableChildVe.boundsPx.h;
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
-          { x: tableVisualElement.childAreaBoundsPx!.x, y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYProp.get() * tableBlockHeightPx }
+          { x: tableVisualElement.childAreaBoundsPx!.x,
+            y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYProp.get() * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;
@@ -205,20 +217,5 @@ export function getHitInfo(
     }
   }
 
-  if (rootVisualElement.isPopup) {
-    for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
-      if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
-        return finalize(rootVisualElement.hitboxes[j].type, rootVisualElement, rootVisualElementSignal, null);
-      }
-    }
-
-    // console.log(rootVisualElement.hitboxes);
-    // const resizeHb = rootVisualElement.hitboxes.find(hb => hb.type == HitboxType.Resize);
-    // if (isInside(posRelativeToRootVisualElementPx, resizeHb!.boundsPx)) {
-    //   return finalize(HitboxType.Resize, rootVisualElement, rootVisualElementSignal, null);
-    // }
-    // if (isInside(posRelativeToRootVisualElementPx, resizeHb!.boundsPx)) {
-    // }
-  }
   return finalize(HitboxType.None, rootVisualElement, rootVisualElementSignal, null);
 }
