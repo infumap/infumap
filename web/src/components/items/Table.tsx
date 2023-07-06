@@ -109,6 +109,9 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
+          <Show when={props.visualElement.linkItemMaybe != null}>
+            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+          </Show>
         </div>
         <TableChildArea visualElement={props.visualElement} />
         <div class="absolute pointer-events-none"

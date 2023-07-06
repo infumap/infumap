@@ -56,12 +56,15 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
-      </Show>
-      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
-        <div class={`absolute rounded-sm`}
-             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                    `background-color: #ff0000;`}>
-        </div>
+        <Show when={props.visualElement.linkItemMaybe != null}>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+        </Show>
+        <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                      `background-color: #ff0000;`}>
+          </div>
+        </Show>
       </Show>
     </div>
   );

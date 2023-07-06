@@ -102,6 +102,9 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
+          <Show when={props.visualElement.linkItemMaybe != null}>
+            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+          </Show>
         </Show>
       </div>
     );
@@ -153,6 +156,9 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
+          <Show when={props.visualElement.linkItemMaybe != null}>
+            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+          </Show>
         </div>
         <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="flex items-center text-center text-xl font-bold text-white"
