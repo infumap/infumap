@@ -24,15 +24,15 @@ import { UserStoreContextModel } from '../../store/UserStoreProvider';
 import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { VisualElement } from '../../layout/visual-element';
-import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileItem_Attachment, calcGeometryOfFileItem_Desktop, calcGeometryOfFileItem_Cell, calcGeometryOfFileItem_LineItem, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile } from '../file-item';
-import { asImageItem, asImageMeasurable, calcGeometryOfImageItem_Attachment, calcGeometryOfImageItem_Desktop, calcGeometryOfImageItem_Cell, calcGeometryOfImageItem_LineItem, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage } from '../image-item';
-import { asLinkItem, calcGeometryOfLinkItem_Attachment, calcGeometryOfLinkItem_Desktop, calcGeometryOfLinkItem_Cell, calcGeometryOfLinkItem_LineItem, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject } from '../link-item';
+import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileItem_Attachment, calcGeometryOfFileItem_Desktop, calcGeometryOfFileItem_Cell, calcGeometryOfFileItem_ListItem, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile } from '../file-item';
+import { asImageItem, asImageMeasurable, calcGeometryOfImageItem_Attachment, calcGeometryOfImageItem_Desktop, calcGeometryOfImageItem_Cell, calcGeometryOfImageItem_ListItem, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage } from '../image-item';
+import { asLinkItem, calcGeometryOfLinkItem_Attachment, calcGeometryOfLinkItem_Desktop, calcGeometryOfLinkItem_Cell, calcGeometryOfLinkItem_ListItem, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject } from '../link-item';
 import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteItem_Attachment, calcGeometryOfNoteItem_Desktop, calcGeometryOfNoteItem_Cell, calcGeometryOfNoteItem_ListItem, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject } from '../note-item';
-import { asPageItem, asPageMeasurable, calcGeometryOfPageItem_Attachment, calcGeometryOfPageItem_Desktop, calcGeometryOfPageItem_Cell, calcGeometryOfPageItem_LineItem, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject } from '../page-item';
+import { asPageItem, asPageMeasurable, calcGeometryOfPageItem_Attachment, calcGeometryOfPageItem_Desktop, calcGeometryOfPageItem_Cell, calcGeometryOfPageItem_ListItem, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject } from '../page-item';
 import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingItem_Attachment, calcGeometryOfRatingItem_Desktop, calcGeometryOfRatingItem_Cell, calcGeometryOfRatingItem_ListItem, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject } from '../rating-item';
 import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject } from '../table-item';
-import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItemInTable } from './item';
-import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_LineItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject } from '../placeholder-item';
+import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItem_ListItem } from './item';
+import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_ListItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject } from '../placeholder-item';
 
 
 // Poor man's polymorphism
@@ -73,16 +73,16 @@ export function calcGeometryOfItem_Attachment(measurable: Measurable, parentBoun
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function calcGeometryOfItem_LineItem(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  if (measurable == EMPTY_ITEM) { return calcGeometryOfEmptyItemInTable(measurable, blockSizePx, row, col, widthBl); }
-  if (isPage(measurable)) { return calcGeometryOfPageItem_LineItem(asPageMeasurable(measurable), blockSizePx, row, col, widthBl); }
+export function calcGeometryOfItem_ListItem(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+  if (measurable == EMPTY_ITEM) { return calcGeometryOfEmptyItem_ListItem(measurable, blockSizePx, row, col, widthBl); }
+  if (isPage(measurable)) { return calcGeometryOfPageItem_ListItem(asPageMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isTable(measurable)) { return calcGeometryOfTableItem_ListItem(asTableMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem_ListItem(asNoteMeasurable(measurable), blockSizePx, row, col, widthBl); }
-  if (isImage(measurable)) { return calcGeometryOfImageItem_LineItem(asImageMeasurable(measurable), blockSizePx, row, col, widthBl); }
-  if (isFile(measurable)) { return calcGeometryOfFileItem_LineItem(asFileMeasurable(measurable), blockSizePx, row, col, widthBl); }
+  if (isImage(measurable)) { return calcGeometryOfImageItem_ListItem(asImageMeasurable(measurable), blockSizePx, row, col, widthBl); }
+  if (isFile(measurable)) { return calcGeometryOfFileItem_ListItem(asFileMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isRating(measurable)) { return calcGeometryOfRatingItem_ListItem(asRatingMeasurable(measurable), blockSizePx, row, col, widthBl); }
-  if (isLink(measurable)) { return calcGeometryOfLinkItem_LineItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, getItem); }
-  if (isPlaceholder(measurable)) { return calcGeometryOfPlaceholderItem_LineItem(asPlaceholderItem(measurable), blockSizePx, row, col, widthBl); }
+  if (isLink(measurable)) { return calcGeometryOfLinkItem_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, getItem); }
+  if (isPlaceholder(measurable)) { return calcGeometryOfPlaceholderItem_ListItem(asPlaceholderItem(measurable), blockSizePx, row, col, widthBl); }
   throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
@@ -149,6 +149,7 @@ export function handlePopupClick(visualElement: VisualElement, desktopStore: Des
 }
 
 export function cloneMeasurableFields(measurable: Measurable): Measurable {
+  if (measurable == null) { panic(); }
   if (isPage(measurable)) { return clonePageMeasurableFields(asPageMeasurable(measurable)); }
   else if (isTable(measurable)) { return cloneTableMeasurableFields(asTableMeasurable(measurable)); }
   else if (isNote(measurable)) { return cloneNoteMeasurableFields(asNoteMeasurable(measurable)); }

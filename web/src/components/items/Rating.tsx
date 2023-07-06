@@ -18,9 +18,8 @@
 
 import { Component } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
-import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
-import { asTableItem } from "../../items/table-item";
 
 
 export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {

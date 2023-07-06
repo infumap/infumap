@@ -82,7 +82,7 @@ export function calcGeometryOfPlaceholderItem_Attachment(placeholder: Placeholde
   return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
-export function calcGeometryOfPlaceholderItem_LineItem(_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfPlaceholderItem_ListItem(_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const boundsPx = {
     x: blockSizePx.w * col,
     y: blockSizePx.h * row,

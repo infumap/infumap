@@ -61,7 +61,7 @@ export const EMPTY_ITEM: Item = {
   ordering: Uint8Array.from([]),
 };
 
-export function calcGeometryOfEmptyItemInTable(_empty: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

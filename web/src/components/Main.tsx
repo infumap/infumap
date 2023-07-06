@@ -72,7 +72,7 @@ export const Main: Component = () => {
       });
       switchToPage(desktopStore, rootId);
     } catch (e: any) {
-      console.log(`An error occurred loading root page, clearing user session: ${e.message}.`);
+      console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       userStore.clear();
       generalStore.clearInstallationState();
       await generalStore.retrieveInstallationState();

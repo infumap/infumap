@@ -466,7 +466,7 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
       lastMouseOverVes = null;
     }
   }
-  if (overElementVes!.get().item.id != desktopStore.topLevelPageId() &&
+  if ((overElementVes!.get().item == null /* unteathered link */ || overElementVes!.get().item.id != desktopStore.topLevelPageId()) &&
       !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);

@@ -140,7 +140,7 @@ export function calcGeometryOfImageItem_Attachment(image: ImageMeasurable, paren
   return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
-export function calcGeometryOfImageItem_LineItem(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfImageItem_ListItem(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

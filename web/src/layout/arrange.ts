@@ -23,7 +23,7 @@ import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { EMPTY_ITEM, ITEM_TYPE_LINK, Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_LineItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { createVisualElement } from "./visual-element";
@@ -126,7 +126,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       const widthBl = LIST_PAGE_LIST_WIDTH_BL;
       const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
-      const geometry = calcGeometryOfItem_LineItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
+      const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
       const listItemVe = createVisualElement({
         item: childItem,
@@ -276,9 +276,12 @@ const arrangeItem_Desktop = (
     : 0;
   if (item.itemType == ITEM_TYPE_LINK) {
     linkItemMaybe = asLinkItem(item);
-    canonicalItem = desktopStore.getItem(linkItemMaybe.linkToId)!;
-    if (isXSizableItem(canonicalItem)) {
-      spatialWidthGr = linkItemMaybe.spatialWidthGr;
+    const canonicalItemMaybe = desktopStore.getItem(linkItemMaybe.linkToId);
+    if (canonicalItemMaybe != null) {
+      canonicalItem = canonicalItemMaybe!;
+      if (isXSizableItem(canonicalItem)) {
+        spatialWidthGr = linkItemMaybe.spatialWidthGr;
+      }
     }
   }
 
@@ -378,7 +381,6 @@ const arrangePageWithChildren_Desktop = (
   } else {
     pageWithChildrenVisualElement.children = canonicalItem_page.computed_children.map(childId => {
       const childItem = desktopStore.getItem(childId)!;
-      if (isLink(childItem)) { panic(); } // TODO (medium).
       if (isPopup || isRoot) {
         return arrangeItem_Desktop(
           desktopStore,
@@ -447,7 +449,7 @@ const arrangeTable_Desktop = (
         ? sizeBl.w
         : Math.min(canonicalItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
-      const geometry = calcGeometryOfItem_LineItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
+      const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
       const tableItemVe = createVisualElement({
         item: childItem,
@@ -477,7 +479,7 @@ const arrangeTable_Desktop = (
             : canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
           const attachmentId = attachmentsItem.computed_attachments[i];
           const attachmentItem = desktopStore.getItem(attachmentId)!;
-          const geometry = calcGeometryOfItem_LineItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
+          const geometry = calcGeometryOfItem_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
           const tableItemAttachmentVe = createVisualElement({
             item: attachmentItem,
             isDetailed: true,
@@ -499,7 +501,7 @@ const arrangeTable_Desktop = (
           let widthBl = i == canonicalItem_Table.tableColumns.length - 2
             ? sizeBl.w - leftBl
             : canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
-          const geometry = calcGeometryOfItem_LineItem(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
+          const geometry = calcGeometryOfItem_ListItem(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
           const tableItemAttachmentVe = createVisualElement({
             item: EMPTY_ITEM,
             isDetailed: false,
@@ -542,7 +544,7 @@ const arrangeItemNoChildren_Desktop = (
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
 
   const itemVisualElement = createVisualElement({
-    item: canonicalItem,
+    item: canonicalItem != null ? canonicalItem : linkItemMaybe!,
     linkItemMaybe,
     isDetailed: renderStyle != RenderStyle.Outline,
     boundsPx: itemGeometry.boundsPx,

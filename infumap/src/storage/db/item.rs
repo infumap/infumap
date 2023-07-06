@@ -236,6 +236,11 @@ pub fn is_image_item(item_type: ItemType) -> bool {
   item_type == ItemType::Image
 }
 
+pub fn is_link_item(item_type: ItemType) -> bool {
+  item_type == ItemType::Link
+}
+
+
 const ALL_JSON_FIELDS: [&'static str; 31] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
@@ -437,7 +442,7 @@ impl JsonLogSerializable<Item> for Item {
     // x-sizable
     if let Some(new_spatial_width_gr) = new.spatial_width_gr {
       if match old.spatial_width_gr { Some(o) => o != new_spatial_width_gr, None => { true } } {
-        if !is_x_sizeable_item(old.item_type) { cannot_modify_err("spatialWidthGr", &old.id)?; }
+        if !is_x_sizeable_item(old.item_type) && !is_link_item(old.item_type) { cannot_modify_err("spatialWidthGr", &old.id)?; }
         result.insert(String::from("spatialWidthGr"), Value::Number(new_spatial_width_gr.into()));
       }
     }
@@ -445,7 +450,7 @@ impl JsonLogSerializable<Item> for Item {
     // y-sizable
     if let Some(new_spatial_height_gr) = new.spatial_height_gr {
       if match old.spatial_height_gr { Some(o) => o != new_spatial_height_gr, None => { true } } {
-        if !is_y_sizeable_item(old.item_type) { cannot_modify_err("spatialHeightGr", &old.id)?; }
+        if !is_y_sizeable_item(old.item_type) && !is_link_item(old.item_type) { cannot_modify_err("spatialHeightGr", &old.id)?; }
         result.insert(String::from("spatialHeightGr"), Value::Number(new_spatial_height_gr.into()));
       }
     }
@@ -633,13 +638,13 @@ impl JsonLogSerializable<Item> for Item {
 
     // x-sizable
     if let Some(v) = json::get_integer_field(map, "spatialWidthGr")? {
-      if !is_x_sizeable_item(self.item_type) { not_applicable_err("spatialWidthGr", self.item_type, &self.id)?; }
+      if !is_x_sizeable_item(self.item_type) && !is_link_item(self.item_type) { not_applicable_err("spatialWidthGr", self.item_type, &self.id)?; }
       self.spatial_width_gr = Some(v);
     }
 
     // y-sizable
     if let Some(v) = json::get_integer_field(map, "spatialHeightGr")? {
-      if !is_y_sizeable_item(self.item_type) { not_applicable_err("spatialHeightGr", self.item_type, &self.id)?; }
+      if !is_y_sizeable_item(self.item_type) && !is_link_item(self.item_type) { not_applicable_err("spatialHeightGr", self.item_type, &self.id)?; }
       self.spatial_height_gr = Some(v);
     }
 
@@ -765,13 +770,13 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
   // x-sizeable
   if let Some(spatial_width_gr) = item.spatial_width_gr {
-    if !is_x_sizeable_item(item.item_type) { unexpected_field_err("spatialWidthGr", &item.id, item.item_type)? }
+    if !is_x_sizeable_item(item.item_type) && !is_link_item(item.item_type) { unexpected_field_err("spatialWidthGr", &item.id, item.item_type)? }
     result.insert(String::from("spatialWidthGr"), Value::Number(spatial_width_gr.into()));
   }
 
   // y-sizeable
   if let Some(spatial_height_gr) = item.spatial_height_gr {
-    if !is_y_sizeable_item(item.item_type) { unexpected_field_err("spatialHeightGr", &item.id, item.item_type)? }
+    if !is_y_sizeable_item(item.item_type) && !is_link_item(item.item_type) { unexpected_field_err("spatialHeightGr", &item.id, item.item_type)? }
     result.insert(String::from("spatialHeightGr"), Value::Number(spatial_height_gr.into()));
   }
 
@@ -935,14 +940,14 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
 
     // x-sizeable
     spatial_width_gr: match json::get_integer_field(map, "spatialWidthGr")? {
-      Some(v) => { if is_x_sizeable_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialWidthGr", item_type, &id)) } },
-      None => { if is_x_sizeable_item(item_type) { Err(expected_for_err("spatialWidthGr", item_type, &id)) } else { Ok(None) } }
+      Some(v) => { if is_x_sizeable_item(item_type) || is_link_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialWidthGr", item_type, &id)) } },
+      None => { if is_x_sizeable_item(item_type) || is_link_item(item_type) { Err(expected_for_err("spatialWidthGr", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // y-sizeable
     spatial_height_gr: match json::get_integer_field(map, "spatialHeightGr")? {
-      Some(v) => { if is_y_sizeable_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
-      None => { if is_y_sizeable_item(item_type) { Err(expected_for_err("spatialHeightGr", item_type, &id)) } else { Ok(None) } }
+      Some(v) => { if is_y_sizeable_item(item_type) || is_link_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("spatialHeightGr", item_type, &id)) } },
+      None => { if is_y_sizeable_item(item_type) || is_link_item(item_type) { Err(expected_for_err("spatialHeightGr", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // titled

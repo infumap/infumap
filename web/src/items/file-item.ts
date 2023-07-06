@@ -114,7 +114,7 @@ export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBo
   return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
 }
 
-export function calcGeometryOfFileItem_LineItem(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfFileItem_ListItem(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

@@ -29,6 +29,8 @@ import { EditImage } from "./EditImage";
 import { EditNote } from "./EditNote";
 import { EditPage } from "./EditPage";
 import { EditTable } from "./EditTable";
+import { asLinkItem, isLink } from "../../items/link-item";
+import { EditLink } from "./EditLink";
 
 
 export const EditItem: Component<{item: Item}> = (props: {item: Item}) => {
@@ -65,6 +67,9 @@ export const EditItem: Component<{item: Item}> = (props: {item: Item}) => {
         </Match>
         <Match when={isImage(props.item)}>
           <EditImage imageItem={asImageItem(props.item)} />
+        </Match>
+        <Match when={isLink(props.item)}>
+          <EditLink linkItem={asLinkItem(props.item)} />
         </Match>
       </Switch>
     </div>

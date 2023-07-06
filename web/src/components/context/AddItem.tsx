@@ -26,13 +26,13 @@ import ToolbarIcon from "../ToolbarIcon";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../items/table-item";
-import { Item } from "../../items/base/item";
 import { arrange } from "../../layout/arrange";
 import { newRatingItem } from "../../items/rating-item";
 import { initialEditDialogBounds } from "./EditDialog";
-import { VisualElement } from "../../layout/visual-element";
 import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hitInfo";
+import { newLinkItem } from "../../items/link-item";
+import { EMPTY_UID } from "../../util/uid";
 
 
 type ContexMenuProps = {
@@ -48,6 +48,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newNoteInContext = () => newItemInContext("note");
   const newTableInContext = () => newItemInContext("table");
   const newRatingInContext = () => newItemInContext("rating");
+  const newLinkInContext = () => newItemInContext("link");
 
   const newItemInContext = (type: string) => {
     const overElementVe = props.hitInfo.overElementVes.get();
@@ -90,7 +91,13 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         overElementVe.item.id!,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id))
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
+    } else if (type == "link")  {
+      newItem = newLinkItem(userStore.getUser().userId,
+        overElementVe.item.id!,
+        Child,
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id),
+        EMPTY_UID);
     } else {
       panic();
     }
@@ -118,6 +125,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <ToolbarIcon icon="table" margin={4} clickHandler={newTableInContext} />
       <ToolbarIcon icon="sticky-note" margin={8} clickHandler={newNoteInContext} />
       <ToolbarIcon icon="star" margin={4} clickHandler={newRatingInContext} />
+      <ToolbarIcon icon="link" margin={4} clickHandler={newLinkInContext} />
     </div>
   );
 }

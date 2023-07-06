@@ -40,6 +40,8 @@ import { Table_LineItem } from "./items/Table";
 import { EMPTY_ITEM } from "../items/base/item";
 import { isPlaceholder } from "../items/placeholder-item";
 import { Placeholder_LineItem } from "./items/Placeholder";
+import { LinkDefault_Desktop, LinkDefault_LineItem } from "./items/LinkDefault";
+import { isLink } from "../items/link-item";
 
 
 export interface VisualElementProps_Desktop {
@@ -48,7 +50,8 @@ export interface VisualElementProps_Desktop {
 
 export const VisualElement_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   return (
-    <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.item.itemType}'</div>}>
+    <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.item != null ? props.visualElement.item.itemType : "N/A"}'</div>}>
+      <Match when={isLink(props.visualElement.item)}><LinkDefault_Desktop {...props} /></Match>
       <Match when={isPage(props.visualElement.item)}><Page_Desktop {...props} /></Match>
       <Match when={isNote(props.visualElement.item)}><Note_Desktop {...props} /></Match>
       <Match when={isTable(props.visualElement.item)}><Table_Desktop {...props} /></Match>
@@ -67,8 +70,8 @@ export interface VisualElementProps_LineItem {
 
 export const VisualElement_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   return (
-    <Switch fallback={<div>VisualElementInTable: unknown item type '{props.visualElement.item.itemType}'</div>}>
-      <Match when={props.visualElement.item == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
+    <Switch fallback={<div>VisualElementInTable: unknown item type '{props.visualElement.item != null ? props.visualElement.item.itemType : "N/A"}'</div>}>
+      <Match when={isLink(props.visualElement.item)}><LinkDefault_LineItem {...props} /></Match>
       <Match when={isPage(props.visualElement.item)}><Page_LineItem {...props} /></Match>
       <Match when={isTable(props.visualElement.item)}><Table_LineItem {...props} /></Match>
       <Match when={isNote(props.visualElement.item)}><Note_LineItem {...props} /></Match>
@@ -76,6 +79,7 @@ export const VisualElement_LineItem: Component<VisualElementProps_LineItem> = (p
       <Match when={isFile(props.visualElement.item)}><FileLineItem {...props} /></Match>
       <Match when={isRating(props.visualElement.item)}><Rating_LineItem {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.item)}><Placeholder_LineItem {...props} /></Match>
+      <Match when={props.visualElement.item == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
     </Switch>
   );
 }

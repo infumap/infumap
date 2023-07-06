@@ -218,7 +218,7 @@ export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBo
       createHitbox(HitboxType.Move, innerBoundsPx),
       createHitbox(HitboxType.Click, innerBoundsPx),
       createHitbox(HitboxType.OpenPopup, popupClickBoundsPx),
-      createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX } ),
+      createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
       createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ],
   });
@@ -230,7 +230,7 @@ export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBo
 }
 
 
-export function calcGeometryOfPageItem_LineItem(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
+export function calcGeometryOfPageItem_ListItem(_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
     y: 0.0,

@@ -61,10 +61,17 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     else if (ev.code == "Backslash") {
       ev.preventDefault();
-      desktopStore.setEditDialogInfo({
-        desktopBoundsPx: initialEditDialogBounds(desktopStore),
-        item: hitInfo.overElementVes.get().item
-      });
+      if (hitInfo.overElementVes.get().linkItemMaybe != null) {
+        desktopStore.setEditDialogInfo({
+          desktopBoundsPx: initialEditDialogBounds(desktopStore),
+          item: hitInfo.overElementVes.get().linkItemMaybe!
+        });
+      } else {
+        desktopStore.setEditDialogInfo({
+          desktopBoundsPx: initialEditDialogBounds(desktopStore),
+          item: hitInfo.overElementVes.get().item
+        });
+      }
       mouseMoveNoButtonDownHandler(desktopStore);
     }
 
