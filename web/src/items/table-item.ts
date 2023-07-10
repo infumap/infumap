@@ -68,7 +68,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       widthGr: 8 * GRID_SIZE,
     }],
 
-    orderChildrenBy: null,
+    orderChildrenBy: "",
 
     computed_children: [],
     computed_attachments: [],
