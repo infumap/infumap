@@ -412,7 +412,7 @@ export function useDesktopStore() : DesktopStoreContextModel {
 export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
-  if (rootVe.item.id == id) {
+  if (rootVe.displayItem.id == id) {
     result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
   result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, rootVe, id));
@@ -423,13 +423,13 @@ export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id:
 const childAndAttachmentVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
-    if (childVes.get().item.id == id) {
+    if (childVes.get().displayItem.id == id) {
       result.push(childVes);
     }
     result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, childVes.get(), id));
   });
   ve.attachments.forEach(attachmentVes => {
-    if (attachmentVes.get().item.id == id) {
+    if (attachmentVes.get().displayItem.id == id) {
       result.push(attachmentVes);
     }
     result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, attachmentVes.get(), id));

@@ -32,7 +32,7 @@ import { ARRANGE_ALGO_LIST } from "../../layout/arrange";
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const desktopStore = useDesktopStore();
 
-  const pageItem = () => asPageItem(props.visualElement.item);
+  const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click || hb.type == HitboxType.OpenAttachment)!.boundsPx;
@@ -213,7 +213,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
             ? <VisualElement_LineItem visualElement={childVe.get()} />
             : <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={asPageItem(props.visualElement.item).arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+        <Show when={asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ARRANGE_ALGO_LIST}>
           <div class={`absolute bg-slate-700`}
                style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}></div>
         </Show>
@@ -248,7 +248,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   const desktopStore = useDesktopStore();
 
-  const pageItem = () => asPageItem(props.visualElement.item);
+  const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;

@@ -123,7 +123,7 @@ export function itemToObject(item: Item): object {
 }
 
 export function handleClick(visualElementSignal: VisualElementSignal, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  const item = visualElementSignal.get().item;
+  const item = visualElementSignal.get().displayItem;
   if (isPage(item)) { handlePageClick(visualElementSignal.get(), desktopStore, userStore); }
   else if (isTable(item)) { }
   else if (isNote(item)) { handleNoteClick(asNoteItem(item)); }
@@ -136,7 +136,7 @@ export function handleClick(visualElementSignal: VisualElementSignal, desktopSto
 }
 
 export function handlePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  const item = visualElement.item;
+  const item = visualElement.displayItem;
   if (isPage(item)) { handlePagePopupClick(visualElement, desktopStore, userStore); }
   else if (isTable(item)) { }
   else if (isNote(item)) { }

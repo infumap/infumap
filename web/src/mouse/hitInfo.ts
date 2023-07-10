@@ -47,35 +47,35 @@ export function getHitInfo(
   function finalize(hitboxType: HitboxType, rootVe: VisualElement, overElementVes: VisualElementSignal, overElementMeta: HitboxMeta | null): HitInfo {
     const overVe = overElementVes.get();
     if (overVe.isInsideTable) {
-      assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
+      assert(isTable(overVe.parent!.get().displayItem), "visual element marked as inside table, is not in fact inside a table.");
       const parentTableVe = overVe.parent!.get();
       const tableParentPageVe = parentTableVe.parent!.get();
-      assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
+      assert(isPage(tableParentPageVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
       assert(tableParentPageVe.isDragOverPositioning, "page containing table does not drag in positioning.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
     }
 
-    if (isTable(overVe.item)) {
-      assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
+    if (isTable(overVe.displayItem)) {
+      assert(isPage(overVe.parent!.get().displayItem), "the parent of a table visual element that is not inside a table is not a page.");
       assert(overVe.parent!.get().isDragOverPositioning, "page containing table does not allow drag in positioning.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
     }
 
-    if (isPage(overVe.item) && overVe.isDragOverPositioning) {
+    if (isPage(overVe.displayItem) && overVe.isDragOverPositioning) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe };
     }
 
     const overVeParent = overVe.parent!.get();
-    assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
+    assert(isPage(overVe.parent!.get().displayItem), "parent of non-container item not in page is not a page.");
     assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
-    if (isPage(overVe.item)) {
+    if (isPage(overVe.displayItem)) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVeParent };
     }
     return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVeParent, overPositionableVe: overVeParent };
   }
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
-  const topLevelPage = asPageItem(topLevelVisualElement!.item);
+  const topLevelPage = asPageItem(topLevelVisualElement!.displayItem);
   const posRelativeToTopLevelVisualElementPx = vectorAdd(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
 
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
@@ -125,7 +125,7 @@ export function getHitInfo(
             if (attachmentVisualElement.hitboxes[j].meta != null) { meta = attachmentVisualElement.hitboxes[j].meta; }
           }
         }
-        if (!ignoreItems.find(a => a == attachmentVisualElement.item.id)) {
+        if (!ignoreItems.find(a => a == attachmentVisualElement.displayItem.id)) {
           const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
           return { hitboxType, rootVe: rootVisualElement, overElementVes: attachmentVisualElementSignal, overElementMeta: meta, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
         }
@@ -137,7 +137,7 @@ export function getHitInfo(
     }
 
     // handle inside table child area.
-    if (isTable(childVisualElement.item) && !childVisualElement.isLineItem && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+    if (isTable(childVisualElement.displayItem) && !childVisualElement.isLineItem && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
       const tableVisualElementSignal = childVisualElementSignal;
       const tableVisualElement = childVisualElement;
 
@@ -156,7 +156,7 @@ export function getHitInfo(
         }
       }
 
-      let tableItem = asTableItem(tableVisualElement.item);
+      let tableItem = asTableItem(tableVisualElement.displayItem);
 
       for (let j=0; j<tableVisualElement.children.length; ++j) {
         const tableChildVes = tableVisualElement.children[j];
@@ -176,7 +176,7 @@ export function getHitInfo(
               if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
             }
           }
-          if (!ignoreItems.find(a => a == tableChildVe.item.id)) {
+          if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
             return finalize(hitboxType, rootVisualElement, tableChildVes, meta);
           }
         }
@@ -193,7 +193,7 @@ export function getHitInfo(
                   if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
                 }
               }
-              if (!ignoreItems.find(a => a == attachmentVe.item.id)) {
+              if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
                 const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
                 return { hitboxType, rootVe: rootVisualElement, overElementVes: attachmentVes, overElementMeta: meta, overContainerVe: noAttachmentResult.overContainerVe, overPositionableVe: noAttachmentResult.overPositionableVe };
               }
@@ -212,7 +212,7 @@ export function getHitInfo(
         if (childVisualElement.hitboxes[j].meta != null) { meta = childVisualElement.hitboxes[j].meta; }
       }
     }
-    if (!ignoreItems.find(a => a == childVisualElement.item.id)) {
+    if (!ignoreItems.find(a => a == childVisualElement.displayItem.id)) {
       return finalize(hitboxType, rootVisualElement, rootVisualElement.children[i], meta);
     }
   }

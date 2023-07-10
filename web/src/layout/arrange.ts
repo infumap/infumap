@@ -111,7 +111,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElement = createVisualElement({
-    item: currentPage,
+    displayItem: currentPage,
     isDetailed: true,
     isDragOverPositioning: true,
     boundsPx: topLevelPageBoundsPx,
@@ -129,7 +129,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
       const listItemVe = createVisualElement({
-        item: childItem,
+        displayItem: childItem,
         isSelected: currentPage.selectedItem == childId,
         isLineItem: true,
         isDetailed: true,
@@ -207,7 +207,7 @@ const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel)
 
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoundsPx: BoundingBox, pageItem: PageItem, ves: VisualElementSignal) => {
   const visualElement = createVisualElement({
-    item: pageItem,
+    displayItem: pageItem,
     isDetailed: true,
     isDragOverPositioning: true,
     boundsPx: pageBoundsPx,
@@ -218,7 +218,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
     .map(childId => arrangeItem_Desktop(
       desktopStore,
       desktopStore.getItem(childId)!,
-      pageItem,
+      pageItem, // parent item
       pageBoundsPx,
       ves,
       true,  // render children as full
@@ -242,7 +242,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
       arrangeItem_Desktop(
         desktopStore,
         li,
-        pageItem,
+        pageItem, // parent item
         pageBoundsPx,
         ves,
         true, // render children as full
@@ -361,7 +361,7 @@ const arrangePageWithChildren_Desktop = (
     ];
   }
   const pageWithChildrenVisualElement = createVisualElement({
-    item: canonicalItem_page,
+    displayItem: canonicalItem_page,
     linkItemMaybe,
     isDetailed: true,
     isPopup,
@@ -385,7 +385,7 @@ const arrangePageWithChildren_Desktop = (
         return arrangeItem_Desktop(
           desktopStore,
           childItem,
-          canonicalItem_page,
+          canonicalItem_page, // parent item
           pageWithChildrenVisualElement.childAreaBoundsPx!,
           pageWithChildrenVisualElementSignal,
           true,    // render children as full
@@ -393,8 +393,17 @@ const arrangePageWithChildren_Desktop = (
           false    // is popup
         );
       } else {
+        let linkItemMaybe: LinkItem | null = null;
+        let canonicalItem = childItem;
+        if (childItem.itemType == ITEM_TYPE_LINK) {
+          linkItemMaybe = asLinkItem(childItem);
+          const canonicalItemMaybe = desktopStore.getItem(linkItemMaybe.linkToId);
+          if (canonicalItemMaybe != null) {
+            canonicalItem = canonicalItemMaybe!;
+          }
+        }
         return arrangeItemNoChildren_Desktop(
-          desktopStore, childItem, null, canonicalItem_page, innerBoundsPx, isPopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
+          desktopStore, canonicalItem, linkItemMaybe, canonicalItem_page, innerBoundsPx, isPopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
       }
     });
   }
@@ -429,7 +438,7 @@ const arrangeTable_Desktop = (
   };
 
   const tableVisualElement = createVisualElement({
-    item: canonicalItem_Table,
+    displayItem: canonicalItem_Table,
     linkItemMaybe,
     isDetailed: true,
     boundsPx: geometry.boundsPx,
@@ -452,7 +461,7 @@ const arrangeTable_Desktop = (
       const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
       const tableItemVe = createVisualElement({
-        item: childItem,
+        displayItem: childItem,
         isLineItem: true,
         isDetailed: true,
         isInsideTable: true,
@@ -481,7 +490,7 @@ const arrangeTable_Desktop = (
           const attachmentItem = desktopStore.getItem(attachmentId)!;
           const geometry = calcGeometryOfItem_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
           const tableItemAttachmentVe = createVisualElement({
-            item: attachmentItem,
+            displayItem: attachmentItem,
             isDetailed: true,
             isInsideTable: true,
             isAttachment: true,
@@ -503,7 +512,7 @@ const arrangeTable_Desktop = (
             : canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
           const geometry = calcGeometryOfItem_ListItem(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
           const tableItemAttachmentVe = createVisualElement({
-            item: EMPTY_ITEM,
+            displayItem: EMPTY_ITEM,
             isDetailed: false,
             isInsideTable: true,
             isAttachment: true,
@@ -544,7 +553,7 @@ const arrangeItemNoChildren_Desktop = (
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
 
   const itemVisualElement = createVisualElement({
-    item: canonicalItem != null ? canonicalItem : linkItemMaybe!,
+    displayItem: canonicalItem != null ? canonicalItem : linkItemMaybe!,
     linkItemMaybe,
     isDetailed: renderStyle != RenderStyle.Outline,
     boundsPx: itemGeometry.boundsPx,
@@ -566,19 +575,19 @@ function arrangeItemAttachments(
   ) {
 
   const itemVisualElement = itemVisualElementSignal.get();
-  if (!isAttachmentsItem(itemVisualElement.item)) {
+  if (!isAttachmentsItem(itemVisualElement.displayItem)) {
     return;
   }
 
   const itemBoundsPx = itemVisualElement.boundsPx;
-  const itemSizeBl = calcSizeForSpatialBl(itemVisualElement.item, desktopStore.getItem);
-  const attachmentsItem = asAttachmentsItem(itemVisualElement.item);
+  const itemSizeBl = calcSizeForSpatialBl(itemVisualElement.displayItem, desktopStore.getItem);
+  const attachmentsItem = asAttachmentsItem(itemVisualElement.displayItem);
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
     const attachmentItem = desktopStore.getItem(attachmentId)!;
     const attachmentGeometry = calcGeometryOfItem_Attachment(attachmentItem, itemBoundsPx, itemSizeBl, i, selectedAttachmentId == attachmentId && isPositionalItem(attachmentItem), desktopStore.getItem);
     const attachmentVisualElement = createVisualElement({
-      item: attachmentItem,
+      displayItem: attachmentItem,
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parent: itemVisualElementSignal,
@@ -607,7 +616,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   })();
 
   const topLevelVisualElement = createVisualElement({
-    item: currentPage,
+    displayItem: currentPage,
     isDetailed: true,
     isDragOverPositioning: true,
     boundsPx: boundsPx,
@@ -629,7 +638,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx, desktopStore.getItem);
     if (!isTable(item)) {
       const ve = createVisualElement({
-        item,
+        displayItem: item,
         isDetailed: true,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
@@ -647,7 +656,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
 export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
   visualElementsWithId(desktopStore, id).forEach(ve => {
-    const parentIsPage = ve.get().parent == null || isPage(ve.get().parent!.get().item);
+    const parentIsPage = ve.get().parent == null || isPage(ve.get().parent!.get().displayItem);
     if (parentIsPage) {
       rearrangeVisualElement(desktopStore, ve);
     } else {
@@ -658,7 +667,7 @@ export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextM
 
 export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
   const visualElement = visualElementSignal.get();
-  if (desktopStore.topLevelPageId() == visualElement.item.id) {
+  if (desktopStore.topLevelPageId() == visualElement.displayItem.id) {
     arrange(desktopStore);
     return;
   }
@@ -668,8 +677,8 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
   } else {
     const item = visualElement.linkItemMaybe != null
       ? visualElement.linkItemMaybe!
-      : visualElement.item;
-    const pageItem = asPageItem(visualElement.parent!.get().item);
+      : visualElement.displayItem;
+    const pageItem = asPageItem(visualElement.parent!.get().displayItem);
     const rearrangedVisualElement = arrangeItem_Desktop(
       desktopStore,
       item,
@@ -688,21 +697,21 @@ function rearrangeAttachment(desktopStore: DesktopStoreContextModel, visualEleme
   const parentVisualElement = visualElement.parent!.get();
   let index = -1;
   for (let i=0; i<parentVisualElement.attachments.length; ++i) {
-    if (parentVisualElement.attachments[i].get().item == visualElement.item) {
+    if (parentVisualElement.attachments[i].get().displayItem == visualElement.displayItem) {
       index = i;
       break;
     }
   }
   if (index == -1) { panic(); }
   const parentParentVisualElement = parentVisualElement.parent!.get();
-  const pageItem = asPageItem(parentParentVisualElement.item);
+  const pageItem = asPageItem(parentParentVisualElement.displayItem);
 
   if (!visualElement.isInsideTable) {
-    const isSelected = pageItem.selectedAttachment == visualElement.item.id;
-    const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.item, desktopStore.getItem);
-    const attachmentGeometry = calcGeometryOfItem_Attachment(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, isSelected, desktopStore.getItem);
+    const isSelected = pageItem.selectedAttachment == visualElement.displayItem.id;
+    const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.displayItem, desktopStore.getItem);
+    const attachmentGeometry = calcGeometryOfItem_Attachment(visualElement.displayItem, parentVisualElement.boundsPx, itemSizeBl, index, isSelected, desktopStore.getItem);
     const attachmentVisualElement = createVisualElement({
-      item: visualElement.item,
+      displayItem: visualElement.displayItem,
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parent: visualElement.parent!,

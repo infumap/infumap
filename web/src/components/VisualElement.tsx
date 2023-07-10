@@ -50,15 +50,15 @@ export interface VisualElementProps_Desktop {
 
 export const VisualElement_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   return (
-    <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.item != null ? props.visualElement.item.itemType : "N/A"}'</div>}>
-      <Match when={isLink(props.visualElement.item)}><LinkDefault_Desktop {...props} /></Match>
-      <Match when={isPage(props.visualElement.item)}><Page_Desktop {...props} /></Match>
-      <Match when={isNote(props.visualElement.item)}><Note_Desktop {...props} /></Match>
-      <Match when={isTable(props.visualElement.item)}><Table_Desktop {...props} /></Match>
-      <Match when={isImage(props.visualElement.item)}><Image_Desktop {...props} /></Match>
-      <Match when={isFile(props.visualElement.item)}><File {...props} /></Match>
-      <Match when={isRating(props.visualElement.item)}><Rating_Desktop {...props} /></Match>
-      <Match when={isPlaceholder(props.visualElement.item)}><Placeholder_Desktop {...props} /></Match>
+    <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+      <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
+      <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
+      <Match when={isNote(props.visualElement.displayItem)}><Note_Desktop {...props} /></Match>
+      <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>
+      <Match when={isImage(props.visualElement.displayItem)}><Image_Desktop {...props} /></Match>
+      <Match when={isFile(props.visualElement.displayItem)}><File {...props} /></Match>
+      <Match when={isRating(props.visualElement.displayItem)}><Rating_Desktop {...props} /></Match>
+      <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_Desktop {...props} /></Match>
     </Switch>
   );
 }
@@ -70,16 +70,16 @@ export interface VisualElementProps_LineItem {
 
 export const VisualElement_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   return (
-    <Switch fallback={<div>VisualElementInTable: unknown item type '{props.visualElement.item != null ? props.visualElement.item.itemType : "N/A"}'</div>}>
-      <Match when={isLink(props.visualElement.item)}><LinkDefault_LineItem {...props} /></Match>
-      <Match when={isPage(props.visualElement.item)}><Page_LineItem {...props} /></Match>
-      <Match when={isTable(props.visualElement.item)}><Table_LineItem {...props} /></Match>
-      <Match when={isNote(props.visualElement.item)}><Note_LineItem {...props} /></Match>
-      <Match when={isImage(props.visualElement.item)}><Image_LineItem {...props} /></Match>
-      <Match when={isFile(props.visualElement.item)}><FileLineItem {...props} /></Match>
-      <Match when={isRating(props.visualElement.item)}><Rating_LineItem {...props} /></Match>
-      <Match when={isPlaceholder(props.visualElement.item)}><Placeholder_LineItem {...props} /></Match>
-      <Match when={props.visualElement.item == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
+    <Switch fallback={<div>VisualElementInTable: unknown item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+      <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
+      <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>
+      <Match when={isTable(props.visualElement.displayItem)}><Table_LineItem {...props} /></Match>
+      <Match when={isNote(props.visualElement.displayItem)}><Note_LineItem {...props} /></Match>
+      <Match when={isImage(props.visualElement.displayItem)}><Image_LineItem {...props} /></Match>
+      <Match when={isFile(props.visualElement.displayItem)}><FileLineItem {...props} /></Match>
+      <Match when={isRating(props.visualElement.displayItem)}><Rating_LineItem {...props} /></Match>
+      <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_LineItem {...props} /></Match>
+      <Match when={props.visualElement.displayItem == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
     </Switch>
   );
 }

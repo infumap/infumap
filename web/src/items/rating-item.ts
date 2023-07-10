@@ -155,7 +155,7 @@ const PERSIST_AFTER_MS = 1000;
 let clickTimer: number | null = null;
 
 export function handleRatingClick(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void {
-  const item = asRatingItem(visualElementSignal.get().item);
+  const item = asRatingItem(visualElementSignal.get().displayItem);
   item.rating += 1;
   if (item.rating == 6) { item.rating = 0; }
   arrange(desktopStore); // TODO (LOW): only need to rearrange the element.

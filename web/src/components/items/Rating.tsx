@@ -23,7 +23,7 @@ import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../Visu
 
 
 export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
-  const ratingItem = () => asRatingItem(props.visualElement.item);
+  const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const naturalHeightPx = () => LINE_HEIGHT_PX;
   const naturalWidthPx = () => LINE_HEIGHT_PX;
@@ -46,7 +46,7 @@ export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: Vis
 
 
 export const Rating_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
-  const ratingItem = () => asRatingItem(props.visualElement.item);
+  const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
   const boundsPx = () => {

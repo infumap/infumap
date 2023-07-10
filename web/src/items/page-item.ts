@@ -304,27 +304,27 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = desktopStore.getItem(visualElement.item.parentId)!
+  const parentItem = desktopStore.getItem(visualElement.displayItem.parentId)!
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem = visualElement.item.id;
+    parentPage.selectedItem = visualElement.displayItem.id;
     arrange(desktopStore);
     return;
   }
 
-  switchToPage(desktopStore, visualElement.item.id);
+  switchToPage(desktopStore, visualElement.displayItem.id);
 }
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = desktopStore.getItem(visualElement.item.parentId)!;
+  const parentItem = desktopStore.getItem(visualElement.displayItem.parentId)!;
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem = visualElement.item.id;
+    parentPage.selectedItem = visualElement.displayItem.id;
   } else if (visualElement.parent!.get().isPopup) {
-    desktopStore.pushPopupId(visualElement.item.id);
+    desktopStore.pushPopupId(visualElement.displayItem.id);
   } else {
-    desktopStore.replacePopupId(visualElement.item.id);
+    desktopStore.replacePopupId(visualElement.displayItem.id);
   }
 
   arrange(desktopStore); // TODO (LOW): no need to arrange entire page.
