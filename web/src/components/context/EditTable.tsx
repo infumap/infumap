@@ -29,6 +29,8 @@ import { NumberSignal, createNumberSignal } from "../../util/signals";
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
   const desktopStore = useDesktopStore();
 
+  let checkElement_ord: HTMLInputElement | undefined;
+
   const tableId = props.tableItem.id;
   const table = () => props.tableItem;
   let colCountSignal: NumberSignal = createNumberSignal(table().tableColumns.length);
@@ -62,6 +64,17 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
     rearrangeVisualElementsWithId(desktopStore, tableId);
   }
 
+  const changeOrderChildrenBy = async () => {
+    const orderByTitle = checkElement_ord?.checked;
+    if (orderByTitle) {
+      asTableItem(desktopStore.getItem(tableId)!).orderChildrenBy = "title[ASC]";
+    } else {
+      asTableItem(desktopStore.getItem(tableId)!).orderChildrenBy = "";
+    }
+    desktopStore.sortChildren(tableId);
+    arrange(desktopStore);
+  }
+
   onCleanup(() => {
     if (!deleted) {
       server.updateItem(desktopStore.getItem(tableId)!);
@@ -75,6 +88,10 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
         <InfuButton text="add col" onClick={addCol} />
         <InfuButton text="delete col" onClick={deleteCol} />
         <div>num cols: {colCountSignal!.get()}</div>
+      </div>
+      <div>
+        <input id="ord" name="ord" type="checkbox" ref={checkElement_ord} checked={props.tableItem.orderChildrenBy == "title[ASC]"} onClick={changeOrderChildrenBy} />
+        <label for="ord">order by title</label>
       </div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>
