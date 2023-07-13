@@ -22,7 +22,7 @@ import { newNoteItem } from "../../items/note-item";
 import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Vector } from "../../util/geometry";
-import ToolbarIcon from "../ToolbarIcon";
+import { ToolbarIcon } from "../ToolbarIcon";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../items/table-item";
