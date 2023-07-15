@@ -678,17 +678,22 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
     const item = visualElement.linkItemMaybe != null
       ? visualElement.linkItemMaybe!
       : visualElement.displayItem;
-    const pageItem = asPageItem(visualElement.parent!.get().displayItem);
-    const rearrangedVisualElement = arrangeItem_Desktop(
-      desktopStore,
-      item,
-      pageItem,
-      visualElement.parent!.get().childAreaBoundsPx!,
-      visualElement.parent!,
-      visualElement.parent!.get().isPopup,
-      visualElement.parent!.get().isPopup,
-      visualElement.isPopup).get();
-    visualElementSignal.set(rearrangedVisualElement);
+    if (isPage(visualElement.parent!.get().displayItem)) {
+      const pageItem = asPageItem(visualElement.parent!.get().displayItem);
+      const rearrangedVisualElement = arrangeItem_Desktop(
+        desktopStore,
+        item,
+        pageItem,
+        visualElement.parent!.get().childAreaBoundsPx!,
+        visualElement.parent!,
+        visualElement.parent!.get().isPopup,
+        visualElement.parent!.get().isPopup,
+        visualElement.isPopup).get();
+      visualElementSignal.set(rearrangedVisualElement);
+    } else {
+      // TODO (HIGH)
+      console.log("TODO: rearrangeVisualElement when parent not page");
+    }
   }
 }
 
