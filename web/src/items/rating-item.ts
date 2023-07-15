@@ -16,11 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from '../constants';
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX } from '../constants';
 import { createHitbox, HitboxType } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { Item, ItemTypeMixin, ITEM_TYPE_RATING, ITEM_BORDER_WIDTH_PX } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
@@ -95,18 +95,13 @@ export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions 
 }
 
 export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = {
-    x: 0.0,
-    y: 0.0,
-    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-  };
   const boundsPx = {
     x: (rating.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (rating.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx,
     hitboxes: [

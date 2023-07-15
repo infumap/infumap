@@ -20,7 +20,6 @@ import { HitboxType, createHitbox } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { Dimensions } from '../../util/geometry';
 import { EMPTY_UID, Uid } from '../../util/uid';
-import { PositionalMixin } from './positional-item';
 
 export const ITEM_TYPE_NONE = "none";
 export const ITEM_TYPE_PAGE = "page";
@@ -31,8 +30,6 @@ export const ITEM_TYPE_IMAGE = "image";
 export const ITEM_TYPE_RATING = "rating";
 export const ITEM_TYPE_LINK = "link";
 export const ITEM_TYPE_PLACEHOLDER = "placeholder";
-
-export const ITEM_BORDER_WIDTH_PX = 1;
 
 export interface ItemTypeMixin {
   itemType: string,

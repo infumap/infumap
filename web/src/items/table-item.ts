@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxType, createHitbox, createHitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_BORDER_WIDTH_PX } from "./base/item";
+import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
@@ -138,18 +138,13 @@ export function calcTableSizeForSpatialBl(table: TableMeasurable): Dimensions {
 
 export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
   const tableSizeBl: Dimensions = calcTableSizeForSpatialBl(table);
-  const innerBoundsPx: BoundingBox = {
-    x: 0.0,
-    y: 0.0,
-    w: tableSizeBl.w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-    h: tableSizeBl.h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-  };
   const boundsPx: BoundingBox = {
     x: (table.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (table.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: tableSizeBl.w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: tableSizeBl.h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: tableSizeBl.w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+    h: tableSizeBl.h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   const blockSizePx: Dimensions = {
     w: innerBoundsPx.w / tableSizeBl.w,
     h: innerBoundsPx.h / tableSizeBl.h

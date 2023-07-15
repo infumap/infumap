@@ -16,13 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE, ITEM_BORDER_WIDTH_PX, Item } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE, Item } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -109,18 +109,13 @@ export function calcNoteSizeForSpatialBl(note: NoteMeasurable): Dimensions {
 }
 
 export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = {
-    x: 0.0,
-    y: 0.0,
-    w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-    h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-  };
   const boundsPx = {
     x: (note.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (note.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcNoteSizeForSpatialBl(note).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+    h: calcNoteSizeForSpatialBl(note).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [

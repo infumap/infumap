@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_PAGE_CELL_ASPECT, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, ITEM_BORDER_WIDTH_PX } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -197,21 +197,17 @@ export function calcPageInnerSpatialDimensionsBl(page: PageMeasurable): Dimensio
 
 
 export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = {
-    x: 0.0, y: 0.0,
-    w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-    h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-  };
-  const popupClickBoundsPx = parentIsPopup
-    ? cloneBoundingBox(innerBoundsPx)!
-    : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-        w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
   const boundsPx = {
     x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcPageSizeForSpatialBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+    h: calcPageSizeForSpatialBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  const popupClickBoundsPx = parentIsPopup
+  ? cloneBoundingBox(innerBoundsPx)!
+  : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+      w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
   return ({
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [

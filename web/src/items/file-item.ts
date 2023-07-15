@@ -16,12 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_FILE, ITEM_BORDER_WIDTH_PX, Item } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_FILE, Item } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
@@ -87,18 +87,13 @@ export function calcFileSizeForSpatialBl(file: FileMeasurable): Dimensions {
 }
 
 export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = {
-    x: 0.0,
-    y: 0.0,
-    w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-    h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-  };
   const boundsPx = {
     x: (file.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (file.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcFileSizeForSpatialBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+    h: calcFileSizeForSpatialBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [

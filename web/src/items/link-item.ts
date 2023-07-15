@@ -16,13 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK, ITEM_BORDER_WIDTH_PX } from "./base/item";
+import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
@@ -137,18 +137,13 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
 
 export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
   function noLinkTo() {
-    const innerBoundsPx = {
-      x: 0.0,
-      y: 0.0,
-      w: calcLinkSizeForSpatialBl(link, getItem).w / parentInnerSizeBl.w * parentBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-      h: calcLinkSizeForSpatialBl(link, getItem).h / parentInnerSizeBl.h * parentBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-    };
     const boundsPx = {
       x: (link.spatialPositionGr.x / (parentInnerSizeBl.w * GRID_SIZE)) * parentBoundsPx.w + parentBoundsPx.x,
       y: (link.spatialPositionGr.y / (parentInnerSizeBl.h * GRID_SIZE)) * parentBoundsPx.h + parentBoundsPx.y,
-      w: calcLinkSizeForSpatialBl(link, getItem).w / parentInnerSizeBl.w * parentBoundsPx.w,
-      h: calcLinkSizeForSpatialBl(link, getItem).h / parentInnerSizeBl.h * parentBoundsPx.h,
+      w: calcLinkSizeForSpatialBl(link, getItem).w / parentInnerSizeBl.w * parentBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+      h: calcLinkSizeForSpatialBl(link, getItem).h / parentInnerSizeBl.h * parentBoundsPx.h + ITEM_BORDER_WIDTH_PX,
     };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
       boundsPx,
       hitboxes: !emitHitboxes ? [] : [

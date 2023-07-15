@@ -16,13 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxType, createHitbox } from "../layout/hitbox";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { ItemTypeMixin, ITEM_TYPE_IMAGE, ITEM_BORDER_WIDTH_PX, Item } from "./base/item";
+import { ItemTypeMixin, ITEM_TYPE_IMAGE, Item } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
@@ -113,18 +113,13 @@ export function calcImageSizeForSpatialBl(image: ImageMeasurable): Dimensions {
 }
 
 export function calcGeometryOfImageItem_Desktop(image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
-  const innerBoundsPx = {
-    x: 0.0,
-    y: 0.0,
-    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h - ITEM_BORDER_WIDTH_PX*2,
-  };
   const boundsPx = {
     x: (image.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
     y: (image.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w,
-    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h,
+    w: calcImageSizeForSpatialBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+    h: calcImageSizeForSpatialBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [

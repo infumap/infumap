@@ -42,3 +42,5 @@ export const LIST_PAGE_LIST_WIDTH_BL = 8;
 
 // TODO (MEDIUM)
 export const CHILD_ITEMS_INTERACTABLE_WIDTH_BL = 20;
+
+export const ITEM_BORDER_WIDTH_PX = 1;
