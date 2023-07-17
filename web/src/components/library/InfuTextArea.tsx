@@ -27,7 +27,7 @@ export type InfuTextAreaProps = {
   /// Triggered after loosing focus, or cleanup.
   onChangeOrCleanup?: ((v: string) => void),
   disabled?: boolean,
-  focus?: boolean,
+  focus?: boolean
 };
 
 export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaProps) => {

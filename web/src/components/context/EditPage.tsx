@@ -76,6 +76,10 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const setAspectToMatchScreen = async () => {
     asPageItem(desktopStore.getItem(pageId)!).naturalAspect = screenAspect();
+    desktopStore.setEditDialogInfo({
+      desktopBoundsPx: desktopStore.editDialogInfo()!.desktopBoundsPx,
+      item: desktopStore.getItem(pageId)!
+    });
     rearrangeVisualElementsWithId(desktopStore, pageId);
   }
 

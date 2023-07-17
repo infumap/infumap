@@ -83,9 +83,9 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
  * were solidjs signals (whereas in the current approach they are not). The functional approach was simpler from
  * the point of view that the visual elements did not need to be explicitly updated / managed. However, it turned
  * out to be a dead end:
- * 1. It was effectively impossible to perfectly optimize it in the case of, for example, resizing pages because
- *    the children were a function of page size. By comparison, as a general comment, the stateful approach makes
- *    it easy(er) to make precisely the optimal updates at precisely the required times.
+ * 1. It was effectively impossible to perfectly optimize it in the case of resizing pages (and probably other
+ *    scenarios) because the children were a function of page size. By comparison, as a general comment, the
+ *    stateful approach makes it easy(er) to make precisely the optimal updates at precisely the required times.
  * 2. The visual element tree state is required for mouse interaction as well as rendering, and it was messy to
  *    create a cached version of this as a side effect of the functional arrange method. And there were associated
  *    bugs, which were not trivial to track down.
