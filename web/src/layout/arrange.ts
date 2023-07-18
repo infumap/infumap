@@ -661,8 +661,10 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
 export const rearrangeVisualElementsWithItemId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
   visualElementsWithItemId(desktopStore, id).forEach(ve => {
-    const parentIsPage = ve.get().parent == null || isPage(ve.get().parent!.get().item);
-    if (parentIsPage) {
+    const parentIsDesktopPage =
+      ve.get().parent == null ||
+      (isPage(ve.get().parent!.get().item) && !ve.get().isAttachment);
+    if (parentIsDesktopPage) {
       rearrangeVisualElement(desktopStore, ve);
     } else {
       console.log("TODO: rearrange table children")
