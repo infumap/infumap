@@ -405,7 +405,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
 
-    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeItem.id], false);
+    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeVisualElement.item.id], false);
 
     // update move over element state.
     if (mouseActionState.moveOver_containerElement == null ||

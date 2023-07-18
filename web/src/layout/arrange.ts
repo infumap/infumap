@@ -453,7 +453,6 @@ const arrangeTable_Desktop = (
     for (let idx=0; idx<canonicalItem_Table.computed_children.length; ++idx) {
       const childId = canonicalItem_Table.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
-      if (isLink(childItem)) { panic(); }  // TODO (MEDIUM).
       let widthBl = canonicalItem_Table.tableColumns.length == 1
         ? sizeBl.w
         : Math.min(canonicalItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
