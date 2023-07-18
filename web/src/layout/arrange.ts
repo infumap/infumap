@@ -480,9 +480,9 @@ const arrangeTable_Desktop = (
       const tableItemVisualElementSignal = createVisualElementSignal(tableItemVe);
       tableVeChildren.push(tableItemVisualElementSignal);
 
-      if (isAttachmentsItem(childItem)) {
+      if (isAttachmentsItem(canonicalItem)) {
         let tableItemVeAttachments: Array<VisualElementSignal> = [];
-        const attachmentsItem = asAttachmentsItem(childItem);
+        const attachmentsItem = asAttachmentsItem(canonicalItem);
         let leftBl = canonicalItem_Table.tableColumns[0].widthGr / GRID_SIZE;
         let i=0;
         for (; i<attachmentsItem.computed_attachments.length; ++i) {
