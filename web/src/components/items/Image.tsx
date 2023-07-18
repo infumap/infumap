@@ -28,7 +28,7 @@ import { getImage, releaseImage } from "../../imageManager";
 export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   let imgElement: HTMLImageElement | undefined;
 
-  const imageItem = () => asImageItem(props.visualElement.displayItem);
+  const imageItem = () => asImageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
   const attachBoundsPx = (): BoundingBox => {
@@ -43,7 +43,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const isDetailed = () => { return props.visualElement.isDetailed; }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
-  const imgSrc = () => { return "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true); }
+  const imgSrc = () => { return "/files/" + props.visualElement.item.id + "_" + imageWidthToRequestPx(true); }
   // const imgUrl = () => {
   //   if (!props.visualElement.isDetailed) {
   //     return "data:image/png;base64, " + imageItem().thumbnail;
@@ -135,7 +135,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 export const Image_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
   let nodeElement: HTMLDivElementWithData | undefined;
 
-  const imageItem = () => asImageItem(props.visualElement.displayItem);
+  const imageItem = () => asImageItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
@@ -149,7 +149,7 @@ export const Image_LineItem: Component<VisualElementProps_LineItem> = (props: Vi
         <i class={`fas fa-image`} />
       </div>
       <div ref={nodeElement}
-           id={props.visualElement.displayItem.id}
+           id={props.visualElement.item.id}
            class="absolute overflow-hidden"
            style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +

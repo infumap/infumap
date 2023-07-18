@@ -24,7 +24,7 @@ import { BoundingBox } from "../../util/geometry";
 
 
 export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
-  const noteItem = () => asNoteItem(props.visualElement.displayItem);
+  const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem()));
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
@@ -72,7 +72,7 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
 
 export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
-  const noteItem = () => asNoteItem(props.visualElement.displayItem);
+  const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;

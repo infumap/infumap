@@ -30,7 +30,7 @@ export const HEADER_HEIGHT_BL = 1.0;
 
 
 export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
-  const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
   const blockSizePx = () => {
@@ -149,7 +149,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
     scrollDoneTimer = null;
   }
 
-  const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const tableItem = () => asTableItem(props.visualElement.item);
   const blockHeightPx = () => {
     let heightBr = tableItem().spatialHeightGr / GRID_SIZE - HEADER_HEIGHT_BL;
     let heightPx = props.visualElement.childAreaBoundsPx!.h;
@@ -200,7 +200,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   return (
     <div ref={outerDiv}
-         id={props.visualElement.displayItem.id}
+         id={props.visualElement.item.id}
          class="absolute"
          style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
                 `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;`}
@@ -214,7 +214,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
 
 
 export const Table_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
-  const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;

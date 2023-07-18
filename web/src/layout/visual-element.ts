@@ -29,11 +29,10 @@ import { panic } from "../util/lang";
 export type VisualElementPath = string;
 
 export interface VisualElement {
-  displayItem: Item,
-
-  // If the VisualElement corresponds to a link item, "displyItem" is the linked-to item, and
+  // If the VisualElement corresponds to a link item, "item" is the linked-to item, and
   // "linkItemMaybe" is the link item itself. Unless the linked to item is invalid or not set,
-  // then displayItem is the link item.
+  // then "item" is the link item.
+  item: Item,
   linkItemMaybe: LinkItem | null,
 
   // If set, the element is currently being resized, and these were the original bounds.
@@ -77,7 +76,7 @@ export interface VisualElement {
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
-  displayItem: EMPTY_ITEM,
+  item: EMPTY_ITEM,
   linkItemMaybe: null,
   resizingFromBoundsPx: null,
   isSelected: false,
@@ -106,7 +105,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 };
 
 export interface VisualElementOverride {
-  displayItem: Item,
+  item: Item,
   linkItemMaybe?: LinkItem | null,
   isSelected?: boolean,
   isLineItem?: boolean,
@@ -130,7 +129,7 @@ export interface VisualElementOverride {
 
 export function createVisualElement(override: VisualElementOverride): VisualElement {
   let result: VisualElement = {
-    displayItem: EMPTY_ITEM,
+    item: EMPTY_ITEM,
     linkItemMaybe: null,
     resizingFromBoundsPx: null,
     isSelected: false,
@@ -157,7 +156,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     moveOverRowNumber: createNumberSignal(-1),
     moveOverColAttachmentNumber: createNumberSignal(-1),
   };
-  result.displayItem = override.displayItem;
+  result.item = override.item;
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
   if (typeof(override.isRoot) != 'undefined') { result.isRoot = override.isRoot; }
@@ -184,7 +183,7 @@ export function visualElementToPath(visualElement: VisualElement): VisualElement
   function impl(visualElement: VisualElement, current: string): string {
     const ve = visualElement;
     if (current != "") { current += "-"; }
-    current += ve.displayItem.id;
+    current += ve.item.id;
     if (ve.linkItemMaybe != null) {
       current += "[" + ve.linkItemMaybe!.id + "]";
     }
@@ -200,21 +199,21 @@ export function visualElementSignalFromPath(
   const parts = pathString.split("-");
   let ves = desktopStore.topLevelVisualElementSignal();
   let { itemId } = getIds(parts[parts.length-1]);
-  if (ves.get().displayItem.id != itemId) { panic(); }
+  if (ves.get().item.id != itemId) { panic(); }
 
   for (let i=parts.length-2; i>=0; --i) {
     let ve = ves.get();
     let { itemId, linkId } = getIds(parts[i]);
     let done: boolean = false;
     for (let j=0; j<ve.children.length && !done; ++j) {
-      if (ve.children[j].get().displayItem.id == itemId &&
+      if (ve.children[j].get().item.id == itemId &&
           (ve.children[j].get().linkItemMaybe == null ? null : ve.children[j].get().linkItemMaybe!.id) == linkId) {
         ves = ve.children[j];
         done = true;
       }
     }
     for (let j=0; j<ve.attachments.length && !done; ++j) {
-      if (ve.attachments[j].get().displayItem.id == itemId &&
+      if (ve.attachments[j].get().item.id == itemId &&
           (ve.attachments[j].get().linkItemMaybe == null ? null : ve.attachments[j].get().linkItemMaybe!.id) == linkId) {
         ves = ve.attachments[j];
         done = true;
@@ -268,7 +267,7 @@ export function printCurrentVisualElementTree(desktopStore: DesktopStoreContextM
 function printRecursive(visualElement: VisualElement, level: number, relationship: string) {
   let indent = "";
   for (let i=0; i<level; ++i) { indent += "-"; }
-  console.log(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
+  console.log(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.item ? "itemid: " + visualElement.item.id : "") + "}");
   for (let i=0; i<visualElement.children.length; ++i) {
     printRecursive(visualElement.children[i].get(), level + 1, "c");
   }

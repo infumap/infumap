@@ -69,7 +69,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       } else {
         desktopStore.setEditDialogInfo({
           desktopBoundsPx: initialEditDialogBounds(desktopStore),
-          item: hitInfo.overElementVes.get().displayItem
+          item: hitInfo.overElementVes.get().item
         });
       }
       mouseMoveNoButtonDownHandler(desktopStore);
@@ -114,7 +114,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
         console.log("must upload on background.");
         return;
       }
-      let item = hi.overElementVes.get().displayItem;
+      let item = hi.overElementVes.get().item;
       if (!isPage(item)) {
         console.log("must upload on page.");
         return;

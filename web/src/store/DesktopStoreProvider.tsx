@@ -409,10 +409,47 @@ export function useDesktopStore() : DesktopStoreContextModel {
 }
 
 
-export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
+export const findVisualElement = (desktopStore: DesktopStoreContextModel, itemId: Uid, linkItemIdMaybe: Uid | null): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
-  if (rootVe.displayItem.id == id) {
+  if (rootVe.item.id == itemId) {
+    if ((linkItemIdMaybe == null && rootVe.linkItemMaybe == null) ||
+        (rootVe.linkItemMaybe != null && rootVe.linkItemMaybe!.id == linkItemIdMaybe)) {
+      result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
+    }
+  }
+  result = result.concat(findVisualElementInChildAndAttachments(desktopStore, rootVe, itemId, linkItemIdMaybe));
+  return result;
+}
+
+const findVisualElementInChildAndAttachments = (desktopStore: DesktopStoreContextModel, ve: VisualElement, itemId: Uid, linkItemIdMaybe: Uid | null): Array<VisualElementSignal> => {
+  let result: Array<VisualElementSignal> = [];
+  ve.children.forEach(childVes => {
+    if (childVes.get().item.id == itemId) {
+      if ((linkItemIdMaybe == null && childVes.get().linkItemMaybe == null) ||
+          (childVes.get().linkItemMaybe != null && childVes.get().linkItemMaybe!.id == linkItemIdMaybe)) {
+        result.push(childVes);
+      }
+    }
+    result = result.concat(findVisualElementInChildAndAttachments(desktopStore, childVes.get(), itemId, linkItemIdMaybe));
+  });
+  ve.attachments.forEach(attachmentVes => {
+    if (attachmentVes.get().item.id == itemId) {
+      if ((linkItemIdMaybe == null && attachmentVes.get().linkItemMaybe == null) ||
+          (attachmentVes.get().linkItemMaybe != null && attachmentVes.get().linkItemMaybe!.id == linkItemIdMaybe)) {
+        result.push(attachmentVes);
+      }
+    }
+    result = result.concat(findVisualElementInChildAndAttachments(desktopStore, attachmentVes.get(), itemId, linkItemIdMaybe));
+  });
+  return result;
+}
+
+
+export const visualElementsWithItemId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
+  let result: Array<VisualElementSignal> = [];
+  const rootVe = desktopStore.topLevelVisualElement();
+  if (rootVe.item.id == id) {
     result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
   result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, rootVe, id));
@@ -423,13 +460,13 @@ export const visualElementsWithId = (desktopStore: DesktopStoreContextModel, id:
 const childAndAttachmentVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
-    if (childVes.get().displayItem.id == id) {
+    if (childVes.get().item.id == id) {
       result.push(childVes);
     }
     result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, childVes.get(), id));
   });
   ve.attachments.forEach(attachmentVes => {
-    if (attachmentVes.get().displayItem.id == id) {
+    if (attachmentVes.get().item.id == id) {
       result.push(attachmentVes);
     }
     result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, attachmentVes.get(), id));

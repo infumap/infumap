@@ -38,7 +38,7 @@ export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
 
   const rotateArrangeAlgorithm = () => {
-    const page = asPageItem(desktopStore.topLevelVisualElement()!.displayItem);
+    const page = asPageItem(desktopStore.topLevelVisualElement()!.item);
     if (page.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
       page.arrangeAlgorithm = ARRANGE_ALGO_GRID;
     } else if (page.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
@@ -68,15 +68,15 @@ export const Toolbar: Component = () => {
   }
 
   return (
-    <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+    <Show when={desktopStore.topLevelVisualElement().item.itemType != NONE_VISUAL_ELEMENT.item.itemType}>
       <div class="fixed left-0 top-0 bottom-0 border-r border-gray-800 text-gray-100"
           style={`background-image: linear-gradient(270deg, ` +
-                 `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.displayItem).backgroundColorIndex], 0.786)}, ` +
-                 `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.displayItem).backgroundColorIndex], 0.864)}); ` +
+                 `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.item).backgroundColorIndex], 0.786)}, ` +
+                 `${hexToRGBA(Colors[asPageItem(desktopStore.topLevelVisualElement()!.item).backgroundColorIndex], 0.864)}); ` +
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
         <img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" />
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
-          {asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title}
+          {asPageItem(desktopStore.topLevelVisualElement()!.item).title}
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">

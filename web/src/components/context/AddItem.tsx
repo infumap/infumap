@@ -57,7 +57,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       console.log(attachmentNumber);
 
       panic();
-    } else if (isPage(overElementVe.displayItem) && overElementVe.isDragOverPositioning) {
+    } else if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
 
     } else {
       console.log("unsupported add position");
@@ -67,43 +67,43 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     if (type == "rating") {
       newItem = newRatingItem(
         userStore.getUser().userId,
-        overElementVe.displayItem.id,
+        overElementVe.item.id,
         3,
         Child,
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id))
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id))
     } else if (type == "table") {
       newItem = newTableItem(
         userStore.getUser().userId,
-        overElementVe.displayItem.id,
+        overElementVe.item.id,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
     } else if (type == "note") {
       newItem = newNoteItem(
         userStore.getUser().userId,
-        overElementVe.displayItem.id,
+        overElementVe.item.id,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
     } else if (type == "page") {
       newItem = newPageItem(
         userStore.getUser().userId,
-        overElementVe.displayItem.id!,
+        overElementVe.item.id!,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
     } else if (type == "link")  {
       newItem = newLinkItem(userStore.getUser().userId,
-        overElementVe.displayItem.id!,
+        overElementVe.item.id!,
         Child,
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
+        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id),
         EMPTY_UID);
     } else {
       panic();
     }
 
-    if (isPage(overElementVe.displayItem) && overElementVe.isDragOverPositioning) {
-      newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
+    if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
+      newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.item), props.desktopPosPx);
       server.addItem(newItem, null);
       desktopStore.addItem(newItem);
       desktopStore.setContextMenuInfo(null);
