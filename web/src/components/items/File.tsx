@@ -21,9 +21,13 @@ import { asFileItem, calcFileSizeForSpatialBl } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 
 
 export const File: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+  const desktopStore = useDesktopStore();
+
   const fileItem = () => asFileItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -34,7 +38,12 @@ export const File: Component<VisualElementProps_Desktop> = (props: VisualElement
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const sizeBl = createMemo(() => calcFileSizeForSpatialBl(fileItem()));
+  const sizeBl = createMemo(() => {
+    if (props.visualElement.linkItemMaybe != null) {
+      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!, desktopStore.getItem);
+    }
+    return calcFileSizeForSpatialBl(fileItem());
+  });
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();

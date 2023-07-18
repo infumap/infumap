@@ -46,6 +46,12 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       h: ATTACH_AREA_SIZE_PX,
     }
   }
+  const spatialWidthGr = () => {
+    if (props.visualElement.linkItemMaybe != null) {
+      return props.visualElement.linkItemMaybe.spatialWidthGr;
+    }
+    return pageItem().spatialWidthGr;
+  }
 
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -227,14 +233,14 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         {drawAsFull()}
       </Show>
       <Show when={!props.visualElement.isDetailed ||
-                  (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (pageItem().spatialWidthGr / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!props.visualElement.isRoot &&
                   !props.visualElement.isPopup &&
                   props.visualElement.isDetailed &&
                   pageItem().id != desktopStore.topLevelPageId() &&
-                  (pageItem().spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
+                  (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
       <Show when={props.visualElement.isPopup}>

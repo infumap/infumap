@@ -428,7 +428,9 @@ const arrangeTable_Desktop = (
     linkItemMaybe ? linkItemMaybe : canonicalItem_Table,
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true, desktopStore.getItem);
 
-  const sizeBl = { w: canonicalItem_Table.spatialWidthGr / GRID_SIZE, h: canonicalItem_Table.spatialHeightGr / GRID_SIZE };
+  const sizeBl = linkItemMaybe 
+    ? { w: linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe!.spatialHeightGr / GRID_SIZE }
+    : { w: canonicalItem_Table.spatialWidthGr / GRID_SIZE, h: canonicalItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
 

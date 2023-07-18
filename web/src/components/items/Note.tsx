@@ -21,12 +21,21 @@ import { asNoteItem, calcNoteSizeForSpatialBl } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
+import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
 export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+  const desktopStore = useDesktopStore();
+
   const noteItem = () => asNoteItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
-  const sizeBl = createMemo(() => calcNoteSizeForSpatialBl(noteItem()));
+  const sizeBl = createMemo(() => {
+    if (props.visualElement.linkItemMaybe != null) {
+      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!, desktopStore.getItem);
+    }
+    return calcNoteSizeForSpatialBl(noteItem());
+  });
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();

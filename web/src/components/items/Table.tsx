@@ -33,14 +33,26 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
+  const spatialWidthGr = () => {
+    if (props.visualElement.linkItemMaybe != null) {
+      return props.visualElement.linkItemMaybe.spatialWidthGr;
+    }
+    return tableItem().spatialWidthGr;
+  }
+  const spatialHeightGr = () => {
+    if (props.visualElement.linkItemMaybe != null) {
+      return props.visualElement.linkItemMaybe.spatialHeightGr;
+    }
+    return tableItem().spatialHeightGr;
+  }
   const blockSizePx = () => {
-    const sizeBl = { w: tableItem().spatialWidthGr / GRID_SIZE, h: tableItem().spatialHeightGr / GRID_SIZE };
+    const sizeBl = { w: spatialWidthGr() / GRID_SIZE, h: spatialHeightGr() / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
   }
   const headerHeightPx = () => blockSizePx().h * HEADER_HEIGHT_BL;
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const overPosRowPx = (): number => {
-    const heightBl = tableItem().spatialHeightGr / GRID_SIZE;
+    const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
     const rowNumber = props.visualElement.moveOverRowNumber.get() + 1;
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
@@ -73,7 +85,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
     for (let i=0; i<tableItem().tableColumns.length-1; ++i) {
       let tc = tableItem().tableColumns[i];
       accumBl += tc.widthGr / GRID_SIZE;
-      if (accumBl >= tableItem().spatialWidthGr / GRID_SIZE) {
+      if (accumBl >= spatialWidthGr() / GRID_SIZE) {
         break;
       }
       colsBl.push(accumBl);
@@ -150,10 +162,17 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
   }
 
   const tableItem = () => asTableItem(props.visualElement.item);
+  const spatialHeightGr = () => {
+    if (props.visualElement.linkItemMaybe != null) {
+      return props.visualElement.linkItemMaybe.spatialHeightGr;
+    }
+    return tableItem().spatialHeightGr;
+  }
   const blockHeightPx = () => {
-    let heightBr = tableItem().spatialHeightGr / GRID_SIZE - HEADER_HEIGHT_BL;
-    let heightPx = props.visualElement.childAreaBoundsPx!.h;
-    return heightPx / heightBr;
+    const heightBr = spatialHeightGr() / GRID_SIZE - HEADER_HEIGHT_BL;
+    const heightPx = props.visualElement.childAreaBoundsPx!.h;
+    const bhpx = heightPx / heightBr;
+    return bhpx;
   }
   const totalScrollableHeightPx = () =>
     tableItem().computed_children.length * blockHeightPx();

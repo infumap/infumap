@@ -94,7 +94,7 @@ export function mouseDownHandler(
   } else if (ev.button == MOUSE_RIGHT) {
     mouseRightDownHandler(desktopStore, ev);
   } else {
-    console.log("unsupported mouse button: " + ev.button);
+    console.error("unsupported mouse button: " + ev.button);
   }
 }
 
@@ -321,8 +321,12 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
         mouseActionState.startPosBl = null;
         mouseActionState.startHeightBl = null;
-        const colNum = mouseActionState.hitMeta?.resizeColNumber!;
-        mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+        const colNum = mouseActionState.hitMeta!.resizeColNumber!;
+        if (activeVisualElement.linkItemMaybe != null) {
+          mouseActionState.startWidthBl = asTableItem(activeVisualElement.item).tableColumns[colNum].widthGr / GRID_SIZE;
+        } else {
+          mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+        }
         mouseActionState.action = MouseAction.ResizingColumn;
       }
 
@@ -388,7 +392,11 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
     if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-    asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
+    if (activeVisualElement.linkItemMaybe != null) {
+      asTableItem(activeVisualElement.item).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
+    } else {
+      asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
+    }
 
     let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
     findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
@@ -717,7 +725,10 @@ export function mouseUpHandler(
     }
 
     case MouseAction.ResizingColumn:
-      if (mouseActionState.startWidthBl! * GRID_SIZE != asTableItem(activeItem).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr) {
+      const widthGr = activeVisualElement.linkItemMaybe == null
+        ? asTableItem(activeItem).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr
+        : asTableItem(activeVisualElement.item).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr;
+      if (mouseActionState.startWidthBl! * GRID_SIZE != widthGr) {
         server.updateItem(desktopStore.getItem(activeItem.id)!);
       }
       break;
