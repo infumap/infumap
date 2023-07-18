@@ -138,7 +138,7 @@ export function mouseLeftDownHandler(
   const startPosBl = null;
   const startWidthBl = null;
   const startHeightBl = null;
-  const startPx = desktopPxFromMouseEvent(ev);
+  const startPx = desktopPosPx;
   const activeItem = hitInfo.overElementVes.get().linkItemMaybe != null
     ? desktopStore.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
     : desktopStore.getItem(hitInfo.overElementVes.get().item.id)!;
@@ -159,7 +159,7 @@ export function mouseLeftDownHandler(
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_scaleDefiningElement: visualElementToPath(
-      getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [hitInfo.overElementVes.get().item.id], false).overPositionableVe!),
+      getHitInfo(desktopStore, desktopPosPx, [hitInfo.overElementVes.get().item.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     action: MouseAction.Ambiguous,
     startPx,
@@ -267,7 +267,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     return;
   }
 
-  const deltaPx = vectorSubtract(desktopPxFromMouseEvent(ev), mouseActionState.startPx!);
+  const deltaPx = vectorSubtract(desktopPosPx, mouseActionState.startPx!);
 
   const activeVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState.activeElement).get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
@@ -312,9 +312,9 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
             y: activeItem.spatialPositionGr.y / GRID_SIZE
           };
           mouseActionState.action = MouseAction.Moving;
-          const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+          const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
           if (activeItem.relationshipToParent == Attachment) {
-            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev), Attachment);
+            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment);
           }
         }
 
@@ -412,7 +412,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
 
-    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [activeVisualElement.item.id], false);
+    const hitInfo = getHitInfo(desktopStore, desktopPosPx, [activeVisualElement.item.id], false);
 
     // update move over element state.
     if (mouseActionState.moveOver_containerElement == null ||
@@ -438,11 +438,11 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     });
 
     if (visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_scaleDefiningElement!).get().item != hitInfo.overPositionableVe!.item) {
-      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPxFromMouseEvent(ev), Child);
+      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child);
     }
 
     if (isTable(hitInfo.overContainerVe!.item)) {
-      handleOverTable(desktopStore, hitInfo.overContainerVe!, desktopPxFromMouseEvent(ev));
+      handleOverTable(desktopStore, hitInfo.overContainerVe!, desktopPosPx);
     }
 
     const deltaBl = {
