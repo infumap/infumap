@@ -17,7 +17,6 @@
 */
 
 import { panic } from "../../util/lang";
-import { NumberSignal } from "../../util/signals";
 import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./item";
 
 

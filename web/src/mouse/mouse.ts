@@ -42,6 +42,7 @@ import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/pla
 import { Item } from "../items/base/item";
 import { EMPTY_UID } from "../util/uid";
 import { updateHref } from "../util/browser";
+import { asLinkItem, isLink } from "../items/link-item";
 
 
 const MOUSE_LEFT = 0;
@@ -285,6 +286,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
           if (isYSizableItem(activeItem)) {
             mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
+          } else if(isLink(activeItem) && isYSizableItem(activeVisualElement.item)) {
+            mouseActionState.startHeightBl = asLinkItem(activeItem).spatialHeightGr / GRID_SIZE;
           } else {
             mouseActionState.startHeightBl = null;
           }
@@ -343,11 +346,15 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
     asXSizableItem(activeItem).spatialWidthGr = newWidthBl * GRID_SIZE;
 
-    if (isYSizableItem(activeItem)) {
+    if (isYSizableItem(activeItem) || (isLink(activeItem) && isYSizableItem(activeVisualElement.item))) {
       let newHeightBl = mouseActionState!.startHeightBl! + deltaBl.y;
       newHeightBl = Math.round(newHeightBl);
       if (newHeightBl < 1) { newHeightBl = 1.0; }
-      asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
+      if (isLink(activeItem) && isYSizableItem(activeVisualElement.item)) {
+        asLinkItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
+      } else {
+        asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
+      }
     }
 
     let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
