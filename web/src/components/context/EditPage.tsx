@@ -24,7 +24,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 import { panic } from "../../util/lang";
 import { compareOrderings } from "../../util/ordering";
 
@@ -43,27 +43,27 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
-      rearrangeVisualElementsWithId(desktopStore, pageId);
+      rearrangeVisualElementsWithItemId(desktopStore, pageId);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).naturalAspect = parseFloat(v);
-      rearrangeVisualElementsWithId(desktopStore, pageId);
+      rearrangeVisualElementsWithItemId(desktopStore, pageId);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
       asPageItem(desktopStore.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
-      rearrangeVisualElementsWithId(desktopStore, pageId);
+      rearrangeVisualElementsWithItemId(desktopStore, pageId);
     }
   }
 
   const handleTitleInput = (v: string) => {
     asPageItem(desktopStore.getItem(pageId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, pageId);
+    rearrangeVisualElementsWithItemId(desktopStore, pageId);
   };
 
   const deletePage = async () => {
@@ -80,7 +80,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       desktopBoundsPx: desktopStore.editDialogInfo()!.desktopBoundsPx,
       item: desktopStore.getItem(pageId)!
     });
-    rearrangeVisualElementsWithId(desktopStore, pageId);
+    rearrangeVisualElementsWithItemId(desktopStore, pageId);
   }
 
   let checkElement_spatial_stretch: HTMLInputElement | undefined;
@@ -100,7 +100,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       panic();
     }
     asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = t;
-    rearrangeVisualElementsWithId(desktopStore, pageId);
+    rearrangeVisualElementsWithItemId(desktopStore, pageId);
   }
 
   const changeOrderChildrenBy = async () => {

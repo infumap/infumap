@@ -409,16 +409,19 @@ export function useDesktopStore() : DesktopStoreContextModel {
 }
 
 
-export const findVisualElement = (desktopStore: DesktopStoreContextModel, itemId: Uid, linkItemIdMaybe: Uid | null): Array<VisualElementSignal> => {
+/**
+ * Find all visual elements with item and linkIdMaybe as specified.
+ */
+export const findVisualElements = (desktopStore: DesktopStoreContextModel, itemId: Uid, linkIdMaybe: Uid | null): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
   if (rootVe.item.id == itemId) {
-    if ((linkItemIdMaybe == null && rootVe.linkItemMaybe == null) ||
-        (rootVe.linkItemMaybe != null && rootVe.linkItemMaybe!.id == linkItemIdMaybe)) {
+    if ((linkIdMaybe == null && rootVe.linkItemMaybe == null) ||
+        (rootVe.linkItemMaybe != null && rootVe.linkItemMaybe!.id == linkIdMaybe)) {
       result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
     }
   }
-  result = result.concat(findVisualElementInChildAndAttachments(desktopStore, rootVe, itemId, linkItemIdMaybe));
+  result = result.concat(findVisualElementInChildAndAttachments(desktopStore, rootVe, itemId, linkIdMaybe));
   return result;
 }
 

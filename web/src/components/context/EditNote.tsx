@@ -23,7 +23,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuTextArea } from "../library/InfuTextArea";
-import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
@@ -34,13 +34,13 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
 
   const handleTextInput = (v: string) => {
     asNoteItem(desktopStore.getItem(noteId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, noteId);
+    rearrangeVisualElementsWithItemId(desktopStore, noteId);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
       asNoteItem(desktopStore.getItem(noteId)!).url = v;
-      rearrangeVisualElementsWithId(desktopStore, noteId);
+      rearrangeVisualElementsWithItemId(desktopStore, noteId);
     }
   };
 

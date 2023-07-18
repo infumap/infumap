@@ -654,7 +654,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 }
 
 
-export const rearrangeVisualElementsWithId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
+export const rearrangeVisualElementsWithItemId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
   visualElementsWithItemId(desktopStore, id).forEach(ve => {
     const parentIsPage = ve.get().parent == null || isPage(ve.get().parent!.get().item);
     if (parentIsPage) {

@@ -22,7 +22,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../items/table-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 import { NumberSignal, createNumberSignal } from "../../util/signals";
 
 
@@ -39,7 +39,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   const handleTitleInput = (v: string) => {
     asTableItem(desktopStore.getItem(tableId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, tableId);
+    rearrangeVisualElementsWithItemId(desktopStore, tableId);
   };
 
   const deleteTable = async () => {
@@ -54,14 +54,14 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
     if (table().tableColumns.length > 9) { return; }
     table().tableColumns.push({ name: `col ${table().tableColumns.length}`, widthGr: 120 });
     colCountSignal.set(colCountSignal.get() + 1);
-    rearrangeVisualElementsWithId(desktopStore, tableId);
+    rearrangeVisualElementsWithItemId(desktopStore, tableId);
   }
 
   const deleteCol = () => {
     if (table().tableColumns.length == 1) { return; }
     table().tableColumns.pop();
     colCountSignal.set(colCountSignal.get() - 1);
-    rearrangeVisualElementsWithId(desktopStore, tableId);
+    rearrangeVisualElementsWithItemId(desktopStore, tableId);
   }
 
   const changeOrderChildrenBy = async () => {

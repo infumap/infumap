@@ -24,11 +24,11 @@ import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-it
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, calcPageInnerSpatialDimensionsBl } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { DesktopStoreContextModel, findVisualElement, visualElementsWithItemId } from "../store/DesktopStoreProvider";
+import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, itemIdAndLinkIdMaybeFromVisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -350,7 +350,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
     }
 
-    visualElementsWithItemId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
+    let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
+    findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
 
@@ -382,7 +383,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
     asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
 
-    visualElementsWithItemId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
+    let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
+    findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
 
@@ -452,7 +454,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
     activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
-    visualElementsWithItemId(desktopStore, itemIdFromVisualElementPath(mouseActionState.activeElement)).forEach(ve => {
+    let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
+    findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
       rearrangeVisualElement(desktopStore, ve);
     });
   }
@@ -582,7 +585,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   arrange(desktopStore);
 
   let done = false;
-  findVisualElement(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
+  findVisualElements(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
     if (visualElementToPath(ve.get().parent!.get()) == moveToVisualPathString) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
@@ -598,7 +601,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   }
 
   done = false;
-  visualElementsWithItemId(desktopStore, moveToPage.id).forEach(ve => {
+  findVisualElements(desktopStore, moveToVe.item.id, moveToVe.linkItemMaybe == null ? null : moveToVe.linkItemMaybe.id).forEach(ve => {
     if (visualElementToPath(ve.get()) == moveToVisualPathString) {
       mouseActionState!.moveOver_scaleDefiningElement = visualElementToPath(ve.get());
       done = true;
@@ -638,11 +641,12 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   activeItem.parentId = tableParentPage.id;
   activeItem.ordering = desktopStore.newOrderingAtEndOfChildren(tableParentPage.id);
   activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
+
   arrange(desktopStore);
 
   let done = false;
   let otherVes = [];
-  visualElementsWithItemId(desktopStore, activeVisualElement.item.id).forEach(ve => {
+  findVisualElements(desktopStore, activeVisualElement.item.id, activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id).forEach(ve => {
     if (visualElementToPath(ve.get().parent!.get()) == tableParentVisualPathString) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;

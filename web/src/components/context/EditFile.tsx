@@ -22,7 +22,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asFileItem, FileItem } from "../../items/file-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {
@@ -33,7 +33,7 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
 
   const handleTextInput = (v: string) => {
     asFileItem(desktopStore.getItem(fileId)!).title = v;
-    rearrangeVisualElementsWithId(desktopStore, fileId);
+    rearrangeVisualElementsWithItemId(desktopStore, fileId);
   };
 
   const deleteFile = async () => {

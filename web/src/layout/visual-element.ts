@@ -29,10 +29,10 @@ import { panic } from "../util/lang";
 export type VisualElementPath = string;
 
 export interface VisualElement {
-  // If the VisualElement corresponds to a link item, "item" is the linked-to item, and
-  // "linkItemMaybe" is the link item itself. Unless the linked to item is invalid or not set,
-  // then "item" is the link item.
+  // The item to be visually depicted. If the VisualElement corresponds to a link item, "item" is the
+  // linked-to item unless this is invalid or unknown, in which case "item" is the link item.
   item: Item,
+  // If the visual element corresponds to a link item, a reference to that.
   linkItemMaybe: LinkItem | null,
 
   // If set, the element is currently being resized, and these were the original bounds.
@@ -195,15 +195,16 @@ export function visualElementToPath(visualElement: VisualElement): VisualElement
 }
 
 export function visualElementSignalFromPath(
-    desktopStore: DesktopStoreContextModel, pathString: VisualElementPath): VisualElementSignal {
+    desktopStore: DesktopStoreContextModel,
+    pathString: VisualElementPath): VisualElementSignal {
   const parts = pathString.split("-");
   let ves = desktopStore.topLevelVisualElementSignal();
-  let { itemId } = getIds(parts[parts.length-1]);
+  let { itemId } = getIdsFromPathPart(parts[parts.length-1]);
   if (ves.get().item.id != itemId) { panic(); }
 
   for (let i=parts.length-2; i>=0; --i) {
     let ve = ves.get();
-    let { itemId, linkId } = getIds(parts[i]);
+    let { itemId, linkIdMaybe: linkId } = getIdsFromPathPart(parts[i]);
     let done: boolean = false;
     for (let j=0; j<ve.children.length && !done; ++j) {
       if (ve.children[j].get().item.id == itemId &&
@@ -228,24 +229,28 @@ export function visualElementSignalFromPath(
   return ves;
 }
 
+export function itemIdAndLinkIdMaybeFromVisualElementPath(pathString: VisualElementPath): { itemId: Uid, linkIdMaybe: Uid | null } {
+  const parts = pathString.split("-");
+  return getIdsFromPathPart(parts[0]);
+}
 
 export function itemIdFromVisualElementPath(pathString: VisualElementPath): Uid {
   const parts = pathString.split("-");
-  let { itemId } = getIds(parts[0]);
+  let { itemId } = getIdsFromPathPart(parts[0]);
   return itemId;
 }
 
 
-function getIds(part: string): { itemId: Uid, linkId: Uid | null } {
+function getIdsFromPathPart(part: string): { itemId: Uid, linkIdMaybe: Uid | null } {
   let itemId = part;
-  let linkId = null;
+  let linkIdMaybe = null;
   if (part.length == EMPTY_UID.length * 2 + 2) {
     itemId = part.substring(0, EMPTY_UID.length);
-    linkId = part.substring(EMPTY_UID.length+1, part.length-1);
+    linkIdMaybe = part.substring(EMPTY_UID.length+1, part.length-1);
   } else if (part.length != EMPTY_UID.length) {
     panic();
   }
-  return { itemId, linkId };
+  return { itemId, linkIdMaybe };
 }
 
 

@@ -21,7 +21,7 @@ import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange, rearrangeVisualElementsWithId } from "../../layout/arrange";
+import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 import { LinkItem, asLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { EditItem } from "./EditItem";
@@ -43,7 +43,7 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
 
   const handleLinkToInput = (v: string) => {
     asLinkItem(desktopStore.getItem(linkId)!).linkToId = v;
-    rearrangeVisualElementsWithId(desktopStore, linkId);
+    rearrangeVisualElementsWithItemId(desktopStore, linkId);
   };
 
   const deleteLink = async () => {
