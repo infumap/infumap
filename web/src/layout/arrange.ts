@@ -453,6 +453,9 @@ const arrangeTable_Desktop = (
     for (let idx=0; idx<canonicalItem_Table.computed_children.length; ++idx) {
       const childId = canonicalItem_Table.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
+      const linkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
+      const canonicalItem = isLink(childItem) ? desktopStore.getItem(asLinkItem(childItem).linkToId)! : childItem;
+
       let widthBl = canonicalItem_Table.tableColumns.length == 1
         ? sizeBl.w
         : Math.min(canonicalItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
@@ -460,7 +463,8 @@ const arrangeTable_Desktop = (
       const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl, desktopStore.getItem);
 
       const tableItemVe = createVisualElement({
-        item: childItem,
+        item: canonicalItem,
+        linkItemMaybe: linkItemMaybe,
         isLineItem: true,
         isDetailed: true,
         isInsideTable: true,
