@@ -283,7 +283,9 @@ const arrangeItem_Desktop = (
         spatialWidthGr = linkItemMaybe.spatialWidthGr;
       }
     } else {
-      initiateLoadItem(desktopStore, linkItemMaybe.linkToId);
+      if (linkItemMaybe.linkToId != EMPTY_UID) {
+        initiateLoadItem(desktopStore, linkItemMaybe.linkToId);
+      }
     }
   }
 
