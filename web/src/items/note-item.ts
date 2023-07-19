@@ -191,3 +191,7 @@ export function cloneNoteMeasurableFields(note: NoteMeasurable): NoteMeasurable 
     title: note.title,
   });
 }
+
+export function noteDebugSummary(noteItem: NoteItem) {
+  return "[note] " + noteItem.title;
+}

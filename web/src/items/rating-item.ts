@@ -184,3 +184,7 @@ export function cloneRatingMeasurableFields(rating: RatingMeasurable): RatingMea
     spatialPositionGr: rating.spatialPositionGr,
   });
 }
+
+export function ratingDebugSummary(ratingItem: RatingItem) {
+  return "[rating] " + ratingItem.rating;
+}

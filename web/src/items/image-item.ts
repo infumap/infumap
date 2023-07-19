@@ -201,3 +201,7 @@ export function cloneImageMeasurableFields(image: ImageMeasurable): ImageMeasura
     imageSizePx: image.imageSizePx
   });
 }
+
+export function imageDebugSummary(imageItem: ImageItem) {
+  return "[image] " + imageItem.title;
+}

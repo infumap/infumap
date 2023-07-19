@@ -507,8 +507,8 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
 export function handleOverTable(desktopStore: DesktopStoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
   const tableItem = asTableItem(overContainerVe.item);
   const tableDimensionsBl: Dimensions = {
-    w: tableItem.spatialWidthGr / GRID_SIZE,
-    h: tableItem.spatialHeightGr / GRID_SIZE
+    w: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
+    h: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
   };
   const tableBoundsPx = visualElementBoundsOnDesktopPx(overContainerVe);
 
@@ -542,7 +542,6 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
       }
     }
 
-    const numAttachments = asAttachmentsItem(childItem!).computed_attachments.length;
     let attachmentPos = colNumber - 1;
     overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
   } else {

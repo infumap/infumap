@@ -226,3 +226,7 @@ export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasura
     tableColumns: table.tableColumns,
   });
 }
+
+export function tableDebugSummary(tableItem: TableItem) {
+  return "[table] " + tableItem.title;
+}

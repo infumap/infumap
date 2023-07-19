@@ -47,17 +47,17 @@ export function getHitInfo(
   function finalize(hitboxType: HitboxType, rootVe: VisualElement, overElementVes: VisualElementSignal, overElementMeta: HitboxMeta | null): HitInfo {
     const overVe = overElementVes.get();
     if (overVe.isInsideTable) {
-      assert(isTable(overVe.parent!.get().item), "visual element marked as inside table, is not in fact inside a table.");
+      assert(isTable(overVe.parent!.get().item), "a visual element marked as inside table, is not in fact inside a table.");
       const parentTableVe = overVe.parent!.get();
       const tableParentPageVe = parentTableVe.parent!.get();
       assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
-      assert(tableParentPageVe.isDragOverPositioning, "page containing table does not drag in positioning.");
+      assert(tableParentPageVe.isDragOverPositioning, "page containing table is not marked as drag in positioning.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
     }
 
     if (isTable(overVe.item)) {
       assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
-      assert(overVe.parent!.get().isDragOverPositioning, "page containing table does not allow drag in positioning.");
+      assert(overVe.parent!.get().isDragOverPositioning, "a page containing a table does not allow drag in positioning.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
     }
 
@@ -66,8 +66,8 @@ export function getHitInfo(
     }
 
     const overVeParent = overVe.parent!.get();
-    assert(isPage(overVe.parent!.get().item), "parent of non-container item not in page is not a page.");
-    assert(overVe.parent!.get().isDragOverPositioning, "parent of non-container does not allow drag in positioning.");
+    assert(isPage(overVe.parent!.get().item), "the parent of a non-container item not in page is not a page.");
+    assert(overVe.parent!.get().isDragOverPositioning, "the parent of a non-container does not allow drag in positioning.");
     if (isPage(overVe.item)) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVeParent };
     }
@@ -137,12 +137,14 @@ export function getHitInfo(
     }
 
     // handle inside table child area.
-    if (isTable(childVisualElement.item) && !childVisualElement.isLineItem && isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+    if (isTable(childVisualElement.item) &&
+        !childVisualElement.isLineItem &&
+        isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
       const tableVisualElementSignal = childVisualElementSignal;
       const tableVisualElement = childVisualElement;
 
       // resize hitbox of table takes precedence over everything in the child area.
-      let resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
+      const resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
       if (resizeHitbox.type != HitboxType.Resize) { panic(); }
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
         return finalize(HitboxType.Resize, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta);
@@ -156,7 +158,7 @@ export function getHitInfo(
         }
       }
 
-      let tableItem = asTableItem(tableVisualElement.item);
+      const tableItem = asTableItem(tableVisualElement.item);
 
       for (let j=0; j<tableVisualElement.children.length; ++j) {
         const tableChildVes = tableVisualElement.children[j];

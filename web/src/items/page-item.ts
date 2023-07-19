@@ -341,3 +341,8 @@ export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable 
     computed_children: page.computed_children,
   });
 }
+
+
+export function pageDebugSummary(pageItem: PageItem) {
+  return "[page] " + pageItem.title;
+}

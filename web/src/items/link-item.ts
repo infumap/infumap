@@ -226,3 +226,7 @@ export function asLinkItem(item: ItemTypeMixin): LinkItem {
   if (item.itemType == ITEM_TYPE_LINK) { return item as LinkItem; }
   panic();
 }
+
+export function linkDebugSummary(linkItem: LinkItem) {
+  return "[link] " + linkItem.linkToId;
+}

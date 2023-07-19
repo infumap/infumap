@@ -119,3 +119,7 @@ export function clonePlaceholderMeasurableFields(placeholder: PlaceholderMeasura
     itemType: placeholder.itemType,
   });
 }
+
+export function placeholderDebugSummary(_placeholderItem: PlaceholderItem) {
+  return "[placeholder]";
+}

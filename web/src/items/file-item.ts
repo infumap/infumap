@@ -167,3 +167,7 @@ export function cloneFileMeasurableFields(file: FileMeasurable): FileMeasurable 
     title: file.title,
   });
 }
+
+export function fileDebugSummary(fileItem: FileItem) {
+  return "[file] " + fileItem.title;
+}
