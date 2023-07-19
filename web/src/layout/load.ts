@@ -17,7 +17,7 @@
 */
 
 import { batch } from "solid-js";
-import { server } from "../server";
+import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, server } from "../server";
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
@@ -31,7 +31,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
     return;
   }
   childrenLoadInitiatedOrComplete[containerId] = true;
-  server.fetchItems(containerId, true)
+  server.fetchItems(containerId, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
         batch(() => {

@@ -40,6 +40,7 @@ use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::uid::is_uid;
 use crate::web::routes::command::GetChildrenRequest;
+use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::SendRequest;
 use crate::web::routes::command::SendResponse;
 
@@ -152,7 +153,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   // Get children of container.
-  let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id_maybe: Some(container_id.clone()), children_and_their_attachments_only: true }).unwrap();
+  let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id_maybe: Some(container_id.clone()), mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str()) }).unwrap();
   let send_reqest = SendRequest {
     command: "get-items".to_owned(),
     json_data: get_children_request,

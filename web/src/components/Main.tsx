@@ -18,7 +18,7 @@
 
 import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
-import { ItemsAndTheirAttachments, server } from "../server";
+import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { switchToPage } from "../layout/arrange";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
@@ -52,12 +52,12 @@ export const Main: Component = () => {
       let result: ItemsAndTheirAttachments;
       let rootId: string;
       if (!params.id) {
-        result = await server.fetchItems(null, true);
+        result = await server.fetchItems(null, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY);
         const rootPageObject = result.items.find((a: any) => a['parentId'] == EMPTY_UID) as any;
         rootId = rootPageObject.id;
         childrenLoadInitiatedOrComplete[rootId] = true;
       } else {
-        result = await server.fetchItems(params.id, false);
+        result = await server.fetchItems(params.id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
         const rootPageObject = result.item as any;
         rootId = rootPageObject.id;
         desktopStore.setItemFromServerObject(rootPageObject);

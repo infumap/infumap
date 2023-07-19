@@ -146,12 +146,39 @@ pub async fn serve_command_route(
 }
 
 
+#[derive(Debug, PartialEq)]
+pub enum GetItemsMode {
+  ItemAndAttachmentsOnly,
+  ItemAttachmentsChildrenAndTheirAttachments,
+  ChildrenAndTheirAttachmentsOnly
+}
+
+impl GetItemsMode {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      GetItemsMode::ChildrenAndTheirAttachmentsOnly => "children-and-their-attachments-only",
+      GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => "item-attachments-children-and-their-attachments",
+      GetItemsMode::ItemAndAttachmentsOnly => "item-and-attachments-only"
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<GetItemsMode> {
+    match s {
+      "children-and-their-attachments-only" => Ok(GetItemsMode::ChildrenAndTheirAttachmentsOnly),
+      "item-attachments-children-and-their-attachments" => Ok(GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments),
+      "item-and-attachments-only" => Ok(GetItemsMode::ItemAndAttachmentsOnly),
+      other => Err(format!("Invalid GetItemsMode value: '{}'.", other).into())
+    }
+  }
+}
+
+
 #[derive(Deserialize, Serialize)]
 pub struct GetChildrenRequest {
   #[serde(rename="parentId")]
   pub parent_id_maybe: Option<String>,
-  #[serde(rename="childrenAndTheirAttachmentsOnly")]
-  pub children_and_their_attachments_only: bool
+  #[serde(rename="mode")]
+  pub mode: String
 }
 
 async fn handle_get_items(
@@ -162,6 +189,7 @@ async fn handle_get_items(
 
   let request: GetChildrenRequest = serde_json::from_str(json_data)?;
 
+  let mode = GetItemsMode::from_str(&request.mode)?;
   let parent_id = match &request.parent_id_maybe {
     Some(parent_id) => parent_id,
     None => {
@@ -173,42 +201,51 @@ async fn handle_get_items(
   if &parent_item.owner_id != session_user_id {
     return Err(format!("User '{}' does not own item '{}'.", session_user_id, parent_id).into());
   }
-  let parent_json_map = match parent_item.to_api_json() {
-    Ok(r) => r,
-    Err(e) => return Err(format!("Error occurred getting item {} for user {}: {}", parent_id, session_user_id, e).into())
-  };
-
-  let child_items = db.item
-    .get_children(parent_id)?;
-
-  let children_result = child_items.iter()
-    .map(|v| v.to_api_json().ok())
-    .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-    .ok_or(format!("Error occurred getting children for container '{}'.", parent_id))?;
 
   let mut attachments_result = serde_json::Map::new();
 
-  for c in &child_items {
-    let id = &c.id;
-    let item_attachments_result = db.item.get_attachments(id)?.iter()
+  let children_result;
+  if mode == GetItemsMode::ChildrenAndTheirAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
+    let child_items = db.item
+      .get_children(parent_id)?;
+
+    children_result = child_items.iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-      .ok_or(format!("Error occurred getting attachments for {}", id))?;
-    if item_attachments_result.len() > 0 {
-      attachments_result.insert(id.clone(), Value::from(item_attachments_result));
+      .ok_or(format!("Error occurred getting children for container '{}'.", parent_id))?;
+
+    for c in &child_items {
+      let id = &c.id;
+      let item_attachments_result = db.item.get_attachments(id)?.iter()
+        .map(|v| v.to_api_json().ok())
+        .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
+        .ok_or(format!("Error occurred getting attachments for {}", id))?;
+      if item_attachments_result.len() > 0 {
+        attachments_result.insert(id.clone(), Value::from(item_attachments_result));
+      }
+    }
+  } else {
+    children_result = vec![];
+  }
+
+  if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
+    let parent_attachents_result = db.item.get_attachments(parent_id)?.iter()
+      .map(|v| v.to_api_json().ok())
+      .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
+      .ok_or(format!("Error occurred getting attachments for parent {}", parent_id))?;
+    if parent_attachents_result.len() > 0 {
+      attachments_result.insert(parent_id.clone(), Value::from(parent_attachents_result));
     }
   }
 
-  let parent_attachents_result = db.item.get_attachments(parent_id)?.iter()
-    .map(|v| v.to_api_json().ok())
-    .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-    .ok_or(format!("Error occurred getting attachments for parent {}", parent_id))?;
-  if parent_attachents_result.len() > 0 {
-    attachments_result.insert(parent_id.clone(), Value::from(parent_attachents_result));
-  }
-
   let mut result = serde_json::Map::new();
-  result.insert(String::from("item"), Value::from(parent_json_map));
+  if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
+    let parent_json_map = match parent_item.to_api_json() {
+      Ok(r) => r,
+      Err(e) => return Err(format!("Error occurred getting item {} for user {}: {}", parent_id, session_user_id, e).into())
+    };
+    result.insert(String::from("item"), Value::from(parent_json_map));
+  }
   result.insert(String::from("children"), Value::from(children_result));
   result.insert(String::from("attachments"), Value::from(attachments_result));
 
