@@ -526,7 +526,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
   const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
   const childItem = desktopStore.getItem(tableItem.computed_children[insertRow]);
-  if (isAttachmentsItem(childItem)) {
+  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(desktopStore.getItem(asLinkItem(childItem!).linkToId)!))) {
     // first work out which column
     let accumBl = 0;
     let colNumber = tableItem.tableColumns.length - 1;
@@ -932,32 +932,35 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   if (rowNumber < 0) { rowNumber = 0; }
 
   const childId = tableItem.computed_children[rowNumber];
-  const child = asAttachmentsItem(desktopStore.getItem(childId)!);
+  const child = desktopStore.getItem(childId)!;
+  const canonicalChild = asAttachmentsItem(isLink(child)
+    ? desktopStore.getItem(asLinkItem(child).linkToId)!
+    : child);
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
-  const numPlaceholdersToCreate = insertPosition > child.computed_attachments.length ? insertPosition - child.computed_attachments.length : 0;
+  const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
-    const placeholderItem = newPlaceholderItem(activeItem.ownerId, child.id, Attachment, desktopStore.newOrderingAtEndOfAttachments(childId));
+    const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, Attachment, desktopStore.newOrderingAtEndOfAttachments(canonicalChild.id));
     desktopStore.addItem(placeholderItem);
     server.addItem(placeholderItem, null);
   }
-  if (insertPosition < child.computed_attachments.length) {
-    const overAttachmentId = child.computed_attachments[insertPosition];
+  if (insertPosition < canonicalChild.computed_attachments.length) {
+    const overAttachmentId = canonicalChild.computed_attachments[insertPosition];
     const placeholderToReplaceMaybe = desktopStore.getItem(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
       activeItem.ordering = placeholderToReplaceMaybe.ordering;
       desktopStore.deleteItem(overAttachmentId);
       server.deleteItem(overAttachmentId);
     } else {
-      activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
+      activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
     }
   } else {
-    activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(childId, insertPosition);
+    activeItem.ordering = desktopStore.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
   }
   activeItem.relationshipToParent = Attachment;
-  activeItem.parentId = childId;
-  const childAttachments = [activeItem.id, ...child.computed_attachments];
-  child.computed_attachments = childAttachments;
-  desktopStore.sortAttachments(child.id);
+  activeItem.parentId = canonicalChild.id;
+  const childAttachments = [activeItem.id, ...canonicalChild.computed_attachments];
+  canonicalChild.computed_attachments = childAttachments;
+  desktopStore.sortAttachments(canonicalChild.id);
 
   const prevParent = desktopStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
