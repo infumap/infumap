@@ -204,7 +204,12 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const setChildItemsFromServerObjects = (parentId: Uid, childItemObjects: Array<object>): void => {
     let childItems = childItemObjects.map(cio => itemFromObject(cio));
     batch(() => {
-      childItems.forEach(childItem => { items[childItem.id] = childItem; });
+      childItems.forEach(childItem => {
+        if (!items[childItem.id]) {
+          // item may have already been loaded (including children, and will be flagged as such).
+          items[childItem.id] = childItem;
+        }
+      });
       if (!isContainer(getItem(parentId)!)) {
         throwExpression(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
       }

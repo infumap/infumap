@@ -34,7 +34,7 @@ import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { assert, panic } from "../util/lang";
-import { initiateLoadChildItemsIfNotLoaded } from "./load";
+import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
@@ -282,6 +282,8 @@ const arrangeItem_Desktop = (
       if (isXSizableItem(canonicalItem)) {
         spatialWidthGr = linkItemMaybe.spatialWidthGr;
       }
+    } else {
+      initiateLoadItem(desktopStore, linkItemMaybe.linkToId);
     }
   }
 

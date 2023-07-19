@@ -17,7 +17,7 @@
 */
 
 import { batch } from "solid-js";
-import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, server } from "../server";
+import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, server } from "../server";
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
@@ -43,7 +43,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           try {
             arrange(desktopStore);
           } catch (e: any) {
-            throw new Error(`rearrangeVisualElementsWithId failed ${e}`);
+            throw new Error(`arrange failed ${e}`);
           };
         });
       } else {
@@ -52,5 +52,36 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
     })
     .catch((e: any) => {
       console.log(`Error occurred feching items for '${containerId}': ${e.message}.`);
+    });
+}
+
+
+let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
+
+export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, itemId: string) => {
+  if (itemLoadInitiatedOrComplete[itemId]) {
+    return;
+  }
+  itemLoadInitiatedOrComplete[itemId] = true;
+  server.fetchItems(itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
+    .then(result => {
+      if (result != null) {
+        batch(() => {
+          desktopStore.setItemFromServerObject(result.item);
+          Object.keys(result.attachments).forEach(id => {
+            desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+          });
+          try {
+            arrange(desktopStore);
+          } catch (e: any) {
+            throw new Error(`arrange failed ${e}`);
+          };
+        });
+      } else {
+        console.log(`Empty result fetching '${itemId}'.`);
+      }
+    })
+    .catch((e: any) => {
+      console.log(`Error occurred feching item '${itemId}': ${e.message}.`);
     });
 }
