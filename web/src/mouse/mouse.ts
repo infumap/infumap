@@ -83,6 +83,7 @@ interface DialogMoveState {
 let dialogMoveState: DialogMoveState | null = null;
 
 let lastMouseOverVes: VisualElementSignal | null = null;
+let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 
 
 export function mouseDownHandler(
@@ -481,20 +482,39 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null;
   const ev = desktopStore.lastMouseMoveEvent();
-  let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
-  let overElementVes = hitInfo.overElementVes;
+  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+  const overElementVes = hitInfo.overElementVes;
+
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
       lastMouseOverVes.get().mouseIsOver.set(false);
       lastMouseOverVes = null;
     }
   }
-  if ((overElementVes!.get().item == null /* unteathered link */ || overElementVes!.get().item.id != desktopStore.topLevelPageId()) &&
+  if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxType.OpenPopup) || hasModal) {
+    if (lastMouseOverOpenPopupVes != null) {
+      lastMouseOverOpenPopupVes.get().mouseIsOverOpenPopup.set(false);
+      lastMouseOverOpenPopupVes = null;
+    }
+  }
+
+  if ((overElementVes!.get().item.id != desktopStore.topLevelPageId()) &&
       !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
+  if ((overElementVes!.get().item.id != desktopStore.topLevelPageId()) &&
+      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      !hasModal) {
+    if (hitInfo.hitboxType & HitboxType.OpenPopup) {
+      overElementVes!.get().mouseIsOverOpenPopup.set(true);
+      lastMouseOverOpenPopupVes = overElementVes;
+    } else {
+      overElementVes!.get().mouseIsOverOpenPopup.set(false);
+    }
+  }
+
   if ((hitInfo.hitboxType & HitboxType.Resize) > 0) {
     document.body.style.cursor = "nwse-resize";
   } else if ((hitInfo.hitboxType & HitboxType.ColResize) > 0) {

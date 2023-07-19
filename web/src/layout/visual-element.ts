@@ -64,6 +64,7 @@ export interface VisualElement {
   parent: VisualElementSignal | null,
 
   mouseIsOver: BooleanSignal,
+  mouseIsOverOpenPopup: BooleanSignal,
 
   movingItemIsOver: BooleanSignal,            // for containers only.
   movingItemIsOverAttach: BooleanSignal,      // for attachment items only.
@@ -98,6 +99,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   parent: null,
 
   mouseIsOver: createBooleanSignal(false),
+  mouseIsOverOpenPopup: createBooleanSignal(false),
+
   movingItemIsOver: createBooleanSignal(false),
   movingItemIsOverAttach: createBooleanSignal(false),
   moveOverRowNumber: createNumberSignal(-1),
@@ -151,6 +154,8 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     parent: null,
 
     mouseIsOver: createBooleanSignal(false),
+    mouseIsOverOpenPopup: createBooleanSignal(false),
+
     movingItemIsOver: createBooleanSignal(false),
     movingItemIsOverAttach: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
