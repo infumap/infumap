@@ -26,7 +26,7 @@ You can use Infumap locally, or install it on a server on the internet in order 
 ## MacOS Settings
 
 Infumap is developed on an Apple Mac, and as such probably works best on this platform (hasn't been tested on others). However,
-there are some settings which you should tweak for optional experience:
+there are some settings which you should tweak for optimal experience:
 
 In System Preferences / Trackpad:
 
