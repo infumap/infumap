@@ -241,7 +241,7 @@ pub fn is_link_item(item_type: ItemType) -> bool {
 }
 
 
-const ALL_JSON_FIELDS: [&'static str; 31] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 32] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -249,7 +249,8 @@ const ALL_JSON_FIELDS: [&'static str; 31] = ["__recordType",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
-  "linkToId", "gridNumberOfColumns", "orderChildrenBy"];
+  "linkToId", "linkToBaseUrl", "gridNumberOfColumns",
+  "orderChildrenBy"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -320,6 +321,7 @@ pub struct Item {
 
   // link
   pub link_to_id: Option<Uid>,
+  pub link_to_base_url: Option<String>,
 }
 
 impl Clone for Item {
@@ -333,6 +335,7 @@ impl Clone for Item {
       creation_date: self.creation_date.clone(),
       last_modified_date: self.last_modified_date.clone(),
       ordering: self.ordering.clone(),
+      order_children_by: self.order_children_by.clone(),
       spatial_position_gr: self.spatial_position_gr.clone(),
       spatial_width_gr: self.spatial_width_gr.clone(),
       spatial_height_gr: self.spatial_height_gr.clone(),
@@ -354,7 +357,7 @@ impl Clone for Item {
       thumbnail: self.thumbnail.clone(),
       rating: self.rating.clone(),
       link_to_id: self.link_to_id.clone(),
-      order_children_by: self.order_children_by.clone(),
+      link_to_base_url: self.link_to_base_url.clone(),
     }
   }
 }
@@ -578,6 +581,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("linkToId"), Value::String(String::from(new_link_to_id)));
       }
     }
+    if let Some(new_link_to_base_url) = &new.link_to_base_url {
+      if match &old.link_to_base_url { Some(o) => o != new_link_to_base_url, None => { true } } {
+        if old.item_type != ItemType::Link { cannot_modify_err("linkToBaseUrl", &old.id)?; }
+        result.insert(String::from("linkToBaseUrl"), Value::String(String::from(new_link_to_base_url)));
+      }
+    }
 
     Ok(result)
   }
@@ -729,6 +738,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Link { not_applicable_err("linkToId", self.item_type, &self.id)?; }
       self.link_to_id = Some(v);
     }
+    if let Some(v) = json::get_string_field(map, "linkToBaseUrl")? {
+      if self.item_type != ItemType::Link { not_applicable_err("linkToBaseUrl", self.item_type, &self.id)?; }
+      self.link_to_base_url = Some(v);
+    }
 
     Ok(())
   }
@@ -870,6 +883,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(link_to_id) = &item.link_to_id {
     if item.item_type != ItemType::Link { unexpected_field_err("linkToId", &item.id, item.item_type)? }
     result.insert(String::from("linkToId"), Value::String(link_to_id.clone()));
+  }
+  if let Some(link_to_base_url) = &item.link_to_base_url {
+    if item.item_type != ItemType::Link { unexpected_field_err("linkToBaseUrl", &item.id, item.item_type)? }
+    result.insert(String::from("linkToBaseUrl"), Value::String(link_to_base_url.clone()));
   }
 
   Ok(result)
@@ -1043,5 +1060,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkToId", item_type, &id)) } },
       None => { if item_type == ItemType::Link { Err(expected_for_err("linkToId", item_type, &id)) } else { Ok(None) } }
     }?,
+    link_to_base_url: match json::get_string_field(map, "linkToBaseUrl")? {
+      Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkToBaseUrl", item_type, &id)) } },
+      None => { if item_type == ItemType::Link { Err(expected_for_err("linkToBaseUrl", item_type, &id)) } else { Ok(None) } }
+    }?,
+
   })
 }

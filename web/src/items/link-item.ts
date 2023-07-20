@@ -36,6 +36,7 @@ import { HitboxType, createHitbox } from "../layout/hitbox";
 
 export interface LinkItem extends PositionalItem, XSizableItem, YSizableItem, AttachmentsItem {
   linkToId: Uid,
+  linkToBaseUrl: String,
 }
 
 
@@ -57,6 +58,7 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     spatialHeightGr: 4.0 * GRID_SIZE,
 
     linkToId,
+    linkToBaseUrl: "",
 
     computed_attachments: [],
   };
@@ -79,6 +81,7 @@ export function linkFromObject(o: any): LinkItem {
     spatialHeightGr: o.spatialHeightGr,
 
     linkToId: o.linkToId,
+    linkToBaseUrl: o.linkToBaseUrl,
 
     computed_attachments: [],
   });
@@ -100,6 +103,7 @@ export function linkToObject(l: LinkItem): object {
     spatialHeightGr: l.spatialHeightGr,
 
     linkToId: l.linkToId,
+    linkToBaseUrl: l.linkToBaseUrl,
   });
 }
 
@@ -125,6 +129,7 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
   function noLinkTo() {
     return { w: link.spatialWidthGr / GRID_SIZE, h: 1.0 };
   }
+
   if (link.linkToId == EMPTY_UID) {
     return noLinkTo();
   }
@@ -154,6 +159,7 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
       ],
     }
   }
+
   if (link.linkToId == EMPTY_UID) {
     return noLinkTo();
   }
@@ -188,6 +194,7 @@ export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dim
       hitboxes: []
     };
   }
+
   if (link.linkToId == EMPTY_UID) {
     return noLinkTo();
   }
@@ -207,6 +214,7 @@ export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: Boundi
       ]
     });
   }
+
   if (link.linkToId == EMPTY_UID) {
     return noLinkTo();
   }
@@ -228,5 +236,5 @@ export function asLinkItem(item: ItemTypeMixin): LinkItem {
 }
 
 export function linkDebugSummary(linkItem: LinkItem) {
-  return "[link] " + linkItem.linkToId;
+  return "[link] " + linkItem.linkToId + (linkItem.linkToBaseUrl == "" ? "" : "[" + linkItem.linkToBaseUrl + "]");
 }

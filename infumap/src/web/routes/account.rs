@@ -368,6 +368,7 @@ fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_wi
     thumbnail: None,
     rating: None,
     link_to_id: None,
+    link_to_base_url: None,
   }
 }
 
