@@ -29,12 +29,12 @@ import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { createVisualElement } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
-import { LinkItem, asLinkItem, isLink, newLinkItem } from "../items/link-item";
+import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
 import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
-import { assert, panic } from "../util/lang";
-import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem } from "./load";
+import { panic } from "../util/lang";
+import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFromRemote } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
@@ -276,15 +276,19 @@ const arrangeItem_Desktop = (
     : 0;
   if (item.itemType == ITEM_TYPE_LINK) {
     linkItemMaybe = asLinkItem(item);
-    const canonicalItemMaybe = desktopStore.getItem(linkItemMaybe.linkToId);
+    const canonicalItemMaybe = desktopStore.getItem(getLinkToId(linkItemMaybe));
     if (canonicalItemMaybe != null) {
       canonicalItem = canonicalItemMaybe!;
       if (isXSizableItem(canonicalItem)) {
         spatialWidthGr = linkItemMaybe.spatialWidthGr;
       }
     } else {
-      if (linkItemMaybe.linkToId != EMPTY_UID) {
-        initiateLoadItem(desktopStore, linkItemMaybe.linkToId);
+      if (linkItemMaybe.linkTo != EMPTY_UID) {
+        if (linkItemMaybe.linkToBaseUrl == "") {
+          initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
+        } else {
+          initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
+        }
       }
     }
   }
@@ -401,7 +405,7 @@ const arrangePageWithChildren_Desktop = (
         let canonicalItem = childItem;
         if (childItem.itemType == ITEM_TYPE_LINK) {
           linkItemMaybe = asLinkItem(childItem);
-          const canonicalItemMaybe = desktopStore.getItem(linkItemMaybe.linkToId);
+          const canonicalItemMaybe = desktopStore.getItem(getLinkToId(linkItemMaybe));
           if (canonicalItemMaybe != null) {
             canonicalItem = canonicalItemMaybe!;
           }
@@ -460,7 +464,7 @@ const arrangeTable_Desktop = (
       const childId = canonicalItem_Table.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
       const linkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
-      const canonicalItem = isLink(childItem) ? desktopStore.getItem(asLinkItem(childItem).linkToId)! : childItem;
+      const canonicalItem = isLink(childItem) ? desktopStore.getItem(getLinkToId(asLinkItem(childItem)))! : childItem;
 
       let widthBl = canonicalItem_Table.tableColumns.length == 1
         ? sizeBl.w

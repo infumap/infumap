@@ -20,8 +20,8 @@ use serde_json::Value;
 
 use crate::storage::db::item::ItemType;
 use crate::util::geometry::GRID_SIZE;
-use crate::web::routes::command::SendRequest;
-use crate::web::routes::command::SendResponse;
+use crate::web::routes::command::CommandRequest;
+use crate::web::routes::command::CommandResponse;
 use crate::{util::{infu::InfuResult, uid::is_uid}, cli::NamedInfuSession};
 
 
@@ -103,13 +103,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   item.insert("url".to_owned(), Value::String("".to_owned()));
 
   let add_item_request = serde_json::to_string(&item)?;
-  let send_reqest = SendRequest {
+  let send_reqest = CommandRequest {
     command: "add-item".to_owned(),
     json_data: add_item_request,
     base64_data: None,
   };
 
-  let add_item_response: SendResponse = reqwest::ClientBuilder::new()
+  let add_item_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
     .json(&send_reqest)

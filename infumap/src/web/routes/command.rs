@@ -57,7 +57,7 @@ pub static METRIC_COMMANDS_HANDLED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
 });
 
 #[derive(Deserialize, Serialize)]
-pub struct SendRequest {
+pub struct CommandRequest {
   pub command: String,
   #[serde(rename="jsonData")]
   pub json_data: String,
@@ -70,7 +70,7 @@ const REASON_SERVER: &str = "server";
 const REASON_CLIENT: &str = "client";
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SendResponse {
+pub struct CommandResponse {
   pub success: bool,
   #[serde(rename="failReason")]
   pub fail_reason: Option<String>,
@@ -96,22 +96,22 @@ pub async fn serve_command_route(
 
   let session = match get_and_validate_session(&request, db).await {
     Some(session) => session,
-    None => { return json_response(&SendResponse { success: false, fail_reason: Some(REASON_INVALID_SESSION.to_owned()), json_data: None }); }
+    None => { return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_INVALID_SESSION.to_owned()), json_data: None }); }
   };
 
   match load_user_items_maybe(db.clone(), &session).await {
     Ok(_) => {},
     Err(e) => {
       error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
-      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
+      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
     }
   }
 
-  let request: SendRequest = match incoming_json(request).await {
+  let request: CommandRequest = match incoming_json(request).await {
     Ok(r) => r,
     Err(e) => {
       error!("An error occurred parsing command payload for user '{}': {}", session.user_id, e);
-      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
+      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
 
@@ -125,7 +125,7 @@ pub async fn serve_command_route(
     "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session.user_id).await,
     _ => {
       warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
-      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
+      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
 
@@ -134,12 +134,12 @@ pub async fn serve_command_route(
     Err(e) => {
       warn!("An error occurred servicing a '{}' command for user '{}': {}.", request.command, session.user_id, e);
       METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "false"]).inc();
-      return json_response(&SendResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
+      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
     }
   };
 
   METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "true"]).inc();
-  let r = SendResponse { success: true, fail_reason: None, json_data: response_data };
+  let r = CommandResponse { success: true, fail_reason: None, json_data: response_data };
 
   debug!("Successfully processed a '{}' command.", request.command);
   json_response(&r)
@@ -174,9 +174,9 @@ impl GetItemsMode {
 
 
 #[derive(Deserialize, Serialize)]
-pub struct GetChildrenRequest {
-  #[serde(rename="parentId")]
-  pub parent_id_maybe: Option<String>,
+pub struct GetItemsRequest {
+  #[serde(rename="itemId")]
+  pub item_id_maybe: Option<String>,
   #[serde(rename="mode")]
   pub mode: String
 }
@@ -187,19 +187,19 @@ async fn handle_get_items(
     session_user_id: &String) -> InfuResult<Option<String>> {
   let db = db.lock().await;
 
-  let request: GetChildrenRequest = serde_json::from_str(json_data)?;
+  let request: GetItemsRequest = serde_json::from_str(json_data)?;
 
   let mode = GetItemsMode::from_str(&request.mode)?;
-  let parent_id = match &request.parent_id_maybe {
-    Some(parent_id) => parent_id,
+  let item_id = match &request.item_id_maybe {
+    Some(item_id) => item_id,
     None => {
       &db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
     }
   };
 
-  let parent_item = db.item.get(parent_id)?;
-  if &parent_item.owner_id != session_user_id {
-    return Err(format!("User '{}' does not own item '{}'.", session_user_id, parent_id).into());
+  let item = db.item.get(item_id)?;
+  if &item.owner_id != session_user_id {
+    return Err(format!("User '{}' does not own item '{}'.", session_user_id, item_id).into());
   }
 
   let mut attachments_result = serde_json::Map::new();
@@ -207,12 +207,12 @@ async fn handle_get_items(
   let children_result;
   if mode == GetItemsMode::ChildrenAndTheirAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
     let child_items = db.item
-      .get_children(parent_id)?;
+      .get_children(item_id)?;
 
     children_result = child_items.iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-      .ok_or(format!("Error occurred getting children for container '{}'.", parent_id))?;
+      .ok_or(format!("Error occurred getting children for container '{}'.", item_id))?;
 
     for c in &child_items {
       let id = &c.id;
@@ -229,22 +229,22 @@ async fn handle_get_items(
   }
 
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let parent_attachents_result = db.item.get_attachments(parent_id)?.iter()
+    let item_attachents_result = db.item.get_attachments(item_id)?.iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
-      .ok_or(format!("Error occurred getting attachments for parent {}", parent_id))?;
-    if parent_attachents_result.len() > 0 {
-      attachments_result.insert(parent_id.clone(), Value::from(parent_attachents_result));
+      .ok_or(format!("Error occurred getting attachments for item {}", item_id))?;
+    if item_attachents_result.len() > 0 {
+      attachments_result.insert(item_id.clone(), Value::from(item_attachents_result));
     }
   }
 
   let mut result = serde_json::Map::new();
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let parent_json_map = match parent_item.to_api_json() {
+    let item_json_map = match item.to_api_json() {
       Ok(r) => r,
-      Err(e) => return Err(format!("Error occurred getting item {} for user {}: {}", parent_id, session_user_id, e).into())
+      Err(e) => return Err(format!("Error occurred getting item {} for user {}: {}", item_id, session_user_id, e).into())
     };
-    result.insert(String::from("item"), Value::from(parent_json_map));
+    result.insert(String::from("item"), Value::from(item_json_map));
   }
   result.insert(String::from("children"), Value::from(children_result));
   result.insert(String::from("attachments"), Value::from(attachments_result));

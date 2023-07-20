@@ -42,7 +42,7 @@ import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/pla
 import { Item } from "../items/base/item";
 import { EMPTY_UID } from "../util/uid";
 import { updateHref } from "../util/browser";
-import { asLinkItem, isLink } from "../items/link-item";
+import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 
 
 const MOUSE_LEFT = 0;
@@ -546,7 +546,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
   const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
   const childItem = desktopStore.getItem(tableItem.computed_children[insertRow]);
-  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(desktopStore.getItem(asLinkItem(childItem!).linkToId)!))) {
+  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(desktopStore.getItem(getLinkToId(asLinkItem(childItem!))!)))) {
     // first work out which column
     let accumBl = 0;
     let colNumber = tableItem.tableColumns.length - 1;
@@ -954,7 +954,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const childId = tableItem.computed_children[rowNumber];
   const child = desktopStore.getItem(childId)!;
   const canonicalChild = asAttachmentsItem(isLink(child)
-    ? desktopStore.getItem(asLinkItem(child).linkToId)!
+    ? desktopStore.getItem(getLinkToId(asLinkItem(child)))!
     : child);
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
   const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;

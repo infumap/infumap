@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 5;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 6;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -350,6 +350,20 @@ impl ItemDb {
   }
 }
 
+fn migrate_descriptor(kvs: &Map<String, Value>, expected_version: i64) -> InfuResult<Map<String, Value>> {
+  let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
+  if descriptor_version != expected_version {
+    return Err(format!("Descriptor version is {}, but {} was expected.", descriptor_version, expected_version).into());
+  }
+  let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
+  if value_type != Item::value_type_identifier() {
+    return Err(format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, Item::value_type_identifier()).into());
+  }
+  let mut result = kvs.clone();
+  result.insert(String::from("version"), Value::Number(((expected_version+1) as i64).into()));
+  return Ok(result);
+}
+
 
 pub fn migrate_record_v1_to_v2(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
   match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
@@ -401,17 +415,7 @@ pub fn migrate_record_v1_to_v2(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 pub fn migrate_record_v2_to_v3(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
   match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
     "descriptor" => {
-      let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
-      if descriptor_version != 2 {
-        return Err(format!("Descriptor version is {}, but 2 was expected.", descriptor_version).into());
-      }
-      let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
-      if value_type != Item::value_type_identifier() {
-        return Err(format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, Item::value_type_identifier()).into());
-      }
-      let mut result = kvs.clone();
-      result.insert(String::from("version"), Value::Number((3 as i64).into()));
-      return Ok(result);
+      return migrate_descriptor(kvs, 2);
     },
 
     "entry" => {
@@ -442,17 +446,7 @@ pub fn migrate_record_v2_to_v3(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 pub fn migrate_record_v3_to_v4(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
   match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
     "descriptor" => {
-      let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
-      if descriptor_version != 3 {
-        return Err(format!("Descriptor version is {}, but 3 was expected.", descriptor_version).into());
-      }
-      let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
-      if value_type != Item::value_type_identifier() {
-        return Err(format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, Item::value_type_identifier()).into());
-      }
-      let mut result = kvs.clone();
-      result.insert(String::from("version"), Value::Number((4 as i64).into()));
-      return Ok(result);
+      return migrate_descriptor(kvs, 3);
     },
 
     "entry" => {
@@ -482,17 +476,7 @@ pub fn migrate_record_v3_to_v4(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 pub fn migrate_record_v4_to_v5(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
   match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
     "descriptor" => {
-      let descriptor_version = json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
-      if descriptor_version != 4 {
-        return Err(format!("Descriptor version is {}, but 4 was expected.", descriptor_version).into());
-      }
-      let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
-      if value_type != Item::value_type_identifier() {
-        return Err(format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, Item::value_type_identifier()).into());
-      }
-      let mut result = kvs.clone();
-      result.insert(String::from("version"), Value::Number((5 as i64).into()));
-      return Ok(result);
+      return migrate_descriptor(kvs, 4);
     },
 
     "entry" => {
@@ -507,6 +491,51 @@ pub fn migrate_record_v4_to_v5(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 
     "update" => {
       return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+pub fn migrate_record_v5_to_v6(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 5);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "link" {
+        let existing = result.remove("linkToId");
+        match existing {
+          None => return Err("linkToId missing".into()),
+          Some(s) => {
+            let existing_new = result.insert(String::from("linkTo"), s);
+            if existing_new.is_some() { return Err("linkTo field already exists.".into()); }
+          }
+        }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      let mut result = kvs.clone();
+      let existing = result.remove("linkToId");
+      match existing {
+        None => {},
+        Some(s) => {
+          let existing_new = result.insert(String::from("linkTo"), s);
+          if existing_new.is_some() { return Err("linkTo field already exists.".into()); }
+        }
+      }
+      return Ok(result);
     },
 
     "delete" => {

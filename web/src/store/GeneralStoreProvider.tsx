@@ -56,9 +56,9 @@ export function GeneralStoreProvider(props: GeneralStoreContextProps) {
 
   const retrieveInstallationState = async () => {
     try {
-      setInstallationState(await post("/admin/installation-state", {}));
-    } catch {
-      console.log("An error occurred retrieving installation state.");
+      setInstallationState(await post(null, "/admin/installation-state", {}));
+    } catch (e) {
+      console.log("An error occurred retrieving installation state. " + e);
       setInstallationState(null);
     }
   }

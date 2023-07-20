@@ -249,7 +249,7 @@ const ALL_JSON_FIELDS: [&'static str; 32] = ["__recordType",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
-  "linkToId", "linkToBaseUrl", "gridNumberOfColumns",
+  "linkTo", "linkToBaseUrl", "gridNumberOfColumns",
   "orderChildrenBy"];
 
 
@@ -577,8 +577,8 @@ impl JsonLogSerializable<Item> for Item {
     // link
     if let Some(new_link_to_id) = &new.link_to_id {
       if match &old.link_to_id { Some(o) => o != new_link_to_id, None => { true } } {
-        if old.item_type != ItemType::Link { cannot_modify_err("linkToId", &old.id)?; }
-        result.insert(String::from("linkToId"), Value::String(String::from(new_link_to_id)));
+        if old.item_type != ItemType::Link { cannot_modify_err("linkTo", &old.id)?; }
+        result.insert(String::from("linkTo"), Value::String(String::from(new_link_to_id)));
       }
     }
     if let Some(new_link_to_base_url) = &new.link_to_base_url {
@@ -734,8 +734,8 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // link
-    if let Some(v) = json::get_string_field(map, "linkToId")? {
-      if self.item_type != ItemType::Link { not_applicable_err("linkToId", self.item_type, &self.id)?; }
+    if let Some(v) = json::get_string_field(map, "linkTo")? {
+      if self.item_type != ItemType::Link { not_applicable_err("linkTo", self.item_type, &self.id)?; }
       self.link_to_id = Some(v);
     }
     if let Some(v) = json::get_string_field(map, "linkToBaseUrl")? {
@@ -881,8 +881,8 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
   // link
   if let Some(link_to_id) = &item.link_to_id {
-    if item.item_type != ItemType::Link { unexpected_field_err("linkToId", &item.id, item.item_type)? }
-    result.insert(String::from("linkToId"), Value::String(link_to_id.clone()));
+    if item.item_type != ItemType::Link { unexpected_field_err("linkTo", &item.id, item.item_type)? }
+    result.insert(String::from("linkTo"), Value::String(link_to_id.clone()));
   }
   if let Some(link_to_base_url) = &item.link_to_base_url {
     if item.item_type != ItemType::Link { unexpected_field_err("linkToBaseUrl", &item.id, item.item_type)? }
@@ -1056,9 +1056,9 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
 
     // link
-    link_to_id: match json::get_string_field(map, "linkToId")? {
-      Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkToId", item_type, &id)) } },
-      None => { if item_type == ItemType::Link { Err(expected_for_err("linkToId", item_type, &id)) } else { Ok(None) } }
+    link_to_id: match json::get_string_field(map, "linkTo")? {
+      Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkTo", item_type, &id)) } },
+      None => { if item_type == ItemType::Link { Err(expected_for_err("linkTo", item_type, &id)) } else { Ok(None) } }
     }?,
     link_to_base_url: match json::get_string_field(map, "linkToBaseUrl")? {
       Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkToBaseUrl", item_type, &id)) } },

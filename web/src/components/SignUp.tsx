@@ -61,7 +61,7 @@ export const SignUp: Component = () => {
       setError("application error");
       return;
     }
-    const r: RegisterResponse = await post('/account/register', {
+    const r: RegisterResponse = await post(null, '/account/register', {
       username: username,
       password: password,
       totpSecret: generalStore.prefer2fa() ? totpInfo.secret : null,
@@ -91,7 +91,7 @@ export const SignUp: Component = () => {
       navigate("/signup");
     }
     if (areSettingUp()) { username = ROOT_USERNAME; }
-    const json: any = await post("/account/totp", {});
+    const json: any = await post(null, "/account/totp", {});
     setTotp({
       qr: json.qr,
       url: json.url,

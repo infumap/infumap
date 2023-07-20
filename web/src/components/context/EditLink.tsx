@@ -33,16 +33,21 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
 
   const linkId = props.linkItem.id;
   const linkToItem = (): Item | null => {
-    if (props.linkItem.linkToId == EMPTY_UID) {
+    if (props.linkItem.linkTo == EMPTY_UID) {
       return null;
     }
-    const item = desktopStore.getItem(props.linkItem.linkToId);
+    const item = desktopStore.getItem(props.linkItem.linkTo);
     return item;
   }
   let deleted = false;
 
   const handleLinkToInput = (v: string) => {
-    asLinkItem(desktopStore.getItem(linkId)!).linkToId = v;
+    asLinkItem(desktopStore.getItem(linkId)!).linkTo = v;
+    rearrangeVisualElementsWithItemId(desktopStore, linkId);
+  };
+
+  const handleLinkToBaseUrlInput = (v: string) => {
+    asLinkItem(desktopStore.getItem(linkId)!).linkToBaseUrl = v;
     rearrangeVisualElementsWithItemId(desktopStore, linkId);
   };
 
@@ -63,10 +68,11 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
   return (
     <>
       <div class="m-1">
-        <div class="text-slate-800 text-sm">Link To: <InfuTextInput value={props.linkItem.linkToId} onChangeOrCleanup={handleLinkToInput} /></div>
+        <div class="text-slate-800 text-sm">Link To: <InfuTextInput value={props.linkItem.linkTo} onChangeOrCleanup={handleLinkToInput} /></div>
+        <div class="text-slate-800 text-sm">Base Url: <InfuTextInput value={props.linkItem.linkToBaseUrl} onChangeOrCleanup={handleLinkToBaseUrlInput} /></div>
         <div><InfuButton text="delete" onClick={deleteLink} /></div>
       </div>
-      <Show when={linkToItem() != null}>
+      <Show when={linkToItem() != null && props.linkItem.linkToBaseUrl == ""}>
         <EditItem item={linkToItem()!} />
       </Show>
     </>

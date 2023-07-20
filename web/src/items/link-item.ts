@@ -35,12 +35,13 @@ import { HitboxType, createHitbox } from "../layout/hitbox";
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 
 export interface LinkItem extends PositionalItem, XSizableItem, YSizableItem, AttachmentsItem {
-  linkToId: Uid,
-  linkToBaseUrl: String,
+  linkTo: Uid,
+  linkToResolvedId: Uid | null,
+  linkToBaseUrl: string,
 }
 
 
-export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkToId: Uid): LinkItem {
+export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkTo: Uid): LinkItem {
   if (parentId == EMPTY_UID) { panic(); }
   return {
     itemType: ITEM_TYPE_LINK,
@@ -57,7 +58,8 @@ export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     spatialWidthGr: 4.0 * GRID_SIZE,
     spatialHeightGr: 4.0 * GRID_SIZE,
 
-    linkToId,
+    linkTo,
+    linkToResolvedId: linkTo,
     linkToBaseUrl: "",
 
     computed_attachments: [],
@@ -80,7 +82,8 @@ export function linkFromObject(o: any): LinkItem {
     spatialWidthGr: o.spatialWidthGr,
     spatialHeightGr: o.spatialHeightGr,
 
-    linkToId: o.linkToId,
+    linkTo: o.linkTo,
+    linkToResolvedId: null,
     linkToBaseUrl: o.linkToBaseUrl,
 
     computed_attachments: [],
@@ -102,14 +105,14 @@ export function linkToObject(l: LinkItem): object {
     spatialWidthGr: l.spatialWidthGr,
     spatialHeightGr: l.spatialHeightGr,
 
-    linkToId: l.linkToId,
+    linkTo: l.linkTo,
     linkToBaseUrl: l.linkToBaseUrl,
   });
 }
 
 
 function constructLinkToMeasurable(link: LinkItem, getItem: (id: Uid) => (Item | null)): Measurable | null {
-  const linkedToItemMaybe = getItem(link.linkToId);
+  const linkedToItemMaybe = getItem(getLinkToId(link));
   if (linkedToItemMaybe == null) { return null; }
   const linkedToMeasurableFields = cloneMeasurableFields(linkedToItemMaybe!);
   if (isLink(linkedToMeasurableFields)) { panic(); }
@@ -130,7 +133,7 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
     return { w: link.spatialWidthGr / GRID_SIZE, h: 1.0 };
   }
 
-  if (link.linkToId == EMPTY_UID) {
+  if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
   const measurableMaybe = constructLinkToMeasurable(link, getItem);
@@ -160,7 +163,7 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
     }
   }
 
-  if (link.linkToId == EMPTY_UID) {
+  if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
   const measurableMaybe = constructLinkToMeasurable(link, getItem);
@@ -171,7 +174,7 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
 }
 
 export function calcGeometryOfLinkItem_Attachment(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  if (link.linkToId == EMPTY_UID) {
+  if (getLinkToId(link) == EMPTY_UID) {
     return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
   }
   const measurableMaybe = constructLinkToMeasurable(link, getItem);
@@ -195,7 +198,7 @@ export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dim
     };
   }
 
-  if (link.linkToId == EMPTY_UID) {
+  if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
   const measurableMaybe = constructLinkToMeasurable(link, getItem);
@@ -215,7 +218,7 @@ export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: Boundi
     });
   }
 
-  if (link.linkToId == EMPTY_UID) {
+  if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
   const measurableMaybe = constructLinkToMeasurable(link, getItem);
@@ -236,5 +239,11 @@ export function asLinkItem(item: ItemTypeMixin): LinkItem {
 }
 
 export function linkDebugSummary(linkItem: LinkItem) {
-  return "[link] " + linkItem.linkToId + (linkItem.linkToBaseUrl == "" ? "" : "[" + linkItem.linkToBaseUrl + "]");
+  return "[link] " + linkItem.linkTo + (linkItem.linkToBaseUrl == "" ? "" : "[" + linkItem.linkToBaseUrl + "]");
+}
+
+export function getLinkToId(linkItem: LinkItem): Uid {
+  return linkItem.linkToResolvedId == null
+    ? linkItem.linkTo
+    : linkItem.linkToResolvedId;
 }

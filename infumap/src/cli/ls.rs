@@ -19,7 +19,7 @@ use serde_json::Map;
 use serde_json::Value;
 
 use crate::storage::db::item::ItemType;
-use crate::{util::{infu::InfuResult, uid::is_uid}, web::routes::command::{SendRequest, SendResponse}};
+use crate::{util::{infu::InfuResult, uid::is_uid}, web::routes::command::{CommandRequest, CommandResponse}};
 
 use super::NamedInfuSession;
 
@@ -84,13 +84,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   let get_children_request = serde_json::to_string(&request_data)?;
-  let send_reqest = SendRequest {
+  let send_reqest = CommandRequest {
     command: "get-items".to_owned(),
     json_data: get_children_request,
     base64_data: None,
   };
 
-  let get_children_response: SendResponse = reqwest::ClientBuilder::new()
+  let get_children_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
     .json(&send_reqest)
@@ -115,13 +115,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let children_array = children_value.as_array().ok_or("get-items response has a 'children' field that is not an array.")?;
 
   let get_attachments_request = serde_json::to_string(&request_data)?;
-  let send_reqest = SendRequest {
+  let send_reqest = CommandRequest {
     command: "get-attachments".to_owned(),
     json_data: get_attachments_request,
     base64_data: None,
   };
 
-  let get_attachments_response: SendResponse = reqwest::ClientBuilder::new()
+  let get_attachments_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
     .json(&send_reqest)

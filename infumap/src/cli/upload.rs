@@ -39,10 +39,10 @@ use crate::util::image::get_exif_orientation;
 use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::uid::is_uid;
-use crate::web::routes::command::GetChildrenRequest;
+use crate::web::routes::command::GetItemsRequest;
 use crate::web::routes::command::GetItemsMode;
-use crate::web::routes::command::SendRequest;
-use crate::web::routes::command::SendResponse;
+use crate::web::routes::command::CommandRequest;
+use crate::web::routes::command::CommandResponse;
 
 use super::NamedInfuSession;
 
@@ -153,13 +153,13 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   // Get children of container.
-  let get_children_request = serde_json::to_string(&GetChildrenRequest { parent_id_maybe: Some(container_id.clone()), mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str()) }).unwrap();
-  let send_reqest = SendRequest {
+  let get_children_request = serde_json::to_string(&GetItemsRequest { item_id_maybe: Some(container_id.clone()), mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str()) }).unwrap();
+  let send_reqest = CommandRequest {
     command: "get-items".to_owned(),
     json_data: get_children_request,
     base64_data: None,
   };
-  let container_children_response: SendResponse = reqwest::ClientBuilder::new()
+  let container_children_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
     .json(&send_reqest)
@@ -268,7 +268,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
 
     let add_item_request = serde_json::to_string(&item)?;
-    let send_reqest = SendRequest {
+    let send_reqest = CommandRequest {
       command: "add-item".to_owned(),
       json_data: add_item_request,
       base64_data: Some(base_64_encoded),
@@ -283,7 +283,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
         .await;
       match add_item_response {
         Ok(r) => {
-          let json_response: SendResponse = r.json().await.map_err(|e| e.to_string())?;
+          let json_response: CommandResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
             println!("Infumap rejected the add-item command - skipping.");
             num_skipped += 1;

@@ -63,6 +63,7 @@ export function UserStoreProvider(props: UserStoreContextProps) {
   const value: UserStoreContextModel = {
     login: async (username: string, password: string, totpToken: string | null): Promise<LoginResult> => {
       let r: any = await post(
+        null,
         '/account/login',
         totpToken == null ? { username, password } : { username, password, totpToken });
       if (!r.success) {
@@ -83,7 +84,7 @@ export function UserStoreProvider(props: UserStoreContextProps) {
         return { success: false, err: "not logged in" };
       };
       const user: User = JSON.parse(data);
-      let r: any = await post('/account/logout', { "userId": user.userId, "sessionId": user.sessionId });
+      let r: any = await post(null, '/account/logout', { "userId": user.userId, "sessionId": user.sessionId });
       eraseCookie(SESSION_COOKIE_NAME);
       setSessionDataString(null);
       if (!r.success) {

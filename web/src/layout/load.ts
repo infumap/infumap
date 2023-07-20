@@ -17,11 +17,13 @@
 */
 
 import { batch } from "solid-js";
-import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, server } from "../server";
+import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, remote, server } from "../server";
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
 import { arrange } from "./arrange";
+import { asLinkItem } from "../items/link-item";
+import { itemFromObject } from "../items/base/item-polymorphism";
 
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
@@ -47,11 +49,11 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           };
         });
       } else {
-        console.log(`No items were fetched for '${containerId}'.`);
+        console.error(`No items were fetched for '${containerId}'.`);
       }
     })
     .catch((e: any) => {
-      console.log(`Error occurred feching items for '${containerId}': ${e.message}.`);
+      console.error(`Error occurred feching items for '${containerId}': ${e.message}.`);
     });
 }
 
@@ -78,10 +80,42 @@ export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, itemId:
           };
         });
       } else {
-        console.log(`Empty result fetching '${itemId}'.`);
+        console.error(`Empty result fetching '${itemId}'.`);
       }
     })
     .catch((e: any) => {
-      console.log(`Error occurred feching item '${itemId}': ${e.message}.`);
+      console.error(`Error occurred feching item '${itemId}': ${e.message}.`);
+    });
+}
+
+
+let itemLoadFromRemoteInitiatedOrComplete: { [id: Uid]: boolean } = {};
+
+export const initiateLoadItemFromRemote = (desktopStore: DesktopStoreContextModel, itemId: string, baseUrl: string, resolveId: string) => {
+  if (itemLoadFromRemoteInitiatedOrComplete[itemId]) {
+    return;
+  }
+  itemLoadFromRemoteInitiatedOrComplete[itemId] = true;
+  remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
+    .then(result => {
+      if (result != null) {
+        batch(() => {
+          desktopStore.setItemFromServerObject(result.item);
+          asLinkItem(desktopStore.getItem(resolveId)!).linkToResolvedId = itemFromObject(result.item).id;
+          Object.keys(result.attachments).forEach(id => {
+            desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+          });
+          try {
+            arrange(desktopStore);
+          } catch (e: any) {
+            throw new Error(`arrange failed ${e}`);
+          };
+        });
+      } else {
+        console.error(`Empty result fetching '${itemId}'.`);
+      }
+    })
+    .catch((e: any) => {
+      console.error(`Error occurred feching item '${itemId}': ${e.message}.`);
     });
 }
