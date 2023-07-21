@@ -42,13 +42,17 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
   let deleted = false;
 
   const handleLinkToInput = (v: string) => {
-    asLinkItem(desktopStore.getItem(linkId)!).linkTo = v;
-    rearrangeVisualElementsWithItemId(desktopStore, linkId);
+    if (!deleted) {
+      asLinkItem(desktopStore.getItem(linkId)!).linkTo = v;
+      rearrangeVisualElementsWithItemId(desktopStore, linkId);
+    }
   };
 
   const handleLinkToBaseUrlInput = (v: string) => {
-    asLinkItem(desktopStore.getItem(linkId)!).linkToBaseUrl = v;
-    rearrangeVisualElementsWithItemId(desktopStore, linkId);
+    if (!deleted) {
+      asLinkItem(desktopStore.getItem(linkId)!).linkToBaseUrl = v;
+      rearrangeVisualElementsWithItemId(desktopStore, linkId);
+    }
   };
 
   const deleteLink = async () => {
