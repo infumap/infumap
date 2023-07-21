@@ -151,13 +151,13 @@ export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containe
   };
   let accumBl = 0;
   let colResizeHitboxes = [];
-  for (let i=0; i<table.tableColumns.length; ++i) {
+  for (let i=0; i<table.tableColumns.length-1; ++i) {
     accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
     if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
     colResizeHitboxes.push(
       createHitbox(
         HitboxType.ColResize,
-        { x: accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX/2, y: 0, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h },
+        { x: accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX/2, y: blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h - blockSizePx.h },
         createHitboxMeta({ resizeColNumber: i })
       ));
   }
