@@ -22,7 +22,7 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HE
 import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithItemId } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { EMPTY_ITEM, ITEM_TYPE_LINK, Item } from "../items/base/item";
+import { EMPTY_ITEM, Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
@@ -269,29 +269,7 @@ const arrangeItem_Desktop = (
 
   const parentPageInnerBoundsPx = zeroBoundingBoxTopLeft(parentPageBoundsPx);
 
-  let linkItemMaybe: LinkItem | null = null;
-  let canonicalItem = item;
-  let spatialWidthGr = isXSizableItem(canonicalItem)
-    ? asXSizableItem(canonicalItem).spatialWidthGr
-    : 0;
-  if (item.itemType == ITEM_TYPE_LINK) {
-    linkItemMaybe = asLinkItem(item);
-    const canonicalItemMaybe = desktopStore.getItem(getLinkToId(linkItemMaybe));
-    if (canonicalItemMaybe != null) {
-      canonicalItem = canonicalItemMaybe!;
-      if (isXSizableItem(canonicalItem)) {
-        spatialWidthGr = linkItemMaybe.spatialWidthGr;
-      }
-    } else {
-      if (linkItemMaybe.linkTo != EMPTY_UID) {
-        if (linkItemMaybe.linkToBaseUrl == "") {
-          initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
-        } else {
-          initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
-        }
-      }
-    }
-  }
+  const [canonicalItem, linkItemMaybe, spatialWidthGr] = calcCanonicalAndLinkItemMaybe(desktopStore, item);
 
   if (isPage(canonicalItem) && asPageItem(canonicalItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     // Always make sure child items of grid pages are loaded, even if not visible,
@@ -403,7 +381,7 @@ const arrangePageWithChildren_Desktop = (
       } else {
         let linkItemMaybe: LinkItem | null = null;
         let canonicalItem = childItem;
-        if (childItem.itemType == ITEM_TYPE_LINK) {
+        if (isLink(childItem)) {
           linkItemMaybe = asLinkItem(childItem);
           const canonicalItemMaybe = desktopStore.getItem(getLinkToId(linkItemMaybe));
           if (canonicalItemMaybe != null) {
@@ -460,11 +438,12 @@ const arrangeTable_Desktop = (
 
   tableVisualElement.children = (() => {
     let tableVeChildren: Array<VisualElementSignal> = [];
+
     for (let idx=0; idx<canonicalItem_Table.computed_children.length; ++idx) {
+
       const childId = canonicalItem_Table.computed_children[idx];
       const childItem = desktopStore.getItem(childId)!;
-      const linkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
-      const canonicalItem = isLink(childItem) ? desktopStore.getItem(getLinkToId(asLinkItem(childItem)))! : childItem;
+      const [canonicalItem, linkItemMaybe] = calcCanonicalAndLinkItemMaybe(desktopStore, childItem);
 
       let widthBl = canonicalItem_Table.tableColumns.length == 1
         ? sizeBl.w
@@ -474,7 +453,7 @@ const arrangeTable_Desktop = (
 
       const tableItemVe = createVisualElement({
         item: canonicalItem,
-        linkItemMaybe: linkItemMaybe,
+        linkItemMaybe,
         isLineItem: true,
         isDetailed: true,
         isInsideTable: true,
@@ -499,11 +478,16 @@ const arrangeTable_Desktop = (
           let widthBl = i == canonicalItem_Table.tableColumns.length - 2
             ? sizeBl.w - leftBl
             : canonicalItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
+
           const attachmentId = attachmentsItem.computed_attachments[i];
           const attachmentItem = desktopStore.getItem(attachmentId)!;
+          const [canonicalItem, linkItemMaybe] = calcCanonicalAndLinkItemMaybe(desktopStore, attachmentItem);
+
           const geometry = calcGeometryOfItem_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, desktopStore.getItem);
+
           const tableItemAttachmentVe = createVisualElement({
-            item: attachmentItem,
+            item: canonicalItem,
+            linkItemMaybe,
             isDetailed: true,
             isInsideTable: true,
             isAttachment: true,
@@ -547,6 +531,33 @@ const arrangeTable_Desktop = (
   arrangeItemAttachments(desktopStore, tableVisualElementSignal, parentPage.selectedAttachment);
 
   return tableVisualElementSignal;
+}
+
+function calcCanonicalAndLinkItemMaybe(desktopStore: DesktopStoreContextModel, item: Item): [Item, LinkItem | null, number] {
+  let canonicalItem = item;
+  let linkItemMaybe: LinkItem | null = null;
+  let spatialWidthGr = isXSizableItem(canonicalItem)
+    ? asXSizableItem(canonicalItem).spatialWidthGr
+    : 0;
+  if (isLink(item)) {
+    linkItemMaybe = asLinkItem(item);
+    const canonicalItemMaybe = desktopStore.getItem(getLinkToId(linkItemMaybe))!;
+    if (canonicalItemMaybe != null) {
+      canonicalItem = canonicalItemMaybe!;
+      if (isXSizableItem(canonicalItem)) {
+        spatialWidthGr = linkItemMaybe.spatialWidthGr;
+      }
+    } else {
+      if (linkItemMaybe.linkTo != EMPTY_UID) {
+        if (linkItemMaybe.linkToBaseUrl == "") {
+          initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
+        } else {
+          initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
+        }
+      }
+    }
+  }
+  return [canonicalItem, linkItemMaybe, spatialWidthGr];
 }
 
 
