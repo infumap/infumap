@@ -534,13 +534,13 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
-  const tableRowNumber = Math.floor(mousePropY * tableDimensionsBl.h);
-  let insertRow = tableRowNumber + tableItem.scrollYProp.get() - 1;
+  const rawTableRowNumber = Math.floor(mousePropY * tableDimensionsBl.h); // where row includes headers.
+  let insertRow = rawTableRowNumber + tableItem.scrollYProp.get() - 1 - (tableItem.showHeader ? 1 : 0);
   if (insertRow < 0) { insertRow = 0; }
-  const adjustPosBy = insertRow > tableItem.computed_children.length
+  insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length
     : 0;
-  overContainerVe.moveOverRowNumber.set(tableRowNumber - adjustPosBy);
+  overContainerVe.moveOverRowNumber.set(insertRow);
 
   // col
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
@@ -948,7 +948,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const prevParentId = activeItem.parentId;
 
   const tableItem = asTableItem(overContainerVe.item);
-  let rowNumber = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get() - 1;
+  let rowNumber = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get() - 1 + (tableItem.showHeader ? 1 : 0);
   if (rowNumber < 0) { rowNumber = 0; }
 
   const childId = tableItem.computed_children[rowNumber];

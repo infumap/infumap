@@ -54,7 +54,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() + 1;
+    const rowNumber = props.visualElement.moveOverRowNumber.get() + 1 + (tableItem().showHeader ? 1 : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
@@ -66,7 +66,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
     }
     return {
       x: blockSizePx().w * offsetBl + boundsPx().x,
-      y: overPosRowPx() - blockSizePx().h,
+      y: overPosRowPx(),
       w: 4,
       h: blockSizePx().h
     };
@@ -112,6 +112,11 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
           <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`}>
           </div>
+          <Show when={tableItem().showHeader}>
+            <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
+                 style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`}>
+            </div>
+          </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
