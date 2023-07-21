@@ -38,7 +38,7 @@ export const server = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (itemId: Uid | null, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await send(null, "get-items", itemId == null ? { mode } : { itemId, mode }, null);
+    let r = await sendCommand(null, "get-items", itemId == null ? { mode } : { itemId, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
@@ -50,21 +50,21 @@ export const server = {
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null): Promise<object> => {
-    let returnedItem = await send(null, "add-item", item, base64Data);
+    let returnedItem = await sendCommand(null, "add-item", item, base64Data, true);
     return returnedItem;
   },
 
   addItem: async (item: Item, base64Data: string | null): Promise<object> => {
-    let returnedItem = await send(null, "add-item", itemToObject(item), base64Data);
+    let returnedItem = await sendCommand(null, "add-item", itemToObject(item), base64Data, true);
     return returnedItem;
   },
 
   updateItem: async (item: Item): Promise<void> => {
-    await send(null, "update-item", itemToObject(item), null);
+    await sendCommand(null, "update-item", itemToObject(item), null, true);
   },
 
   deleteItem: async (id: Uid): Promise<void> => {
-    await send(null, "delete-item", { id }, null);
+    await sendCommand(null, "delete-item", { id }, null, true);
   }
 }
 
@@ -73,7 +73,7 @@ export const remote = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, itemId: Uid | null, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await send(host, "get-items", itemId == null ? { mode } : { itemId, mode }, null);
+    let r = await sendCommand(host, "get-items", itemId == null ? { mode } : { itemId, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
@@ -85,13 +85,18 @@ export const remote = {
   },
 }
 
-async function send(host: string | null, command: string, payload: object, base64Data: string | null): Promise<any> {
+/**
+ * TODO (HIGH): panic logout on error is to ensure consistent state, but is highly disruptive. do something better.
+ */
+async function sendCommand(host: string | null, command: string, payload: object, base64Data: string | null, panicLogoutOnError: boolean): Promise<any> {
   let d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   let r = await post(host, '/command', d);
   if (!r.success) {
     if (logout != null) {
-      await logout();
+      if (panicLogoutOnError) {
+        await logout();
+      }
       throwExpression(`'${command}' command failed. Reason: ${r.failReason}`);
     } else {
       throwExpression(`'${command}' command failed.`);
