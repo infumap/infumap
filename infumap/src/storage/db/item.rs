@@ -241,7 +241,7 @@ pub fn is_link_item(item_type: ItemType) -> bool {
 }
 
 
-const ALL_JSON_FIELDS: [&'static str; 32] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 33] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -249,7 +249,7 @@ const ALL_JSON_FIELDS: [&'static str; 32] = ["__recordType",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
-  "linkTo", "linkToBaseUrl", "gridNumberOfColumns",
+  "showHeader", "linkTo", "linkToBaseUrl", "gridNumberOfColumns",
   "orderChildrenBy"];
 
 
@@ -310,6 +310,7 @@ pub struct Item {
   // file
 
   // table
+  pub show_header: Option<bool>,
   pub table_columns: Option<Vec<TableColumn>>,
 
   // image
@@ -352,6 +353,7 @@ impl Clone for Item {
       popup_width_gr: self.popup_width_gr.clone(),
       grid_number_of_columns: self.grid_number_of_columns.clone(),
       url: self.url.clone(),
+      show_header: self.show_header.clone(),
       table_columns: self.table_columns.clone(),
       image_size_px: self.image_size_px.clone(),
       thumbnail: self.thumbnail.clone(),
@@ -551,6 +553,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("tableColumns"), json::table_columns_to_array(&new_table_columns));
       }
     }
+    if let Some(new_show_header) = &new.show_header {
+      if match &old.show_header { Some(o) => o != new_show_header, None => { true } } {
+        if old.item_type != ItemType::Table { cannot_modify_err("showHeader", &old.id)?; }
+        result.insert(String::from("showHeader"), Value::Bool(new_show_header.clone()));
+      }
+    }
 
     // image
     if let Some(new_image_size_px) = &new.image_size_px {
@@ -716,6 +724,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Table { not_applicable_err("tableColumns", self.item_type, &self.id)?; }
       self.table_columns = Some(v);
     }
+    if let Some(v) = json::get_bool_field(map, "showHeader")? {
+      if self.item_type == ItemType::Table { self.show_header = Some(v); }
+      else { not_applicable_err("showHeader", self.item_type, &self.id)?; }
+    }
 
     // image
     if let Some(v) = json::get_dimensions_field(map, "imageSizePx")? {
@@ -861,6 +873,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(table_columns) = &item.table_columns {
     if item.item_type != ItemType::Table { unexpected_field_err("tableColumns", &item.id, item.item_type)? }
     result.insert(String::from("tableColumns"), json::table_columns_to_array(table_columns));
+  }
+  if let Some(show_header) = &item.show_header {
+    if item.item_type != ItemType::Table { unexpected_field_err("showHeader", &item.id, item.item_type)? }
+    result.insert(String::from("showHeader"), Value::Bool(show_header.clone()));
   }
 
   // image
@@ -1037,6 +1053,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     table_columns: match json::get_table_columns_field(map, "tableColumns")? {
       Some(v) => { if item_type == ItemType::Table { Ok(Some(v)) } else { Err(not_applicable_err("tableColumns", item_type, &id)) } }
       None => { if item_type == ItemType::Table { Err(expected_for_err("tableColumns", item_type, &id)) } else { Ok(None) } }
+    }?,
+    show_header: match json::get_bool_field(map, "showHeader")? {
+      Some(v) => { if item_type == ItemType::Table { Ok(Some(v)) } else { Err(not_applicable_err("showHeader", item_type, &id)) } },
+      None => { if item_type == ItemType::Table { Err(expected_for_err("showHeader", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // image

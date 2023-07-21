@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 6;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 7;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -473,6 +473,9 @@ pub fn migrate_record_v3_to_v4(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
   }
 }
 
+/**
+ * Add linkToBaseUrl field to link items.
+ */
 pub fn migrate_record_v4_to_v5(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
   match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
     "descriptor" => {
@@ -503,6 +506,9 @@ pub fn migrate_record_v4_to_v5(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
   }
 }
 
+/**
+ * Rename linkToId -> linkTo.
+ */
 pub fn migrate_record_v5_to_v6(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
   match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
     "descriptor" => {
@@ -536,6 +542,39 @@ pub fn migrate_record_v5_to_v6(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
         }
       }
       return Ok(result);
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add showHeader field to table items.
+ */
+pub fn migrate_record_v6_to_v7(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 6);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "table" {
+        let existing = result.insert(String::from("showHeader"), Value::Bool(false));
+        if existing.is_some() { return Err("showHeader field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
     },
 
     "delete" => {

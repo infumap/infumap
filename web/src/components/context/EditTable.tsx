@@ -30,6 +30,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   const desktopStore = useDesktopStore();
 
   let checkElement_ord: HTMLInputElement | undefined;
+  let checkElement_header: HTMLInputElement | undefined;
 
   const tableId = props.tableItem.id;
   const table = () => props.tableItem;
@@ -75,6 +76,12 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
     arrange(desktopStore);
   }
 
+  const changeShowHeader = async () => {
+    asTableItem(desktopStore.getItem(tableId)!).showHeader = checkElement_header!.checked;
+    desktopStore.sortChildren(tableId);
+    arrange(desktopStore);
+  }
+
   onCleanup(() => {
     if (!deleted) {
       server.updateItem(desktopStore.getItem(tableId)!);
@@ -92,6 +99,10 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
       <div>
         <input id="ord" name="ord" type="checkbox" ref={checkElement_ord} checked={props.tableItem.orderChildrenBy == "title[ASC]"} onClick={changeOrderChildrenBy} />
         <label for="ord">order by title</label>
+      </div>
+      <div>
+        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={props.tableItem.showHeader} onClick={changeShowHeader} />
+        <label for="header">show header</label>
       </div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
     </div>

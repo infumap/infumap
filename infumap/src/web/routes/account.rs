@@ -364,6 +364,7 @@ fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_wi
     grid_number_of_columns: Some(10),
     url: None,
     table_columns: None,
+    show_header: None,
     image_size_px: None,
     thumbnail: None,
     rating: None,

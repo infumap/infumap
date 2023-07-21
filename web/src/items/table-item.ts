@@ -43,6 +43,7 @@ export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, 
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
   tableColumns: Array<TableColumn>;
+  showHeader: boolean;
 }
 
 
@@ -67,6 +68,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       name: "Title",
       widthGr: 8 * GRID_SIZE,
     }],
+    showHeader: false,
 
     orderChildrenBy: "",
 
@@ -97,6 +99,7 @@ export function tableFromObject(o: any): TableItem {
     spatialHeightGr: o.spatialHeightGr,
 
     tableColumns: o.tableColumns,
+    showHeader: o.showHeader,
 
     orderChildrenBy: o.orderChildrenBy,
 
@@ -126,6 +129,7 @@ export function tableToObject(t: TableItem): object {
     spatialHeightGr: t.spatialHeightGr,
 
     tableColumns: t.tableColumns,
+    showHeader: t.showHeader,
 
     orderChildrenBy: t.orderChildrenBy,
   });
@@ -224,6 +228,7 @@ export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasura
     spatialWidthGr: table.spatialWidthGr,
     spatialHeightGr: table.spatialHeightGr,
     tableColumns: table.tableColumns,
+    showHeader: table.showHeader,
   });
 }
 
