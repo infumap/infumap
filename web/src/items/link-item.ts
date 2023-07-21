@@ -194,7 +194,9 @@ export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dim
     };
     return {
       boundsPx,
-      hitboxes: []
+      hitboxes: [
+        createHitbox(HitboxType.Move, zeroBoundingBoxTopLeft(boundsPx))
+      ]
     };
   }
 
