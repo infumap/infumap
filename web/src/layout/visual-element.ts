@@ -24,6 +24,8 @@ import { LinkItem } from "../items/link-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
+import { isTable } from "../items/table-item";
+import { isPage } from "../items/page-item";
 
 
 export type VisualElementPath = string;
@@ -161,7 +163,9 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     moveOverRowNumber: createNumberSignal(-1),
     moveOverColAttachmentNumber: createNumberSignal(-1),
   };
+
   result.item = override.item;
+
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
   if (typeof(override.isRoot) != 'undefined') { result.isRoot = override.isRoot; }
@@ -180,6 +184,13 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   if (typeof(override.parent) != 'undefined') { result.parent = override.parent; }
   if (typeof(override.children) != 'undefined') { result.children = override.children; }
   if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
+
+  if (isTable(result.item) && result.isDetailed && result.childAreaBoundsPx == null) {
+    console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
+    console.trace();
+  }
+  // TODO (LOW): some additional sanity checking here would help catch arrange bugs.
+
   return result;
 }
 

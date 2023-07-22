@@ -289,7 +289,7 @@ const arrangeItem_Desktop = (
       isPopup, false);
   }
 
-  if (isTable(canonicalItem) && (canonicalItem.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
+  if (isTable(canonicalItem) && (item.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
     return arrangeTable_Desktop(
       desktopStore,

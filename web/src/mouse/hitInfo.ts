@@ -136,6 +136,10 @@ export function getHitInfo(
       continue;
     }
 
+    if (isTable(childVisualElement.item) && childVisualElement.childAreaBoundsPx == null) {
+      console.error("A table visual element unexpectedly had no childAreaBoundsPx set.", childVisualElement);
+    }
+
     // handle inside table child area.
     if (isTable(childVisualElement.item) &&
         !childVisualElement.isLineItem &&
