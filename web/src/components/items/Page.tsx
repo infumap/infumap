@@ -183,8 +183,8 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const drawAsPopup = () => {
     return (
       <>
-        <div class={`absolute rounded-sm shadow-xl`}
-             style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w+2}px; height: ${boundsPx().h+2}px; background-color: #dddddd;}`}>
+        <div class={`absolute text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
         </div>
         <div class={`absolute border rounded-sm`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
