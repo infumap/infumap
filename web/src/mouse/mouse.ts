@@ -43,6 +43,7 @@ import { Item } from "../items/base/item";
 import { EMPTY_UID } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
+import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 
 
 const MOUSE_LEFT = 0;
@@ -535,7 +536,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = Math.floor(mousePropY * tableDimensionsBl.h); // where row includes headers.
-  let insertRow = rawTableRowNumber + tableItem.scrollYProp.get() - 1 - (tableItem.showHeader ? 1 : 0);
+  let insertRow = rawTableRowNumber + tableItem.scrollYProp.get() - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < 0) { insertRow = 0; }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length
@@ -948,7 +949,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const prevParentId = activeItem.parentId;
 
   const tableItem = asTableItem(overContainerVe.item);
-  let rowNumber = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get() - 1 + (tableItem.showHeader ? 1 : 0);
+  let rowNumber = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get() - HEADER_HEIGHT_BL + (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
   if (rowNumber < 0) { rowNumber = 0; }
 
   const childId = tableItem.computed_children[rowNumber];

@@ -17,7 +17,7 @@
 */
 
 import { batch } from "solid-js";
-import { HEADER_HEIGHT_BL } from "../components/items/Table";
+import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel, visualElementsWithItemId } from "../store/DesktopStoreProvider";
@@ -419,7 +419,7 @@ const arrangeTable_Desktop = (
     : { w: canonicalItem_Table.spatialWidthGr / GRID_SIZE, h: canonicalItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: geometry.boundsPx.w / sizeBl.w, h: geometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-  const colHeaderHeightPx = canonicalItem_Table.showHeader ? headerHeightPx : 0;
+  const colHeaderHeightPx = canonicalItem_Table.showHeader ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
 
   let childAreaBoundsPx = {
     x: geometry.boundsPx.x, y: geometry.boundsPx.y + (headerHeightPx + colHeaderHeightPx),

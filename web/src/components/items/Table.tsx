@@ -27,7 +27,7 @@ import { panic } from "../../util/lang";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
-
+export const COL_HEADER_HEIGHT_BL = 1.0;
 
 export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const tableItem = () => asTableItem(props.visualElement.item);
@@ -54,7 +54,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() + 1 + (tableItem().showHeader ? 1 : 0);
+    const rowNumber = props.visualElement.moveOverRowNumber.get() + HEADER_HEIGHT_BL + (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
@@ -174,7 +174,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
     return tableItem().spatialHeightGr;
   }
   const blockHeightPx = () => {
-    const heightBr = spatialHeightGr() / GRID_SIZE - HEADER_HEIGHT_BL;
+    const heightBr = spatialHeightGr() / GRID_SIZE - HEADER_HEIGHT_BL - (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
     const heightPx = props.visualElement.childAreaBoundsPx!.h;
     const bhpx = heightPx / heightBr;
     return bhpx;
