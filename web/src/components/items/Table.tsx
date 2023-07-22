@@ -79,25 +79,31 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
       h: ATTACH_AREA_SIZE_PX,
     }
   }
-  const columnPositions = () => {
-    const colsBl = [];
+  const columnSpecs = () => {
+    const specsBl = [];
     let accumBl = 0;
-    for (let i=0; i<tableItem().tableColumns.length-1; ++i) {
+    for (let i=0; i<tableItem().tableColumns.length; ++i) {
       let tc = tableItem().tableColumns[i];
+      const prevAccumBl = accumBl;
       accumBl += tc.widthGr / GRID_SIZE;
       if (accumBl >= spatialWidthGr() / GRID_SIZE) {
         break;
       }
-      colsBl.push(accumBl);
+      specsBl.push({ prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().tableColumns.length-1 });
     }
-    return colsBl.map(bl => bl * blockSizePx().w);
+    return specsBl.map(s => ({
+      startPosPx: s.prevAccumBl * blockSizePx().w,
+      endPosPx: s.isLast ? boundsPx().w : s.accumBl * blockSizePx().w,
+      name: s.name,
+      isLast: s.isLast
+    }));
   };
 
   return (
     <>
       <Show when={!props.visualElement.isDetailed}>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; `}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; `}>
         </div>
       </Show>
       <Show when={props.visualElement.isDetailed}>
@@ -132,11 +138,23 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
         </div>
         <TableChildArea visualElement={props.visualElement} />
         <div class="absolute pointer-events-none"
-             style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
-                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px;`}>
-          <For each={columnPositions()}>{posPx=>
-            <div class="absolute bg-slate-700"
-                 style={`left: ${posPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h}px`}></div>
+             style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (tableItem().showHeader ? blockSizePx().h : 0)}px; ` +
+                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (tableItem().showHeader ? blockSizePx().h : 0)}px;`}>
+          <For each={columnSpecs()}>{spec =>
+            <>
+              <Show when={!spec.isLast}>
+                <div class="absolute bg-slate-700"
+                     style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (tableItem().showHeader ? blockSizePx().h : 0)}px`}></div>
+              </Show>
+              <Show when={tableItem().showHeader}>
+                <div class="absolute"
+                     style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                            `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                            `overflow-wrap: break-word;`}>
+                  {spec.name}
+                </div>
+              </Show>
+            </>
           }</For>
         </div>
         <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
