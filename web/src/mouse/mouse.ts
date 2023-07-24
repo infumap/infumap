@@ -753,7 +753,7 @@ export function mouseUpHandler(
         ? asTableItem(activeItem).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr
         : asTableItem(activeVisualElement.item).tableColumns[mouseActionState.hitMeta!.resizeColNumber!].widthGr;
       if (mouseActionState.startWidthBl! * GRID_SIZE != widthGr) {
-        server.updateItem(itemStore.getItem(activeItem.id)!);
+        server.updateItem(itemStore.getItem(activeVisualElement.item.id)!);
       }
       break;
 
@@ -816,12 +816,12 @@ function mouseUpHandler_moving(
     server.updateItem(itemStore.getItem(activeItem.id)!);
   }
 
-  cleanupAndPersistPlaceholders(desktopStore);
+  cleanupAndPersistPlaceholders();
 
   arrange(desktopStore);
 }
 
-function cleanupAndPersistPlaceholders(desktopStore: DesktopStoreContextModel) {
+function cleanupAndPersistPlaceholders() {
   if (mouseActionState!.startAttachmentsItem == null) {
     return;
   }
@@ -874,7 +874,7 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
   const prevParent = itemStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
 
-  cleanupAndPersistPlaceholders(desktopStore);
+  cleanupAndPersistPlaceholders();
 
   arrange(desktopStore);
 
@@ -910,7 +910,7 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
 
   server.updateItem(itemStore.getItem(activeItem.id)!);
 
-  cleanupAndPersistPlaceholders(desktopStore);
+  cleanupAndPersistPlaceholders();
 
   arrange(desktopStore);
 }
@@ -942,7 +942,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   const prevParent = itemStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
 
-  cleanupAndPersistPlaceholders(desktopStore);
+  cleanupAndPersistPlaceholders();
 
   arrange(desktopStore);
 
@@ -991,7 +991,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const prevParent = itemStore.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
 
-  cleanupAndPersistPlaceholders(desktopStore);
+  cleanupAndPersistPlaceholders();
 
   arrange(desktopStore);
 
