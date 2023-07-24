@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopSt
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, itemIdAndLinkIdMaybeFromVisualElementPath, itemIdFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, itemIdAndLinkIdMaybeFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -149,10 +149,10 @@ export function mouseLeftDownHandler(
     : itemStore.getItem(hitInfo.overElementVes.get().item.id)!;
   let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get())
   const onePxSizeBl = hitInfo.overElementVes.get().isPopup
-    ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!, itemStore.getItem).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
-        y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!, itemStore.getItem).h / boundsOnDesktopPx.h }
-    : { x: calcSizeForSpatialBl(activeItem, itemStore.getItem).w / boundsOnDesktopPx.w,
-        y: calcSizeForSpatialBl(activeItem, itemStore.getItem).h / boundsOnDesktopPx.h };
+    ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
+        y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h }
+    : { x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
+        y: calcSizeForSpatialBl(activeItem).h / boundsOnDesktopPx.h };
   let clickOffsetProp = {
     x: (startPx.x - boundsOnDesktopPx.x) / boundsOnDesktopPx.w,
     y: (startPx.y - boundsOnDesktopPx.y) / boundsOnDesktopPx.h
@@ -587,7 +587,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
     y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
-  const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem, itemStore.getItem);
+  const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem);
   const clickOffsetInActiveItemBl = relationshipToParent == Child
     ? { x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x * 2.0) / 2.0,
         y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y * 2.0) / 2.0 }
@@ -628,8 +628,8 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem, itemStore.getItem).w / boundsPx.w,
-        y: calcSizeForSpatialBl(activeItem, itemStore.getItem).h / boundsPx.h
+        x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
+        y: calcSizeForSpatialBl(activeItem).h / boundsPx.h
       };
       done = true;
     }
@@ -689,8 +689,8 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem, itemStore.getItem).w / boundsPx.w,
-        y: calcSizeForSpatialBl(activeItem, itemStore.getItem).h / boundsPx.h
+        x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
+        y: calcSizeForSpatialBl(activeItem).h / boundsPx.h
       };
       done = true;
     } else {

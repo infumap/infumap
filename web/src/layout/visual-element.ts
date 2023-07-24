@@ -25,7 +25,6 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
-import { isPage } from "../items/page-item";
 
 
 export type VisualElementPath = string;

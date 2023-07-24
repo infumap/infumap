@@ -22,12 +22,13 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { Item, Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
+import { Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
 import { HitboxType, createHitbox } from "../layout/hitbox";
+import { itemStore } from "../store/ItemStore";
 
 
 // Links have their own unique set of attachments (do not take those from the linked to item).
@@ -111,8 +112,8 @@ export function linkToObject(l: LinkItem): object {
 }
 
 
-function constructLinkToMeasurable(link: LinkItem, getItem: (id: Uid) => (Item | null)): Measurable | null {
-  const linkedToItemMaybe = getItem(getLinkToId(link));
+function constructLinkToMeasurable(link: LinkItem): Measurable | null {
+  const linkedToItemMaybe = itemStore.getItem(getLinkToId(link));
   if (linkedToItemMaybe == null) { return null; }
   const linkedToMeasurableFields = cloneMeasurableFields(linkedToItemMaybe!);
   if (isLink(linkedToMeasurableFields)) { panic(); }
@@ -128,7 +129,7 @@ function constructLinkToMeasurable(link: LinkItem, getItem: (id: Uid) => (Item |
   return linkedToMeasurableFields
 }
 
-export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (Item | null)): Dimensions {
+export function calcLinkSizeForSpatialBl(link: LinkItem): Dimensions {
   function noLinkTo() {
     return { w: link.spatialWidthGr / GRID_SIZE, h: 1.0 };
   }
@@ -136,20 +137,20 @@ export function calcLinkSizeForSpatialBl(link: LinkItem, getItem: (id: Uid) => (
   if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
-  const measurableMaybe = constructLinkToMeasurable(link, getItem);
+  const measurableMaybe = constructLinkToMeasurable(link);
   if (measurableMaybe == null) {
     return noLinkTo();
   }
-  return calcSizeForSpatialBl(measurableMaybe!, getItem);
+  return calcSizeForSpatialBl(measurableMaybe!);
 }
 
-export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
   function noLinkTo() {
     const boundsPx = {
       x: (link.spatialPositionGr.x / (parentInnerSizeBl.w * GRID_SIZE)) * parentBoundsPx.w + parentBoundsPx.x,
       y: (link.spatialPositionGr.y / (parentInnerSizeBl.h * GRID_SIZE)) * parentBoundsPx.h + parentBoundsPx.y,
-      w: calcLinkSizeForSpatialBl(link, getItem).w / parentInnerSizeBl.w * parentBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-      h: calcLinkSizeForSpatialBl(link, getItem).h / parentInnerSizeBl.h * parentBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+      w: calcLinkSizeForSpatialBl(link).w / parentInnerSizeBl.w * parentBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+      h: calcLinkSizeForSpatialBl(link).h / parentInnerSizeBl.h * parentBoundsPx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
@@ -166,25 +167,25 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
   if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
-  const measurableMaybe = constructLinkToMeasurable(link, getItem);
+  const measurableMaybe = constructLinkToMeasurable(link);
   if (measurableMaybe == null) {
     return noLinkTo();
   }
-  return calcGeometryOfItem_Desktop(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes, getItem)
+  return calcGeometryOfItem_Desktop(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes)
 }
 
-export function calcGeometryOfLinkItem_Attachment(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_Attachment(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   if (getLinkToId(link) == EMPTY_UID) {
-    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected);
   }
-  const measurableMaybe = constructLinkToMeasurable(link, getItem);
+  const measurableMaybe = constructLinkToMeasurable(link);
   if (measurableMaybe == null) {
-    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected);
   }
-  return calcGeometryOfItem_Attachment(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+  return calcGeometryOfItem_Attachment(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
-export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   function noLinkTo() {
     const boundsPx = {
       x: blockSizePx.w * col,
@@ -203,14 +204,14 @@ export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dim
   if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
-  const measurableMaybe = constructLinkToMeasurable(link, getItem);
+  const measurableMaybe = constructLinkToMeasurable(link);
   if (measurableMaybe == null) {
     return noLinkTo();
   }
-  return calcGeometryOfItem_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl, getItem);
+  return calcGeometryOfItem_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl);
 }
 
-export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: BoundingBox, getItem: (id: Uid) => (Item | null)): ItemGeometry {
+export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: BoundingBox): ItemGeometry {
   function noLinkTo() {
     return ({
       boundsPx: cloneBoundingBox(cellBoundsPx)!,
@@ -223,11 +224,11 @@ export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: Boundi
   if (getLinkToId(link) == EMPTY_UID) {
     return noLinkTo();
   }
-  const measurableMaybe = constructLinkToMeasurable(link, getItem);
+  const measurableMaybe = constructLinkToMeasurable(link);
   if (measurableMaybe == null) {
     return noLinkTo();
   }
-  return calcGeometryOfItem_Cell(measurableMaybe!, cellBoundsPx, getItem);
+  return calcGeometryOfItem_Cell(measurableMaybe!, cellBoundsPx);
 }
 
 export function isLink(item: ItemTypeMixin | null): boolean {

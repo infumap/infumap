@@ -41,7 +41,7 @@ export const File: Component<VisualElementProps_Desktop> = (props: VisualElement
   };
   const sizeBl = createMemo(() => {
     if (props.visualElement.linkItemMaybe != null) {
-      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!, itemStore.getItem);
+      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
     }
     return calcFileSizeForSpatialBl(fileItem());
   });

@@ -33,7 +33,7 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => {
     if (props.visualElement.linkItemMaybe != null) {
-      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!, itemStore.getItem);
+      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
     }
     return calcNoteSizeForSpatialBl(noteItem());
   });

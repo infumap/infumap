@@ -176,8 +176,8 @@ export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containe
   };
 }
 
-export function calcGeometryOfTableItem_Attachment(table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(table, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+export function calcGeometryOfTableItem_Attachment(table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(table, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
 export function calcGeometryOfTableItem_ListItem(_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

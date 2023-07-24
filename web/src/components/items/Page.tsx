@@ -260,7 +260,7 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), itemStore.getItem);
+  const dimensionsBl = () => calcSizeForSpatialBl(pageItem());
   const aspect = () => dimensionsBl().w / dimensionsBl().h;
   const thumbBoundsPx = () => {
     if (aspect() >= 1.0) {

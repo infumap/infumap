@@ -22,7 +22,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE, Item } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -127,8 +127,8 @@ export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBo
   }
 }
 
-export function calcGeometryOfNoteItem_Attachment(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+export function calcGeometryOfNoteItem_Attachment(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
 export function calcGeometryOfNoteItem_ListItem(_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

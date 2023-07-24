@@ -21,14 +21,13 @@ import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_FILE, Item } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
-import { Uid } from '../util/uid';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -105,8 +104,8 @@ export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBo
   }
 }
 
-export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
 export function calcGeometryOfFileItem_ListItem(_file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

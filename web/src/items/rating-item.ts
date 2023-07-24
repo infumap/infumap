@@ -111,8 +111,8 @@ export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, conta
   }
 }
 
-export function calcGeometryOfRatingItem_Attachment(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+export function calcGeometryOfRatingItem_Attachment(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
 export function calcGeometryOfRatingItem_ListItem(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

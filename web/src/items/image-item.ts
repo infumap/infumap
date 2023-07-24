@@ -22,12 +22,11 @@ import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometr
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { ItemTypeMixin, ITEM_TYPE_IMAGE, Item } from "./base/item";
+import { ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { Uid } from "../util/uid";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -131,8 +130,8 @@ export function calcGeometryOfImageItem_Desktop(image: ImageMeasurable, containe
   }
 }
 
-export function calcGeometryOfImageItem_Attachment(image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+export function calcGeometryOfImageItem_Attachment(image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
 export function calcGeometryOfImageItem_ListItem(_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

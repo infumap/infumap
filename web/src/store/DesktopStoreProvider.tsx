@@ -16,22 +16,16 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, batch, createSignal, JSX, Setter } from "solid-js";
+import { Accessor, createSignal, JSX, Setter } from "solid-js";
 import { createContext, useContext } from "solid-js";
-import { panic, throwExpression } from "../util/lang";
+import { panic } from "../util/lang";
 import { Item } from "../items/base/item";
-import { EMPTY_UID, Uid } from "../util/uid";
-import { Attachment, Child, NoParent } from "../layout/relationship-to-parent";
-import { asContainerItem, ContainerItem, isContainer } from "../items/base/container-item";
-import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
+import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { asAttachmentsItem, AttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { itemFromObject } from "../items/base/item-polymorphism";
 import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../mouse/hitInfo";
-import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 
 
 export interface DesktopStoreContextModel {

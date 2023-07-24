@@ -223,8 +223,8 @@ export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBo
 }
 
 
-export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean, getItem: (id: Uid) => (Item | null)): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected, getItem);
+export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+  return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }
 
 
