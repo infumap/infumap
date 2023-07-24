@@ -28,6 +28,7 @@ import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
 import { ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { itemStore } from "../../store/ItemStore";
+import { breadcrumbStore } from "../../store/BreadcrumbStore";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -230,17 +231,17 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == desktopStore.topLevelPageId() || props.visualElement.isRoot}>
+      <Show when={pageItem().id == breadcrumbStore.topLevelPageId() || props.visualElement.isRoot}>
         {drawAsFull()}
       </Show>
       <Show when={!props.visualElement.isDetailed ||
-                  (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != desktopStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != breadcrumbStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!props.visualElement.isRoot &&
                   !props.visualElement.isPopup &&
                   props.visualElement.isDetailed &&
-                  pageItem().id != desktopStore.topLevelPageId() &&
+                  pageItem().id != breadcrumbStore.topLevelPageId() &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>

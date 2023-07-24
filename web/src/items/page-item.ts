@@ -35,6 +35,7 @@ import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { itemStore } from '../store/ItemStore';
+import { breadcrumbStore } from '../store/BreadcrumbStore';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -319,9 +320,9 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
   } else if (visualElement.parent!.get().isPopup) {
-    desktopStore.pushPopupId(visualElement.item.id);
+    breadcrumbStore.pushPopupId(visualElement.item.id);
   } else {
-    desktopStore.replacePopupId(visualElement.item.id);
+    breadcrumbStore.replacePopupId(visualElement.item.id);
   }
 
   arrange(desktopStore); // TODO (LOW): no need to arrange entire page.

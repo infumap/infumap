@@ -38,16 +38,6 @@ export interface DesktopStoreContextModel {
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
-  clearBreadcrumbs: () => void, // and set topLevel page to null.
-  pushTopLevelPageId: (uid: Uid) => void,
-  popTopLevelPageId: () => void,
-  topLevelPageId: () => Uid | null,
-
-  pushPopupId: (id: Uid) => void,
-  replacePopupId: (id: Uid) => void,
-  popPopupId: () => void,
-  popupId: () => Uid | null,
-
   topLevelVisualElement: Accessor<VisualElement>,
   setTopLevelVisualElement: Setter<VisualElement>,
   topLevelVisualElementSignal: () => VisualElementSignal,
@@ -79,11 +69,6 @@ export interface DesktopStoreContextProps {
 const DesktopStoreContext = createContext<DesktopStoreContextModel>();
 
 
-interface PageBreadcrumb {
-  pageId: Uid,
-  popupBreadcrumbs: Array<Uid>,
-}
-
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
@@ -91,8 +76,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
-
-  let breadcrumbs: Array<PageBreadcrumb> = [];
 
   let lastMoveEvent: MouseEvent = new MouseEvent("mousemove");
   const setLastMouseMoveEvent = (ev: MouseEvent) => { lastMoveEvent = ev; }
@@ -110,78 +93,10 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }
   }
 
-  const clearBreadcrumbs = (): void => {
-    breadcrumbs = [];
-  }
-
-  const pushTopLevelPageId = (uid: Uid): void => {
-    breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
-  }
-
-  const popTopLevelPageId = (): void => {
-    if (breadcrumbs.length <= 1) {
-      return;
-    }
-    breadcrumbs.pop();
-  }
-
-  const topLevelPageId = (): Uid | null => {
-    if (breadcrumbs.length == 0) {
-      return null;
-    }
-    return breadcrumbs[breadcrumbs.length-1].pageId;
-  }
-
-  const pushPopupId = (uid: Uid): void => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
-    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(uid);
-  }
-
-  const replacePopupId = (uid: Uid): void => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
-    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs = [uid];
-  }
-
-  const popPopupId = (): void => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
-    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
-      return;
-    }
-    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
-  }
-
-  const popupId = (): Uid | null => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
-    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
-      return null;
-    }
-    const lastBreadcrumbPopups = breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs;
-    return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
-  }
-
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
-    // setChildItemsFromServerObjects,
-    // setItemFromServerObject,
-    // setAttachmentItemsFromServerObjects,
-    // getItem, getContainerItem, addItem,
-    // deleteItem, newOrderingAtEndOfChildren,
-    // newOrderingAtEndOfAttachments,
-    // newOrderingAtChildrenPosition, newOrderingAtAttachmentsPosition,
-    // sortChildren, sortAttachments,
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,
-    clearBreadcrumbs,
-    pushTopLevelPageId, popTopLevelPageId, topLevelPageId,
-    replacePopupId, pushPopupId, popPopupId, popupId,
     setLastMouseMoveEvent, lastMouseMoveEvent,
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,

@@ -34,6 +34,7 @@ import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 import { itemStore } from "../store/ItemStore";
+import { breadcrumbStore } from "../store/BreadcrumbStore";
 
 
 export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -149,7 +150,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
-    let pageItem = asPageItem(itemStore.getItem(desktopStore.topLevelPageId()!)!);
+    let pageItem = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
     pageItem.scrollYPx.set(desktopDiv!.scrollTop);
     pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
   }

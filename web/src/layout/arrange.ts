@@ -41,6 +41,7 @@ import { updateHref } from "../util/browser";
 import { isPositionalItem } from "../items/base/positional-item";
 import { HitboxType, createHitbox } from "./hitbox";
 import { itemStore } from "../store/ItemStore";
+import { breadcrumbStore } from "../store/BreadcrumbStore";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -58,7 +59,7 @@ const ATTACHMENT_POPUP_ID = newUid();
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
   batch(() => {
-    desktopStore.pushTopLevelPageId(id);
+    breadcrumbStore.pushTopLevelPageId(id);
     var page = asPageItem(itemStore.getItem(id)!);
     // TODO (HIGH): get rid of this horrible hack!
     let desktopEl = window.document.getElementById("desktop")!;
@@ -95,9 +96,9 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) =>
  *    approach is more ad-hoc / less "automated", I think the code is simpler to work on due to this.
  */
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
-  if (desktopStore.topLevelPageId() == null) { return; }
-  initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.topLevelPageId()!);
-  let currentPage = asPageItem(itemStore.getItem(desktopStore.topLevelPageId()!)!);
+  if (breadcrumbStore.topLevelPageId() == null) { return; }
+  initiateLoadChildItemsIfNotLoaded(desktopStore, breadcrumbStore.topLevelPageId()!);
+  let currentPage = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     arrange_grid(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
@@ -109,7 +110,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 }
 
 const arrange_list = (desktopStore: DesktopStoreContextModel) => {
-  const currentPage = asPageItem(itemStore.getItem(desktopStore.topLevelPageId()!)!);
+  const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElement = createVisualElement({
     item: currentPage,
@@ -187,7 +188,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 // }
 
 const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
-  const currentPage = asPageItem(itemStore.getItem(desktopStore.topLevelPageId()!)!);
+  const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = currentPage.naturalAspect;
   const topLevelPageBoundsPx = (() => {
@@ -227,7 +228,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
       false  // is popup
     ));
 
-  let popupLinkToPageId = desktopStore.popupId();
+  let popupLinkToPageId = breadcrumbStore.popupId();
   if (popupLinkToPageId != null) {
     let li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId);
     li.id = POPUP_LINK_ID;
@@ -290,7 +291,7 @@ const arrangeItem_Desktop = (
       isPopup, false);
   }
 
-  if (isTable(canonicalItem) && (item.parentId == desktopStore.topLevelPageId() || renderChildrenAsFull)) {
+  if (isTable(canonicalItem) && (item.parentId == breadcrumbStore.topLevelPageId() || renderChildrenAsFull)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
     return arrangeTable_Desktop(
       desktopStore,
@@ -626,7 +627,7 @@ function arrangeItemAttachments(
 
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
-  const currentPage = asPageItem(itemStore.getItem(desktopStore.topLevelPageId()!)!);
+  const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
   const numCols = currentPage.gridNumberOfColumns;
@@ -695,7 +696,7 @@ export const rearrangeVisualElementsWithItemId = (desktopStore: DesktopStoreCont
 
 export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
   const visualElement = visualElementSignal.get();
-  if (desktopStore.topLevelPageId() == visualElement.item.id) {
+  if (breadcrumbStore.topLevelPageId() == visualElement.item.id) {
     arrange(desktopStore);
     return;
   }

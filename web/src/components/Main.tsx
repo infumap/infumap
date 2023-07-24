@@ -29,6 +29,7 @@ import { EMPTY_UID } from "../util/uid";
 import { ITEM_TYPE_NONE } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemStore } from "../store/ItemStore";
+import { breadcrumbStore } from "../store/BreadcrumbStore";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -84,7 +85,7 @@ export const Main: Component = () => {
     await userStore.logout();
     desktopStore.setEditDialogInfo(null);
     desktopStore.setContextMenuInfo(null);
-    desktopStore.clearBreadcrumbs();
+    breadcrumbStore.clearBreadcrumbs();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
       if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {
