@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopSt
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, itemIdAndLinkIdMaybeFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, getVeUids, itemIdAndLinkIdMaybeFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -539,8 +539,9 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = Math.round(mousePropY * tableDimensionsBl.h); // where row includes headers.
-  let insertRow = rawTableRowNumber + tableItem.scrollYProp.get() - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
-  if (insertRow < tableItem.scrollYProp.get()) { insertRow = tableItem.scrollYProp.get(); }
+  const yScrollPos = desktopStore.getTableScrollYPos(getVeUids(overContainerVe));
+  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
+  if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length
     : 0;
@@ -655,7 +656,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const tableItem = asTableItem(tableVisualElement.item);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= tableItem.scrollYProp.get() * tableBlockHeightPx;
+  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(getVeUids(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = activeVisualElement.parent!.get();
   const tableParentVe = tableVe.parent!.get();
   const tableParentVisualPathString = visualElementToPath(tableVe.parent!.get());
@@ -953,7 +954,8 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
 
   const tableItem = asTableItem(overContainerVe.item);
   let rowNumber = overContainerVe.moveOverRowNumber.get() - HEADER_HEIGHT_BL + (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
-  if (rowNumber < tableItem.scrollYProp.get()) { rowNumber = tableItem.scrollYProp.get(); }
+  const yScrollPos = desktopStore.getTableScrollYPos(getVeUids(overContainerVe));
+  if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];
   const child = itemStore.getItem(childId)!;

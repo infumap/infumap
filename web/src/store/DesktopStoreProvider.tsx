@@ -23,8 +23,8 @@ import { Item } from "../items/base/item";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
-import { VisualElementSignal } from "../util/signals";
+import { NONE_VISUAL_ELEMENT, VisualElement, VisualElementUids } from "../layout/visual-element";
+import { createNumberSignal, NumberSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../mouse/hitInfo";
 
 
@@ -41,6 +41,9 @@ export interface DesktopStoreContextModel {
 
   contextMenuInfo: Accessor<ContextMenuInfo | null>,
   setContextMenuInfo: Setter<ContextMenuInfo | null>,
+
+  getTableScrollYPos: (uid: VisualElementUids) => number,
+  setTableScrollYPos: (uid: VisualElementUids, pos: number) => void,
 }
 
 export interface ContextMenuInfo {
@@ -68,6 +71,24 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
 
+  const tableScrollPositions: { [key: string]: NumberSignal } = {};
+
+  const getTableScrollYPos = (veuid: VisualElementUids): number => {
+    const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
+    if (!tableScrollPositions[key]) {
+      tableScrollPositions[key] = createNumberSignal(0.0);
+    }
+    return tableScrollPositions[key].get();
+  };
+
+  const setTableScrollYPos = (veuid: VisualElementUids, pos: number): void => {
+    const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
+    if (!tableScrollPositions[key]) {
+      tableScrollPositions[key] = createNumberSignal(pos);
+      return;
+    }
+    tableScrollPositions[key].set(pos);
+  };
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("root") ?? panic();
@@ -86,6 +107,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     topLevelVisualElementSignal,
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,
+    getTableScrollYPos, setTableScrollYPos
   };
 
   return (
@@ -102,7 +124,7 @@ export function useDesktopStore() : DesktopStoreContextModel {
 
 
 /**
- * Find all visual elements with item and linkIdMaybe as specified.
+ * Find all visual elements with the specified item and linkIdMaybe ids.
  */
 export const findVisualElements = (desktopStore: DesktopStoreContextModel, itemId: Uid, linkIdMaybe: Uid | null): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
@@ -140,31 +162,33 @@ const findVisualElementInChildAndAttachments = (desktopStore: DesktopStoreContex
   return result;
 }
 
-
-export const visualElementsWithItemId = (desktopStore: DesktopStoreContextModel, id: Uid): Array<VisualElementSignal> => {
+/**
+ * Find all visual elements with the specified item id.
+ */
+export const visualElementsWithItemId = (desktopStore: DesktopStoreContextModel, itemId: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
-  if (rootVe.item.id == id) {
+  if (rootVe.item.id == itemId) {
     result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
-  result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, rootVe, id));
+  result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, rootVe, itemId));
   return result;
 }
 
 
-const childAndAttachmentVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, id: Uid): Array<VisualElementSignal> => {
+const childAndAttachmentVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, itemId: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
-    if (childVes.get().item.id == id) {
+    if (childVes.get().item.id == itemId) {
       result.push(childVes);
     }
-    result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, childVes.get(), id));
+    result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, childVes.get(), itemId));
   });
   ve.attachments.forEach(attachmentVes => {
-    if (attachmentVes.get().item.id == id) {
+    if (attachmentVes.get().item.id == itemId) {
       result.push(attachmentVes);
     }
-    result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, attachmentVes.get(), id));
+    result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, attachmentVes.get(), itemId));
   });
   return result;
 }

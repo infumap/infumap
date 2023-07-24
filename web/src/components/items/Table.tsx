@@ -24,12 +24,16 @@ import { VisualElement_LineItem, VisualElementProps_LineItem, VisualElement_Desk
 import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { getVeUids } from "../../layout/visual-element";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
 export const COL_HEADER_HEIGHT_BL = 1.0;
 
 export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+  const desktopStore = useDesktopStore();
+
   const tableItem = () => asTableItem(props.visualElement.item);
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
@@ -54,7 +58,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() - asTableItem(props.visualElement.item).scrollYProp.get() + HEADER_HEIGHT_BL + (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
+    const rowNumber = props.visualElement.moveOverRowNumber.get() - desktopStore.getTableScrollYPos(getVeUids(props.visualElement)) + HEADER_HEIGHT_BL + (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
@@ -172,14 +176,15 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 
 
 const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+  const desktopStore = useDesktopStore();
   let outerDiv: HTMLDivElementWithData | undefined;
 
   const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
 
   let scrollDoneTimer: number | null = null;
   function scrollDoneHandler() {
-    const row = Math.round(tableItem().scrollYProp.get());
-    tableItem().scrollYProp.set(row);
+    const row = Math.round(desktopStore.getTableScrollYPos(getVeUids(props.visualElement)));
+    desktopStore.setTableScrollYPos(getVeUids(props.visualElement), row);
     (outerDiv!)!.scrollTop = row * blockHeightPx();
     scrollDoneTimer = null;
   }
@@ -204,18 +209,19 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
   const scrollHandler = (_ev: Event) => {
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
     scrollDoneTimer = setTimeout(scrollDoneHandler, QUANTIZE_SCROLL_TIMEOUT_MS);
-    tableItem().scrollYProp.set((outerDiv!)!.scrollTop / blockHeightPx());
+    desktopStore.setTableScrollYPos(getVeUids(props.visualElement), (outerDiv!)!.scrollTop / blockHeightPx());
   }
 
   onMount(() => {
-    outerDiv!.scrollTop = tableItem().scrollYProp.get() * blockHeightPx();
+    outerDiv!.scrollTop = desktopStore.getTableScrollYPos(getVeUids(props.visualElement)) * blockHeightPx();
   });
 
   const drawVisibleItems = () => {
     const children = props.visualElement.children;
     const visibleChildrenIds = [];
-    const firstItemIdx = Math.floor(tableItem().scrollYProp.get());
-    let lastItemIdx = Math.ceil((tableItem().scrollYProp.get() * blockHeightPx() + props.visualElement.childAreaBoundsPx!.h) / blockHeightPx());
+    const yScrollProp = desktopStore.getTableScrollYPos(getVeUids(props.visualElement));
+    const firstItemIdx = Math.floor(yScrollProp);
+    let lastItemIdx = Math.ceil((yScrollProp * blockHeightPx() + props.visualElement.childAreaBoundsPx!.h) / blockHeightPx());
     if (lastItemIdx > children.length - 1) { lastItemIdx = children.length - 1; }
     for (let i=firstItemIdx; i<=lastItemIdx; ++i) {
       visibleChildrenIds.push(children[i]);

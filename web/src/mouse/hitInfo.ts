@@ -19,7 +19,7 @@
 import { asPageItem, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
-import { VisualElement } from "../layout/visual-element";
+import { VisualElement, getVeUids } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
@@ -171,7 +171,7 @@ export function getHitInfo(
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x,
-            y: tableVisualElement.childAreaBoundsPx!.y - tableItem.scrollYProp.get() * tableBlockHeightPx }
+            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(getVeUids(tableVisualElement)) * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;

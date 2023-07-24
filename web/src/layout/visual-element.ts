@@ -29,6 +29,12 @@ import { isTable } from "../items/table-item";
 
 export type VisualElementPath = string;
 
+export type VisualElementUids = {
+  itemId: Uid,
+  linkIdMaybe: Uid | null
+}
+
+
 export interface VisualElement {
   // The item to be visually depicted. If the VisualElement corresponds to a link item, "item" is the
   // linked-to item unless this is invalid or unknown, in which case "item" is the link item.
@@ -193,6 +199,12 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   return result;
 }
 
+export function getVeUids(visualElement: VisualElement): VisualElementUids {
+  return ({
+    itemId: visualElement.item.id,
+    linkIdMaybe: visualElement.linkItemMaybe == null ? null : visualElement.linkItemMaybe.id
+  });
+}
 
 export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
   function impl(visualElement: VisualElement, current: string): string {

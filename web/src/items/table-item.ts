@@ -29,7 +29,6 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { createNumberSignal, NumberSignal } from "../util/signals";
 
 
 export interface TableColumn {
@@ -38,7 +37,6 @@ export interface TableColumn {
 }
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
-  scrollYProp: NumberSignal;
 }
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
@@ -76,8 +74,6 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
     computed_attachments: [],
 
     childrenLoaded: false,
-
-    scrollYProp: createNumberSignal(0)
   };
 }
 
@@ -107,8 +103,6 @@ export function tableFromObject(o: any): TableItem {
     computed_attachments: [],
 
     childrenLoaded: false,
-
-    scrollYProp: createNumberSignal(0),
   });
 }
 
