@@ -538,9 +538,9 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
-  const rawTableRowNumber = Math.floor(mousePropY * tableDimensionsBl.h); // where row includes headers.
+  const rawTableRowNumber = Math.round(mousePropY * tableDimensionsBl.h); // where row includes headers.
   let insertRow = rawTableRowNumber + tableItem.scrollYProp.get() - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
-  if (insertRow < 0) { insertRow = 0; }
+  if (insertRow < tableItem.scrollYProp.get()) { insertRow = tableItem.scrollYProp.get(); }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length
     : 0;
@@ -662,7 +662,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = vectorAdd(tablePosInPagePx, itemPosInTablePx);
-  const tableParentPage = asPageItem(itemStore.getItem(tableItem.parentId)!);
+  const tableParentPage = asPageItem(tableParentVe.item);
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / tableParentVe!.boundsPx.w * tableParentPage.innerSpatialWidthGr,
     y: itemPosInPagePx.y / tableParentVe!.boundsPx.h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
@@ -929,7 +929,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
     return;
   }
 
-  const insertPosition = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get();
+  const insertPosition = overContainerVe.moveOverRowNumber.get();
   activeItem.ordering = itemStore.newOrderingAtChildrenPosition(moveOverContainerId, insertPosition);
   activeItem.parentId = moveOverContainerId;
 
@@ -952,8 +952,8 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const prevParentId = activeItem.parentId;
 
   const tableItem = asTableItem(overContainerVe.item);
-  let rowNumber = overContainerVe.moveOverRowNumber.get() + asTableItem(overContainerVe.item).scrollYProp.get() - HEADER_HEIGHT_BL + (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
-  if (rowNumber < 0) { rowNumber = 0; }
+  let rowNumber = overContainerVe.moveOverRowNumber.get() - HEADER_HEIGHT_BL + (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
+  if (rowNumber < tableItem.scrollYProp.get()) { rowNumber = tableItem.scrollYProp.get(); }
 
   const childId = tableItem.computed_children[rowNumber];
   const child = itemStore.getItem(childId)!;

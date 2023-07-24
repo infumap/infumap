@@ -269,8 +269,6 @@ const arrangeItem_Desktop = (
 
   if (isPopup && !isLink(item)) { panic(); }
 
-  const parentPageInnerBoundsPx = zeroBoundingBoxTopLeft(parentPageBoundsPx);
-
   const [canonicalItem, linkItemMaybe, spatialWidthGr] = calcCanonicalAndLinkItemMaybe(desktopStore, item);
 
   if (isPage(canonicalItem) && asPageItem(canonicalItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
@@ -285,8 +283,11 @@ const arrangeItem_Desktop = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
     return arrangePageWithChildren_Desktop(
       desktopStore,
-      asPageItem(canonicalItem), linkItemMaybe,
-      parentPage, parentPageInnerBoundsPx, parentIsPopup, 
+      asPageItem(canonicalItem),
+      linkItemMaybe,
+      parentPage,
+      zeroBoundingBoxTopLeft(parentPageBoundsPx),
+      parentIsPopup,
       parentSignal_underConstruction,
       isPopup, false);
   }
@@ -295,8 +296,11 @@ const arrangeItem_Desktop = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
     return arrangeTable_Desktop(
       desktopStore,
-      asTableItem(canonicalItem), linkItemMaybe,
-      parentPage, parentPageInnerBoundsPx, parentIsPopup,
+      asTableItem(canonicalItem),
+      linkItemMaybe,
+      parentPage,
+      zeroBoundingBoxTopLeft(parentPageBoundsPx),
+      parentIsPopup,
       parentSignal_underConstruction);
   }
 
@@ -305,8 +309,10 @@ const arrangeItem_Desktop = (
     : RenderStyle.Outline;
 
   return arrangeItemNoChildren_Desktop(
-    canonicalItem, linkItemMaybe,
-    parentPage, parentPageInnerBoundsPx,
+    canonicalItem,
+    linkItemMaybe,
+    parentPage,
+    zeroBoundingBoxTopLeft(parentPageBoundsPx),
     false, // parentIsPopup.
     parentSignal_underConstruction,
     renderStyle);
@@ -315,8 +321,11 @@ const arrangeItem_Desktop = (
 
 const arrangePageWithChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    canonicalItem_page: PageItem, linkItemMaybe: LinkItem | null,
-    parentPage: PageItem, parentPageInnerBoundsPx: BoundingBox, parentIsPopup: boolean,
+    canonicalItem_page: PageItem,
+    linkItemMaybe: LinkItem | null,
+    parentPage: PageItem,
+    parentPageInnerBoundsPx: BoundingBox,
+    parentIsPopup: boolean,
     parentSignal_underConstruction: VisualElementSignal,
     isPopup: boolean,
     isRoot: boolean): VisualElementSignal => {

@@ -54,7 +54,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() + HEADER_HEIGHT_BL + (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
+    const rowNumber = props.visualElement.moveOverRowNumber.get() - asTableItem(props.visualElement.item).scrollYProp.get() + HEADER_HEIGHT_BL + (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
