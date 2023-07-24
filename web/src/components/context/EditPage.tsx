@@ -27,6 +27,7 @@ import { ColorSelector } from "./ColorSelector";
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 import { panic } from "../../util/lang";
 import { compareOrderings } from "../../util/ordering";
+import { itemStore } from "../../store/ItemStore";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
@@ -42,43 +43,43 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
 
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
-      asPageItem(desktopStore.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
+      asPageItem(itemStore.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
       rearrangeVisualElementsWithItemId(desktopStore, pageId);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
-      asPageItem(desktopStore.getItem(pageId)!).naturalAspect = parseFloat(v);
+      asPageItem(itemStore.getItem(pageId)!).naturalAspect = parseFloat(v);
       rearrangeVisualElementsWithItemId(desktopStore, pageId);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
-      asPageItem(desktopStore.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
+      asPageItem(itemStore.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
       rearrangeVisualElementsWithItemId(desktopStore, pageId);
     }
   }
 
   const handleTitleInput = (v: string) => {
-    asPageItem(desktopStore.getItem(pageId)!).title = v;
+    asPageItem(itemStore.getItem(pageId)!).title = v;
     rearrangeVisualElementsWithItemId(desktopStore, pageId);
   };
 
   const deletePage = async () => {
     deleted = true;
     await server.deleteItem(pageId); // throws on failure.
-    desktopStore.deleteItem(pageId);
+    itemStore.deleteItem(pageId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   const setAspectToMatchScreen = async () => {
-    asPageItem(desktopStore.getItem(pageId)!).naturalAspect = screenAspect();
+    asPageItem(itemStore.getItem(pageId)!).naturalAspect = screenAspect();
     desktopStore.setEditDialogInfo({
       desktopBoundsPx: desktopStore.editDialogInfo()!.desktopBoundsPx,
-      item: desktopStore.getItem(pageId)!
+      item: itemStore.getItem(pageId)!
     });
     rearrangeVisualElementsWithItemId(desktopStore, pageId);
   }
@@ -99,24 +100,24 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     } else {
       panic();
     }
-    asPageItem(desktopStore.getItem(pageId)!).arrangeAlgorithm = t;
+    asPageItem(itemStore.getItem(pageId)!).arrangeAlgorithm = t;
     rearrangeVisualElementsWithItemId(desktopStore, pageId);
   }
 
   const changeOrderChildrenBy = async () => {
     const orderByTitle = checkElement_ord?.checked;
     if (orderByTitle) {
-      asPageItem(desktopStore.getItem(pageId)!).orderChildrenBy = "title[ASC]";
+      asPageItem(itemStore.getItem(pageId)!).orderChildrenBy = "title[ASC]";
     } else {
-      asPageItem(desktopStore.getItem(pageId)!).orderChildrenBy = "";
+      asPageItem(itemStore.getItem(pageId)!).orderChildrenBy = "";
     }
-    desktopStore.sortChildren(pageId);
+    itemStore.sortChildren(pageId);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(desktopStore.getItem(pageId)!);
+      server.updateItem(itemStore.getItem(pageId)!);
     }
   });
 

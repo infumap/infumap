@@ -23,6 +23,7 @@ import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_L
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { itemStore } from "../../store/ItemStore";
 
 
 export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -32,7 +33,7 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => {
     if (props.visualElement.linkItemMaybe != null) {
-      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!, desktopStore.getItem);
+      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!, itemStore.getItem);
     }
     return calcNoteSizeForSpatialBl(noteItem());
   });

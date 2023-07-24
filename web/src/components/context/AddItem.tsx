@@ -33,6 +33,7 @@ import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hitInfo";
 import { newLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
+import { itemStore } from "../../store/ItemStore";
 
 
 type ContexMenuProps = {
@@ -70,33 +71,33 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         overElementVe.item.id,
         3,
         Child,
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id))
+        itemStore.newOrderingAtEndOfChildren(overElementVe.item.id))
     } else if (type == "table") {
       newItem = newTableItem(
         userStore.getUser().userId,
         overElementVe.item.id,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
+        itemStore.newOrderingAtEndOfChildren(overElementVe.item.id));
     } else if (type == "note") {
       newItem = newNoteItem(
         userStore.getUser().userId,
         overElementVe.item.id,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
+        itemStore.newOrderingAtEndOfChildren(overElementVe.item.id));
     } else if (type == "page") {
       newItem = newPageItem(
         userStore.getUser().userId,
         overElementVe.item.id!,
         Child,
         "",
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id));
+        itemStore.newOrderingAtEndOfChildren(overElementVe.item.id));
     } else if (type == "link")  {
       newItem = newLinkItem(userStore.getUser().userId,
         overElementVe.item.id!,
         Child,
-        desktopStore.newOrderingAtEndOfChildren(overElementVe.item.id),
+        itemStore.newOrderingAtEndOfChildren(overElementVe.item.id),
         EMPTY_UID);
     } else {
       panic();
@@ -105,7 +106,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
       newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.item), props.desktopPosPx);
       server.addItem(newItem, null);
-      desktopStore.addItem(newItem);
+      itemStore.addItem(newItem);
       desktopStore.setContextMenuInfo(null);
       desktopStore.setEditDialogInfo({
         desktopBoundsPx: initialEditDialogBounds(desktopStore),

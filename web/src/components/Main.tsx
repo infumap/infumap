@@ -28,6 +28,7 @@ import { Toolbar } from "./Toolbar";
 import { EMPTY_UID } from "../util/uid";
 import { ITEM_TYPE_NONE } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
+import { itemStore } from "../store/ItemStore";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -60,15 +61,15 @@ export const Main: Component = () => {
         result = await server.fetchItems(params.id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
         const rootPageObject = result.item as any;
         rootId = rootPageObject.id;
-        desktopStore.setItemFromServerObject(rootPageObject);
+        itemStore.setItemFromServerObject(rootPageObject);
         if (result.attachments[rootId]) {
-          desktopStore.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
+          itemStore.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
         }
         childrenLoadInitiatedOrComplete[rootId] = true;
       }
-      desktopStore.setChildItemsFromServerObjects(rootId, result.items);
+      itemStore.setChildItemsFromServerObjects(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {
-        desktopStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+        itemStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
       switchToPage(desktopStore, rootId);
     } catch (e: any) {

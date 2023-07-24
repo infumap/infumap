@@ -24,6 +24,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
 import { NumberSignal, createNumberSignal } from "../../util/signals";
+import { itemStore } from "../../store/ItemStore";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
@@ -39,14 +40,14 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   let deleted = false;
 
   const handleTitleInput = (v: string) => {
-    asTableItem(desktopStore.getItem(tableId)!).title = v;
+    asTableItem(itemStore.getItem(tableId)!).title = v;
     rearrangeVisualElementsWithItemId(desktopStore, tableId);
   };
 
   const deleteTable = async () => {
     deleted = true;
     await server.deleteItem(tableId); // throws on failure.
-    desktopStore.deleteItem(tableId);
+    itemStore.deleteItem(tableId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
@@ -68,23 +69,23 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   const changeOrderChildrenBy = async () => {
     const orderByTitle = checkElement_ord?.checked;
     if (orderByTitle) {
-      asTableItem(desktopStore.getItem(tableId)!).orderChildrenBy = "title[ASC]";
+      asTableItem(itemStore.getItem(tableId)!).orderChildrenBy = "title[ASC]";
     } else {
-      asTableItem(desktopStore.getItem(tableId)!).orderChildrenBy = "";
+      asTableItem(itemStore.getItem(tableId)!).orderChildrenBy = "";
     }
-    desktopStore.sortChildren(tableId);
+    itemStore.sortChildren(tableId);
     arrange(desktopStore);
   }
 
   const changeShowHeader = async () => {
-    asTableItem(desktopStore.getItem(tableId)!).showHeader = checkElement_header!.checked;
-    desktopStore.sortChildren(tableId);
+    asTableItem(itemStore.getItem(tableId)!).showHeader = checkElement_header!.checked;
+    itemStore.sortChildren(tableId);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(desktopStore.getItem(tableId)!);
+      server.updateItem(itemStore.getItem(tableId)!);
     }
   });
 

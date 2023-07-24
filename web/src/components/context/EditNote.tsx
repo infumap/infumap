@@ -24,6 +24,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuTextArea } from "../library/InfuTextArea";
 import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
+import { itemStore } from "../../store/ItemStore";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
@@ -33,13 +34,13 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asNoteItem(desktopStore.getItem(noteId)!).title = v;
+    asNoteItem(itemStore.getItem(noteId)!).title = v;
     rearrangeVisualElementsWithItemId(desktopStore, noteId);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
-      asNoteItem(desktopStore.getItem(noteId)!).url = v;
+      asNoteItem(itemStore.getItem(noteId)!).url = v;
       rearrangeVisualElementsWithItemId(desktopStore, noteId);
     }
   };
@@ -47,14 +48,14 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   const deleteNote = async () => {
     deleted = true;
     await server.deleteItem(noteId); // throws on failure.
-    desktopStore.deleteItem(noteId);
+    itemStore.deleteItem(noteId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(desktopStore.getItem(noteId)!);
+      server.updateItem(itemStore.getItem(noteId)!);
     }
   });
 

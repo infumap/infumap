@@ -26,6 +26,7 @@ import { newUid } from "./util/uid";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./items/base/item";
 import { itemFromObject } from "./items/base/item-polymorphism";
 import { arrange } from "./layout/arrange";
+import { itemStore } from "./store/ItemStore";
 
 
 export async function handleUpload(
@@ -68,7 +69,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-      desktopStore.addItem(itemFromObject(returnedItem));
+      itemStore.addItem(itemFromObject(returnedItem));
       arrange(desktopStore);
 
     } else {
@@ -86,7 +87,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
-      desktopStore.addItem(itemFromObject(returnedItem));
+      itemStore.addItem(itemFromObject(returnedItem));
       arrange(desktopStore);
     }
   }

@@ -17,11 +17,12 @@
 */
 
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { itemStore } from "../store/ItemStore";
 import { EMPTY_UID } from "./uid";
 
 
 export function updateHref(desktopStore: DesktopStoreContextModel) {
-  if (desktopStore.getItem(desktopStore.topLevelPageId()!)?.parentId == EMPTY_UID) {
+  if (itemStore.getItem(desktopStore.topLevelPageId()!)?.parentId == EMPTY_UID) {
     window.history.replaceState(null, "", "/"); 
   } else {
     window.history.replaceState(null, "", `/${desktopStore.topLevelPageId()}`);

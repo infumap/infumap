@@ -22,6 +22,7 @@ import { Item } from "../../items/base/item";
 import { asPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Colors } from "../../style";
+import { itemStore } from "../../store/ItemStore";
 
 
 const ColorButton: Component<{ col: number, onClick: (col: number) => void }> = (props: { col: number, onClick: (col: number) => void }) => {
@@ -39,8 +40,8 @@ export const ColorSelector: Component<{ item: Item }> = (props: {item: Item }) =
   let itemId = props.item.id;
 
   const handleClick = (col: number) => {
-    asPageItem(desktopStore.getItem(props.item.id)!).backgroundColorIndex = col;
-    server.updateItem(desktopStore.getItem(itemId)!);
+    asPageItem(itemStore.getItem(props.item.id)!).backgroundColorIndex = col;
+    server.updateItem(itemStore.getItem(itemId)!);
   }
 
   return (

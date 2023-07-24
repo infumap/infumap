@@ -34,6 +34,7 @@ import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arr
 import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
+import { itemStore } from '../store/ItemStore';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -300,7 +301,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = desktopStore.getItem(visualElement.item.parentId)!
+  const parentItem = itemStore.getItem(visualElement.item.parentId)!
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
@@ -313,7 +314,7 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = desktopStore.getItem(visualElement.item.parentId)!;
+  const parentItem = itemStore.getItem(visualElement.item.parentId)!;
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;

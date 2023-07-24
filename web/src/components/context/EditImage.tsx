@@ -23,6 +23,7 @@ import { asImageItem, ImageItem } from "../../items/image-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
+import { itemStore } from "../../store/ItemStore";
 
 
 export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: ImageItem}) => {
@@ -32,21 +33,21 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
   let deleted = false;
 
   const handleTitleChange = (v: string) => {
-    asImageItem(desktopStore.getItem(imageId)!).title = v;
+    asImageItem(itemStore.getItem(imageId)!).title = v;
     rearrangeVisualElementsWithItemId(desktopStore, imageId);
   };
 
   const deleteImage = async () => {
     deleted = true;
     await server.deleteItem(imageId); // throws on failure.
-    desktopStore.deleteItem(imageId);
+    itemStore.deleteItem(imageId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(desktopStore.getItem(imageId)!);
+      server.updateItem(itemStore.getItem(imageId)!);
     }
   });
 

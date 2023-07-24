@@ -27,6 +27,7 @@ import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
 import { ARRANGE_ALGO_LIST } from "../../layout/arrange";
+import { itemStore } from "../../store/ItemStore";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -258,7 +259,7 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), desktopStore.getItem);
+  const dimensionsBl = () => calcSizeForSpatialBl(pageItem(), itemStore.getItem);
   const aspect = () => dimensionsBl().w / dimensionsBl().h;
   const thumbBoundsPx = () => {
     if (aspect() >= 1.0) {

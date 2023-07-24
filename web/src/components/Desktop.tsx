@@ -33,6 +33,7 @@ import { VisualElement } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
+import { itemStore } from "../store/ItemStore";
 
 
 export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -148,7 +149,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
-    let pageItem = asPageItem(desktopStore.getItem(desktopStore.topLevelPageId()!)!);
+    let pageItem = asPageItem(itemStore.getItem(desktopStore.topLevelPageId()!)!);
     pageItem.scrollYPx.set(desktopDiv!.scrollTop);
     pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
   }
