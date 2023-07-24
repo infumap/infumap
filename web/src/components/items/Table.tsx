@@ -151,10 +151,9 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
                      style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (tableItem().showHeader ? blockSizePx().h : 0)}px`}></div>
               </Show>
               <Show when={tableItem().showHeader}>
-                <div class="absolute"
+                <div class="absolute whitespace-nowrap overflow-hidden"
                      style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                            `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                            `overflow-wrap: break-word;`}>
+                            `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
                   {spec.name}
                 </div>
               </Show>
