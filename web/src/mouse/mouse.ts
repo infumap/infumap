@@ -46,6 +46,7 @@ import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemStore } from "../store/ItemStore";
 import { breadcrumbStore } from "../store/BreadcrumbStore";
+import { mouseMoveStore } from "../store/MouseMoveStore";
 
 
 const MOUSE_LEFT = 0;
@@ -244,7 +245,7 @@ export function mouseRightDownHandler(
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   if (breadcrumbStore.topLevelPageId() == null) { return; }
 
-  const ev = desktopStore.lastMouseMoveEvent();
+  const ev = mouseMoveStore.lastMouseMoveEvent();
   const desktopPosPx = desktopPxFromMouseEvent(ev);
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
@@ -484,7 +485,7 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   const dialogInfo = desktopStore.editDialogInfo();
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null;
-  const ev = desktopStore.lastMouseMoveEvent();
+  const ev = mouseMoveStore.lastMouseMoveEvent();
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
 

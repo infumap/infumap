@@ -42,9 +42,6 @@ export interface DesktopStoreContextModel {
   setTopLevelVisualElement: Setter<VisualElement>,
   topLevelVisualElementSignal: () => VisualElementSignal,
 
-  setLastMouseMoveEvent: (ev: MouseEvent) => void,
-  lastMouseMoveEvent: () => MouseEvent,
-
   editDialogInfo: Accessor<EditDialogInfo | null>,
   setEditDialogInfo: Setter<EditDialogInfo | null>,
 
@@ -77,10 +74,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
 
-  let lastMoveEvent: MouseEvent = new MouseEvent("mousemove");
-  const setLastMouseMoveEvent = (ev: MouseEvent) => { lastMoveEvent = ev; }
-  const lastMouseMoveEvent = (): MouseEvent => { return lastMoveEvent; }
-
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("root") ?? panic();
@@ -97,7 +90,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     desktopBoundsPx, resetDesktopSizePx,
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,
-    setLastMouseMoveEvent, lastMouseMoveEvent,
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,
   };

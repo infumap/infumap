@@ -35,6 +35,7 @@ import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 import { itemStore } from "../store/ItemStore";
 import { breadcrumbStore } from "../store/BreadcrumbStore";
+import { mouseMoveStore } from "../store/MouseMoveStore";
 
 
 export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -53,11 +54,11 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
 
-    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), [], false);
+    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(mouseMoveStore.lastMouseMoveEvent()), [], false);
 
     if (ev.code == "Slash") {
       ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(desktopStore.lastMouseMoveEvent()), hitInfo });
+      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(mouseMoveStore.lastMouseMoveEvent()), hitInfo });
       mouseMoveNoButtonDownHandler(desktopStore);
     }
 
@@ -88,7 +89,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    desktopStore.setLastMouseMoveEvent(ev);
+    mouseMoveStore.setLastMouseMoveEvent(ev);
     mouseMoveHandler(desktopStore);
   }
 
