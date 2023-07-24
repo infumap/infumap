@@ -536,9 +536,27 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   };
   const tableBoundsPx = visualElementBoundsOnDesktopPx(overContainerVe);
 
+  // col
+  const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
+  const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
+  let accumBl = 0;
+  let colNumber = tableItem.tableColumns.length - 1;
+  for (let i=0; i<tableItem.tableColumns.length; ++i) {
+    accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
+    if (accumBl >= tableDimensionsBl.w) {
+      colNumber = i;
+      break;
+    }
+    if (tableXBl < accumBl) {
+      colNumber = i;
+      break;
+    }
+  }
+  const attachmentPos = colNumber - 1;
+
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
-  const rawTableRowNumber = Math.round(mousePropY * tableDimensionsBl.h); // where row includes headers.
+  const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
   const yScrollPos = desktopStore.getTableScrollYPos(getVeUids(overContainerVe));
   let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
@@ -547,31 +565,13 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
     : 0;
   overContainerVe.moveOverRowNumber.set(insertRow);
 
-  // col
-  const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
-  const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
   const childItem = itemStore.getItem(tableItem.computed_children[insertRow]);
   if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemStore.getItem(getLinkToId(asLinkItem(childItem!))!)))) {
-    // first work out which column
-    let accumBl = 0;
-    let colNumber = tableItem.tableColumns.length - 1;
-    for (let i=0; i<tableItem.tableColumns.length; ++i) {
-      accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
-      if (accumBl >= tableDimensionsBl.w) {
-        colNumber = i;
-        break;
-      }
-      if (tableXBl < accumBl) {
-        colNumber = i;
-        break;
-      }
-    }
-
-    let attachmentPos = colNumber - 1;
     overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
   } else {
     overContainerVe.moveOverColAttachmentNumber.set(-1);
   }
+
 }
 
 export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string) {
