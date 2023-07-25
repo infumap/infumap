@@ -41,7 +41,7 @@ import { updateHref } from "../util/browser";
 import { isPositionalItem } from "../items/base/positional-item";
 import { HitboxType, createHitbox } from "./hitbox";
 import { itemStore } from "../store/ItemStore";
-import { breadcrumbStore } from "../store/BreadcrumbStore";
+import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -228,12 +228,14 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
       false  // is popup
     ));
 
-  let popupLinkToPageId = breadcrumbStore.popupId();
-  if (popupLinkToPageId != null) {
-    let li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId);
+  const currentPopupSpec = breadcrumbStore.getCurrentPopupSpec();
+  if (currentPopupSpec != null) {
+    if (currentPopupSpec.type != PopupType.Page) { panic(); }
+    const popupLinkToPageId = currentPopupSpec.uid;
+    const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId);
     li.id = POPUP_LINK_ID;
-    let widthGr = getPopupWidthGr(pageItem);
-    let heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
+    const widthGr = getPopupWidthGr(pageItem);
+    const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr = widthGr;
     // assume center positioning.
     li.spatialPositionGr = {

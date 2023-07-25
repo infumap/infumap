@@ -35,7 +35,7 @@ import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { itemStore } from '../store/ItemStore';
-import { breadcrumbStore } from '../store/BreadcrumbStore';
+import { PopupType, breadcrumbStore } from '../store/BreadcrumbStore';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -330,11 +330,10 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
   } else if (visualElement.parent!.get().isPopup) {
-    breadcrumbStore.pushPopupId(visualElement.item.id);
+    breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.item.id });
   } else {
-    breadcrumbStore.replacePopupId(visualElement.item.id);
+    breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id });
   }
-
   arrange(desktopStore); // TODO (LOW): no need to arrange entire page.
 }
 

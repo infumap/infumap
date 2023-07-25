@@ -19,10 +19,19 @@
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 
+export enum PopupType {
+  Page,
+  Attachment
+}
+
+export interface PopupSpec {
+  type: PopupType,
+  uid: Uid,
+};
 
 interface PageBreadcrumb {
   pageId: Uid,
-  popupBreadcrumbs: Array<Uid>,
+  popupBreadcrumbs: Array<PopupSpec>,
 }
 
 let breadcrumbs: Array<PageBreadcrumb> = [];
@@ -53,21 +62,21 @@ export const breadcrumbStore = {
   },
 
 
-  pushPopupId: (uid: Uid): void => {
+  pushPopup: (popupSpec: PopupSpec): void => {
     if (breadcrumbs.length == 0) {
       panic();
     }
-    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(uid);
+    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(popupSpec);
   },
 
-  replacePopupId: (uid: Uid): void => {
+  replacePopup: (popupSpec: PopupSpec): void => {
     if (breadcrumbs.length == 0) {
       panic();
     }
-    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs = [uid];
+    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs = [popupSpec];
   },
 
-  popPopupId: (): void => {
+  popPopup: (): void => {
     if (breadcrumbs.length == 0) {
       panic();
     }
@@ -77,7 +86,7 @@ export const breadcrumbStore = {
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
   },
 
-  popupId: (): Uid | null => {
+  getCurrentPopupSpec: (): PopupSpec | null => {
     if (breadcrumbs.length == 0) {
       panic();
     }

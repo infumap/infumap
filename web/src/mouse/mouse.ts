@@ -228,9 +228,9 @@ export function mouseRightDownHandler(
     return;
   }
 
-  if (breadcrumbStore.popupId() != null) {
-    breadcrumbStore.popPopupId();
-    if (breadcrumbStore.popupId() == null) {
+  if (breadcrumbStore.getCurrentPopupSpec() != null) {
+    breadcrumbStore.popPopup();
+    if (breadcrumbStore.getCurrentPopupSpec == null) {
       const page = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
       page.pendingPopupAlignmentPoint = null;
       page.pendingPopupPositionGr = null;
