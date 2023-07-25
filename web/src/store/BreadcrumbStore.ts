@@ -27,10 +27,12 @@ interface PageBreadcrumb {
 
 let breadcrumbs: Array<PageBreadcrumb> = [];
 
+
 export const breadcrumbStore = {
   clearBreadcrumbs: (): void => {
     breadcrumbs = [];
   },
+
 
   pushTopLevelPageId: (uid: Uid): void => {
     breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
@@ -49,6 +51,7 @@ export const breadcrumbStore = {
     }
     return breadcrumbs[breadcrumbs.length-1].pageId;
   },
+
 
   pushPopupId: (uid: Uid): void => {
     if (breadcrumbs.length == 0) {
