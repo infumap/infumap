@@ -32,7 +32,6 @@ import { VisualElement, VisualElementPath, getVeUids, itemIdAndLinkIdMaybeFromVi
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
-import { batch } from "solid-js";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem } from "../items/base/container-item";
@@ -438,17 +437,15 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     }
 
     // update move over attach state.
-    batch(() => {
-      if (mouseActionState!.moveOver_attachHitboxElement != null) {
-        visualElementSignalFromPath(desktopStore, mouseActionState!.moveOver_attachHitboxElement).get().movingItemIsOverAttach.set(false);
-      }
-      if (hitInfo.hitboxType & HitboxType.Attach) {
-        hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
-        mouseActionState!.moveOver_attachHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
-      } else {
-        mouseActionState!.moveOver_attachHitboxElement = null;
-      }
-    });
+    if (mouseActionState!.moveOver_attachHitboxElement != null) {
+      visualElementSignalFromPath(desktopStore, mouseActionState!.moveOver_attachHitboxElement).get().movingItemIsOverAttach.set(false);
+    }
+    if (hitInfo.hitboxType & HitboxType.Attach) {
+      hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
+      mouseActionState!.moveOver_attachHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
+    } else {
+      mouseActionState!.moveOver_attachHitboxElement = null;
+    }
 
     if (visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_scaleDefiningElement!).get().item != hitInfo.overPositionableVe!.item) {
       moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child);
