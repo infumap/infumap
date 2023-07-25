@@ -22,7 +22,7 @@ import { server } from "../server";
 import { calcSizeForSpatialBl, handleClick, handlePopupClick } from "../items/base/item-polymorphism";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asPageItem, calcPageInnerSpatialDimensionsBl } from "../items/page-item";
+import { asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
@@ -230,6 +230,12 @@ export function mouseRightDownHandler(
 
   if (breadcrumbStore.popupId() != null) {
     breadcrumbStore.popPopupId();
+    if (breadcrumbStore.popupId() == null) {
+      const page = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
+      page.pendingPopupAlignmentPoint = null;
+      page.pendingPopupPositionGr = null;
+      page.pendingPopupWidthGr = null;
+    }
     arrange(desktopStore);
     return;
   }
@@ -304,7 +310,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
         if (activeVisualElement.isPopup) {
           mouseActionState.action = MouseAction.MovingPopup;
           const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item;
-          const popupPositionGr = asPageItem(activeRoot).popupPositionGr;
+          const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
           mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
         } else {
           const parentItem = itemStore.getItem(activeItem.parentId)!;
@@ -382,7 +388,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (newWidthBl < 5) { newWidthBl = 5.0; }
 
     const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
-    asPageItem(activeRoot.item).popupWidthGr = newWidthBl * GRID_SIZE;
+    asPageItem(activeRoot.item).pendingPopupWidthGr = newWidthBl * GRID_SIZE;
     arrange(desktopStore);
 
   // ### Resizing Column
@@ -418,7 +424,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       y: (mouseActionState.startPosBl!.y + deltaBl.y) * GRID_SIZE
     };
     const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
-    asPageItem(activeRoot.item).popupPositionGr = newPositionGr;
+    asPageItem(activeRoot.item).pendingPopupPositionGr = newPositionGr;
     arrange(desktopStore);
 
   // ### Moving
@@ -718,11 +724,6 @@ export function mouseUpHandler(
       break;
 
     case MouseAction.MovingPopup: {
-        const activeRoot = asPageItem(visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item);
-        if (activeRoot.popupPositionGr.x / GRID_SIZE != mouseActionState.startPosBl!.x ||
-            activeRoot.popupPositionGr.y / GRID_SIZE != mouseActionState.startPosBl!.y) {
-          server.updateItem(itemStore.getItem(activeRoot.id)!);
-        }
       break;
     }
 
@@ -738,10 +739,6 @@ export function mouseUpHandler(
       break;
 
     case MouseAction.ResizingPopup: {
-      const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item;
-      if (mouseActionState.startWidthBl! * GRID_SIZE != asPageItem(activeRoot).popupWidthGr) {
-        server.updateItem(itemStore.getItem(activeRoot.id)!);
-      }
       break;
     }
 

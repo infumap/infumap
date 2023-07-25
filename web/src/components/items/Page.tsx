@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Show } from "solid-js";
-import { asPageItem } from "../../items/page-item";
+import { asPageItem, popupChanged } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
@@ -26,9 +26,10 @@ import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Deskt
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
-import { ARRANGE_ALGO_LIST } from "../../layout/arrange";
-import { itemStore } from "../../store/ItemStore";
+import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { breadcrumbStore } from "../../store/BreadcrumbStore";
+import { itemStore } from "../../store/ItemStore";
+import { server } from "../../server";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -182,6 +183,21 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `;
   }
 
+  const anchorPopup = () => {
+    const popupParentPage = asPageItem(itemStore.getItem(props.visualElement.parent!.get().item.id)!);
+    if (popupParentPage.pendingPopupPositionGr != null) {
+      popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
+    }
+    if (popupParentPage.pendingPopupWidthGr != null) {
+      popupParentPage.popupWidthGr = popupParentPage.pendingPopupWidthGr;
+    }
+    if (popupParentPage.pendingPopupAlignmentPoint != null) {
+      popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
+    }
+    server.updateItem(popupParentPage);
+    arrange(desktopStore);
+  }
+
   const drawAsPopup = () => {
     return (
       <>
@@ -196,6 +212,11 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
             {pageItem().title}
           </div>
+          <Show when={popupChanged(asPageItem(itemStore.getItem(props.visualElement.parent!.get().item.id)!))}>
+            <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>
+              <i class={`fa fa-anchor`} />
+            </div>
+          </Show>
         </div>
         <div class="absolute"
              style={`left: ${childAreaBoundsPx().x}px; top: ${childAreaBoundsPx().y}px; ` +

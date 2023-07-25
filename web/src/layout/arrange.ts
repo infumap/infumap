@@ -24,7 +24,7 @@ import { DesktopStoreContextModel, visualElementsWithItemId } from "../store/Des
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { EMPTY_ITEM, Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
-import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, isPage } from "../items/page-item";
+import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { createVisualElement } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
@@ -232,13 +232,13 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
   if (popupLinkToPageId != null) {
     let li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId);
     li.id = POPUP_LINK_ID;
-    let widthGr = pageItem.popupWidthGr;
+    let widthGr = getPopupWidthGr(pageItem);
     let heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
     li.spatialWidthGr = widthGr;
     // assume center positioning.
     li.spatialPositionGr = {
-      x: pageItem.popupPositionGr.x - widthGr / 2.0,
-      y: pageItem.popupPositionGr.y - heightGr / 2.0
+      x: getPopupPositionGr(pageItem).x - widthGr / 2.0,
+      y: getPopupPositionGr(pageItem).y - heightGr / 2.0
     };
     visualElement.children.push(
       arrangeItem_Desktop(

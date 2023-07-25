@@ -52,7 +52,11 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   scrollYPx: NumberSignal;
 
   selectedItem: Uid;
-  selectedAttachment: Uid,
+  selectedAttachment: Uid;
+
+  pendingPopupPositionGr: Vector | null;
+  pendingPopupWidthGr: number | null;
+  pendingPopupAlignmentPoint: string | null;
 }
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
@@ -100,6 +104,9 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     scrollYPx: createNumberSignal(0),
     selectedItem: EMPTY_UID,
     selectedAttachment: EMPTY_UID,
+    pendingPopupPositionGr: null,
+    pendingPopupWidthGr: null,
+    pendingPopupAlignmentPoint: null,
   });
 }
 
@@ -139,6 +146,9 @@ export function pageFromObject(o: any): PageItem {
     scrollYPx: createNumberSignal(0),
     selectedItem: EMPTY_UID,
     selectedAttachment: EMPTY_UID,
+    pendingPopupPositionGr: null,
+    pendingPopupWidthGr: null,
+    pendingPopupAlignmentPoint: null,
   });
 }
 
@@ -347,4 +357,36 @@ export function clonePageMeasurableFields(page: PageMeasurable): PageMeasurable 
 
 export function pageDebugSummary(pageItem: PageItem) {
   return "[page] " + pageItem.title;
+}
+
+
+export function getPopupPositionGr(pageItem: PageItem): Vector {
+  if (pageItem.pendingPopupPositionGr != null) {
+    return pageItem.pendingPopupPositionGr;
+  }
+  return pageItem.popupPositionGr;
+}
+
+
+export function getPopupWidthGr(pageItem: PageItem): number {
+  if (pageItem.pendingPopupWidthGr != null) {
+    return pageItem.pendingPopupWidthGr;
+  }
+  return pageItem.popupWidthGr;
+}
+
+
+export function popupChanged(pageItem: PageItem): boolean {
+  if (pageItem.pendingPopupPositionGr != null) {
+    if (pageItem.pendingPopupPositionGr!.x != pageItem.popupPositionGr.x ||
+        pageItem.pendingPopupPositionGr!.y != pageItem.popupPositionGr.y) {
+      return true;
+    }
+  }
+  if (pageItem.pendingPopupWidthGr != null) {
+    if (pageItem.pendingPopupWidthGr != pageItem.popupWidthGr) {
+      return true;
+    }
+  }
+  return false;
 }
