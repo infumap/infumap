@@ -256,17 +256,17 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         {drawAsFull()}
       </Show>
       <Show when={!props.visualElement.isDetailed ||
-                  (!props.visualElement.isRoot && !props.visualElement.isPopup && pageItem().id != breadcrumbStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!props.visualElement.isRoot && !props.visualElement.isPagePopup && pageItem().id != breadcrumbStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!props.visualElement.isRoot &&
-                  !props.visualElement.isPopup &&
+                  !props.visualElement.isPagePopup &&
                   props.visualElement.isDetailed &&
                   pageItem().id != breadcrumbStore.topLevelPageId() &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
-      <Show when={props.visualElement.isPopup}>
+      <Show when={props.visualElement.isPagePopup}>
         {drawAsPopup()}
       </Show>
     </>

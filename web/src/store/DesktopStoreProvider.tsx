@@ -23,7 +23,7 @@ import { Item } from "../items/base/item";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, VisualElement, VisualElementUids } from "../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VisualElement, Veid } from "../layout/visual-element";
 import { createNumberSignal, NumberSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../mouse/hitInfo";
 
@@ -42,8 +42,8 @@ export interface DesktopStoreContextModel {
   contextMenuInfo: Accessor<ContextMenuInfo | null>,
   setContextMenuInfo: Setter<ContextMenuInfo | null>,
 
-  getTableScrollYPos: (uid: VisualElementUids) => number,
-  setTableScrollYPos: (uid: VisualElementUids, pos: number) => void,
+  getTableScrollYPos: (uid: Veid) => number,
+  setTableScrollYPos: (uid: Veid, pos: number) => void,
 }
 
 export interface ContextMenuInfo {
@@ -73,7 +73,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const tableScrollPositions: { [key: string]: NumberSignal } = {};
 
-  const getTableScrollYPos = (veuid: VisualElementUids): number => {
+  const getTableScrollYPos = (veuid: Veid): number => {
     const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
     if (!tableScrollPositions[key]) {
       tableScrollPositions[key] = createNumberSignal(0.0);
@@ -81,7 +81,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return tableScrollPositions[key].get();
   };
 
-  const setTableScrollYPos = (veuid: VisualElementUids, pos: number): void => {
+  const setTableScrollYPos = (veuid: Veid, pos: number): void => {
     const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
     if (!tableScrollPositions[key]) {
       tableScrollPositions[key] = createNumberSignal(pos);

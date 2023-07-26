@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 
@@ -26,7 +27,8 @@ export enum PopupType {
 
 export interface PopupSpec {
   type: PopupType,
-  uid: Uid,
+  uid: Uid | null,
+  vePath: VisualElementPath | null
 };
 
 interface PageBreadcrumb {

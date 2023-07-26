@@ -26,7 +26,7 @@ import { EMPTY_ITEM, Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { createVisualElement } from "./visual-element";
+import { createVisualElement, getVeid, getVeidForItem, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -230,29 +230,39 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
 
   const currentPopupSpec = breadcrumbStore.getCurrentPopupSpec();
   if (currentPopupSpec != null) {
-    if (currentPopupSpec.type != PopupType.Page) { panic(); }
-    const popupLinkToPageId = currentPopupSpec.uid;
-    const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId);
-    li.id = POPUP_LINK_ID;
-    const widthGr = getPopupWidthGr(pageItem);
-    const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
-    li.spatialWidthGr = widthGr;
-    // assume center positioning.
-    li.spatialPositionGr = {
-      x: getPopupPositionGr(pageItem).x - widthGr / 2.0,
-      y: getPopupPositionGr(pageItem).y - heightGr / 2.0
-    };
-    visualElement.children.push(
-      arrangeItem_Desktop(
-        desktopStore,
-        li,
-        pageItem, // parent item
-        pageBoundsPx,
-        ves,
-        true, // render children as full
-        true, // parent is popup
-        true  // is popup
-      ));
+
+    // ** PAGE POPUP
+    if (currentPopupSpec.type == PopupType.Page) {
+      const popupLinkToPageId = currentPopupSpec.uid;
+      const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId!);
+      li.id = POPUP_LINK_ID;
+      const widthGr = getPopupWidthGr(pageItem);
+      const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
+      li.spatialWidthGr = widthGr;
+      // assume center positioning.
+      li.spatialPositionGr = {
+        x: getPopupPositionGr(pageItem).x - widthGr / 2.0,
+        y: getPopupPositionGr(pageItem).y - heightGr / 2.0
+      };
+      visualElement.children.push(
+        arrangeItem_Desktop(
+          desktopStore,
+          li,
+          pageItem, // parent item
+          pageBoundsPx,
+          ves,
+          true, // render children as full
+          false, // parent is popup
+          true  // is popup
+        ));
+
+    // ** ATTACHMENT POPUP
+    } else if (currentPopupSpec.type == PopupType.Attachment) {
+      // Ve created inline.
+
+    } else {
+      panic();
+    }
   }
 
   ves.set(visualElement);
@@ -267,9 +277,9 @@ const arrangeItem_Desktop = (
     parentSignal_underConstruction: VisualElementSignal, // used to establish back references only, not called.
     renderChildrenAsFull: boolean,
     parentIsPopup: boolean,
-    isPopup: boolean): VisualElementSignal => {
+    isPagePopup: boolean): VisualElementSignal => {
 
-  if (isPopup && !isLink(item)) { panic(); }
+  if (isPagePopup && !isLink(item)) { panic(); }
 
   const [canonicalItem, linkItemMaybe, spatialWidthGr] = calcCanonicalAndLinkItemMaybe(desktopStore, item);
 
@@ -291,7 +301,7 @@ const arrangeItem_Desktop = (
       zeroBoundingBoxTopLeft(parentPageBoundsPx),
       parentIsPopup,
       parentSignal_underConstruction,
-      isPopup, false);
+      isPagePopup, false);
   }
 
   if (isTable(canonicalItem) && (item.parentId == breadcrumbStore.topLevelPageId() || renderChildrenAsFull)) {
@@ -329,7 +339,7 @@ const arrangePageWithChildren_Desktop = (
     parentPageInnerBoundsPx: BoundingBox,
     parentIsPopup: boolean,
     parentSignal_underConstruction: VisualElementSignal,
-    isPopup: boolean,
+    isPagePopup: boolean,
     isRoot: boolean): VisualElementSignal => {
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
@@ -339,7 +349,7 @@ const arrangePageWithChildren_Desktop = (
   let boundsPx = geometry.boundsPx;
   let childAreaBoundsPx = geometry.boundsPx;
   let hitboxes = geometry.hitboxes;
-  if (isPopup) {
+  if (isPagePopup) {
     const spatialWidthBl = linkItemMaybe!.spatialWidthGr / GRID_SIZE;
     const widthPx = boundsPx.w;
     const blockWidthPx = widthPx / spatialWidthBl;
@@ -362,7 +372,7 @@ const arrangePageWithChildren_Desktop = (
     item: canonicalItem_page,
     linkItemMaybe,
     isDetailed: true,
-    isPopup,
+    isPagePopup: isPagePopup,
     isRoot,
     isDragOverPositioning: true,
     boundsPx,
@@ -379,7 +389,7 @@ const arrangePageWithChildren_Desktop = (
   } else {
     pageWithChildrenVisualElement.children = canonicalItem_page.computed_children.map(childId => {
       const childItem = itemStore.getItem(childId)!;
-      if (isPopup || isRoot) {
+      if (isPagePopup || isRoot) {
         return arrangeItem_Desktop(
           desktopStore,
           childItem,
@@ -387,7 +397,7 @@ const arrangePageWithChildren_Desktop = (
           pageWithChildrenVisualElement.childAreaBoundsPx!,
           pageWithChildrenVisualElementSignal,
           true,    // render children as full
-          isPopup, // parent is popup
+          isPagePopup, // parent is popup
           false    // is popup
         );
       } else {
@@ -401,12 +411,12 @@ const arrangePageWithChildren_Desktop = (
           }
         }
         return arrangeItemNoChildren_Desktop(
-          canonicalItem, linkItemMaybe, canonicalItem_page, innerBoundsPx, isPopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
+          canonicalItem, linkItemMaybe, canonicalItem_page, innerBoundsPx, isPagePopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
       }
     });
   }
 
-  arrangeItemAttachments(pageWithChildrenVisualElementSignal, parentPage.selectedAttachment);
+  arrangeItemAttachments(pageWithChildrenVisualElementSignal);
 
   return pageWithChildrenVisualElementSignal;
 }
@@ -541,7 +551,7 @@ const arrangeTable_Desktop = (
     return tableVeChildren;
   })();
 
-  arrangeItemAttachments(tableVisualElementSignal, parentPage.selectedAttachment);
+  arrangeItemAttachments(tableVisualElementSignal);
 
   return tableVisualElementSignal;
 }
@@ -598,7 +608,7 @@ const arrangeItemNoChildren_Desktop = (
   });
   const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
 
-  arrangeItemAttachments(itemVisualElementSignal, parentPage.selectedAttachment);
+  arrangeItemAttachments(itemVisualElementSignal);
 
   return itemVisualElementSignal;
 }
@@ -606,7 +616,6 @@ const arrangeItemNoChildren_Desktop = (
 
 function arrangeItemAttachments(
     itemVisualElementSignal: VisualElementSignal, // the item to arrange attachments on.
-    selectedAttachmentId: Uid | null,
   ) {
 
   const itemVisualElement = itemVisualElementSignal.get();
@@ -620,16 +629,27 @@ function arrangeItemAttachments(
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
     const attachmentItem = itemStore.getItem(attachmentId)!;
-    const attachmentGeometry = calcGeometryOfItem_Attachment(attachmentItem, itemBoundsPx, itemSizeBl, i, selectedAttachmentId == attachmentId && isPositionalItem(attachmentItem));
+
+    let isSelected = false;
+    const popupSpec = breadcrumbStore.getCurrentPopupSpec();
+    if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
+      const attachmentVeid = getVeidForItem(attachmentItem);
+      if (prependVeidToPath(attachmentVeid, visualElementToPath(itemVisualElement)) == popupSpec.vePath) {
+        isSelected = true;
+      }
+    }
+
+    const attachmentGeometry = calcGeometryOfItem_Attachment(attachmentItem, itemBoundsPx, itemSizeBl, i, isSelected);
     const attachmentVisualElement = createVisualElement({
       item: attachmentItem,
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parent: itemVisualElementSignal,
       isAttachment: true,
-      isDetailed: selectedAttachmentId == attachmentId
+      isDetailed: isSelected,
+      isAttachmentPopup: true,
     });
-    itemVisualElementSignal.get().attachments.push(createVisualElementSignal(attachmentVisualElement));
+    itemVisualElement.attachments.push(createVisualElementSignal(attachmentVisualElement));
   }
 }
 
@@ -723,9 +743,9 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
         pageItem,
         visualElement.parent!.get().childAreaBoundsPx!,
         visualElement.parent!,
-        visualElement.parent!.get().isPopup,
-        visualElement.parent!.get().isPopup,
-        visualElement.isPopup).get();
+        visualElement.parent!.get().isPagePopup,
+        visualElement.parent!.get().isPagePopup,
+        visualElement.isPagePopup).get();
       visualElementSignal.set(rearrangedVisualElement);
     } else {
       // TODO (HIGH)
@@ -745,11 +765,15 @@ function rearrangeAttachment(visualElementSignal: VisualElementSignal) {
     }
   }
   if (index == -1) { panic(); }
-  const parentParentVisualElement = parentVisualElement.parent!.get();
-  const pageItem = asPageItem(parentParentVisualElement.item);
-
   if (!visualElement.isInsideTable) {
-    const isSelected = pageItem.selectedAttachment == visualElement.item.id;
+    let isSelected = false;
+    const popupSpec = breadcrumbStore.getCurrentPopupSpec();
+    if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
+      if (visualElementToPath(visualElement) == popupSpec.vePath) {
+        isSelected = true;
+        console.log("selected!");
+      }
+    }
     const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.item);
     const attachmentGeometry = calcGeometryOfItem_Attachment(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, isSelected);
     const attachmentVisualElement = createVisualElement({

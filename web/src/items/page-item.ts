@@ -52,7 +52,6 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   scrollYPx: NumberSignal;
 
   selectedItem: Uid;
-  selectedAttachment: Uid;
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
@@ -103,7 +102,6 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
     selectedItem: EMPTY_UID,
-    selectedAttachment: EMPTY_UID,
     pendingPopupPositionGr: null,
     pendingPopupWidthGr: null,
     pendingPopupAlignmentPoint: null,
@@ -145,7 +143,6 @@ export function pageFromObject(o: any): PageItem {
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
     selectedItem: EMPTY_UID,
-    selectedAttachment: EMPTY_UID,
     pendingPopupPositionGr: null,
     pendingPopupWidthGr: null,
     pendingPopupAlignmentPoint: null,
@@ -329,10 +326,10 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
   if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
-  } else if (visualElement.parent!.get().isPopup) {
-    breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.item.id });
+  } else if (visualElement.parent!.get().isPagePopup) {
+    breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
   } else {
-    breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id });
+    breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
   }
   arrange(desktopStore); // TODO (LOW): no need to arrange entire page.
 }

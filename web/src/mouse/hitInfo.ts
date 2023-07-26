@@ -19,7 +19,7 @@
 import { asPageItem, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
-import { VisualElement, getVeUids } from "../layout/visual-element";
+import { VisualElement, getVeid } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
@@ -67,7 +67,7 @@ export function getHitInfo(
 
     const overVeParent = overVe.parent!.get();
     assert(isPage(overVe.parent!.get().item), "the parent of a non-container item not in page is not a page.");
-    assert(overVe.parent!.get().isDragOverPositioning, "the parent of a non-container does not allow drag in positioning.");
+    assert(overVe.parent!.get().isDragOverPositioning, `the parent '${overVe.parent!.get().item.id}' of a non-container does not allow drag in positioning.`);
     if (isPage(overVe.item)) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVeParent };
     }
@@ -85,7 +85,7 @@ export function getHitInfo(
   if (topLevelVisualElement.children.length > 0) {
     // The visual element of the popup or selected list item, if there is one, is always the last of the children.
     const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
-    if (newRootVeMaybe.isPopup &&
+    if (newRootVeMaybe.isPagePopup &&
         isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
@@ -171,7 +171,7 @@ export function getHitInfo(
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x,
-            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(getVeUids(tableVisualElement)) * tableBlockHeightPx }
+            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(getVeid(tableVisualElement)) * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;

@@ -27,6 +27,7 @@ import { ITEM_TYPE_PLACEHOLDER, Item, ItemTypeMixin } from "./base/item";
 export interface PlaceholderItem extends PlaceholderMeasurable, Item {}
 export interface PlaceholderMeasurable extends ItemTypeMixin {}
 
+
 export function newPlaceholderItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): PlaceholderItem {
   if (relationshipToParent != Attachment) { panic(); }
   if (parentId == EMPTY_UID) { panic(); }

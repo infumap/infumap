@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopSt
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeUids, itemIdAndLinkIdMaybeFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, getVeid, itemIdAndLinkIdMaybeFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -44,7 +44,7 @@ import { updateHref } from "../util/browser";
 import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemStore } from "../store/ItemStore";
-import { breadcrumbStore } from "../store/BreadcrumbStore";
+import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 import { mouseMoveStore } from "../store/MouseMoveStore";
 
 
@@ -128,11 +128,9 @@ export function mouseLeftDownHandler(
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
-    if (hitInfo.overElementVes.get().isPopup) {
-      asPageItem(desktopStore.topLevelVisualElement().item).selectedAttachment = EMPTY_UID;
+    if (hitInfo.overElementVes.get().isPagePopup) {
       switchToPage(desktopStore, hitInfo.overElementVes.get().item.id);
     } else {
-      asPageItem(hitInfo.overElementVes.get().item).selectedAttachment = EMPTY_UID;
       arrange(desktopStore);
     }
     mouseActionState = null;
@@ -147,7 +145,7 @@ export function mouseLeftDownHandler(
     ? itemStore.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
     : itemStore.getItem(hitInfo.overElementVes.get().item.id)!;
   let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get())
-  const onePxSizeBl = hitInfo.overElementVes.get().isPopup
+  const onePxSizeBl = hitInfo.overElementVes.get().isPagePopup
     ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
         y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h }
     : { x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
@@ -158,7 +156,7 @@ export function mouseLeftDownHandler(
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(desktopStore, activeItem);
   mouseActionState = {
-    activeRoot: visualElementToPath(hitInfo.rootVe.isPopup ? hitInfo.rootVe.parent!.get() : hitInfo.rootVe),
+    activeRoot: visualElementToPath(hitInfo.rootVe.isPagePopup ? hitInfo.rootVe.parent!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -218,13 +216,6 @@ export function mouseRightDownHandler(
   if (desktopStore.editDialogInfo() != null) {
     desktopStore.setEditDialogInfo(null);
     mouseMoveNoButtonDownHandler(desktopStore);
-    return;
-  }
-
-  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], true);
-  if (asPageItem(hitInfo.rootVe.item).selectedAttachment != EMPTY_UID) {
-    asPageItem(hitInfo.rootVe.item).selectedAttachment = EMPTY_UID;
-    arrange(desktopStore);
     return;
   }
 
@@ -288,7 +279,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
       if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
         mouseActionState.startPosBl = null;
-        if (activeVisualElement.isPopup) {
+        if (activeVisualElement.isPagePopup) {
           mouseActionState.startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
           mouseActionState.startHeightBl = null;
           mouseActionState.action = MouseAction.ResizingPopup;
@@ -307,7 +298,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         mouseActionState.startWidthBl = null;
         mouseActionState.startHeightBl = null;
-        if (activeVisualElement.isPopup) {
+        if (activeVisualElement.isPagePopup) {
           mouseActionState.action = MouseAction.MovingPopup;
           const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item;
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
@@ -506,13 +497,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   }
 
   if ((overElementVes!.get().item.id != breadcrumbStore.topLevelPageId()) &&
-      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOver.get() &&
+      !overElementVes.get().isPagePopup && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
   if ((overElementVes!.get().item.id != breadcrumbStore.topLevelPageId()) &&
-      !overElementVes.get().isPopup && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      !overElementVes.get().isPagePopup && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
       overElementVes!.get().mouseIsOverOpenPopup.set(true);
@@ -560,7 +551,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
-  const yScrollPos = desktopStore.getTableScrollYPos(getVeUids(overContainerVe));
+  const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
   let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
@@ -659,7 +650,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   const tableItem = asTableItem(tableVisualElement.item);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(getVeUids(tableVisualElement)) * tableBlockHeightPx;
+  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(getVeid(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = activeVisualElement.parent!.get();
   const tableParentVe = tableVe.parent!.get();
   const tableParentVisualPathString = visualElementToPath(tableVe.parent!.get());
@@ -756,7 +747,7 @@ export function mouseUpHandler(
         handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.OpenAttachment) {
-        handleAttachmentClick(activeVisualElement, desktopStore, userStore);
+        handleAttachmentClick(activeVisualElement, userStore);
         arrange(desktopStore);
       }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Click) {
@@ -771,9 +762,13 @@ export function mouseUpHandler(
   mouseActionState = null;
 }
 
-function handleAttachmentClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel) {
+function handleAttachmentClick(visualElement: VisualElement, _userStore: UserStoreContextModel) {
   const page = asPageItem(visualElement.parent!.get().parent!.get().item);
-  page.selectedAttachment = visualElement.item.id;
+  breadcrumbStore.replacePopup({
+    type: PopupType.Attachment,
+    uid: null,
+    vePath: visualElementToPath(visualElement)
+  })
 }
 
 function mouseUpHandler_moving(
@@ -948,7 +943,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
 
   const tableItem = asTableItem(overContainerVe.item);
   let rowNumber = overContainerVe.moveOverRowNumber.get() - HEADER_HEIGHT_BL + (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
-  const yScrollPos = desktopStore.getTableScrollYPos(getVeUids(overContainerVe));
+  const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];

@@ -20,7 +20,7 @@ import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../util/geometry"
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
-import { LinkItem } from "../items/link-item";
+import { LinkItem, asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
@@ -29,17 +29,24 @@ import { isTable } from "../items/table-item";
 
 export type VisualElementPath = string;
 
-export type VisualElementUids = {
+/**
+ * Uniquely identifies a visual element.
+ */
+export type Veid = {
+  // The item to be visually depicted. If the VisualElement corresponds to a link item, "item" is the
+  // linked-to item unless this is invalid or unknown, in which case "item" is the link item.
   itemId: Uid,
+
+  // If the visual element corresponds to a link item, a reference to that.
   linkIdMaybe: Uid | null
 }
 
 
+/**
+ * Describes a
+ */
 export interface VisualElement {
-  // The item to be visually depicted. If the VisualElement corresponds to a link item, "item" is the
-  // linked-to item unless this is invalid or unknown, in which case "item" is the link item.
   item: Item,
-  // If the visual element corresponds to a link item, a reference to that.
   linkItemMaybe: LinkItem | null,
 
   // If set, the element is currently being resized, and these were the original bounds.
@@ -48,8 +55,9 @@ export interface VisualElement {
   isSelected: boolean,             // the item is selected.
   isLineItem: boolean,             // render as a line item (like in a table), not deskop item.
   isDetailed: boolean,             // the visual element has detail / can be interacted with.
-  isPopup: boolean,                // the visual element is a popup (and thus also a page).
-  isRoot: boolean                  // render as a root level page (popup, list page, top level page).
+  isPagePopup: boolean,            // the visual element is a popped up page.
+  isAttachmentPopup: boolean,      // the visual element is an attachment that is popped up (could be a page).
+  isRoot: boolean,                 // render as a root level page (popup, list page, top level page).
   isInsideTable: boolean,          // the visual element is inside a table.
   isAttachment: boolean,           // the visual element is an attachment.
   isDragOverPositioning: boolean,  // an item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
@@ -90,7 +98,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   isSelected: false,
   isLineItem: false,
   isDetailed: false,
-  isPopup: false,
+  isPagePopup: false,
+  isAttachmentPopup: false,
   isRoot: false,
   isInsideTable: false,
   isAttachment: false,
@@ -119,7 +128,8 @@ export interface VisualElementOverride {
   linkItemMaybe?: LinkItem | null,
   isSelected?: boolean,
   isLineItem?: boolean,
-  isPopup?: boolean,
+  isPagePopup?: boolean,
+  isAttachmentPopup?: boolean,
   isRoot?: boolean,
   isDetailed?: boolean,
   isInsideTable?: boolean
@@ -145,7 +155,8 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     isSelected: false,
     isLineItem: false,
     isDetailed: false,
-    isPopup: false,
+    isPagePopup: false,
+    isAttachmentPopup: false,
     isRoot: false,
     isInsideTable: false,
     isAttachment: false,
@@ -172,7 +183,8 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   result.item = override.item;
 
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
-  if (typeof(override.isPopup) != 'undefined') { result.isPopup = override.isPopup; }
+  if (typeof(override.isPagePopup) != 'undefined') { result.isPagePopup = override.isPagePopup; }
+  if (typeof(override.isAttachmentPopup) != 'undefined') { result.isAttachmentPopup = override.isAttachmentPopup; }
   if (typeof(override.isRoot) != 'undefined') { result.isRoot = override.isRoot; }
   if (typeof(override.isSelected) != 'undefined') { result.isSelected = override.isSelected; }
   if (typeof(override.isLineItem) != 'undefined') { result.isLineItem = override.isLineItem; }
@@ -199,13 +211,53 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   return result;
 }
 
-export function getVeUids(visualElement: VisualElement): VisualElementUids {
+export function getVeid(visualElement: VisualElement): Veid {
   return ({
     itemId: visualElement.item.id,
     linkIdMaybe: visualElement.linkItemMaybe == null ? null : visualElement.linkItemMaybe.id
   });
 }
 
+/**
+ * Deterine the Veid for a given item.
+ * If the item is not a link, this is easy.
+ * If it is a link, then ...
+ */
+export function getVeidForItem(item: Item): Veid {
+  console.log("TODO: this is not correct - consolidate with calcCanonicalAndLinkItemMaybe for this instead.");
+  if (isLink(item)) {
+    const li = asLinkItem(item);
+    if (getLinkToId(li) == EMPTY_UID) {
+      return ({
+        itemId: li.id,
+        linkIdMaybe: li.id
+      });
+    }
+    return ({
+      itemId: getLinkToId(li),
+      linkIdMaybe: li.id
+    });
+  }
+  return ({
+    itemId: item.id,
+    linkIdMaybe: null
+  });
+}
+
+export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualElementPath {
+  let current = veid.itemId;
+  if (veid.linkIdMaybe != null) {
+    current += "[" + veid.linkIdMaybe! + "]";
+  }
+  current += "-";
+  current += path;
+  return current;
+}
+
+/**
+ * Create a string representing the hierarchical path of the visual element from the top level page.
+ * The veid of the visual element is at the beginninf of the string, that of the top level page at the end.
+ */
 export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
   function impl(visualElement: VisualElement, current: string): string {
     const ve = visualElement;
