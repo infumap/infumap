@@ -604,17 +604,14 @@ const arrangeItemNoChildren_Desktop = (
 }
 
 
-function arrangeItemAttachments(
-    itemVisualElementSignal: VisualElementSignal, // the item to arrange attachments on.
-  ) {
-
+function arrangeItemAttachments(itemVisualElementSignal: VisualElementSignal) {
   const itemVisualElement = itemVisualElementSignal.get();
   if (!isAttachmentsItem(itemVisualElement.item)) {
     return;
   }
 
   const itemBoundsPx = itemVisualElement.boundsPx;
-  const itemSizeBl = calcSizeForSpatialBl(itemVisualElement.item);
+  const itemSizeBl = calcSizeForSpatialBl(itemVisualElement.linkItemMaybe == null ? itemVisualElement.item : itemVisualElement.linkItemMaybe);
   const attachmentsItem = asAttachmentsItem(itemVisualElement.item);
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
