@@ -253,17 +253,17 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == breadcrumbStore.topLevelPageId() || rootFlagSet(props.visualElement)}>
+      <Show when={pageItem().id == breadcrumbStore.currentPage() || rootFlagSet(props.visualElement)}>
         {drawAsFull()}
       </Show>
       <Show when={!detailedFlagSet(props.visualElement) ||
-                  (!rootFlagSet(props.visualElement) && !pagePopupFlagSet(props.visualElement) && pageItem().id != breadcrumbStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!rootFlagSet(props.visualElement) && !pagePopupFlagSet(props.visualElement) && pageItem().id != breadcrumbStore.currentPage() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!rootFlagSet(props.visualElement) &&
                   !pagePopupFlagSet(props.visualElement) &&
                   detailedFlagSet(props.visualElement) &&
-                  pageItem().id != breadcrumbStore.topLevelPageId() &&
+                  pageItem().id != breadcrumbStore.currentPage() &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>

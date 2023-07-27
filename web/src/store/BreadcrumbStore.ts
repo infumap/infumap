@@ -45,18 +45,18 @@ export const breadcrumbStore = {
   },
 
 
-  pushTopLevelPageId: (uid: Uid): void => {
+  pushPage: (uid: Uid): void => {
     breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
   },
 
-  popTopLevelPageId: (): void => {
+  popPage: (): void => {
     if (breadcrumbs.length <= 1) {
       return;
     }
     breadcrumbs.pop();
   },
 
-  topLevelPageId: (): Uid | null => {
+  currentPage: (): Uid | null => {
     if (breadcrumbs.length == 0) {
       return null;
     }
@@ -88,7 +88,7 @@ export const breadcrumbStore = {
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
   },
 
-  getCurrentPopupSpec: (): PopupSpec | null => {
+  currentPopupSpec: (): PopupSpec | null => {
     if (breadcrumbs.length == 0) {
       panic();
     }
@@ -97,5 +97,18 @@ export const breadcrumbStore = {
     }
     const lastBreadcrumbPopups = breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs;
     return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
+  },
+
+
+  logStateToConsole: () => {
+    console.log("*** breadcrumb store state, most recent last:");
+    for (let i=0; i<breadcrumbs.length; ++i) {
+      let line = breadcrumbs[i].pageId + ": ";
+      for (let j=0; j<breadcrumbs[i].popupBreadcrumbs.length; ++j) {
+        let pbc = breadcrumbs[i].popupBreadcrumbs[j];
+        line += pbc.type + " " + pbc.uid + " " + pbc.vePath + " ||| ";
+      }
+      console.log(line);
+    }
   }
 }

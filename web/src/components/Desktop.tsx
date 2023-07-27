@@ -151,7 +151,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
-    let pageItem = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
+    let pageItem = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!)!);
     pageItem.scrollYPx.set(desktopDiv!.scrollTop);
     pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
   }

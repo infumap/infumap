@@ -331,7 +331,7 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
   } else {
     breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
   }
-  arrange(desktopStore); // TODO (LOW): no need to arrange entire page.
+  arrange(desktopStore);
 }
 
 

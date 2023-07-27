@@ -17,15 +17,14 @@
 */
 
 import { breadcrumbStore } from "../store/BreadcrumbStore";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemStore } from "../store/ItemStore";
 import { EMPTY_UID } from "./uid";
 
 
-export function updateHref(desktopStore: DesktopStoreContextModel) {
-  if (itemStore.getItem(breadcrumbStore.topLevelPageId()!)?.parentId == EMPTY_UID) {
+export function updateHref() {
+  if (itemStore.getItem(breadcrumbStore.currentPage()!)?.parentId == EMPTY_UID) {
     window.history.replaceState(null, "", "/"); 
   } else {
-    window.history.replaceState(null, "", `/${breadcrumbStore.topLevelPageId()}`);
+    window.history.replaceState(null, "", `/${breadcrumbStore.currentPage()}`);
   }
 }

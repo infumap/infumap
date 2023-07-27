@@ -92,7 +92,7 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
     ev: MouseEvent) {
-  if (breadcrumbStore.topLevelPageId() == null) { return; }
+  if (breadcrumbStore.currentPage() == null) { return; }
   if (ev.button == MOUSE_LEFT) {
     mouseLeftDownHandler(desktopStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
@@ -205,7 +205,7 @@ function calcStartTableAttachmentsItemMaybe(desktopStore: DesktopStoreContextMod
 // **** RIGHT DOWN ****
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    ev: MouseEvent) {
+    _ev: MouseEvent) {
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
@@ -219,27 +219,25 @@ export function mouseRightDownHandler(
     return;
   }
 
-  if (breadcrumbStore.getCurrentPopupSpec() != null) {
+  if (breadcrumbStore.currentPopupSpec() != null) {
     breadcrumbStore.popPopup();
-    if (breadcrumbStore.getCurrentPopupSpec == null) {
-      const page = asPageItem(itemStore.getItem(breadcrumbStore.topLevelPageId()!)!);
-      page.pendingPopupAlignmentPoint = null;
-      page.pendingPopupPositionGr = null;
-      page.pendingPopupWidthGr = null;
-    }
+    const page = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!)!);
+    page.pendingPopupAlignmentPoint = null;
+    page.pendingPopupPositionGr = null;
+    page.pendingPopupWidthGr = null;
     arrange(desktopStore);
     return;
   }
 
-  breadcrumbStore.popTopLevelPageId();
-  updateHref(desktopStore);
+  breadcrumbStore.popPage();
+  updateHref();
   arrange(desktopStore);
 }
 
 
 // **** MOVE ****
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
-  if (breadcrumbStore.topLevelPageId() == null) { return; }
+  if (breadcrumbStore.currentPage() == null) { return; }
 
   const ev = mouseMoveStore.lastMouseMoveEvent();
   const desktopPosPx = desktopPxFromMouseEvent(ev);
@@ -496,13 +494,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
     }
   }
 
-  if ((overElementVes!.get().item.id != breadcrumbStore.topLevelPageId()) &&
+  if ((overElementVes!.get().item.id != breadcrumbStore.currentPage()) &&
       !pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
-  if ((overElementVes!.get().item.id != breadcrumbStore.topLevelPageId()) &&
+  if ((overElementVes!.get().item.id != breadcrumbStore.currentPage()) &&
       ! pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
