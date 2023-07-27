@@ -34,6 +34,7 @@ import { HitInfo } from "../../mouse/hitInfo";
 import { newLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { itemStore } from "../../store/ItemStore";
+import { dragOverPositioningFlagSet, insideTableFlagSet } from "../../layout/visual-element";
 
 
 type ContexMenuProps = {
@@ -53,12 +54,12 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   const newItemInContext = (type: string) => {
     const overElementVe = props.hitInfo.overElementVes.get();
-    if (overElementVe.isInsideTable) {
+    if (insideTableFlagSet(overElementVe)) {
       const attachmentNumber = props.hitInfo.overElementVes.get();
       console.log(attachmentNumber);
 
       panic();
-    } else if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
+    } else if (isPage(overElementVe.item) && dragOverPositioningFlagSet(overElementVe)) {
 
     } else {
       console.log("unsupported add position");
@@ -103,7 +104,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       panic();
     }
 
-    if (isPage(overElementVe.item) && overElementVe.isDragOverPositioning) {
+    if (isPage(overElementVe.item) && dragOverPositioningFlagSet(overElementVe)) {
       newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.item), props.desktopPosPx);
       server.addItem(newItem, null);
       itemStore.addItem(newItem);

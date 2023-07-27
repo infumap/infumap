@@ -26,7 +26,7 @@ import { EMPTY_ITEM, Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { createVisualElement, getVeid, getVeidForItem, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
+import { VisualElementFlags, attachmentFlagSet, createVisualElement, getVeid, getVeidForItem, insideTableFlagSet, pagePopupFlagSet, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -38,7 +38,6 @@ import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFr
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
-import { isPositionalItem } from "../items/base/positional-item";
 import { HitboxType, createHitbox } from "./hitbox";
 import { itemStore } from "../store/ItemStore";
 import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
@@ -114,8 +113,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElement = createVisualElement({
     item: currentPage,
-    isDetailed: true,
-    isDragOverPositioning: true,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
   });
@@ -132,9 +130,9 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 
       const listItemVe = createVisualElement({
         item: childItem,
-        isSelected: currentPage.selectedItem == childId,
-        isLineItem: true,
-        isDetailed: true,
+        flags: VisualElementFlags.LineItem |
+               VisualElementFlags.Detailed |
+               (currentPage.selectedItem == childId ? VisualElementFlags.Selected : VisualElementFlags.None),
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         parent: desktopStore.topLevelVisualElementSignal(),
@@ -210,8 +208,7 @@ const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel)
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoundsPx: BoundingBox, pageItem: PageItem, ves: VisualElementSignal) => {
   const visualElement = createVisualElement({
     item: pageItem,
-    isDetailed: true,
-    isDragOverPositioning: true,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: pageBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
   });
@@ -371,10 +368,9 @@ const arrangePageWithChildren_Desktop = (
   const pageWithChildrenVisualElement = createVisualElement({
     item: canonicalItem_page,
     linkItemMaybe,
-    isDetailed: true,
-    isPagePopup: isPagePopup,
-    isRoot,
-    isDragOverPositioning: true,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
+           (isPagePopup ? VisualElementFlags.PagePopup : VisualElementFlags.None) |
+           (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
     boundsPx,
     childAreaBoundsPx,
     hitboxes,
@@ -451,7 +447,7 @@ const arrangeTable_Desktop = (
   const tableVisualElement = createVisualElement({
     item: canonicalItem_Table,
     linkItemMaybe,
-    isDetailed: true,
+    flags: VisualElementFlags.Detailed,
     boundsPx: geometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: geometry.hitboxes,
@@ -477,9 +473,7 @@ const arrangeTable_Desktop = (
       const tableItemVe = createVisualElement({
         item: canonicalItem,
         linkItemMaybe,
-        isLineItem: true,
-        isDetailed: true,
-        isInsideTable: true,
+        flags: VisualElementFlags.LineItem | VisualElementFlags.Detailed | VisualElementFlags.InsideTable,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         parent: tableVisualElementSignal,
@@ -511,9 +505,7 @@ const arrangeTable_Desktop = (
           const tableItemAttachmentVe = createVisualElement({
             item: canonicalItem,
             linkItemMaybe,
-            isDetailed: true,
-            isInsideTable: true,
-            isAttachment: true,
+            flags: VisualElementFlags.Detailed | VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
             boundsPx: geometry.boundsPx,
             hitboxes: geometry.hitboxes,
             col: i + 1,
@@ -533,9 +525,7 @@ const arrangeTable_Desktop = (
           const geometry = calcGeometryOfItem_ListItem(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl);
           const tableItemAttachmentVe = createVisualElement({
             item: EMPTY_ITEM,
-            isDetailed: false,
-            isInsideTable: true,
-            isAttachment: true,
+            flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
             boundsPx: geometry.boundsPx,
             hitboxes: geometry.hitboxes,
             col: i + 1,
@@ -601,7 +591,7 @@ const arrangeItemNoChildren_Desktop = (
   const itemVisualElement = createVisualElement({
     item: canonicalItem != null ? canonicalItem : linkItemMaybe!,
     linkItemMaybe,
-    isDetailed: renderStyle != RenderStyle.Outline,
+    flags: (renderStyle != RenderStyle.Outline ? VisualElementFlags.Detailed : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,
     parent: parentSignal_underConstruction,
@@ -645,9 +635,8 @@ function arrangeItemAttachments(
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parent: itemVisualElementSignal,
-      isAttachment: true,
-      isDetailed: isSelected,
-      isAttachmentPopup: true,
+      flags: VisualElementFlags.Attachment |
+             (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None),
     });
     itemVisualElement.attachments.push(createVisualElementSignal(attachmentVisualElement));
   }
@@ -672,8 +661,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const topLevelVisualElement = createVisualElement({
     item: currentPage,
-    isDetailed: true,
-    isDragOverPositioning: true,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
   });
@@ -694,7 +682,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     if (!isTable(item)) {
       const ve = createVisualElement({
         item: item,
-        isDetailed: true,
+        flags: VisualElementFlags.Detailed,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         parent: desktopStore.topLevelVisualElementSignal(),
@@ -713,7 +701,7 @@ export const rearrangeVisualElementsWithItemId = (desktopStore: DesktopStoreCont
   visualElementsWithItemId(desktopStore, id).forEach(ve => {
     const parentIsDesktopPage =
       ve.get().parent == null ||
-      (isPage(ve.get().parent!.get().item) && !ve.get().isAttachment);
+      (isPage(ve.get().parent!.get().item) && !attachmentFlagSet(ve.get()));
     if (parentIsDesktopPage) {
       rearrangeVisualElement(desktopStore, ve);
     } else {
@@ -729,7 +717,7 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
     return;
   }
 
-  if (visualElement.isAttachment) {
+  if (attachmentFlagSet(visualElement)) {
     rearrangeAttachment(visualElementSignal);
   } else {
     const item = visualElement.linkItemMaybe != null
@@ -743,9 +731,9 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
         pageItem,
         visualElement.parent!.get().childAreaBoundsPx!,
         visualElement.parent!,
-        visualElement.parent!.get().isPagePopup,
-        visualElement.parent!.get().isPagePopup,
-        visualElement.isPagePopup).get();
+        pagePopupFlagSet(visualElement.parent!.get()),
+        pagePopupFlagSet(visualElement.parent!.get()),
+        pagePopupFlagSet(visualElement)).get();
       visualElementSignal.set(rearrangedVisualElement);
     } else {
       // TODO (HIGH)
@@ -765,7 +753,7 @@ function rearrangeAttachment(visualElementSignal: VisualElementSignal) {
     }
   }
   if (index == -1) { panic(); }
-  if (!visualElement.isInsideTable) {
+  if (!insideTableFlagSet(visualElement)) {
     let isSelected = false;
     const popupSpec = breadcrumbStore.getCurrentPopupSpec();
     if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
@@ -781,8 +769,8 @@ function rearrangeAttachment(visualElementSignal: VisualElementSignal) {
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parent: visualElement.parent!,
-      isAttachment: true,
-      isDetailed: isSelected,
+      flags: VisualElementFlags.Attachment |
+             (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None)
     });
     visualElementSignal.set(attachmentVisualElement);
   } else {

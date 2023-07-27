@@ -27,52 +27,104 @@ import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
 
 
+/**
+ * Uniquely identifies a visual element and it's hierarchical context on screen.
+ */
 export type VisualElementPath = string;
 
+
 /**
- * Uniquely identifies a visual element.
+ * Uniquely identifies a visual element (without hierarchical context).
  */
 export type Veid = {
-  // The item to be visually depicted. If the VisualElement corresponds to a link item, "item" is the
-  // linked-to item unless this is invalid or unknown, in which case "item" is the link item.
+  /**
+   * The item to be visually depicted. If the VisualElement corresponds to a link item, itemId is the
+   * linked-to item unless this is invalid or unknown, in which case itemId is the link item itself.
+   */
   itemId: Uid,
 
-  // If the visual element corresponds to a link item, a reference to that.
+  /**
+   * If the visual element corresponds to a link item, a reference to that.
+   */
   linkIdMaybe: Uid | null
 }
 
 
+export enum VisualElementFlags {
+  None                 = 0x000,
+  Selected             = 0x001, // The item is selected.
+  LineItem             = 0x002, // Render as a line item (like in a table), not deskop item.
+  Detailed             = 0x004, // The visual element has detail / can be interacted with.
+  PagePopup            = 0x008, // The visual element is a popped up page.
+  Root                 = 0x010, // Render as a root level page (popup, list page, top level page).
+  InsideTable          = 0x020, // The visual element is inside a table.
+  Attachment           = 0x040, // The visual element is an attachment.
+  DragOverPositioning  = 0x080, // An item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
+}
+
+export function selectedFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.Selected) == VisualElementFlags.Selected;
+}
+
+export function lineItemFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.LineItem) == VisualElementFlags.LineItem;
+}
+
+export function detailedFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.Detailed) == VisualElementFlags.Detailed;
+}
+
+export function pagePopupFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.PagePopup) == VisualElementFlags.PagePopup;
+}
+
+export function rootFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.Root) == VisualElementFlags.Root;
+}
+
+export function insideTableFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.InsideTable) == VisualElementFlags.InsideTable;
+}
+
+export function attachmentFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.Attachment) == VisualElementFlags.Attachment;
+}
+
+export function dragOverPositioningFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.DragOverPositioning) == VisualElementFlags.DragOverPositioning;
+}
+
+
 /**
- * Describes a
+ * Describes a visual element to be rendered.
  */
 export interface VisualElement {
+  /**
+   * The item to be visually depicted. If the VisualElement corresponds to a link item, 'item' is the
+   * linked-to item unless this is invalid or unknown, in which case 'item' is the link item itself.
+   */
   item: Item,
+
+  /**
+   * If the visual element corresponds to a link item, a reference to that.
+   */
   linkItemMaybe: LinkItem | null,
+
+  flags: VisualElementFlags,
 
   // If set, the element is currently being resized, and these were the original bounds.
   resizingFromBoundsPx: BoundingBox | null,
-
-  isSelected: boolean,             // the item is selected.
-  isLineItem: boolean,             // render as a line item (like in a table), not deskop item.
-  isDetailed: boolean,             // the visual element has detail / can be interacted with.
-  isPagePopup: boolean,            // the visual element is a popped up page.
-  isAttachmentPopup: boolean,      // the visual element is an attachment that is popped up (could be a page).
-  isRoot: boolean,                 // render as a root level page (popup, list page, top level page).
-  isInsideTable: boolean,          // the visual element is inside a table.
-  isAttachment: boolean,           // the visual element is an attachment.
-  isDragOverPositioning: boolean,  // an item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
 
   // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
   boundsPx: BoundingBox,
   childAreaBoundsPx: BoundingBox | null,
 
-  oneBlockWidthPx: number | null,  // for line items only.
+  oneBlockWidthPx: number | null,  // Set for line items only.
 
-  row: number | null,  // set only if inside table. the actual row number - i.e. not necessarily the visible row number.
-  col: number | null,  // set only if inside table.
+  row: number | null,  // Set only if inside table. the actual row number - i.e. not necessarily the visible row number.
+  col: number | null,  // Set only if inside table.
 
-  // higher index => higher precedence.
-  hitboxes: Array<Hitbox>,
+  hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
   children: Array<VisualElementSignal>,
   attachments: Array<VisualElementSignal>,
@@ -94,16 +146,8 @@ export interface VisualElement {
 export const NONE_VISUAL_ELEMENT: VisualElement = {
   item: EMPTY_ITEM,
   linkItemMaybe: null,
+  flags: VisualElementFlags.None,
   resizingFromBoundsPx: null,
-  isSelected: false,
-  isLineItem: false,
-  isDetailed: false,
-  isPagePopup: false,
-  isAttachmentPopup: false,
-  isRoot: false,
-  isInsideTable: false,
-  isAttachment: false,
-  isDragOverPositioning: false,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   oneBlockWidthPx: null,
@@ -126,15 +170,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 export interface VisualElementOverride {
   item: Item,
   linkItemMaybe?: LinkItem | null,
-  isSelected?: boolean,
-  isLineItem?: boolean,
-  isPagePopup?: boolean,
-  isAttachmentPopup?: boolean,
-  isRoot?: boolean,
-  isDetailed?: boolean,
-  isInsideTable?: boolean
-  isAttachment?: boolean,
-  isDragOverPositioning?: boolean,
+  flags?: VisualElementFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   oneBlockWidthPx?: number,
@@ -151,16 +187,8 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   let result: VisualElement = {
     item: EMPTY_ITEM,
     linkItemMaybe: null,
+    flags: VisualElementFlags.None,
     resizingFromBoundsPx: null,
-    isSelected: false,
-    isLineItem: false,
-    isDetailed: false,
-    isPagePopup: false,
-    isAttachmentPopup: false,
-    isRoot: false,
-    isInsideTable: false,
-    isAttachment: false,
-    isDragOverPositioning: false,
     boundsPx: { x: 0, y: 0, w: 0, h: 0 },
     childAreaBoundsPx: null,
     oneBlockWidthPx: null,
@@ -183,15 +211,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   result.item = override.item;
 
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
-  if (typeof(override.isPagePopup) != 'undefined') { result.isPagePopup = override.isPagePopup; }
-  if (typeof(override.isAttachmentPopup) != 'undefined') { result.isAttachmentPopup = override.isAttachmentPopup; }
-  if (typeof(override.isRoot) != 'undefined') { result.isRoot = override.isRoot; }
-  if (typeof(override.isSelected) != 'undefined') { result.isSelected = override.isSelected; }
-  if (typeof(override.isLineItem) != 'undefined') { result.isLineItem = override.isLineItem; }
-  if (typeof(override.isDetailed) != 'undefined') { result.isDetailed = override.isDetailed; }
-  if (typeof(override.isInsideTable) != 'undefined') { result.isInsideTable = override.isInsideTable; }
-  if (typeof(override.isAttachment) != 'undefined') { result.isAttachment = override.isAttachment; }
-  if (typeof(override.isDragOverPositioning) != 'undefined') { result.isDragOverPositioning = override.isDragOverPositioning; }
+  if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
   if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
   if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
   if (typeof(override.oneBlockWidthPx) != 'undefined') { result.oneBlockWidthPx = override.oneBlockWidthPx; }
@@ -202,7 +222,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   if (typeof(override.children) != 'undefined') { result.children = override.children; }
   if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
 
-  if (isTable(result.item) && result.isDetailed && result.childAreaBoundsPx == null) {
+  if (isTable(result.item) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
     console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
     console.trace();
   }

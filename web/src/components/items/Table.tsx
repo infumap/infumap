@@ -25,7 +25,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { getVeid } from "../../layout/visual-element";
+import { detailedFlagSet, getVeid, lineItemFlagSet } from "../../layout/visual-element";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
@@ -105,12 +105,12 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 
   return (
     <>
-      <Show when={!props.visualElement.isDetailed}>
+      <Show when={!detailedFlagSet(props.visualElement)}>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; `}>
         </div>
       </Show>
-      <Show when={props.visualElement.isDetailed}>
+      <Show when={detailedFlagSet(props.visualElement)}>
         <div class="absolute"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="absolute font-bold"
@@ -227,7 +227,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
     }
 
     const drawChild = (child: VisualElementSignal) => {
-      if (!child.get().isLineItem) { panic(); }
+      if (!lineItemFlagSet(child.get())) { panic(); }
       return (
         <>
           <VisualElement_LineItem visualElement={child.get()} />

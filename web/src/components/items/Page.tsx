@@ -30,6 +30,7 @@ import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { breadcrumbStore } from "../../store/BreadcrumbStore";
 import { itemStore } from "../../store/ItemStore";
 import { server } from "../../server";
+import { detailedFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet, selectedFlagSet } from "../../layout/visual-element";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -77,7 +78,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
-        <Show when={props.visualElement.isDetailed}>
+        <Show when={detailedFlagSet(props.visualElement)}>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xs font-bold text-white"
                  style={`transform: scale(${opaqueTitleScale()}); transform-origin: center center;`}>
@@ -235,10 +236,10 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   const drawAsFull = () => {
     return (
-      <div class={`absolute ${props.visualElement.isRoot ? "border border-slate-700" : ""}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${props.visualElement.isRoot ? fullBgColorVal() : "#ffffff"}`}>
+      <div class={`absolute ${rootFlagSet(props.visualElement) ? "border border-slate-700" : ""}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${rootFlagSet(props.visualElement) ? fullBgColorVal() : "#ffffff"}`}>
         <For each={props.visualElement.children}>{childVe =>
-          childVe.get().isLineItem
+          lineItemFlagSet(childVe.get())
             ? <VisualElement_LineItem visualElement={childVe.get()} />
             : <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
@@ -252,21 +253,21 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == breadcrumbStore.topLevelPageId() || props.visualElement.isRoot}>
+      <Show when={pageItem().id == breadcrumbStore.topLevelPageId() || rootFlagSet(props.visualElement)}>
         {drawAsFull()}
       </Show>
-      <Show when={!props.visualElement.isDetailed ||
-                  (!props.visualElement.isRoot && !props.visualElement.isPagePopup && pageItem().id != breadcrumbStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+      <Show when={!detailedFlagSet(props.visualElement) ||
+                  (!rootFlagSet(props.visualElement) && !pagePopupFlagSet(props.visualElement) && pageItem().id != breadcrumbStore.topLevelPageId() && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!props.visualElement.isRoot &&
-                  !props.visualElement.isPagePopup &&
-                  props.visualElement.isDetailed &&
+      <Show when={!rootFlagSet(props.visualElement) &&
+                  !pagePopupFlagSet(props.visualElement) &&
+                  detailedFlagSet(props.visualElement) &&
                   pageItem().id != breadcrumbStore.topLevelPageId() &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
-      <Show when={props.visualElement.isPagePopup}>
+      <Show when={pagePopupFlagSet(props.visualElement)}>
         {drawAsPopup()}
       </Show>
     </>
@@ -309,7 +310,7 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
 
   return (
     <>
-      <Show when={props.visualElement.isSelected}>
+      <Show when={selectedFlagSet(props.visualElement)}>
         <div class="absolute bg-slate-200"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         </div>

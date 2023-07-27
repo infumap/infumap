@@ -32,7 +32,7 @@ import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../util/signals';
-import { VisualElement } from '../layout/visual-element';
+import { VisualElement, lineItemFlagSet, pagePopupFlagSet } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { itemStore } from '../store/ItemStore';
 import { PopupType, breadcrumbStore } from '../store/BreadcrumbStore';
@@ -310,7 +310,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = itemStore.getItem(visualElement.item.parentId)!
-  if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
     arrange(desktopStore);
@@ -323,10 +323,10 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = itemStore.getItem(visualElement.item.parentId)!;
-  if (visualElement.isLineItem && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
-  } else if (visualElement.parent!.get().isPagePopup) {
+  } else if (pagePopupFlagSet(visualElement.parent!.get())) {
     breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
   } else {
     breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });

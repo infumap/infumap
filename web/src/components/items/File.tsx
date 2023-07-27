@@ -23,7 +23,7 @@ import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_L
 import { BoundingBox } from "../../util/geometry";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { itemStore } from "../../store/ItemStore";
+import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
 
 
 export const File: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -54,7 +54,7 @@ export const File: Component<VisualElementProps_Desktop> = (props: VisualElement
   return (
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <Show when={props.visualElement.isDetailed}>
+      <Show when={detailedFlagSet(props.visualElement)}>
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
@@ -83,16 +83,16 @@ export const FileLineItem: Component<VisualElementProps_LineItem> = (props: Visu
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const leftPx = () => props.visualElement.isAttachment
+  const leftPx = () => attachmentFlagSet(props.visualElement)
     ? boundsPx().x
     : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => props.visualElement.isAttachment
+  const widthPx = () => attachmentFlagSet(props.visualElement)
     ? boundsPx().w
     : boundsPx().w - oneBlockWidthPx();
 
   return (
     <>
-      <Show when={!props.visualElement.isAttachment}>
+      <Show when={!attachmentFlagSet(props.visualElement)}>
         <div class="absolute text-center"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

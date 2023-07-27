@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopSt
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeid, itemIdAndLinkIdMaybeFromVisualElementPath, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, getVeid, itemIdAndLinkIdMaybeFromVisualElementPath, pagePopupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -128,7 +128,7 @@ export function mouseLeftDownHandler(
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
-    if (hitInfo.overElementVes.get().isPagePopup) {
+    if (pagePopupFlagSet(hitInfo.overElementVes.get())) {
       switchToPage(desktopStore, hitInfo.overElementVes.get().item.id);
     } else {
       arrange(desktopStore);
@@ -145,7 +145,7 @@ export function mouseLeftDownHandler(
     ? itemStore.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
     : itemStore.getItem(hitInfo.overElementVes.get().item.id)!;
   let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get())
-  const onePxSizeBl = hitInfo.overElementVes.get().isPagePopup
+  const onePxSizeBl = pagePopupFlagSet(hitInfo.overElementVes.get())
     ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
         y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h }
     : { x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
@@ -156,7 +156,7 @@ export function mouseLeftDownHandler(
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(desktopStore, activeItem);
   mouseActionState = {
-    activeRoot: visualElementToPath(hitInfo.rootVe.isPagePopup ? hitInfo.rootVe.parent!.get() : hitInfo.rootVe),
+    activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? hitInfo.rootVe.parent!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -279,7 +279,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
       if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
         mouseActionState.startPosBl = null;
-        if (activeVisualElement.isPagePopup) {
+        if (pagePopupFlagSet(activeVisualElement)) {
           mouseActionState.startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
           mouseActionState.startHeightBl = null;
           mouseActionState.action = MouseAction.ResizingPopup;
@@ -298,7 +298,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         mouseActionState.startWidthBl = null;
         mouseActionState.startHeightBl = null;
-        if (activeVisualElement.isPagePopup) {
+        if (pagePopupFlagSet(activeVisualElement)) {
           mouseActionState.action = MouseAction.MovingPopup;
           const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().item;
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
@@ -497,13 +497,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   }
 
   if ((overElementVes!.get().item.id != breadcrumbStore.topLevelPageId()) &&
-      !overElementVes.get().isPagePopup && !overElementVes.get().mouseIsOver.get() &&
+      !pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
   if ((overElementVes!.get().item.id != breadcrumbStore.topLevelPageId()) &&
-      !overElementVes.get().isPagePopup && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      ! pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
       overElementVes!.get().mouseIsOverOpenPopup.set(true);

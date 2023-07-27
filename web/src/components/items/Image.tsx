@@ -23,6 +23,7 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
+import { VisualElementFlags, detailedFlagSet } from "../../layout/visual-element";
 
 
 export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -41,7 +42,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   };
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
-  const isDetailed = () => { return props.visualElement.isDetailed; }
+  const isDetailed = () => { return detailedFlagSet(props.visualElement); }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
   const imgSrc = () => { return "/files/" + props.visualElement.item.id + "_" + imageWidthToRequestPx(true); }
   // const imgUrl = () => {
