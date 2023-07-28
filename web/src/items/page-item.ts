@@ -30,7 +30,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, currentVesCache, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement, lineItemFlagSet, pagePopupFlagSet } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
@@ -326,7 +326,7 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.item.id;
-  } else if (pagePopupFlagSet(visualElement.parent!.get())) {
+  } else if (pagePopupFlagSet(currentVesCache[visualElement.parentPath!].get())) {
     breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
   } else {
     breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
@@ -372,7 +372,7 @@ export function getPopupWidthGr(pageItem: PageItem): number {
 }
 
 
-export function popupChanged(pageItem: PageItem): boolean {
+export function popupPositioningHasChanged(pageItem: PageItem): boolean {
   if (pageItem.pendingPopupPositionGr != null) {
     if (pageItem.pendingPopupPositionGr!.x != pageItem.popupPositionGr.x ||
         pageItem.pendingPopupPositionGr!.y != pageItem.popupPositionGr.y) {

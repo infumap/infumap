@@ -18,6 +18,7 @@
 
 import { asPageItem, isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
+import { currentVesCache } from "../layout/arrange";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { VisualElement, dragOverPositioningFlagSet, getVeid, insideTableFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
@@ -46,28 +47,29 @@ export function getHitInfo(
   // calculate overContainerVe and overPositionableVe.
   function finalize(hitboxType: HitboxType, rootVe: VisualElement, overElementVes: VisualElementSignal, overElementMeta: HitboxMeta | null): HitInfo {
     const overVe = overElementVes.get();
+    const parentVe = overVe.parentPath!
     if (insideTableFlagSet(overVe)) {
-      assert(isTable(overVe.parent!.get().item), "a visual element marked as inside table, is not in fact inside a table.");
-      const parentTableVe = overVe.parent!.get();
-      const tableParentPageVe = parentTableVe.parent!.get();
+      assert(isTable(currentVesCache[overVe.parentPath!].get().item), "a visual element marked as inside table, is not in fact inside a table.");
+      const parentTableVe = currentVesCache[overVe.parentPath!].get();
+      const tableParentPageVe = currentVesCache[parentTableVe.parentPath!].get();
       assert(isPage(tableParentPageVe.item), "the parent of a table that has a visual element child, is not a page.");
       assert(dragOverPositioningFlagSet(tableParentPageVe), "page containing table is not marked as drag in positioning.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
     }
 
     if (isTable(overVe.item)) {
-      assert(isPage(overVe.parent!.get().item), "the parent of a table visual element that is not inside a table is not a page.");
-      assert(dragOverPositioningFlagSet(overVe.parent!.get()), "a page containing a table does not allow drag in positioning.");
-      return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe.parent!.get() };
+      assert(isPage(currentVesCache[overVe.parentPath!].get().item), "the parent of a table visual element that is not inside a table is not a page.");
+      assert(dragOverPositioningFlagSet(currentVesCache[overVe.parentPath!].get()), "a page containing a table does not allow drag in positioning.");
+      return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: currentVesCache[overVe.parentPath!].get() };
     }
 
     if (isPage(overVe.item) && dragOverPositioningFlagSet(overVe)) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe };
     }
 
-    const overVeParent = overVe.parent!.get();
-    assert(isPage(overVe.parent!.get().item), "the parent of a non-container item not in page is not a page.");
-    assert(dragOverPositioningFlagSet(overVe.parent!.get()), `the parent '${overVe.parent!.get().item.id}' of a non-container does not allow drag in positioning.`);
+    const overVeParent = currentVesCache[overVe.parentPath!].get();
+    assert(isPage(currentVesCache[overVe.parentPath!].get().item), "the parent of a non-container item not in page is not a page.");
+    assert(dragOverPositioningFlagSet(currentVesCache[overVe.parentPath!].get()), `the parent '${currentVesCache[overVe.parentPath!].get().item.id}' of a non-container does not allow drag in positioning.`);
     if (isPage(overVe.item)) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVeParent };
     }

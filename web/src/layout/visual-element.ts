@@ -25,6 +25,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
+import { currentVesCache } from "./arrange";
 
 
 /**
@@ -132,7 +133,7 @@ export interface VisualElement {
 
   children: Array<VisualElementSignal>,
   attachments: Array<VisualElementSignal>,
-  parent: VisualElementSignal | null,
+  parentPath: VisualElementPath | null,
 
   mouseIsOver: BooleanSignal,
   mouseIsOverOpenPopup: BooleanSignal,
@@ -160,7 +161,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   hitboxes: [],
   children: [],
   attachments: [],
-  parent: null,
+  parentPath: null,
 
   mouseIsOver: createBooleanSignal(false),
   mouseIsOverOpenPopup: createBooleanSignal(false),
@@ -181,7 +182,7 @@ export interface VisualElementOverride {
   col?: number,
   row?: number,
   hitboxes?: Array<Hitbox>,
-  parent?: VisualElementSignal,
+  parentPath?: VisualElementPath,
   children?: Array<VisualElementSignal>,
   attachments?: Array<VisualElementSignal>,
 }
@@ -201,7 +202,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     hitboxes: [],
     children: [],
     attachments: [],
-    parent: null,
+    parentPath: null,
 
     mouseIsOver: createBooleanSignal(false),
     mouseIsOverOpenPopup: createBooleanSignal(false),
@@ -222,7 +223,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   if (typeof(override.col) != 'undefined') { result.col = override.col; }
   if (typeof(override.row) != 'undefined') { result.row = override.row; }
   if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
-  if (typeof(override.parent) != 'undefined') { result.parent = override.parent; }
+  if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof(override.children) != 'undefined') { result.children = override.children; }
   if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
 
@@ -285,18 +286,16 @@ export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualEl
  * The veid of the visual element is at the beginninf of the string, that of the top level page at the end.
  */
 export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
-  function impl(visualElement: VisualElement, current: string): string {
-    const ve = visualElement;
-    if (current != "") { current += "-"; }
-    current += ve.item.id;
-    if (ve.linkItemMaybe != null) {
-      current += "[" + ve.linkItemMaybe!.id + "]";
-    }
-    if (ve.parent == null) { return current; }
-    return impl(ve.parent.get(), current);
+  let current = visualElement.item.id;
+  if (visualElement.linkItemMaybe != null) {
+    current += "[" + visualElement.linkItemMaybe!.id + "]";
   }
 
-  return impl(visualElement, "");
+  if (visualElement.parentPath == null) {
+    return current;
+  }
+
+  return current + "-" + visualElement.parentPath!;
 }
 
 export function visualElementSignalFromPath(
@@ -364,7 +363,7 @@ export function visualElementDesktopBoundsPx(visualElement: VisualElement): Boun
   let r = { x: 0, y: 0 };
   while (ve != null) {
     r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
-    ve = ve.parent == null ? null : ve.parent!.get();
+    ve = ve.parentPath == null ? null : currentVesCache[ve.parentPath!].get();
   }
   return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
 }

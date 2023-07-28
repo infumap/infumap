@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Show } from "solid-js";
-import { asPageItem, popupChanged } from "../../items/page-item";
+import { asPageItem, popupPositioningHasChanged } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
@@ -26,7 +26,7 @@ import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Deskt
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
-import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
+import { arrange, ARRANGE_ALGO_LIST, currentVesCache } from "../../layout/arrange";
 import { breadcrumbStore } from "../../store/BreadcrumbStore";
 import { itemStore } from "../../store/ItemStore";
 import { server } from "../../server";
@@ -37,6 +37,11 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const desktopStore = useDesktopStore();
 
   const pageItem = () => asPageItem(props.visualElement.item);
+  const parentPage = () => {
+    const veParentPath = props.visualElement.parentPath!;
+    const parentVe = currentVesCache[veParentPath].get();
+    return asPageItem(itemStore.getItem(parentVe.item.id)!);
+  };
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click || hb.type == HitboxType.OpenAttachment)!.boundsPx;
@@ -49,13 +54,13 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
     }
-  }
+  };
   const spatialWidthGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return props.visualElement.linkItemMaybe.spatialWidthGr;
     }
     return pageItem().spatialWidthGr;
-  }
+  };
 
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -185,7 +190,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   }
 
   const anchorPopup = () => {
-    const popupParentPage = asPageItem(itemStore.getItem(props.visualElement.parent!.get().item.id)!);
+    const popupParentPage = asPageItem(itemStore.getItem(currentVesCache[props.visualElement.parentPath!].get().item.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
       popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
     }
@@ -213,7 +218,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
             {pageItem().title}
           </div>
-          <Show when={popupChanged(asPageItem(itemStore.getItem(props.visualElement.parent!.get().item.id)!))}>
+          <Show when={popupPositioningHasChanged(parentPage())}>
             <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>
               <i class={`fa fa-anchor`} />
             </div>

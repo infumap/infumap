@@ -29,7 +29,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
 import { VisualElement, VisualElementPath, getVeid, itemIdAndLinkIdMaybeFromVisualElementPath, pagePopupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
-import { arrange, rearrangeVisualElement, switchToPage } from "../layout/arrange";
+import { arrange, currentVesCache, rearrangeVisualElement, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -156,7 +156,7 @@ export function mouseLeftDownHandler(
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(desktopStore, activeItem);
   mouseActionState = {
-    activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? hitInfo.rootVe.parent!.get() : hitInfo.rootVe),
+    activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? currentVesCache[hitInfo.rootVe.parentPath!].get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -617,7 +617,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 
   let done = false;
   findVisualElements(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
-    if (visualElementToPath(ve.get().parent!.get()) == moveToVisualPathString) {
+    if (ve.get().parentPath == moveToVisualPathString) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
@@ -643,15 +643,15 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get();
-  const tableVisualElement = activeVisualElement.parent!.get();
+  const tableVisualElement = currentVesCache[activeVisualElement.parentPath!].get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.item);
   const tableItem = asTableItem(tableVisualElement.item);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
   itemPosInTablePx.y -= desktopStore.getTableScrollYPos(getVeid(tableVisualElement)) * tableBlockHeightPx;
-  const tableVe = activeVisualElement.parent!.get();
-  const tableParentVe = tableVe.parent!.get();
-  const tableParentVisualPathString = visualElementToPath(tableVe.parent!.get());
+  const tableVe = currentVesCache[activeVisualElement.parentPath!].get();
+  const tableParentVe = currentVesCache[tableVe.parentPath!].get();
+  const tableParentVisualPathString = tableVe.parentPath!;
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = vectorAdd(tablePosInPagePx, itemPosInTablePx);
@@ -678,7 +678,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   let done = false;
   let otherVes = [];
   findVisualElements(desktopStore, activeVisualElement.item.id, activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id).forEach(ve => {
-    if (visualElementToPath(ve.get().parent!.get()) == tableParentVisualPathString) {
+    if (ve.get().parentPath == tableParentVisualPathString) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
@@ -761,7 +761,7 @@ export function mouseUpHandler(
 }
 
 function handleAttachmentClick(visualElement: VisualElement, _userStore: UserStoreContextModel) {
-  const page = asPageItem(visualElement.parent!.get().parent!.get().item);
+  const page = asPageItem(currentVesCache[currentVesCache[visualElement.parentPath!].get().parentPath!].get().item);
   breadcrumbStore.replacePopup({
     type: PopupType.Attachment,
     uid: null,
