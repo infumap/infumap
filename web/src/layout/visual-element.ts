@@ -49,6 +49,10 @@ export type Veid = {
   linkIdMaybe: Uid | null
 }
 
+export function createVeid(item: Item, linkMaybe: LinkItem | null) {
+  return ({ itemId: item.id, linkIdMaybe: linkMaybe ? linkMaybe.id : null });
+}
+
 
 export enum VisualElementFlags {
   None                 = 0x000,
@@ -269,7 +273,9 @@ export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualEl
   if (veid.linkIdMaybe != null) {
     current += "[" + veid.linkIdMaybe! + "]";
   }
-  current += "-";
+  if (path != "") {
+    current += "-";
+  }
   current += path;
   return current;
 }
@@ -378,4 +384,19 @@ function printRecursive(visualElement: VisualElement, level: number, relationshi
   for (let i=0; i<visualElement.attachments.length; ++i) {
     printRecursive(visualElement.attachments[i].get(), level + 1, "a");
   }
+}
+
+export type VesCache = { [path: VisualElementPath]: VisualElementSignal };
+
+export function createVesCache(ves: VisualElementSignal): VesCache {
+  const result = {};
+  cacheVesImpl(ves, result);
+  return result;
+}
+
+function cacheVesImpl(ves: VisualElementSignal, cached: VesCache) {
+  let ve = ves.get();
+  cached[visualElementToPath(ve)] = ves;
+  for (let i=0; i<ve.children.length; ++i) { cacheVesImpl(ve.children[i], cached); }
+  for (let i=0; i<ve.attachments.length; ++i) { cacheVesImpl(ve.attachments[i], cached); }
 }

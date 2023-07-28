@@ -26,7 +26,7 @@ import { EMPTY_ITEM, Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { VisualElementFlags, attachmentFlagSet, createVisualElement, getVeid, getVeidForItem, insideTableFlagSet, pagePopupFlagSet, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
+import { VesCache, VisualElement, VisualElementFlags, VisualElementOverride, VisualElementPath, attachmentFlagSet, createVeid, createVesCache, createVisualElement, getVeid, getVeidForItem, insideTableFlagSet, pagePopupFlagSet, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -202,10 +202,15 @@ const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel)
     return result;
   })();
 
-  arrange_spatialStretch(desktopStore, topLevelPageBoundsPx, currentPage, desktopStore.topLevelVisualElementSignal());
+  let vesCache = createVesCache(desktopStore.topLevelVisualElementSignal());
+  let currentPath = "";
+
+  arrange_spatialStretch(desktopStore, vesCache, currentPath, topLevelPageBoundsPx, currentPage, desktopStore.topLevelVisualElementSignal());
 }
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoundsPx: BoundingBox, pageItem: PageItem, ves: VisualElementSignal) => {
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, vesCache: VesCache, parentPath: VisualElementPath, pageBoundsPx: BoundingBox, pageItem: PageItem, ves: VisualElementSignal) => {
+  const currentPath = prependVeidToPath(createVeid(pageItem, null), parentPath);
+
   const visualElement = createVisualElement({
     item: pageItem,
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
@@ -213,9 +218,11 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
     childAreaBoundsPx: pageBoundsPx,
   });
 
-  visualElement.children = pageItem.computed_children
+  const children = pageItem.computed_children
     .map(childId => arrangeItem_Desktop(
       desktopStore,
+      vesCache,
+      currentPath,
       itemStore.getItem(childId)!,
       pageItem, // parent item
       pageBoundsPx,
@@ -241,9 +248,11 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
         x: getPopupPositionGr(pageItem).x - widthGr / 2.0,
         y: getPopupPositionGr(pageItem).y - heightGr / 2.0
       };
-      visualElement.children.push(
+      children.push(
         arrangeItem_Desktop(
           desktopStore,
+          vesCache,
+          currentPath,
           li,
           pageItem, // parent item
           pageBoundsPx,
@@ -255,12 +264,14 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
 
     // ** ATTACHMENT POPUP
     } else if (currentPopupSpec.type == PopupType.Attachment) {
-      // Ve created inline.
+      // Ves are created inline.
 
     } else {
       panic();
     }
   }
+
+  visualElement.children = children;
 
   ves.set(visualElement);
 }
@@ -268,6 +279,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, pageBoun
 
 const arrangeItem_Desktop = (
     desktopStore: DesktopStoreContextModel,
+    vesCache: VesCache,
+    parentPath: VisualElementPath,
     item: Item,
     parentPage: PageItem,
     parentPageBoundsPx: BoundingBox,
@@ -292,6 +305,8 @@ const arrangeItem_Desktop = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
     return arrangePageWithChildren_Desktop(
       desktopStore,
+      vesCache,
+      parentPath,
       asPageItem(canonicalItem),
       linkItemMaybe,
       parentPage,
@@ -305,6 +320,8 @@ const arrangeItem_Desktop = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
     return arrangeTable_Desktop(
       desktopStore,
+      vesCache,
+      parentPath,
       asTableItem(canonicalItem),
       linkItemMaybe,
       parentPage,
@@ -318,6 +335,8 @@ const arrangeItem_Desktop = (
     : RenderStyle.Outline;
 
   return arrangeItemNoChildren_Desktop(
+    vesCache,
+    parentPath,
     canonicalItem,
     linkItemMaybe,
     parentPage,
@@ -330,6 +349,8 @@ const arrangeItem_Desktop = (
 
 const arrangePageWithChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
+    vesCache: VesCache,
+    parentPath: VisualElementPath,
     canonicalItem_page: PageItem,
     linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
@@ -338,6 +359,7 @@ const arrangePageWithChildren_Desktop = (
     parentSignal_underConstruction: VisualElementSignal,
     isPagePopup: boolean,
     isRoot: boolean): VisualElementSignal => {
+  const currentPath = prependVeidToPath(createVeid(canonicalItem_page, linkItemMaybe), parentPath);
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const geometry = calcGeometryOfItem_Desktop(
@@ -388,6 +410,8 @@ const arrangePageWithChildren_Desktop = (
       if (isPagePopup || isRoot) {
         return arrangeItem_Desktop(
           desktopStore,
+          vesCache,
+          currentPath,
           childItem,
           canonicalItem_page, // parent item
           pageWithChildrenVisualElement.childAreaBoundsPx!,
@@ -407,7 +431,7 @@ const arrangePageWithChildren_Desktop = (
           }
         }
         return arrangeItemNoChildren_Desktop(
-          canonicalItem, linkItemMaybe, canonicalItem_page, innerBoundsPx, isPagePopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
+          vesCache, currentPath, canonicalItem, linkItemMaybe, canonicalItem_page, innerBoundsPx, isPagePopup, pageWithChildrenVisualElementSignal, RenderStyle.Outline);
       }
     });
   }
@@ -420,6 +444,8 @@ const arrangePageWithChildren_Desktop = (
 
 const arrangeTable_Desktop = (
     desktopStore: DesktopStoreContextModel,
+    vesCache: VesCache,
+    parentPath: VisualElementPath,
     canonicalItem_Table: TableItem,
     linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
@@ -575,6 +601,8 @@ function calcCanonicalAndLinkItemMaybe(desktopStore: DesktopStoreContextModel, i
 
 
 const arrangeItemNoChildren_Desktop = (
+    vesCache: VesCache,
+    parentPath: VisualElementPath,
     canonicalItem: Item,
     linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
@@ -582,25 +610,71 @@ const arrangeItemNoChildren_Desktop = (
     parentIsPopup: boolean,
     parentSignal_underConstruction: VisualElementSignal,
     renderStyle: RenderStyle): VisualElementSignal => {
+  const currentPath = prependVeidToPath(createVeid(canonicalItem, linkItemMaybe), parentPath);
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const itemGeometry = calcGeometryOfItem_Desktop(
     linkItemMaybe ? linkItemMaybe : canonicalItem,
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true);
 
-  const itemVisualElement = createVisualElement({
+  const itemVisualElement = {
     item: canonicalItem != null ? canonicalItem : linkItemMaybe!,
     linkItemMaybe,
     flags: (renderStyle != RenderStyle.Outline ? VisualElementFlags.Detailed : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,
     parent: parentSignal_underConstruction,
-  });
-  const itemVisualElementSignal = createVisualElementSignal(itemVisualElement);
+  };
+  const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, vesCache, currentPath);
 
   arrangeItemAttachments(itemVisualElementSignal);
 
   return itemVisualElementSignal;
+}
+
+function createOrRecycleVisualElementSignal(visualElementOverride: VisualElementOverride, vesCache: VesCache, path: VisualElementPath) {
+  const existing = vesCache[path];
+  if (existing) {
+    const newVals: any = visualElementOverride;
+    const vals: any = existing.get();
+    const newProps = Object.getOwnPropertyNames(visualElementOverride);
+    let dirty = false;
+    for (let i=0; i<newProps.length; ++i) {
+      if (typeof(vals[newProps[i]]) == 'undefined') {
+        // console.log('undefined', newProps[i]);
+        dirty = true;
+        break;
+      }
+      const val = vals[newProps[i]];
+      const newVal = newVals[newProps[i]];
+      if (val != newVal) {
+        if (newProps[i] == "boundsPx") {
+          if ((val as BoundingBox).x != (newVal as BoundingBox).x ||
+              (val as BoundingBox).y != (newVal as BoundingBox).y ||
+              (val as BoundingBox).w != (newVal as BoundingBox).w ||
+              (val as BoundingBox).h != (newVal as BoundingBox).h) {
+            // console.log("boundsPx changed");
+            dirty = true;
+          } else {
+            // console.log("boundsPx didn't change!");
+          }
+        } else {
+          // console.log("dirty", newProps[i]);
+          dirty = true;
+        }
+        break;
+      }
+    }
+    if (!dirty) {
+      // console.log("not dirty!");
+      return existing;
+    }
+    // console.log("dirty!");
+    existing.set(createVisualElement(visualElementOverride));
+    return existing;
+  }
+  // console.log("creating!");
+  return createVisualElementSignal(createVisualElement(visualElementOverride));
 }
 
 
@@ -724,6 +798,8 @@ export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, v
       const pageItem = asPageItem(visualElement.parent!.get().item);
       const rearrangedVisualElement = arrangeItem_Desktop(
         desktopStore,
+        {}, // not used. the signal is discared below anyway.
+        "", // "
         item,
         pageItem,
         visualElement.parent!.get().childAreaBoundsPx!,
