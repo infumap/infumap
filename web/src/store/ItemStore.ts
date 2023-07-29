@@ -26,15 +26,13 @@ import { panic, throwExpression } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
 
-let items: { [id: Uid]: Item } = {};
+let items = new Map<Uid, Item>();
 
 
 export const itemStore = {
   getItem: (id: Uid): Item | null => {
-    // TODO (HIGH): use a map instead, profiling suggests this is inefficient.
-    if (items.hasOwnProperty(id)) {
-      return items[id];
-    }
+    const v = items.get(id);
+    if (v) { return v; }
     return null;
   },
 
@@ -73,12 +71,12 @@ export const itemStore = {
     } else {
       panic();
     }
-    delete items[id];
+    items.delete(id);
   },
 
   setItemFromServerObject: (itemObject: object): void => {
     let item = itemFromObject(itemObject);
-    items[item.id] = item;
+    items.set(item.id, item);
   },
 
   sortChildren: (parentId: Uid): void => {
@@ -116,9 +114,9 @@ export const itemStore = {
   setChildItemsFromServerObjects: (parentId: Uid, childItemObjects: Array<object>): void => {
     let childItems = childItemObjects.map(cio => itemFromObject(cio));
     childItems.forEach(childItem => {
-      if (!items[childItem.id]) {
+      if (!items.has(childItem.id)) {
         // item may have already been loaded (including children, and will be flagged as such).
-        items[childItem.id] = childItem;
+        items.set(childItem.id, childItem);
       }
     });
     if (!isContainer(itemStore.getItem(parentId)!)) {
@@ -151,7 +149,7 @@ export const itemStore = {
     const parent = itemStore.getAttachmentsItem(parentId)!;
     let attachments: Array<Uid> = [];
     attachmentItems.forEach(attachmentItem => {
-      items[attachmentItem.id] = attachmentItem;
+      items.set(attachmentItem.id, attachmentItem);
       if (attachmentItem.parentId != parentId) {
         throwExpression(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
       }
@@ -165,7 +163,7 @@ export const itemStore = {
   },
 
   addItem: (item: Item): void => {
-    items[item.id] = item;
+    items.set(item.id, item);
     if (item.relationshipToParent == Child) {
       const parentItem = itemStore.getContainerItem(item.parentId)!;
       parentItem.computed_children = [...parentItem.computed_children, item.id];
@@ -180,20 +178,20 @@ export const itemStore = {
   },
 
   newOrderingAtEndOfChildren: (parentId: Uid): Uint8Array => {
-    let parent = asContainerItem(items[parentId]);
-    let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
+    let parent = asContainerItem(items.get(parentId)!);
+    let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
     return newOrderingAtEnd(childrenOrderings);
   },
 
   newOrderingAtEndOfAttachments: (parentId: Uid): Uint8Array => {
-    let parent = asAttachmentsItem(items[parentId]);
-    let attachmentOrderings = parent.computed_attachments.map(c => items[c].ordering);
+    let parent = asAttachmentsItem(items.get(parentId)!);
+    let attachmentOrderings = parent.computed_attachments.map(c => items.get(c)!.ordering);
     return newOrderingAtEnd(attachmentOrderings);
   },
 
   newOrderingAtChildrenPosition: (parentId: Uid, position: number): Uint8Array => {
-    let parent = asContainerItem(items[parentId]);
-    let childrenOrderings = parent.computed_children.map(c => items[c].ordering);
+    let parent = asContainerItem(items.get(parentId)!);
+    let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
     if (position <= 0) {
       return newOrderingAtBeginning(childrenOrderings);
     } else if (position >= childrenOrderings.length) {
@@ -204,8 +202,8 @@ export const itemStore = {
   },
 
   newOrderingAtAttachmentsPosition: (parentId: Uid, position: number): Uint8Array => {
-    let parent = asAttachmentsItem(items[parentId]);
-    let attachmentOrderings = parent.computed_attachments.map(c => items[c].ordering);
+    let parent = asAttachmentsItem(items.get(parentId)!);
+    let attachmentOrderings = parent.computed_attachments.map(c => items.get(c)!.ordering);
     if (position <= 0) {
       return newOrderingAtBeginning(attachmentOrderings);
     } else if (position >= attachmentOrderings.length) {
