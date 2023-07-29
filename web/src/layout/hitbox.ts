@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, cloneBoundingBox } from "../util/geometry";
+import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geometry";
 
 
 export enum HitboxType {
@@ -62,4 +62,21 @@ export function createHitboxMeta(meta: HitboxMeta) {
   let result: HitboxMeta = {};
   if (typeof(meta.resizeColNumber) != 'undefined') { result.resizeColNumber = meta.resizeColNumber; }
   return result;
+}
+
+export function compareHitboxes(a: Hitbox, b: Hitbox): number {
+  if (a.type != b.type) { return 1; }
+  if (a.meta != b.meta) {
+    if (a.meta == null || b.meta == null) { return 1; }
+    if (a.meta.resizeColNumber != b.meta.resizeColNumber) { return 1; }
+  }
+  return compareBoundingBox(a.boundsPx, b.boundsPx);
+}
+
+export function compareHitboxArrays(a: Array<Hitbox>, b: Array<Hitbox>): number {
+  if (a.length != b.length) { return 1; }
+  for (let i=0; i<a.length; ++i) {
+    if (compareHitboxes(a[i], b[i]) == 1) { return 1; }
+  }
+  return 0;
 }

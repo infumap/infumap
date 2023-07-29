@@ -66,6 +66,14 @@ export function zeroBoundingBoxTopLeft(boundingBox: BoundingBox): BoundingBox {
   return ({ x: 0.0, y: 0.0, w: boundingBox.w, h: boundingBox.h });
 }
 
+export function compareBoundingBox(a: BoundingBox, b: BoundingBox): number {
+  if (a.x != b.x) { return 1; }
+  if (a.y != b.y) { return 1; }
+  if (a.w != b.w) { return 1; }
+  if (a.h != b.h) { return 1; }
+  return 0;
+}
+
 export function offsetBoundingBoxTopLeftBy(boundingBox: BoundingBox, offset: Vector): BoundingBox {
   return ({
     x: boundingBox.x + offset.x,

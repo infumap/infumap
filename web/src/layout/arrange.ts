@@ -28,7 +28,7 @@ import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositio
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { Veid, VesCache, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, attachmentFlagSet, createVeid, createVesCache, createVisualElement, getVeid, insideTableFlagSet, pagePopupFlagSet, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { BoundingBox, cloneBoundingBox, compareBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
 import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
@@ -38,7 +38,7 @@ import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFr
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
-import { HitboxType, createHitbox } from "./hitbox";
+import { HitboxType, compareHitboxArrays, createHitbox } from "./hitbox";
 import { itemStore } from "../store/ItemStore";
 import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 
@@ -652,6 +652,18 @@ const arrangeItemNoChildren_Desktop = (
 
 
 function createOrRecycleVisualElementSignal(visualElementOverride: VisualElementSpec, path: VisualElementPath) {
+  function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
+    if (oldArray.length != newArray.length) {
+      return 1;
+    }
+    for (let i=0; i<oldArray.length; ++i) {
+      if (oldArray[i] != newArray[i]) {
+        return 1;
+      }
+    }
+    return 0;
+  }
+
   const existing = currentVesCache[path];
   if (existing) {
     const newVals: any = visualElementOverride;
@@ -669,34 +681,44 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
       const oldVal = oldVals[newProps[i]];
       const newVal = newVals[newProps[i]];
       if (oldVal != newVal) {
-        if (newProps[i] == "boundsPx") {
-          if ((oldVal as BoundingBox).x != (newVal as BoundingBox).x ||
-              (oldVal as BoundingBox).y != (newVal as BoundingBox).y ||
-              (oldVal as BoundingBox).w != (newVal as BoundingBox).w ||
-              (oldVal as BoundingBox).h != (newVal as BoundingBox).h) {
-            // console.log("boundsPx changed");
+        if (newProps[i] == "boundsPx" || newProps[i] == "childAreaBoundsPx") {
+          if (compareBoundingBox(oldVal, newVal) != 0) {
+            // console.log("visual element property changed: ", newProps[i]);
             dirty = true;
             break;
           } else {
-            // console.log("boundsPx didn't change!");
+            // console.log("boundsPx didn't change.");
+          }
+        } else if (newProps[i] == "children" || newProps[i] == "attachments") {
+          // TODO (MEDIUM): better reconciliation.
+          if (compareVesArrays(oldVal, newVal) != 0) {
+            // console.log("visual element property changed: ", newProps[i]);
+            dirty = true;
+            break;
+          }
+        } else if (newProps[i] == "hitboxes") {
+          if (compareHitboxArrays(oldVal, newVal) != 0) {
+            // console.log("visual element property changed: ", newProps[i]);
+            dirty = true;
+            break;
           }
         } else {
-          // console.log("prop changed: ", newProps[i]);
+          // console.log("visual element property changed: ", newProps[i]);
           dirty = true;
           break;
         }
       }
     }
     if (!dirty) {
-      // console.log("not dirty!:", path);
+      // console.log("not dirty:", path);
       return existing;
     }
-    // console.log("dirty!:", path);
+    // console.log("dirty:", path);
     existing.set(createVisualElement(visualElementOverride));
     return existing;
   }
 
-  // console.log("creating!", path);
+  // console.log("creating:", path);
   return createVisualElementSignal(createVisualElement(visualElementOverride));
 }
 
