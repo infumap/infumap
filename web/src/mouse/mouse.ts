@@ -39,7 +39,6 @@ import { getHitInfo } from "./hitInfo";
 import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
 import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
 import { Item } from "../items/base/item";
-import { EMPTY_UID } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";

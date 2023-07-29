@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup, onMount } from "solid-js";
+import { Component, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../items/table-item";

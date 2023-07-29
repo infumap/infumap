@@ -20,7 +20,7 @@ import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../util/geometry"
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
-import { LinkItem, asLinkItem, getLinkToId, isLink } from "../items/link-item";
+import { LinkItem } from "../items/link-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";

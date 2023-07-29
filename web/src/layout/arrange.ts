@@ -22,11 +22,11 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HE
 import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { EMPTY_ITEM, Item } from "../items/base/item";
+import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VesCache, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, attachmentFlagSet, createVeid, createVesCache, createVisualElement, getVeid, insideTableFlagSet, pagePopupFlagSet, prependVeidToPath, visualElementSignalFromPath, visualElementToPath } from "./visual-element";
+import { Veid, VesCache, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, compareBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -538,28 +538,6 @@ const arrangeTable_Desktop = (
         newCache[tableChildAttachmentVePath] = tableChildAttachmentVeSignal;
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
-
-      // create 'empty' item visual elements for table cells without an associated attachment.
-      // TODO: these need to have a unique veid.
-      // for (; i<displayItem_Table.tableColumns.length-1; ++i) {
-      //   if (leftBl >= displayItem_Table.spatialWidthGr / GRID_SIZE) { break; }
-      //   let widthBl = i == displayItem_Table.tableColumns.length - 2
-      //     ? sizeBl.w - leftBl
-      //     : displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
-      //   const geometry = calcGeometryOfItem_ListItem(EMPTY_ITEM, blockSizePx, idx, leftBl, widthBl);
-      //   const tableChildAttachmentVeSpec: VisualElementSpec = {
-      //     displayItem: EMPTY_ITEM,
-      //     flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
-      //     boundsPx: geometry.boundsPx,
-      //     hitboxes: geometry.hitboxes,
-      //     col: i + 1,
-      //     row: idx,
-      //     parentPath: tableChildVePath,
-      //   };
-      //   tableChildAttachmentVePath = prependVeidToPath(createVeid(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
-      //   tableItemVeAttachments.push(createVisualElementSignal(tableItemAttachmentVe));
-      //   leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
-      // }
 
       tableChildVeSpec.attachments = tableItemVeAttachments;
 
