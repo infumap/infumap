@@ -338,7 +338,7 @@ export function visualElementDesktopBoundsPx(visualElement: VisualElement): Boun
   let r = { x: 0, y: 0 };
   while (ve != null) {
     r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
-    ve = ve.parentPath == null ? null : currentVesCache[ve.parentPath!].get();
+    ve = ve.parentPath == null ? null : currentVesCache.get(ve.parentPath!)!.get();
   }
   return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
 }
@@ -358,19 +358,4 @@ function printRecursive(visualElement: VisualElement, level: number, relationshi
   for (let i=0; i<visualElement.attachments.length; ++i) {
     printRecursive(visualElement.attachments[i].get(), level + 1, "a");
   }
-}
-
-export type VesCache = { [path: VisualElementPath]: VisualElementSignal };
-
-export function createVesCache(ves: VisualElementSignal): VesCache {
-  const result = {};
-  cacheVesImpl(ves, result);
-  return result;
-}
-
-function cacheVesImpl(ves: VisualElementSignal, cached: VesCache) {
-  let ve = ves.get();
-  cached[visualElementToPath(ve)] = ves;
-  for (let i=0; i<ve.children.length; ++i) { cacheVesImpl(ve.children[i], cached); }
-  for (let i=0; i<ve.attachments.length; ++i) { cacheVesImpl(ve.attachments[i], cached); }
 }

@@ -155,7 +155,7 @@ export function mouseLeftDownHandler(
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(desktopStore, activeItem);
   mouseActionState = {
-    activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? currentVesCache[hitInfo.rootVe.parentPath!].get() : hitInfo.rootVe),
+    activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? currentVesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -645,14 +645,14 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
   const activeVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get();
-  const tableVisualElement = currentVesCache[activeVisualElement.parentPath!].get();
+  const tableVisualElement = currentVesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.displayItem);
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
   itemPosInTablePx.y -= desktopStore.getTableScrollYPos(getVeid(tableVisualElement)) * tableBlockHeightPx;
-  const tableVe = currentVesCache[activeVisualElement.parentPath!].get();
-  const tableParentVe = currentVesCache[tableVe.parentPath!].get();
+  const tableVe = currentVesCache.get(activeVisualElement.parentPath!)!.get();
+  const tableParentVe = currentVesCache.get(tableVe.parentPath!)!.get();
   const tableParentVisualPathString = tableVe.parentPath!;
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
@@ -763,7 +763,7 @@ export function mouseUpHandler(
 }
 
 function handleAttachmentClick(visualElement: VisualElement, _userStore: UserStoreContextModel) {
-  const page = asPageItem(currentVesCache[currentVesCache[visualElement.parentPath!].get().parentPath!].get().displayItem);
+  const page = asPageItem(currentVesCache.get(currentVesCache.get(visualElement.parentPath!)!.get().parentPath!)!.get().displayItem);
   breadcrumbStore.replacePopup({
     type: PopupType.Attachment,
     uid: null,

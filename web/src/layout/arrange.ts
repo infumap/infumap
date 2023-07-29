@@ -26,7 +26,7 @@ import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VesCache, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath } from "./visual-element";
+import { Veid, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, compareBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -56,7 +56,7 @@ const LIST_FOCUS_ID = newUid();
 const ATTACHMENT_POPUP_ID = newUid();
 
 
-export let currentVesCache: VesCache = {};
+export let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, id: Uid) => {
@@ -208,15 +208,15 @@ const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel)
   })();
 
   let currentPath = "";
-  let newCache: VesCache = {};
+  let newCache = new Map<VisualElementPath, VisualElementSignal>();
   const topLevel = arrange_spatialStretch(desktopStore, newCache, currentPath, topLevelPageBoundsPx, currentPage);
-  newCache[currentPage.id] = desktopStore.topLevelVisualElementSignal();
+  newCache.set(currentPage.id, desktopStore.topLevelVisualElementSignal());
   currentVesCache = newCache;
 
   desktopStore.topLevelVisualElementSignal().set(topLevel);
 }
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache: VesCache, parentPath: VisualElementPath, pageBoundsPx: BoundingBox, pageItem: PageItem): VisualElement => {
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache: Map<VisualElementPath, VisualElementSignal>, parentPath: VisualElementPath, pageBoundsPx: BoundingBox, pageItem: PageItem): VisualElement => {
   const currentPath = prependVeidToPath(createVeid(pageItem, null), parentPath);
 
   const visualElement = createVisualElement({
@@ -285,7 +285,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
 
 const arrangeItem_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: VesCache,
+    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentPath: VisualElementPath,
     item: Item,
     parentPage: PageItem,
@@ -351,7 +351,7 @@ const arrangeItem_Desktop = (
 
 const arrangePageWithChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: VesCache,
+    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentPath: VisualElementPath,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
@@ -434,7 +434,7 @@ const arrangePageWithChildren_Desktop = (
   pageWithChildrenVisualElementSpec.attachments = attachments;
 
   const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
-  newCache[pageWithChildrenVePath] = pageWithChildrenVisualElementSignal;
+  newCache.set(pageWithChildrenVePath, pageWithChildrenVisualElementSignal);
 
   return pageWithChildrenVisualElementSignal;
 }
@@ -442,7 +442,7 @@ const arrangePageWithChildren_Desktop = (
 
 const arrangeTable_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: VesCache,
+    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentPath: VisualElementPath,
     displayItem_Table: TableItem,
     linkItemMaybe_Table: LinkItem | null,
@@ -535,7 +535,7 @@ const arrangeTable_Desktop = (
         const tableChildAttachmentVePath = prependVeidToPath(createVeid(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
         const tableChildAttachmentVeSignal = createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
         tableItemVeAttachments.push(tableChildAttachmentVeSignal);
-        newCache[tableChildAttachmentVePath] = tableChildAttachmentVeSignal;
+        newCache.set(tableChildAttachmentVePath, tableChildAttachmentVeSignal);
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
 
@@ -543,7 +543,7 @@ const arrangeTable_Desktop = (
 
       const tableItemVisualElementSignal = createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
       tableVeChildren.push(tableItemVisualElementSignal);
-      newCache[tableChildVePath] = tableItemVisualElementSignal;
+      newCache.set(tableChildVePath, tableItemVisualElementSignal);
     }
   };
 
@@ -553,7 +553,7 @@ const arrangeTable_Desktop = (
   tableVisualElementSpec.attachments = attachments;
 
   const tableVisualElementSignal = createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
-  newCache[tableVePath] = tableVisualElementSignal;
+  newCache.set(tableVePath, tableVisualElementSignal);
 
   return tableVisualElementSignal;
 }
@@ -592,7 +592,7 @@ function getVeDisplayItemAndLinkItemMaybe(desktopStore: DesktopStoreContextModel
 
 const arrangeItemNoChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: VesCache,
+    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentVePath: VisualElementPath,
     displayItem: Item,
     linkItemMaybe: LinkItem | null,
@@ -623,7 +623,7 @@ const arrangeItemNoChildren_Desktop = (
   itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
   const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
-  newCache[currentVePath] = itemVisualElementSignal;
+  newCache.set(currentVePath, itemVisualElementSignal);
 
   return itemVisualElementSignal;
 }
@@ -642,7 +642,7 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
     return 0;
   }
 
-  const existing = currentVesCache[path];
+  const existing = currentVesCache.get(path);
   if (existing) {
     const newVals: any = visualElementOverride;
     const oldVals: any = existing.get();
@@ -703,7 +703,7 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
 
 function arrangeItemAttachments(
     desktopStore: DesktopStoreContextModel,
-    newCache: VesCache,
+    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentDisplayItem: Item,
     parentLinkItemMaybe: LinkItem | null,
     parentItemBoundsPx: BoundingBox,
@@ -747,7 +747,7 @@ function arrangeItemAttachments(
              (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None),
     };
     const attachmentVisualElementSignal = createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
-    newCache[attachmentVePath] = attachmentVisualElementSignal;
+    newCache.set(attachmentVePath, attachmentVisualElementSignal);
     attachments.push(attachmentVisualElementSignal);
   }
 
@@ -756,7 +756,7 @@ function arrangeItemAttachments(
 
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
-  let newCache: VesCache = {};
+  let newCache = new Map<VisualElementPath, VisualElementSignal>();
 
   const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
@@ -805,7 +805,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       };
       const childPath = prependVeidToPath(createVeid(item, null), currentPath);
       const ves = createOrRecycleVisualElementSignal(veSpec, childPath);
-      newCache[childPath] = ves;
+      newCache.set(childPath, ves);
 
       children.push(ves);
     } else {
@@ -814,7 +814,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   }
   topLevelVisualElementSpec.children = children;
 
-  newCache[currentPath] = desktopStore.topLevelVisualElementSignal();
+  newCache.set(currentPath, desktopStore.topLevelVisualElementSignal());
   desktopStore.setTopLevelVisualElement(createVisualElement(topLevelVisualElementSpec));
 
   currentVesCache = newCache;

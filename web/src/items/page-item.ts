@@ -326,7 +326,7 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
     parentPage.selectedItem = visualElement.displayItem.id;
-  } else if (pagePopupFlagSet(currentVesCache[visualElement.parentPath!].get())) {
+  } else if (pagePopupFlagSet(currentVesCache.get(visualElement.parentPath!)!.get())) {
     breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
   } else {
     breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });

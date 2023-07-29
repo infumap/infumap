@@ -39,7 +39,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const parentPage = () => {
     const veParentPath = props.visualElement.parentPath!;
-    const parentVe = currentVesCache[veParentPath].get();
+    const parentVe = currentVesCache.get(veParentPath)!.get();
     return asPageItem(itemStore.getItem(parentVe.displayItem.id)!);
   };
   const boundsPx = () => props.visualElement.boundsPx;
@@ -190,7 +190,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   }
 
   const anchorPopup = () => {
-    const popupParentPage = asPageItem(itemStore.getItem(currentVesCache[props.visualElement.parentPath!].get().displayItem.id)!);
+    const popupParentPage = asPageItem(itemStore.getItem(currentVesCache.get(props.visualElement.parentPath!)!.get().displayItem.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
       popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
     }
