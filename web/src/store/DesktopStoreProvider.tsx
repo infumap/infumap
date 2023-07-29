@@ -71,23 +71,23 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
 
-  const tableScrollPositions: { [key: string]: NumberSignal } = {};
+  const tableScrollPositions = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veuid: Veid): number => {
     const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
-    if (!tableScrollPositions[key]) {
-      tableScrollPositions[key] = createNumberSignal(0.0);
+    if (!tableScrollPositions.get(key)) {
+      tableScrollPositions.set(key, createNumberSignal(0.0));
     }
-    return tableScrollPositions[key].get();
+    return tableScrollPositions.get(key)!.get();
   };
 
   const setTableScrollYPos = (veuid: Veid, pos: number): void => {
     const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
-    if (!tableScrollPositions[key]) {
-      tableScrollPositions[key] = createNumberSignal(pos);
+    if (!tableScrollPositions.get(key)) {
+      tableScrollPositions.set(key, createNumberSignal(pos));
       return;
     }
-    tableScrollPositions[key].set(pos);
+    tableScrollPositions.get(key)!.set(pos);
   };
 
   function currentDesktopSize(): Dimensions {
