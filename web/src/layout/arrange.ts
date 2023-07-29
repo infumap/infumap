@@ -263,9 +263,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
           li,
           pageItem, // parent item
           pageBoundsPx,
-          true, // render children as full
+          true,  // render children as full
           false, // parent is popup
-          true  // is popup
+          true   // is popup
         ));
 
     // ** ATTACHMENT POPUP
@@ -295,23 +295,23 @@ const arrangeItem_Desktop = (
     isPagePopup: boolean): VisualElementSignal => {
   if (isPagePopup && !isLink(item)) { panic(); }
 
-  const [canonicalItem, linkItemMaybe, spatialWidthGr] = calcVeDisplayItemAndLinkItemMaybe(desktopStore, item);
+  const [displayItem, linkItemMaybe, spatialWidthGr] = getVeDisplayItemAndLinkItemMaybe(desktopStore, item);
 
-  if (isPage(canonicalItem) && asPageItem(canonicalItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
+  if (isPage(displayItem) && asPageItem(displayItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     // Always make sure child items of grid pages are loaded, even if not visible,
     // because they are needed to to calculate the height.
-    initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
+    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
   }
 
-  if (isPage(canonicalItem) &&
+  if (isPage(displayItem) &&
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
+    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangePageWithChildren_Desktop(
       desktopStore,
       newCache,
       parentPath,
-      asPageItem(canonicalItem),
+      asPageItem(displayItem),
       linkItemMaybe,
       parentPage,
       zeroBoundingBoxTopLeft(parentPageBoundsPx),
@@ -319,13 +319,13 @@ const arrangeItem_Desktop = (
       isPagePopup, false);
   }
 
-  if (isTable(canonicalItem) && (item.parentId == breadcrumbStore.currentPage() || renderChildrenAsFull)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, canonicalItem.id);
+  if (isTable(displayItem) && (item.parentId == breadcrumbStore.currentPage() || renderChildrenAsFull)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangeTable_Desktop(
       desktopStore,
       newCache,
       parentPath,
-      asTableItem(canonicalItem),
+      asTableItem(displayItem),
       linkItemMaybe,
       parentPage,
       zeroBoundingBoxTopLeft(parentPageBoundsPx),
@@ -340,7 +340,7 @@ const arrangeItem_Desktop = (
     desktopStore,
     newCache,
     parentPath,
-    canonicalItem,
+    displayItem,
     linkItemMaybe,
     parentPage,
     zeroBoundingBoxTopLeft(parentPageBoundsPx),
@@ -416,22 +416,16 @@ const arrangePageWithChildren_Desktop = (
           childItem,
           displayItem_pageWithChildren, // parent item
           pageWithChildrenVisualElementSpec.childAreaBoundsPx!,
-          true,    // render children as full
+          true,        // render children as full
           isPagePopup, // parent is popup
-          false    // is popup
+          false        // is popup
         );
       } else {
-        let linkItemMaybe: LinkItem | null = null;
-        let canonicalItem = childItem;
-        if (isLink(childItem)) {
-          linkItemMaybe = asLinkItem(childItem);
-          const canonicalItemMaybe = itemStore.getItem(getLinkToId(linkItemMaybe));
-          if (canonicalItemMaybe != null) {
-            canonicalItem = canonicalItemMaybe!;
-          }
-        }
+        const [displayItem, linkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
         return arrangeItemNoChildren_Desktop(
-          desktopStore, newCache, pageWithChildrenVePath, canonicalItem, linkItemMaybe, displayItem_pageWithChildren, innerBoundsPx, isPagePopup, RenderStyle.Outline);
+          desktopStore, newCache, pageWithChildrenVePath,
+          displayItem, linkItemMaybe, displayItem_pageWithChildren,
+          innerBoundsPx, isPagePopup, RenderStyle.Outline);
       }
     });
   }
@@ -488,7 +482,7 @@ const arrangeTable_Desktop = (
   for (let idx=0; idx<displayItem_Table.computed_children.length; ++idx) {
     const childId = displayItem_Table.computed_children[idx];
     const childItem = itemStore.getItem(childId)!;
-    const [displayItem_childItem, linkItemMaybe_childItem] = calcVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
+    const [displayItem_childItem, linkItemMaybe_childItem] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
 
     let widthBl = displayItem_Table.tableColumns.length == 1
       ? sizeBl.w
@@ -523,7 +517,7 @@ const arrangeTable_Desktop = (
 
         const attachmentId = attachmentsItem.computed_attachments[i];
         const attachmentItem = itemStore.getItem(attachmentId)!;
-        const [displayItem_attachment, linkItemMaybe_attachment] = calcVeDisplayItemAndLinkItemMaybe(desktopStore, attachmentItem);
+        const [displayItem_attachment, linkItemMaybe_attachment] = getVeDisplayItemAndLinkItemMaybe(desktopStore, attachmentItem);
 
         const geometry = calcGeometryOfItem_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl);
 
@@ -544,6 +538,7 @@ const arrangeTable_Desktop = (
         newCache[tableChildAttachmentVePath] = tableChildAttachmentVeSignal;
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
+
       // create 'empty' item visual elements for table cells without an associated attachment.
       // TODO: these need to have a unique veid.
       // for (; i<displayItem_Table.tableColumns.length-1; ++i) {
@@ -589,7 +584,7 @@ const arrangeTable_Desktop = (
 /**
  * Given an item, calculate the visual element display item (what is visually depicted) and linkItemMaybe.
  */
-function calcVeDisplayItemAndLinkItemMaybe(desktopStore: DesktopStoreContextModel, item: Item): [Item, LinkItem | null, number] {
+function getVeDisplayItemAndLinkItemMaybe(desktopStore: DesktopStoreContextModel, item: Item): [Item, LinkItem | null, number] {
   let displayItem = item;
   let linkItemMaybe: LinkItem | null = null;
   let spatialWidthGr = isXSizableItem(displayItem)
@@ -597,9 +592,9 @@ function calcVeDisplayItemAndLinkItemMaybe(desktopStore: DesktopStoreContextMode
     : 0;
   if (isLink(item)) {
     linkItemMaybe = asLinkItem(item);
-    const canonicalItemMaybe = itemStore.getItem(getLinkToId(linkItemMaybe))!;
-    if (canonicalItemMaybe != null) {
-      displayItem = canonicalItemMaybe!;
+    const displayItemMaybe = itemStore.getItem(getLinkToId(linkItemMaybe))!;
+    if (displayItemMaybe != null) {
+      displayItem = displayItemMaybe!;
       if (isXSizableItem(displayItem)) {
         spatialWidthGr = linkItemMaybe.spatialWidthGr;
       }
@@ -621,21 +616,21 @@ const arrangeItemNoChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
     newCache: VesCache,
     parentVePath: VisualElementPath,
-    canonicalItem: Item,
+    displayItem: Item,
     linkItemMaybe: LinkItem | null,
     parentPage: PageItem,
     parentPageInnerBoundsPx: BoundingBox,
     parentIsPopup: boolean,
     renderStyle: RenderStyle): VisualElementSignal => {
 
-  const currentVePath = prependVeidToPath(createVeid(canonicalItem, linkItemMaybe), parentVePath);
+  const currentVePath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), parentVePath);
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const itemGeometry = calcGeometryOfItem_Desktop(
-    linkItemMaybe ? linkItemMaybe : canonicalItem,
+    linkItemMaybe ? linkItemMaybe : displayItem,
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true);
 
-  const item = canonicalItem != null ? canonicalItem : linkItemMaybe!;
+  const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {
     displayItem: item,
     linkItemMaybe,
@@ -647,7 +642,7 @@ const arrangeItemNoChildren_Desktop = (
 
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
-  itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, canonicalItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
+  itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
   const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
   newCache[currentVePath] = itemVisualElementSignal;
@@ -725,7 +720,7 @@ function arrangeItemAttachments(
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
     const attachmentItem = itemStore.getItem(attachmentId)!;
-    const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = calcVeDisplayItemAndLinkItemMaybe(desktopStore, attachmentItem);
+    const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, attachmentItem);
     const attachmentVeid: Veid = {
       itemId: attachmentDisplayItem.id,
       linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null
