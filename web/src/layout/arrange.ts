@@ -756,6 +756,8 @@ function arrangeItemAttachments(
 
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
+  let newCache: VesCache = {};
+
   const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
@@ -773,16 +775,16 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     return result;
   })();
 
-  const topLevelVisualElement = createVisualElement({
+  const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
-  });
+  };
 
-  const childItems = currentPage.computed_children.map(childId => itemStore.getItem(childId)!);
-  for (let i=0; i<childItems.length; ++i) {
-    const item = childItems[i];
+  const children = [];
+  for (let i=0; i<currentPage.computed_children.length; ++i) {
+    const item = itemStore.getItem(currentPage.computed_children[i])!;
     const col = i % numCols;
     const row = Math.floor(i / numCols);
     const cellBoundsPx = {
@@ -793,21 +795,29 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
 
     let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    if (!isTable(item)) {
-      const ve = createVisualElement({
+    if (!isTable(item) && !isLink(item)) {
+      const veSpec: VisualElementSpec = {
         displayItem: item,
         flags: VisualElementFlags.Detailed,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         parentPath: currentPath,
-      });
-      topLevelVisualElement.children.push(createVisualElementSignal(ve));
+      };
+      const childPath = prependVeidToPath(createVeid(item, null), currentPath);
+      const ves = createOrRecycleVisualElementSignal(veSpec, childPath);
+      newCache[childPath] = ves;
+
+      children.push(ves);
     } else {
       console.log("TODO: child tables in grid pages.");
     }
   }
+  topLevelVisualElementSpec.children = children;
 
-  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
+  newCache[currentPath] = desktopStore.topLevelVisualElementSignal();
+  desktopStore.setTopLevelVisualElement(createVisualElement(topLevelVisualElementSpec));
+
+  currentVesCache = newCache;
 }
 
 

@@ -31,6 +31,7 @@ let items: { [id: Uid]: Item } = {};
 
 export const itemStore = {
   getItem: (id: Uid): Item | null => {
+    // TODO (HIGH): use a map instead, profiling suggests this is inefficient.
     if (items.hasOwnProperty(id)) {
       return items[id];
     }
