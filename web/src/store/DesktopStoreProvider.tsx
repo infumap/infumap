@@ -129,7 +129,7 @@ export function useDesktopStore() : DesktopStoreContextModel {
 export const findVisualElements = (desktopStore: DesktopStoreContextModel, itemId: Uid, linkIdMaybe: Uid | null): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
-  if (rootVe.item.id == itemId) {
+  if (rootVe.displayItem.id == itemId) {
     if ((linkIdMaybe == null && rootVe.linkItemMaybe == null) ||
         (rootVe.linkItemMaybe != null && rootVe.linkItemMaybe!.id == linkIdMaybe)) {
       result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
@@ -142,7 +142,7 @@ export const findVisualElements = (desktopStore: DesktopStoreContextModel, itemI
 const findVisualElementInChildAndAttachments = (desktopStore: DesktopStoreContextModel, ve: VisualElement, itemId: Uid, linkItemIdMaybe: Uid | null): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
-    if (childVes.get().item.id == itemId) {
+    if (childVes.get().displayItem.id == itemId) {
       if ((linkItemIdMaybe == null && childVes.get().linkItemMaybe == null) ||
           (childVes.get().linkItemMaybe != null && childVes.get().linkItemMaybe!.id == linkItemIdMaybe)) {
         result.push(childVes);
@@ -151,7 +151,7 @@ const findVisualElementInChildAndAttachments = (desktopStore: DesktopStoreContex
     result = result.concat(findVisualElementInChildAndAttachments(desktopStore, childVes.get(), itemId, linkItemIdMaybe));
   });
   ve.attachments.forEach(attachmentVes => {
-    if (attachmentVes.get().item.id == itemId) {
+    if (attachmentVes.get().displayItem.id == itemId) {
       if ((linkItemIdMaybe == null && attachmentVes.get().linkItemMaybe == null) ||
           (attachmentVes.get().linkItemMaybe != null && attachmentVes.get().linkItemMaybe!.id == linkItemIdMaybe)) {
         result.push(attachmentVes);
@@ -168,7 +168,7 @@ const findVisualElementInChildAndAttachments = (desktopStore: DesktopStoreContex
 export const visualElementsWithItemId = (desktopStore: DesktopStoreContextModel, itemId: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   const rootVe = desktopStore.topLevelVisualElement();
-  if (rootVe.item.id == itemId) {
+  if (rootVe.displayItem.id == itemId) {
     result.push({ get: desktopStore.topLevelVisualElement, set: desktopStore.setTopLevelVisualElement });
   }
   result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, rootVe, itemId));
@@ -179,13 +179,13 @@ export const visualElementsWithItemId = (desktopStore: DesktopStoreContextModel,
 const childAndAttachmentVisualElementsWithId = (desktopStore: DesktopStoreContextModel, ve: VisualElement, itemId: Uid): Array<VisualElementSignal> => {
   let result: Array<VisualElementSignal> = [];
   ve.children.forEach(childVes => {
-    if (childVes.get().item.id == itemId) {
+    if (childVes.get().displayItem.id == itemId) {
       result.push(childVes);
     }
     result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, childVes.get(), itemId));
   });
   ve.attachments.forEach(attachmentVes => {
-    if (attachmentVes.get().item.id == itemId) {
+    if (attachmentVes.get().displayItem.id == itemId) {
       result.push(attachmentVes);
     }
     result = result.concat(childAndAttachmentVisualElementsWithId(desktopStore, attachmentVes.get(), itemId));

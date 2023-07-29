@@ -22,7 +22,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asImageItem, ImageItem } from "../../items/image-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
+import { arrange } from "../../layout/arrange";
 import { itemStore } from "../../store/ItemStore";
 
 
@@ -34,7 +34,8 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
 
   const handleTitleChange = (v: string) => {
     asImageItem(itemStore.getItem(imageId)!).title = v;
-    rearrangeVisualElementsWithItemId(desktopStore, imageId);
+    // rearrangeVisualElementsWithItemId(desktopStore, imageId);
+    arrange(desktopStore);
   };
 
   const deleteImage = async () => {

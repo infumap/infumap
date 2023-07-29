@@ -309,27 +309,27 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = itemStore.getItem(visualElement.item.parentId)!
+  const parentItem = itemStore.getItem(visualElement.displayItem.parentId)!
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem = visualElement.item.id;
+    parentPage.selectedItem = visualElement.displayItem.id;
     arrange(desktopStore);
     return;
   }
 
-  switchToPage(desktopStore, visualElement.item.id);
+  switchToPage(desktopStore, visualElement.displayItem.id);
 }
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = itemStore.getItem(visualElement.item.parentId)!;
+  const parentItem = itemStore.getItem(visualElement.displayItem.parentId)!;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem = visualElement.item.id;
+    parentPage.selectedItem = visualElement.displayItem.id;
   } else if (pagePopupFlagSet(currentVesCache[visualElement.parentPath!].get())) {
-    breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
+    breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
   } else {
-    breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.item.id, vePath: null });
+    breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
   }
   arrange(desktopStore);
 }

@@ -108,7 +108,7 @@ export interface VisualElement {
    * The item to be visually depicted. If the VisualElement corresponds to a link item, 'item' is the
    * linked-to item unless this is invalid or unknown, in which case 'item' is the link item itself.
    */
-  item: Item,
+  displayItem: Item,
 
   /**
    * If the visual element corresponds to a link item, a reference to that.
@@ -149,7 +149,7 @@ export interface VisualElement {
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
-  item: EMPTY_ITEM,
+  displayItem: EMPTY_ITEM,
   linkItemMaybe: null,
   flags: VisualElementFlags.None,
   resizingFromBoundsPx: null,
@@ -172,8 +172,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   moveOverColAttachmentNumber: createNumberSignal(-1),
 };
 
-export interface VisualElementOverride {
-  item: Item,
+export interface VisualElementSpec {
+  displayItem: Item,
   linkItemMaybe?: LinkItem | null,
   flags?: VisualElementFlags,
   boundsPx: BoundingBox,
@@ -188,9 +188,9 @@ export interface VisualElementOverride {
 }
 
 
-export function createVisualElement(override: VisualElementOverride): VisualElement {
+export function createVisualElement(override: VisualElementSpec): VisualElement {
   let result: VisualElement = {
-    item: EMPTY_ITEM,
+    displayItem: EMPTY_ITEM,
     linkItemMaybe: null,
     flags: VisualElementFlags.None,
     resizingFromBoundsPx: null,
@@ -213,7 +213,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
     moveOverColAttachmentNumber: createNumberSignal(-1),
   };
 
-  result.item = override.item;
+  result.displayItem = override.displayItem;
 
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
@@ -227,7 +227,7 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
   if (typeof(override.children) != 'undefined') { result.children = override.children; }
   if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
 
-  if (isTable(result.item) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
+  if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
     console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
     console.trace();
   }
@@ -238,36 +238,11 @@ export function createVisualElement(override: VisualElementOverride): VisualElem
 
 export function getVeid(visualElement: VisualElement): Veid {
   return ({
-    itemId: visualElement.item.id,
+    itemId: visualElement.displayItem.id,
     linkIdMaybe: visualElement.linkItemMaybe == null ? null : visualElement.linkItemMaybe.id
   });
 }
 
-/**
- * Deterine the Veid for a given item.
- * If the item is not a link, this is easy.
- * If it is a link, then ...
- */
-export function getVeidForItem(item: Item): Veid {
-  console.log("TODO: this is not correct - consolidate with calcCanonicalAndLinkItemMaybe for this instead.");
-  if (isLink(item)) {
-    const li = asLinkItem(item);
-    if (getLinkToId(li) == EMPTY_UID) {
-      return ({
-        itemId: li.id,
-        linkIdMaybe: li.id
-      });
-    }
-    return ({
-      itemId: getLinkToId(li),
-      linkIdMaybe: li.id
-    });
-  }
-  return ({
-    itemId: item.id,
-    linkIdMaybe: null
-  });
-}
 
 export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualElementPath {
   let current = veid.itemId;
@@ -286,7 +261,7 @@ export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualEl
  * The veid of the visual element is at the beginninf of the string, that of the top level page at the end.
  */
 export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
-  let current = visualElement.item.id;
+  let current = visualElement.displayItem.id;
   if (visualElement.linkItemMaybe != null) {
     current += "[" + visualElement.linkItemMaybe!.id + "]";
   }
@@ -304,21 +279,21 @@ export function visualElementSignalFromPath(
   const parts = pathString.split("-");
   let ves = desktopStore.topLevelVisualElementSignal();
   let { itemId } = getIdsFromPathPart(parts[parts.length-1]);
-  if (ves.get().item.id != itemId) { panic(); }
+  if (ves.get().displayItem.id != itemId) { panic(); }
 
   for (let i=parts.length-2; i>=0; --i) {
     let ve = ves.get();
     let { itemId, linkIdMaybe: linkId } = getIdsFromPathPart(parts[i]);
     let done: boolean = false;
     for (let j=0; j<ve.children.length && !done; ++j) {
-      if (ve.children[j].get().item.id == itemId &&
+      if (ve.children[j].get().displayItem.id == itemId &&
           (ve.children[j].get().linkItemMaybe == null ? null : ve.children[j].get().linkItemMaybe!.id) == linkId) {
         ves = ve.children[j];
         done = true;
       }
     }
     for (let j=0; j<ve.attachments.length && !done; ++j) {
-      if (ve.attachments[j].get().item.id == itemId &&
+      if (ve.attachments[j].get().displayItem.id == itemId &&
           (ve.attachments[j].get().linkItemMaybe == null ? null : ve.attachments[j].get().linkItemMaybe!.id) == linkId) {
         ves = ve.attachments[j];
         done = true;
@@ -376,7 +351,7 @@ export function printCurrentVisualElementTree(desktopStore: DesktopStoreContextM
 function printRecursive(visualElement: VisualElement, level: number, relationship: string) {
   let indent = "";
   for (let i=0; i<level; ++i) { indent += "-"; }
-  console.log(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.item ? "itemid: " + visualElement.item.id : "") + "}");
+  console.log(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
   for (let i=0; i<visualElement.children.length; ++i) {
     printRecursive(visualElement.children[i].get(), level + 1, "c");
   }

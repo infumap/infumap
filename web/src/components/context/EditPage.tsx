@@ -24,9 +24,8 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { ColorSelector } from "./ColorSelector";
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, rearrangeVisualElementsWithItemId } from "../../layout/arrange";
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from "../../layout/arrange";
 import { panic } from "../../util/lang";
-import { compareOrderings } from "../../util/ordering";
 import { itemStore } from "../../store/ItemStore";
 
 
@@ -44,27 +43,27 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
       asPageItem(itemStore.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
-      rearrangeVisualElementsWithItemId(desktopStore, pageId);
+      arrange(desktopStore);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
       asPageItem(itemStore.getItem(pageId)!).naturalAspect = parseFloat(v);
-      rearrangeVisualElementsWithItemId(desktopStore, pageId);
+      arrange(desktopStore);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
       asPageItem(itemStore.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
-      rearrangeVisualElementsWithItemId(desktopStore, pageId);
+      arrange(desktopStore);
     }
   }
 
   const handleTitleInput = (v: string) => {
     asPageItem(itemStore.getItem(pageId)!).title = v;
-    rearrangeVisualElementsWithItemId(desktopStore, pageId);
+    arrange(desktopStore);
   };
 
   const deletePage = async () => {
@@ -81,7 +80,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       desktopBoundsPx: desktopStore.editDialogInfo()!.desktopBoundsPx,
       item: itemStore.getItem(pageId)!
     });
-    rearrangeVisualElementsWithItemId(desktopStore, pageId);
+    arrange(desktopStore);
   }
 
   let checkElement_spatial_stretch: HTMLInputElement | undefined;
@@ -101,7 +100,7 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       panic();
     }
     asPageItem(itemStore.getItem(pageId)!).arrangeAlgorithm = t;
-    rearrangeVisualElementsWithItemId(desktopStore, pageId);
+    arrange(desktopStore);
   }
 
   const changeOrderChildrenBy = async () => {
