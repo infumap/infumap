@@ -32,9 +32,8 @@ import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, currentVesCache, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../util/signals';
-import { VisualElement, lineItemFlagSet, pagePopupFlagSet } from '../layout/visual-element';
+import { VisualElement, getVeid, lineItemFlagSet, pagePopupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
-import { itemStore } from '../store/ItemStore';
 import { PopupType, breadcrumbStore } from '../store/BreadcrumbStore';
 
 
@@ -50,8 +49,6 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
 
   scrollXPx: NumberSignal;
   scrollYPx: NumberSignal;
-
-  selectedItem: Uid;
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
@@ -101,7 +98,7 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
   
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-    selectedItem: EMPTY_UID,
+
     pendingPopupPositionGr: null,
     pendingPopupWidthGr: null,
     pendingPopupAlignmentPoint: null,
@@ -142,7 +139,7 @@ export function pageFromObject(o: any): PageItem {
 
     scrollXPx: createNumberSignal(0),
     scrollYPx: createNumberSignal(0),
-    selectedItem: EMPTY_UID,
+
     pendingPopupPositionGr: null,
     pendingPopupWidthGr: null,
     pendingPopupAlignmentPoint: null,
@@ -309,23 +306,25 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = itemStore.getItem(visualElement.displayItem.parentId)!
+  const parentItem = currentVesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem = visualElement.displayItem.id;
+    desktopStore.setSelectedItem(
+      veidFromPath(visualElement.parentPath!),
+      visualElementToPath(visualElement));
     arrange(desktopStore);
     return;
   }
 
-  switchToPage(desktopStore, visualElement.displayItem.id);
+  switchToPage(desktopStore, getVeid(visualElement));
 }
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = itemStore.getItem(visualElement.displayItem.parentId)!;
+  const parentItem = currentVesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    const parentPage = asPageItem(parentItem);
-    parentPage.selectedItem = visualElement.displayItem.id;
+    desktopStore.setSelectedItem(
+      veidFromPath(visualElement.parentPath!),
+      visualElementToPath(visualElement));
   } else if (pagePopupFlagSet(currentVesCache.get(visualElement.parentPath!)!.get())) {
     breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
   } else {

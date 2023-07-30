@@ -19,7 +19,7 @@
 import { Accessor, createSignal, Setter } from "solid-js";
 import { Vector } from "./geometry";
 import { Uid } from "./uid";
-import { VisualElement } from "../layout/visual-element";
+import { VisualElement, VisualElementPath } from "../layout/visual-element";
 
 
 export interface NumberSignal {
@@ -76,6 +76,7 @@ export function createVisualElementSignal(v: VisualElement): VisualElementSignal
   return { get: visualElementAccessor, set: visualElementSetter };
 }
 
+
 export interface UidSignal {
   get: Accessor<Uid>,
   set: Setter<Uid>,
@@ -84,4 +85,15 @@ export interface UidSignal {
 export function createUidSignal(uid: Uid): UidSignal {
   let [uidAccessor, uidSetter] = createSignal<Uid>(uid, { equals: false });
   return { get: uidAccessor, set: uidSetter };
+}
+
+
+export interface VisualElementPathSignal {
+  get: Accessor<VisualElementPath>,
+  set: Setter<VisualElementPath>,
+}
+
+export function createVisualElementPathSignal(v: VisualElementPath): VisualElementPathSignal {
+  let [visualElementPathAccessor, visualElementPathSetter] = createSignal<VisualElementPath>(v, { equals: false });
+  return { get: visualElementPathAccessor, set: visualElementPathSetter };
 }

@@ -54,6 +54,10 @@ export function createVeid(item: Item, linkMaybe: LinkItem | null) {
   return ({ itemId: item.id, linkIdMaybe: linkMaybe ? linkMaybe.id : null });
 }
 
+export const EMPTY_VEID: Veid = {
+  itemId: EMPTY_UID,
+  linkIdMaybe: null
+};
 
 export enum VisualElementFlags {
   None                 = 0x000,
@@ -308,19 +312,26 @@ export function visualElementSignalFromPath(
   return ves;
 }
 
-export function itemIdAndLinkIdMaybeFromVisualElementPath(pathString: VisualElementPath): { itemId: Uid, linkIdMaybe: Uid | null } {
-  const parts = pathString.split("-");
+export function veidFromPath(path: VisualElementPath): Veid {
+  if (path == "") { return EMPTY_VEID; }
+  const parts = path.split("-");
   return getIdsFromPathPart(parts[0]);
 }
 
-export function itemIdFromVisualElementPath(pathString: VisualElementPath): Uid {
-  const parts = pathString.split("-");
+export function itemIdFromPath(path: VisualElementPath): Uid {
+  if (path == "") { return EMPTY_UID; }
+  const parts = path.split("-");
   let { itemId } = getIdsFromPathPart(parts[0]);
   return itemId;
 }
 
+export function compareVeids(a: Veid, b: Veid) {
+  if (a.itemId != b.itemId) { return 1; }
+  if (a.linkIdMaybe != b.linkIdMaybe) { return 1; }
+  return 0;
+}
 
-function getIdsFromPathPart(part: string): { itemId: Uid, linkIdMaybe: Uid | null } {
+function getIdsFromPathPart(part: string): Veid {
   let itemId = part;
   let linkIdMaybe = null;
   if (part.length == EMPTY_UID.length * 2 + 2) {

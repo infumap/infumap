@@ -72,7 +72,7 @@ export const Main: Component = () => {
       Object.keys(result.attachments).forEach(id => {
         itemStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
-      switchToPage(desktopStore, rootId);
+      switchToPage(desktopStore, { itemId: rootId, linkIdMaybe: null });
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       userStore.clear();

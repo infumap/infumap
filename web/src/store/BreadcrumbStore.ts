@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { VisualElementPath } from "../layout/visual-element";
+import { Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 
@@ -32,7 +32,7 @@ export interface PopupSpec {
 };
 
 interface PageBreadcrumb {
-  pageId: Uid,
+  pageVeid: Veid,
   popupBreadcrumbs: Array<PopupSpec>,
 }
 
@@ -45,8 +45,8 @@ export const breadcrumbStore = {
   },
 
 
-  pushPage: (uid: Uid): void => {
-    breadcrumbs.push({ pageId: uid, popupBreadcrumbs: [] });
+  pushPage: (veid: Veid): void => {
+    breadcrumbs.push({ pageVeid: veid, popupBreadcrumbs: [] });
   },
 
   popPage: (): void => {
@@ -56,11 +56,11 @@ export const breadcrumbStore = {
     breadcrumbs.pop();
   },
 
-  currentPage: (): Uid | null => {
+  currentPage: (): Veid | null => {
     if (breadcrumbs.length == 0) {
       return null;
     }
-    return breadcrumbs[breadcrumbs.length-1].pageId;
+    return breadcrumbs[breadcrumbs.length-1].pageVeid;
   },
 
 
@@ -103,7 +103,7 @@ export const breadcrumbStore = {
   logStateToConsole: () => {
     console.log("*** breadcrumb store state, most recent last:");
     for (let i=0; i<breadcrumbs.length; ++i) {
-      let line = breadcrumbs[i].pageId + ": ";
+      let line = breadcrumbs[i].pageVeid.itemId + (breadcrumbs[i].pageVeid.linkIdMaybe ? ("[" + breadcrumbs[i].pageVeid.linkIdMaybe + "]") : "") + ": ";
       for (let j=0; j<breadcrumbs[i].popupBreadcrumbs.length; ++j) {
         let pbc = breadcrumbs[i].popupBreadcrumbs[j];
         line += pbc.type + " " + pbc.uid + " " + pbc.vePath + " ||| ";

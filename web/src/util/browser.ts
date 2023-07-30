@@ -22,9 +22,9 @@ import { EMPTY_UID } from "./uid";
 
 
 export function updateHref() {
-  if (itemStore.getItem(breadcrumbStore.currentPage()!)?.parentId == EMPTY_UID) {
+  if (itemStore.getItem(breadcrumbStore.currentPage()!.itemId)?.parentId == EMPTY_UID) {
     window.history.replaceState(null, "", "/"); 
   } else {
-    window.history.replaceState(null, "", `/${breadcrumbStore.currentPage()}`);
+    window.history.replaceState(null, "", `/${breadcrumbStore.currentPage()!.itemId}`);
   }
 }

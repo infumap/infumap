@@ -23,8 +23,8 @@ import { Item } from "../items/base/item";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, VisualElement, Veid } from "../layout/visual-element";
-import { createNumberSignal, NumberSignal, VisualElementSignal } from "../util/signals";
+import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath } from "../layout/visual-element";
+import { createNumberSignal, createVisualElementPathSignal, NumberSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../mouse/hitInfo";
 
 
@@ -42,8 +42,11 @@ export interface DesktopStoreContextModel {
   contextMenuInfo: Accessor<ContextMenuInfo | null>,
   setContextMenuInfo: Setter<ContextMenuInfo | null>,
 
-  getTableScrollYPos: (uid: Veid) => number,
-  setTableScrollYPos: (uid: Veid, pos: number) => void,
+  getTableScrollYPos: (veid: Veid) => number,
+  setTableScrollYPos: (veid: Veid, pos: number) => void,
+
+  getSelectedItem: (veid: Veid) => VisualElementPath,
+  setSelectedItem: (veid: Veid, path: VisualElementPath) => void,
 }
 
 export interface ContextMenuInfo {
@@ -72,22 +75,40 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
 
   const tableScrollPositions = new Map<string, NumberSignal>();
+  const selectedItems = new Map<string, VisualElementPathSignal>();
 
-  const getTableScrollYPos = (veuid: Veid): number => {
-    const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
+  const getTableScrollYPos = (veid: Veid): number => {
+    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!tableScrollPositions.get(key)) {
       tableScrollPositions.set(key, createNumberSignal(0.0));
     }
     return tableScrollPositions.get(key)!.get();
   };
 
-  const setTableScrollYPos = (veuid: Veid, pos: number): void => {
-    const key = veuid.itemId + (veuid.linkIdMaybe == null ? "" : "-" + veuid.linkIdMaybe);
+  const setTableScrollYPos = (veid: Veid, pos: number): void => {
+    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!tableScrollPositions.get(key)) {
       tableScrollPositions.set(key, createNumberSignal(pos));
       return;
     }
     tableScrollPositions.get(key)!.set(pos);
+  };
+
+  const getSelectedItem = (veid: Veid): VisualElementPath => {
+    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    if (!selectedItems.get(key)) {
+      selectedItems.set(key, createVisualElementPathSignal(""));
+    }
+    return selectedItems.get(key)!.get();
+  };
+
+  const setSelectedItem = (veid: Veid, path: VisualElementPath): void => {
+    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    if (!selectedItems.get(key)) {
+      selectedItems.set(key, createVisualElementPathSignal(path));
+      return;
+    }
+    selectedItems.get(key)!.set(path);
   };
 
   function currentDesktopSize(): Dimensions {
@@ -107,7 +128,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     topLevelVisualElementSignal,
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,
-    getTableScrollYPos, setTableScrollYPos
+    getTableScrollYPos, setTableScrollYPos,
+    getSelectedItem, setSelectedItem,
   };
 
   return (

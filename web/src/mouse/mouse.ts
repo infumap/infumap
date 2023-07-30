@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopSt
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeid, itemIdAndLinkIdMaybeFromVisualElementPath, pagePopupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, getVeid, veidFromPath, pagePopupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, currentVesCache, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -128,7 +128,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (pagePopupFlagSet(hitInfo.overElementVes.get())) {
-      switchToPage(desktopStore, hitInfo.overElementVes.get().displayItem.id);
+      switchToPage(desktopStore, getVeid(hitInfo.overElementVes.get()));
     } else {
       arrange(desktopStore);
     }
@@ -220,7 +220,7 @@ export function mouseRightDownHandler(
 
   if (breadcrumbStore.currentPopupSpec() != null) {
     breadcrumbStore.popPopup();
-    const page = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!)!);
+    const page = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
@@ -359,7 +359,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       }
     }
 
-    let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
+    let { itemId, linkIdMaybe } = veidFromPath(mouseActionState.activeElement);
     // findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
     //   rearrangeVisualElement(desktopStore, ve);
     // });
@@ -397,7 +397,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
     }
 
-    let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
+    let { itemId, linkIdMaybe } = veidFromPath(mouseActionState.activeElement);
     // findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
     //   rearrangeVisualElement(desktopStore, ve);
     // });
@@ -467,7 +467,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
     activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
-    let { itemId, linkIdMaybe } = itemIdAndLinkIdMaybeFromVisualElementPath(mouseActionState.activeElement);
+    let { itemId, linkIdMaybe } = veidFromPath(mouseActionState.activeElement);
     // findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
     //   rearrangeVisualElement(desktopStore, ve);
     // });
@@ -496,13 +496,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
     }
   }
 
-  if ((overElementVes!.get().displayItem.id != breadcrumbStore.currentPage()) &&
+  if ((overElementVes!.get().displayItem.id != breadcrumbStore.currentPage()!.itemId) &&
       !pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
-  if ((overElementVes!.get().displayItem.id != breadcrumbStore.currentPage()) &&
+  if ((overElementVes!.get().displayItem.id != breadcrumbStore.currentPage()!.itemId) &&
       ! pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
