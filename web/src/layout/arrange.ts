@@ -136,38 +136,35 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
     childAreaBoundsPx: topLevelPageBoundsPx,
   });
 
-  topLevelVisualElement.children = (() => {
-    let listVeChildren: Array<VisualElementSignal> = [];
-    for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
-      const childId = currentPage.computed_children[idx];
-      const childItem = itemStore.getItem(childId)!;
-      const [displayItem, linkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
+  let listVeChildren: Array<VisualElementSignal> = [];
+  for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
+    const childId = currentPage.computed_children[idx];
+    const childItem = itemStore.getItem(childId)!;
+    const [displayItem, linkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
 
-      const widthBl = LIST_PAGE_LIST_WIDTH_BL;
-      const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
+    const widthBl = LIST_PAGE_LIST_WIDTH_BL;
+    const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
-      const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl);
+    const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl);
 
-      const listItemVeSpec = {
-        displayItem,
-        linkItemMaybe,
-        flags: VisualElementFlags.LineItem |
-               VisualElementFlags.Detailed |
-               (compareVeids(selectedVeid, createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
-        boundsPx: geometry.boundsPx,
-        hitboxes: geometry.hitboxes,
-        parentPath: currentPath,
-        col: 0,
-        row: idx,
-        oneBlockWidthPx: LINE_HEIGHT_PX,
-      };
-      const childPath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), currentPath);
-      const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
-      newCache.set(childPath, listItemVisualElementSignal);
-      listVeChildren.push(listItemVisualElementSignal);
-    }
-    return listVeChildren;
-  })();
+    const listItemVeSpec = {
+      displayItem,
+      linkItemMaybe,
+      flags: VisualElementFlags.LineItem |
+             (compareVeids(selectedVeid, createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
+      boundsPx: geometry.boundsPx,
+      hitboxes: geometry.hitboxes,
+      parentPath: currentPath,
+      col: 0,
+      row: idx,
+      oneBlockWidthPx: LINE_HEIGHT_PX,
+    };
+    const childPath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), currentPath);
+    const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
+    newCache.set(childPath, listItemVisualElementSignal);
+    listVeChildren.push(listItemVisualElementSignal);
+  }
+  topLevelVisualElement.children = listVeChildren;
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
@@ -513,7 +510,7 @@ const arrangeTable_Desktop = (
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
       linkItemMaybe: linkItemMaybe_childItem,
-      flags: VisualElementFlags.LineItem | VisualElementFlags.Detailed | VisualElementFlags.InsideTable,
+      flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
       boundsPx: geometry.boundsPx,
       hitboxes: geometry.hitboxes,
       parentPath: tableVePath,
@@ -544,7 +541,7 @@ const arrangeTable_Desktop = (
         const tableChildAttachmentVeSpec: VisualElementSpec = {
           displayItem: displayItem_attachment,
           linkItemMaybe: linkItemMaybe_attachment,
-          flags: VisualElementFlags.Detailed | VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
+          flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
           boundsPx: geometry.boundsPx,
           hitboxes: geometry.hitboxes,
           col: i + 1,
