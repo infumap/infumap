@@ -56,7 +56,17 @@ const LIST_FOCUS_ID = newUid();
 const ATTACHMENT_POPUP_ID = newUid();
 
 
-export let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
+let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
+
+export let VesCache = {
+  clear: () => {
+    currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
+  },
+
+  get: (path: VisualElementPath): VisualElementSignal | undefined => {
+    return currentVesCache.get(path);
+  }
+}
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
@@ -639,6 +649,14 @@ const arrangeItemNoChildren_Desktop = (
 }
 
 
+/**
+ * Creates or recycles an existing VisualElementSignal, if one exists for the specified path.
+ * In the case of recycling, the override values (only) are checked against the existing visual element values.
+ * If they are the same, the signal is not updated.
+ * If there is a difference, the signal will be updated with the new value.
+ * In some cases, this is not good enough as an existing element may have additional overrides set (e.g. changing page view types).
+ * In those cases, the ves cache should be explicitly cleared, so no values are recycled.
+ */
 function createOrRecycleVisualElementSignal(visualElementOverride: VisualElementSpec, path: VisualElementPath) {
   function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) {

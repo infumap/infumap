@@ -26,7 +26,7 @@ import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
 import { logout } from "./Main";
 import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, VesCache, arrange } from '../layout/arrange';
 import { server } from '../server';
 import { panic } from '../util/lang';
 
@@ -49,6 +49,7 @@ export const Toolbar: Component = () => {
       panic();
     }
 
+    VesCache.clear(); // prevent reuse of VisualElementSignals, as different overrides are sometimes used for different page types.
     arrange(desktopStore);
 
     function clickTimerHandler() {

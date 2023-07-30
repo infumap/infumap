@@ -26,7 +26,7 @@ import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Deskt
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox } from "../../util/geometry";
-import { arrange, ARRANGE_ALGO_LIST, currentVesCache } from "../../layout/arrange";
+import { arrange, ARRANGE_ALGO_LIST, VesCache } from "../../layout/arrange";
 import { breadcrumbStore } from "../../store/BreadcrumbStore";
 import { itemStore } from "../../store/ItemStore";
 import { server } from "../../server";
@@ -39,7 +39,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const parentPage = () => {
     const veParentPath = props.visualElement.parentPath!;
-    const parentVe = currentVesCache.get(veParentPath)!.get();
+    const parentVe = VesCache.get(veParentPath)!.get();
     return asPageItem(itemStore.getItem(parentVe.displayItem.id)!);
   };
   const boundsPx = () => props.visualElement.boundsPx;
@@ -190,7 +190,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   }
 
   const anchorPopup = () => {
-    const popupParentPage = asPageItem(itemStore.getItem(currentVesCache.get(props.visualElement.parentPath!)!.get().displayItem.id)!);
+    const popupParentPage = asPageItem(itemStore.getItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
       popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
     }

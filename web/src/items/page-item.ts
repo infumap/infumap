@@ -30,7 +30,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, currentVesCache, switchToPage } from '../layout/arrange';
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, VesCache, arrange, switchToPage } from '../layout/arrange';
 import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement, getVeid, lineItemFlagSet, pagePopupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
@@ -306,7 +306,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = currentVesCache.get(visualElement.parentPath!)!.get().displayItem;
+  const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     desktopStore.setSelectedItem(
       veidFromPath(visualElement.parentPath!),
@@ -320,12 +320,12 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = currentVesCache.get(visualElement.parentPath!)!.get().displayItem;
+  const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     desktopStore.setSelectedItem(
       veidFromPath(visualElement.parentPath!),
       visualElementToPath(visualElement));
-  } else if (pagePopupFlagSet(currentVesCache.get(visualElement.parentPath!)!.get())) {
+  } else if (pagePopupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
     breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
   } else {
     breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });

@@ -25,7 +25,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
-import { currentVesCache } from "./arrange";
+import { VesCache } from "./arrange";
 
 
 /**
@@ -349,7 +349,7 @@ export function visualElementDesktopBoundsPx(visualElement: VisualElement): Boun
   let r = { x: 0, y: 0 };
   while (ve != null) {
     r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
-    ve = ve.parentPath == null ? null : currentVesCache.get(ve.parentPath!)!.get();
+    ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
   }
   return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
 }
