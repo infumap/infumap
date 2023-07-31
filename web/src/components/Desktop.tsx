@@ -151,10 +151,8 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
-    // TODO (MEDIUM): keep track of page scroll separately for different veids.
-    let pageItem = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
-    pageItem.scrollYPx.set(desktopDiv!.scrollTop);
-    pageItem.scrollXPx.set(desktopDiv!.scrollLeft);
+    desktopStore.setPageScrollXPx(breadcrumbStore.currentPage()!, desktopDiv!.scrollLeft);
+    desktopStore.setPageScrollYPx(breadcrumbStore.currentPage()!, desktopDiv!.scrollTop);
   }
 
   function overflowPolicy(topLevelVisualElement: VisualElement) {

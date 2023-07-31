@@ -77,8 +77,7 @@ export function getHitInfo(
   }
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
-  const topLevelPage = asPageItem(topLevelVisualElement!.displayItem);
-  const posRelativeToTopLevelVisualElementPx = vectorAdd(posOnDesktopPx, { x: topLevelPage.scrollXPx.get(), y: topLevelPage.scrollYPx.get() });
+  const posRelativeToTopLevelVisualElementPx = vectorAdd(posOnDesktopPx, { x: desktopStore.getPageScrollXPx(getVeid(topLevelVisualElement)), y: desktopStore.getPageScrollYPx(getVeid(topLevelVisualElement)) });
 
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
   let rootVisualElement = topLevelVisualElement;

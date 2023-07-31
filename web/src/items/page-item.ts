@@ -31,7 +31,6 @@ import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, VesCache, arrange, switchToPage } from '../layout/arrange';
-import { createNumberSignal, NumberSignal } from '../util/signals';
 import { VisualElement, getVeid, lineItemFlagSet, pagePopupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { PopupType, breadcrumbStore } from '../store/BreadcrumbStore';
@@ -42,13 +41,10 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   naturalAspect: number;
   backgroundColorIndex: number;
   arrangeAlgorithm: string;
+  gridNumberOfColumns: number;
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
-  gridNumberOfColumns: number;
-
-  scrollXPx: NumberSignal;
-  scrollYPx: NumberSignal;
 
   pendingPopupPositionGr: Vector | null;
   pendingPopupWidthGr: number | null;
@@ -96,9 +92,6 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
     computed_attachments: [],
     childrenLoaded: false,
   
-    scrollXPx: createNumberSignal(0),
-    scrollYPx: createNumberSignal(0),
-
     pendingPopupPositionGr: null,
     pendingPopupWidthGr: null,
     pendingPopupAlignmentPoint: null,
@@ -136,9 +129,6 @@ export function pageFromObject(o: any): PageItem {
     computed_attachments: [],
 
     childrenLoaded: false,
-
-    scrollXPx: createNumberSignal(0),
-    scrollYPx: createNumberSignal(0),
 
     pendingPopupPositionGr: null,
     pendingPopupWidthGr: null,

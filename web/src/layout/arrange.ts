@@ -80,8 +80,8 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
       desktopEl.scrollLeft = 0;
     }
     // TODO (MEDIUM): retain these.
-    page.scrollXPx.set(0);
-    page.scrollYPx.set(0);
+    desktopStore.setPageScrollXPx(veid, 0);
+    desktopStore.setPageScrollYPx(veid, 0);
     arrange(desktopStore);
   });
   updateHref();
