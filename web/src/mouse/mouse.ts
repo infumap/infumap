@@ -942,7 +942,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const prevParentId = activeItem.parentId;
 
   const tableItem = asTableItem(overContainerVe.displayItem);
-  let rowNumber = overContainerVe.moveOverRowNumber.get() - HEADER_HEIGHT_BL + (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
+  let rowNumber = overContainerVe.moveOverRowNumber.get();
   const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
