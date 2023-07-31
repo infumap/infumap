@@ -112,7 +112,7 @@ export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, conta
 }
 
 export function calcGeometryOfRatingItem_Attachment(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected);
+  return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
 }
 
 export function calcGeometryOfRatingItem_ListItem(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

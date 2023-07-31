@@ -47,10 +47,18 @@ export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
 }
 
 
-export function calcGeometryOfAttachmentItemImpl(item: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
+export function calcGeometryOfAttachmentItemImpl(
+    item: Measurable,
+    parentBoundsPx: BoundingBox,
+    parentInnerSizeBl: Dimensions,
+    index: number,
+    isSelected: boolean,
+    canPopup: boolean): ItemGeometry {
+
   if (isSelected) {
     return calcGeometryOfSelectedAttachmentItemImpl(item, parentBoundsPx, parentInnerSizeBl, index);
   }
+
   const SCALE_DOWN_PROP = 0.8;
   const blockSizePx = parentBoundsPx.w / parentInnerSizeBl.w;
   const scaleDownBlockSizePx = blockSizePx * SCALE_DOWN_PROP;
@@ -83,13 +91,15 @@ export function calcGeometryOfAttachmentItemImpl(item: Measurable, parentBoundsP
     };
   }
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-  return {
-    boundsPx,
-    hitboxes: [
-      createHitbox(HitboxType.Move, innerBoundsPx),
-      createHitbox(HitboxType.OpenAttachment, innerBoundsPx),
-    ],
+  const hitboxes = [
+    createHitbox(HitboxType.Move, innerBoundsPx)
+  ];
+  if (canPopup) {
+    hitboxes.push(createHitbox(HitboxType.OpenAttachment, innerBoundsPx));
+  } else {
+    hitboxes.push(createHitbox(HitboxType.Click, innerBoundsPx));
   }
+  return ({ boundsPx, hitboxes });
 }
 
 export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number): ItemGeometry {
@@ -114,7 +124,11 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
     hitboxes: [
       createHitbox(HitboxType.Move, innerBoundsPx),
       createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+      createHitbox(HitboxType.Resize, {
+        x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2,
+        y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2,
+        w: RESIZE_BOX_SIZE_PX,
+        h: RESIZE_BOX_SIZE_PX }),
     ],
   }
 }

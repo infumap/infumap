@@ -80,7 +80,7 @@ export function calcGeometryOfPlaceholderItem_Desktop(_placeholder: PlaceholderM
 }
 
 export function calcGeometryOfPlaceholderItem_Attachment(placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, isSelected);
+  return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
 }
 
 export function calcGeometryOfPlaceholderItem_ListItem(_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {

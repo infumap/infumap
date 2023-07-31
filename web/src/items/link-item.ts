@@ -176,11 +176,11 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
 
 export function calcGeometryOfLinkItem_Attachment(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   if (getLinkToId(link) == EMPTY_UID) {
-    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected);
+    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
   }
   const measurableMaybe = constructLinkToMeasurable(link);
   if (measurableMaybe == null) {
-    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected);
+    return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
   }
   return calcGeometryOfItem_Attachment(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, index, isSelected);
 }

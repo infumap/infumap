@@ -254,9 +254,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
       itemStore.getItem(childId)!,
       pageItem, // parent item
       pageBoundsPx,
-      true,  // render children as full
+      true, // render children as full
       false, // parent is popup
-      false  // is popup
+      false // is popup
     ));
 
   const currentPopupSpec = breadcrumbStore.currentPopupSpec();
@@ -283,9 +283,9 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
           li,
           pageItem, // parent item
           pageBoundsPx,
-          true,  // render children as full
+          true, // render children as full
           false, // parent is popup
-          true   // is popup
+          true // is popup
         ));
 
     // ** ATTACHMENT POPUP

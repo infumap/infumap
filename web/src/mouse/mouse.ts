@@ -153,7 +153,7 @@ export function mouseLeftDownHandler(
     x: (startPx.x - boundsOnDesktopPx.x) / boundsOnDesktopPx.w,
     y: (startPx.y - boundsOnDesktopPx.y) / boundsOnDesktopPx.h
   };
-  const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(desktopStore, activeItem);
+  const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   mouseActionState = {
     activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
@@ -175,7 +175,7 @@ export function mouseLeftDownHandler(
   }
 }
 
-function calcStartTableAttachmentsItemMaybe(desktopStore: DesktopStoreContextModel, activeItem: Item): AttachmentsItem | null {
+function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem | null {
   if (activeItem == null) {
     return null;
   }
