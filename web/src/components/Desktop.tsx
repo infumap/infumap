@@ -43,11 +43,13 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   let desktopDiv: HTMLDivElement | undefined;
 
+  const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
   const keyListener = (ev: KeyboardEvent) => {
     if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null) {
       return;
     }
-    if (ev.code != "Slash" && ev.code != "Backslash") {
+
+    if (!recognizedKeys.find(a => a == ev.code)) {
       return;
     }
 
@@ -78,6 +80,11 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       mouseMoveNoButtonDownHandler(desktopStore);
     }
 
+    else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
+      const key = ev.code;
+      console.log(key);
+    }
+    
     else {
       panic();
     }
@@ -134,7 +141,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   onMount(() => {
     // TODO (MEDIUM): attach to desktopDiv?. need tab index.
-    document.addEventListener('keypress', keyListener);
+    document.addEventListener('keydown', keyListener);
     desktopDiv!.addEventListener('contextmenu', contextMenuListener);
     desktopDiv!.addEventListener('dragover', dragoverListener);
     desktopDiv!.addEventListener('drop', dropListener);
@@ -142,7 +149,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
   });
 
   onCleanup(() => {
-    document.removeEventListener('keypress', keyListener);
+    document.removeEventListener('keydown', keyListener);
     desktopDiv!.removeEventListener('contextmenu', contextMenuListener);
     desktopDiv!.removeEventListener('dragover', dragoverListener);
     desktopDiv!.removeEventListener('drop', dropListener);
