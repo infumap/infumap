@@ -29,7 +29,7 @@ import { VesCache } from "./arrange";
 
 
 /**
- * Uniquely identifies a visual element and it's hierarchical context on screen.
+ * Uniquely identifies a visual element and it's hierarchical context as displayed.
  */
 export type VisualElementPath = string;
 
@@ -272,6 +272,12 @@ export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualEl
   return current;
 }
 
+export function parentPath(path: VisualElementPath): VisualElementPath {
+  const pos = path.indexOf("-");
+  if (pos == -1) { return ""; }
+  return path.substring(pos + 1);
+}
+
 /**
  * Create a string representing the hierarchical path of the visual element from the top level page.
  * The veid of the visual element is at the beginninf of the string, that of the top level page at the end.
@@ -289,6 +295,8 @@ export function visualElementToPath(visualElement: VisualElement): VisualElement
   return current + "-" + visualElement.parentPath!;
 }
 
+
+// TODO (HIGH): can just use VesCache directly instead now.
 export function visualElementSignalFromPath(
     desktopStore: DesktopStoreContextModel,
     pathString: VisualElementPath): VisualElementSignal {

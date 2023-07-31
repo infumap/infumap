@@ -26,7 +26,7 @@ import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
+import { Veid, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID, parentPath } from "./visual-element";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, compareBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -65,6 +65,17 @@ export let VesCache = {
 
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
     return currentVesCache.get(path);
+  },
+
+  getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
+    const commonPath = parentPath(path);
+    const result: Array<VisualElementSignal> = [];
+    for (const kv of currentVesCache.entries()) {
+      if (parentPath(kv[0]) == commonPath && kv[0] != path) {
+        result.push(kv[1]);
+      }
+    }
+    return result;
   }
 }
 

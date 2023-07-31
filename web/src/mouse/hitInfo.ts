@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { asPageItem, isPage } from "../items/page-item";
+import { isPage } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "../layout/arrange";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
@@ -162,8 +162,6 @@ export function getHitInfo(
           return finalize(HitboxType.ColResize, rootVisualElement, tableVisualElementSignal, hb.meta);
         }
       }
-
-      const tableItem = asTableItem(tableVisualElement.displayItem);
 
       for (let j=0; j<tableVisualElement.children.length; ++j) {
         const tableChildVes = tableVisualElement.children[j];

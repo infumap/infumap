@@ -66,6 +66,10 @@ export function zeroBoundingBoxTopLeft(boundingBox: BoundingBox): BoundingBox {
   return ({ x: 0.0, y: 0.0, w: boundingBox.w, h: boundingBox.h });
 }
 
+export function boundingBoxCenter(boundingBox: BoundingBox): Vector {
+  return ({ x: boundingBox.x + boundingBox.w / 2.0, y: boundingBox.y + boundingBox.h / 2.0 });
+}
+
 export function compareBoundingBox(a: BoundingBox, b: BoundingBox): number {
   if (a.x != b.x) { return 1; }
   if (a.y != b.y) { return 1; }
@@ -131,4 +135,8 @@ export function vectorSubtract(a: Vector, b: Vector): Vector {
 
 export function vectorAdd(a: Vector, b: Vector): Vector {
   return { x: a.x + b.x, y: a.y + b.y };
+}
+
+export function vectorDistance(a: Vector, b: Vector): number {
+  return Math.sqrt((a.x-b.x) * (a.x-b.x) + (a.y-b.y)*(a.y-b.y));
 }

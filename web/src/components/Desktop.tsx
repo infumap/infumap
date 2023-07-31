@@ -33,8 +33,9 @@ import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
-import { breadcrumbStore } from "../store/BreadcrumbStore";
+import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 import { mouseMoveStore } from "../store/MouseMoveStore";
+import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 
 
 export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -43,13 +44,14 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   let desktopDiv: HTMLDivElement | undefined;
 
-  const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape"];
   const keyListener = (ev: KeyboardEvent) => {
     if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null) {
       return;
     }
 
     if (!recognizedKeys.find(a => a == ev.code)) {
+      console.debug("unhandled key:", ev.code);
       return;
     }
 
@@ -80,9 +82,23 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       mouseMoveNoButtonDownHandler(desktopStore);
     }
 
+    else if (ev.code == "Escape") {
+      console.log("TODO");
+    }
+
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
-      const key = ev.code;
-      console.log(key);
+      if (breadcrumbStore.currentPopupSpec() == null) {
+        return;
+      }
+      const direction = findDirectionFromKeyCode(ev.code);
+      const closest = findClosest(breadcrumbStore.currentPopupSpec()!.vePath, direction);
+      if (closest != null) {
+        breadcrumbStore.replacePopup({
+          type: PopupType.Page,
+          vePath: closest
+        });
+        arrange(desktopStore);
+      }
     }
 
     else {
