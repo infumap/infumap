@@ -170,3 +170,7 @@ export function cloneFileMeasurableFields(file: FileMeasurable): FileMeasurable 
 export function fileDebugSummary(fileItem: FileItem) {
   return "[file] " + fileItem.title;
 }
+
+export function getFileItemMightBeDirty(fileItem: FileItem): string {
+  return fileItem.title;
+}

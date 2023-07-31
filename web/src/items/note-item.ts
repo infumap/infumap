@@ -195,3 +195,7 @@ export function cloneNoteMeasurableFields(note: NoteMeasurable): NoteMeasurable 
 export function noteDebugSummary(noteItem: NoteItem) {
   return "[note] " + noteItem.title;
 }
+
+export function getNoteItemMightBeDirty(noteItem: NoteItem): string {
+  return noteItem.title;
+}

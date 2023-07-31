@@ -124,3 +124,7 @@ export function clonePlaceholderMeasurableFields(placeholder: PlaceholderMeasura
 export function placeholderDebugSummary(_placeholderItem: PlaceholderItem) {
   return "[placeholder]";
 }
+
+export function getPlaceholderItemMightBeDirty(placeholderItem: PlaceholderItem): string {
+  return "";
+}

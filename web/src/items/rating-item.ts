@@ -188,3 +188,7 @@ export function cloneRatingMeasurableFields(rating: RatingMeasurable): RatingMea
 export function ratingDebugSummary(ratingItem: RatingItem) {
   return "[rating] " + ratingItem.rating;
 }
+
+export function getRatingItemMightBeDirty(ratingItem: RatingItem): string {
+  return "" + ratingItem.rating;
+}

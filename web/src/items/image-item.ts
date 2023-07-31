@@ -204,3 +204,7 @@ export function cloneImageMeasurableFields(image: ImageMeasurable): ImageMeasura
 export function imageDebugSummary(imageItem: ImageItem) {
   return "[image] " + imageItem.title;
 }
+
+export function getImageItemMightBeDirty(imageItem: ImageItem): string {
+  return imageItem.title;
+}

@@ -229,3 +229,7 @@ export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasura
 export function tableDebugSummary(tableItem: TableItem) {
   return "[table] " + tableItem.title;
 }
+
+export function getTableItemMightBeDirty(tableItem: TableItem): string {
+  return tableItem.title;
+}

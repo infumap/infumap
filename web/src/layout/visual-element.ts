@@ -135,9 +135,16 @@ export interface VisualElement {
 
   hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
+  parentPath: VisualElementPath | null,
+
+  /**
+   * Anything from displayItem that would require a re-render if changed.
+   * Manage this explicitly to avoid a costly comparison of all displayItem properties.
+   */
+  mightBeDirty: string,
+
   children: Array<VisualElementSignal>,
   attachments: Array<VisualElementSignal>,
-  parentPath: VisualElementPath | null,
 
   mouseIsOver: BooleanSignal,
   mouseIsOverOpenPopup: BooleanSignal,
@@ -167,6 +174,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   attachments: [],
   parentPath: null,
 
+  mightBeDirty: "",
+
   mouseIsOver: createBooleanSignal(false),
   mouseIsOverOpenPopup: createBooleanSignal(false),
 
@@ -178,6 +187,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
 export interface VisualElementSpec {
   displayItem: Item,
+  mightBeDirty: string,
   linkItemMaybe?: LinkItem | null,
   flags?: VisualElementFlags,
   boundsPx: BoundingBox,
@@ -207,6 +217,7 @@ export function createVisualElement(override: VisualElementSpec): VisualElement 
     children: [],
     attachments: [],
     parentPath: null,
+    mightBeDirty: "",
 
     mouseIsOver: createBooleanSignal(false),
     mouseIsOverOpenPopup: createBooleanSignal(false),
@@ -228,6 +239,7 @@ export function createVisualElement(override: VisualElementSpec): VisualElement 
   if (typeof(override.row) != 'undefined') { result.row = override.row; }
   if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
+  if (typeof(override.mightBeDirty) != 'undefined') { result.mightBeDirty = override.mightBeDirty; }
   if (typeof(override.children) != 'undefined') { result.children = override.children; }
   if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
 

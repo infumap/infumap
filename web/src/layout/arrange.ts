@@ -23,7 +23,7 @@ import { EMPTY_UID, Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { Veid, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath, getVeid, itemIdFromPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
@@ -131,6 +131,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElement = createVisualElement({
     displayItem: currentPage,
+    mightBeDirty: getMightBeDirty(currentPage),
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
@@ -140,7 +141,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childId = currentPage.computed_children[idx];
     const childItem = itemStore.getItem(childId)!;
-    const [displayItem, linkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
+    const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
 
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
@@ -149,6 +150,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 
     const listItemVeSpec = {
       displayItem,
+      mightBeDirty: getMightBeDirty(displayItem),
       linkItemMaybe,
       flags: VisualElementFlags.LineItem |
              (compareVeids(selectedVeid, createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
@@ -238,6 +240,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
 
   const visualElement = createVisualElement({
     displayItem: pageItem,
+    mightBeDirty: getMightBeDirty(pageItem),
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: pageBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
@@ -312,7 +315,7 @@ const arrangeItem_Desktop = (
     isPagePopup: boolean): VisualElementSignal => {
   if (isPagePopup && !isLink(item)) { panic(); }
 
-  const [displayItem, linkItemMaybe, spatialWidthGr] = getVeDisplayItemAndLinkItemMaybe(desktopStore, item);
+  const [displayItem, linkItemMaybe, spatialWidthGr] = getVeItems(desktopStore, item);
 
   if (isPage(displayItem) && asPageItem(displayItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     // Always make sure child items of grid pages are loaded, even if not visible,
@@ -408,6 +411,7 @@ const arrangePageWithChildren_Desktop = (
   }
   const pageWithChildrenVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
+    mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
            (isPagePopup ? VisualElementFlags.PagePopup : VisualElementFlags.None) |
@@ -433,12 +437,12 @@ const arrangePageWithChildren_Desktop = (
           childItem,
           displayItem_pageWithChildren, // parent item
           pageWithChildrenVisualElementSpec.childAreaBoundsPx!,
-          true,        // render children as full
+          true, // render children as full
           isPagePopup, // parent is popup
-          false        // is popup
+          false // is popup
         );
       } else {
-        const [displayItem, linkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
+        const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
         return arrangeItemNoChildren_Desktop(
           desktopStore, newCache, pageWithChildrenVePath,
           displayItem, linkItemMaybe, displayItem_pageWithChildren,
@@ -486,6 +490,7 @@ const arrangeTable_Desktop = (
 
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
+    mightBeDirty: getMightBeDirty(displayItem_Table),
     linkItemMaybe: linkItemMaybe_Table,
     flags: VisualElementFlags.Detailed,
     boundsPx: tableGeometry.boundsPx,
@@ -499,7 +504,7 @@ const arrangeTable_Desktop = (
   for (let idx=0; idx<displayItem_Table.computed_children.length; ++idx) {
     const childId = displayItem_Table.computed_children[idx];
     const childItem = itemStore.getItem(childId)!;
-    const [displayItem_childItem, linkItemMaybe_childItem] = getVeDisplayItemAndLinkItemMaybe(desktopStore, childItem);
+    const [displayItem_childItem, linkItemMaybe_childItem] = getVeItems(desktopStore, childItem);
 
     let widthBl = displayItem_Table.tableColumns.length == 1
       ? sizeBl.w
@@ -509,6 +514,7 @@ const arrangeTable_Desktop = (
 
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
+      mightBeDirty: getMightBeDirty(displayItem_childItem),
       linkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
       boundsPx: geometry.boundsPx,
@@ -534,12 +540,13 @@ const arrangeTable_Desktop = (
 
         const attachmentId = attachmentsItem.computed_attachments[i];
         const attachmentItem = itemStore.getItem(attachmentId)!;
-        const [displayItem_attachment, linkItemMaybe_attachment] = getVeDisplayItemAndLinkItemMaybe(desktopStore, attachmentItem);
+        const [displayItem_attachment, linkItemMaybe_attachment] = getVeItems(desktopStore, attachmentItem);
 
         const geometry = calcGeometryOfItem_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl);
 
         const tableChildAttachmentVeSpec: VisualElementSpec = {
           displayItem: displayItem_attachment,
+          mightBeDirty: getMightBeDirty(displayItem_attachment),
           linkItemMaybe: linkItemMaybe_attachment,
           flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
           boundsPx: geometry.boundsPx,
@@ -577,9 +584,9 @@ const arrangeTable_Desktop = (
 
 
 /**
- * Given an item, calculate the visual element display item (what is visually depicted) and linkItemMaybe.
+ * Given an item, calculate the visual element display item (what is visually depicted), linkItemMaybe and spatialWidthGr.
  */
-function getVeDisplayItemAndLinkItemMaybe(desktopStore: DesktopStoreContextModel, item: Item): [Item, LinkItem | null, number] {
+function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, LinkItem | null, number] {
   let displayItem = item;
   let linkItemMaybe: LinkItem | null = null;
   let spatialWidthGr = isXSizableItem(displayItem)
@@ -628,6 +635,7 @@ const arrangeItemNoChildren_Desktop = (
   const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {
     displayItem: item,
+    mightBeDirty: getMightBeDirty(item),
     linkItemMaybe,
     flags: (renderStyle != RenderStyle.Outline ? VisualElementFlags.Detailed : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
@@ -669,6 +677,11 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
 
   const existing = currentVesCache.get(path);
   if (existing) {
+    if (existing.get().mightBeDirty != getMightBeDirty(visualElementOverride.displayItem)) {
+      existing.set(createVisualElement(visualElementOverride));
+      return existing;
+    }
+
     const newVals: any = visualElementOverride;
     const oldVals: any = existing.get();
     const newProps = Object.getOwnPropertyNames(visualElementOverride);
@@ -745,7 +758,7 @@ function arrangeItemAttachments(
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
     const attachmentItem = itemStore.getItem(attachmentId)!;
-    const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = getVeDisplayItemAndLinkItemMaybe(desktopStore, attachmentItem);
+    const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = getVeItems(desktopStore, attachmentItem);
     const attachmentVeid: Veid = {
       itemId: attachmentDisplayItem.id,
       linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null
@@ -763,7 +776,8 @@ function arrangeItemAttachments(
     const attachmentGeometry = calcGeometryOfItem_Attachment(attachmentItem, parentItemBoundsPx, parentItemSizeBl, i, isSelected);
 
     const veSpec: VisualElementSpec = {
-      displayItem: attachmentDisplayItem != null ? attachmentDisplayItem : attachmentLinkItemMaybe!,
+      displayItem: attachmentDisplayItem,
+      mightBeDirty: getMightBeDirty(attachmentDisplayItem),
       linkItemMaybe: attachmentLinkItemMaybe,
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
@@ -802,6 +816,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
+    mightBeDirty: getMightBeDirty(currentPage),
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
@@ -823,6 +838,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     if (!isTable(item) && !isLink(item)) {
       const veSpec: VisualElementSpec = {
         displayItem: item,
+        mightBeDirty: getMightBeDirty(item),
         flags: VisualElementFlags.Detailed,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
