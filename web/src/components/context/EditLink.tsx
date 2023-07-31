@@ -44,6 +44,7 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
 
   const handleLinkToInput = (v: string) => {
     if (!deleted) {
+      asLinkItem(itemStore.getItem(linkId)!).linkToResolvedId = null;
       asLinkItem(itemStore.getItem(linkId)!).linkTo = v;
       arrange(desktopStore);
     }
@@ -51,6 +52,7 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
 
   const handleLinkToBaseUrlInput = (v: string) => {
     if (!deleted) {
+      asLinkItem(itemStore.getItem(linkId)!).linkToResolvedId = null;
       asLinkItem(itemStore.getItem(linkId)!).linkToBaseUrl = v;
       arrange(desktopStore);
     }

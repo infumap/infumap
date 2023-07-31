@@ -594,7 +594,8 @@ function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, 
     : 0;
   if (isLink(item)) {
     linkItemMaybe = asLinkItem(item);
-    const displayItemMaybe = itemStore.getItem(getLinkToId(linkItemMaybe))!;
+    const linkToId = getLinkToId(linkItemMaybe);
+    const displayItemMaybe = itemStore.getItem(linkToId)!;
     if (displayItemMaybe != null) {
       displayItem = displayItemMaybe!;
       if (isXSizableItem(displayItem)) {
