@@ -18,7 +18,6 @@
 
 import { Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
-import { Uid } from "../util/uid";
 
 export enum PopupType {
   Page,
@@ -27,8 +26,7 @@ export enum PopupType {
 
 export interface PopupSpec {
   type: PopupType,
-  uid: Uid | null,
-  vePath: VisualElementPath | null
+  vePath: VisualElementPath
 };
 
 interface PageBreadcrumb {
@@ -106,7 +104,7 @@ export const breadcrumbStore = {
       let line = breadcrumbs[i].pageVeid.itemId + (breadcrumbs[i].pageVeid.linkIdMaybe ? ("[" + breadcrumbs[i].pageVeid.linkIdMaybe + "]") : "") + ": ";
       for (let j=0; j<breadcrumbs[i].popupBreadcrumbs.length; ++j) {
         let pbc = breadcrumbs[i].popupBreadcrumbs[j];
-        line += pbc.type + " " + pbc.uid + " " + pbc.vePath + " ||| ";
+        line += pbc.type + " " + pbc.vePath + " ||| ";
       }
       console.log(line);
     }

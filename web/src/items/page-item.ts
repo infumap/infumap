@@ -316,9 +316,9 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
       veidFromPath(visualElement.parentPath!),
       visualElementToPath(visualElement));
   } else if (pagePopupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
-    breadcrumbStore.pushPopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
+    breadcrumbStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   } else {
-    breadcrumbStore.replacePopup({ type: PopupType.Page, uid: visualElement.displayItem.id, vePath: null });
+    breadcrumbStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   }
   arrange(desktopStore);
 }

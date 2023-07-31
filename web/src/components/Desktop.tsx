@@ -29,7 +29,7 @@ import { asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps_Desktop } from "./VisualElement";
-import { VisualElement } from "../layout/visual-element";
+import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
@@ -66,7 +66,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       let poppedUp = breadcrumbStore.currentPopupSpec();
       if (hitInfo.overElementVes.get().linkItemMaybe != null &&
           // page popups are in temporary link items, avoid trying to edit this.
-          (poppedUp == null || hitInfo.overElementVes.get().displayItem.id != poppedUp!.uid)) {
+          (poppedUp == null || hitInfo.overElementVes.get().displayItem.id != veidFromPath(poppedUp!.vePath).itemId)) {
         desktopStore.setEditDialogInfo({
           desktopBoundsPx: initialEditDialogBounds(desktopStore),
           item: hitInfo.overElementVes.get().linkItemMaybe!
@@ -84,7 +84,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       const key = ev.code;
       console.log(key);
     }
-    
+
     else {
       panic();
     }

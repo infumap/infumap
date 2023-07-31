@@ -763,10 +763,8 @@ export function mouseUpHandler(
 }
 
 function handleAttachmentClick(visualElement: VisualElement, _userStore: UserStoreContextModel) {
-  const page = asPageItem(VesCache.get(VesCache.get(visualElement.parentPath!)!.get().parentPath!)!.get().displayItem);
   breadcrumbStore.replacePopup({
     type: PopupType.Attachment,
-    uid: null,
     vePath: visualElementToPath(visualElement)
   })
 }
