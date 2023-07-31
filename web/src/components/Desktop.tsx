@@ -83,7 +83,10 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
     }
 
     else if (ev.code == "Escape") {
-      console.log("TODO");
+      if (breadcrumbStore.currentPopupSpec()) {
+        breadcrumbStore.popAllPopups();
+        arrange(desktopStore);
+      }
     }
 
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {

@@ -63,33 +63,30 @@ export const breadcrumbStore = {
 
 
   pushPopup: (popupSpec: PopupSpec): void => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
+    if (breadcrumbs.length == 0) { panic(); }
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.push(popupSpec);
   },
 
   replacePopup: (popupSpec: PopupSpec): void => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
+    if (breadcrumbs.length == 0) { panic(); }
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs = [popupSpec];
   },
 
   popPopup: (): void => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
+    if (breadcrumbs.length == 0) { panic(); }
     if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
       return;
     }
     breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.pop();
   },
 
+  popAllPopups: (): void => {
+    if (breadcrumbs.length == 0) { panic(); }
+    breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs = [];
+  },
+
   currentPopupSpec: (): PopupSpec | null => {
-    if (breadcrumbs.length == 0) {
-      panic();
-    }
+    if (breadcrumbs.length == 0) { panic(); }
     if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
       return null;
     }
