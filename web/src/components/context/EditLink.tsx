@@ -52,7 +52,6 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
 
   const handleLinkToBaseUrlInput = (v: string) => {
     if (!deleted) {
-      console.log("DEBUG linkId:", linkId);
       asLinkItem(itemStore.getItem(linkId)!).linkToResolvedId = null;
       asLinkItem(itemStore.getItem(linkId)!).linkToBaseUrl = v;
       arrange(desktopStore);

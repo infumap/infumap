@@ -33,7 +33,6 @@ import { VisualElement } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
-import { itemStore } from "../store/ItemStore";
 import { breadcrumbStore } from "../store/BreadcrumbStore";
 import { mouseMoveStore } from "../store/MouseMoveStore";
 
@@ -52,8 +51,6 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       return;
     }
 
-    // TODO (HIGH): Something better - this doesn't allow slash in data entry in context menu.
-
     let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(mouseMoveStore.lastMouseMoveEvent()), [], false);
 
     if (ev.code == "Slash") {
@@ -64,7 +61,10 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     else if (ev.code == "Backslash") {
       ev.preventDefault();
-      if (hitInfo.overElementVes.get().linkItemMaybe != null) {
+      let poppedUp = breadcrumbStore.currentPopupSpec();
+      if (hitInfo.overElementVes.get().linkItemMaybe != null &&
+          // page popups are in temporary link items, avoid trying to edit this.
+          (poppedUp == null || hitInfo.overElementVes.get().displayItem.id != poppedUp!.uid)) {
         desktopStore.setEditDialogInfo({
           desktopBoundsPx: initialEditDialogBounds(desktopStore),
           item: hitInfo.overElementVes.get().linkItemMaybe!
