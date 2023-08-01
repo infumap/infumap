@@ -30,7 +30,7 @@ import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps_Desktop } from "./VisualElement";
 import { VisualElement, veidFromPath } from "../layout/visual-element";
-import { arrange } from "../layout/arrange";
+import { arrange, switchToPage } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 import { mouseMoveStore } from "../store/MouseMoveStore";
@@ -43,7 +43,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   let desktopDiv: HTMLDivElement | undefined;
 
-  const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape"];
+  const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
   const keyListener = (ev: KeyboardEvent) => {
     if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null) {
       return;
@@ -102,6 +102,13 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
           vePath: closest
         });
         arrange(desktopStore);
+      }
+    }
+
+    else if (ev.code == "Enter") {
+      const spec = desktopStore.currentPopupSpec();
+      if (spec && spec.type == PopupType.Page) {
+        switchToPage(desktopStore, veidFromPath(desktopStore.currentPopupSpec()!.vePath));
       }
     }
 
