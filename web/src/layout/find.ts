@@ -54,15 +54,15 @@ export function findClosest(path: VisualElementPath, direction: FindDirection): 
     .filter(ve => (ve.flags & VisualElementFlags.PagePopup) != VisualElementFlags.PagePopup)
     .filter(ve => isPage(ve.displayItem));
 
-  const MARGIN_PX = 2;
+  const SLACK_PX = 2;
 
   const candidates: Array<VisualElement> = [];
   if (direction == FindDirection.Left) {
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
-      if (siblingBoundsPx.x + siblingBoundsPx.w > currentBoundsPx.x ||
-          siblingBoundsPx.y + MARGIN_PX > currentBoundsPx.y + currentBoundsPx.h ||
-          siblingBoundsPx.y + siblingBoundsPx.h - MARGIN_PX < currentBoundsPx.y) {
+      if (siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX > currentBoundsPx.x ||
+          siblingBoundsPx.y + SLACK_PX > currentBoundsPx.y + currentBoundsPx.h ||
+          siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX < currentBoundsPx.y) {
         continue;
       }
       candidates.push(sibling);
@@ -71,9 +71,9 @@ export function findClosest(path: VisualElementPath, direction: FindDirection): 
   else if (direction == FindDirection.Right) {
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
-      if (siblingBoundsPx.x < currentBoundsPx.x + currentBoundsPx.w ||
-          siblingBoundsPx.y + MARGIN_PX > currentBoundsPx.y + currentBoundsPx.h ||
-          siblingBoundsPx.y + siblingBoundsPx.h - MARGIN_PX < currentBoundsPx.y) {
+      if (siblingBoundsPx.x < currentBoundsPx.x + currentBoundsPx.w - SLACK_PX ||
+          siblingBoundsPx.y + SLACK_PX > currentBoundsPx.y + currentBoundsPx.h ||
+          siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX < currentBoundsPx.y) {
         continue;
       }
       candidates.push(sibling);
@@ -82,9 +82,9 @@ export function findClosest(path: VisualElementPath, direction: FindDirection): 
   else if (direction == FindDirection.Up) {
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
-      if (siblingBoundsPx.y + siblingBoundsPx.h > currentBoundsPx.y ||
-          siblingBoundsPx.x + MARGIN_PX > currentBoundsPx.x + currentBoundsPx.w ||
-          siblingBoundsPx.x + siblingBoundsPx.w - MARGIN_PX < currentBoundsPx.x) {
+      if (siblingBoundsPx.y + siblingBoundsPx.h - SLACK_PX > currentBoundsPx.y ||
+          siblingBoundsPx.x + SLACK_PX > currentBoundsPx.x + currentBoundsPx.w ||
+          siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX < currentBoundsPx.x) {
         continue;
       }
       candidates.push(sibling);
@@ -93,9 +93,9 @@ export function findClosest(path: VisualElementPath, direction: FindDirection): 
   else if (direction == FindDirection.Down) {
     for (let sibling of siblings) {
       const siblingBoundsPx = sibling.boundsPx;
-      if (siblingBoundsPx.y < currentBoundsPx.y + currentBoundsPx.h ||
-          siblingBoundsPx.x + MARGIN_PX > currentBoundsPx.x + currentBoundsPx.w ||
-          siblingBoundsPx.x + siblingBoundsPx.w - MARGIN_PX < currentBoundsPx.x) {
+      if (siblingBoundsPx.y < currentBoundsPx.y + currentBoundsPx.h - SLACK_PX ||
+          siblingBoundsPx.x + SLACK_PX > currentBoundsPx.x + currentBoundsPx.w ||
+          siblingBoundsPx.x + siblingBoundsPx.w - SLACK_PX < currentBoundsPx.x) {
         continue;
       }
       candidates.push(sibling);

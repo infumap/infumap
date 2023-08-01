@@ -83,6 +83,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
     }
 
     else if (ev.code == "Escape") {
+      ev.preventDefault();
       if (breadcrumbStore.currentPopupSpec()) {
         breadcrumbStore.popAllPopups();
         arrange(desktopStore);
@@ -90,6 +91,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
     }
 
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
+      ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
       if (breadcrumbStore.currentPopupSpec() == null) {
         return;
       }
