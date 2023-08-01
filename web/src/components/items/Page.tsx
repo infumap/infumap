@@ -30,7 +30,7 @@ import { arrange, ARRANGE_ALGO_LIST, VesCache } from "../../layout/arrange";
 import { breadcrumbStore } from "../../store/BreadcrumbStore";
 import { itemStore } from "../../store/ItemStore";
 import { server } from "../../server";
-import { detailedFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet, selectedFlagSet } from "../../layout/visual-element";
+import { detailedFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -281,8 +281,6 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
 
 export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
-  const desktopStore = useDesktopStore();
-
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
@@ -307,7 +305,12 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
     const result = { x, y, w, h };
     return result;
   };
-
+  const isPoppedUp = () => {
+    const path = visualElementToPath(props.visualElement);
+    const popupPath = breadcrumbStore.currentPopupSpecVePath();
+    console.log(path, popupPath);
+    return path == popupPath;
+  }
   const bgOpaqueVal = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
     return bg;
@@ -315,7 +318,7 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
         <div class="absolute bg-slate-200"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         </div>

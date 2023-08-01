@@ -21,14 +21,11 @@ import { asFileItem, calcFileSizeForSpatialBl } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
 
 
 export const File: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
-  const desktopStore = useDesktopStore();
-
   const fileItem = () => asFileItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {

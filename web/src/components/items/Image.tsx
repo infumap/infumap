@@ -23,7 +23,7 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
-import { VisualElementFlags, detailedFlagSet } from "../../layout/visual-element";
+import { detailedFlagSet } from "../../layout/visual-element";
 
 
 export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {

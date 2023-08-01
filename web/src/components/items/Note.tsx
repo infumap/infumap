@@ -22,14 +22,10 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../cons
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { itemStore } from "../../store/ItemStore";
 import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
 
 
 export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
-  const desktopStore = useDesktopStore();
-
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = createMemo(() => {

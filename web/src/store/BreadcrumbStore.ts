@@ -94,6 +94,16 @@ export const breadcrumbStore = {
     return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
   },
 
+  currentPopupSpecVePath: (): VisualElementPath | null => {
+    if (breadcrumbs.length == 0) { panic(); }
+    if (breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs.length == 0) {
+      return null;
+    }
+    const lastBreadcrumbPopups = breadcrumbs[breadcrumbs.length-1].popupBreadcrumbs;
+    const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
+    return currentSpec.vePath;
+  },
+
 
   logStateToConsole: () => {
     console.log("*** breadcrumb store state, most recent last:");
