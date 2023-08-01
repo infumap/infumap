@@ -20,7 +20,7 @@ import { batch } from "solid-js";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { EMPTY_UID } from "../util/uid";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
@@ -40,7 +40,6 @@ import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { HitboxType, compareHitboxArrays, createHitbox } from "./hitbox";
 import { itemStore } from "../store/ItemStore";
-import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -82,7 +81,7 @@ export let VesCache = {
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
   batch(() => {
-    breadcrumbStore.pushPage(veid);
+    desktopStore.pushPage(veid);
     var page = asPageItem(itemStore.getItem(veid.itemId)!);
     // TODO (HIGH): get rid of this horrible hack!
     let desktopEl = window.document.getElementById("desktop")!;
@@ -95,7 +94,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
     desktopStore.setPageScrollYPx(veid, 0);
     arrange(desktopStore);
   });
-  updateHref();
+  updateHref(desktopStore);
 }
 
 
@@ -119,9 +118,9 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
  *    approach is more ad-hoc / less "automated", I think the code is simpler to work on due to this.
  */
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
-  if (breadcrumbStore.currentPage() == null) { return; }
-  initiateLoadChildItemsIfNotLoaded(desktopStore, breadcrumbStore.currentPage()!.itemId);
-  let currentPage = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
+  if (desktopStore.currentPage() == null) { return; }
+  initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.currentPage()!.itemId);
+  let currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     arrange_grid(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
@@ -135,10 +134,10 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   let newCache = new Map<VisualElementPath, VisualElementSignal>();
 
-  const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
-  const selectedVeid = veidFromPath(desktopStore.getSelectedItem(breadcrumbStore.currentPage()!));
+  const selectedVeid = veidFromPath(desktopStore.getSelectedItem(desktopStore.currentPage()!));
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElement = createVisualElement({
     displayItem: currentPage,
@@ -221,7 +220,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 // }
 
 const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
-  const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = currentPage.naturalAspect;
   const topLevelPageBoundsPx = (() => {
@@ -270,7 +269,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
       false // is popup
     ));
 
-  const currentPopupSpec = breadcrumbStore.currentPopupSpec();
+  const currentPopupSpec = desktopStore.currentPopupSpec();
   if (currentPopupSpec != null) {
 
     // ** PAGE POPUP
@@ -350,7 +349,7 @@ const arrangeItem_Desktop = (
       isPagePopup, false);
   }
 
-  if (isTable(displayItem) && (item.parentId == breadcrumbStore.currentPage()!.itemId || renderChildrenAsFull)) {
+  if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangeTable_Desktop(
       desktopStore,
@@ -777,7 +776,7 @@ function arrangeItemAttachments(
     };
     const attachmentVePath = prependVeidToPath(attachmentVeid, parentItemVePath);
 
-    const popupSpec = breadcrumbStore.currentPopupSpec();
+    const popupSpec = desktopStore.currentPopupSpec();
     let isSelected = false;
     if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
       if (attachmentVePath == popupSpec.vePath) {
@@ -809,7 +808,7 @@ function arrangeItemAttachments(
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   let newCache = new Map<VisualElementPath, VisualElementSignal>();
 
-  const currentPage = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();

@@ -25,9 +25,8 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST, VesCache } from "../../layout/arrange";
-import { breadcrumbStore } from "../../store/BreadcrumbStore";
 import { itemStore } from "../../store/ItemStore";
 import { server } from "../../server";
 import { detailedFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
@@ -43,6 +42,12 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return asPageItem(itemStore.getItem(parentVe.displayItem.id)!);
   };
   const boundsPx = () => props.visualElement.boundsPx;
+  const innerBoundsPx = () => {
+    let r = zeroBoundingBoxTopLeft(props.visualElement.boundsPx);
+    r.w = r.w - 2;
+    r.h = r.h - 2;
+    return r;
+  }
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click || hb.type == HitboxType.OpenAttachment)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
@@ -61,6 +66,9 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     }
     return pageItem().spatialWidthGr;
   };
+  const isPoppedUp = () => {
+    return visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
+  }
 
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -112,6 +120,11 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
             <div class={`absolute rounded-sm`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000;`}>
+            </div>
+          </Show>
+          <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+            <div class="absolute"
+                 style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
             </div>
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
@@ -166,6 +179,11 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
             <div class={`absolute rounded-sm`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000;`}>
+            </div>
+          </Show>
+          <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+            <div class="absolute"
+                 style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
             </div>
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
@@ -258,17 +276,17 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == breadcrumbStore.currentPage()!.itemId || rootFlagSet(props.visualElement)}>
+      <Show when={pageItem().id == desktopStore.currentPage()!.itemId || rootFlagSet(props.visualElement)}>
         {drawAsFull()}
       </Show>
       <Show when={!detailedFlagSet(props.visualElement) ||
-                  (!rootFlagSet(props.visualElement) && !pagePopupFlagSet(props.visualElement) && pageItem().id != breadcrumbStore.currentPage()!.itemId && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!rootFlagSet(props.visualElement) && !pagePopupFlagSet(props.visualElement) && pageItem().id != desktopStore.currentPage()!.itemId && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!rootFlagSet(props.visualElement) &&
                   !pagePopupFlagSet(props.visualElement) &&
                   detailedFlagSet(props.visualElement) &&
-                  pageItem().id != breadcrumbStore.currentPage()!.itemId &&
+                  pageItem().id != desktopStore.currentPage()!.itemId &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
@@ -281,6 +299,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
 
 export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+  const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
@@ -306,10 +325,7 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
     return result;
   };
   const isPoppedUp = () => {
-    const path = visualElementToPath(props.visualElement);
-    const popupPath = breadcrumbStore.currentPopupSpecVePath();
-    console.log(path, popupPath);
-    return path == popupPath;
+    return visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
   }
   const bgOpaqueVal = () => {
     let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
@@ -319,8 +335,8 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
   return (
     <>
       <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
-        <div class="absolute bg-slate-200"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>
       </Show>
       <Show when={props.visualElement.mouseIsOverOpenPopup.get()}>

@@ -17,7 +17,7 @@
 */
 
 import { Component, onCleanup, onMount } from "solid-js";
-import { useDesktopStore } from "../store/DesktopStoreProvider";
+import { PopupType, useDesktopStore } from "../store/DesktopStoreProvider";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
@@ -33,7 +33,6 @@ import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
-import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 import { mouseMoveStore } from "../store/MouseMoveStore";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 
@@ -65,7 +64,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     else if (ev.code == "Backslash") {
       ev.preventDefault();
-      let poppedUp = breadcrumbStore.currentPopupSpec();
+      let poppedUp = desktopStore.currentPopupSpec();
       if (hitInfo.overElementVes.get().linkItemMaybe != null &&
           // page popups are in temporary link items, avoid trying to edit this.
           (poppedUp == null || hitInfo.overElementVes.get().displayItem.id != veidFromPath(poppedUp!.vePath).itemId)) {
@@ -84,21 +83,21 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     else if (ev.code == "Escape") {
       ev.preventDefault();
-      if (breadcrumbStore.currentPopupSpec()) {
-        breadcrumbStore.popAllPopups();
+      if (desktopStore.currentPopupSpec()) {
+        desktopStore.popAllPopups();
         arrange(desktopStore);
       }
     }
 
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
       ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-      if (breadcrumbStore.currentPopupSpec() == null) {
+      if (desktopStore.currentPopupSpec() == null) {
         return;
       }
       const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(breadcrumbStore.currentPopupSpec()!.vePath, direction);
+      const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction);
       if (closest != null) {
-        breadcrumbStore.replacePopup({
+        desktopStore.replacePopup({
           type: PopupType.Page,
           vePath: closest
         });
@@ -179,8 +178,8 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
-    desktopStore.setPageScrollXPx(breadcrumbStore.currentPage()!, desktopDiv!.scrollLeft);
-    desktopStore.setPageScrollYPx(breadcrumbStore.currentPage()!, desktopDiv!.scrollTop);
+    desktopStore.setPageScrollXPx(desktopStore.currentPage()!, desktopDiv!.scrollLeft);
+    desktopStore.setPageScrollYPx(desktopStore.currentPage()!, desktopDiv!.scrollTop);
   }
 
   function overflowPolicy(topLevelVisualElement: VisualElement) {

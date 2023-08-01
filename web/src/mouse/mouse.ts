@@ -24,7 +24,7 @@ import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-it
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
+import { DesktopStoreContextModel, PopupType, findVisualElements } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
@@ -43,7 +43,6 @@ import { updateHref } from "../util/browser";
 import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemStore } from "../store/ItemStore";
-import { PopupType, breadcrumbStore } from "../store/BreadcrumbStore";
 import { mouseMoveStore } from "../store/MouseMoveStore";
 
 
@@ -91,7 +90,7 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
     ev: MouseEvent) {
-  if (breadcrumbStore.currentPage() == null) { return; }
+  if (desktopStore.currentPage() == null) { return; }
   if (ev.button == MOUSE_LEFT) {
     mouseLeftDownHandler(desktopStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
@@ -218,9 +217,9 @@ export function mouseRightDownHandler(
     return;
   }
 
-  if (breadcrumbStore.currentPopupSpec() != null) {
-    breadcrumbStore.popPopup();
-    const page = asPageItem(itemStore.getItem(breadcrumbStore.currentPage()!.itemId)!);
+  if (desktopStore.currentPopupSpec() != null) {
+    desktopStore.popPopup();
+    const page = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
@@ -228,15 +227,15 @@ export function mouseRightDownHandler(
     return;
   }
 
-  breadcrumbStore.popPage();
-  updateHref();
+  desktopStore.popPage();
+  updateHref(desktopStore);
   arrange(desktopStore);
 }
 
 
 // **** MOVE ****
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
-  if (breadcrumbStore.currentPage() == null) { return; }
+  if (desktopStore.currentPage() == null) { return; }
 
   const ev = mouseMoveStore.lastMouseMoveEvent();
   const desktopPosPx = desktopPxFromMouseEvent(ev);
@@ -496,13 +495,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
     }
   }
 
-  if ((overElementVes!.get().displayItem.id != breadcrumbStore.currentPage()!.itemId) &&
+  if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
       !pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
-  if ((overElementVes!.get().displayItem.id != breadcrumbStore.currentPage()!.itemId) &&
+  if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
       ! pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
@@ -747,7 +746,7 @@ export function mouseUpHandler(
         handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.OpenAttachment) {
-        handleAttachmentClick(activeVisualElement, userStore);
+        handleAttachmentClick(desktopStore, activeVisualElement, userStore);
         arrange(desktopStore);
       }
       else if (mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Click) {
@@ -762,8 +761,8 @@ export function mouseUpHandler(
   mouseActionState = null;
 }
 
-function handleAttachmentClick(visualElement: VisualElement, _userStore: UserStoreContextModel) {
-  breadcrumbStore.replacePopup({
+function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement, _userStore: UserStoreContextModel) {
+  desktopStore.replacePopup({
     type: PopupType.Attachment,
     vePath: visualElementToPath(visualElement)
   })

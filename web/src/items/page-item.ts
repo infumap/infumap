@@ -27,13 +27,12 @@ import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
-import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, VesCache, arrange, switchToPage } from '../layout/arrange';
 import { VisualElement, getVeid, lineItemFlagSet, pagePopupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
-import { PopupType, breadcrumbStore } from '../store/BreadcrumbStore';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
@@ -316,9 +315,9 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
       veidFromPath(visualElement.parentPath!),
       visualElementToPath(visualElement));
   } else if (pagePopupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
-    breadcrumbStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   } else {
-    breadcrumbStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    desktopStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   }
   arrange(desktopStore);
 }

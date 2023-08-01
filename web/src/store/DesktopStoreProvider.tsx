@@ -53,6 +53,17 @@ export interface DesktopStoreContextModel {
 
   getPageScrollYPx: (veid: Veid) => number,
   setPageScrollYPx: (veid: Veid, path: number) => void,
+
+  clearBreadcrumbs: () => void,
+  pushPage: (veid: Veid) => void,
+  popPage: () => void,
+  currentPage: () => Veid | null,
+  pushPopup: (popupSpec: PopupSpec) => void,
+  replacePopup: (popupSpec: PopupSpec) => void,
+  popPopup: () => void,
+  popAllPopups: () => void,
+  currentPopupSpec: () => PopupSpec | null,
+  currentPopupSpecVePath: () => VisualElementPath | null,
 }
 
 export interface ContextMenuInfo {
@@ -64,6 +75,22 @@ export interface EditDialogInfo {
   desktopBoundsPx: BoundingBox,
   item: Item
 }
+
+export enum PopupType {
+  Page,
+  Attachment
+}
+
+export interface PopupSpec {
+  type: PopupType,
+  vePath: VisualElementPath
+};
+
+interface PageBreadcrumb {
+  pageVeid: Veid,
+  popupBreadcrumbs: Array<PopupSpec>,
+}
+
 
 export interface DesktopStoreContextProps {
   children: JSX.Element
@@ -84,6 +111,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, VisualElementPathSignal>();
+
+  const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -164,6 +193,79 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }
   }
 
+
+  const clearBreadcrumbs = (): void => {
+    setBreadcrumbs([]);
+  };
+
+
+  const pushPage = (veid: Veid): void => {
+    breadcrumbs().push({ pageVeid: veid, popupBreadcrumbs: [] });
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const popPage = (): void => {
+    if (breadcrumbs().length <= 1) {
+      return;
+    }
+    breadcrumbs().pop();
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const currentPage = (): Veid | null => {
+    if (breadcrumbs().length == 0) {
+      return null;
+    }
+    return breadcrumbs()[breadcrumbs().length-1].pageVeid;
+  };
+
+
+  const pushPopup = (popupSpec: PopupSpec): void => {
+    if (breadcrumbs().length == 0) { panic(); }
+    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.push(popupSpec);
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const replacePopup = (popupSpec: PopupSpec): void => {
+    if (breadcrumbs().length == 0) { panic(); }
+    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [popupSpec];
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const popPopup = (): void => {
+    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
+      return;
+    }
+    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.pop();
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const popAllPopups = (): void => {
+    if (breadcrumbs().length == 0) { panic(); }
+    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [];
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const currentPopupSpec = (): PopupSpec | null => {
+    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
+      return null;
+    }
+    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
+    return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
+  };
+
+  const currentPopupSpecVePath = (): VisualElementPath | null => {
+    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
+      return null;
+    }
+    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
+    const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
+    return currentSpec.vePath;
+  };
+
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
     topLevelVisualElement, setTopLevelVisualElement,
@@ -174,6 +276,17 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     getSelectedItem, setSelectedItem,
     getPageScrollXPx, setPageScrollXPx,
     getPageScrollYPx, setPageScrollYPx,
+
+    clearBreadcrumbs,
+    pushPage,
+    popPage,
+    currentPage,
+    pushPopup,
+    replacePopup,
+    popPopup,
+    popAllPopups,
+    currentPopupSpec,
+    currentPopupSpecVePath,
   };
 
   return (
