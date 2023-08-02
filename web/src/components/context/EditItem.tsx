@@ -31,6 +31,8 @@ import { EditPage } from "./EditPage";
 import { EditTable } from "./EditTable";
 import { asLinkItem, isLink } from "../../items/link-item";
 import { EditLink } from "./EditLink";
+import { asPasswordItem, isPassword } from "../../items/password-item";
+import { EditPassword } from "./EditPassword";
 
 
 export const EditItem: Component<{item: Item}> = (props: {item: Item}) => {
@@ -70,6 +72,9 @@ export const EditItem: Component<{item: Item}> = (props: {item: Item}) => {
         </Match>
         <Match when={isLink(props.item)}>
           <EditLink linkItem={asLinkItem(props.item)} />
+        </Match>
+        <Match when={isPassword(props.item)}>
+          <EditPassword passwordItem={asPasswordItem(props.item)} />
         </Match>
       </Switch>
     </div>

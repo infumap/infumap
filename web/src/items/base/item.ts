@@ -26,6 +26,7 @@ export const ITEM_TYPE_PAGE = "page";
 export const ITEM_TYPE_TABLE = "table";
 export const ITEM_TYPE_NOTE = "note";
 export const ITEM_TYPE_FILE = "file";
+export const ITEM_TYPE_PASSWORD = "password";
 export const ITEM_TYPE_IMAGE = "image";
 export const ITEM_TYPE_RATING = "rating";
 export const ITEM_TYPE_LINK = "link";

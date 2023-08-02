@@ -157,6 +157,7 @@ pub enum ItemType {
   Table,
   Note,
   File,
+  Password,
   Image,
   Rating,
   Link,
@@ -170,6 +171,7 @@ impl ItemType {
       ItemType::Table => "table",
       ItemType::Note => "note",
       ItemType::File => "file",
+      ItemType::Password => "password",
       ItemType::Image => "image",
       ItemType::Rating => "rating",
       ItemType::Link => "link",
@@ -183,6 +185,7 @@ impl ItemType {
       "table" => Ok(ItemType::Table),
       "note" => Ok(ItemType::Note),
       "file" => Ok(ItemType::File),
+      "password" => Ok(ItemType::Password),
       "image" => Ok(ItemType::Image),
       "rating" => Ok(ItemType::Rating),
       "link" => Ok(ItemType::Link),
@@ -205,7 +208,7 @@ pub fn is_positionable(item_type: ItemType) -> bool {
 pub fn is_attachments_item(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image
+  item_type == ItemType::Image || item_type == ItemType::Password
 }
 
 pub fn is_container_item(item_type: ItemType) -> bool {
@@ -219,7 +222,7 @@ pub fn is_data_item(item_type: ItemType) -> bool {
 pub fn is_x_sizeable_item(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image
+  item_type == ItemType::Image || item_type == ItemType::Password
 }
 
 pub fn is_y_sizeable_item(item_type: ItemType) -> bool {
@@ -241,7 +244,7 @@ pub fn is_link_item(item_type: ItemType) -> bool {
 }
 
 
-const ALL_JSON_FIELDS: [&'static str; 33] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 34] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -250,7 +253,7 @@ const ALL_JSON_FIELDS: [&'static str; 33] = ["__recordType",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "showHeader", "linkTo", "linkToBaseUrl", "gridNumberOfColumns",
-  "orderChildrenBy"];
+  "orderChildrenBy", "text"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -309,6 +312,9 @@ pub struct Item {
 
   // file
 
+  // password
+  pub text: Option<String>,
+
   // table
   pub show_header: Option<bool>,
   pub table_columns: Option<Vec<TableColumn>>,
@@ -360,6 +366,7 @@ impl Clone for Item {
       rating: self.rating.clone(),
       link_to_id: self.link_to_id.clone(),
       link_to_base_url: self.link_to_base_url.clone(),
+      text: self.text.clone(),
     }
   }
 }
@@ -546,6 +553,14 @@ impl JsonLogSerializable<Item> for Item {
 
     // file
 
+    // password
+    if let Some(new_text) = &new.text {
+      if match &old.text { Some(o) => o != new_text, None => { true } } {
+        if old.item_type != ItemType::Password { cannot_modify_err("text", &old.id)?; }
+        result.insert(String::from("text"), Value::String(new_text.clone()));
+      }
+    }
+
     // table
     if let Some(new_table_columns) = &new.table_columns {
       if match &old.table_columns { Some(o) => o != new_table_columns, None => { true } } {
@@ -719,6 +734,12 @@ impl JsonLogSerializable<Item> for Item {
 
     // file
 
+    // password
+    if let Some(v) = json::get_string_field(map, "text")? {
+      if self.item_type == ItemType::Password { self.text = Some(v); }
+      else { not_applicable_err("text", self.item_type, &self.id)?; }
+    }
+
     // table
     if let Some(v) = json::get_table_columns_field(map, "tableColumns")? {
       if self.item_type != ItemType::Table { not_applicable_err("tableColumns", self.item_type, &self.id)?; }
@@ -868,6 +889,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   }
 
   // file
+
+  // password
+  if let Some(text) = &item.text {
+    if item.item_type != ItemType::Password { unexpected_field_err("text", &item.id, item.item_type)? }
+    result.insert(String::from("text"), Value::String(text.clone()));
+  }
 
   // table
   if let Some(table_columns) = &item.table_columns {
@@ -1048,6 +1075,12 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
 
     // file
+
+    // password
+    text: match json::get_string_field(map, "text")? {
+      Some(v) => { if item_type == ItemType::Password { Ok(Some(v)) } else { Err(not_applicable_err("text", item_type, &id)) } },
+      None => { if item_type == ItemType::Password { Err(expected_for_err("text", item_type, &id)) } else { Ok(None) } }
+    }?,
 
     // table
     table_columns: match json::get_table_columns_field(map, "tableColumns")? {

@@ -35,6 +35,7 @@ import { newLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { itemStore } from "../../store/ItemStore";
 import { dragOverPositioningFlagSet, insideTableFlagSet } from "../../layout/visual-element";
+import { newPasswordItem } from "../../items/password-item";
 
 
 type ContexMenuProps = {
@@ -51,13 +52,13 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newTableInContext = () => newItemInContext("table");
   const newRatingInContext = () => newItemInContext("rating");
   const newLinkInContext = () => newItemInContext("link");
+  const newPasswordInContext = () => newItemInContext("password");
 
   const newItemInContext = (type: string) => {
     const overElementVe = props.hitInfo.overElementVes.get();
     if (insideTableFlagSet(overElementVe)) {
       const attachmentNumber = props.hitInfo.overElementVes.get();
       console.log(attachmentNumber);
-
       panic();
     } else if (isPage(overElementVe.displayItem) && dragOverPositioningFlagSet(overElementVe)) {
 
@@ -100,6 +101,12 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         Child,
         itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
         EMPTY_UID);
+    } else if (type == "password")  {
+      newItem = newPasswordItem(userStore.getUser().userId,
+        overElementVe.displayItem.id!,
+        Child,
+        "",
+        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else {
       panic();
     }
@@ -128,6 +135,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <ToolbarIcon icon="sticky-note" margin={8} clickHandler={newNoteInContext} />
       <ToolbarIcon icon="star" margin={4} clickHandler={newRatingInContext} />
       <ToolbarIcon icon="link" margin={4} clickHandler={newLinkInContext} />
+      <ToolbarIcon icon="eye-slash" margin={4} clickHandler={newPasswordInContext} />
     </div>
   );
 }

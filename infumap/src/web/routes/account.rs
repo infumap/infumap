@@ -346,7 +346,7 @@ fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_wi
     creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
     last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
     ordering: vec![128],
-    order_children_by: None,
+    order_children_by: Some(String::from("")),
     spatial_position_gr: Some(Vector { x: 0, y: 0 }),
     spatial_width_gr: Some(60 * GRID_SIZE),
     spatial_height_gr: None,
@@ -370,6 +370,7 @@ fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_wi
     rating: None,
     link_to_id: None,
     link_to_base_url: None,
+    text: None,
   }
 }
 
