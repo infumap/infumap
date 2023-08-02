@@ -47,15 +47,38 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
   const widthScale = () => boundsPx().w / naturalWidthPx();
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
+  const showText = () => false;
+
+  const copyClickHandler = () => {
+    navigator.clipboard.writeText(passwordItem().text);
+  }
 
   return (
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={detailedFlagSet(props.visualElement)}>
-        <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
+        <div class="absolute overflow-hidden whitespace-nowrap"
+             style={`left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-          <span class="text-green-800 cursor-pointer">{passwordItem().text}</span>
+          <Show when={showText()} fallback={
+            <span class="text-purple-800">••••••••</span>
+          }>
+            <span class="text-purple-800">{passwordItem().text}</span>
+          </Show>
+        </div>
+        <div class="absolute text-center text-slate-400"
+             style={`left: ${boundsPx().w - (boundsPx().w/sizeBl().w)*1.2}px; top: ${0}px; ` +
+                    `width: ${boundsPx().w/sizeBl().w}px; height: ${boundsPx().h}px;`}>
+          <i class={`fas fa-eye-slash`}
+              style={`transform: scale(${scale()}); transform-origin: top left;`} />
+        </div>
+        <div class="absolute text-center text-slate-400 cursor-pointer"
+             style={`left: ${boundsPx().w - 2.2*(boundsPx().w/sizeBl().w)}px; top: ${0}px; ` +
+                    `width: ${boundsPx().w/sizeBl().w}px; height: ${boundsPx().h}px;`}
+             onclick={copyClickHandler}>
+          <i class={`fas fa-copy`}
+             style={`transform: scale(${scale()}); transform-origin: top left;`} />
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
@@ -86,6 +109,11 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
   const widthPx = () => attachmentFlagSet(props.visualElement)
     ? boundsPx().w
     : boundsPx().w - oneBlockWidthPx();
+  const showText = () => false;
+
+  const copyClickHandler = () => {
+    navigator.clipboard.writeText(passwordItem().text);
+  }
 
   return (
     <>
@@ -101,7 +129,27 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
            style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span class="text-green-800 cursor-pointer">{passwordItem().text}</span>
+        <Show when={showText()} fallback={
+          <span class="text-purple-800">••••••••</span>
+        }>
+          <span class="text-purple-800">{passwordItem().text}</span>
+        </Show>
+      </div>
+      <div class="absolute bg-slate-200"
+           style={`left: ${boundsPx().x}; top: ${boundsPx().y}; width: ${boundsPx().w}; height: ${boundsPx().h}`}>
+        <div class="absolute text-center text-slate-400"
+             style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx()*1.2}px; top: ${boundsPx().y}px; ` +
+                    `width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}>
+          <i class={`fas fa-eye-slash`}
+              style={`transform: scale(${scale()}); transform-origin: top left;`} />
+        </div>
+        <div class="absolute text-center text-slate-400 cursor-pointer"
+             style={`left: ${boundsPx().x + boundsPx().w - 2.2*oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+                    `width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}
+             onclick={copyClickHandler}>
+          <i class={`fas fa-copy`}
+             style={`transform: scale(${scale()}); transform-origin: top left;`} />
+        </div>
       </div>
     </>
   );

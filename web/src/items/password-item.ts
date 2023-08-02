@@ -26,10 +26,7 @@ import { ItemTypeMixin, ITEM_TYPE_PASSWORD } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { measureLineCount } from '../util/html';
 
-
-// TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem {
 }
@@ -100,10 +97,7 @@ export function passwordToObject(p: PasswordItem): object {
 }
 
 export function calcPasswordSizeForSpatialBl(password: PasswordMeasurable): Dimensions {
-  // TODO (HIGH): this should be max of plain text and ***** text.
-  let lineCount = measureLineCount(password.text, password.spatialWidthGr / GRID_SIZE);
-  if (lineCount < 1) { lineCount = 1; }
-  return { w: password.spatialWidthGr / GRID_SIZE, h: lineCount };
+  return ({ w: password.spatialWidthGr / GRID_SIZE, h: 1 });
 }
 
 export function calcGeometryOfPasswordItem_Desktop(password: PasswordMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
