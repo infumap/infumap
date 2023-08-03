@@ -29,6 +29,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
+import { FlagsMixin, ItemFlagsType } from "./base/flags-item";
 
 
 export interface TableColumn {
@@ -39,9 +40,8 @@ export interface TableColumn {
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
 }
 
-export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
+export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin {
   tableColumns: Array<TableColumn>;
-  showHeader: boolean;
 }
 
 
@@ -66,7 +66,8 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       name: "Title",
       widthGr: 8 * GRID_SIZE,
     }],
-    showHeader: false,
+
+    flags: ItemFlagsType.None,
 
     orderChildrenBy: "",
 
@@ -78,7 +79,8 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
 }
 
 export function tableFromObject(o: any): TableItem {
-  // TODO: dynamic type check of o.
+  // TODO (LOW): dynamic type check of o.
+  // TODO (LOW): check flags field.
   return ({
     itemType: o.itemType,
     ownerId: o.ownerId,
@@ -95,7 +97,7 @@ export function tableFromObject(o: any): TableItem {
     spatialHeightGr: o.spatialHeightGr,
 
     tableColumns: o.tableColumns,
-    showHeader: o.showHeader,
+    flags: o.flags,
 
     orderChildrenBy: o.orderChildrenBy,
 
@@ -123,7 +125,7 @@ export function tableToObject(t: TableItem): object {
     spatialHeightGr: t.spatialHeightGr,
 
     tableColumns: t.tableColumns,
-    showHeader: t.showHeader,
+    flags: t.flags,
 
     orderChildrenBy: t.orderChildrenBy,
   });
@@ -222,7 +224,7 @@ export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasura
     spatialWidthGr: table.spatialWidthGr,
     spatialHeightGr: table.spatialHeightGr,
     tableColumns: table.tableColumns,
-    showHeader: table.showHeader,
+    flags: table.flags,
   });
 }
 

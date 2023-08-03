@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 7;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 8;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -575,6 +575,65 @@ pub fn migrate_record_v6_to_v7(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 
     "update" => {
       return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add 'flags' field to table and note item types and remove table showHeader field, converting it to be flag = 0x0001.
+ */
+pub fn migrate_record_v7_to_v8(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 7);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "table" {
+        let existing = result.remove("showHeader");
+        match existing {
+          None => return Err("showHeader missing".into()),
+          Some(s) => {
+            let v = match s {
+              Value::Bool(b) => b,
+              _ => return Err("showHeader has unexpected type".into())
+            };
+            let existing_new = result.insert(String::from("flags"), Value::Number((if v { 1 } else { 0 }).into()));
+            if existing_new.is_some() { return Err("flags field already exists.".into()); }
+          }
+        }
+      } else if item_type == "note" {
+        let existing_new = result.insert(String::from("flags"), Value::Number(0.into()));
+        if existing_new.is_some() { return Err("flags field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      let mut result = kvs.clone();
+      let existing = result.remove("showHeader");
+      match existing {
+        None => return Ok(result),
+        Some(s) => {
+          let v = match s {
+            Value::Bool(b) => b,
+            _ => return Err("showHeader has unexpected type".into())
+          };
+          let existing_new = result.insert(String::from("flags"), Value::Number((if v { 1 } else { 0 }).into()));
+          if existing_new.is_some() { return Err("flags field already exists.".into()); }
+        }
+      }
+      return Ok(result);
     },
 
     "delete" => {

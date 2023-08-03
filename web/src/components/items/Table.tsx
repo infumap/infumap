@@ -26,6 +26,7 @@ import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { detailedFlagSet, getVeid, lineItemFlagSet } from "../../layout/visual-element";
+import { ItemFlagsType } from "../../items/base/flags-item";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
@@ -35,6 +36,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const desktopStore = useDesktopStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const showHeader = () => (tableItem().flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader;
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
   const spatialWidthGr = () => {
@@ -58,7 +60,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() - desktopStore.getTableScrollYPos(getVeid(props.visualElement)) + HEADER_HEIGHT_BL + (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
+    const rowNumber = props.visualElement.moveOverRowNumber.get() - desktopStore.getTableScrollYPos(getVeid(props.visualElement)) + HEADER_HEIGHT_BL + (showHeader() ? COL_HEADER_HEIGHT_BL : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
@@ -122,7 +124,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
           <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`}>
           </div>
-          <Show when={tableItem().showHeader}>
+          <Show when={showHeader()}>
             <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
                  style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`}>
             </div>
@@ -142,15 +144,15 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
         </div>
         <TableChildArea visualElement={props.visualElement} />
         <div class="absolute pointer-events-none"
-             style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (tableItem().showHeader ? blockSizePx().h : 0)}px; ` +
-                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (tableItem().showHeader ? blockSizePx().h : 0)}px;`}>
+             style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (showHeader() ? blockSizePx().h : 0)}px; ` +
+                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (showHeader() ? blockSizePx().h : 0)}px;`}>
           <For each={columnSpecs()}>{spec =>
             <>
               <Show when={!spec.isLast}>
                 <div class="absolute bg-slate-700"
-                     style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (tableItem().showHeader ? blockSizePx().h : 0)}px`}></div>
+                     style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (showHeader() ? blockSizePx().h : 0)}px`}></div>
               </Show>
-              <Show when={tableItem().showHeader}>
+              <Show when={showHeader()}>
                 <div class="absolute whitespace-nowrap overflow-hidden"
                      style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                             `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
@@ -189,6 +191,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
   }
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const showHeader = () => (tableItem().flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader;
   const spatialHeightGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return props.visualElement.linkItemMaybe.spatialHeightGr;
@@ -196,7 +199,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
     return tableItem().spatialHeightGr;
   }
   const blockHeightPx = () => {
-    const heightBr = spatialHeightGr() / GRID_SIZE - HEADER_HEIGHT_BL - (tableItem().showHeader ? COL_HEADER_HEIGHT_BL : 0);
+    const heightBr = spatialHeightGr() / GRID_SIZE - HEADER_HEIGHT_BL - (showHeader() ? COL_HEADER_HEIGHT_BL : 0);
     const heightPx = props.visualElement.childAreaBoundsPx!.h;
     const bhpx = heightPx / heightBr;
     return bhpx;

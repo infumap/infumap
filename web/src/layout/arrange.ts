@@ -40,6 +40,7 @@ import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { HitboxType, compareHitboxArrays, createHitbox } from "./hitbox";
 import { itemStore } from "../store/ItemStore";
+import { ItemFlagsType } from "../items/base/flags-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -82,7 +83,6 @@ export let VesCache = {
 export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
   batch(() => {
     desktopStore.pushPage(veid);
-    var page = asPageItem(itemStore.getItem(veid.itemId)!);
     // TODO (HIGH): get rid of this horrible hack!
     let desktopEl = window.document.getElementById("desktop")!;
     if (desktopEl) {
@@ -491,7 +491,7 @@ const arrangeTable_Desktop = (
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-  const colHeaderHeightPx = displayItem_Table.showHeader ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
+  const colHeaderHeightPx = ((displayItem_Table.flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader) ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
 
   let childAreaBoundsPx = {
     x: tableGeometry.boundsPx.x, y: tableGeometry.boundsPx.y + (headerHeightPx + colHeaderHeightPx),

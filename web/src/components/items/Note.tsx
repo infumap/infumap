@@ -23,6 +23,7 @@ import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_L
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
+import { ItemFlagsType } from "../../items/base/flags-item";
 
 
 export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -90,6 +91,14 @@ export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
     ? boundsPx().w - oneBlockWidthPx() * 0.15
     : boundsPx().w - oneBlockWidthPx();
 
+  const copyClickHandler = () => {
+    if (noteItem().url == "") {
+      navigator.clipboard.writeText(noteItem().title);
+    } else {
+      navigator.clipboard.writeText("[" + noteItem().title + "](" + noteItem().url + ")");
+    }
+  }
+
   return (
     <>
       <Show when={!attachmentFlagSet(props.visualElement)}>
@@ -106,6 +115,18 @@ export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
       </div>
+      <Show when={(noteItem().flags & ItemFlagsType.ShowCopyIcon) == ItemFlagsType.ShowCopyIcon}>
+        <div class="absolute"
+            style={`left: ${boundsPx().x}; top: ${boundsPx().y}; width: ${boundsPx().w}; height: ${boundsPx().h}`}>
+          <div class="absolute text-center text-slate-400 cursor-pointer"
+              style={`left: ${boundsPx().x + boundsPx().w - 1.1*oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+                      `width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}
+              onclick={copyClickHandler}>
+            <i class={`fas fa-copy`}
+              style={`transform: scale(${scale()}); transform-origin: top left;`} />
+          </div>
+        </div>
+      </Show>
     </>
   );
 }

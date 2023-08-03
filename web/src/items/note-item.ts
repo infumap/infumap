@@ -28,6 +28,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
+import { FlagsMixin, ItemFlagsType } from './base/flags-item';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -36,7 +37,7 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem,
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin { }
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin { }
 
 
 export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem {
@@ -55,6 +56,8 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     spatialWidthGr: 10.0 * GRID_SIZE,
 
+    flags: ItemFlagsType.None,
+
     url: "",
 
     computed_attachments: [],
@@ -62,7 +65,8 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 }
 
 export function noteFromObject(o: any): NoteItem {
-  // TODO: dynamic type check of o.
+  // TODO (LOW): dynamic type check of o.
+  // TODO (LOW): check flags field.
   return ({
     itemType: o.itemType,
     ownerId: o.ownerId,
@@ -76,6 +80,8 @@ export function noteFromObject(o: any): NoteItem {
     spatialPositionGr: o.spatialPositionGr,
 
     spatialWidthGr: o.spatialWidthGr,
+
+    flags: o.flags,
 
     url: o.url,
 
@@ -97,6 +103,8 @@ export function noteToObject(n: NoteItem): object {
     spatialPositionGr: n.spatialPositionGr,
 
     spatialWidthGr: n.spatialWidthGr,
+
+    flags: n.flags,
 
     url: n.url,
   });
@@ -189,6 +197,7 @@ export function cloneNoteMeasurableFields(note: NoteMeasurable): NoteMeasurable 
     spatialPositionGr: note.spatialPositionGr,
     spatialWidthGr: note.spatialWidthGr,
     title: note.title,
+    flags: note.flags,
   });
 }
 

@@ -25,10 +25,12 @@ import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuTextArea } from "../library/InfuTextArea";
 import { arrange } from "../../layout/arrange";
 import { itemStore } from "../../store/ItemStore";
+import { ItemFlagsType } from "../../items/base/flags-item";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
   const desktopStore = useDesktopStore();
+  let checkElement_copy: HTMLInputElement | undefined;
 
   const noteId = props.noteItem.id;
   let deleted = false;
@@ -59,10 +61,23 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
     }
   });
 
+  const changeShowCopy = async () => {
+    if (checkElement_copy!.checked) {
+      asNoteItem(itemStore.getItem(noteId)!).flags |= ItemFlagsType.ShowCopyIcon;
+    } else {
+      asNoteItem(itemStore.getItem(noteId)!).flags &= ~ItemFlagsType.ShowCopyIcon;
+    }
+    arrange(desktopStore);
+  }
+
   return (
     <div class="m-1">
       <div class="text-slate-800 text-sm">Text <InfuTextArea focus={true} value={props.noteItem.title} onInput={handleTextInput} /></div>
       <div class="text-slate-800 text-sm">Url <InfuTextInput value={props.noteItem.url} onChangeOrCleanup={handleUrlChange} /></div>
+      <div>
+        <input id="header" name="header" type="checkbox" ref={checkElement_copy} checked={(props.noteItem.flags & ItemFlagsType.ShowCopyIcon) == ItemFlagsType.ShowCopyIcon ? true : false} onClick={changeShowCopy} />
+        <label for="header">show copy icon in table</label>
+      </div>
       <div><InfuButton text="delete" onClick={deleteNote} /></div>
     </div>
   );

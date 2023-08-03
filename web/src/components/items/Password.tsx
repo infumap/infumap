@@ -135,7 +135,7 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
           <span class="text-purple-800">{passwordItem().text}</span>
         </Show>
       </div>
-      <div class="absolute bg-slate-200"
+      <div class="absolute"
            style={`left: ${boundsPx().x}; top: ${boundsPx().y}; width: ${boundsPx().w}; height: ${boundsPx().h}`}>
         <div class="absolute text-center text-slate-400"
              style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx()*1.2}px; top: ${boundsPx().y}px; ` +

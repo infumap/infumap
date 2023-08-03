@@ -44,6 +44,7 @@ import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemStore } from "../store/ItemStore";
 import { mouseMoveStore } from "../store/MouseMoveStore";
+import { ItemFlagsType } from "../items/base/flags-item";
 
 
 const MOUSE_LEFT = 0;
@@ -551,7 +552,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
   const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
-  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (tableItem.showHeader ? COL_HEADER_HEIGHT_BL : 0);
+  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (((tableItem.flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader) ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length

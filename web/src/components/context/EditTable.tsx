@@ -25,6 +25,7 @@ import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange } from "../../layout/arrange";
 import { NumberSignal, createNumberSignal } from "../../util/signals";
 import { itemStore } from "../../store/ItemStore";
+import { ItemFlagsType } from "../../items/base/flags-item";
 
 
 export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
@@ -78,7 +79,11 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   }
 
   const changeShowHeader = async () => {
-    asTableItem(itemStore.getItem(tableId)!).showHeader = checkElement_header!.checked;
+    if (checkElement_header!.checked) {
+      asTableItem(itemStore.getItem(tableId)!).flags |= ItemFlagsType.ShowHeader;
+    } else {
+      asTableItem(itemStore.getItem(tableId)!).flags &= ~ItemFlagsType.ShowHeader;
+    }
     itemStore.sortChildren(tableId);
     arrange(desktopStore);
   }
@@ -102,7 +107,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
         <label for="ord">order by title</label>
       </div>
       <div>
-        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={props.tableItem.showHeader} onClick={changeShowHeader} />
+        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={(props.tableItem.flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader ? true : false} onClick={changeShowHeader} />
         <label for="header">show header</label>
       </div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>
