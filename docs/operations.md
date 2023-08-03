@@ -2,11 +2,13 @@
 
 ## Simple Deployment on Debian 11
 
+Configure `ufw` (Uncomplicated Firewall) to allow HTTPS connections:
+
 ```
 ufw allow 443
 ```
 
-Install caddy:
+Install the `caddy` reverse proxy:
 
 ```
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
@@ -16,7 +18,7 @@ sudo apt update
 sudo apt install caddy
 ```
 
-Edit the Caddyfile in `/etc/caddy/Caddyfile`.
+Edit the Caddyfile: `/etc/caddy/Caddyfile`.
 - change `:80` to your domain name.
 - uncomment the `reverse_proxy` line.
 - comment out the `root` line.
