@@ -16,13 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, Show } from "solid-js";
+import { Component, createMemo, For, onMount, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
 import { asPasswordItem, calcPasswordSizeForSpatialBl } from "../../items/password-item";
+import { createBooleanSignal } from "../../util/signals";
 
 
 export const Password: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -102,18 +103,24 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
   const leftPx = () => attachmentFlagSet(props.visualElement)
     ? boundsPx().x
     : boundsPx().x + oneBlockWidthPx();
   const widthPx = () => attachmentFlagSet(props.visualElement)
-    ? boundsPx().w
-    : boundsPx().w - oneBlockWidthPx();
-  const showText = () => false;
+    ? boundsPx().w - 1.9 * oneBlockWidthPx()
+    : boundsPx().w - 2.9 * oneBlockWidthPx();
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
   }
+
+  const isVisible = createBooleanSignal(false);
+  const VisibleClickHandler = () => {
+    isVisible.set(!isVisible.get());
+  }
+
 
   return (
     <>
@@ -129,27 +136,25 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
            style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
-        <Show when={showText()} fallback={
-          <span class="text-purple-800">••••••••</span>
+        <Show when={isVisible.get()} fallback={
+          <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
         }>
-          <span class="text-purple-800">{passwordItem().text}</span>
+          <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
         </Show>
       </div>
-      <div class="absolute"
-           style={`left: ${boundsPx().x}; top: ${boundsPx().y}; width: ${boundsPx().w}; height: ${boundsPx().h}`}>
-        <div class="absolute text-center text-slate-400"
-             style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx()*1.2}px; top: ${boundsPx().y}px; ` +
-                    `width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}>
-          <i class={`fas fa-eye-slash`}
-              style={`transform: scale(${scale()}); transform-origin: top left;`} />
-        </div>
-        <div class="absolute text-center text-slate-400 cursor-pointer"
-             style={`left: ${boundsPx().x + boundsPx().w - 2.2*oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                    `width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}
-             onclick={copyClickHandler}>
-          <i class={`fas fa-copy`}
-             style={`transform: scale(${scale()}); transform-origin: top left;`} />
-        </div>
+      <div class="absolute text-center text-slate-600"
+           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                  `transform: scale(${smallScale()}); transform-origin: top left;`}
+           onclick={VisibleClickHandler}>
+        <i class={`fas ${isVisible.get() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+      </div>
+      <div class="absolute text-center text-slate-600"
+           style={`left: ${boundsPx().x+boundsPx().w - 1.8*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                  `transform: scale(${smallScale()}); transform-origin: top left;`}
+           onclick={copyClickHandler}>
+        <i class={`fas fa-copy cursor-pointer`} />
       </div>
     </>
   );

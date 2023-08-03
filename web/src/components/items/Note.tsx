@@ -83,13 +83,15 @@ export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const showCopyIcon = () => (noteItem().flags & ItemFlagsType.ShowCopyIcon) == ItemFlagsType.ShowCopyIcon;
   const leftPx = () => attachmentFlagSet(props.visualElement)
     ? boundsPx().x + oneBlockWidthPx() * 0.15
     : boundsPx().x + oneBlockWidthPx();
   const widthPx = () => attachmentFlagSet(props.visualElement)
-    ? boundsPx().w - oneBlockWidthPx() * 0.15
-    : boundsPx().w - oneBlockWidthPx();
+    ? boundsPx().w - oneBlockWidthPx() * 0.15 - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
+    : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
 
   const copyClickHandler = () => {
     if (noteItem().url == "") {
@@ -115,16 +117,13 @@ export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
       </div>
-      <Show when={(noteItem().flags & ItemFlagsType.ShowCopyIcon) == ItemFlagsType.ShowCopyIcon}>
-        <div class="absolute"
-            style={`left: ${boundsPx().x}; top: ${boundsPx().y}; width: ${boundsPx().w}; height: ${boundsPx().h}`}>
-          <div class="absolute text-center text-slate-400 cursor-pointer"
-              style={`left: ${boundsPx().x + boundsPx().w - 1.1*oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                      `width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}
-              onclick={copyClickHandler}>
-            <i class={`fas fa-copy`}
-              style={`transform: scale(${scale()}); transform-origin: top left;`} />
-          </div>
+      <Show when={showCopyIcon()}>
+        <div class="absolute text-center text-slate-600"
+             style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                    `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                    `transform: scale(${smallScale()}); transform-origin: top left;`}
+             onclick={copyClickHandler}>
+          <i class={`fas fa-copy cursor-pointer`} />
         </div>
       </Show>
     </>
