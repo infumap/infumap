@@ -233,5 +233,5 @@ export function tableDebugSummary(tableItem: TableItem) {
 }
 
 export function getTableItemMightBeDirty(tableItem: TableItem): string {
-  return tableItem.title;
+  return tableItem.title + "~~~!@#~~~" + tableItem.flags;
 }

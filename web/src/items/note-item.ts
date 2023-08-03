@@ -206,5 +206,5 @@ export function noteDebugSummary(noteItem: NoteItem) {
 }
 
 export function getNoteItemMightBeDirty(noteItem: NoteItem): string {
-  return noteItem.title + "~~~!@#~~~" + noteItem.url; // change in url causes text color change.
+  return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags; // change in url causes text color change.
 }
