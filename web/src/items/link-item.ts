@@ -28,7 +28,7 @@ import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/posit
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
 import { HitboxType, createHitbox } from "../layout/hitbox";
-import { itemStore } from "../store/ItemStore";
+import { itemState } from "../store/ItemState";
 
 
 // Links have their own unique set of attachments (do not take those from the linked to item).
@@ -113,7 +113,7 @@ export function linkToObject(l: LinkItem): object {
 
 
 function constructLinkToMeasurable(link: LinkItem): Measurable | null {
-  const linkedToItemMaybe = itemStore.getItem(getLinkToId(link));
+  const linkedToItemMaybe = itemState.getItem(getLinkToId(link));
   if (linkedToItemMaybe == null) { return null; }
   const linkedToMeasurableFields = cloneMeasurableFields(linkedToItemMaybe!);
   if (isLink(linkedToMeasurableFields)) { panic(); }
@@ -256,7 +256,7 @@ export function getLinkItemMightBeDirty(linkItem: LinkItem): string {
   if (linkToId == EMPTY_UID) {
     return "";
   }
-  const linkedToItemMaybe = itemStore.getItem(linkToId);
+  const linkedToItemMaybe = itemState.getItem(linkToId);
   if (linkedToItemMaybe == null) { return ""; }
   return getMightBeDirty(linkedToItemMaybe!);
 }

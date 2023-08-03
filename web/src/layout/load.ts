@@ -24,7 +24,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { arrange } from "./arrange";
 import { asLinkItem } from "../items/link-item";
 import { itemFromObject } from "../items/base/item-polymorphism";
-import { itemStore } from "../store/ItemStore";
+import { itemState } from "../store/ItemState";
 
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
@@ -38,11 +38,11 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemStore.setChildItemsFromServerObjects(containerId, result.items);
+          itemState.setChildItemsFromServerObjects(containerId, result.items);
           Object.keys(result.attachments).forEach(id => {
-            itemStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
-          asContainerItem(itemStore.getItem(containerId)!).childrenLoaded = true;
+          asContainerItem(itemState.getItem(containerId)!).childrenLoaded = true;
           try {
             arrange(desktopStore);
           } catch (e: any) {
@@ -70,9 +70,9 @@ export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, itemId:
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemStore.setItemFromServerObject(result.item);
+          itemState.setItemFromServerObject(result.item);
           Object.keys(result.attachments).forEach(id => {
-            itemStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           try {
             arrange(desktopStore);
@@ -101,10 +101,10 @@ export const initiateLoadItemFromRemote = (desktopStore: DesktopStoreContextMode
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemStore.setItemFromServerObject(result.item);
-          asLinkItem(itemStore.getItem(resolveId)!).linkToResolvedId = itemFromObject(result.item).id;
+          itemState.setItemFromServerObject(result.item);
+          asLinkItem(itemState.getItem(resolveId)!).linkToResolvedId = itemFromObject(result.item).id;
           Object.keys(result.attachments).forEach(id => {
-            itemStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
           try {
             arrange(desktopStore);

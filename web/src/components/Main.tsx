@@ -28,7 +28,7 @@ import { Toolbar } from "./Toolbar";
 import { EMPTY_UID } from "../util/uid";
 import { ITEM_TYPE_NONE } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
-import { itemStore } from "../store/ItemStore";
+import { itemState } from "../store/ItemState";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -61,15 +61,15 @@ export const Main: Component = () => {
         result = await server.fetchItems(params.id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
         const rootPageObject = result.item as any;
         rootId = rootPageObject.id;
-        itemStore.setItemFromServerObject(rootPageObject);
+        itemState.setItemFromServerObject(rootPageObject);
         if (result.attachments[rootId]) {
-          itemStore.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
+          itemState.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
         }
         childrenLoadInitiatedOrComplete[rootId] = true;
       }
-      itemStore.setChildItemsFromServerObjects(rootId, result.items);
+      itemState.setChildItemsFromServerObjects(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {
-        itemStore.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+        itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
       switchToPage(desktopStore, { itemId: rootId, linkIdMaybe: null });
     } catch (e: any) {

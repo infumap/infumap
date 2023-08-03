@@ -33,7 +33,7 @@ import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { arrange, switchToPage } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
-import { mouseMoveStore } from "../store/MouseMoveStore";
+import { mouseMoveState } from "../store/MouseMoveState";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 
 
@@ -54,11 +54,11 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       return;
     }
 
-    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(mouseMoveStore.lastMouseMoveEvent()), [], false);
+    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(mouseMoveState.lastMouseMoveEvent()), [], false);
 
     if (ev.code == "Slash") {
       ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(mouseMoveStore.lastMouseMoveEvent()), hitInfo });
+      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(mouseMoveState.lastMouseMoveEvent()), hitInfo });
       mouseMoveNoButtonDownHandler(desktopStore);
     }
 
@@ -123,7 +123,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    mouseMoveStore.setLastMouseMoveEvent(ev);
+    mouseMoveState.setLastMouseMoveEvent(ev);
     mouseMoveHandler(desktopStore);
   }
 

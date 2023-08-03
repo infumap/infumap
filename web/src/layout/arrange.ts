@@ -39,7 +39,7 @@ import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { HitboxType, compareHitboxArrays, createHitbox } from "./hitbox";
-import { itemStore } from "../store/ItemStore";
+import { itemState } from "../store/ItemState";
 import { ItemFlagsType } from "../items/base/flags-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
@@ -120,7 +120,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
   initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.currentPage()!.itemId);
-  let currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
+  let currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     arrange_grid(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
@@ -134,7 +134,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   let newCache = new Map<VisualElementPath, VisualElementSignal>();
 
-  const currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
   const selectedVeid = veidFromPath(desktopStore.getSelectedItem(desktopStore.currentPage()!));
@@ -150,7 +150,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   let listVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childId = currentPage.computed_children[idx];
-    const childItem = itemStore.getItem(childId)!;
+    const childItem = itemState.getItem(childId)!;
     const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
 
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
@@ -220,7 +220,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 // }
 
 const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
-  const currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = currentPage.naturalAspect;
   const topLevelPageBoundsPx = (() => {
@@ -261,7 +261,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
       desktopStore,
       newCache,
       currentPath,
-      itemStore.getItem(childId)!,
+      itemState.getItem(childId)!,
       pageItem, // parent item
       pageBoundsPx,
       true, // render children as full
@@ -438,7 +438,7 @@ const arrangePageWithChildren_Desktop = (
     console.log("TODO: arrange child grid page.");
   } else {
     pageWithChildrenVisualElementSpec.children = displayItem_pageWithChildren.computed_children.map(childId => {
-      const childItem = itemStore.getItem(childId)!;
+      const childItem = itemState.getItem(childId)!;
       if (isPagePopup || isRoot) {
         return arrangeItem_Desktop(
           desktopStore,
@@ -513,7 +513,7 @@ const arrangeTable_Desktop = (
   let tableVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<displayItem_Table.computed_children.length; ++idx) {
     const childId = displayItem_Table.computed_children[idx];
-    const childItem = itemStore.getItem(childId)!;
+    const childItem = itemState.getItem(childId)!;
     const [displayItem_childItem, linkItemMaybe_childItem] = getVeItems(desktopStore, childItem);
 
     let widthBl = displayItem_Table.tableColumns.length == 1
@@ -549,7 +549,7 @@ const arrangeTable_Desktop = (
           : displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
 
         const attachmentId = attachmentsItem.computed_attachments[i];
-        const attachmentItem = itemStore.getItem(attachmentId)!;
+        const attachmentItem = itemState.getItem(attachmentId)!;
         const [displayItem_attachment, linkItemMaybe_attachment] = getVeItems(desktopStore, attachmentItem);
 
         const geometry = calcGeometryOfItem_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl);
@@ -605,7 +605,7 @@ function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, 
   if (isLink(item)) {
     linkItemMaybe = asLinkItem(item);
     const linkToId = getLinkToId(linkItemMaybe);
-    const displayItemMaybe = itemStore.getItem(linkToId)!;
+    const displayItemMaybe = itemState.getItem(linkToId)!;
     if (displayItemMaybe != null) {
       displayItem = displayItemMaybe!;
       if (isXSizableItem(displayItem)) {
@@ -768,7 +768,7 @@ function arrangeItemAttachments(
   const attachments: Array<VisualElementSignal> = [];
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
-    const attachmentItem = itemStore.getItem(attachmentId)!;
+    const attachmentItem = itemState.getItem(attachmentId)!;
     const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = getVeItems(desktopStore, attachmentItem);
     const attachmentVeid: Veid = {
       itemId: attachmentDisplayItem.id,
@@ -808,7 +808,7 @@ function arrangeItemAttachments(
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   let newCache = new Map<VisualElementPath, VisualElementSignal>();
 
-  const currentPage = asPageItem(itemStore.getItem(desktopStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
@@ -835,7 +835,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const children = [];
   for (let i=0; i<currentPage.computed_children.length; ++i) {
-    const item = itemStore.getItem(currentPage.computed_children[i])!;
+    const item = itemState.getItem(currentPage.computed_children[i])!;
     const col = i % numCols;
     const row = Math.floor(i / numCols);
     const cellBoundsPx = {

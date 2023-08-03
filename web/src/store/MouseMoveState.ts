@@ -18,7 +18,7 @@
 
 let lastMoveEvent: MouseEvent = new MouseEvent("mousemove");
 
-export const mouseMoveStore = {
+export const mouseMoveState = {
   setLastMouseMoveEvent: (ev: MouseEvent) => { lastMoveEvent = ev; },
   lastMouseMoveEvent: (): MouseEvent => { return lastMoveEvent; }
 }

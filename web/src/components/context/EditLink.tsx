@@ -26,7 +26,7 @@ import { LinkItem, asLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { EditItem } from "./EditItem";
 import { Item } from "../../items/base/item";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 
 
 export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: LinkItem}) => {
@@ -37,23 +37,23 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
     if (props.linkItem.linkTo == EMPTY_UID) {
       return null;
     }
-    const item = itemStore.getItem(props.linkItem.linkTo);
+    const item = itemState.getItem(props.linkItem.linkTo);
     return item;
   }
   let deleted = false;
 
   const handleLinkToInput = (v: string) => {
     if (!deleted) {
-      asLinkItem(itemStore.getItem(linkId)!).linkToResolvedId = null;
-      asLinkItem(itemStore.getItem(linkId)!).linkTo = v;
+      asLinkItem(itemState.getItem(linkId)!).linkToResolvedId = null;
+      asLinkItem(itemState.getItem(linkId)!).linkTo = v;
       arrange(desktopStore);
     }
   };
 
   const handleLinkToBaseUrlInput = (v: string) => {
     if (!deleted) {
-      asLinkItem(itemStore.getItem(linkId)!).linkToResolvedId = null;
-      asLinkItem(itemStore.getItem(linkId)!).linkToBaseUrl = v;
+      asLinkItem(itemState.getItem(linkId)!).linkToResolvedId = null;
+      asLinkItem(itemState.getItem(linkId)!).linkToBaseUrl = v;
       arrange(desktopStore);
     }
   };
@@ -61,14 +61,14 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
   const deleteLink = async () => {
     deleted = true;
     await server.deleteItem(linkId); // throws on failure.
-    itemStore.deleteItem(linkId);
+    itemState.deleteItem(linkId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemStore.getItem(linkId)!);
+      server.updateItem(itemState.getItem(linkId)!);
     }
   });
 

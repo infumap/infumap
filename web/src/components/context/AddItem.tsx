@@ -33,7 +33,7 @@ import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hitInfo";
 import { newLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 import { dragOverPositioningFlagSet, insideTableFlagSet } from "../../layout/visual-element";
 import { newPasswordItem } from "../../items/password-item";
 
@@ -73,40 +73,40 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         overElementVe.displayItem.id,
         3,
         Child,
-        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id))
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id))
     } else if (type == "table") {
       newItem = newTableItem(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
         Child,
         "",
-        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "note") {
       newItem = newNoteItem(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
         Child,
         "",
-        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "page") {
       newItem = newPageItem(
         userStore.getUser().userId,
         overElementVe.displayItem.id!,
         Child,
         "",
-        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "link")  {
       newItem = newLinkItem(userStore.getUser().userId,
         overElementVe.displayItem.id!,
         Child,
-        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
         EMPTY_UID);
     } else if (type == "password")  {
       newItem = newPasswordItem(userStore.getUser().userId,
         overElementVe.displayItem.id!,
         Child,
         "",
-        itemStore.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else {
       panic();
     }
@@ -114,7 +114,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     if (isPage(overElementVe.displayItem) && dragOverPositioningFlagSet(overElementVe)) {
       newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
       server.addItem(newItem, null);
-      itemStore.addItem(newItem);
+      itemState.addItem(newItem);
       desktopStore.setContextMenuInfo(null);
       desktopStore.setEditDialogInfo({
         desktopBoundsPx: initialEditDialogBounds(desktopStore),

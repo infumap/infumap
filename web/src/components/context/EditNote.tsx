@@ -24,7 +24,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuTextArea } from "../library/InfuTextArea";
 import { arrange } from "../../layout/arrange";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 import { ItemFlagsType } from "../../items/base/flags-item";
 
 
@@ -36,13 +36,13 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asNoteItem(itemStore.getItem(noteId)!).title = v;
+    asNoteItem(itemState.getItem(noteId)!).title = v;
     arrange(desktopStore);
   };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
-      asNoteItem(itemStore.getItem(noteId)!).url = v;
+      asNoteItem(itemState.getItem(noteId)!).url = v;
       arrange(desktopStore);
     }
   };
@@ -50,22 +50,22 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
   const deleteNote = async () => {
     deleted = true;
     await server.deleteItem(noteId); // throws on failure.
-    itemStore.deleteItem(noteId);
+    itemState.deleteItem(noteId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemStore.getItem(noteId)!);
+      server.updateItem(itemState.getItem(noteId)!);
     }
   });
 
   const changeShowCopy = async () => {
     if (checkElement_copy!.checked) {
-      asNoteItem(itemStore.getItem(noteId)!).flags |= ItemFlagsType.ShowCopyIcon;
+      asNoteItem(itemState.getItem(noteId)!).flags |= ItemFlagsType.ShowCopyIcon;
     } else {
-      asNoteItem(itemStore.getItem(noteId)!).flags &= ~ItemFlagsType.ShowCopyIcon;
+      asNoteItem(itemState.getItem(noteId)!).flags &= ~ItemFlagsType.ShowCopyIcon;
     }
     arrange(desktopStore);
   }

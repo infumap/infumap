@@ -22,7 +22,7 @@ import { Item } from "../../items/base/item";
 import { asPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Colors } from "../../style";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 import { arrange } from "../../layout/arrange";
 
 
@@ -41,9 +41,9 @@ export const ColorSelector: Component<{ item: Item }> = (props: {item: Item }) =
   let itemId = props.item.id;
 
   const handleClick = (col: number) => {
-    asPageItem(itemStore.getItem(props.item.id)!).backgroundColorIndex = col;
+    asPageItem(itemState.getItem(props.item.id)!).backgroundColorIndex = col;
     arrange(desktopStore);
-    server.updateItem(itemStore.getItem(itemId)!);
+    server.updateItem(itemState.getItem(itemId)!);
   }
 
   return (

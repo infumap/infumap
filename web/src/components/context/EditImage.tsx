@@ -23,7 +23,7 @@ import { asImageItem, ImageItem } from "../../items/image-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange } from "../../layout/arrange";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 
 
 export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: ImageItem}) => {
@@ -33,7 +33,7 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
   let deleted = false;
 
   const handleTitleChange = (v: string) => {
-    asImageItem(itemStore.getItem(imageId)!).title = v;
+    asImageItem(itemState.getItem(imageId)!).title = v;
     // rearrangeVisualElementsWithItemId(desktopStore, imageId);
     arrange(desktopStore);
   };
@@ -41,14 +41,14 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
   const deleteImage = async () => {
     deleted = true;
     await server.deleteItem(imageId); // throws on failure.
-    itemStore.deleteItem(imageId);
+    itemState.deleteItem(imageId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemStore.getItem(imageId)!);
+      server.updateItem(itemState.getItem(imageId)!);
     }
   });
 

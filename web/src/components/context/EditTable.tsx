@@ -24,7 +24,7 @@ import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange } from "../../layout/arrange";
 import { NumberSignal, createNumberSignal } from "../../util/signals";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 import { ItemFlagsType } from "../../items/base/flags-item";
 
 
@@ -41,14 +41,14 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   let deleted = false;
 
   const handleTitleInput = (v: string) => {
-    asTableItem(itemStore.getItem(tableId)!).title = v;
+    asTableItem(itemState.getItem(tableId)!).title = v;
     arrange(desktopStore);
   };
 
   const deleteTable = async () => {
     deleted = true;
     await server.deleteItem(tableId); // throws on failure.
-    itemStore.deleteItem(tableId);
+    itemState.deleteItem(tableId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
@@ -70,27 +70,27 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
   const changeOrderChildrenBy = async () => {
     const orderByTitle = checkElement_ord?.checked;
     if (orderByTitle) {
-      asTableItem(itemStore.getItem(tableId)!).orderChildrenBy = "title[ASC]";
+      asTableItem(itemState.getItem(tableId)!).orderChildrenBy = "title[ASC]";
     } else {
-      asTableItem(itemStore.getItem(tableId)!).orderChildrenBy = "";
+      asTableItem(itemState.getItem(tableId)!).orderChildrenBy = "";
     }
-    itemStore.sortChildren(tableId);
+    itemState.sortChildren(tableId);
     arrange(desktopStore);
   }
 
   const changeShowHeader = async () => {
     if (checkElement_header!.checked) {
-      asTableItem(itemStore.getItem(tableId)!).flags |= ItemFlagsType.ShowHeader;
+      asTableItem(itemState.getItem(tableId)!).flags |= ItemFlagsType.ShowHeader;
     } else {
-      asTableItem(itemStore.getItem(tableId)!).flags &= ~ItemFlagsType.ShowHeader;
+      asTableItem(itemState.getItem(tableId)!).flags &= ~ItemFlagsType.ShowHeader;
     }
-    itemStore.sortChildren(tableId);
+    itemState.sortChildren(tableId);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemStore.getItem(tableId)!);
+      server.updateItem(itemState.getItem(tableId)!);
     }
   });
 

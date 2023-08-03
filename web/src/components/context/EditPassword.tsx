@@ -23,7 +23,7 @@ import { asPasswordItem, PasswordItem } from "../../items/password-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange } from "../../layout/arrange";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 
 
 export const EditPassword: Component<{passwordItem: PasswordItem}> = (props: {passwordItem: PasswordItem}) => {
@@ -33,21 +33,21 @@ export const EditPassword: Component<{passwordItem: PasswordItem}> = (props: {pa
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asPasswordItem(itemStore.getItem(passwordId)!).text = v;
+    asPasswordItem(itemState.getItem(passwordId)!).text = v;
     arrange(desktopStore);
   };
 
   const deletePassword = async () => {
     deleted = true;
     await server.deleteItem(passwordId); // throws on failure.
-    itemStore.deleteItem(passwordId);
+    itemState.deleteItem(passwordId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemStore.getItem(passwordId)!);
+      server.updateItem(itemState.getItem(passwordId)!);
     }
   });
 

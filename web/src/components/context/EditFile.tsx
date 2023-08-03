@@ -23,7 +23,7 @@ import { asFileItem, FileItem } from "../../items/file-item";
 import { InfuButton } from "../library/InfuButton";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { arrange } from "../../layout/arrange";
-import { itemStore } from "../../store/ItemStore";
+import { itemState } from "../../store/ItemState";
 
 
 export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {
@@ -33,7 +33,7 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asFileItem(itemStore.getItem(fileId)!).title = v;
+    asFileItem(itemState.getItem(fileId)!).title = v;
     // rearrangeVisualElementsWithItemId(desktopStore, fileId);
     arrange(desktopStore);
   };
@@ -41,14 +41,14 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
   const deleteFile = async () => {
     deleted = true;
     await server.deleteItem(fileId); // throws on failure.
-    itemStore.deleteItem(fileId);
+    itemState.deleteItem(fileId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemStore.getItem(fileId)!);
+      server.updateItem(itemState.getItem(fileId)!);
     }
   });
 
