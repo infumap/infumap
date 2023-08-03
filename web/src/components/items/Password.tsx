@@ -43,15 +43,22 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
     }
     return calcPasswordSizeForSpatialBl(passwordItem());
   });
+  const oneBlockWidthPx = () => boundsPx().w / sizeBl().w;
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
+  const smallScale = () => scale() * 0.7;
   const showText = () => false;
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
+  }
+
+  const isVisible = createBooleanSignal(false);
+  const VisibleClickHandler = () => {
+    isVisible.set(!isVisible.get());
   }
 
   return (
@@ -62,25 +69,26 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
              style={`left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-          <Show when={showText()} fallback={
-            <span class="text-purple-800">••••••••</span>
+          <Show when={isVisible.get()} fallback={
+            <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
           }>
-            <span class="text-purple-800">{passwordItem().text}</span>
+            <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
           </Show>
         </div>
-        <div class="absolute text-center text-slate-400"
-             style={`left: ${boundsPx().w - (boundsPx().w/sizeBl().w)*1.2}px; top: ${0}px; ` +
-                    `width: ${boundsPx().w/sizeBl().w}px; height: ${boundsPx().h}px;`}>
-          <i class={`fas fa-eye-slash`}
-              style={`transform: scale(${scale()}); transform-origin: top left;`} />
-        </div>
-        <div class="absolute text-center text-slate-400 cursor-pointer"
-             style={`left: ${boundsPx().w - 2.2*(boundsPx().w/sizeBl().w)}px; top: ${0}px; ` +
-                    `width: ${boundsPx().w/sizeBl().w}px; height: ${boundsPx().h}px;`}
-             onclick={copyClickHandler}>
-          <i class={`fas fa-copy`}
-             style={`transform: scale(${scale()}); transform-origin: top left;`} />
-        </div>
+        <div class="absolute text-center text-slate-600"
+           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().h*0.15}px; ` +
+                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                  `transform: scale(${smallScale()}); transform-origin: top left;`}
+           onclick={VisibleClickHandler}>
+        <i class={`fas ${isVisible.get() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+      </div>
+      <div class="absolute text-center text-slate-600"
+           style={`left: ${boundsPx().w - 1.8*oneBlockWidthPx()}px; top: ${boundsPx().h*0.15}px; ` +
+                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                  `transform: scale(${smallScale()}); transform-origin: top left;`}
+           onclick={copyClickHandler}>
+        <i class={`fas fa-copy cursor-pointer`} />
+      </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
