@@ -35,6 +35,7 @@ import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 import { mouseMoveState } from "../store/MouseMoveState";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
+import { itemState } from "../store/ItemState";
 
 
 export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -95,10 +96,12 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
         return;
       }
       const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction);
+      const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction)!;
       if (closest != null) {
+        const closestVeid = veidFromPath(closest);
+        const closestItem = itemState.getItem(closestVeid.itemId);
         desktopStore.replacePopup({
-          type: PopupType.Page,
+          type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
           vePath: closest
         });
         arrange(desktopStore);

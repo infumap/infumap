@@ -306,12 +306,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
       const popupLinkToImageId = veidFromPath(currentPopupSpec.vePath).itemId;
       const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToImageId!);
       li.id = POPUP_LINK_ID;
-      const widthGr = GRID_SIZE * 10;
-      li.spatialWidthGr = widthGr;
-      li.spatialPositionGr = {
-        x: GRID_SIZE,
-        y: GRID_SIZE,
-      };
+      li.spatialWidthGr = 0;
+      li.spatialPositionGr = { x: 0, y: 0, };
       const desktopBoundsPx = desktopStore.desktopBoundsPx();
       const cellBoundsPx = {
         x: desktopBoundsPx.w * 0.1,

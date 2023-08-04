@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { isImage } from "../items/image-item";
 import { isPage } from "../items/page-item";
 import { boundingBoxCenter, vectorDistance } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -52,7 +53,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection): 
   const siblings = VesCache.getSiblings(path)
     .map(ves => ves.get())
     .filter(ve => (ve.flags & VisualElementFlags.Popup) != VisualElementFlags.Popup)
-    .filter(ve => isPage(ve.displayItem));
+    .filter(ve => isPage(ve.displayItem) || isImage(ve.displayItem));
 
   const SLACK_PX = 2;
 
