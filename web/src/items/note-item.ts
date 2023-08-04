@@ -28,7 +28,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
-import { FlagsMixin, ItemFlagsType } from './base/flags-item';
+import { FlagsMixin, TableFlags } from './base/flags-item';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -56,7 +56,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     spatialWidthGr: 10.0 * GRID_SIZE,
 
-    flags: ItemFlagsType.None,
+    flags: TableFlags.None,
 
     url: "",
 

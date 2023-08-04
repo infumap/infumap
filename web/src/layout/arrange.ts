@@ -40,7 +40,7 @@ import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
 import { HitboxType, compareHitboxArrays, createHitbox } from "./hitbox";
 import { itemState } from "../store/ItemState";
-import { ItemFlagsType } from "../items/base/flags-item";
+import { TableFlags } from "../items/base/flags-item";
 import { asImageItem } from "../items/image-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
@@ -524,7 +524,7 @@ const arrangeTable_Desktop = (
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-  const colHeaderHeightPx = ((displayItem_Table.flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader) ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
+  const colHeaderHeightPx = ((displayItem_Table.flags & TableFlags.ShowHeader) == TableFlags.ShowHeader) ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
 
   let childAreaBoundsPx = {
     x: tableGeometry.boundsPx.x, y: tableGeometry.boundsPx.y + (headerHeightPx + colHeaderHeightPx),

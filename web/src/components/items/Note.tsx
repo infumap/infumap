@@ -23,7 +23,7 @@ import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_L
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
-import { ItemFlagsType } from "../../items/base/flags-item";
+import { NoteFlags } from "../../items/base/flags-item";
 
 
 export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -48,9 +48,10 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       h: ATTACH_AREA_SIZE_PX,
     }
   }
+  const asHeading = () => (noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading;
 
   return (
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div class={`absolute border ${asHeading() ? 'border-slate-200 rounded-sm font-bold' : 'border-slate-700 rounded-sm shadow-lg'}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={detailedFlagSet(props.visualElement)}>
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
@@ -85,7 +86,7 @@ export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const showCopyIcon = () => (noteItem().flags & ItemFlagsType.ShowCopyIcon) == ItemFlagsType.ShowCopyIcon;
+  const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon) == NoteFlags.ShowCopyIcon;
   const leftPx = () => attachmentFlagSet(props.visualElement)
     ? boundsPx().x + oneBlockWidthPx() * 0.15
     : boundsPx().x + oneBlockWidthPx();

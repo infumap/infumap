@@ -26,7 +26,7 @@ import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { detailedFlagSet, getVeid, lineItemFlagSet } from "../../layout/visual-element";
-import { ItemFlagsType } from "../../items/base/flags-item";
+import { TableFlags } from "../../items/base/flags-item";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
@@ -36,7 +36,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const desktopStore = useDesktopStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
-  const showHeader = () => (tableItem().flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader;
+  const showHeader = () => (tableItem().flags & TableFlags.ShowHeader) == TableFlags.ShowHeader;
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
   const spatialWidthGr = () => {
@@ -191,7 +191,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
   }
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
-  const showHeader = () => (tableItem().flags & ItemFlagsType.ShowHeader) == ItemFlagsType.ShowHeader;
+  const showHeader = () => (tableItem().flags & TableFlags.ShowHeader) == TableFlags.ShowHeader;
   const spatialHeightGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return props.visualElement.linkItemMaybe.spatialHeightGr;

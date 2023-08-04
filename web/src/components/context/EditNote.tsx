@@ -25,12 +25,13 @@ import { InfuTextInput } from "../library/InfuTextInput";
 import { InfuTextArea } from "../library/InfuTextArea";
 import { arrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
-import { ItemFlagsType } from "../../items/base/flags-item";
+import { NoteFlags } from "../../items/base/flags-item";
 
 
 export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
   const desktopStore = useDesktopStore();
   let checkElement_copy: HTMLInputElement | undefined;
+  let checkElement_heading: HTMLInputElement | undefined;
 
   const noteId = props.noteItem.id;
   let deleted = false;
@@ -63,9 +64,18 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
 
   const changeShowCopy = async () => {
     if (checkElement_copy!.checked) {
-      asNoteItem(itemState.getItem(noteId)!).flags |= ItemFlagsType.ShowCopyIcon;
+      asNoteItem(itemState.getItem(noteId)!).flags |= NoteFlags.ShowCopyIcon;
     } else {
-      asNoteItem(itemState.getItem(noteId)!).flags &= ~ItemFlagsType.ShowCopyIcon;
+      asNoteItem(itemState.getItem(noteId)!).flags &= ~NoteFlags.ShowCopyIcon;
+    }
+    arrange(desktopStore);
+  }
+
+  const changeDisplayAsHeading = async () => {
+    if (checkElement_heading!.checked) {
+      asNoteItem(itemState.getItem(noteId)!).flags |= NoteFlags.Heading;
+    } else {
+      asNoteItem(itemState.getItem(noteId)!).flags &= ~NoteFlags.Heading;
     }
     arrange(desktopStore);
   }
@@ -75,8 +85,12 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
       <div class="text-slate-800 text-sm">Text <InfuTextArea focus={true} value={props.noteItem.title} onInput={handleTextInput} /></div>
       <div class="text-slate-800 text-sm">Url <InfuTextInput value={props.noteItem.url} onChangeOrCleanup={handleUrlChange} /></div>
       <div>
-        <input id="header" name="header" type="checkbox" ref={checkElement_copy} checked={(props.noteItem.flags & ItemFlagsType.ShowCopyIcon) == ItemFlagsType.ShowCopyIcon ? true : false} onClick={changeShowCopy} />
-        <label for="header">show copy icon in table</label>
+        <input id="copy" name="copy" type="checkbox" ref={checkElement_copy} checked={(props.noteItem.flags & NoteFlags.ShowCopyIcon) == NoteFlags.ShowCopyIcon ? true : false} onClick={changeShowCopy} />
+        <label for="copy">show copy icon</label>
+      </div>
+      <div>
+        <input id="heading" name="heading" type="checkbox" ref={checkElement_heading} checked={(props.noteItem.flags & NoteFlags.Heading) == NoteFlags.Heading ? true : false} onClick={changeDisplayAsHeading} />
+        <label for="heading">heading</label>
       </div>
       <div><InfuButton text="delete" onClick={deleteNote} /></div>
     </div>

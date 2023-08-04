@@ -29,7 +29,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { FlagsMixin, ItemFlagsType } from "./base/flags-item";
+import { FlagsMixin, TableFlags } from "./base/flags-item";
 
 
 export interface TableColumn {
@@ -67,7 +67,7 @@ export function newTableItem(ownerId: Uid, parentId: Uid, relationshipToParent: 
       widthGr: 8 * GRID_SIZE,
     }],
 
-    flags: ItemFlagsType.None,
+    flags: TableFlags.None,
 
     orderChildrenBy: "",
 

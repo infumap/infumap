@@ -19,16 +19,22 @@
 import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE } from "./item";
 
-export enum ItemFlagsType {
+export enum TableFlags {
   None =           0x000,
   ShowHeader =     0x001,
+}
+
+export enum NoteFlags {
+  None =           0x000,
+  Heading =        0x001,
   ShowCopyIcon =   0x002,
 }
+
 
 const ITEM_TYPES = [ITEM_TYPE_NOTE, ITEM_TYPE_TABLE];
 
 export interface FlagsMixin {
-  flags: ItemFlagsType,
+  flags: number,
 }
 
 export interface FlagsItem extends FlagsMixin, Item { }
