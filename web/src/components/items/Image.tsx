@@ -23,10 +23,13 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
-import { VisualElementFlags, detailedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags, detailedFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
 export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+  const desktopStore = useDesktopStore();
+
   let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);
@@ -67,6 +70,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
       return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
+  const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no
@@ -126,6 +130,11 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                       `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
                width={imageWidthToRequestPx(false)} />
+          <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+            <div class="absolute"
+                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; background-color: #dddddd88;`}>
+            </div>
+          </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +

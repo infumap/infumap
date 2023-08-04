@@ -66,9 +66,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     }
     return pageItem().spatialWidthGr;
   };
-  const isPoppedUp = () => {
-    return visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
-  }
+  const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
