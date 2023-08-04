@@ -23,10 +23,11 @@ import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
 import { asPasswordItem, calcPasswordSizeForSpatialBl } from "../../items/password-item";
-import { createBooleanSignal } from "../../util/signals";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
 export const Password: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+  const desktopStore = useDesktopStore();
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -50,15 +51,18 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
   const smallScale = () => scale() * 0.7;
-  const showText = () => false;
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
   }
 
-  const isVisible = createBooleanSignal(false);
+  const isVisible = () => desktopStore.currentVisiblePassword() == passwordItem().id;
   const VisibleClickHandler = () => {
-    isVisible.set(!isVisible.get());
+    if (!isVisible()) {
+      desktopStore.setCurrentVisiblePassword(passwordItem().id);
+    } else {
+      desktopStore.setCurrentVisiblePassword(null);
+    }
   }
 
   return (
@@ -69,7 +73,7 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
              style={`left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-          <Show when={isVisible.get()} fallback={
+          <Show when={isVisible()} fallback={
             <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
           }>
             <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
@@ -80,7 +84,7 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
            onclick={VisibleClickHandler}>
-        <i class={`fas ${isVisible.get() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
       </div>
       <div class="absolute text-center text-slate-600"
            style={`left: ${boundsPx().w - 1.8*oneBlockWidthPx()}px; top: ${boundsPx().h*0.15}px; ` +
@@ -108,6 +112,7 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
 
 
 export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+  const desktopStore = useDesktopStore();
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
@@ -124,11 +129,14 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
     navigator.clipboard.writeText(passwordItem().text);
   }
 
-  const isVisible = createBooleanSignal(false);
+  const isVisible = () => desktopStore.currentVisiblePassword() == passwordItem().id;
   const VisibleClickHandler = () => {
-    isVisible.set(!isVisible.get());
+    if (!isVisible()) {
+      desktopStore.setCurrentVisiblePassword(passwordItem().id);
+    } else {
+      desktopStore.setCurrentVisiblePassword(null);
+    }
   }
-
 
   return (
     <>
@@ -144,7 +152,7 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
            style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
-        <Show when={isVisible.get()} fallback={
+        <Show when={isVisible()} fallback={
           <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
         }>
           <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
@@ -155,7 +163,7 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
            onclick={VisibleClickHandler}>
-        <i class={`fas ${isVisible.get() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
       </div>
       <div class="absolute text-center text-slate-600"
            style={`left: ${boundsPx().x+boundsPx().w - 1.8*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +

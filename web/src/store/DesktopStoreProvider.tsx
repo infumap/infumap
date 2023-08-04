@@ -64,6 +64,9 @@ export interface DesktopStoreContextModel {
   popAllPopups: () => void,
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVePath: () => VisualElementPath | null,
+
+  currentVisiblePassword: Accessor<Uid | null>,
+  setCurrentVisiblePassword: Setter<Uid | null>,
 }
 
 export interface ContextMenuInfo {
@@ -106,6 +109,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
+
+  const [currentVisiblePassword, setCurrentVisiblePassword] = createSignal<Uid | null>(null, { equals: false });
 
   const tableScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
@@ -276,6 +281,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     getSelectedItem, setSelectedItem,
     getPageScrollXPx, setPageScrollXPx,
     getPageScrollYPx, setPageScrollYPx,
+    currentVisiblePassword, setCurrentVisiblePassword,
 
     clearBreadcrumbs,
     pushPage,
