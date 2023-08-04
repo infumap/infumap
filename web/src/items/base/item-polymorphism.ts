@@ -147,7 +147,7 @@ export function handleClick(visualElementSignal: VisualElementSignal, desktopSto
   if (isPage(item)) { handlePageClick(visualElementSignal.get(), desktopStore, userStore); }
   else if (isTable(item)) { }
   else if (isNote(item)) { handleNoteClick(asNoteItem(item)); }
-  else if (isImage(item)) { handleImageClick(asImageItem(item)); }
+  else if (isImage(item)) { handleImageClick(visualElementSignal.get(), desktopStore); }
   else if (isFile(item)) { handleFileClick(asFileItem(item)); }
   else if (isPassword(item)) { }
   else if (isRating(item)) { handleRatingClick(desktopStore, visualElementSignal); }

@@ -31,7 +31,7 @@ import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvid
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, VesCache, arrange, switchToPage } from '../layout/arrange';
-import { VisualElement, getVeid, lineItemFlagSet, pagePopupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
+import { VisualElement, getVeid, lineItemFlagSet, popupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 
 
@@ -314,7 +314,7 @@ export function handlePagePopupClick(visualElement: VisualElement, desktopStore:
     desktopStore.setSelectedListPageItem(
       veidFromPath(visualElement.parentPath!),
       visualElementToPath(visualElement));
-  } else if (pagePopupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
+  } else if (popupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
     desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   } else {
     desktopStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });

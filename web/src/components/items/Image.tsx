@@ -23,7 +23,7 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
-import { detailedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags, detailedFlagSet } from "../../layout/visual-element";
 
 
 export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -97,6 +97,20 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 
   return (
     <Show when={boundsPx().w > 5}>
+      <Show when={(props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup}>
+        <div class={`absolute text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
+        </div>
+        <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
+             style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+          <img class="max-w-none absolute"
+                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                          `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+                  width={imageWidthToRequestPx(false)}
+                  height={imageWidthToRequestPx(false) / imageAspect()}
+                  src={thumbnailSrc()} />
+        </div>
+      </Show>
       <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
            style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <Show when={isDetailed()} fallback={
@@ -125,7 +139,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
-        <Show when={props.visualElement.linkItemMaybe != null}>
+        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.None}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
         </Show>
       </div>

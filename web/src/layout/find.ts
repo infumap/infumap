@@ -51,7 +51,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection): 
 
   const siblings = VesCache.getSiblings(path)
     .map(ves => ves.get())
-    .filter(ve => (ve.flags & VisualElementFlags.PagePopup) != VisualElementFlags.PagePopup)
+    .filter(ve => (ve.flags & VisualElementFlags.Popup) != VisualElementFlags.Popup)
     .filter(ve => isPage(ve.displayItem));
 
   const SLACK_PX = 2;

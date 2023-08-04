@@ -27,6 +27,9 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
+import { VisualElement, VisualElementFlags, visualElementToPath } from "../layout/visual-element";
+import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
+import { arrange } from "../layout/arrange";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -188,8 +191,13 @@ export function calcGeometryOfImageItem_Cell(image: ImageMeasurable, cellBoundsP
   });
 }
 
-export function handleImageClick(imageItem: ImageItem): void {
-  window.open('/files/' + imageItem.id, '_blank');
+export function handleImageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
+  if ((visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup) {
+    window.open('/files/' + visualElement.displayItem.id, '_blank');
+  } else {
+    desktopStore.replacePopup({ type: PopupType.Image, vePath: visualElementToPath(visualElement) });
+    arrange(desktopStore);
+  }
 }
 
 export function cloneImageMeasurableFields(image: ImageMeasurable): ImageMeasurable {

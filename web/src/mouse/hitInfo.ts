@@ -20,7 +20,7 @@ import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { VesCache } from "../layout/arrange";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
-import { VisualElement, dragOverPositioningFlagSet, getVeid, insideTableFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet } from "../layout/visual-element";
+import { VisualElement, dragOverPositioningFlagSet, getVeid, insideTableFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
@@ -47,7 +47,6 @@ export function getHitInfo(
   // calculate overContainerVe and overPositionableVe.
   function finalize(hitboxType: HitboxType, rootVe: VisualElement, overElementVes: VisualElementSignal, overElementMeta: HitboxMeta | null): HitInfo {
     const overVe = overElementVes.get();
-    const parentVe = overVe.parentPath!
     if (insideTableFlagSet(overVe)) {
       assert(isTable(VesCache.get(overVe.parentPath!)!.get().displayItem), "a visual element marked as inside table, is not in fact inside a table.");
       const parentTableVe = VesCache.get(overVe.parentPath!)!.get();
@@ -86,15 +85,19 @@ export function getHitInfo(
   if (topLevelVisualElement.children.length > 0) {
     // The visual element of the popup or selected list item, if there is one, is always the last of the children.
     const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
-    if (pagePopupFlagSet(newRootVeMaybe) &&
+    if (popupFlagSet(newRootVeMaybe) &&
         isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
       posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
+      let hitboxType = HitboxType.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
-          return finalize(rootVisualElement.hitboxes[j].type, rootVisualElement, rootVisualElementSignal, null);
+          hitboxType |= rootVisualElement.hitboxes[j].type;
         }
+      }
+      if (hitboxType != HitboxType.None) {
+        return finalize(hitboxType, rootVisualElement, rootVisualElementSignal, null);
       }
       posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
     } else if (rootFlagSet(newRootVeMaybe) &&

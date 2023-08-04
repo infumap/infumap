@@ -64,7 +64,7 @@ export enum VisualElementFlags {
   Selected             = 0x001, // The item is selected.
   LineItem             = 0x002, // Render as a line item (like in a table), not deskop item.
   Detailed             = 0x004, // The visual element has detail / can be interacted with.
-  PagePopup            = 0x008, // The visual element is a popped up page.
+  Popup                = 0x008, // The visual element is a popped up page or image.
   Root                 = 0x010, // Render as a root level page (popup, list page, top level page).
   InsideTable          = 0x020, // The visual element is inside a table.
   Attachment           = 0x040, // The visual element is an attachment.
@@ -83,8 +83,8 @@ export function detailedFlagSet(ve: VisualElement): boolean {
   return (ve.flags & VisualElementFlags.Detailed) == VisualElementFlags.Detailed;
 }
 
-export function pagePopupFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.PagePopup) == VisualElementFlags.PagePopup;
+export function popupFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup;
 }
 
 export function rootFlagSet(ve: VisualElement): boolean {

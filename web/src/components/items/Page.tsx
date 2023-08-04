@@ -29,7 +29,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST, VesCache } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
-import { detailedFlagSet, lineItemFlagSet, pagePopupFlagSet, rootFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
+import { detailedFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -280,17 +280,17 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         {drawAsFull()}
       </Show>
       <Show when={!detailedFlagSet(props.visualElement) ||
-                  (!rootFlagSet(props.visualElement) && !pagePopupFlagSet(props.visualElement) && pageItem().id != desktopStore.currentPage()!.itemId && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!rootFlagSet(props.visualElement) && !popupFlagSet(props.visualElement) && pageItem().id != desktopStore.currentPage()!.itemId && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!rootFlagSet(props.visualElement) &&
-                  !pagePopupFlagSet(props.visualElement) &&
+                  !popupFlagSet(props.visualElement) &&
                   detailedFlagSet(props.visualElement) &&
                   pageItem().id != desktopStore.currentPage()!.itemId &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>
-      <Show when={pagePopupFlagSet(props.visualElement)}>
+      <Show when={popupFlagSet(props.visualElement)}>
         {drawAsPopup()}
       </Show>
     </>

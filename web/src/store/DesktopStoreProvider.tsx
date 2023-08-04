@@ -81,7 +81,8 @@ export interface EditDialogInfo {
 
 export enum PopupType {
   Page,
-  Attachment
+  Attachment,
+  Image
 }
 
 export interface PopupSpec {

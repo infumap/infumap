@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, PopupType, findVisualElements } from "../stor
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeid, veidFromPath, pagePopupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, getVeid, veidFromPath, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
 import { arrange, VesCache, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -127,7 +127,7 @@ export function mouseLeftDownHandler(
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
-    if (pagePopupFlagSet(hitInfo.overElementVes.get())) {
+    if (popupFlagSet(hitInfo.overElementVes.get())) {
       switchToPage(desktopStore, getVeid(hitInfo.overElementVes.get()));
     } else {
       arrange(desktopStore);
@@ -144,7 +144,7 @@ export function mouseLeftDownHandler(
     ? itemState.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
     : itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
   let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get())
-  const onePxSizeBl = pagePopupFlagSet(hitInfo.overElementVes.get())
+  const onePxSizeBl = popupFlagSet(hitInfo.overElementVes.get())
     ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
         y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h }
     : { x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
@@ -155,7 +155,7 @@ export function mouseLeftDownHandler(
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   mouseActionState = {
-    activeRoot: visualElementToPath(pagePopupFlagSet(hitInfo.rootVe) ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
+    activeRoot: visualElementToPath(popupFlagSet(hitInfo.rootVe) ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -276,7 +276,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
       if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
         mouseActionState.startPosBl = null;
-        if (pagePopupFlagSet(activeVisualElement)) {
+        if (popupFlagSet(activeVisualElement)) {
           mouseActionState.startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
           mouseActionState.startHeightBl = null;
           mouseActionState.action = MouseAction.ResizingPopup;
@@ -295,7 +295,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
         mouseActionState.startWidthBl = null;
         mouseActionState.startHeightBl = null;
-        if (pagePopupFlagSet(activeVisualElement)) {
+        if (popupFlagSet(activeVisualElement)) {
           mouseActionState.action = MouseAction.MovingPopup;
           const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().displayItem;
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
@@ -359,10 +359,6 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       }
     }
 
-    let { itemId, linkIdMaybe } = veidFromPath(mouseActionState.activeElement);
-    // findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
-    //   rearrangeVisualElement(desktopStore, ve);
-    // });
     arrange(desktopStore);
 
   // ### Resizing Popup
@@ -378,6 +374,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
     const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
     asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthBl * GRID_SIZE;
+
     arrange(desktopStore);
 
   // ### Resizing Column
@@ -397,10 +394,6 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       asTableItem(activeItem).tableColumns[mouseActionState!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
     }
 
-    let { itemId, linkIdMaybe } = veidFromPath(mouseActionState.activeElement);
-    // findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
-    //   rearrangeVisualElement(desktopStore, ve);
-    // });
     arrange(desktopStore);
 
   // ### Moving Popup
@@ -415,6 +408,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     };
     const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
     asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
+
     arrange(desktopStore);
 
   // ### Moving
@@ -467,10 +461,6 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
     activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
-    let { itemId, linkIdMaybe } = veidFromPath(mouseActionState.activeElement);
-    // findVisualElements(desktopStore, itemId, linkIdMaybe).forEach(ve => {
-    //   rearrangeVisualElement(desktopStore, ve);
-    // });
     arrange(desktopStore);
   }
 }
@@ -497,13 +487,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   }
 
   if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
-      !pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
+      !popupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
   if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
-      ! pagePopupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      ! popupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
       overElementVes!.get().mouseIsOverOpenPopup.set(true);
