@@ -52,8 +52,8 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   //   return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
   // };
 
-  const imageWidthToRequestPx = (lockToResizinFromBounds: boolean) => {
-    let boundsPx = (resizingFromBoundsPx() == null || !lockToResizinFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
+  const imageWidthToRequestPx = (lockToResizingFromBounds: boolean) => {
+    let boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
     let boundsAspect = boundsPx.w / boundsPx.h;
     if (boundsAspect > imageAspect()) {
       // Bounds is flatter than the image, so:
@@ -102,8 +102,9 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
         <Show when={isDetailed()} fallback={
             <img class="max-w-none absolute"
                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                        `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
+                        `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
                  width={imageWidthToRequestPx(false)}
+                 height={imageWidthToRequestPx(false) / imageAspect()}
                  src={thumbnailSrc()} />
           }>
           <img ref={imgElement}
