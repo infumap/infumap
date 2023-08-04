@@ -45,8 +45,8 @@ export interface DesktopStoreContextModel {
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
-  getSelectedItem: (veid: Veid) => VisualElementPath,
-  setSelectedItem: (veid: Veid, path: VisualElementPath) => void,
+  getSelectedListPageItem: (veid: Veid) => VisualElementPath,
+  setSelectedListPageItem: (veid: Veid, path: VisualElementPath) => void,
 
   getPageScrollXPx: (veid: Veid) => number,
   setPageScrollXPx: (veid: Veid, path: number) => void,
@@ -170,7 +170,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     pageScrollYPxs.get(key)!.set(px);
   };
 
-  const getSelectedItem = (veid: Veid): VisualElementPath => {
+  const getSelectedListPageItem = (veid: Veid): VisualElementPath => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
       selectedItems.set(key, createVisualElementPathSignal(""));
@@ -178,7 +178,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return selectedItems.get(key)!.get();
   };
 
-  const setSelectedItem = (veid: Veid, path: VisualElementPath): void => {
+  const setSelectedListPageItem = (veid: Veid, path: VisualElementPath): void => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
       selectedItems.set(key, createVisualElementPathSignal(path));
@@ -278,7 +278,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,
     getTableScrollYPos, setTableScrollYPos,
-    getSelectedItem, setSelectedItem,
+    getSelectedListPageItem, setSelectedListPageItem,
     getPageScrollXPx, setPageScrollXPx,
     getPageScrollYPx, setPageScrollYPx,
     currentVisiblePassword, setCurrentVisiblePassword,

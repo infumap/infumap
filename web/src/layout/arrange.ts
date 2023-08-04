@@ -137,7 +137,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
-  const selectedVeid = veidFromPath(desktopStore.getSelectedItem(desktopStore.currentPage()!));
+  const selectedVeid = veidFromPath(desktopStore.getSelectedListPageItem(desktopStore.currentPage()!));
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElement = createVisualElement({
     displayItem: currentPage,

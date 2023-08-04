@@ -297,7 +297,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedItem(
+    desktopStore.setSelectedListPageItem(
       veidFromPath(visualElement.parentPath!),
       visualElementToPath(visualElement));
     arrange(desktopStore);
@@ -311,7 +311,7 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedItem(
+    desktopStore.setSelectedListPageItem(
       veidFromPath(visualElement.parentPath!),
       visualElementToPath(visualElement));
   } else if (pagePopupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
