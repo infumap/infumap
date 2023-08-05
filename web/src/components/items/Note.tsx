@@ -48,13 +48,24 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       h: ATTACH_AREA_SIZE_PX,
     }
   }
-  const asHeading = () => (noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading;
+  const outerClass = () => {
+    if ((noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading) {
+      if (props.visualElement.mouseIsOver.get()) {
+        return 'absolute border border-slate-700 rounded-sm font-bold shadow-lg';
+      } else {
+        return 'absolute border border-transparent rounded-sm font-bold';
+      }
+    }
+    return 'absolute border border-slate-700 rounded-sm shadow-lg';
+  };
+  const shiftTextLeft = () =>
+    (noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading && !props.visualElement.mouseIsOver.get();
 
   return (
-    <div class={`absolute border ${asHeading() ? 'border-slate-200 rounded-sm font-bold' : 'border-slate-700 rounded-sm shadow-lg'}`}
+    <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={detailedFlagSet(props.visualElement)}>
-        <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
+        <div style={`position: absolute; left: ${shiftTextLeft() ? '-' + NOTE_PADDING_PX : '0'}px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
           <Show when={noteItem().url != null && noteItem().url != ""}
