@@ -80,19 +80,19 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
           </Show>
         </div>
         <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().h*0.15}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onclick={VisibleClickHandler}>
-        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
-      </div>
-      <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().w - 1.8*oneBlockWidthPx()}px; top: ${boundsPx().h*0.15}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onclick={copyClickHandler}>
-        <i class={`fas fa-copy cursor-pointer`} />
-      </div>
+             style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().h*0.15}px; ` +
+                    `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                    `transform: scale(${smallScale()}); transform-origin: top left;`}
+             onclick={copyClickHandler}>
+          <i class={`fas fa-copy cursor-pointer`} />
+        </div>
+        <div class="absolute text-center text-slate-600"
+             style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*0.15}px; ` +
+                    `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                    `transform: scale(${smallScale()}); transform-origin: top left;`}
+             onclick={VisibleClickHandler}>
+          <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+        </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
@@ -162,15 +162,15 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
            style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onclick={VisibleClickHandler}>
-        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
-      </div>
-      <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x+boundsPx().w - 1.8*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
            onclick={copyClickHandler}>
         <i class={`fas fa-copy cursor-pointer`} />
+      </div>
+      <div class="absolute text-center text-slate-600"
+           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                  `transform: scale(${smallScale()}); transform-origin: top left;`}
+           onclick={VisibleClickHandler}>
+        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
       </div>
     </>
   );
