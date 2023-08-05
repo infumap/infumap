@@ -172,8 +172,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       oneBlockWidthPx: LINE_HEIGHT_PX,
     };
     const childPath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), currentPath);
-    const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
-    newCache.set(childPath, listItemVisualElementSignal);
+    const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath, newCache);
     listVeChildren.push(listItemVisualElementSignal);
   }
   topLevelVisualElement.children = listVeChildren;
@@ -330,8 +329,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
 
       const itemPath = prependVeidToPath(createVeid(item, li), currentPath);
       itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, item, li, geometry.boundsPx, itemPath);
-      const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
-      newCache.set(itemPath, itemVisualElementSignal);
+      const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, itemPath, newCache);
       children.push(itemVisualElementSignal);
     } else {
       panic();
@@ -500,8 +498,7 @@ const arrangePageWithChildren_Desktop = (
           parentPath: pageWithChildrenVePath,
         };
         const childPath = prependVeidToPath(createVeid(item, null), pageWithChildrenVePath);
-        const ves = createOrRecycleVisualElementSignal(veSpec, childPath);
-        newCache.set(childPath, ves);
+        const ves = createOrRecycleVisualElementSignal(veSpec, childPath, newCache);
 
         children.push(ves);
       } else {
@@ -561,9 +558,7 @@ const arrangePageWithChildren_Desktop = (
   const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
   pageWithChildrenVisualElementSpec.attachments = attachments;
 
-  const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
-  newCache.set(pageWithChildrenVePath, pageWithChildrenVisualElementSignal);
-
+  const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath, newCache);
   return pageWithChildrenVisualElementSignal;
 }
 
@@ -664,17 +659,15 @@ const arrangeTable_Desktop = (
           oneBlockWidthPx: blockSizePx.w
         };
         const tableChildAttachmentVePath = prependVeidToPath(createVeid(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
-        const tableChildAttachmentVeSignal = createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+        const tableChildAttachmentVeSignal = createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath, newCache);
         tableItemVeAttachments.push(tableChildAttachmentVeSignal);
-        newCache.set(tableChildAttachmentVePath, tableChildAttachmentVeSignal);
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
 
       tableChildVeSpec.attachments = tableItemVeAttachments;
 
-      const tableItemVisualElementSignal = createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+      const tableItemVisualElementSignal = createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath, newCache);
       tableVeChildren.push(tableItemVisualElementSignal);
-      newCache.set(tableChildVePath, tableItemVisualElementSignal);
     }
   };
 
@@ -683,8 +676,7 @@ const arrangeTable_Desktop = (
   const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachments = attachments;
 
-  const tableVisualElementSignal = createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
-  newCache.set(tableVePath, tableVisualElementSignal);
+  const tableVisualElementSignal = createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath, newCache);
 
   return tableVisualElementSignal;
 }
@@ -757,8 +749,7 @@ const arrangeItemNoChildren_Desktop = (
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
   itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
-  const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
-  newCache.set(currentVePath, itemVisualElementSignal);
+  const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, currentVePath, newCache);
 
   return itemVisualElementSignal;
 }
@@ -772,7 +763,7 @@ const arrangeItemNoChildren_Desktop = (
  * In some cases, this is not good enough as an existing element may have additional overrides set (e.g. changing page view types).
  * In those cases, the ves cache should be explicitly cleared, so no values are recycled.
  */
-function createOrRecycleVisualElementSignal(visualElementOverride: VisualElementSpec, path: VisualElementPath) {
+function createOrRecycleVisualElementSignal(visualElementOverride: VisualElementSpec, path: VisualElementPath, newCache: Map<VisualElementPath, VisualElementSignal>) {
   function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) {
       return 1;
@@ -789,6 +780,7 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
   if (existing) {
     if (existing.get().mightBeDirty != getMightBeDirty(visualElementOverride.displayItem)) {
       existing.set(createVisualElement(visualElementOverride));
+      newCache.set(path, existing);
       return existing;
     }
 
@@ -796,11 +788,11 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
     const oldVals: any = existing.get();
     const newProps = Object.getOwnPropertyNames(visualElementOverride);
     let dirty = false;
-    // console.log(newProps, visualElementOverride);
+    // console.debug(newProps, visualElementOverride);
     for (let i=0; i<newProps.length; ++i) {
-      // console.log("considering", newProps[i]);
+      // console.debug("considering", newProps[i]);
       if (typeof(oldVals[newProps[i]]) == 'undefined') {
-        // console.log('prop does not exist:', newProps[i]);
+        // console.debug('prop does not exist:', newProps[i]);
         dirty = true;
         break;
       }
@@ -809,43 +801,47 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
       if (oldVal != newVal) {
         if (newProps[i] == "boundsPx" || newProps[i] == "childAreaBoundsPx") {
           if (compareBoundingBox(oldVal, newVal) != 0) {
-            // console.log("visual element property changed: ", newProps[i]);
+            // console.debug("visual element property changed: ", newProps[i]);
             dirty = true;
             break;
           } else {
-            // console.log("boundsPx didn't change.");
+            // console.debug("boundsPx didn't change.");
           }
         } else if (newProps[i] == "children" || newProps[i] == "attachments") {
           // TODO (MEDIUM): better reconciliation.
           if (compareVesArrays(oldVal, newVal) != 0) {
-            // console.log("visual element property changed: ", newProps[i]);
+            // console.debug("visual element property changed: ", newProps[i]);
             dirty = true;
             break;
           }
         } else if (newProps[i] == "hitboxes") {
           if (compareHitboxArrays(oldVal, newVal) != 0) {
-            // console.log("visual element property changed: ", newProps[i]);
+            // console.debug("visual element property changed: ", newProps[i]);
             dirty = true;
             break;
           }
         } else {
-          // console.log("visual element property changed: ", newProps[i]);
+          // console.debug("visual element property changed: ", newProps[i]);
           dirty = true;
           break;
         }
       }
     }
     if (!dirty) {
-      // console.log("not dirty:", path);
+      // console.debug("not dirty:", path);
+      newCache.set(path, existing);
       return existing;
     }
-    // console.log("dirty:", path);
+    // console.debug("dirty:", path);
     existing.set(createVisualElement(visualElementOverride));
+    newCache.set(path, existing);
     return existing;
   }
 
-  // console.log("creating:", path);
-  return createVisualElementSignal(createVisualElement(visualElementOverride));
+  // console.debug("creating:", path);
+  const newElement = createVisualElementSignal(createVisualElement(visualElementOverride));
+  newCache.set(path, newElement);
+  return newElement;
 }
 
 
@@ -895,8 +891,7 @@ function arrangeItemAttachments(
       flags: VisualElementFlags.Attachment |
              (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None),
     };
-    const attachmentVisualElementSignal = createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
-    newCache.set(attachmentVePath, attachmentVisualElementSignal);
+    const attachmentVisualElementSignal = createOrRecycleVisualElementSignal(veSpec, attachmentVePath, newCache);
     attachments.push(attachmentVisualElementSignal);
   }
 
@@ -955,8 +950,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
         parentPath: currentPath,
       };
       const childPath = prependVeidToPath(createVeid(item, null), currentPath);
-      const ves = createOrRecycleVisualElementSignal(veSpec, childPath);
-      newCache.set(childPath, ves);
+      const ves = createOrRecycleVisualElementSignal(veSpec, childPath, newCache);
 
       children.push(ves);
     } else {
