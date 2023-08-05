@@ -132,25 +132,24 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 }
 
 const arrange_list = (desktopStore: DesktopStoreContextModel) => {
-  let newCache = new Map<VisualElementPath, VisualElementSignal>();
+  let newVesCache = new Map<VisualElementPath, VisualElementSignal>();
 
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
 
   const selectedVeid = veidFromPath(desktopStore.getSelectedListPageItem(desktopStore.currentPage()!));
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
-  const topLevelVisualElement = createVisualElement({
+  const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     mightBeDirty: getMightBeDirty(currentPage),
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
-  });
+  };
 
   let listVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
-    const childId = currentPage.computed_children[idx];
-    const childItem = itemState.getItem(childId)!;
+    const childItem = itemState.getItem(currentPage.computed_children[idx])!;
     const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
 
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
@@ -172,10 +171,12 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       oneBlockWidthPx: LINE_HEIGHT_PX,
     };
     const childPath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), currentPath);
-    const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath, newCache);
+    const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath, newVesCache);
     listVeChildren.push(listItemVisualElementSignal);
   }
-  topLevelVisualElement.children = listVeChildren;
+  topLevelVisualElementSpec.children = listVeChildren;
+
+  createOrRecycleVisualElementSignal(topLevelVisualElementSpec, currentPath, newVesCache, desktopStore.topLevelVisualElementSignal());
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
@@ -188,9 +189,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
     //   arrangeInCell(desktopStore, currentPage.selectedItem, boundsPx));
   }
 
-  newCache.set(currentPath, desktopStore.topLevelVisualElementSignal());
-  desktopStore.setTopLevelVisualElement(topLevelVisualElement);
-  currentVesCache = newCache;
+  currentVesCache = newVesCache;
 }
 
 // function arrangeInCell(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
@@ -763,7 +762,12 @@ const arrangeItemNoChildren_Desktop = (
  * In some cases, this is not good enough as an existing element may have additional overrides set (e.g. changing page view types).
  * In those cases, the ves cache should be explicitly cleared, so no values are recycled.
  */
-function createOrRecycleVisualElementSignal(visualElementOverride: VisualElementSpec, path: VisualElementPath, newCache: Map<VisualElementPath, VisualElementSignal>) {
+function createOrRecycleVisualElementSignal(
+    visualElementOverride: VisualElementSpec,
+    path: VisualElementPath,
+    newCache: Map<VisualElementPath, VisualElementSignal>,
+    alwaysUseVes?: VisualElementSignal): VisualElementSignal {
+
   function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) {
       return 1;
@@ -780,6 +784,7 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
   if (existing) {
     if (existing.get().mightBeDirty != getMightBeDirty(visualElementOverride.displayItem)) {
       existing.set(createVisualElement(visualElementOverride));
+      // console.debug("might be dirty", existing.get().mightBeDirty);
       newCache.set(path, existing);
       return existing;
     }
@@ -838,10 +843,17 @@ function createOrRecycleVisualElementSignal(visualElementOverride: VisualElement
     return existing;
   }
 
-  // console.debug("creating:", path);
-  const newElement = createVisualElementSignal(createVisualElement(visualElementOverride));
-  newCache.set(path, newElement);
-  return newElement;
+  if (alwaysUseVes) {
+    // console.debug("alwaysUse:", path);
+    alwaysUseVes.set(createVisualElement(visualElementOverride));
+    newCache.set(path, alwaysUseVes);
+    return alwaysUseVes;
+  } else {
+    // console.debug("creating:", path);
+    const newElement = createVisualElementSignal(createVisualElement(visualElementOverride));
+    newCache.set(path, newElement);
+    return newElement;
+  }
 }
 
 
@@ -959,8 +971,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   }
   topLevelVisualElementSpec.children = children;
 
-  newCache.set(currentPath, desktopStore.topLevelVisualElementSignal());
-  desktopStore.setTopLevelVisualElement(createVisualElement(topLevelVisualElementSpec));
+  createOrRecycleVisualElementSignal(topLevelVisualElementSpec, currentPath, newCache, desktopStore.topLevelVisualElementSignal());
 
   currentVesCache = newCache;
 }

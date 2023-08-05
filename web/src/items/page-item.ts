@@ -364,5 +364,5 @@ export function popupPositioningHasChanged(pageItem: PageItem): boolean {
 
 
 export function getPageItemMightBeDirty(pageItem: PageItem): string {
-  return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title;
+  return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm;
 }
