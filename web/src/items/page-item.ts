@@ -165,21 +165,8 @@ export function pageToObject(p: PageItem): object {
 
 
 export function calcPageSizeForSpatialBl(page: PageMeasurable): Dimensions {
-  if (page.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
-    if (page.childrenLoaded) {
-      const numCols = page.gridNumberOfColumns;
-      const numRows = Math.ceil(page.computed_children.length / numCols);
-      const cellWGr = page.spatialWidthGr / numCols;
-      const cellHGr = cellWGr * (1.0/GRID_PAGE_CELL_ASPECT);
-      const pageHeightGr = cellHGr * numRows;
-      const pageHeightBl = Math.ceil(pageHeightGr / GRID_SIZE);
-      return { w: page.spatialWidthGr / GRID_SIZE, h: pageHeightBl < 1.0 ? 1.0 : pageHeightBl };
-    }
-    return { w: page.spatialWidthGr / GRID_SIZE, h: 0.5 };
-  } else {
-    let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
-    return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
-  }
+  let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
+  return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
 }
 
 

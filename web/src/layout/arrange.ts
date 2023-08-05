@@ -358,12 +358,6 @@ const arrangeItem_Desktop = (
 
   const [displayItem, linkItemMaybe, spatialWidthGr] = getVeItems(desktopStore, item);
 
-  if (isPage(displayItem) && asPageItem(displayItem).arrangeAlgorithm == ARRANGE_ALGO_GRID) {
-    // Always make sure child items of grid pages are loaded, even if not visible,
-    // because they are needed to to calculate the height.
-    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
-  }
-
   if (isPage(displayItem) &&
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
