@@ -192,7 +192,8 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
             <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
           </Show>
         </div>
-        <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <div class="absolute flex items-center justify-center pointer-events-none"
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none"
                style={`transform: scale(${translucentTitleScale()}); transform-origin: center center;`}>
             {pageItem().title}
@@ -225,10 +226,18 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return (
       <>
         <div class={`absolute text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
+             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
         <div class={`absolute border rounded-sm`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+                    'overflow-y: auto; overflow-x: hidden;'}>
+          <div class="absolute"
+               style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
+                      `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
+            <For each={props.visualElement.children}>{childVe =>
+              <VisualElement_Desktop visualElement={childVe.get()} />
+            }</For>
+          </div>
         </div>
         <div class={`absolute rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
@@ -240,13 +249,6 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
               <i class={`fa fa-anchor`} />
             </div>
           </Show>
-        </div>
-        <div class="absolute"
-             style={`left: ${childAreaBoundsPx().x}px; top: ${childAreaBoundsPx().y}px; ` +
-                    `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
-          <For each={props.visualElement.children}>{childVe =>
-            <VisualElement_Desktop visualElement={childVe.get()} />
-          }</For>
         </div>
       </>
     );
