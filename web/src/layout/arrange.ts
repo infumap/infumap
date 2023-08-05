@@ -448,6 +448,7 @@ const arrangePageWithChildren_Desktop = (
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
+  // *** GRID ***
   if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
 
     const pageItem = asPageItem(displayItem_pageWithChildren);
@@ -493,7 +494,7 @@ const arrangePageWithChildren_Desktop = (
         const veSpec: VisualElementSpec = {
           displayItem: item,
           mightBeDirty: getMightBeDirty(item),
-          flags: VisualElementFlags.Detailed,
+          flags: isPagePopup ? VisualElementFlags.Detailed : VisualElementFlags.None,
           boundsPx: geometry.boundsPx,
           hitboxes: geometry.hitboxes,
           parentPath: pageWithChildrenVePath,
@@ -510,6 +511,7 @@ const arrangePageWithChildren_Desktop = (
     pageWithChildrenVisualElementSpec.children = children;
 
 
+  // *** SPATIAL_STRETCH ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH ||
              displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_LIST) { // TODO: ...
 
