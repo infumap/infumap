@@ -431,12 +431,6 @@ const arrangePageWithChildren_Desktop = (
     const widthPx = boundsPx.w;
     const blockWidthPx = widthPx / spatialWidthBl;
     const toolbarWidthPx = blockWidthPx * POPUP_TOOLBAR_WIDTH_BL;
-    boundsPx = {
-      x: childAreaBoundsPx.x - toolbarWidthPx,
-      y: childAreaBoundsPx.y,
-      w: childAreaBoundsPx.w + toolbarWidthPx,
-      h: childAreaBoundsPx.h,
-    };
     const defaultResizeHitbox = geometry.hitboxes.filter(hb => hb.type == HitboxType.Resize)[0];
     if (defaultResizeHitbox.type != HitboxType.Resize) { panic(); }
     const rhbBoundsPx = defaultResizeHitbox.boundsPx;
@@ -445,24 +439,92 @@ const arrangePageWithChildren_Desktop = (
       createHitbox(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: boundsPx.h })
     ];
   }
-  const pageWithChildrenVisualElementSpec: VisualElementSpec = {
-    displayItem: displayItem_pageWithChildren,
-    mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
-    linkItemMaybe: linkItemMaybe_pageWithChildren,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
-           (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
-    boundsPx,
-    childAreaBoundsPx,
-    hitboxes,
-    parentPath,
-  };
 
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-  if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_GRID || displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    console.log("TODO: arrange child grid page.");
-  } else {
+  if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
+    const pageItem = asPageItem(displayItem_pageWithChildren);
+    const numCols = pageItem.gridNumberOfColumns;
+    const numRows = Math.ceil(pageItem.computed_children.length / numCols);
+    const cellWPx = innerBoundsPx.w / numCols;
+    const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
+    const marginPx = cellWPx * 0.01;
+    const pageHeightPx = numRows * cellHPx;
+    const boundsPx = (() => {
+      const result = cloneBoundingBox(geometry.boundsPx)!;
+      result.h = pageHeightPx;
+      return result;
+    })();
+
+    const pageWithChildrenVisualElementSpec: VisualElementSpec = {
+      displayItem: displayItem_pageWithChildren,
+      mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
+      linkItemMaybe: linkItemMaybe_pageWithChildren,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
+            (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+            (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
+      boundsPx: geometry.boundsPx,
+      childAreaBoundsPx: boundsPx,
+      hitboxes,
+      parentPath,
+    };
+
+    const children = [];
+    for (let i=0; i<pageItem.computed_children.length; ++i) {
+      const item = itemState.getItem(pageItem.computed_children[i])!;
+      const col = i % numCols;
+      const row = Math.floor(i / numCols);
+      const cellBoundsPx = {
+        x: col * cellWPx + marginPx,
+        y: row * cellHPx + marginPx,
+        w: cellWPx - marginPx * 2.0,
+        h: cellHPx - marginPx * 2.0
+      };
+
+      let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
+      if (!isTable(item) && !isLink(item)) {
+        const veSpec: VisualElementSpec = {
+          displayItem: item,
+          mightBeDirty: getMightBeDirty(item),
+          flags: VisualElementFlags.Detailed,
+          boundsPx: geometry.boundsPx,
+          hitboxes: geometry.hitboxes,
+          parentPath: pageWithChildrenVePath,
+        };
+        const childPath = prependVeidToPath(createVeid(item, null), pageWithChildrenVePath);
+        const ves = createOrRecycleVisualElementSignal(veSpec, childPath);
+        newCache.set(childPath, ves);
+
+        children.push(ves);
+      } else {
+        console.log("TODO: child tables in grid pages.");
+      }
+    }
+    pageWithChildrenVisualElementSpec.children = children;
+
+    const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, boundsPx, pageWithChildrenVePath);
+    pageWithChildrenVisualElementSpec.attachments = attachments;
+
+    const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
+    newCache.set(pageWithChildrenVePath, pageWithChildrenVisualElementSignal);
+
+    return pageWithChildrenVisualElementSignal;
+
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH ||
+             displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_LIST) { // TODO: ...
+    const pageWithChildrenVisualElementSpec: VisualElementSpec = {
+      displayItem: displayItem_pageWithChildren,
+      mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
+      linkItemMaybe: linkItemMaybe_pageWithChildren,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
+             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
+      boundsPx,
+      childAreaBoundsPx,
+      hitboxes,
+      parentPath,
+    };
+
     pageWithChildrenVisualElementSpec.children = displayItem_pageWithChildren.computed_children.map(childId => {
       const itemIsPopup = false;
       const childItem = itemState.getItem(childId)!;
@@ -486,15 +548,17 @@ const arrangePageWithChildren_Desktop = (
           innerBoundsPx, isPagePopup, itemIsPopup, RenderStyle.Outline);
       }
     });
+
+    const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, boundsPx, pageWithChildrenVePath);
+    pageWithChildrenVisualElementSpec.attachments = attachments;
+
+    const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
+    newCache.set(pageWithChildrenVePath, pageWithChildrenVisualElementSignal);
+
+    return pageWithChildrenVisualElementSignal;
+  } else {
+    panic();
   }
-
-  const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, boundsPx, pageWithChildrenVePath);
-  pageWithChildrenVisualElementSpec.attachments = attachments;
-
-  const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
-  newCache.set(pageWithChildrenVePath, pageWithChildrenVisualElementSignal);
-
-  return pageWithChildrenVisualElementSignal;
 }
 
 

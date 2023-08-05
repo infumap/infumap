@@ -142,45 +142,46 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return (
       <>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff;`}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
+                    'overflow-y: auto; overflow-x: hidden;'}>
+          <Show when={props.visualElement.childAreaBoundsPx != null}>
+            <div class="absolute"
+                style={`left: ${0}px; top: ${0}px; ` +
+                        `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+              <For each={props.visualElement.children}>{childVe =>
+                <VisualElement_Desktop visualElement={childVe.get()} />
+              }</For>
+            </div>
+          </Show>
         </div>
-        <Show when={props.visualElement.childAreaBoundsPx != null}>
-          <div class="absolute"
-               style={`left: ${props.visualElement.childAreaBoundsPx!.x}px; top: ${props.visualElement.childAreaBoundsPx!.y}px; ` +
-                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-            <For each={props.visualElement.children}>{childVe =>
-              <VisualElement_Desktop visualElement={childVe.get()} />
-            }</For>
-          </div>
-        </Show>
-        <div class={`absolute border border-slate-700 rounded-sm`}
+        <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
           <Show when={props.visualElement.mouseIsOver.get()}>
-            <div class={`absolute rounded-sm`}
+            <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
             </div>
             <Show when={hasPopupClickBoundsPx()}>
-              <div class={`absolute rounded-sm`}
+              <div class={`absolute rounded-sm pointer-events-none`}
                   style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
                           `background-color: #ffffff44;`}>
               </div>
             </Show>
           </Show>
           <Show when={props.visualElement.movingItemIsOver.get()}>
-            <div class={`absolute rounded-sm`}
+            <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
             </div>
           </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
-            <div class={`absolute rounded-sm`}
+            <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000;`}>
             </div>
           </Show>
           <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
-            <div class="absolute"
+            <div class="absolute pointer-events-none"
                  style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
             </div>
           </Show>
@@ -192,7 +193,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
           </Show>
         </div>
         <div class="absolute flex items-center justify-center" style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-          <div class="flex items-center text-center text-xl font-bold text-white"
+          <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none"
                style={`transform: scale(${translucentTitleScale()}); transform-origin: center center;`}>
             {pageItem().title}
           </div>
