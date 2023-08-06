@@ -160,37 +160,43 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       w: desktopStore.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL+2) * LINE_HEIGHT_PX),
       h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
-    // topLevelVisualElement.children.push(
-    //   arrangeInCell(desktopStore, currentPage.selectedItem, boundsPx));
+    topLevelVisualElementSpec.children.push(
+      arrangeInCell(desktopStore, selectedVeid, boundsPx, currentPath));
   }
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
 
-// function arrangeInCell(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
-//   const item = desktopStore.getItem(id)!;
+function arrangeInCell(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
+  const item = itemState.getItem(veid.itemId)!;
 
-//   if (isPage(item) || isTable(item)) {
-//     initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-//   }
+  const selectedPath = prependVeidToPath(veid, currentPath);
 
-//   let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), id);
-//   li.id = LIST_FOCUS_ID;
-//   let widthGr = 10 * GRID_SIZE;
-//   li.spatialWidthGr = widthGr;
-//   li.spatialPositionGr = { x: 0.0, y: 0.0 };
+  if (isPage(item) || isTable(item)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
+  }
 
-//   const geometry = calcGeometryOfItem_Cell(li, boundsPx, desktopStore.getItem);
+  let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), veid.itemId);
+  li.id = LIST_FOCUS_ID;
+  let widthGr = 10 * GRID_SIZE;
+  li.spatialWidthGr = widthGr;
+  li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-//   return arrangePageWithChildren(
-//     desktopStore,
-//     asPageItem(item),
-//     li,
-//     desktopStore.topLevelVisualElementSignal(),
-//     false,  // is popup.
-//     true    // is full.
-//   );
-// }
+  const geometry = calcGeometryOfItem_Cell(li, boundsPx);
+
+  const veSpec: VisualElementSpec = {
+    displayItem: item,
+    mightBeDirty: getMightBeDirty(item),
+    flags: VisualElementFlags.Detailed,
+    boundsPx: geometry.boundsPx,
+    hitboxes: geometry.hitboxes,
+    parentPath: currentPath,
+  };
+
+  const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, selectedPath);
+
+  return ves;
+}
 
 const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
   const pageItem = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
