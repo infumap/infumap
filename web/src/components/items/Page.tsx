@@ -278,17 +278,17 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={pageItem().id == desktopStore.currentPage()!.itemId || rootFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.parentPath == null || rootFlagSet(props.visualElement)}>
         {drawAsFull()}
       </Show>
       <Show when={!detailedFlagSet(props.visualElement) ||
-                  (!rootFlagSet(props.visualElement) && !popupFlagSet(props.visualElement) && pageItem().id != desktopStore.currentPage()!.itemId && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
+                  (!rootFlagSet(props.visualElement) && !popupFlagSet(props.visualElement) && props.visualElement.parentPath != null && (spatialWidthGr() / GRID_SIZE < CHILD_ITEMS_VISIBLE_WIDTH_BL))}>
         {drawAsOpaque()}
       </Show>
       <Show when={!rootFlagSet(props.visualElement) &&
                   !popupFlagSet(props.visualElement) &&
                   detailedFlagSet(props.visualElement) &&
-                  pageItem().id != desktopStore.currentPage()!.itemId &&
+                  props.visualElement.parentPath != null &&
                   (spatialWidthGr() / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)}>
         {drawAsTranslucent()}
       </Show>

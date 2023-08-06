@@ -373,7 +373,6 @@ const arrangePageWithChildren_Desktop = (
     parentIsPopup: boolean,
     isPagePopup: boolean,
     isRoot: boolean): VisualElementSignal => {
-
   const pageWithChildrenVePath = prependVeidToPath(createVeid(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren), parentPath);
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
@@ -681,7 +680,6 @@ const arrangeItemNoChildren_Desktop = (
     parentIsPopup: boolean,
     isPopup: boolean,
     renderStyle: RenderStyle): VisualElementSignal => {
-
   const currentVePath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), parentVePath);
 
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
