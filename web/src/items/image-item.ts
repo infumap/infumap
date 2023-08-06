@@ -196,10 +196,10 @@ export function handleImageClick(visualElement: VisualElement, desktopStore: Des
   if ((visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup) {
     window.open('/files/' + visualElement.displayItem.id, '_blank');
   } else if (popupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
-    desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    desktopStore.pushPopup({ type: PopupType.Image, vePath: visualElementToPath(visualElement) });
     arrange(desktopStore);
   } else {
-    desktopStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    desktopStore.replacePopup({ type: PopupType.Image, vePath: visualElementToPath(visualElement) });
     arrange(desktopStore);
   }
 }
