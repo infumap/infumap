@@ -357,7 +357,7 @@ const arrangeItem_Desktop = (
     linkItemMaybe,
     parentPage,
     zeroBoundingBoxTopLeft(parentPageBoundsPx),
-    false, // parentIsPopup.
+    parentIsPopup,
     isPopup,
     renderStyle);
 }
