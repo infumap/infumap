@@ -26,9 +26,9 @@ import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VisualElement, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, createVisualElement, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID, parentPath } from "./visual-element";
-import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
-import { BoundingBox, cloneBoundingBox, compareBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
+import { VisualElementSignal } from "../util/signals";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
 import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
@@ -38,10 +38,10 @@ import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFr
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
 import { updateHref } from "../util/browser";
-import { HitboxType, compareHitboxArrays, createHitbox } from "./hitbox";
+import { HitboxType, createHitbox } from "./hitbox";
 import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
-import { asImageItem } from "../items/image-item";
+import { VesCache } from "./ves-cache";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -55,29 +55,6 @@ enum RenderStyle {
 const POPUP_LINK_ID = newUid();
 const LIST_FOCUS_ID = newUid();
 
-
-let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-
-export let VesCache = {
-  clear: () => {
-    currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-  },
-
-  get: (path: VisualElementPath): VisualElementSignal | undefined => {
-    return currentVesCache.get(path);
-  },
-
-  getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-    const commonPath = parentPath(path);
-    const result: Array<VisualElementSignal> = [];
-    for (const kv of currentVesCache.entries()) {
-      if (parentPath(kv[0]) == commonPath && kv[0] != path) {
-        result.push(kv[1]);
-      }
-    }
-    return result;
-  }
-}
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
@@ -132,7 +109,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 }
 
 const arrange_list = (desktopStore: DesktopStoreContextModel) => {
-  let newVesCache = new Map<VisualElementPath, VisualElementSignal>();
+  VesCache.initFullArrange();
 
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
@@ -171,12 +148,10 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       oneBlockWidthPx: LINE_HEIGHT_PX,
     };
     const childPath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), currentPath);
-    const listItemVisualElementSignal = createOrRecycleVisualElementSignal(listItemVeSpec, childPath, newVesCache);
+    const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
   }
   topLevelVisualElementSpec.children = listVeChildren;
-
-  createOrRecycleVisualElementSignal(topLevelVisualElementSpec, currentPath, newVesCache, desktopStore.topLevelVisualElementSignal());
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
@@ -189,7 +164,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
     //   arrangeInCell(desktopStore, currentPage.selectedItem, boundsPx));
   }
 
-  currentVesCache = newVesCache;
+  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
 
 // function arrangeInCell(desktopStore: DesktopStoreContextModel, id: Uid, boundsPx: BoundingBox): VisualElementSignal {
@@ -218,10 +193,10 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 // }
 
 const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
-  const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
+  const pageItem = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
-  const pageAspect = currentPage.naturalAspect;
-  const topLevelPageBoundsPx = (() => {
+  const pageAspect = pageItem.naturalAspect;
+  const pageBoundsPx = (() => {
     let result = desktopStore.desktopBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / desktopAspect > 1.25) {
@@ -234,30 +209,21 @@ const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel)
     return result;
   })();
 
-  let currentPath = "";
-  let newCache = new Map<VisualElementPath, VisualElementSignal>();
-  const topLevel = arrange_spatialStretch(desktopStore, newCache, currentPath, topLevelPageBoundsPx, currentPage);
-  newCache.set(currentPage.id, desktopStore.topLevelVisualElementSignal());
-  currentVesCache = newCache;
+  VesCache.initFullArrange();
 
-  desktopStore.topLevelVisualElementSignal().set(topLevel);
-}
+  const currentPath = prependVeidToPath(createVeid(pageItem, null), "");
 
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache: Map<VisualElementPath, VisualElementSignal>, parentPath: VisualElementPath, pageBoundsPx: BoundingBox, pageItem: PageItem): VisualElement => {
-  const currentPath = prependVeidToPath(createVeid(pageItem, null), parentPath);
-
-  const visualElement = createVisualElement({
+  const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
     mightBeDirty: getMightBeDirty(pageItem),
     flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
     boundsPx: pageBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
-  });
+  };
 
   const children = pageItem.computed_children
     .map(childId => arrangeItem_Desktop(
       desktopStore,
-      newCache,
       currentPath,
       itemState.getItem(childId)!,
       pageItem, // parent item
@@ -286,7 +252,6 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
       children.push(
         arrangeItem_Desktop(
           desktopStore,
-          newCache,
           currentPath,
           li,
           pageItem, // parent item
@@ -327,23 +292,22 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel, newCache
       };
 
       const itemPath = prependVeidToPath(createVeid(item, li), currentPath);
-      itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, item, li, geometry.boundsPx, itemPath);
-      const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, itemPath, newCache);
+      itemVisualElement.attachments = arrangeItemAttachments(desktopStore, item, li, geometry.boundsPx, itemPath);
+      const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
       children.push(itemVisualElementSignal);
     } else {
       panic();
     }
   }
 
-  visualElement.children = children;
+  visualElementSpec.children = children;
 
-  return visualElement;
+  VesCache.finalizeFullArrange(visualElementSpec, currentPath, desktopStore);
 }
 
 
 const arrangeItem_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentPath: VisualElementPath,
     item: Item,
     parentPage: PageItem,
@@ -361,7 +325,6 @@ const arrangeItem_Desktop = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangePageWithChildren_Desktop(
       desktopStore,
-      newCache,
       parentPath,
       asPageItem(displayItem),
       linkItemMaybe,
@@ -375,7 +338,6 @@ const arrangeItem_Desktop = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangeTable_Desktop(
       desktopStore,
-      newCache,
       parentPath,
       asTableItem(displayItem),
       linkItemMaybe,
@@ -390,7 +352,6 @@ const arrangeItem_Desktop = (
 
   return arrangeItemNoChildren_Desktop(
     desktopStore,
-    newCache,
     parentPath,
     displayItem,
     linkItemMaybe,
@@ -404,7 +365,6 @@ const arrangeItem_Desktop = (
 
 const arrangePageWithChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentPath: VisualElementPath,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
@@ -497,7 +457,7 @@ const arrangePageWithChildren_Desktop = (
           parentPath: pageWithChildrenVePath,
         };
         const childPath = prependVeidToPath(createVeid(item, null), pageWithChildrenVePath);
-        const ves = createOrRecycleVisualElementSignal(veSpec, childPath, newCache);
+        const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
 
         children.push(ves);
       } else {
@@ -532,7 +492,6 @@ const arrangePageWithChildren_Desktop = (
       if (isPagePopup || isRoot) {
         return arrangeItem_Desktop(
           desktopStore,
-          newCache,
           pageWithChildrenVePath,
           childItem,
           displayItem_pageWithChildren, // parent item
@@ -544,7 +503,7 @@ const arrangePageWithChildren_Desktop = (
       } else {
         const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
         return arrangeItemNoChildren_Desktop(
-          desktopStore, newCache, pageWithChildrenVePath,
+          desktopStore, pageWithChildrenVePath,
           displayItem, linkItemMaybe, displayItem_pageWithChildren,
           innerBoundsPx, isPagePopup, itemIsPopup, RenderStyle.Outline);
       }
@@ -554,17 +513,16 @@ const arrangePageWithChildren_Desktop = (
     panic();
   }
 
-  const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
+  const attachments = arrangeItemAttachments(desktopStore, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
   pageWithChildrenVisualElementSpec.attachments = attachments;
 
-  const pageWithChildrenVisualElementSignal = createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath, newCache);
+  const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
 }
 
 
 const arrangeTable_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentPath: VisualElementPath,
     displayItem_Table: TableItem,
     linkItemMaybe_Table: LinkItem | null,
@@ -658,24 +616,24 @@ const arrangeTable_Desktop = (
           oneBlockWidthPx: blockSizePx.w
         };
         const tableChildAttachmentVePath = prependVeidToPath(createVeid(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
-        const tableChildAttachmentVeSignal = createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath, newCache);
+        const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
         tableItemVeAttachments.push(tableChildAttachmentVeSignal);
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
 
       tableChildVeSpec.attachments = tableItemVeAttachments;
 
-      const tableItemVisualElementSignal = createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath, newCache);
+      const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
       tableVeChildren.push(tableItemVisualElementSignal);
     }
   };
 
   tableVisualElementSpec.children = tableVeChildren;
 
-  const attachments = arrangeItemAttachments(desktopStore, newCache, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
+  const attachments = arrangeItemAttachments(desktopStore, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachments = attachments;
 
-  const tableVisualElementSignal = createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath, newCache);
+  const tableVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
 
   return tableVisualElementSignal;
 }
@@ -715,7 +673,6 @@ function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, 
 
 const arrangeItemNoChildren_Desktop = (
     desktopStore: DesktopStoreContextModel,
-    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentVePath: VisualElementPath,
     displayItem: Item,
     linkItemMaybe: LinkItem | null,
@@ -746,120 +703,16 @@ const arrangeItemNoChildren_Desktop = (
 
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
-  itemVisualElement.attachments = arrangeItemAttachments(desktopStore, newCache, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
+  itemVisualElement.attachments = arrangeItemAttachments(desktopStore, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
-  const itemVisualElementSignal = createOrRecycleVisualElementSignal(itemVisualElement, currentVePath, newCache);
+  const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 
   return itemVisualElementSignal;
 }
 
 
-/**
- * Creates or recycles an existing VisualElementSignal, if one exists for the specified path.
- * In the case of recycling, the override values (only) are checked against the existing visual element values.
- * If they are the same, the signal is not updated.
- * If there is a difference, the signal will be updated with the new value.
- * In some cases, this is not good enough as an existing element may have additional overrides set (e.g. changing page view types).
- * In those cases, the ves cache should be explicitly cleared, so no values are recycled.
- */
-function createOrRecycleVisualElementSignal(
-    visualElementOverride: VisualElementSpec,
-    path: VisualElementPath,
-    newCache: Map<VisualElementPath, VisualElementSignal>,
-    alwaysUseVes?: VisualElementSignal): VisualElementSignal {
-
-  function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
-    if (oldArray.length != newArray.length) {
-      return 1;
-    }
-    for (let i=0; i<oldArray.length; ++i) {
-      if (oldArray[i] != newArray[i]) {
-        return 1;
-      }
-    }
-    return 0;
-  }
-
-  const existing = currentVesCache.get(path);
-  if (existing) {
-    if (existing.get().mightBeDirty != getMightBeDirty(visualElementOverride.displayItem)) {
-      existing.set(createVisualElement(visualElementOverride));
-      // console.debug("might be dirty", existing.get().mightBeDirty);
-      newCache.set(path, existing);
-      return existing;
-    }
-
-    const newVals: any = visualElementOverride;
-    const oldVals: any = existing.get();
-    const newProps = Object.getOwnPropertyNames(visualElementOverride);
-    let dirty = false;
-    // console.debug(newProps, visualElementOverride);
-    for (let i=0; i<newProps.length; ++i) {
-      // console.debug("considering", newProps[i]);
-      if (typeof(oldVals[newProps[i]]) == 'undefined') {
-        // console.debug('prop does not exist:', newProps[i]);
-        dirty = true;
-        break;
-      }
-      const oldVal = oldVals[newProps[i]];
-      const newVal = newVals[newProps[i]];
-      if (oldVal != newVal) {
-        if (newProps[i] == "boundsPx" || newProps[i] == "childAreaBoundsPx") {
-          if (compareBoundingBox(oldVal, newVal) != 0) {
-            // console.debug("visual element property changed: ", newProps[i]);
-            dirty = true;
-            break;
-          } else {
-            // console.debug("boundsPx didn't change.");
-          }
-        } else if (newProps[i] == "children" || newProps[i] == "attachments") {
-          // TODO (MEDIUM): better reconciliation.
-          if (compareVesArrays(oldVal, newVal) != 0) {
-            // console.debug("visual element property changed: ", newProps[i]);
-            dirty = true;
-            break;
-          }
-        } else if (newProps[i] == "hitboxes") {
-          if (compareHitboxArrays(oldVal, newVal) != 0) {
-            // console.debug("visual element property changed: ", newProps[i]);
-            dirty = true;
-            break;
-          }
-        } else {
-          // console.debug("visual element property changed: ", newProps[i]);
-          dirty = true;
-          break;
-        }
-      }
-    }
-    if (!dirty) {
-      // console.debug("not dirty:", path);
-      newCache.set(path, existing);
-      return existing;
-    }
-    // console.debug("dirty:", path);
-    existing.set(createVisualElement(visualElementOverride));
-    newCache.set(path, existing);
-    return existing;
-  }
-
-  if (alwaysUseVes) {
-    // console.debug("alwaysUse:", path);
-    alwaysUseVes.set(createVisualElement(visualElementOverride));
-    newCache.set(path, alwaysUseVes);
-    return alwaysUseVes;
-  } else {
-    // console.debug("creating:", path);
-    const newElement = createVisualElementSignal(createVisualElement(visualElementOverride));
-    newCache.set(path, newElement);
-    return newElement;
-  }
-}
-
-
 function arrangeItemAttachments(
     desktopStore: DesktopStoreContextModel,
-    newCache: Map<VisualElementPath, VisualElementSignal>,
     parentDisplayItem: Item,
     parentLinkItemMaybe: LinkItem | null,
     parentItemBoundsPx: BoundingBox,
@@ -903,7 +756,7 @@ function arrangeItemAttachments(
       flags: VisualElementFlags.Attachment |
              (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None),
     };
-    const attachmentVisualElementSignal = createOrRecycleVisualElementSignal(veSpec, attachmentVePath, newCache);
+    const attachmentVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
     attachments.push(attachmentVisualElementSignal);
   }
 
@@ -912,7 +765,7 @@ function arrangeItemAttachments(
 
 
 const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
-  let newCache = new Map<VisualElementPath, VisualElementSignal>();
+  VesCache.initFullArrange();
 
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
@@ -962,7 +815,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
         parentPath: currentPath,
       };
       const childPath = prependVeidToPath(createVeid(item, null), currentPath);
-      const ves = createOrRecycleVisualElementSignal(veSpec, childPath, newCache);
+      const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
 
       children.push(ves);
     } else {
@@ -971,9 +824,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   }
   topLevelVisualElementSpec.children = children;
 
-  createOrRecycleVisualElementSignal(topLevelVisualElementSpec, currentPath, newCache, desktopStore.topLevelVisualElementSignal());
-
-  currentVesCache = newCache;
+  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
 
 

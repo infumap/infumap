@@ -18,8 +18,8 @@
 
 import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
-import { VesCache } from "../layout/arrange";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
+import { VesCache } from "../layout/ves-cache";
 import { VisualElement, dragOverPositioningFlagSet, getVeid, insideTableFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";

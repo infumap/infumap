@@ -26,10 +26,11 @@ import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Deskt
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { arrange, ARRANGE_ALGO_LIST, VesCache } from "../../layout/arrange";
+import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
 import { detailedFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
+import { VesCache } from "../../layout/ves-cache";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {

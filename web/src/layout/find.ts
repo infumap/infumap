@@ -20,7 +20,7 @@ import { isImage } from "../items/image-item";
 import { isPage } from "../items/page-item";
 import { boundingBoxCenter, vectorDistance } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VesCache } from "./arrange";
+import { VesCache } from "./ves-cache";
 import { VisualElement, VisualElementFlags, VisualElementPath, visualElementToPath } from "./visual-element";
 
 

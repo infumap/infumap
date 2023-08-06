@@ -28,8 +28,8 @@ import { DesktopStoreContextModel, PopupType, findVisualElements } from "../stor
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeid, veidFromPath, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
-import { arrange, VesCache, switchToPage } from "../layout/arrange";
+import { VisualElement, VisualElementPath, getVeid, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { arrange, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -45,6 +45,7 @@ import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Tabl
 import { itemState } from "../store/ItemState";
 import { mouseMoveState } from "../store/MouseMoveState";
 import { TableFlags } from "../items/base/flags-item";
+import { VesCache } from "../layout/ves-cache";
 
 
 const MOUSE_LEFT = 0;

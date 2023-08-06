@@ -25,7 +25,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
-import { VesCache } from "./arrange";
+import { VesCache } from "./ves-cache";
 
 
 /**
