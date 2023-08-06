@@ -27,9 +27,10 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { VisualElement, VisualElementFlags, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, popupFlagSet, visualElementToPath } from "../layout/visual-element";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { arrange } from "../layout/arrange";
+import { VesCache } from "../layout/ves-cache";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -194,8 +195,11 @@ export function calcGeometryOfImageItem_Cell(image: ImageMeasurable, cellBoundsP
 export function handleImageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
   if ((visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup) {
     window.open('/files/' + visualElement.displayItem.id, '_blank');
+  } else if (popupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
+    desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    arrange(desktopStore);
   } else {
-    desktopStore.replacePopup({ type: PopupType.Image, vePath: visualElementToPath(visualElement) });
+    desktopStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
     arrange(desktopStore);
   }
 }
