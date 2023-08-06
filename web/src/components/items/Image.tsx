@@ -152,6 +152,14 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
         </Show>
       </div>
+      <Show when={(props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup}>
+      <div class="absolute flex items-center justify-center pointer-events-none"
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
+          <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
+            {imageItem().title}
+          </div>
+        </div>
+      </Show>
     </Show>
   );
 }
