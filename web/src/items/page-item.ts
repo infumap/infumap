@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCell } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -245,11 +245,12 @@ export function calcGeometryOfPageItem_ListItem(_page: PageMeasurable, blockSize
 }
 
 
-export function calcGeometryOfPageItem_Cell(_page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfPageItem_Cell(page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+  const boundsPx = calcBoundsInCell({ w: page.spatialWidthGr, h: page.spatialWidthGr / page.naturalAspect }, cellBoundsPx);
   return ({
-    boundsPx: cloneBoundingBox(cellBoundsPx)!,
+    boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [
-      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
     ]
   });
 }
@@ -285,9 +286,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedListPageItem(
-      veidFromPath(visualElement.parentPath!),
-      visualElementToPath(visualElement));
+    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
     arrange(desktopStore);
     return;
   }
@@ -299,9 +298,7 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedListPageItem(
-      veidFromPath(visualElement.parentPath!),
-      visualElementToPath(visualElement));
+    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
   } else if (popupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
     desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   } else {

@@ -18,7 +18,7 @@
 
 import { HitboxType, createHitbox } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
-import { Dimensions } from '../../util/geometry';
+import { BoundingBox, Dimensions } from '../../util/geometry';
 import { EMPTY_UID, Uid } from '../../util/uid';
 
 export const ITEM_TYPE_NONE = "none";
@@ -79,4 +79,30 @@ export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx
       createHitbox(HitboxType.Move, innerBoundsPx)
     ]
   };
+}
+
+/**
+ * Units of size are arbitrary. Used only for aspect calculations.
+ */
+export function calcBoundsInCell(size: Dimensions, cellBoundsPx: BoundingBox) {
+  const imageAspect = size.w / size.h;
+  let result: BoundingBox;
+  if (size.w / cellBoundsPx.w > size.h / cellBoundsPx.h) {
+    // constraining dimension is width.
+    result = {
+      x: cellBoundsPx.x,
+      w: cellBoundsPx.w,
+      h: Math.round(cellBoundsPx.w / imageAspect),
+      y: Math.round(cellBoundsPx.y + (cellBoundsPx.h - (cellBoundsPx.w / imageAspect)) / 2.0)
+    };
+  } else {
+    // constraining dimension is height.
+    result = {
+      y: cellBoundsPx.y,
+      h: cellBoundsPx.h,
+      w: Math.round(cellBoundsPx.h * imageAspect),
+      x: Math.round(cellBoundsPx.x + (cellBoundsPx.w - (cellBoundsPx.h * imageAspect)) / 2.0)
+    };
+  }
+  return result;
 }

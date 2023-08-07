@@ -22,7 +22,7 @@ import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometr
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
+import { ItemTypeMixin, ITEM_TYPE_IMAGE, calcBoundsInCell } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
@@ -161,29 +161,7 @@ export function calcGeometryOfImageItem_ListItem(_image: ImageMeasurable, blockS
 }
 
 export function calcGeometryOfImageItem_Cell(image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
-  const imageAspect = image.imageSizePx.w / image.imageSizePx.h;
-  let boundsPx = (() => {
-    let result: BoundingBox;
-    if (image.imageSizePx.w / cellBoundsPx.w > image.imageSizePx.h / cellBoundsPx.h) {
-      // constraining dimension is width.
-      result = {
-        x: cellBoundsPx.x,
-        w: cellBoundsPx.w,
-        h: Math.round(cellBoundsPx.w / imageAspect),
-        y: Math.round(cellBoundsPx.y + (cellBoundsPx.h - (cellBoundsPx.w / imageAspect)) / 2.0)
-      };
-    } else {
-      // constraining dimension is height.
-      result = {
-        y: cellBoundsPx.y,
-        h: cellBoundsPx.h,
-        w: Math.round(cellBoundsPx.h * imageAspect),
-        x: Math.round(cellBoundsPx.x + (cellBoundsPx.w - (cellBoundsPx.h * imageAspect)) / 2.0)
-      };
-    }
-    return result;
-  })();
-
+  const boundsPx = calcBoundsInCell(image.imageSizePx, cellBoundsPx);
   return ({
     boundsPx,
     hitboxes: [
