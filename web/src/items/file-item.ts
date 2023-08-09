@@ -21,7 +21,7 @@ import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_FILE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
@@ -130,11 +130,12 @@ export function calcGeometryOfFileItem_ListItem(_file: FileMeasurable, blockSize
   };
 }
 
-export function calcGeometryOfFileItem_Cell(_file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfFileItem_Cell(file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+  const boundsPx = calcBoundsInCellFromSizeBl(calcFileSizeForSpatialBl(file), cellBoundsPx);
   return ({
-    boundsPx: cloneBoundingBox(cellBoundsPx)!,
+    boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [
-      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
     ]
   });
 }

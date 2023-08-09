@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./base/item";
+import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
@@ -195,10 +195,11 @@ export function calcGeometryOfTableItem_ListItem(_table: TableMeasurable, blockS
   };
 }
 
-export function calcGeometryOfTableItem_Cell(_table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfTableItem_Cell(table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+  const boundsPx = calcBoundsInCellFromSizeBl(calcTableSizeForSpatialBl(table), cellBoundsPx);
   return {
-    boundsPx: cloneBoundingBox(cellBoundsPx)!,
-    hitboxes: [ createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx)) ]
+    boundsPx: cloneBoundingBox(boundsPx)!,
+    hitboxes: [ createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx)) ]
   };
 }
 

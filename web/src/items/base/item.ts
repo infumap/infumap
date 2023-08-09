@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LINE_HEIGHT_PX } from '../../constants';
 import { HitboxType, createHitbox } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { BoundingBox, Dimensions } from '../../util/geometry';
@@ -84,7 +85,7 @@ export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx
 /**
  * Units of size are arbitrary. Used only for aspect calculations.
  */
-export function calcBoundsInCell(size: Dimensions, cellBoundsPx: BoundingBox) {
+export function calcBoundsInCell(size: Dimensions, cellBoundsPx: BoundingBox): BoundingBox {
   const imageAspect = size.w / size.h;
   let result: BoundingBox;
   if (size.w / cellBoundsPx.w > size.h / cellBoundsPx.h) {
@@ -105,4 +106,29 @@ export function calcBoundsInCell(size: Dimensions, cellBoundsPx: BoundingBox) {
     };
   }
   return result;
+}
+
+export function calcBoundsInCellFromSizeBl(sizeBl: Dimensions, cellBoundsPx: BoundingBox): BoundingBox {
+  const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+  const blockSizePx: Dimensions = {
+    w: boundsPx.w / sizeBl.w,
+    h: boundsPx.h / sizeBl.h
+  };
+  let xScale = 1.0;
+  if (blockSizePx.w > LINE_HEIGHT_PX) {
+    xScale = blockSizePx.w / LINE_HEIGHT_PX;
+  }
+  let yScale = 1.0;
+  if (blockSizePx.h > LINE_HEIGHT_PX) {
+    yScale = blockSizePx.h / LINE_HEIGHT_PX;
+  }
+  let scale = Math.max(xScale, yScale);
+  let xSizeDeltaPx = boundsPx.w - boundsPx.w / scale;
+  let ySizeDeltaPx = boundsPx.h - boundsPx.h / scale;
+  return ({
+    x: boundsPx.x + xSizeDeltaPx / 2.0,
+    y: boundsPx.y + ySizeDeltaPx / 2.0,
+    w: boundsPx.w - xSizeDeltaPx,
+    h: boundsPx.h - ySizeDeltaPx,
+  });
 }

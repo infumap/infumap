@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCell } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -246,7 +246,7 @@ export function calcGeometryOfPageItem_ListItem(_page: PageMeasurable, blockSize
 
 
 export function calcGeometryOfPageItem_Cell(page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
-  const boundsPx = calcBoundsInCell({ w: page.spatialWidthGr, h: page.spatialWidthGr / page.naturalAspect }, cellBoundsPx);
+  const boundsPx = calcBoundsInCellFromSizeBl(calcPageSizeForSpatialBl(page), cellBoundsPx);
   return ({
     boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [

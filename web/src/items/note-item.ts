@@ -22,7 +22,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -161,11 +161,12 @@ export function calcGeometryOfNoteItem_ListItem(_note: NoteMeasurable, blockSize
   };
 }
 
-export function calcGeometryOfNoteItem_Cell(_note: NoteMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+export function calcGeometryOfNoteItem_Cell(note: NoteMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
+  const boundsPx = calcBoundsInCellFromSizeBl(calcNoteSizeForSpatialBl(note), cellBoundsPx);
   return ({
-    boundsPx: cloneBoundingBox(cellBoundsPx)!,
+    boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [
-      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
     ]
   });
 }
