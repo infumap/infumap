@@ -582,7 +582,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   const newItemPosGr = { x: newItemPosBl.x * GRID_SIZE, y: newItemPosBl.y * GRID_SIZE };
   mouseActionState!.startPx = desktopPx;
   mouseActionState!.startPosBl = newItemPosBl;
-  const moveToVisualPathString = visualElementToPath(moveToVe);
+  const moveToPath = visualElementToPath(moveToVe);
 
   let oldActiveItemOrdering = activeItem.ordering;
   activeItem.parentId = moveToVe.displayItem.id;
@@ -610,7 +610,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 
   let done = false;
   findVisualElements(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
-    if (ve.get().parentPath == moveToVisualPathString) {
+    if (ve.get().parentPath == moveToPath) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
       let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
       mouseActionState!.onePxSizeBl = {
@@ -626,7 +626,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 
   done = false;
   findVisualElements(desktopStore, moveToVe.displayItem.id, moveToVe.linkItemMaybe == null ? null : moveToVe.linkItemMaybe.id).forEach(ve => {
-    if (visualElementToPath(ve.get()) == moveToVisualPathString) {
+    if (visualElementToPath(ve.get()) == moveToPath) {
       mouseActionState!.moveOver_scaleDefiningElement = visualElementToPath(ve.get());
       done = true;
     }

@@ -452,12 +452,13 @@ const arrangePageWithChildren_Desktop = (
       };
 
       let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-      if (!isTable(item) && !isLink(item)) {
+      if (!isLink(item)) {
         const veSpec: VisualElementSpec = {
           displayItem: item,
           mightBeDirty: getMightBeDirty(item),
           flags: isPagePopup ? VisualElementFlags.Detailed : VisualElementFlags.None,
           boundsPx: geometry.boundsPx,
+          childAreaBoundsPx: geometry.boundsPx, // TODO (HIGH): incorrect.
           hitboxes: geometry.hitboxes,
           parentPath: pageWithChildrenVePath,
         };
@@ -809,12 +810,13 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
 
     let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    if (!isTable(item) && !isLink(item)) {
+    if (!isLink(item)) {
       const veSpec: VisualElementSpec = {
         displayItem: item,
         mightBeDirty: getMightBeDirty(item),
         flags: VisualElementFlags.Detailed,
         boundsPx: geometry.boundsPx,
+        childAreaBoundsPx: geometry.boundsPx, // TODO (HIGH): incorrect.
         hitboxes: geometry.hitboxes,
         parentPath: currentPath,
       };
