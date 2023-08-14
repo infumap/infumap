@@ -247,7 +247,11 @@ pub fn is_flags_item(item_type: ItemType) -> bool {
   item_type == ItemType::Table || item_type == ItemType::Note
 }
 
-const ALL_JSON_FIELDS: [&'static str; 34] = ["__recordType",
+pub fn is_permission_flags_item(item_type: ItemType) -> bool {
+  item_type == ItemType::Page
+}
+
+const ALL_JSON_FIELDS: [&'static str; 35] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -256,7 +260,7 @@ const ALL_JSON_FIELDS: [&'static str; 34] = ["__recordType",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "linkTo", "linkToBaseUrl", "gridNumberOfColumns", "orderChildrenBy",
-  "text", "flags"];
+  "text", "flags", "permissionFlags"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -302,6 +306,9 @@ pub struct Item {
 
   // flags
   pub flags: Option<i64>,
+
+  // permission flags
+  pub permission_flags: Option<i64>,
 
   // page
   pub inner_spatial_width_gr: Option<i64>,
@@ -356,6 +363,7 @@ impl Clone for Item {
       mime_type: self.mime_type.clone(),
       file_size_bytes: self.file_size_bytes.clone(),
       flags: self.flags.clone(),
+      permission_flags: self.permission_flags.clone(),
       inner_spatial_width_gr: self.inner_spatial_width_gr.clone(),
       natural_aspect: self.natural_aspect.clone(),
       background_color_index: self.background_color_index.clone(),
@@ -505,6 +513,14 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("flags"), Value::Number(new_flags.into()));
       }
     }
+
+      // permission flags
+      if let Some(new_permission_flags) = new.permission_flags {
+        if match old.permission_flags { Some(o) => o != new_permission_flags, None => { true } } {
+          if !is_permission_flags_item(old.item_type) { cannot_modify_err("permissionFlags", &old.id)?; }
+          result.insert(String::from("permissionFlags"), Value::Number(new_permission_flags.into()));
+        }
+      }
 
     // page
     if let Some(new_inner_spatial_width_gr) = new.inner_spatial_width_gr {
@@ -699,6 +715,12 @@ impl JsonLogSerializable<Item> for Item {
       self.flags = Some(v);
     }
 
+    // permission flags
+    if let Some(v) = json::get_integer_field(map, "permissionFlags")? {
+      if !is_permission_flags_item(self.item_type) { not_applicable_err("permissionFlags", self.item_type, &self.id)?; }
+      self.permission_flags = Some(v);
+    }
+
     // data
     // Like the data file, all these fields are immutable.
     if json::get_integer_field(map, "originalCreationDate")?.is_some() { cannot_update_err("originalCreationDate", &self.id)?; }
@@ -859,6 +881,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(flags) = item.flags {
     if !is_flags_item(item.item_type) { unexpected_field_err("flags", &item.id, item.item_type)? }
     result.insert(String::from("flags"), Value::Number(flags.into()));
+  }
+
+  // permission flags
+  if let Some(permission_flags) = item.permission_flags {
+    if !is_permission_flags_item(item.item_type) { unexpected_field_err("permissionFlags", &item.id, item.item_type)? }
+    result.insert(String::from("permissionFlags"), Value::Number(permission_flags.into()));
   }
 
   // page
@@ -1045,6 +1073,12 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     flags: match json::get_integer_field(map, "flags")? {
       Some(v) => { if is_flags_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("flags", item_type, &id)) } },
       None => { if is_flags_item(item_type) { Err(expected_for_err("flags", item_type, &id)) } else { Ok(None) } }
+    }?,
+
+    // permission flags
+    permission_flags: match json::get_integer_field(map, "permissionFlags")? {
+      Some(v) => { if is_permission_flags_item(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("permissionFlags", item_type, &id)) } },
+      None => { if is_permission_flags_item(item_type) { Err(expected_for_err("permissionFlags", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // page

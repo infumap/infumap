@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 8;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 9;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -634,6 +634,39 @@ pub fn migrate_record_v7_to_v8(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
         }
       }
       return Ok(result);
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add permissionFlags field to page items.
+ */
+pub fn migrate_record_v8_to_v9(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 8);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "page" {
+        let existing = result.insert(String::from("permissionFlags"), Value::Number(0.into()));
+        if existing.is_some() { return Err("permissionFlags field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
     },
 
     "delete" => {

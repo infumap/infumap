@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCellFromSizeBl } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -34,9 +34,10 @@ import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage 
 import { VisualElement, getVeid, lineItemFlagSet, popupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { VesCache } from '../layout/ves-cache';
+import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 
 
-export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, Item {
+export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {
   innerSpatialWidthGr: number;
   naturalAspect: number;
   backgroundColorIndex: number;
@@ -88,6 +89,8 @@ export function newPageItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     orderChildrenBy: "title[ASC]",
 
+    permissionFlags: PermissionFlags.None,
+
     computed_children: [],
     computed_attachments: [],
     childrenLoaded: false,
@@ -125,6 +128,8 @@ export function pageFromObject(o: any): PageItem {
 
     orderChildrenBy: o.orderChildrenBy,
 
+    permissionFlags: o.permissionFlags,
+
     computed_children: [],
     computed_attachments: [],
 
@@ -161,6 +166,8 @@ export function pageToObject(p: PageItem): object {
     gridNumberOfColumns: p.gridNumberOfColumns,
 
     orderChildrenBy: p.orderChildrenBy,
+
+    permissionFlags: p.permissionFlags,
   });
 }
 

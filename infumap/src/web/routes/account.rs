@@ -355,6 +355,7 @@ fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_wi
     mime_type: None,
     file_size_bytes: None,
     flags: None,
+    permission_flags: Some(0),
     inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
     natural_aspect: Some(natural_aspect),
     background_color_index: Some(0),

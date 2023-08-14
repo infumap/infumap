@@ -27,10 +27,12 @@ import { ColorSelector } from "./ColorSelector";
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from "../../layout/arrange";
 import { panic } from "../../util/lang";
 import { itemState } from "../../store/ItemState";
+import { PermissionFlags } from "../../items/base/permission-flags-item";
 
 
 export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
   const desktopStore = useDesktopStore();
+  let checkElement_public: HTMLInputElement | undefined;
 
   const screenAspect = (): number => {
     let aspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -120,6 +122,15 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
     }
   });
 
+  const changePermissions = async () => {
+    if (checkElement_public!.checked) {
+      asPageItem(itemState.getItem(pageId)!).permissionFlags |= PermissionFlags.Public;
+    } else {
+      asPageItem(itemState.getItem(pageId)!).permissionFlags &= ~PermissionFlags.Public;
+    }
+    arrange(desktopStore);
+  }
+
   return (
     <div class="m-1">
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.pageItem.title} onInput={handleTitleInput} focus={true} /></div>
@@ -148,6 +159,10 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       </div>
       <div class="text-slate-800 text-sm"> <InfuTextInput value={props.pageItem.gridNumberOfColumns.toString()} onChangeOrCleanup={handleGridNumberOfColumnsChange} /></div>
       <div>Num children: {props.pageItem.computed_children.length}</div>
+      <div>
+        <input id="heading" name="heading" type="checkbox" ref={checkElement_public} checked={(props.pageItem.permissionFlags & PermissionFlags.Public) == PermissionFlags.Public ? true : false} onClick={changePermissions} />
+        <label for="heading">public</label>
+      </div>
     </div>
   );
 }
