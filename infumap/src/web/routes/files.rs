@@ -30,14 +30,15 @@ use tokio::sync::Mutex;
 
 use crate::config::{CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS};
 use crate::storage::db::Db;
-use crate::storage::db::session::Session;
 use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageSize, ImageCacheKey};
 use crate::storage::object;
 use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
 use crate::util::infu::InfuResult;
-use crate::web::serve::{full_body, internal_server_error_response, not_found_response, forbidden_response};
+use crate::web::serve::{full_body, internal_server_error_response, not_found_response};
 use crate::web::session::get_and_validate_session;
+
+use super::command::authorize_item;
 
 
 pub static METRIC_CACHED_IMAGE_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
@@ -67,20 +68,20 @@ pub async fn serve_files_route(
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
-  let session = match get_and_validate_session(&req, &db).await {
-    Some(s) => s,
-    None => { return forbidden_response(); }
+  let session_user_id_maybe = match get_and_validate_session(&req, &db).await {
+    Some(s) => Some(s.user_id),
+    None => None
   };
 
   let name = &req.uri().path()[7..];
 
   if name.contains("_") {
-    match get_cached_resized_img(config, db, object_store, image_cache, &session, name).await {
+    match get_cached_resized_img(config, db, object_store, image_cache, &session_user_id_maybe, name).await {
       Ok(img_response) => img_response,
       Err(e) => internal_server_error_response(&format!("get_cached_resized_img failed: {}", e))
     }
   } else {
-    match get_file(config, db, object_store, &session, name).await {
+    match get_file(config, db, object_store, &session_user_id_maybe, name).await {
       Ok(file_response) => file_response,
       Err(e) => internal_server_error_response(&format!("get_file failed: {}", e))
     }
@@ -93,7 +94,7 @@ async fn get_cached_resized_img(
     db: &Arc<Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
-    session: &Session,
+    session_user_id_maybe: &Option<String>,
     name: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
   // TODO (MEDIUM): Consider browser side caching more in the case an image of different size than
@@ -119,12 +120,13 @@ async fn get_cached_resized_img(
   let object_encryption_key;
   let original_dimensions_px;
   let original_mime_type_string; // TODO (LOW): validation.
+  let owner_id;
   {
     let db = db.lock().await;
     let item = db.item.get(&String::from(&uid))?;
-    if item.owner_id != session.user_id {
-      return Err(format!("File owner {} does match session user '{}'.", item.owner_id, session.user_id).into());
-    }
+    authorize_item(&db, item, session_user_id_maybe)?;
+    owner_id = item.owner_id.clone();
+
     object_encryption_key = db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     original_dimensions_px = item.image_size_px.as_ref().ok_or("Image item does not have image dimensions set.")?.clone();
     original_mime_type_string = item.mime_type.as_ref().ok_or("Image item does not have mime tyoe set.")?.clone();
@@ -134,7 +136,7 @@ async fn get_cached_resized_img(
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
   {
-    if let Some(candidates) = storage_cache::keys_for_item_id(image_cache.clone(), &session.user_id, &uid)? {
+    if let Some(candidates) = storage_cache::keys_for_item_id(image_cache.clone(), &owner_id, &uid)? {
       let mut best_candidate_maybe = None;
       for candidate in candidates {
         match &candidate.size {
@@ -142,7 +144,7 @@ async fn get_cached_resized_img(
             if respond_with_cached_original {
               debug!("Responding with cached image '{}' (unmodified original).", candidate);
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-              let data = storage_cache::get(image_cache, &session.user_id, candidate).await?.unwrap();
+              let data = storage_cache::get(image_cache, &owner_id, candidate).await?.unwrap();
               return Ok(Response::builder()
                 .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
                 .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
@@ -187,7 +189,7 @@ async fn get_cached_resized_img(
           else {
             METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_APPROX]).inc();
           }
-          let data = storage_cache::get(image_cache, &session.user_id, best_candidate.0).await?.unwrap();
+          let data = storage_cache::get(image_cache, &owner_id, best_candidate.0).await?.unwrap();
           return Ok(Response::builder()
             .header(hyper::header::CONTENT_TYPE, "image/jpeg")
             .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
@@ -200,13 +202,13 @@ async fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes = object::get(object_store, session.user_id.clone(), String::from(&uid), &object_encryption_key).await?;
+  let original_file_bytes = object::get(object_store, owner_id.clone(), String::from(&uid), &object_encryption_key).await?;
 
   if respond_with_cached_original {
     let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Original };
     debug!("Caching then returning image '{}' (unmodified original).", cache_key);
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    storage_cache::put(image_cache, &session.user_id, cache_key, original_file_bytes.clone()).await?;
+    storage_cache::put(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
     return Ok(Response::builder()
       .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
       .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
@@ -241,7 +243,7 @@ async fn get_cached_resized_img(
 
       let cache_key = ImageCacheKey { item_id: uid, size: ImageSize::Width(requested_width) };
       let data = cursor.get_ref().to_vec();
-      storage_cache::put(image_cache, &session.user_id, cache_key, data.clone()).await?;
+      storage_cache::put(image_cache, &owner_id, cache_key, data.clone()).await?;
 
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
       Ok(Response::builder()
@@ -262,27 +264,24 @@ async fn get_file(
     config: Arc<Config>,
     db: &Arc<Mutex<Db>>,
     object_store: Arc<object::ObjectStore>,
-    session: &Session,
+    session_user_id_maybe: &Option<String>,
     uid: &str) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
 
   let (item, object_encryption_key) = {
     let db = db.lock().await;
     let item = db.item.get(&String::from(uid))?.clone();
+    authorize_item(&db, &item, session_user_id_maybe)?;
     let object_encryption_key =
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     (item, object_encryption_key)
   };
-
-  if item.owner_id != session.user_id {
-    return Err(format!("File owner {} does match session user '{}'.", item.owner_id, session.user_id).into());
-  }
 
   let mime_type_string = item.mime_type.as_ref()
     .ok_or(format!("Mime type is not available for item '{}'.", uid))?;
 
   // TODO (MEDIUM): Consider putting non-image files in the cache. Not highest priority though since
   // by default, configuration is such that these are cached browser side.
-  let data = object::get(object_store, session.user_id.clone(), String::from(uid), &object_encryption_key).await?;
+  let data = object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?;
 
   let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
 

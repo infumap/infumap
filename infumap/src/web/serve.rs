@@ -121,6 +121,7 @@ pub fn text_response(v: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
   }
 }
 
+#[allow(dead_code)]
 pub fn forbidden_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder().status(StatusCode::FORBIDDEN).body(empty_body()).unwrap()
 }

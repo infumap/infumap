@@ -197,7 +197,7 @@ pub struct GetItemsRequest {
  * corresponding linked-to item is authorized - the authorization is based on the linked
  * to item, and it's canonical parent(s) as above.
  */
-fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>) -> InfuResult<()> {
+pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>) -> InfuResult<()> {
   // any item owned by the session user.
   if let Some(session_user_id) = session_user_id_maybe {
     if &item.owner_id == session_user_id {
