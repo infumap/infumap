@@ -45,7 +45,7 @@ export const Main: Component = () => {
       navigate('/setup');
     }
     let user = userStore.getUserMaybe();
-    if (user == null) {
+    if (user == null && !params.id) {
       navigate('/login');
     }
 

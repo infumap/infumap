@@ -82,7 +82,7 @@ export const Toolbar: Component = () => {
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
         <img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" />
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
-          {asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title + (isPublic() ? " ---- PUBLIC !!" : "")}
+          {asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title + (isPublic() ? " ---- (PUBLIC)" : "")}
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">

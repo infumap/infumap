@@ -153,7 +153,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
   // Get children of container.
-  let get_children_request = serde_json::to_string(&GetItemsRequest { item_id_maybe: Some(container_id.clone()), mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str()) }).unwrap();
+  let get_children_request = serde_json::to_string(&GetItemsRequest { user_qualified_item_id_maybe: Some(container_id.clone()), mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str()) }).unwrap();
   let send_reqest = CommandRequest {
     command: "get-items".to_owned(),
     json_data: get_children_request,

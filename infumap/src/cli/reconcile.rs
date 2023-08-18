@@ -23,7 +23,7 @@ use config::Config;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE};
 use crate::setup::get_config;
 use crate::storage::db::Db;
-use crate::storage::db::item::is_data_item;
+use crate::storage::db::item::is_data_item_type;
 use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::file as storage_file;
 use crate::storage::object::IndividualObjectStore;
@@ -342,7 +342,7 @@ async fn list_all_db_files(db: &mut Db) -> InfuResult<Vec<ItemAndUserId>> {
   let mut files = vec![];
   for iu in db.item.all_loaded_items() {
     let item = db.item.get(&iu.item_id)?;
-    if !is_data_item(item.item_type) { continue; }
+    if !is_data_item_type(item.item_type) { continue; }
     files.push(ItemAndUserId { user_id: iu.user_id, item_id: iu.item_id });
   }
 

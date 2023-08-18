@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import { Item } from "./items/base/item";
+import { EMPTY_ITEM, Item } from "./items/base/item";
 import { itemToObject } from "./items/base/item-polymorphism";
 import { throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
@@ -38,7 +38,8 @@ export const server = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (itemId: Uid | null, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await sendCommand(null, "get-items", itemId == null ? { mode } : { itemId, mode }, null, false);
+    // TODO (MEDIUM): support for non-root user.
+    let r = await sendCommand(null, "get-items", itemId == null ? { mode } : { userQualifiedItemId: itemId, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
@@ -73,7 +74,8 @@ export const remote = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, itemId: Uid | null, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await sendCommand(host, "get-items", itemId == null ? { mode } : { itemId, mode }, null, false);
+    // TODO: support for non-root users.
+    let r = await sendCommand(host, "get-items", itemId == null ? { mode } : { userQualifiedItemId: itemId, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
@@ -92,7 +94,15 @@ async function sendCommand(host: string | null, command: string, payload: object
   let d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   let r = await post(host, '/command', d);
-  if (!r.success) {
+  if (!r.success && command == "get-items") {
+    console.warn("get-items failed", payload);
+    return ({
+      item: EMPTY_ITEM,
+      children: [],
+      attachments: []
+    });
+  }
+  else if (!r.success) {
     if (logout != null) {
       if (panicLogoutOnError) {
         await logout();

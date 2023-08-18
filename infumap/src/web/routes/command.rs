@@ -26,14 +26,15 @@ use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::MutexGuard;
 use std::str;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable};
-use crate::storage::db::item::{is_data_item, is_image_item, is_container_item, is_attachments_item};
+use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable_type, is_page_item, PermissionFlags, is_table_item};
+use crate::storage::db::item::{is_data_item_type, is_image_item, is_container_item_type, is_attachments_item_type};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
 use crate::storage::object;
@@ -42,7 +43,7 @@ use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation
 use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::ordering::new_ordering_at_end;
-use crate::util::uid::{is_empty_uid, new_uid, EMPTY_UID, is_uid};
+use crate::util::uid::{is_empty_uid, new_uid, EMPTY_UID, is_uid, Uid};
 use crate::web::serve::{json_response, incoming_json};
 use crate::web::session::get_and_validate_session;
 
@@ -65,7 +66,6 @@ pub struct CommandRequest {
   pub base64_data: Option<String>,
 }
 
-const REASON_INVALID_SESSION: &str = "invalid-session";
 const REASON_SERVER: &str = "server";
 const REASON_CLIENT: &str = "client";
 
@@ -79,12 +79,12 @@ pub struct CommandResponse {
 }
 
 
-async fn load_user_items_maybe(db: Arc<tokio::sync::Mutex<Db>>, session: &Session) -> InfuResult<()> {
+async fn load_user_items_maybe(db: Arc<tokio::sync::Mutex<Db>>, user_id: &String) -> InfuResult<()> {
   let mut db = db.lock().await;
-  if db.item.user_items_loaded(&session.user_id) {
+  if db.item.user_items_loaded(user_id) {
     Ok(())
   } else {
-    db.item.load_user_items(&session.user_id, false).await
+    db.item.load_user_items(user_id, false).await
   }
 }
 
@@ -94,37 +94,34 @@ pub async fn serve_command_route(
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     request: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
 
-  let session = match get_and_validate_session(&request, db).await {
-    Some(session) => session,
-    None => { return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_INVALID_SESSION.to_owned()), json_data: None }); }
-  };
-
-  match load_user_items_maybe(db.clone(), &session).await {
-    Ok(_) => {},
-    Err(e) => {
-      error!("An error occurred loading item state for user '{}': {}", session.user_id, e);
-      return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
-    }
-  }
+  let session_maybe = get_and_validate_session(&request, db).await;
 
   let request: CommandRequest = match incoming_json(request).await {
     Ok(r) => r,
     Err(e) => {
-      error!("An error occurred parsing command payload for user '{}': {}", session.user_id, e);
+      error!("An error occurred parsing command payload for user: {}", e);
       return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
 
-  debug!("Received '{}' command for user '{}'.", request.command, session.user_id);
+  if let Some(session) = &session_maybe {
+    debug!("Received '{}' command from user '{}'.", request.command, session.user_id);
+  } else {
+    debug!("Received '{}' command from sessionless user.", request.command);
+  }
 
   let response_data_maybe = match request.command.as_str() {
-    "get-items" => handle_get_items(db, &request.json_data, &session.user_id).await,
-    "get-attachments" => handle_get_attachments(db, &request.json_data, &session.user_id).await,
-    "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session.user_id).await,
-    "update-item" => handle_update_item(db, &request.json_data, &session.user_id).await,
-    "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session.user_id).await,
+    "get-items" => handle_get_items(db, &request.json_data, &session_maybe).await,
+    "get-attachments" => handle_get_attachments(db, &request.json_data, &session_maybe).await,
+    "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await,
+    "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await,
+    "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await,
     _ => {
-      warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
+      if let Some(session) = &session_maybe {
+        warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
+      } else {
+        warn!("Unknown command '{}' issued by anonymous user", request.command);
+      }
       return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_CLIENT.to_owned()), json_data: None });
     }
   };
@@ -132,7 +129,11 @@ pub async fn serve_command_route(
   let response_data = match response_data_maybe {
     Ok(r) => r,
     Err(e) => {
-      warn!("An error occurred servicing a '{}' command for user '{}': {}.", request.command, session.user_id, e);
+      if let Some(session) = &session_maybe {
+        warn!("An error occurred servicing a '{}' command for user '{}': {}.", request.command, session.user_id, e);
+      } else {
+        warn!("An error occurred servicing a '{}' command for sessionless user: {}.", request.command, e);
+      }
       METRIC_COMMANDS_HANDLED_TOTAL.with_label_values(&[&request.command, "false"]).inc();
       return json_response(&CommandResponse { success: false, fail_reason: Some(REASON_SERVER.to_owned()), json_data: None });
     }
@@ -175,39 +176,230 @@ impl GetItemsMode {
 
 #[derive(Deserialize, Serialize)]
 pub struct GetItemsRequest {
-  #[serde(rename="itemId")]
-  pub item_id_maybe: Option<String>,
+  #[serde(rename="userQualifiedItemId")]
+  pub user_qualified_item_id_maybe: Option<String>,
   #[serde(rename="mode")]
   pub mode: String
+}
+
+
+/**
+ * Access is authorized if and only if:
+ * 1. the session user owns the item.
+ * 2. the item is a page that is marked as public.
+ * 3. the item is in a page that is marked as public.
+ * 4. the item is in a table in a page that is marked as public.
+ * 5. the item is an attachment of a page that is marked as public.
+ * 6. the item is an attachment of an item in a page that is marked as public.
+ * 7. the item is an attachment of an item in a table in a page that is marked as public.
+ * 
+ * Note that whether or not a link item is authorized has no bearing on whether the
+ * corresponding linked-to item is authorized - the authorization is based on the linked
+ * to item, and it's canonical parent(s) as above.
+ */
+fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>) -> InfuResult<()> {
+  // any item owned by the session user.
+  if let Some(session_user_id) = session_user_id_maybe {
+    if &item.owner_id == session_user_id {
+      return Ok(());
+    }
+  }
+
+  // any page that is public
+  if is_page_item(item) {
+    match item.permission_flags {
+      Some(flags) => {
+        if flags == PermissionFlags::Public as i64 {
+          return Ok(());
+        }
+      },
+      // Should never occur.
+      None => return Err(format!("Page item '{}' has no permissions flag property.", item.id).into())
+    }
+  }
+
+  // any item that has a parent page that is public
+  if let Some(item_parent_id) = &item.parent_id {
+    match item.relationship_to_parent {
+
+      RelationshipToParent::Child => {
+        let item_parent = db.item.get(&item_parent_id)?;
+        item_auth_common(db, &item.id, item_parent)?;
+        return Ok(());
+      },
+
+      RelationshipToParent::Attachment => {
+        let attachment_parent = db.item.get(&item_parent_id)?;
+        if item_auth_common(db, item_parent_id, attachment_parent).is_ok() {
+          return Ok(());
+        }
+        let attachment_parent_parent = match &attachment_parent.parent_id {
+          Some(p) => db.item.get(&p)?,
+          None => return Err(format!("Attachment parent item '{}' has no parent - cannot authorize.", attachment_parent.id).into())
+        };
+        item_auth_common(db, &attachment_parent.id, attachment_parent_parent)?;
+        return Ok(());
+      },
+
+      RelationshipToParent::NoParent => {
+        // Should never occur.
+        return Err(format!("Item '{}' has no parent relationship, could not authorize.", item.id).into());
+      }
+    }
+  }
+
+  return Err(format!("Not authorized to access item '{}'.", item.id).into());
+}
+
+fn item_auth_common(db: &MutexGuard<'_, Db>, item_id: &Uid, item_parent: &Item) -> InfuResult<()> {
+  if is_page_item(item_parent) {
+    let page_item = item_parent;
+    match page_item.permission_flags {
+      Some(flags) => {
+        if flags == PermissionFlags::Public as i64 {
+          return Ok(());
+        }
+        return Err(format!("Not authorized to access parent page '{}' of item '{}'.", page_item.id, item_id).into());
+      },
+      // Should never occur.
+      None => return Err(format!("Page item '{}' does not have a permissions flag property.", item_id).into())
+    }
+  } else if is_table_item(item_parent) {
+    let table_item = item_parent;
+    let table_parent_id = match &table_item.parent_id {
+      Some(table_parent_id) => table_parent_id,
+      // Should never occur.
+      None => return Err(format!("Expecting table '{}' to have a parent defined.", table_item.id).into())
+    };
+    let table_parent = db.item.get(&table_parent_id)?;
+    if is_page_item(table_parent) {
+      match table_parent.permission_flags {
+        Some(flags) => {
+          if flags == PermissionFlags::Public as i64 {
+            return Ok(());
+          }
+          return Err(format!("Not authorized to access parent page '{}' of table '{}' that contains item '{}'.", table_parent.id, table_item.id, item_id).into());
+        },
+        // Should never occur.
+        None => return Err(format!("Page item '{}' has no permissions flag property.", item_id).into())
+      }
+    } else {
+      return Err(format!("Expecting parent '{}' of table '{}' to be a page.", table_parent_id, table_parent_id).into());
+    }
+  } else {
+    return Err(format!("Item '{}' has unexpected parent type.", item_id).into());
+  }
+}
+
+
+fn get_item_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<&'a Item> {
+  let item = db.item.get(&id)?;
+  authorize_item(db, item, session_user_id_maybe)?;
+  Ok(item)
+}
+
+fn get_children_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<Vec<&'a Item>> {
+  let children = db.item.get_children(id)?;
+  for child in &children {
+    // TODO (LOW): redundant, but doesn't hurt..
+    authorize_item(db, child, session_user_id_maybe)?;
+  }
+  Ok(children)
+}
+
+fn get_attachments_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<Vec<&'a Item>> {
+  let attachments = db.item.get_attachments(id)?;
+  for attachment in &attachments {
+    // TODO (LOW): redundant, but doesn't hurt..
+    authorize_item(db, attachment, session_user_id_maybe)?;
+  }
+  Ok(attachments)
 }
 
 async fn handle_get_items(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
-    session_user_id: &String) -> InfuResult<Option<String>> {
-  let db = db.lock().await;
-
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let request: GetItemsRequest = serde_json::from_str(json_data)?;
 
+  let qualified_item_user_id_maybe;
+  let item_id_maybe;
+  match &request.user_qualified_item_id_maybe {
+    Some(qualified_item_id) => {
+      let parts = qualified_item_id.split('/').collect::<Vec<&str>>();
+      if parts.len() == 1 {
+        let db = &db.lock().await;
+        let root_user = match db.user.get_by_username_case_insensitive("root") {
+          Some(u) => u,
+          None => { return Err("no root user".into()); }
+        };
+        qualified_item_user_id_maybe = Some(root_user.id.to_owned());
+        item_id_maybe = Some(parts[0].to_owned());
+      } else if parts.len() == 2 {
+        qualified_item_user_id_maybe = Some(parts[0].to_owned());
+        item_id_maybe = Some(parts[1].to_owned());
+      } else {
+        return Err("Invalid itemId".into());
+      }
+    },
+    None => {
+      qualified_item_user_id_maybe = None;
+      item_id_maybe = None;
+    },
+  };
+
+  let session_user_id_maybe = match &session_maybe {
+    Some(session) => {
+      Some(session.user_id.clone())
+    },
+    None => None,
+  };
+
+  if qualified_item_user_id_maybe.is_none() && session_user_id_maybe.is_none() {
+    return Err("Sessionless get-items request cannot be for default page.".into());
+  }
+
+  let item_user_id;
+  if let Some(user_id) = qualified_item_user_id_maybe {
+    item_user_id = user_id;
+  } else {
+    let session_user_id_maybe_clone = session_user_id_maybe.clone();
+    item_user_id = session_user_id_maybe_clone.unwrap();
+  }
+
+  // TODO (LOW): a bad actor could potentially exploit this to overload server resources.
+  match load_user_items_maybe(db.clone(), &item_user_id).await {
+    Ok(_) => {},
+    Err(e) => {
+      return Err(format!("An error occurred loading item state for user '{}': {}", item_user_id, e).into());
+    }
+  }
+
+  let db = &db.lock().await;
+
   let mode = GetItemsMode::from_str(&request.mode)?;
-  let item_id = match &request.item_id_maybe {
+
+  let item_id = match item_id_maybe {
     Some(item_id) => item_id,
     None => {
-      &db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
+      match &session_user_id_maybe {
+        Some(session_user_id) => {
+          &db.user.get(&session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
+        },
+        None => {
+          return Err("Item id must be explicitly specified for sessionless request.".into());
+        }
+      }.to_owned()
     }
   };
 
-  let item = db.item.get(item_id)?;
-  if &item.owner_id != session_user_id {
-    return Err(format!("User '{}' does not own item '{}'.", session_user_id, item_id).into());
-  }
+  let item: &Item = get_item_authorized(db, &item_id, &session_user_id_maybe)?;
 
   let mut attachments_result = serde_json::Map::new();
 
   let children_result;
   if mode == GetItemsMode::ChildrenAndTheirAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let child_items = db.item
-      .get_children(item_id)?;
+    let child_items = get_children_authorized(db, &item_id, &session_user_id_maybe)?;
 
     children_result = child_items.iter()
       .map(|v| v.to_api_json().ok())
@@ -216,7 +408,7 @@ async fn handle_get_items(
 
     for c in &child_items {
       let id = &c.id;
-      let item_attachments_result = db.item.get_attachments(id)?.iter()
+      let item_attachments_result = get_attachments_authorized(db, id, &session_user_id_maybe)?.iter()
         .map(|v| v.to_api_json().ok())
         .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
         .ok_or(format!("Error occurred getting attachments for {}", id))?;
@@ -229,7 +421,7 @@ async fn handle_get_items(
   }
 
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let item_attachents_result = db.item.get_attachments(item_id)?.iter()
+    let item_attachents_result = get_attachments_authorized(db, &item_id, &session_user_id_maybe)?.iter()
       .map(|v| v.to_api_json().ok())
       .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
       .ok_or(format!("Error occurred getting attachments for item {}", item_id))?;
@@ -242,7 +434,7 @@ async fn handle_get_items(
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
     let item_json_map = match item.to_api_json() {
       Ok(r) => r,
-      Err(e) => return Err(format!("Error occurred getting item {} for user {}: {}", item_id, session_user_id, e).into())
+      Err(e) => return Err(format!("Error occurred getting item {}: {}", item_id, e).into())
     };
     result.insert(String::from("item"), Value::from(item_json_map));
   }
@@ -262,21 +454,27 @@ pub struct GetAttachmentsRequest {
 async fn handle_get_attachments(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
-    session_user_id: &String) -> InfuResult<Option<String>> {
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let db = db.lock().await;
 
   let request: GetAttachmentsRequest = serde_json::from_str(json_data)?;
 
+  // TODO (MEDIUM): support sessionless get.
+  let session = match session_maybe {
+    Some(session) => session,
+    None => { return Err(format!("Session is required to update an item.").into()); }
+  };
+
   let parent_id = match &request.parent_id_maybe {
     Some(parent_id) => parent_id,
     None => {
-      &db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
+      &db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", &session.user_id))?.root_page_id
     }
   };
 
   let parent_item = db.item.get(parent_id)?;
-  if &parent_item.owner_id != session_user_id {
-    return Err(format!("User '{}' does not own item '{}'.", session_user_id, parent_id).into());
+  if &parent_item.owner_id != &session.user_id {
+    return Err(format!("User '{}' does not own item '{}'.", &session.user_id, parent_id).into());
   }
 
   let attachment_items = db.item
@@ -296,8 +494,13 @@ async fn handle_add_item(
     object_store: Arc<object::ObjectStore>,
     json_data: &str,
     base64_data_maybe: &Option<String>,
-    session_user_id: &String) -> InfuResult<Option<String>> {
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
+
+  let session = match session_maybe {
+    Some(session) => session,
+    None => { return Err(format!("Session is required to add an item.").into()); }
+  };
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -316,11 +519,11 @@ async fn handle_add_item(
 
   if !item_map.contains_key("parentId") {
     item_map.insert("parentId".to_owned(),
-      Value::String(db.user.get(session_user_id).ok_or(format!("No user with id '{}'.", session_user_id))?.root_page_id.clone()));
+      Value::String(db.user.get(&session.user_id).ok_or(format!("No user with id '{}'.", &session.user_id))?.root_page_id.clone()));
   }
 
   if !item_map.contains_key("ownerId") {
-    item_map.insert("ownerId".to_owned(), Value::String(session_user_id.to_owned()));
+    item_map.insert("ownerId".to_owned(), Value::String(session.user_id.to_owned()));
   }
 
   if !item_map.contains_key("relationshipToParent") {
@@ -338,7 +541,7 @@ async fn handle_add_item(
   }
 
   if !item_map.contains_key("spatialPositionGr") {
-    if is_positionable(ItemType::from_str(&item_type)?) {
+    if is_positionable_type(ItemType::from_str(&item_type)?) {
       item_map.insert("spatialPositionGr".to_owned(), json::vector_to_object(&Vector { x: 0, y: 0 }));
     }
   }
@@ -354,9 +557,9 @@ async fn handle_add_item(
   if !item_map.contains_key("ordering") {
     let parent_id_value = item_map.get("parentId").unwrap(); // should always exist at this point.
     let parent_id = parent_id_value.as_str()
-      .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", session_user_id))?;
+      .ok_or(format!("Attempt was made by user '{}' to add an item with a parentId that is not of type String", &session.user_id))?;
     if !is_uid(parent_id) {
-      return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", session_user_id).into());
+      return Err(format!("Attempt was made by user '{}' to add an item with invalid parent id.", &session.user_id).into());
     }
     let orderings = db.item.get_children(&parent_id.to_owned())?.iter().map(|i| i.ordering.clone()).collect::<Vec<Vec<u8>>>();
     let ordering = new_ordering_at_end(orderings);
@@ -369,37 +572,37 @@ async fn handle_add_item(
   let parent_id = item_map.get("parentId").unwrap().as_str().unwrap(); // by this point, should never fail.
 
   if parent_id == EMPTY_UID {
-    return Err(format!("Attempt was made by user '{}' to add an item with an empty parent id.", session_user_id).into());
+    return Err(format!("Attempt was made by user '{}' to add an item with an empty parent id.", &session.user_id).into());
   }
 
   let parent_item = db.item.get(&parent_id.to_owned())
     .map_err(|_| format!("Cannot add child item to '{}' because an item with that id does not exist.", parent_id))?;
-  if &parent_item.owner_id != session_user_id {
-    return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, session_user_id,).into());
+  if &parent_item.owner_id != &session.user_id {
+    return Err(format!("Cannot add child item to '{}' because user '{}' is not the owner.", &parent_item.id, &session.user_id,).into());
   }
 
   match item.relationship_to_parent {
     RelationshipToParent::Child => {
-      if !is_container_item(parent_item.item_type) {
-        return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", session_user_id).into());
+      if !is_container_item_type(parent_item.item_type) {
+        return Err(format!("Attempt was made by user '{}' to add a child item to a non-container parent.", &session.user_id).into());
       }
     },
     RelationshipToParent::Attachment => {
-      if !is_attachments_item(parent_item.item_type) {
-        return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", session_user_id).into());
+      if !is_attachments_item_type(parent_item.item_type) {
+        return Err(format!("Attempt was made by user '{}' to add an attachment item to a non-attachments parent.", &session.user_id).into());
       }
     },
     RelationshipToParent::NoParent => {
-      return Err(format!("Attempt was made by user '{}' to add a root level page.", session_user_id).into());
+      return Err(format!("Attempt was made by user '{}' to add a root level page.", &session.user_id).into());
     }
   };
 
   if is_empty_uid(&item.id) {
-    return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", session_user_id).into());
+    return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session.user_id).into());
   }
 
-  if &item.owner_id != session_user_id {
-    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, session_user_id, item.id).into());
+  if &item.owner_id != &session.user_id {
+    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when adding item '{}'.", item.owner_id, &session.user_id, item.id).into());
   }
 
   if db.item.get(&item.id).is_ok() {
@@ -407,23 +610,23 @@ async fn handle_add_item(
   }
 
   if item.ordering.len() == 0 {
-    return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", session_user_id).into());
+    return Err(format!("Attempt was made by user '{}' to add an item with empty ordering.", &session.user_id).into());
   }
 
   if item.item_type == ItemType::Placeholder && item.relationship_to_parent != RelationshipToParent::Attachment {
     return Err(format!("Attempt was made to add a placeholder item where relationship to parent is not Attachment.").into());
   }
 
-  if is_data_item(item.item_type) {
+  if is_data_item_type(item.item_type) {
     let base64_data = base64_data_maybe.as_ref().ok_or(format!("Add item request has no base64 data, when this is expected for item of type {}.", item.item_type))?;
     let decoded = general_purpose::STANDARD.decode(&base64_data).map_err(|e| format!("There was a problem decoding base64 data for new item '{}': {}", item.id, e))?;
     if decoded.len() != item.file_size_bytes.ok_or(format!("File size was not specified for new data item '{}'.", item.id))? as usize {
       return Err(format!("File size specified for new data item '{}' ({}) does not match the actual size of the data ({}).", item.id, item.file_size_bytes.unwrap(), decoded.len()).into());
     }
-    let object_encryption_key = &db.user.get(session_user_id).ok_or(format!("User '{}' not found.", session_user_id))?.object_encryption_key;
-    object::put(object_store.clone(), session_user_id, &item.id, &decoded, object_encryption_key).await?;
+    let object_encryption_key = &db.user.get(&session.user_id).ok_or(format!("User '{}' not found.", &session.user_id))?.object_encryption_key;
+    object::put(object_store.clone(), &session.user_id, &item.id, &decoded, object_encryption_key).await?;
 
-    if is_image_item(item.item_type) {
+    if is_image_item(&item) {
       let title = match &item.title {
         Some(title) => title,
         None => { return Err(format!("Image item '{}' has no title set.", item.id).into()); }
@@ -446,7 +649,7 @@ async fn handle_add_item(
       let thumbnail_data = cursor.get_ref().to_vec();
       let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
       if item.thumbnail.unwrap() != "" {
-        return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", session_user_id).into());
+        return Err(format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", &session.user_id).into());
       }
       item.thumbnail = Some(thumbnail_base64);
 
@@ -475,8 +678,13 @@ async fn handle_add_item(
 async fn handle_update_item(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
-    session_user_id: &String) -> InfuResult<Option<String>> {
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
+
+  let session = match session_maybe {
+    Some(session) => session,
+    None => { return Err(format!("Session is required to update an item.").into()); }
+  };
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -484,8 +692,8 @@ async fn handle_update_item(
   let item_map = item_map_maybe.as_object().ok_or("Update item request body is not a JSON object.")?;
   let item: Item = Item::from_api_json(item_map)?;
 
-  if &db.item.get(&item.id)?.owner_id != session_user_id {
-    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, session_user_id, item.id).into());
+  if &db.item.get(&item.id)?.owner_id != &session.user_id {
+    return Err(format!("Item owner_id '{}' mismatch with session user '{}' when updating item '{}'.", item.owner_id, session.user_id, item.id).into());
   }
 
   db.item.update(&item).await?;
@@ -504,13 +712,18 @@ async fn handle_delete_item<'a>(
     object_store: Arc<object::ObjectStore>,
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     json_data: &str,
-    session_user_id: &String) -> InfuResult<Option<String>> {
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
   let request: DeleteItemRequest = serde_json::from_str(json_data)?;
 
-  if &db.item.get(&request.id)?.owner_id != session_user_id {
-    return Err(format!("User '{}' does not own item '{}'.", session_user_id, request.id).into());
+  let session = match session_maybe {
+    Some(session) => session,
+    None => { return Err(format!("Session is required to delete an item.").into()); }
+  };
+
+  if &db.item.get(&request.id)?.owner_id != &session.user_id {
+    return Err(format!("User '{}' does not own item '{}'.", session.user_id, request.id).into());
   }
 
   if db.item.has_children_or_attachments(&request.id)? {
@@ -520,12 +733,12 @@ async fn handle_delete_item<'a>(
   let item = db.item.remove(&request.id).await?;
   debug!("Deleted item '{}' from database.", request.id);
 
-  if is_data_item(item.item_type) {
-    object::delete(object_store.clone(), session_user_id, &request.id).await?;
+  if is_data_item_type(item.item_type) {
+    object::delete(object_store.clone(), &session.user_id, &request.id).await?;
     debug!("Deleted item '{}' from object store.", request.id);
   }
-  if is_image_item(item.item_type) {
-    let num_removed = storage_cache::delete_all(image_cache, session_user_id, &request.id).await?;
+  if is_image_item(&item) {
+    let num_removed = storage_cache::delete_all(image_cache, &session.user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }
   Ok(None)
