@@ -77,6 +77,9 @@ export const Main: Component = () => {
       userStore.clear();
       generalStore.clearInstallationState();
       await generalStore.retrieveInstallationState();
+      if (logout) {
+        await logout();
+      }
     }
   });
 

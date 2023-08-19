@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import { EMPTY_ITEM, Item } from "./items/base/item";
+import { Item } from "./items/base/item";
 import { itemToObject } from "./items/base/item-polymorphism";
 import { throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
@@ -94,22 +94,14 @@ async function sendCommand(host: string | null, command: string, payload: object
   let d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   let r = await post(host, '/command', d);
-  if (!r.success && command == "get-items") {
-    console.warn("get-items failed", payload);
-    return ({
-      item: EMPTY_ITEM,
-      children: [],
-      attachments: []
-    });
-  }
-  else if (!r.success) {
-    if (logout != null) {
+  if (!r.success) {
+    if (logout != null && command != "get-items") {
       if (panicLogoutOnError) {
         await logout();
       }
       throwExpression(`'${command}' command failed. Reason: ${r.failReason}`);
     } else {
-      throwExpression(`'${command}' command failed.`);
+      throwExpression(`'${command}' command failed. Reason: ${r.failReason}`);
     }
   }
   return JSON.parse(r.jsonData);
