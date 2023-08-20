@@ -42,6 +42,7 @@ import { HitboxType, createHitbox } from "./hitbox";
 import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "./ves-cache";
+import { ItemGeometry } from "./item-geometry";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -526,20 +527,34 @@ const arrangePageWithChildren_Desktop = (
   return pageWithChildrenVisualElementSignal;
 }
 
-
 const arrangeTable_Desktop = (
-    desktopStore: DesktopStoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_Table: TableItem,
-    linkItemMaybe_Table: LinkItem | null,
-    parentPage: PageItem,
-    parentPageInnerBoundsPx: BoundingBox,
-    parentIsPopup: boolean): VisualElementSignal => {
-
+  desktopStore: DesktopStoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem_Table: TableItem,
+  linkItemMaybe_Table: LinkItem | null,
+  parentPage: PageItem,
+  parentPageInnerBoundsPx: BoundingBox,
+  parentIsPopup: boolean
+): VisualElementSignal => {
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const tableGeometry = calcGeometryOfItem_Desktop(
     linkItemMaybe_Table ? linkItemMaybe_Table : displayItem_Table,
     parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true);
+  return arrangeTable(
+    desktopStore,
+    parentPath,
+    displayItem_Table,
+    linkItemMaybe_Table,
+    tableGeometry);
+}
+
+const arrangeTable = (
+    desktopStore: DesktopStoreContextModel,
+    parentPath: VisualElementPath,
+    displayItem_Table: TableItem,
+    linkItemMaybe_Table: LinkItem | null,
+    tableGeometry: ItemGeometry
+    ): VisualElementSignal => {
 
   const sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
@@ -809,7 +824,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
 
     let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    if (!isLink(item)) {
+    if (!isLink(item) && !isTable(item)) {
       const veSpec: VisualElementSpec = {
         displayItem: item,
         mightBeDirty: getMightBeDirty(item),
@@ -822,6 +837,9 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       const childPath = prependVeidToPath(createVeid(item, null), currentPath);
       const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
 
+      children.push(ves);
+    } if (isTable(item)) {
+      const ves = arrangeTable(desktopStore, currentPath, asTableItem(item), null, geometry);
       children.push(ves);
     } else {
       console.log("TODO: child tables in grid pages.");

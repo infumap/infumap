@@ -197,9 +197,13 @@ export function calcGeometryOfTableItem_ListItem(_table: TableMeasurable, blockS
 
 export function calcGeometryOfTableItem_Cell(table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
   const boundsPx = calcBoundsInCellFromSizeBl(calcTableSizeForSpatialBl(table), cellBoundsPx);
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx: cloneBoundingBox(boundsPx)!,
-    hitboxes: [ createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx)) ]
+    hitboxes: [
+      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx)),
+      createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+    ]
   };
 }
 
