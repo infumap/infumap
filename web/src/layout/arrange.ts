@@ -109,6 +109,10 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   mouseMoveNoButtonDownHandler(desktopStore);
 }
 
+
+
+// ARRANGE LIST PAGE
+
 const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   VesCache.initFullArrange();
 
@@ -182,6 +186,10 @@ function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: V
   return arrangeItem(desktopStore, currentPath, item, geometry, true, false, true);
 }
 
+
+
+// SPATIAL STRETCH
+
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const pageItem = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
@@ -225,9 +233,8 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 
   const currentPopupSpec = desktopStore.currentPopupSpec();
   if (currentPopupSpec != null) {
-
-    // ** PAGE POPUP
     if (currentPopupSpec.type == PopupType.Page) {
+      // Position of page popup in spatial pages is user defined.
       const popupLinkToPageId = veidFromPath(currentPopupSpec.vePath).itemId;
       const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId!);
       li.id = POPUP_LINK_ID;
@@ -250,41 +257,10 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
           false, // parent is popup
           true // is popup
         ));
-
-    // ** ATTACHMENT POPUP
     } else if (currentPopupSpec.type == PopupType.Attachment) {
       // Ves are created inline.
-
     } else if (currentPopupSpec.type == PopupType.Image) {
-      const popupLinkToImageId = veidFromPath(currentPopupSpec.vePath).itemId;
-      const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToImageId!);
-      li.id = POPUP_LINK_ID;
-      li.spatialWidthGr = 0;
-      li.spatialPositionGr = { x: 0, y: 0, };
-      const desktopBoundsPx = desktopStore.desktopBoundsPx();
-      const cellBoundsPx = {
-        x: desktopBoundsPx.w * 0.1,
-        y: desktopBoundsPx.h * 0.07,
-        w: desktopBoundsPx.w * 0.8,
-        h: desktopBoundsPx.h * 0.8,
-      };
-      let geometry = calcGeometryOfItem_Cell(li, cellBoundsPx);
-
-      const item = itemState.getItem(popupLinkToImageId)!;
-      const itemVisualElement: VisualElementSpec = {
-        displayItem: item,
-        mightBeDirty: getMightBeDirty(item),
-        linkItemMaybe: li,
-        flags: VisualElementFlags.Detailed | VisualElementFlags.Popup,
-        boundsPx: geometry.boundsPx,
-        hitboxes: geometry.hitboxes,
-        parentPath: currentPath,
-      };
-
-      const itemPath = prependVeidToPath(createVeid(item, li), currentPath);
-      itemVisualElement.attachments = arrangeItemAttachments(desktopStore, item, li, geometry.boundsPx, itemPath);
-      const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
-      children.push(itemVisualElementSignal);
+      children.push(arrangeCellPopup(desktopStore));
     } else {
       panic();
     }
@@ -312,6 +288,77 @@ const arrangeItem_Desktop = (
   return arrangeItem(desktopStore, parentPath, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }
 
+
+
+// ARRANGE GRID PAGE
+
+const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
+  VesCache.initFullArrange();
+
+  const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
+  const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
+
+  const pageBoundsPx = desktopStore.desktopBoundsPx();
+
+  const numCols = currentPage.gridNumberOfColumns;
+  const numRows = Math.ceil(currentPage.computed_children.length / numCols);
+  const cellWPx = pageBoundsPx.w / numCols;
+  const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
+  const marginPx = cellWPx * 0.01;
+  const pageHeightPx = numRows * cellHPx;
+  const boundsPx = (() => {
+    const result = cloneBoundingBox(pageBoundsPx)!;
+    result.h = pageHeightPx;
+    return result;
+  })();
+
+  const topLevelVisualElementSpec: VisualElementSpec = {
+    displayItem: currentPage,
+    mightBeDirty: getMightBeDirty(currentPage),
+    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
+    boundsPx: boundsPx,
+    childAreaBoundsPx: boundsPx,
+  };
+
+  const children = [];
+  for (let i=0; i<currentPage.computed_children.length; ++i) {
+    const item = itemState.getItem(currentPage.computed_children[i])!;
+    const col = i % numCols;
+    const row = Math.floor(i / numCols);
+    const cellBoundsPx = {
+      x: col * cellWPx + marginPx,
+      y: row * cellHPx + marginPx,
+      w: cellWPx - marginPx * 2.0,
+      h: cellHPx - marginPx * 2.0
+    };
+
+    const geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
+    const ves = arrangeItem(desktopStore, currentPath, item, geometry, true, false, false);
+    children.push(ves);
+  }
+
+  const currentPopupSpec = desktopStore.currentPopupSpec();
+  if (currentPopupSpec != null) {
+    if (currentPopupSpec.type == PopupType.Page) {
+      children.push(arrangeCellPopup(desktopStore));
+    } else if (currentPopupSpec.type == PopupType.Attachment) {
+      // Ves are created inline.
+    } else if (currentPopupSpec.type == PopupType.Image) {
+      children.push(arrangeCellPopup(desktopStore));
+    } else {
+      panic();
+    }
+  }
+
+
+  topLevelVisualElementSpec.children = children;
+
+  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
+}
+
+
+
+// --------
 
 const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
@@ -370,13 +417,18 @@ const arrangePageWithChildren = (
       w: geometry.boundsPx.w + toolbarWidthPx,
       h: geometry.boundsPx.h,
     };
-    const defaultResizeHitbox = geometry.hitboxes.filter(hb => hb.type == HitboxType.Resize)[0];
-    if (defaultResizeHitbox.type != HitboxType.Resize) { panic(); }
-    const rhbBoundsPx = defaultResizeHitbox.boundsPx;
-    hitboxes = [
-      createHitbox(HitboxType.Resize, { x: rhbBoundsPx.x + toolbarWidthPx, y: rhbBoundsPx.y, w: rhbBoundsPx.w, h: rhbBoundsPx.h }),
-      createHitbox(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: outerBoundsPx.h })
-    ];
+    const rsHbs = geometry.hitboxes.filter(hb => hb.type == HitboxType.Resize);
+    if (rsHbs.length == 0) { // popup page in page type that does not allow it to be moved.
+      hitboxes = [];
+    } else {
+      const defaultResizeHitbox = rsHbs[0];
+      if (defaultResizeHitbox.type != HitboxType.Resize) { panic(); }
+      const rhbBoundsPx = defaultResizeHitbox.boundsPx;
+      hitboxes = [
+        createHitbox(HitboxType.Resize, { x: rhbBoundsPx.x + toolbarWidthPx, y: rhbBoundsPx.y, w: rhbBoundsPx.w, h: rhbBoundsPx.h }),
+        createHitbox(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: outerBoundsPx.h })
+      ];
+    }
   }
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
@@ -726,54 +778,48 @@ function arrangeItemAttachments(
 }
 
 
-const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
-  VesCache.initFullArrange();
-
+function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElementSignal {
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
+  const currentPopupSpec = desktopStore.currentPopupSpec()!;
 
-  const pageBoundsPx = desktopStore.desktopBoundsPx();
-
-  const numCols = currentPage.gridNumberOfColumns;
-  const numRows = Math.ceil(currentPage.computed_children.length / numCols);
-  const cellWPx = pageBoundsPx.w / numCols;
-  const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
-  const marginPx = cellWPx * 0.01;
-  const pageHeightPx = numRows * cellHPx;
-  const boundsPx = (() => {
-    const result = cloneBoundingBox(pageBoundsPx)!;
-    result.h = pageHeightPx;
-    return result;
-  })();
-
-  const topLevelVisualElementSpec: VisualElementSpec = {
-    displayItem: currentPage,
-    mightBeDirty: getMightBeDirty(currentPage),
-    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
-    boundsPx: boundsPx,
-    childAreaBoundsPx: boundsPx,
+  const popupLinkToImageId = veidFromPath(currentPopupSpec.vePath).itemId;
+  const li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupLinkToImageId!);
+  li.id = POPUP_LINK_ID;
+  li.spatialWidthGr = 1000;
+  li.spatialPositionGr = { x: 0, y: 0, };
+  const desktopBoundsPx = desktopStore.desktopBoundsPx();
+  const cellBoundsPx = {
+    x: desktopBoundsPx.w * 0.1,
+    y: desktopBoundsPx.h * 0.07,
+    w: desktopBoundsPx.w * 0.8,
+    h: desktopBoundsPx.h * 0.8,
   };
+  let geometry = calcGeometryOfItem_Cell(li, cellBoundsPx);
 
-  const children = [];
-  for (let i=0; i<currentPage.computed_children.length; ++i) {
-    const item = itemState.getItem(currentPage.computed_children[i])!;
-    const col = i % numCols;
-    const row = Math.floor(i / numCols);
-    const cellBoundsPx = {
-      x: col * cellWPx + marginPx,
-      y: row * cellHPx + marginPx,
-      w: cellWPx - marginPx * 2.0,
-      h: cellHPx - marginPx * 2.0
+  const item = itemState.getItem(popupLinkToImageId)!;
+
+  if (isPage(item)) {
+    return arrangeItem(desktopStore, currentPath, li, geometry, true, true, true);
+  } else {
+    const itemVisualElement: VisualElementSpec = {
+      displayItem: item,
+      mightBeDirty: getMightBeDirty(item),
+      linkItemMaybe: li,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.Popup,
+      boundsPx: geometry.boundsPx,
+      childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
+      hitboxes: geometry.hitboxes,
+      parentPath: currentPath,
     };
 
-    const geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    const ves = arrangeItem(desktopStore, currentPath, item, geometry, true, false, false);
-    children.push(ves);
+    const itemPath = prependVeidToPath(createVeid(item, li), currentPath);
+    itemVisualElement.attachments = arrangeItemAttachments(desktopStore, item, li, geometry.boundsPx, itemPath);
+    return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
   }
-  topLevelVisualElementSpec.children = children;
-
-  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
+
+
 
 
 // export const rearrangeVisualElementsWithItemId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {

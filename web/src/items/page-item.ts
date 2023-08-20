@@ -253,11 +253,17 @@ export function calcGeometryOfPageItem_ListItem(_page: PageMeasurable, blockSize
 
 
 export function calcGeometryOfPageItem_Cell(page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
-  const boundsPx = calcBoundsInCell(calcPageSizeForSpatialBl(page), cellBoundsPx);
+  const sizeBl = calcPageSizeForSpatialBl(page);
+  const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  const popupClickBoundsPx =
+    { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+      w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
   return ({
     boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [
-      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.OpenPopup, popupClickBoundsPx),
     ]
   });
 }
