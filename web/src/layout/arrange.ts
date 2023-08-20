@@ -162,13 +162,13 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
     topLevelVisualElementSpec.children.push(
-      arrangeInCell(desktopStore, selectedVeid, boundsPx, currentPath));
+      arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, currentPath));
   }
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
 
-function arrangeInCell(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
+function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
   const item = itemState.getItem(veid.itemId)!;
 
   let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), veid.itemId);
@@ -179,7 +179,7 @@ function arrangeInCell(desktopStore: DesktopStoreContextModel, veid: Veid, bound
 
   const geometry = calcGeometryOfItem_Cell(li, boundsPx);
 
-  return arrangeItem(desktopStore, currentPath, li, geometry, true, false);
+  return arrangeItem(desktopStore, currentPath, item, geometry, true, false, true);
 }
 
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
@@ -309,7 +309,7 @@ const arrangeItem_Desktop = (
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const itemGeometry = calcGeometryOfItem_Desktop(
     linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
-  return arrangeItem(desktopStore, parentPath, item, itemGeometry, renderChildrenAsFull, isPopup);
+  return arrangeItem(desktopStore, parentPath, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }
 
 
@@ -319,7 +319,8 @@ const arrangeItem = (
     item: Item,
     itemGeometry: ItemGeometry,
     renderChildrenAsFull: boolean,
-    isPopup: boolean): VisualElementSignal => {
+    isPopup: boolean,
+    isRoot: boolean): VisualElementSignal => {
   if (isPopup && !isLink(item)) { panic(); }
 
   const [displayItem, linkItemMaybe, spatialWidthGr] = getVeItems(desktopStore, item);
@@ -329,7 +330,7 @@ const arrangeItem = (
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangePageWithChildren(
-      desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, false);
+      desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot);
   }
 
   if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
@@ -766,7 +767,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
 
     const geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    const ves = arrangeItem(desktopStore, currentPath, item, geometry, true, false);
+    const ves = arrangeItem(desktopStore, currentPath, item, geometry, true, false, false);
     children.push(ves);
   }
   topLevelVisualElementSpec.children = children;
