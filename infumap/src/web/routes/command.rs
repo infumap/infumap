@@ -230,7 +230,7 @@ pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_mayb
 
       RelationshipToParent::Attachment => {
         let attachment_parent = db.item.get(&item_parent_id)?;
-        if item_auth_common(db, item_parent_id, attachment_parent).is_ok() {
+        if item_auth_common(db, &item.id, attachment_parent).is_ok() {
           return Ok(());
         }
         let attachment_parent_parent = match &attachment_parent.parent_id {
@@ -294,7 +294,8 @@ fn item_auth_common(db: &MutexGuard<'_, Db>, item_id: &Uid, item_parent: &Item) 
 
 fn get_item_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<&'a Item> {
   let item = db.item.get(&id)?;
-  authorize_item(db, item, session_user_id_maybe)?;
+  authorize_item(db, item, session_user_id_maybe)
+    .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   Ok(item)
 }
 
@@ -302,7 +303,8 @@ fn get_children_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_use
   let children = db.item.get_children(id)?;
   for child in &children {
     // TODO (LOW): redundant, but doesn't hurt..
-    authorize_item(db, child, session_user_id_maybe)?;
+    authorize_item(db, child, session_user_id_maybe)
+      .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   }
   Ok(children)
 }
@@ -311,7 +313,8 @@ fn get_attachments_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_
   let attachments = db.item.get_attachments(id)?;
   for attachment in &attachments {
     // TODO (LOW): redundant, but doesn't hurt..
-    authorize_item(db, attachment, session_user_id_maybe)?;
+    authorize_item(db, attachment, session_user_id_maybe)
+      .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   }
   Ok(attachments)
 }
