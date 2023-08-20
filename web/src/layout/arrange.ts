@@ -628,10 +628,9 @@ const arrangeTable_Desktop = (
       }
 
       tableChildVeSpec.attachments = tableItemVeAttachments;
-
-      const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
-      tableVeChildren.push(tableItemVisualElementSignal);
     }
+    const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+    tableVeChildren.push(tableItemVisualElementSignal);
   };
 
   tableVisualElementSpec.children = tableVeChildren;
