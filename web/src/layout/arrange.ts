@@ -800,13 +800,16 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
   const item = itemState.getItem(popupLinkToImageId)!;
 
   if (isPage(item)) {
-    return arrangeItem(desktopStore, currentPath, li, geometry, true, true, true);
+    const ves = arrangeItem(desktopStore, currentPath, li, geometry, true, true, true);
+    ves.get().flags |= (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None);
+    return ves;
   } else {
     const itemVisualElement: VisualElementSpec = {
       displayItem: item,
       mightBeDirty: getMightBeDirty(item),
       linkItemMaybe: li,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.Popup,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.Popup |
+             (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None),
       boundsPx: geometry.boundsPx,
       childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
       hitboxes: geometry.hitboxes,

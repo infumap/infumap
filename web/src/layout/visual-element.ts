@@ -69,6 +69,7 @@ export enum VisualElementFlags {
   InsideTable          = 0x020, // The visual element is inside a table.
   Attachment           = 0x040, // The visual element is an attachment.
   DragOverPositioning  = 0x080, // An item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
+  Fixed                = 0x100, // positioning is fixed, not absolute.
 }
 
 export function selectedFlagSet(ve: VisualElement): boolean {

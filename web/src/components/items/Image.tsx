@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show, onCleanup, onMount } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
@@ -102,11 +102,11 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   return (
     <Show when={boundsPx().w > 5}>
       <Show when={(props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup}>
-        <div class={`absolute text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
+        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10 + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
         </div>
-        <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
-             style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden`}
+             style={`left: ${quantizedBoundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
           <img class="max-w-none absolute"
                   style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                           `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
@@ -115,8 +115,8 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
                   src={thumbnailSrc()} />
         </div>
       </Show>
-      <div class="absolute border border-slate-700 rounded-sm shadow-lg overflow-hidden"
-           style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+      <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed" : "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden`}
+           style={`left: ${quantizedBoundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <Show when={isDetailed()} fallback={
             <img class="max-w-none absolute"
                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
@@ -143,8 +143,8 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
           </Show>
         </Show>
       </div>
-      <div class="absolute pointer-events-none"
-           style={`left: ${quantizedBoundsPx().x}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+      <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
+           style={`left: ${quantizedBoundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
@@ -153,8 +153,8 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
         </Show>
       </div>
       <Show when={(props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup}>
-      <div class="absolute flex items-center justify-center pointer-events-none"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
+        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
+             style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
           <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
             {imageItem().title}
           </div>

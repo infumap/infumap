@@ -18,7 +18,7 @@
 
 import { Component, createMemo, For, Show } from "solid-js";
 import { asPageItem, popupPositioningHasChanged } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
@@ -29,7 +29,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
-import { detailedFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
+import { detailedFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
 
@@ -226,11 +226,11 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const drawAsPopup = () => {
     return (
       <>
-        <div class={`absolute text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
+        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10 + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
-        <div class={`absolute border rounded-sm`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+             style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                     'overflow-y: auto; overflow-x: hidden;'}>
           <div class="absolute"
                style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
@@ -240,8 +240,8 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
             }</For>
           </div>
         </div>
-        <div class={`absolute rounded-sm text-gray-100`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
+        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
+             style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
             {pageItem().title}
           </div>
@@ -278,7 +278,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   return (
     <>
-      <Show when={props.visualElement.parentPath == null || rootFlagSet(props.visualElement)}>
+      <Show when={(props.visualElement.parentPath == null || rootFlagSet(props.visualElement)) && !popupFlagSet(props.visualElement)}>
         {drawAsFull()}
       </Show>
       <Show when={!detailedFlagSet(props.visualElement) ||
