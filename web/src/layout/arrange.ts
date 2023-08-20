@@ -102,7 +102,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
     arrange_grid(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
-    arrange_spatialStretch_topLevel(desktopStore);
+    arrange_spatialStretch(desktopStore);
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     arrange_list(desktopStore);
   }
@@ -199,7 +199,7 @@ function arrangeInCell(desktopStore: DesktopStoreContextModel, veid: Veid, bound
   return ves;
 }
 
-const arrange_spatialStretch_topLevel = (desktopStore: DesktopStoreContextModel) => {
+const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const pageItem = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = pageItem.naturalAspect;
@@ -322,6 +322,21 @@ const arrangeItem_Desktop = (
     renderChildrenAsFull: boolean,
     parentIsPopup: boolean,
     isPopup: boolean): VisualElementSignal => {
+  const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, item);
+  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
+  const itemGeometry = calcGeometryOfItem_Desktop(
+    linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
+  return arrangeItem(desktopStore, parentPath, item, itemGeometry, renderChildrenAsFull, isPopup);
+}
+
+
+const arrangeItem = (
+    desktopStore: DesktopStoreContextModel,
+    parentPath: VisualElementPath,
+    item: Item,
+    itemGeometry: ItemGeometry,
+    renderChildrenAsFull: boolean,
+    isPopup: boolean): VisualElementSignal => {
   if (isPopup && !isLink(item)) { panic(); }
 
   const [displayItem, linkItemMaybe, spatialWidthGr] = getVeItems(desktopStore, item);
@@ -330,30 +345,20 @@ const arrangeItem_Desktop = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
-    const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-    const pageGeometry = calcGeometryOfItem_Desktop(
-      linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
     return arrangePageWithChildren(
-      desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, pageGeometry, isPopup, false);
+      desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, false);
   }
 
   if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
-    const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-    const tableGeometry = calcGeometryOfItem_Desktop(
-      linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
     return arrangeTable(
-      desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, tableGeometry);
+      desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry);
   }
 
   const renderStyle = renderChildrenAsFull
     ? RenderStyle.Full
     : RenderStyle.Outline;
 
-  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const itemGeometry = calcGeometryOfItem_Desktop(
-    linkItemMaybe ? linkItemMaybe : displayItem,
-    zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
   return arrangeItemNoChildren(desktopStore, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, renderStyle);
 }
 
@@ -777,30 +782,9 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       h: cellHPx - marginPx * 2.0
     };
 
-    let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-
-    if (isTable(item)) {
-      const ves = arrangeTable(desktopStore, currentPath, asTableItem(item), null, geometry);
-      children.push(ves);
-    } else if (isPage(item)) {
-      const ves = arrangePageWithChildren(desktopStore, currentPath, asPageItem(item), null, geometry, false, false);
-      children.push(ves);
-    } else if (!isLink(item)) {
-      const veSpec: VisualElementSpec = {
-        displayItem: item,
-        mightBeDirty: getMightBeDirty(item),
-        flags: VisualElementFlags.Detailed,
-        boundsPx: geometry.boundsPx,
-        childAreaBoundsPx: geometry.boundsPx, // TODO (HIGH): incorrect.
-        hitboxes: geometry.hitboxes,
-        parentPath: currentPath,
-      };
-      const childPath = prependVeidToPath(createVeid(item, null), currentPath);
-      const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
-      children.push(ves);
-    } else {
-      console.log("TODO: unimplemented grid page child type.", item.itemType);
-    }
+    const geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
+    const ves = arrangeItem(desktopStore, currentPath, item, geometry, true, false);
+    children.push(ves);
   }
   topLevelVisualElementSpec.children = children;
 
