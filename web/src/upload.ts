@@ -25,7 +25,7 @@ import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./items/base/item";
 import { itemFromObject } from "./items/base/item-polymorphism";
-import { arrange } from "./layout/arrange";
+import { arrange, ARRANGE_ALGO_GRID, ARRANGE_ALGO_SPATIAL_STRETCH } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 
 
@@ -48,6 +48,10 @@ export async function handleUpload(
     }
   }
 
+  const posPx = parent.arrangeAlgorithm != ARRANGE_ALGO_SPATIAL_STRETCH
+    ? {x: 0.0, y: 0.0}
+    : calcBlockPositionGr(desktopStore, parent, desktopPx);
+
   // handle files.
   const files = dataTransfer.files;
   for (let i=0; i<files.length; ++i) {
@@ -60,7 +64,7 @@ export async function handleUpload(
         itemType: ITEM_TYPE_IMAGE,
         parentId: parent.id,
         title: file.name,
-        spatialPositionGr: calcBlockPositionGr(desktopStore, parent, desktopPx),
+        spatialPositionGr: posPx,
         spatialWidthGr: 4.0 * GRID_SIZE,
         originalCreationDate: Math.round(file.lastModified/1000.0),
         mimeType: file.type,
@@ -78,7 +82,7 @@ export async function handleUpload(
         id: newUid(),
         parentId: parent.id,
         title: file.name,
-        spatialPositionGr: calcBlockPositionGr(desktopStore, parent, desktopPx),
+        spatialPositionGr: posPx,
         spatialWidthGr: 8.0 * GRID_SIZE,
         originalCreationDate: Math.round(file.lastModified/1000.0),
         mimeType: file.type,
