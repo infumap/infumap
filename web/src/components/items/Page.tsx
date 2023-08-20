@@ -145,7 +145,11 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
                     'overflow-y: auto; overflow-x: hidden;'}>
-          <Show when={props.visualElement.childAreaBoundsPx != null}>
+          <Show when={props.visualElement.childAreaBoundsPx != null && boundsPx().h < props.visualElement.childAreaBoundsPx!.h} fallback={
+              <For each={props.visualElement.children}>{childVe =>
+                <VisualElement_Desktop visualElement={childVe.get()} />
+              }</For>
+            }>
             <div class="absolute"
                 style={`left: ${0}px; top: ${0}px; ` +
                         `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
@@ -232,13 +236,19 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
              style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                     'overflow-y: auto; overflow-x: hidden;'}>
-          <div class="absolute"
-               style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
-                      `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
-            <For each={props.visualElement.children}>{childVe =>
-              <VisualElement_Desktop visualElement={childVe.get()} />
-            }</For>
-          </div>
+          <Show when={boundsPx().h < childAreaBoundsPx().h} fallback={
+                <For each={props.visualElement.children}>{childVe =>
+                  <VisualElement_Desktop visualElement={childVe.get()} />
+                }</For>
+              }>
+            <div class="absolute"
+                style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
+                        `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
+              <For each={props.visualElement.children}>{childVe =>
+                <VisualElement_Desktop visualElement={childVe.get()} />
+              }</For>
+            </div>
+          </Show>
         </div>
         <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
