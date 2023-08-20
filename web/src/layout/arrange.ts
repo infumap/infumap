@@ -330,62 +330,44 @@ const arrangeItem_Desktop = (
       // This test does not depend on pixel size, so is invariant over display devices.
       spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
-    return arrangePageWithChildren_Desktop(
-      desktopStore,
-      parentPath,
-      asPageItem(displayItem),
-      linkItemMaybe,
-      parentPage,
-      zeroBoundingBoxTopLeft(parentPageBoundsPx),
-      parentIsPopup,
-      isPopup, false);
+    const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
+    const pageGeometry = calcGeometryOfItem_Desktop(
+      linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
+    return arrangePageWithChildren(
+      desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, pageGeometry, isPopup, false);
   }
 
   if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
-    return arrangeTable_Desktop(
-      desktopStore,
-      parentPath,
-      asTableItem(displayItem),
-      linkItemMaybe,
-      parentPage,
-      zeroBoundingBoxTopLeft(parentPageBoundsPx),
-      parentIsPopup);
+    const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
+    const tableGeometry = calcGeometryOfItem_Desktop(
+      linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
+    return arrangeTable(
+      desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, tableGeometry);
   }
 
   const renderStyle = renderChildrenAsFull
     ? RenderStyle.Full
     : RenderStyle.Outline;
 
-  return arrangeItemNoChildren_Desktop(
-    desktopStore,
-    parentPath,
-    displayItem,
-    linkItemMaybe,
-    parentPage,
-    zeroBoundingBoxTopLeft(parentPageBoundsPx),
-    parentIsPopup,
-    isPopup,
-    renderStyle);
+  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
+  const itemGeometry = calcGeometryOfItem_Desktop(
+    linkItemMaybe ? linkItemMaybe : displayItem,
+    zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
+  return arrangeItemNoChildren(desktopStore, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, renderStyle);
 }
 
 
-const arrangePageWithChildren_Desktop = (
+const arrangePageWithChildren = (
     desktopStore: DesktopStoreContextModel,
     parentPath: VisualElementPath,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
-    parentPage: PageItem,
-    parentPageInnerBoundsPx: BoundingBox,
-    parentIsPopup: boolean,
+    geometry: ItemGeometry,
     isPagePopup: boolean,
     isRoot: boolean): VisualElementSignal => {
   const pageWithChildrenVePath = prependVeidToPath(createVeid(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren), parentPath);
 
-  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const geometry = calcGeometryOfItem_Desktop(
-    linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : displayItem_pageWithChildren,
-    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true);
   let outerBoundsPx = geometry.boundsPx;
   let hitboxes = geometry.hitboxes;
   if (isPagePopup) {
@@ -407,7 +389,6 @@ const arrangePageWithChildren_Desktop = (
       createHitbox(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: outerBoundsPx.h })
     ];
   }
-
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -509,10 +490,11 @@ const arrangePageWithChildren_Desktop = (
         );
       } else {
         const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
-        return arrangeItemNoChildren_Desktop(
-          desktopStore, pageWithChildrenVePath,
-          displayItem, linkItemMaybe, displayItem_pageWithChildren,
-          innerBoundsPx, isPagePopup, itemIsPopup, RenderStyle.Outline);
+        const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(displayItem_pageWithChildren);
+        const itemGeometry = calcGeometryOfItem_Desktop(
+          linkItemMaybe ? linkItemMaybe : displayItem,
+          innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
+        return arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, RenderStyle.Outline);
       }
     });
 
@@ -525,27 +507,6 @@ const arrangePageWithChildren_Desktop = (
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
-}
-
-const arrangeTable_Desktop = (
-  desktopStore: DesktopStoreContextModel,
-  parentPath: VisualElementPath,
-  displayItem_Table: TableItem,
-  linkItemMaybe_Table: LinkItem | null,
-  parentPage: PageItem,
-  parentPageInnerBoundsPx: BoundingBox,
-  parentIsPopup: boolean
-): VisualElementSignal => {
-  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const tableGeometry = calcGeometryOfItem_Desktop(
-    linkItemMaybe_Table ? linkItemMaybe_Table : displayItem_Table,
-    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true);
-  return arrangeTable(
-    desktopStore,
-    parentPath,
-    displayItem_Table,
-    linkItemMaybe_Table,
-    tableGeometry);
 }
 
 const arrangeTable = (
@@ -691,22 +652,15 @@ function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, 
 }
 
 
-const arrangeItemNoChildren_Desktop = (
+const arrangeItemNoChildren = (
     desktopStore: DesktopStoreContextModel,
     parentVePath: VisualElementPath,
     displayItem: Item,
     linkItemMaybe: LinkItem | null,
-    parentPage: PageItem,
-    parentPageInnerBoundsPx: BoundingBox,
-    parentIsPopup: boolean,
+    itemGeometry: ItemGeometry,
     isPopup: boolean,
     renderStyle: RenderStyle): VisualElementSignal => {
   const currentVePath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), parentVePath);
-
-  const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
-  const itemGeometry = calcGeometryOfItem_Desktop(
-    linkItemMaybe ? linkItemMaybe : displayItem,
-    parentPageInnerBoundsPx, parentPageInnerDimensionsBl, parentIsPopup, true);
 
   const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {
@@ -824,7 +778,14 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
 
     let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    if (!isLink(item) && !isTable(item)) {
+
+    if (isTable(item)) {
+      const ves = arrangeTable(desktopStore, currentPath, asTableItem(item), null, geometry);
+      children.push(ves);
+    } else if (isPage(item)) {
+      const ves = arrangePageWithChildren(desktopStore, currentPath, asPageItem(item), null, geometry, false, false);
+      children.push(ves);
+    } else if (!isLink(item)) {
       const veSpec: VisualElementSpec = {
         displayItem: item,
         mightBeDirty: getMightBeDirty(item),
@@ -836,13 +797,9 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       };
       const childPath = prependVeidToPath(createVeid(item, null), currentPath);
       const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
-
-      children.push(ves);
-    } if (isTable(item)) {
-      const ves = arrangeTable(desktopStore, currentPath, asTableItem(item), null, geometry);
       children.push(ves);
     } else {
-      console.log("TODO: child tables in grid pages.");
+      console.log("TODO: unimplemented grid page child type.", item.itemType);
     }
   }
   topLevelVisualElementSpec.children = children;
