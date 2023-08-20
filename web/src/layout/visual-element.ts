@@ -104,6 +104,9 @@ export function dragOverPositioningFlagSet(ve: VisualElement): boolean {
   return (ve.flags & VisualElementFlags.DragOverPositioning) == VisualElementFlags.DragOverPositioning;
 }
 
+export function fixedFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed;
+}
 
 /**
  * Describes a visual element to be rendered.
