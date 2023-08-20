@@ -171,12 +171,6 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 function arrangeInCell(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
   const item = itemState.getItem(veid.itemId)!;
 
-  const selectedPath = prependVeidToPath(veid, currentPath);
-
-  if (isPage(item) || isTable(item)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, item.id);
-  }
-
   let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), veid.itemId);
   li.id = LIST_FOCUS_ID;
   let widthGr = 10 * GRID_SIZE;
@@ -185,18 +179,7 @@ function arrangeInCell(desktopStore: DesktopStoreContextModel, veid: Veid, bound
 
   const geometry = calcGeometryOfItem_Cell(li, boundsPx);
 
-  const veSpec: VisualElementSpec = {
-    displayItem: item,
-    mightBeDirty: getMightBeDirty(item),
-    flags: VisualElementFlags.Detailed,
-    boundsPx: geometry.boundsPx,
-    hitboxes: geometry.hitboxes,
-    parentPath: currentPath,
-  };
-
-  const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, selectedPath);
-
-  return ves;
+  return arrangeItem(desktopStore, currentPath, li, geometry, true, false);
 }
 
 const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
