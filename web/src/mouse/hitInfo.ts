@@ -142,7 +142,7 @@ export function getHitInfo(
       continue;
     }
 
-    if (isTable(childVisualElement.displayItem) && childVisualElement.childAreaBoundsPx == null) {
+    if (isTable(childVisualElement.displayItem) && !lineItemFlagSet(childVisualElement) && childVisualElement.childAreaBoundsPx == null) {
       console.error("A table visual element unexpectedly had no childAreaBoundsPx set.", childVisualElement);
     }
 
