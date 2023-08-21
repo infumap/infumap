@@ -800,9 +800,14 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
   const item = itemState.getItem(popupLinkToImageId)!;
 
   if (isPage(item)) {
-    const ves = arrangeItem(desktopStore, currentPath, li, geometry, true, true, true);
-    ves.get().flags |= (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None);
-    return ves;
+    let ves: VisualElementSignal;
+    batch(() => {
+      ves = arrangeItem(desktopStore, currentPath, li, geometry, true, true, true);
+      let newV = ves.get();
+      newV.flags |= (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None);
+      ves.set(newV);
+    });
+    return ves!;
   } else {
     const itemVisualElement: VisualElementSpec = {
       displayItem: item,

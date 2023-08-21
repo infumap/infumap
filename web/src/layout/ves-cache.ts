@@ -21,7 +21,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { compareHitboxArrays } from "./hitbox";
-import { VisualElementPath, VisualElementSpec, createVisualElement, parentPath } from "./visual-element";
+import { VisualElementPath, VisualElementSpec, createVisualElement, parentPath, veidFromPath } from "./visual-element";
 
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
@@ -74,7 +74,7 @@ function createOrRecycleVisualElementSignalImpl (
     path: VisualElementPath,
     alwaysUseVes?: VisualElementSignal): VisualElementSignal {
 
-  const debug = false;
+  const debug = false; // veidFromPath(path).itemId == "481ab193957d417d97a1fec9e7156f89";
 
   if (alwaysUseVes) {
     if (debug) { console.debug("alwaysUse:", path); }
@@ -142,8 +142,10 @@ function createOrRecycleVisualElementSignalImpl (
             dirty = true;
             break;
           }
+        } else if (newProps[i] == "linkItemMaybe") {
+          // object ref might have changed.
         } else {
-          if (debug) { console.debug("visual element property changed: ", newProps[i]); }
+          if (debug) { console.debug("visual element property changed: ", newProps[i], oldVal, newVal); }
           dirty = true;
           break;
         }
