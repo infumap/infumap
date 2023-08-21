@@ -29,7 +29,7 @@ import { asLinkItem, calcGeometryOfLinkItem_Attachment, calcGeometryOfLinkItem_D
 import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteItem_Attachment, calcGeometryOfNoteItem_Desktop, calcGeometryOfNoteItem_Cell, calcGeometryOfNoteItem_ListItem, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject, noteDebugSummary, getNoteItemMightBeDirty } from '../note-item';
 import { asPageItem, asPageMeasurable, calcGeometryOfPageItem_Attachment, calcGeometryOfPageItem_Desktop, calcGeometryOfPageItem_Cell, calcGeometryOfPageItem_ListItem, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject, pageDebugSummary, getPageItemMightBeDirty } from '../page-item';
 import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingItem_Attachment, calcGeometryOfRatingItem_Desktop, calcGeometryOfRatingItem_Cell, calcGeometryOfRatingItem_ListItem, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject, ratingDebugSummary, getRatingItemMightBeDirty } from '../rating-item';
-import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject, tableDebugSummary, getTableItemMightBeDirty } from '../table-item';
+import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject, tableDebugSummary, getTableItemMightBeDirty, handleTableClick } from '../table-item';
 import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItem_ListItem } from './item';
 import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_ListItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject, placeholderDebugSummary, getPlaceholderItemMightBeDirty } from '../placeholder-item';
 import { asPasswordItem, asPasswordMeasurable, calcGeometryOfPasswordItem_Attachment, calcGeometryOfPasswordItem_Cell, calcGeometryOfPasswordItem_Desktop, calcGeometryOfPasswordItem_ListItem, calcPasswordSizeForSpatialBl, clonePasswordMeasurableFields, getPasswordItemMightBeDirty, isPassword, passwordDebugSummary, passwordFromObject, passwordToObject } from '../password-item';
@@ -145,7 +145,7 @@ export function itemToObject(item: Item): object {
 export function handleClick(visualElementSignal: VisualElementSignal, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
   const item = visualElementSignal.get().displayItem;
   if (isPage(item)) { handlePageClick(visualElementSignal.get(), desktopStore, userStore); }
-  else if (isTable(item)) { }
+  else if (isTable(item)) { handleTableClick(visualElementSignal.get(), desktopStore, userStore); }
   else if (isNote(item)) { handleNoteClick(asNoteItem(item)); }
   else if (isImage(item)) { handleImageClick(visualElementSignal.get(), desktopStore); }
   else if (isFile(item)) { handleFileClick(asFileItem(item)); }

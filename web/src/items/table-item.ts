@@ -30,6 +30,12 @@ import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
+import { VisualElement, lineItemFlagSet, veidFromPath, visualElementToPath } from "../layout/visual-element";
+import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { UserStoreContextModel } from "../store/UserStoreProvider";
+import { VesCache } from "../layout/ves-cache";
+import { asPageItem, isPage } from "./page-item";
+import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
 
 
 export interface TableColumn {
@@ -191,7 +197,10 @@ export function calcGeometryOfTableItem_ListItem(_table: TableMeasurable, blockS
   };
   return {
     boundsPx,
-    hitboxes: [ createHitbox(HitboxType.Move, innerBoundsPx) ]
+    hitboxes: [
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx)
+    ]
   };
 }
 
@@ -221,6 +230,16 @@ export function asTableMeasurable(item: ItemTypeMixin): TableMeasurable {
   if (item.itemType == ITEM_TYPE_TABLE) { return item as TableMeasurable; }
   panic();
 }
+
+export function handleTableClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
+  const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
+  if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
+    arrange(desktopStore);
+    return;
+  }
+}
+
 
 export function cloneTableMeasurableFields(table: TableMeasurable): TableMeasurable {
   return ({

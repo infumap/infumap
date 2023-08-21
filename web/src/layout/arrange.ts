@@ -43,6 +43,7 @@ import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "./ves-cache";
 import { ItemGeometry } from "./item-geometry";
+import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -177,8 +178,12 @@ function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: V
 
   let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), veid.itemId);
   li.id = LIST_FOCUS_ID;
-  let widthGr = 10 * GRID_SIZE;
-  li.spatialWidthGr = widthGr;
+  if (isXSizableItem(item)) {
+    li.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
+  }
+  if (isYSizableItem(item)) {
+    li.spatialHeightGr = asYSizableItem(item).spatialHeightGr;
+  }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
   const geometry = calcGeometryOfItem_Cell(li, boundsPx);

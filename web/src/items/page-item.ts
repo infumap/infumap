@@ -303,7 +303,6 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
     arrange(desktopStore);
     return;
   }
-
   switchToPage(desktopStore, getVeid(visualElement));
 }
 
