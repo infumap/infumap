@@ -543,7 +543,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
   const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
-  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (((tableItem.flags & TableFlags.ShowHeader) == TableFlags.ShowHeader) ? COL_HEADER_HEIGHT_BL : 0);
+  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (((tableItem.flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length

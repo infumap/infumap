@@ -80,9 +80,9 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
 
   const changeShowHeader = async () => {
     if (checkElement_header!.checked) {
-      asTableItem(itemState.getItem(tableId)!).flags |= TableFlags.ShowHeader;
+      asTableItem(itemState.getItem(tableId)!).flags |= TableFlags.ShowColHeader;
     } else {
-      asTableItem(itemState.getItem(tableId)!).flags &= ~TableFlags.ShowHeader;
+      asTableItem(itemState.getItem(tableId)!).flags &= ~TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableId);
     arrange(desktopStore);
@@ -107,7 +107,7 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
         <label for="ord">order by title</label>
       </div>
       <div>
-        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={(props.tableItem.flags & TableFlags.ShowHeader) == TableFlags.ShowHeader ? true : false} onClick={changeShowHeader} />
+        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={(props.tableItem.flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader ? true : false} onClick={changeShowHeader} />
         <label for="header">show header</label>
       </div>
       <div><InfuButton text="delete" onClick={deleteTable} /></div>

@@ -21,7 +21,7 @@ import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE } from "./item";
 
 export enum TableFlags {
   None =           0x000,
-  ShowHeader =     0x001,
+  ShowColHeader =  0x001,
 }
 
 export enum NoteFlags {

@@ -563,7 +563,7 @@ const arrangeTable = (
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
   const headerHeightPx = blockSizePx.h * HEADER_HEIGHT_BL;
-  const colHeaderHeightPx = ((displayItem_Table.flags & TableFlags.ShowHeader) == TableFlags.ShowHeader) ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
+  const colHeaderHeightPx = ((displayItem_Table.flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader) ? (blockSizePx.h * COL_HEADER_HEIGHT_BL) : 0;
 
   let childAreaBoundsPx = {
     x: tableGeometry.boundsPx.x, y: tableGeometry.boundsPx.y + (headerHeightPx + colHeaderHeightPx),
