@@ -29,6 +29,7 @@ import { server } from '../server';
 import { arrange } from '../layout/arrange';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
+import { handleListLineItemClickMaybe } from './base/item-common';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -150,6 +151,8 @@ const PERSIST_AFTER_MS = 1000;
 let clickTimer: number | null = null;
 
 export function handleRatingClick(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void {
+  const visualElement = visualElementSignal.get();
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
   const item = asRatingItem(visualElementSignal.get().displayItem);
   item.rating += 1;
   if (item.rating == 6) { item.rating = 0; }

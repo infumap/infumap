@@ -21,7 +21,7 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../cons
 import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { attachmentFlagSet, detailedFlagSet } from "../../layout/visual-element";
+import { attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
 import { asPasswordItem, calcPasswordSizeForSpatialBl } from "../../items/password-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
@@ -140,6 +140,16 @@ export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: 
 
   return (
     <>
+      <Show when={selectedFlagSet(props.visualElement)}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
+        </div>
+      </Show>
+      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
+        </div>
+      </Show>
       <Show when={!attachmentFlagSet(props.visualElement)}>
         <div class="absolute text-center"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +

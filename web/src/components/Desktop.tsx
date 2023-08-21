@@ -30,7 +30,7 @@ import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps_Desktop } from "./VisualElement";
 import { VisualElement, veidFromPath } from "../layout/visual-element";
-import { arrange, switchToPage } from "../layout/arrange";
+import { ARRANGE_ALGO_LIST, arrange, switchToPage } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 import { mouseMoveState } from "../store/MouseMoveState";
@@ -92,19 +92,32 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
       ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-      if (desktopStore.currentPopupSpec() == null) {
-        return;
-      }
-      const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction)!;
-      if (closest != null) {
-        const closestVeid = veidFromPath(closest);
-        const closestItem = itemState.getItem(closestVeid.itemId);
-        desktopStore.replacePopup({
-          type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
-          vePath: closest
-        });
-        arrange(desktopStore);
+      let currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
+      if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+        if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
+          const selectedItem = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
+          const direction = findDirectionFromKeyCode(ev.code);
+          const closest = findClosest(selectedItem, direction, true)!;
+          if (closest != null) {
+            desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, closest);
+            arrange(desktopStore);
+          }
+        }
+      } else {
+        if (desktopStore.currentPopupSpec() == null) {
+          return;
+        }
+        const direction = findDirectionFromKeyCode(ev.code);
+        const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction, false)!;
+        if (closest != null) {
+          const closestVeid = veidFromPath(closest);
+          const closestItem = itemState.getItem(closestVeid.itemId);
+          desktopStore.replacePopup({
+            type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
+            vePath: closest
+          });
+          arrange(desktopStore);
+        }
       }
     }
 

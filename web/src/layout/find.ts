@@ -47,13 +47,13 @@ export function findDirectionFromKeyCode(code: string): FindDirection {
   panic();
 }
 
-export function findClosest(path: VisualElementPath, direction: FindDirection): VisualElementPath | null {
+export function findClosest(path: VisualElementPath, direction: FindDirection, allItemTypes: boolean): VisualElementPath | null {
   const currentBoundsPx = VesCache.get(path)!.get().boundsPx;
 
   const siblings = VesCache.getSiblings(path)
     .map(ves => ves.get())
     .filter(ve => (ve.flags & VisualElementFlags.Popup) != VisualElementFlags.Popup)
-    .filter(ve => isPage(ve.displayItem) || isImage(ve.displayItem));
+    .filter(ve => allItemTypes ? true : isPage(ve.displayItem) || isImage(ve.displayItem));
 
   const SLACK_PX = 2;
 

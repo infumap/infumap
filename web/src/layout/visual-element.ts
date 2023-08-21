@@ -164,7 +164,7 @@ export interface VisualElement {
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
-  displayItem: EMPTY_ITEM,
+  displayItem: EMPTY_ITEM(),
   linkItemMaybe: null,
   flags: VisualElementFlags.None,
   resizingFromBoundsPx: null,
@@ -208,7 +208,7 @@ export interface VisualElementSpec {
 
 export function createVisualElement(override: VisualElementSpec): VisualElement {
   let result: VisualElement = {
-    displayItem: EMPTY_ITEM,
+    displayItem: EMPTY_ITEM(),
     linkItemMaybe: null,
     flags: VisualElementFlags.None,
     resizingFromBoundsPx: null,

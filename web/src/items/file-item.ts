@@ -21,13 +21,16 @@ import { HitboxType, createHitbox } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_FILE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_FILE, calcBoundsInCellFromSizeBl } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
+import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { VisualElement } from '../layout/visual-element';
+import { handleListLineItemClickMaybe } from './base/item-common';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -155,7 +158,9 @@ export function asFileMeasurable(item: ItemTypeMixin): FileMeasurable {
   panic();
 }
 
-export function handleFileClick(fileItem: FileItem): void {
+export function handleFileClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  const fileItem = asFileItem(visualElement.displayItem);
   window.open('/files/' + fileItem.id, '_blank');
 }
 

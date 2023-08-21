@@ -26,6 +26,9 @@ import { ItemTypeMixin, ITEM_TYPE_PASSWORD } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
+import { VisualElement } from '../layout/visual-element';
+import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { handleListLineItemClickMaybe } from './base/item-common';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem {
@@ -184,4 +187,8 @@ export function passwordDebugSummary(passwordItem: PasswordItem) {
 
 export function getPasswordItemMightBeDirty(passwordItem: PasswordItem): string {
   return passwordItem.text;
+}
+
+export function handlePasswordClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
 }

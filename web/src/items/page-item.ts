@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCellFromSizeBl, calcBoundsInCell } from './base/item';
+import { Item, ItemTypeMixin, ITEM_TYPE_PAGE, calcBoundsInCell } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -35,6 +35,7 @@ import { VisualElement, getVeid, lineItemFlagSet, popupFlagSet, veidFromPath, vi
 import { getHitInfo } from '../mouse/hitInfo';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
+import { handleListLineItemClickMaybe } from './base/item-common';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {
@@ -297,12 +298,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
-  if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
-    arrange(desktopStore);
-    return;
-  }
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
   switchToPage(desktopStore, getVeid(visualElement));
 }
 

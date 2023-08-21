@@ -20,6 +20,7 @@ import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { selectedFlagSet } from "../../layout/visual-element";
 
 
 export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -57,10 +58,22 @@ export const Rating_LineItem: Component<VisualElementProps_LineItem> = (props: V
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
 
   return (
-    <div class={`absolute`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <div class={`fas fa-star text-gray-400 absolute`} style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
-      <div class={`fas fa-star text-yellow-400 absolute`} style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
-    </div>
+    <>
+      <Show when={selectedFlagSet(props.visualElement)}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
+        </div>
+      </Show>
+      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
+        </div>
+      </Show>
+      <div class={`absolute`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <div class={`fas fa-star text-gray-400 absolute`} style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
+        <div class={`fas fa-star text-yellow-400 absolute`} style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; text-align: center; vertical-align: bottom;`} />
+      </div>
+    </>
   );
 }

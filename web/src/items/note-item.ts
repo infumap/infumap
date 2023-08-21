@@ -22,13 +22,16 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from './base/item';
+import { ItemTypeMixin, ITEM_TYPE_NOTE, calcBoundsInCellFromSizeBl } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
 import { FlagsMixin, TableFlags } from './base/flags-item';
+import { VisualElement } from '../layout/visual-element';
+import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { handleListLineItemClickMaybe } from './base/item-common';
 
 
 // TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
@@ -186,7 +189,9 @@ export function asNoteMeasurable(item: ItemTypeMixin): NoteMeasurable {
   panic();
 }
 
-export function handleNoteClick(noteItem: NoteItem): void {
+export function handleNoteClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  const noteItem = asNoteItem(visualElement.displayItem);
   if (noteItem.url != "") {
     window.open(noteItem.url, '_blank');
   }

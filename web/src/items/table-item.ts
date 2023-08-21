@@ -23,19 +23,17 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, calcBoundsInCell, calcBoundsInCellFromSizeBl } from "./base/item";
+import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, calcBoundsInCellFromSizeBl } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
-import { VisualElement, lineItemFlagSet, veidFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
-import { VesCache } from "../layout/ves-cache";
-import { asPageItem, isPage } from "./page-item";
-import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
+import { handleListLineItemClickMaybe } from "./base/item-common";
 
 
 export interface TableColumn {
@@ -232,12 +230,8 @@ export function asTableMeasurable(item: ItemTypeMixin): TableMeasurable {
 }
 
 export function handleTableClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
-  if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
-    arrange(desktopStore);
-    return;
-  }
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  // no other behavior in table case.
 }
 
 

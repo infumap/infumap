@@ -17,10 +17,15 @@
 */
 
 import { LINE_HEIGHT_PX } from '../../constants';
+import { ARRANGE_ALGO_LIST, arrange } from '../../layout/arrange';
 import { HitboxType, createHitbox } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
+import { VesCache } from '../../layout/ves-cache';
+import { VisualElement, lineItemFlagSet, veidFromPath, visualElementToPath } from '../../layout/visual-element';
+import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
 import { BoundingBox, Dimensions } from '../../util/geometry';
 import { EMPTY_UID, Uid } from '../../util/uid';
+import { asPageItem, isPage } from '../page-item';
 
 export const ITEM_TYPE_NONE = "none";
 export const ITEM_TYPE_PAGE = "page";
@@ -49,7 +54,7 @@ export interface Item extends ItemTypeMixin {
   ordering: Uint8Array,
 }
 
-export const EMPTY_ITEM: Item = {
+export const EMPTY_ITEM = () => ({
   itemType: ITEM_TYPE_NONE,
   ownerId: EMPTY_UID,
   id: EMPTY_UID,
@@ -58,7 +63,7 @@ export const EMPTY_ITEM: Item = {
   creationDate: 0,
   lastModifiedDate: 0,
   ordering: Uint8Array.from([]),
-};
+});
 
 export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   const innerBoundsPx = {

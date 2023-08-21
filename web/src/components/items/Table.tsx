@@ -25,7 +25,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { detailedFlagSet, getVeid, lineItemFlagSet } from "../../layout/visual-element";
+import { detailedFlagSet, getVeid, lineItemFlagSet, selectedFlagSet } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
 
 
@@ -271,6 +271,16 @@ export const Table_LineItem: Component<VisualElementProps_LineItem> = (props: Vi
 
   return (
     <>
+      <Show when={selectedFlagSet(props.visualElement)}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
+        </div>
+      </Show>
+      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
+        </div>
+      </Show>
       <div class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

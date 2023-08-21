@@ -31,6 +31,7 @@ import { VisualElement, VisualElementFlags, popupFlagSet, visualElementToPath } 
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { arrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
+import { handleListLineItemClickMaybe } from "./base/item-common";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -171,6 +172,7 @@ export function calcGeometryOfImageItem_Cell(image: ImageMeasurable, cellBoundsP
 }
 
 export function handleImageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
+  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
   if ((visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup) {
     window.open('/files/' + visualElement.displayItem.id, '_blank');
   } else if (popupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {

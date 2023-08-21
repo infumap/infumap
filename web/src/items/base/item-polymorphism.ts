@@ -32,7 +32,7 @@ import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingItem_Attachment, 
 import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject, tableDebugSummary, getTableItemMightBeDirty, handleTableClick } from '../table-item';
 import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItem_ListItem } from './item';
 import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_ListItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject, placeholderDebugSummary, getPlaceholderItemMightBeDirty } from '../placeholder-item';
-import { asPasswordItem, asPasswordMeasurable, calcGeometryOfPasswordItem_Attachment, calcGeometryOfPasswordItem_Cell, calcGeometryOfPasswordItem_Desktop, calcGeometryOfPasswordItem_ListItem, calcPasswordSizeForSpatialBl, clonePasswordMeasurableFields, getPasswordItemMightBeDirty, isPassword, passwordDebugSummary, passwordFromObject, passwordToObject } from '../password-item';
+import { asPasswordItem, asPasswordMeasurable, calcGeometryOfPasswordItem_Attachment, calcGeometryOfPasswordItem_Cell, calcGeometryOfPasswordItem_Desktop, calcGeometryOfPasswordItem_ListItem, calcPasswordSizeForSpatialBl, clonePasswordMeasurableFields, getPasswordItemMightBeDirty, handlePasswordClick, isPassword, passwordDebugSummary, passwordFromObject, passwordToObject } from '../password-item';
 
 
 // Poor man's polymorphism
@@ -77,7 +77,7 @@ export function calcGeometryOfItem_Attachment(measurable: Measurable, parentBoun
 }
 
 export function calcGeometryOfItem_ListItem(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
-  if (measurable == EMPTY_ITEM) { return calcGeometryOfEmptyItem_ListItem(measurable, blockSizePx, row, col, widthBl); }
+  if (measurable == EMPTY_ITEM()) { return calcGeometryOfEmptyItem_ListItem(measurable, blockSizePx, row, col, widthBl); }
   if (isPage(measurable)) { return calcGeometryOfPageItem_ListItem(asPageMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isTable(measurable)) { return calcGeometryOfTableItem_ListItem(asTableMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem_ListItem(asNoteMeasurable(measurable), blockSizePx, row, col, widthBl); }
@@ -146,10 +146,10 @@ export function handleClick(visualElementSignal: VisualElementSignal, desktopSto
   const item = visualElementSignal.get().displayItem;
   if (isPage(item)) { handlePageClick(visualElementSignal.get(), desktopStore, userStore); }
   else if (isTable(item)) { handleTableClick(visualElementSignal.get(), desktopStore, userStore); }
-  else if (isNote(item)) { handleNoteClick(asNoteItem(item)); }
+  else if (isNote(item)) { handleNoteClick(visualElementSignal.get(), desktopStore); }
   else if (isImage(item)) { handleImageClick(visualElementSignal.get(), desktopStore); }
-  else if (isFile(item)) { handleFileClick(asFileItem(item)); }
-  else if (isPassword(item)) { }
+  else if (isFile(item)) { handleFileClick(visualElementSignal.get(), desktopStore); }
+  else if (isPassword(item)) { handlePasswordClick(visualElementSignal.get(), desktopStore); }
   else if (isRating(item)) { handleRatingClick(desktopStore, visualElementSignal); }
   else if (isLink(item)) { }
   else if (isPlaceholder(item)) { panic(); }

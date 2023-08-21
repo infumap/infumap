@@ -16,9 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
+import { selectedFlagSet } from "../../layout/visual-element";
 
 
 export const LinkDefault_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -44,9 +45,21 @@ export const LinkDefault_LineItem: Component<VisualElementProps_LineItem> = (pro
   };
 
   return (
-    <div class={`absolute rounded-sm border border-slate-200`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);"}>
-    </div>
+    <>
+      <Show when={selectedFlagSet(props.visualElement)}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
+        </div>
+      </Show>
+      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
+        </div>
+      </Show>
+      <div class={`absolute rounded-sm border border-slate-200`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);"}>
+      </div>
+    </>
   );
 }

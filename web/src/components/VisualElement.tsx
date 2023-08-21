@@ -83,7 +83,7 @@ export const VisualElement_LineItem: Component<VisualElementProps_LineItem> = (p
       <Match when={isPassword(props.visualElement.displayItem)}><PasswordLineItem {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_LineItem {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_LineItem {...props} /></Match>
-      <Match when={props.visualElement.displayItem == EMPTY_ITEM}><></></Match> {/* generated only for the hitboxes. */}
+      <Match when={props.visualElement.displayItem == EMPTY_ITEM()}><></></Match> {/* generated only for the hitboxes. */}
     </Switch>
   );
 }
