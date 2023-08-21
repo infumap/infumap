@@ -108,7 +108,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   return (
     <>
       <Show when={!detailedFlagSet(props.visualElement)}>
-        <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+        <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; `}>
         </div>
       </Show>
@@ -121,7 +121,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
                       `overflow-wrap: break-word;`}>
             {tableItem().title}
           </div>
-          <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+          <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`}>
           </div>
           <Show when={showHeader()}>

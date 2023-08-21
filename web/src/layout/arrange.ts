@@ -183,7 +183,7 @@ function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: V
 
   const geometry = calcGeometryOfItem_Cell(li, boundsPx);
 
-  return arrangeItem(desktopStore, currentPath, item, geometry, true, false, true);
+  return arrangeItem(desktopStore, currentPath, li, geometry, true, false, true);
 }
 
 

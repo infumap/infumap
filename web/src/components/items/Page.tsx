@@ -266,7 +266,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   }
 
   const fullBgColorVal = () => {
-    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.12)}; `;
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.05)}; `;
   }
 
   const drawAsFull = () => {

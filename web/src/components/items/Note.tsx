@@ -56,7 +56,7 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         return 'absolute border border-transparent rounded-sm font-bold';
       }
     }
-    return 'absolute border border-slate-700 rounded-sm shadow-lg';
+    return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
   };
   const shiftTextLeft = () =>
     (noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading && !props.visualElement.mouseIsOver.get();
