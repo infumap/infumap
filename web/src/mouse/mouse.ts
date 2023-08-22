@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, PopupType, findVisualElements } from "../stor
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeid, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementSignalFromPath, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath, getVeid, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementToPath } from "../layout/visual-element";
 import { arrange, switchToPage } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -268,7 +268,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   const deltaPx = vectorSubtract(desktopPosPx, mouseActionState.startPx!);
 
-  const activeVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState.activeElement).get();
+  const activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
     ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
     : itemState.getItem(activeVisualElement.displayItem.id)!);
@@ -298,7 +298,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
         mouseActionState.startHeightBl = null;
         if (popupFlagSet(activeVisualElement)) {
           mouseActionState.action = MouseAction.MovingPopup;
-          const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get().displayItem;
+          const activeRoot = VesCache.get(mouseActionState.activeRoot)!.get().displayItem;
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
           mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
         } else {
@@ -373,7 +373,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     newWidthBl = Math.round(newWidthBl * 2.0) / 2.0;
     if (newWidthBl < 5) { newWidthBl = 5.0; }
 
-    const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
+    const activeRoot = VesCache.get(mouseActionState.activeRoot)!.get();
     asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthBl * GRID_SIZE;
 
     arrange(desktopStore);
@@ -407,7 +407,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       x: (mouseActionState.startPosBl!.x + deltaBl.x) * GRID_SIZE,
       y: (mouseActionState.startPosBl!.y + deltaBl.y) * GRID_SIZE
     };
-    const activeRoot = visualElementSignalFromPath(desktopStore, mouseActionState.activeRoot).get();
+    const activeRoot = VesCache.get(mouseActionState.activeRoot)!.get();
     asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
 
     arrange(desktopStore);
@@ -421,7 +421,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (mouseActionState.moveOver_containerElement == null ||
         mouseActionState.moveOver_containerElement! != visualElementToPath(hitInfo.overContainerVe!)) {
       if (mouseActionState.moveOver_containerElement != null) {
-        visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_containerElement).get().movingItemIsOver.set(false);
+        VesCache.get(mouseActionState.moveOver_containerElement)!.get().movingItemIsOver.set(false);
       }
       hitInfo.overContainerVe!.movingItemIsOver.set(true);
       mouseActionState.moveOver_containerElement = visualElementToPath(hitInfo.overContainerVe!);
@@ -429,7 +429,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
     // update move over attach state.
     if (mouseActionState!.moveOver_attachHitboxElement != null) {
-      visualElementSignalFromPath(desktopStore, mouseActionState!.moveOver_attachHitboxElement).get().movingItemIsOverAttach.set(false);
+      VesCache.get(mouseActionState!.moveOver_attachHitboxElement)!.get().movingItemIsOverAttach.set(false);
     }
     if (hitInfo.hitboxType & HitboxType.Attach) {
       hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
@@ -438,7 +438,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       mouseActionState!.moveOver_attachHitboxElement = null;
     }
 
-    if (visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_scaleDefiningElement!).get().displayItem != hitInfo.overPositionableVe!.displayItem) {
+    if (VesCache.get(mouseActionState.moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
       moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child);
     }
 
@@ -454,7 +454,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     let newPosBl = vectorAdd(mouseActionState.startPosBl!, deltaBl);
     newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
     newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
-    const inElement = visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_scaleDefiningElement!).get().displayItem;
+    const inElement = VesCache.get(mouseActionState.moveOver_scaleDefiningElement!)!.get().displayItem;
     const dimBl = calcPageInnerSpatialDimensionsBl(asPageItem(inElement));
     if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
     if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
@@ -560,7 +560,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 }
 
 export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string) {
-  const activeElement = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get();
+  const activeElement = VesCache.get(mouseActionState!.activeElement!)!.get();
   const activeItem = asPositionalItem(activeElement.linkItemMaybe != null ? activeElement.linkItemMaybe! : activeElement.displayItem);
   const activeElementLinkItemMaybeId = activeElement.linkItemMaybe == null ? null : activeElement.linkItemMaybe.id;
   const activeElementItemId = activeElement.displayItem.id;
@@ -612,7 +612,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   findVisualElements(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
     if (ve.get().parentPath == moveToPath) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
-      let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
+      let boundsPx = VesCache.get(mouseActionState!.activeElement)!.get().boundsPx;
       mouseActionState!.onePxSizeBl = {
         x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
         y: calcSizeForSpatialBl(activeItem).h / boundsPx.h
@@ -635,7 +635,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 }
 
 export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
-  const activeVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement!).get();
+  const activeVisualElement = VesCache.get(mouseActionState!.activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.displayItem);
   const tableItem = asTableItem(tableVisualElement.displayItem);
@@ -673,7 +673,7 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel)
   findVisualElements(desktopStore, activeVisualElement.displayItem.id, activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id).forEach(ve => {
     if (ve.get().parentPath == tableParentVisualPathString) {
       mouseActionState!.activeElement = visualElementToPath(ve.get());
-      let boundsPx = visualElementSignalFromPath(desktopStore, mouseActionState!.activeElement).get().boundsPx;
+      let boundsPx = VesCache.get(mouseActionState!.activeElement)!.get().boundsPx;
       mouseActionState!.onePxSizeBl = {
         x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
         y: calcSizeForSpatialBl(activeItem).h / boundsPx.h
@@ -696,7 +696,7 @@ export function mouseUpHandler(
 
   if (mouseActionState == null) { return; }
 
-  const activeVisualElementSignal = visualElementSignalFromPath(desktopStore, mouseActionState.activeElement);
+  const activeVisualElementSignal = VesCache.get(mouseActionState.activeElement)!;
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.displayItem);
 
@@ -766,7 +766,7 @@ function mouseUpHandler_moving(
   if (mouseActionState == null) { return; } // make typsecript happy
 
   if (mouseActionState.moveOver_containerElement != null) {
-    visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_containerElement).get()
+    VesCache.get(mouseActionState.moveOver_containerElement)!.get()
       .movingItemIsOver.set(false);
   }
 
@@ -776,7 +776,7 @@ function mouseUpHandler_moving(
     return;
   }
 
-  const overContainerVe = visualElementSignalFromPath(desktopStore, mouseActionState.moveOver_containerElement!).get();
+  const overContainerVe = VesCache.get(mouseActionState.moveOver_containerElement!)!.get();
 
   if (isTable(overContainerVe.displayItem)) {
     mouseUpHandler_moving_toTable(desktopStore, activeItem, overContainerVe);
@@ -830,7 +830,7 @@ function cleanupAndPersistPlaceholders() {
 function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
   const prevParentId = activeItem.parentId;
 
-  const attachToVisualElement = visualElementSignalFromPath(desktopStore, mouseActionState!.moveOver_attachHitboxElement!).get();
+  const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachHitboxElement!)!.get();
   const attachmentsItem = asAttachmentsItem(attachToVisualElement.displayItem);
   attachToVisualElement.movingItemIsOverAttach.set(false);
   mouseActionState!.moveOver_attachHitboxElement = null;

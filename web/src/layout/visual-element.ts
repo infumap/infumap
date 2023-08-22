@@ -315,41 +315,41 @@ export function visualElementToPath(visualElement: VisualElement): VisualElement
 }
 
 
-// TODO (HIGH): can just use VesCache directly instead now.
-export function visualElementSignalFromPath(
-    desktopStore: DesktopStoreContextModel,
-    pathString: VisualElementPath): VisualElementSignal {
-  const parts = pathString.split("-");
-  let ves = desktopStore.topLevelVisualElementSignal();
-  let { itemId } = getIdsFromPathPart(parts[parts.length-1]);
-  if (ves.get().displayItem.id != itemId) { panic(); }
+// // TODO (HIGH): can just use VesCache directly instead now.
+// export function visualElementSignalFromPath(
+//     desktopStore: DesktopStoreContextModel,
+//     pathString: VisualElementPath): VisualElementSignal {
+//   const parts = pathString.split("-");
+//   let ves = desktopStore.topLevelVisualElementSignal();
+//   let { itemId } = getIdsFromPathPart(parts[parts.length-1]);
+//   if (ves.get().displayItem.id != itemId) { panic(); }
 
-  for (let i=parts.length-2; i>=0; --i) {
-    let ve = ves.get();
-    let { itemId, linkIdMaybe: linkId } = getIdsFromPathPart(parts[i]);
-    let done: boolean = false;
-    for (let j=0; j<ve.children.length && !done; ++j) {
-      if (ve.children[j].get().displayItem.id == itemId &&
-          (ve.children[j].get().linkItemMaybe == null ? null : ve.children[j].get().linkItemMaybe!.id) == linkId) {
-        ves = ve.children[j];
-        done = true;
-      }
-    }
-    for (let j=0; j<ve.attachments.length && !done; ++j) {
-      if (ve.attachments[j].get().displayItem.id == itemId &&
-          (ve.attachments[j].get().linkItemMaybe == null ? null : ve.attachments[j].get().linkItemMaybe!.id) == linkId) {
-        ves = ve.attachments[j];
-        done = true;
-      }
-    }
-    if (!done) {
-      console.error("invalid path string", pathString);
-      panic!();
-    }
-  }
+//   for (let i=parts.length-2; i>=0; --i) {
+//     let ve = ves.get();
+//     let { itemId, linkIdMaybe: linkId } = getIdsFromPathPart(parts[i]);
+//     let done: boolean = false;
+//     for (let j=0; j<ve.children.length && !done; ++j) {
+//       if (ve.children[j].get().displayItem.id == itemId &&
+//           (ve.children[j].get().linkItemMaybe == null ? null : ve.children[j].get().linkItemMaybe!.id) == linkId) {
+//         ves = ve.children[j];
+//         done = true;
+//       }
+//     }
+//     for (let j=0; j<ve.attachments.length && !done; ++j) {
+//       if (ve.attachments[j].get().displayItem.id == itemId &&
+//           (ve.attachments[j].get().linkItemMaybe == null ? null : ve.attachments[j].get().linkItemMaybe!.id) == linkId) {
+//         ves = ve.attachments[j];
+//         done = true;
+//       }
+//     }
+//     if (!done) {
+//       console.error("invalid path string", pathString);
+//       panic!();
+//     }
+//   }
 
-  return ves;
-}
+//   return ves;
+// }
 
 
 export function veidFromPath(path: VisualElementPath): Veid {
