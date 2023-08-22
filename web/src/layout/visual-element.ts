@@ -20,12 +20,13 @@ import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../util/geometry"
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
-import { LinkItem } from "../items/link-item";
+import { LinkItem, asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
+import { itemState } from "../store/ItemState";
 
 
 /**
@@ -256,6 +257,7 @@ export function createVisualElement(override: VisualElementSpec): VisualElement 
   return result;
 }
 
+
 export function getVeid(visualElement: VisualElement): Veid {
   return ({
     itemId: visualElement.displayItem.id,
@@ -276,15 +278,28 @@ export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualEl
   return current;
 }
 
+
 export function parentPath(path: VisualElementPath): VisualElementPath {
   const pos = path.indexOf("-");
   if (pos == -1) { return ""; }
   return path.substring(pos + 1);
 }
 
+
+export function veidFromId(id: Uid): Veid {
+  let item = itemState.getItem(id)!;
+  if (isLink(item)) {
+    const linkItem = asLinkItem(item);
+    const linkToId = getLinkToId(linkItem);
+    return ({ itemId: linkToId, linkIdMaybe: linkItem.id });
+  }
+  return ({ itemId: id, linkIdMaybe: null });
+}
+
+
 /**
  * Create a string representing the hierarchical path of the visual element from the top level page.
- * The veid of the visual element is at the beginninf of the string, that of the top level page at the end.
+ * The veid of the visual element is at the beginning of the string, that of the top level page at the end.
  */
 export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
   let current = visualElement.displayItem.id;
@@ -336,11 +351,13 @@ export function visualElementSignalFromPath(
   return ves;
 }
 
+
 export function veidFromPath(path: VisualElementPath): Veid {
   if (path == "") { return EMPTY_VEID; }
   const parts = path.split("-");
   return getIdsFromPathPart(parts[0]);
 }
+
 
 export function itemIdFromPath(path: VisualElementPath): Uid {
   if (path == "") { return EMPTY_UID; }
@@ -349,11 +366,13 @@ export function itemIdFromPath(path: VisualElementPath): Uid {
   return itemId;
 }
 
+
 export function compareVeids(a: Veid, b: Veid) {
   if (a.itemId != b.itemId) { return 1; }
   if (a.linkIdMaybe != b.linkIdMaybe) { return 1; }
   return 0;
 }
+
 
 function getIdsFromPathPart(part: string): Veid {
   let itemId = part;

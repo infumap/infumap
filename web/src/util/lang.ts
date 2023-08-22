@@ -17,6 +17,7 @@
 */
 
 export function panic(): never {
+  console.trace();
   throw new Error("logic error");
 }
 

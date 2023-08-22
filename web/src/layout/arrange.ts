@@ -26,7 +26,7 @@ import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
+import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID, veidFromId } from "./visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -73,6 +73,19 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
     desktopStore.setPageScrollYPx(veid, 0);
     arrange(desktopStore);
   });
+
+  const currentPage = asPageItem(itemState.getItem(veid.itemId)!);
+  if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    if (desktopStore.getSelectedListPageItem(veid) == "") {
+      if (currentPage.computed_children.length > 0) {
+        const firstItemId = currentPage.computed_children[0];
+        const veid = veidFromId(firstItemId);
+        const path = prependVeidToPath(veid, currentPage.id);
+        desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, path);
+      }
+    }
+  }
+
   updateHref(desktopStore);
 }
 

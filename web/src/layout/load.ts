@@ -62,6 +62,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
 export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, itemId: string) => {
+  console.log("initiate load item:", itemId);
   if (itemLoadInitiatedOrComplete[itemId]) {
     return;
   }
