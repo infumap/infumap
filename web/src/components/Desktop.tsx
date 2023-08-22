@@ -65,20 +65,24 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
     else if (ev.code == "Backslash") {
       ev.preventDefault();
-      let poppedUp = desktopStore.currentPopupSpec();
-      if (hitInfo.overElementVes.get().linkItemMaybe != null &&
-          // page popups are in temporary link items, avoid trying to edit this.
-          (poppedUp == null || hitInfo.overElementVes.get().displayItem.id != veidFromPath(poppedUp!.vePath).itemId)) {
-        desktopStore.setEditDialogInfo({
-          desktopBoundsPx: initialEditDialogBounds(desktopStore),
-          item: hitInfo.overElementVes.get().linkItemMaybe!
-        });
-      } else {
-        desktopStore.setEditDialogInfo({
-          desktopBoundsPx: initialEditDialogBounds(desktopStore),
-          item: hitInfo.overElementVes.get().displayItem
-        });
-      }
+      desktopStore.setEditDialogInfo({
+        desktopBoundsPx: initialEditDialogBounds(desktopStore),
+        item: (() => {
+          const overVe = hitInfo.overElementVes.get();
+          if (overVe.linkItemMaybe != null) {
+            const poppedUp = desktopStore.currentPopupSpec();
+            if (poppedUp && overVe.displayItem.id == veidFromPath(poppedUp!.vePath).itemId) {
+              return overVe.displayItem;
+            }
+            const selected = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
+            if (selected && overVe.displayItem.id == veidFromPath(selected).itemId) {
+              return overVe.displayItem;
+            }
+            return overVe.linkItemMaybe!;
+          }
+          return overVe.displayItem;
+        })()
+      });
       mouseMoveNoButtonDownHandler(desktopStore);
     }
 
@@ -102,7 +106,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
             desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, closest);
             arrange(desktopStore);
           }
-        }
+        }3
       } else {
         if (desktopStore.currentPopupSpec() == null) {
           return;
