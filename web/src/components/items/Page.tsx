@@ -144,7 +144,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       <>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
-                    `${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}>
+                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}>
           <div class="absolute"
               style={`left: ${0}px; top: ${0}px; ` +
                       `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
@@ -257,19 +257,27 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.05)}; `;
   }
 
+  const lineVes = () => props.visualElement.children.filter(c => lineItemFlagSet(c.get()));
+  const desktopVes = () => props.visualElement.children.filter(c => !lineItemFlagSet(c.get()));
+
   const drawAsFull = () => {
     return (
       <div class={`absolute ${rootFlagSet(props.visualElement) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${rootFlagSet(props.visualElement) ? fullBgColorVal() : "#ffffff"}`}>
-        <For each={props.visualElement.children}>{childVe =>
-          lineItemFlagSet(childVe.get())
-            ? <VisualElement_LineItem visualElement={childVe.get()} />
-            : <VisualElement_Desktop visualElement={childVe.get()} />
-        }</For>
+        <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
+          <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+            <For each={lineVes()}>{childVe =>
+              <VisualElement_LineItem visualElement={childVe.get()} />
+            }</For>
+          </div>
+        </div>
         <Show when={asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ARRANGE_ALGO_LIST}>
           <div class={`absolute bg-slate-700`}
                style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}></div>
         </Show>
+        <For each={desktopVes()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
       </div>
     );
   }
