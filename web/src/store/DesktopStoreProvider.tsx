@@ -48,11 +48,11 @@ export interface DesktopStoreContextModel {
   getSelectedListPageItem: (veid: Veid) => VisualElementPath,
   setSelectedListPageItem: (veid: Veid, path: VisualElementPath) => void,
 
-  getPageScrollXPx: (veid: Veid) => number,
-  setPageScrollXPx: (veid: Veid, path: number) => void,
+  getPageScrollXProp: (veid: Veid) => number,
+  setPageScrollXProp: (veid: Veid, path: number) => void,
 
-  getPageScrollYPx: (veid: Veid) => number,
-  setPageScrollYPx: (veid: Veid, path: number) => void,
+  getPageScrollYProp: (veid: Veid) => number,
+  setPageScrollYProp: (veid: Veid, path: number) => void,
 
   clearBreadcrumbs: () => void,
   pushPage: (veid: Veid) => void,
@@ -137,7 +137,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     tableScrollPositions.get(key)!.set(pos);
   };
 
-  const getPageScrollXPx = (veid: Veid): number => {
+  const getPageScrollXProp = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollXPxs.get(key)) {
       pageScrollXPxs.set(key, createNumberSignal(0.0));
@@ -145,7 +145,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return pageScrollXPxs.get(key)!.get();
   };
 
-  const setPageScrollXPx = (veid: Veid, px: number): void => {
+  const setPageScrollXProp = (veid: Veid, px: number): void => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollXPxs.get(key)) {
       pageScrollXPxs.set(key, createNumberSignal(px));
@@ -154,7 +154,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     pageScrollXPxs.get(key)!.set(px);
   };
 
-  const getPageScrollYPx = (veid: Veid): number => {
+  const getPageScrollYProp = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollYPxs.get(key)) {
       pageScrollYPxs.set(key, createNumberSignal(0.0));
@@ -162,7 +162,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return pageScrollYPxs.get(key)!.get();
   };
 
-  const setPageScrollYPx = (veid: Veid, px: number): void => {
+  const setPageScrollYProp = (veid: Veid, px: number): void => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollYPxs.get(key)) {
       pageScrollYPxs.set(key, createNumberSignal(px));
@@ -280,8 +280,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     contextMenuInfo, setContextMenuInfo,
     getTableScrollYPos, setTableScrollYPos,
     getSelectedListPageItem, setSelectedListPageItem,
-    getPageScrollXPx, setPageScrollXPx,
-    getPageScrollYPx, setPageScrollYPx,
+    getPageScrollXProp, setPageScrollXProp,
+    getPageScrollYProp, setPageScrollYProp,
     currentVisiblePassword, setCurrentVisiblePassword,
 
     clearBreadcrumbs,

@@ -76,7 +76,13 @@ export function getHitInfo(
   }
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
-  const posRelativeToTopLevelVisualElementPx = vectorAdd(posOnDesktopPx, { x: desktopStore.getPageScrollXPx(getVeid(topLevelVisualElement)), y: desktopStore.getPageScrollYPx(getVeid(topLevelVisualElement)) });
+  const topLevelBoundsPx = topLevelVisualElement.boundsPx;
+  const desktopSizePx = desktopStore.desktopBoundsPx();
+  const posRelativeToTopLevelVisualElementPx = vectorAdd(
+    posOnDesktopPx, {
+      x: desktopStore.getPageScrollXProp(getVeid(topLevelVisualElement)) * (topLevelBoundsPx.w - desktopSizePx.w),
+      y: desktopStore.getPageScrollYProp(getVeid(topLevelVisualElement)) * (topLevelBoundsPx.h - desktopSizePx.h)
+    });
 
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
   let rootVisualElement = topLevelVisualElement;

@@ -205,8 +205,18 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
-    desktopStore.setPageScrollXPx(desktopStore.currentPage()!, desktopDiv!.scrollLeft);
-    desktopStore.setPageScrollYPx(desktopStore.currentPage()!, desktopDiv!.scrollTop);
+    const pageBoundsPx = desktopStore.topLevelVisualElementSignal().get().boundsPx;
+    const desktopSizePx = desktopStore.desktopBoundsPx();
+
+    if (desktopSizePx.w < pageBoundsPx.w) {
+      const scrollXProp = desktopDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
+      desktopStore.setPageScrollXProp(desktopStore.currentPage()!, scrollXProp);
+    }
+
+    if (desktopSizePx.h < pageBoundsPx.h) {
+      const scrollYProp = desktopDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
+      desktopStore.setPageScrollYProp(desktopStore.currentPage()!, scrollYProp);
+    }
   }
 
   function overflowPolicy(topLevelVisualElement: VisualElement) {
