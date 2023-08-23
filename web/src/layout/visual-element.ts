@@ -61,16 +61,16 @@ export const EMPTY_VEID: Veid = {
 };
 
 export enum VisualElementFlags {
-  None                 = 0x000,
-  Selected             = 0x001, // The item is selected.
-  LineItem             = 0x002, // Render as a line item (like in a table), not deskop item.
-  Detailed             = 0x004, // The visual element has detail / can be interacted with.
-  Popup                = 0x008, // The visual element is a popped up page or image.
-  Root                 = 0x010, // Render as a root level page (popup, list page, top level page).
-  InsideTable          = 0x020, // The visual element is inside a table.
-  Attachment           = 0x040, // The visual element is an attachment.
-  DragOverPositioning  = 0x080, // An item dragged over the container is positioned according to the mouse position (thus visual element is also always a page).
-  Fixed                = 0x100, // positioning is fixed, not absolute.
+  None                 = 0x0000,
+  Selected             = 0x0001, // The item is selected.
+  LineItem             = 0x0002, // Render as a line item (like in a table), not deskop item.
+  Detailed             = 0x0004, // The visual element has detail / can be interacted with.
+  Popup                = 0x0008, // The visual element is a popped up page or image.
+  Root                 = 0x0010, // Render as a root level page (popup, list page, top level page).
+  InsideTable          = 0x0020, // The visual element is inside a table.
+  Attachment           = 0x0040, // The visual element is an attachment.
+  ShowChildren         = 0x0080, // Children are visible and an item dragged over the container is positioned according to the mouse position (visual element is also always a page).
+  Fixed                = 0x0100, // positioning is fixed, not absolute.
 }
 
 export function selectedFlagSet(ve: VisualElement): boolean {
@@ -101,8 +101,8 @@ export function attachmentFlagSet(ve: VisualElement): boolean {
   return (ve.flags & VisualElementFlags.Attachment) == VisualElementFlags.Attachment;
 }
 
-export function dragOverPositioningFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.DragOverPositioning) == VisualElementFlags.DragOverPositioning;
+export function showChildrenFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.ShowChildren) == VisualElementFlags.ShowChildren;
 }
 
 export function fixedFlagSet(ve: VisualElement): boolean {

@@ -138,7 +138,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     mightBeDirty: getMightBeDirty(currentPage),
-    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
   };
@@ -201,7 +201,7 @@ function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: V
 
   const geometry = calcGeometryOfItem_Cell(li, boundsPx);
 
-  return arrangeItem(desktopStore, currentPath, li, geometry, true, false, true);
+  return arrangeItem(desktopStore, currentPath, ARRANGE_ALGO_LIST, li, geometry, true, false, true);
 }
 
 
@@ -232,7 +232,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
     mightBeDirty: getMightBeDirty(pageItem),
-    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: pageBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
   };
@@ -303,7 +303,7 @@ const arrangeItem_Desktop = (
   const parentPageInnerDimensionsBl = calcPageInnerSpatialDimensionsBl(parentPage);
   const itemGeometry = calcGeometryOfItem_Desktop(
     linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
-  return arrangeItem(desktopStore, parentPath, item, itemGeometry, renderChildrenAsFull, isPopup, false);
+  return arrangeItem(desktopStore, parentPath, ARRANGE_ALGO_SPATIAL_STRETCH, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }
 
 
@@ -333,7 +333,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     mightBeDirty: getMightBeDirty(currentPage),
-    flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
   };
@@ -351,7 +351,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
 
     const geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
-    const ves = arrangeItem(desktopStore, currentPath, item, geometry, true, false, false);
+    const ves = arrangeItem(desktopStore, currentPath, ARRANGE_ALGO_GRID, item, geometry, true, false, false);
     children.push(ves);
   }
 
@@ -368,7 +368,6 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     }
   }
 
-
   topLevelVisualElementSpec.children = children;
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
@@ -381,6 +380,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
     parentPath: VisualElementPath,
+    parentArrangeAlgorithm: string,
     item: Item,
     itemGeometry: ItemGeometry,
     renderChildrenAsFull: boolean,
@@ -390,9 +390,13 @@ const arrangeItem = (
 
   const [displayItem, linkItemMaybe, spatialWidthGr] = getVeItems(desktopStore, item);
 
-  if (isPage(displayItem) &&
-      // This test does not depend on pixel size, so is invariant over display devices.
-      spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL) {
+  if (renderChildrenAsFull &&
+      (isPage(displayItem) &&
+       (parentArrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH
+          ? // This test does not depend on pixel size, so is invariant over display devices.
+            (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
+          : // However, this test does.
+            itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL))) {
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangePageWithChildren(
       desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot);
@@ -471,7 +475,7 @@ const arrangePageWithChildren = (
       displayItem: displayItem_pageWithChildren,
       mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
       linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
+      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
@@ -522,7 +526,7 @@ const arrangePageWithChildren = (
       displayItem: displayItem_pageWithChildren,
       mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
       linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.DragOverPositioning |
+      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
@@ -820,7 +824,7 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(desktopStore, currentPath, li, geometry, true, true, true);
+      ves = arrangeItem(desktopStore, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true);
       let newV = ves.get();
       newV.flags |= (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(newV);
