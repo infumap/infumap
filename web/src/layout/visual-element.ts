@@ -124,6 +124,9 @@ export interface VisualElement {
    */
   linkItemMaybe: LinkItem | null,
 
+  /**
+   * Various flags that indicate how the visual element should be rendered.
+   */
   flags: VisualElementFlags,
 
   // If set, the element is currently being resized, and these were the original bounds.

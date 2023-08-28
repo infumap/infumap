@@ -26,7 +26,7 @@ import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID, veidFromId } from "./visual-element";
+import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID, veidFromId, getVeid } from "./visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -60,19 +60,8 @@ const LIST_FOCUS_ID = newUid();
 
 
 export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
-  batch(() => {
-    desktopStore.pushPage(veid);
-    // TODO (HIGH): get rid of this horrible hack!
-    let desktopEl = window.document.getElementById("desktop")!;
-    if (desktopEl) {
-      desktopEl.scrollTop = 0;
-      desktopEl.scrollLeft = 0;
-    }
-    // TODO (MEDIUM): retain these.
-    desktopStore.setPageScrollXProp(veid, 0);
-    desktopStore.setPageScrollYProp(veid, 0);
-    arrange(desktopStore);
-  });
+  desktopStore.pushPage(veid);
+  arrange(desktopStore);
 
   const currentPage = asPageItem(itemState.getItem(veid.itemId)!);
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
@@ -84,6 +73,20 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
         desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, path);
       }
     }
+  }
+
+  let desktopEl = window.document.getElementById("desktop")!;
+
+  const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
+  const topLevelBoundsPx = topLevelVisualElement.boundsPx;
+  const desktopSizePx = desktopStore.desktopBoundsPx();
+
+  const scrollXPx = desktopStore.getPageScrollXProp(desktopStore.currentPage()!) * (topLevelBoundsPx.w - desktopSizePx.w);
+  const scrollYPx = desktopStore.getPageScrollYProp(desktopStore.currentPage()!) * (topLevelBoundsPx.h - desktopSizePx.h)
+
+  if (desktopEl) {
+    desktopEl.scrollTop = scrollYPx;
+    desktopEl.scrollLeft = scrollXPx;
   }
 
   updateHref(desktopStore);

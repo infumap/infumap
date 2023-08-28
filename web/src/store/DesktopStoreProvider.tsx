@@ -140,7 +140,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const getPageScrollXProp = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollXPxs.get(key)) {
-      pageScrollXPxs.set(key, createNumberSignal(0.0));
+      return 0.0;
     }
     return pageScrollXPxs.get(key)!.get();
   };
@@ -157,7 +157,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const getPageScrollYProp = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollYPxs.get(key)) {
-      pageScrollYPxs.set(key, createNumberSignal(0.0));
+      return 0.0;
     }
     return pageScrollYPxs.get(key)!.get();
   };

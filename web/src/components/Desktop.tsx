@@ -205,6 +205,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const scrollHandler = (_ev: Event) => {
     if (!desktopDiv) { return; }
+
     const pageBoundsPx = desktopStore.topLevelVisualElementSignal().get().boundsPx;
     const desktopSizePx = desktopStore.desktopBoundsPx();
 

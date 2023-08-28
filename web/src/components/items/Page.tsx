@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, Show } from "solid-js";
+import { Component, createEffect, createMemo, For, onMount, Show } from "solid-js";
 import { asPageItem, popupPositioningHasChanged } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
@@ -29,12 +29,27 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
-import { detailedFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, showChildrenFlagSet, VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
+import { detailedFlagSet, getVeid, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, showChildrenFlagSet, veidFromPath, VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
 
 export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
   const desktopStore = useDesktopStore();
+
+  onMount(() => {
+    if (popupFlagSet(props.visualElement)) {
+      // If the popup is from clicking on a link item, the veid of the popup visual element will not reflect
+      // that item since the link id will be the constant one used for popups. Therefore, get the veid directly
+      // from the desktop store.
+      const popupVeid = veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+
+      const scrollXPx = desktopStore.getPageScrollXProp(popupVeid) * (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
+      const scrollYPx = desktopStore.getPageScrollYProp(popupVeid) * (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+
+      popupDiv!.scrollTop = scrollYPx;
+      popupDiv!.scrollLeft = scrollXPx;
+    }
+  });
 
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const parentPage = () => {
@@ -60,12 +75,6 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
     }
-  };
-  const spatialWidthGr = () => {
-    if (props.visualElement.linkItemMaybe != null) {
-      return props.visualElement.linkItemMaybe.spatialWidthGr;
-    }
-    return pageItem().spatialWidthGr;
   };
   const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
@@ -137,14 +146,59 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     );
   }
 
+  let translucentDiv: HTMLDivElement | undefined;
+
+  const translucentScrollHandler = (_ev: Event) => {
+    if (!translucentDiv) { return; }
+    if (updatingScrollTop) { return; }
+
+    const pageBoundsPx = props.visualElement.boundsPx;
+    const childAreaBounds = childAreaBoundsPx();
+    const pageVeid = getVeid(props.visualElement);
+
+    // TODO: compensate for toolbar width.
+    // if (childAreaBounds.w > pageBoundsPx.w) {
+    //   const scrollXProp = popupDiv!.scrollLeft / (childAreaBounds.w - pageBoundsPx.w);
+    //   desktopStore.setPageScrollXProp(pageVeid, scrollXProp);
+    // }
+
+    if (childAreaBounds.h > pageBoundsPx.h) {
+      const scrollYProp = translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);
+      desktopStore.setPageScrollYProp(pageVeid, scrollYProp);
+    }
+  }
+
+  let updatingScrollTop = false;
+  const _updateScrollTop = createEffect(() => {
+    updatingScrollTop = true;
+
+    if (translucentDiv) {
+      translucentDiv.scrollTop =
+        desktopStore.getPageScrollYProp(getVeid(props.visualElement)) *
+        (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+    }
+
+    if (popupDiv && desktopStore.currentPopupSpec()) {
+      popupDiv.scrollTop =
+        desktopStore.getPageScrollYProp(veidFromPath(desktopStore.currentPopupSpec()!.vePath)) *
+        (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+    }
+
+    setTimeout(() => {
+      updatingScrollTop = false;
+    }, 0);
+  });
+
   const translucentTitleScale = createMemo((): number => calcTitleScale("gl"));
 
   const drawAsTranslucent = () => {
     return (
       <>
-        <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+        <div ref={translucentDiv}
+             class={`absolute border border-slate-700 rounded-sm shadow-lg`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
-                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}>
+                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
+             onscroll={translucentScrollHandler}>
           <div class="absolute"
               style={`left: ${0}px; top: ${0}px; ` +
                       `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
@@ -221,15 +275,40 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     arrange(desktopStore);
   }
 
+  let popupDiv: HTMLDivElement | undefined;
+
+  const popupScrollHandler = (_ev: Event) => {
+    if (!popupDiv) { return; }
+    if (updatingScrollTop) { return; }
+
+    const pageBoundsPx = props.visualElement.boundsPx;
+    const childAreaBoundsPx_ = childAreaBoundsPx();
+
+    const popupVeid = veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+
+    // TODO: need to consider toolbar width.
+    // if (childAreaBoundsPx_.w > pageBoundsPx.w) {
+    //   const scrollXProp = popupDiv!.scrollLeft / (childAreaBoundsPx_.w - pageBoundsPx.w);
+    //   desktopStore.setPageScrollXProp(popupVeid, scrollXProp);
+    // }
+
+    if (childAreaBoundsPx_.h > pageBoundsPx.h) {
+      const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - pageBoundsPx.h);
+      desktopStore.setPageScrollYProp(popupVeid, scrollYProp);
+    }
+  }
+
   const drawAsPopup = () => {
     return (
       <>
         <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
              style={`left: ${boundsPx().x-10 + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
-        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+        <div ref={popupDiv}
+             class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
              style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
-                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}>
+                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
+             onscroll={popupScrollHandler}>
           <div class="absolute"
                style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
                       `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
@@ -262,7 +341,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 
   const drawAsFull = () => {
     return (
-      <div class={`absolute ${rootFlagSet(props.visualElement) ? "border border-slate-700" : ""}`}
+      <div class={`absolute bg-gray-300 ${rootFlagSet(props.visualElement) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${rootFlagSet(props.visualElement) ? fullBgColorVal() : "#ffffff"}`}>
         <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
           <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
