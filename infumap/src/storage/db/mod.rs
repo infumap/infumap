@@ -77,5 +77,4 @@ impl Db {
     Ok(buf)
   }
 
-
 }

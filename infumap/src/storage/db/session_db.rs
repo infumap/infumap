@@ -36,14 +36,13 @@ impl SessionDb {
     }
   }
 
-  pub fn create_session(&mut self, user_id: &str, username: &str, password: &str) -> InfuResult<Session> {
+  pub fn create_session(&mut self, user_id: &str, username: &str) -> InfuResult<Session> {
     const THIRTY_DAYS_AS_SECONDS: u64 = 60*60*24*30;
     let session = Session {
       id: new_uid(),
       user_id: String::from(user_id),
       expires: (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)? + Duration::from_secs(THIRTY_DAYS_AS_SECONDS)).as_secs() as i64,
-      username: String::from(username),
-      password: String::from(password)
+      username: String::from(username)
     };
     self.store.insert(session.id.clone(), session.clone());
 

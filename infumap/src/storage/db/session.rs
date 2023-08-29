@@ -22,7 +22,6 @@ pub struct Session {
   pub user_id: Uid,
   pub expires: i64,
   pub username: String,
-  pub password: String,
 }
 
 impl Clone for Session {
@@ -32,7 +31,6 @@ impl Clone for Session {
       user_id: self.user_id.clone(),
       expires: self.expires.clone(),
       username: self.username.clone(),
-      password: self.password.clone()
     }
   }
 }

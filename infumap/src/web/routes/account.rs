@@ -134,7 +134,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     }
   }
 
-  match db.session.create_session(&user.id, &user.username, &payload.password) {
+  match db.session.create_session(&user.id, &user.username) {
     Ok(session) => {
       let result = LoginResponse {
         success: true,
