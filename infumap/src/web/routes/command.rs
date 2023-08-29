@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable_type, is_page_item, PermissionFlags, is_table_item};
+use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable_type, is_page_item, PermissionFlags, is_table_item, is_flags_item_type, is_permission_flags_item_type};
 use crate::storage::db::item::{is_data_item_type, is_image_item, is_container_item_type, is_attachments_item_type};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
@@ -555,6 +555,14 @@ async fn handle_add_item(
 
   if item_type == ItemType::Image.as_str() && !item_map.contains_key("thumbnail") {
     item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
+  }
+
+  if is_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("flags") {
+    item_map.insert("flags".to_owned(), Value::Number(0.into()));
+  }
+
+  if is_permission_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("permissionFlags") {
+    item_map.insert("permissionFlags".to_owned(), Value::Number(0.into()));
   }
 
   if !item_map.contains_key("ordering") {
