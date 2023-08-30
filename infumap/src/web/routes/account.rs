@@ -134,7 +134,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     }
   }
 
-  match db.session.create_session(&user.id, &user.username) {
+  match db.session.create_session(&user.id, &user.username).await {
     Ok(session) => {
       let result = LoginResponse {
         success: true,
@@ -168,7 +168,7 @@ pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) ->
     }
   };
 
-  match db.session.delete_session(&session_cookie.session_id) {
+  match db.session.delete_session(&session_cookie.session_id).await {
     Err(e) => {
       warn!(
         "Could not delete session '{}' for user '{}': {}",

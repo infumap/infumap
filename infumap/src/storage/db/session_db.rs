@@ -16,27 +16,80 @@
 
 use std::time::{Duration, SystemTime};
 use std::collections::HashMap;
+// use std::path::PathBuf;
+use log::warn;
 
 use crate::util::infu::InfuResult;
-use crate::util::uid::{new_uid, Uid};
+use crate::util::uid::new_uid;
+use crate::util::fs::expand_tilde;
+use crate::util::uid::{Uid, is_uid};
 use super::session::Session;
+use super::kv_store::KVStore;
+
+pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 
 
-/// In memory Db for Session instances.
+/// Db for managing Session instances, assuming the mandated data folder hierarchy.
+/// Not threadsafe.
 pub struct SessionDb {
-  store: HashMap<Uid, Session>,
-  ids_by_user: HashMap<String, Vec<String>>,
+  // TODO: create 
+  // data_dir: PathBuf,
+  store_by_user_id: HashMap<Uid, KVStore<Session>>,
+  user_id_by_session_id: HashMap<Uid, Uid>
 }
 
 impl SessionDb {
-  pub fn init() -> SessionDb {
-    SessionDb {
-      store: HashMap::new(),
-      ids_by_user: HashMap::new()
+  pub async fn init(data_dir: &str) -> InfuResult<SessionDb> {
+    let mut store_by_user_id = HashMap::new();
+    let mut user_id_by_session_id = HashMap::new();
+
+    let expanded_data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+    let mut iter = tokio::fs::read_dir(&expanded_data_path).await?;
+    while let Some(entry) = iter.next_entry().await? {
+      if !entry.file_type().await?.is_dir() {
+        // pending users log is in the data directory as well.
+        continue;
+      }
+
+      if let Some(dirname) = entry.file_name().to_str() {
+        let parts = dirname.split('_').collect::<Vec<&str>>();
+        if parts.len() != 2 {
+          warn!("Unexpected directory in data directory: '{}'.", dirname);
+          continue;
+        }
+        let dir_userid = *parts.get(1).unwrap();
+
+        if !is_uid(dir_userid) {
+          warn!("Unexpected directory in data directory: '{}'.", dirname);
+          continue;
+        }
+
+        let mut log_path = expanded_data_path.clone();
+        log_path.push(dirname.clone());
+        log_path.push("sessions.json");
+        let log_path_str = log_path.as_path().to_str().unwrap();
+        let store: KVStore<Session> = KVStore::init(&log_path_str, CURRENT_SESSIONS_LOG_VERSION).await?;
+
+        for entry in store.get_iter() {
+          user_id_by_session_id.insert(entry.0.clone(), entry.1.user_id.clone());
+        }
+
+        store_by_user_id.insert(String::from(dir_userid), store);
+
+      } else {
+        warn!("Unexpected directory in store directory: '{}'.", entry.path().display());
+        continue;
+      }
     }
+
+    Ok(SessionDb {
+      // data_dir: expanded_data_path,
+      store_by_user_id: store_by_user_id,
+      user_id_by_session_id,
+    })
   }
 
-  pub fn create_session(&mut self, user_id: &str, username: &str) -> InfuResult<Session> {
+  pub async fn create_session(&mut self, user_id: &str, username: &str) -> InfuResult<Session> {
     const THIRTY_DAYS_AS_SECONDS: u64 = 60*60*24*30;
     let session = Session {
       id: new_uid(),
@@ -44,46 +97,30 @@ impl SessionDb {
       expires: (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)? + Duration::from_secs(THIRTY_DAYS_AS_SECONDS)).as_secs() as i64,
       username: String::from(username)
     };
-    self.store.insert(session.id.clone(), session.clone());
-
-    if !self.ids_by_user.contains_key(user_id) {
-      self.ids_by_user.insert(String::from(user_id), vec![]);
-    }
-    self.ids_by_user.get_mut(user_id).unwrap().push(session.id.clone());
-
+    let store = self.store_by_user_id.get_mut(user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
+    store.add(session.clone()).await?;
+    self.user_id_by_session_id.insert(session.id.clone(), String::from(user_id));
     Ok(session)
   }
 
-  pub fn delete_session(&mut self, id: &str) -> InfuResult<String> {
-    let session =
-      if let Some(session) = self.store.get(id) { session }
-      else { return Err(format!("Session '{}' does not exist.", id).into()); };
-    let user_id = session.user_id.clone();
-  
-    self.store.remove(id);
-    let current_ids_for_user =
-      if let Some(ids) = self.ids_by_user.remove(&user_id) { ids }
-      else { return Err(format!("Session '{}' does not exist in ids_by_user map.", id).into()); };
-
-    let new_ids_for_user: Vec<String> =
-      current_ids_for_user.iter().filter(|vid| *vid != id).map(|v| v.clone()).collect();
-    if new_ids_for_user.len() > 0 {
-      self.ids_by_user.insert(user_id.clone(), new_ids_for_user);
+  pub async fn delete_session(&mut self, id: &str) -> InfuResult<String> {
+    let user_id = self.user_id_by_session_id.get(id).ok_or(format!("Unknown session id '{}'.", id))?.clone();
+    let store = &mut self.store_by_user_id.get_mut(&user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
+    let _session = store.get(id).ok_or(format!("Session '{}' does not exist.", id))?;
+    if self.user_id_by_session_id.remove(id) == None {
+      return Err(format!("Session '{}' has no user_id mapping to remove", id).into());
     }
-
-    Ok(user_id)
+    store.remove(id).await?;
+    Ok(user_id.clone())
   }
 
   pub fn get_session(&mut self, id: &Uid) -> InfuResult<Option<Session>> {
-    let session_copy =
-      if let Some(s) = self.store.get(id) { s.clone() }
-      else { return Ok(None); };
-
-    if session_copy.expires < SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64 {
-      self.delete_session(id)?;
-      Ok(None)
-    } else {
-      Ok(Some(session_copy))
+    let user_id = self.user_id_by_session_id.get(id).ok_or(format!("Unknown session id '{}'.", id))?;
+    let store = &mut self.store_by_user_id.get_mut(user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
+    match store.get(id) {
+      None => Ok(None),
+      Some(s) => Ok(Some(s.clone()))
     }
   }
+
 }

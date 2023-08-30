@@ -48,7 +48,8 @@ impl Db {
         .map_err(|e| format!("Failed to initialize UserDb: {}", e))?,
       pending_user: PendingUserDb::init(data_dir).await
         .map_err(|e| format!("Failed to initialize Pending UserDb: {}", e))?,
-      session: SessionDb::init(),
+      session: SessionDb::init(data_dir).await
+        .map_err(|e| format!("Failed to initialize SessionDb: {}", e))?,
       item: ItemDb::init(data_dir),
     })
   }
