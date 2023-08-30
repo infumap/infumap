@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asFileItem, FileItem } from "../../items/file-item";
@@ -26,7 +26,7 @@ import { arrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 
 
-export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: FileItem}) => {
+export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (props: {fileItem: FileItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
 
   const fileId = props.fileItem.id;
@@ -55,7 +55,9 @@ export const EditFile: Component<{fileItem: FileItem}> = (props: {fileItem: File
   return (
     <div>
       <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextInput} focus={true} /></div>
-      <div><InfuButton text="delete" onClick={deleteFile} /></div>
+      <Show when={!props.linkedTo}>
+        <div><InfuButton text="delete" onClick={deleteFile} /></div>
+      </Show>
     </div>
   );
 }

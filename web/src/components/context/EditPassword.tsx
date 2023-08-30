@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asPasswordItem, PasswordItem } from "../../items/password-item";
@@ -26,7 +26,7 @@ import { arrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 
 
-export const EditPassword: Component<{passwordItem: PasswordItem}> = (props: {passwordItem: PasswordItem}) => {
+export const EditPassword: Component<{passwordItem: PasswordItem, linkedTo: boolean}> = (props: {passwordItem: PasswordItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
 
   const passwordId = props.passwordItem.id;
@@ -54,7 +54,9 @@ export const EditPassword: Component<{passwordItem: PasswordItem}> = (props: {pa
   return (
     <div>
       <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.passwordItem.text} onInput={handleTextInput} focus={true} /></div>
-      <div><InfuButton text="delete" onClick={deletePassword} /></div>
+      <Show when={!props.linkedTo}>
+        <div><InfuButton text="delete" onClick={deletePassword} /></div>
+      </Show>
     </div>
   );
 }

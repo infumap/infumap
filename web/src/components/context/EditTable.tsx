@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../items/table-item";
@@ -28,7 +28,7 @@ import { itemState } from "../../store/ItemState";
 import { TableFlags } from "../../items/base/flags-item";
 
 
-export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: TableItem}) => {
+export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (props: {tableItem: TableItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
 
   let checkElement_ord: HTMLInputElement | undefined;
@@ -110,7 +110,9 @@ export const EditTable: Component<{tableItem: TableItem}> = (props: {tableItem: 
         <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={(props.tableItem.flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader ? true : false} onClick={changeShowHeader} />
         <label for="header">show header</label>
       </div>
-      <div><InfuButton text="delete" onClick={deleteTable} /></div>
+      <Show when={!props.linkedTo}>
+        <div><InfuButton text="delete" onClick={deleteTable} /></div>
+      </Show>
     </div>
   );
 }

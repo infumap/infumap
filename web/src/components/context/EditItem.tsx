@@ -35,7 +35,7 @@ import { asPasswordItem, isPassword } from "../../items/password-item";
 import { EditPassword } from "./EditPassword";
 
 
-export const EditItem: Component<{item: Item}> = (props: {item: Item}) => {
+export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {item: Item, linkedTo: boolean}) => {
   let userStore = useUserStore();
 
   const copyClickHandler = () => {
@@ -56,25 +56,25 @@ export const EditItem: Component<{item: Item}> = (props: {item: Item}) => {
       </div>
       <Switch fallback={<div>Not Found</div>}>
         <Match when={isPage(props.item)}>
-          <EditPage pageItem={asPageItem(props.item)} />
+          <EditPage pageItem={asPageItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isTable(props.item)}>
-          <EditTable tableItem={asTableItem(props.item)} />
+          <EditTable tableItem={asTableItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isNote(props.item)}>
-          <EditNote noteItem={asNoteItem(props.item)} />
+          <EditNote noteItem={asNoteItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isFile(props.item)}>
-          <EditFile fileItem={asFileItem(props.item)} />
+          <EditFile fileItem={asFileItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isImage(props.item)}>
-          <EditImage imageItem={asImageItem(props.item)} />
+          <EditImage imageItem={asImageItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isLink(props.item)}>
-          <EditLink linkItem={asLinkItem(props.item)} />
+          <EditLink linkItem={asLinkItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isPassword(props.item)}>
-          <EditPassword passwordItem={asPasswordItem(props.item)} />
+          <EditPassword passwordItem={asPasswordItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
       </Switch>
     </div>

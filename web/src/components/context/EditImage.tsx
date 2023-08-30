@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asImageItem, ImageItem } from "../../items/image-item";
@@ -26,7 +26,7 @@ import { arrange } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 
 
-export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: ImageItem}) => {
+export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: {imageItem: ImageItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
 
   const imageId = props.imageItem.id;
@@ -55,7 +55,9 @@ export const EditImage: Component<{imageItem: ImageItem}> = (props: {imageItem: 
   return (
     <div>
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.imageItem.title} onInput={handleTitleChange} focus={true} /></div>
-      <div><InfuButton text="delete" onClick={deleteImage} /></div>
+      <Show when={!props.linkedTo}>
+        <div><InfuButton text="delete" onClick={deleteImage} /></div>
+      </Show>
     </div>
   );
 }

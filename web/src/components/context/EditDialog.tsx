@@ -51,7 +51,7 @@ export const EditDialogInner: Component = () => {
       <div ref={editDialogDiv}
            class="fixed bg-white z-20 rounded-md border border-slate-700"
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
-        <EditItem item={item()} />
+        <EditItem item={item()} linkedTo={false} />
       </div>
     </>
   );

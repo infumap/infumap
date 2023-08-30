@@ -27,13 +27,18 @@ import { EMPTY_UID } from "../../util/uid";
 import { EditItem } from "./EditItem";
 import { Item } from "../../items/base/item";
 import { itemState } from "../../store/ItemState";
+import { panic } from "../../util/lang";
 
 
-export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: LinkItem}) => {
+export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (props: {linkItem: LinkItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
 
   const linkId = props.linkItem.id;
   const linkToItem = (): Item | null => {
+    if (props.linkedTo) {
+      // not supported to have link item linked to.
+      panic();
+    }
     if (props.linkItem.linkTo == EMPTY_UID) {
       return null;
     }
@@ -80,7 +85,7 @@ export const EditLink: Component<{linkItem: LinkItem}> = (props: {linkItem: Link
         <div><InfuButton text="delete" onClick={deleteLink} /></div>
       </div>
       <Show when={linkToItem() != null && props.linkItem.linkToBaseUrl == ""}>
-        <EditItem item={linkToItem()!} />
+        <EditItem item={linkToItem()!} linkedTo={true} />
       </Show>
     </>
   );

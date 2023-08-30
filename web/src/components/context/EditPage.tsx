@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, Show, onCleanup } from "solid-js";
 import { GRID_SIZE } from "../../constants";
 import { server } from "../../server";
 import { asPageItem, PageItem } from "../../items/page-item";
@@ -30,7 +30,7 @@ import { itemState } from "../../store/ItemState";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 
 
-export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: PageItem}) => {
+export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (props: {pageItem: PageItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
   let checkElement_public: HTMLInputElement | undefined;
 
@@ -138,7 +138,9 @@ export const EditPage: Component<{pageItem: PageItem}> = (props: {pageItem: Page
       <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChangeOrCleanup={handleNaturalAspectChange} /></div>
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
       <ColorSelector item={props.pageItem} />
-      <div><InfuButton text="delete" onClick={deletePage} /></div>
+      <Show when={!props.linkedTo}>
+        <div><InfuButton text="delete" onClick={deletePage} /></div>
+      </Show>
       <div>
         <div>
           <input name="aa" type="radio" ref={checkElement_spatial_stretch} id={ARRANGE_ALGO_SPATIAL_STRETCH} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH} onClick={changeArrangeAlgo} />

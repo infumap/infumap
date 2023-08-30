@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
+import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../server";
 import { asNoteItem, NoteItem } from "../../items/note-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
@@ -28,7 +28,7 @@ import { itemState } from "../../store/ItemState";
 import { NoteFlags } from "../../items/base/flags-item";
 
 
-export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: NoteItem}) => {
+export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (props: {noteItem: NoteItem, linkedTo: boolean}) => {
   const desktopStore = useDesktopStore();
   let checkElement_copy: HTMLInputElement | undefined;
   let checkElement_heading: HTMLInputElement | undefined;
@@ -92,7 +92,9 @@ export const EditNote: Component<{noteItem: NoteItem}> = (props: {noteItem: Note
         <input id="heading" name="heading" type="checkbox" ref={checkElement_heading} checked={(props.noteItem.flags & NoteFlags.Heading) == NoteFlags.Heading ? true : false} onClick={changeDisplayAsHeading} />
         <label for="heading">heading</label>
       </div>
-      <div><InfuButton text="delete" onClick={deleteNote} /></div>
+      <Show when={!props.linkedTo}>
+        <div><InfuButton text="delete" onClick={deleteNote} /></div>
+      </Show>
     </div>
   );
 }
