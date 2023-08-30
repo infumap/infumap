@@ -67,7 +67,9 @@ export function getHitInfo(
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
       const popupVeid = veidFromPath(desktopStore.currentPopupSpec()!.vePath);
-      const scrollYPx = desktopStore.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h);
+      const scrollYPx = isPage(rootVisualElement.displayItem)
+        ? desktopStore.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
+        : 0;
       posRelativeToRootVisualElementPx = vectorSubtract(popupPosRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
       let hitboxType = HitboxType.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
