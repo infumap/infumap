@@ -79,13 +79,13 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   const BORDER_WIDTH_PX = 1;
 
 
-  let isDetailedOnLoad = isDetailed();
+  let isDetailed_OnLoad = isDetailed();
   let imgSrcOnLoad = imgSrc();
 
   onMount(() => {
-    if (isDetailedOnLoad) {
-      // console.debug(`mount: ${imgSrcOnLoad}`);
-      getImage(imgSrcOnLoad)
+    if (isDetailed_OnLoad) {
+      const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup;
+      getImage(imgSrcOnLoad, isHighPriority)
         .then((objectUrl) => {
           imgElement!.src = objectUrl;
         });
@@ -93,8 +93,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
   });
 
   onCleanup(() => {
-    // console.debug(`cleanup: ${imgSrcOnLoad}`);
-    if (isDetailedOnLoad) {
+    if (isDetailed_OnLoad) {
       releaseImage(imgSrcOnLoad);
     }
   });

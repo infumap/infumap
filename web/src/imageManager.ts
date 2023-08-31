@@ -53,7 +53,7 @@ function debugMsg(filename: string): string {
   );
 }
 
-export function getImage(filename: string): Promise<string> {
+export function getImage(filename: string, highPriority: boolean): Promise<string> {
   if (debug) { console.debug(`getImage: ` + debugMsg(filename) + containerDebugCounts()); }
 
   const cleanupIdMaybe = waitingForCleanup.get(filename);
@@ -78,8 +78,17 @@ export function getImage(filename: string): Promise<string> {
       return;
     }
 
-    if (debug) { console.debug(`not in cache: ${filename}.`); }
-    waiting.push({ filename, resolve, reject });
+    if (debug) { console.debug(`not in cache: ${filename}. (highPriority: ${highPriority}).`); }
+    if (highPriority) {
+      function prepend(value: ImageFetchTask, array: Array<ImageFetchTask>) {
+        var newArray = array.slice();
+        newArray.unshift(value);
+        return newArray;
+      }
+      waiting = prepend({ filename, resolve, reject }, waiting);
+    } else {
+      waiting.push({ filename, resolve, reject });
+    }
     serveWaiting();
   });
 };
