@@ -22,7 +22,7 @@
 //  2. retry failed fetches.
 
 
-const MAX_CONCURRENT_FETCH_REQUESTS: number = 5;
+const MAX_CONCURRENT_FETCH_REQUESTS: number = 2;
 const CLEANUP_AFTER_MS: number = 10000;
 
 
@@ -40,34 +40,59 @@ let waitingForCleanup: Map<string, number> = new Map<string, number>(); // filen
 let objectUrls: Map<string, string | null> = new Map<string, string | null>(); // filename => objectUrl.
 let objectUrlsRefCount: Map<string, number> = new Map<string, number>(); // filename => refCount.
 
+const debug = true;
+
+function containerDebugCounts(): string {
+  return `objectUrls.size: ${objectUrls.size}. obejectURlsRefCount.size: ${objectUrlsRefCount.size}. waitingForCleanup.size: ${waitingForCleanup.size}. fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}. `;
+}
+
+function debugMsg(filename: string): string {
+  return (
+    `${filename}. currentObjectUrl: ${objectUrls.get(filename)}. refCountBeforeGet: ${objectUrlsRefCount.get(filename)}. ` +
+    `wasWaitingForCleanup: ${typeof waitingForCleanup.get(filename) !== 'undefined'}. hasFetchInProgress: ${typeof fetchInProgress.get(filename) !== 'undefined'}. `
+  );
+}
 
 export function getImage(filename: string): Promise<string> {
-  // console.debug(`get: ${filename}`, objectUrls, objectUrlsRefCount);
+  if (debug) { console.debug(`getImage: ` + debugMsg(filename) + containerDebugCounts()); }
+
+  const cleanupIdMaybe = waitingForCleanup.get(filename);
+  if (cleanupIdMaybe) {
+    if (debug) { console.debug(`cancelling cleanup: ${filename}.`); }
+    clearTimeout(cleanupIdMaybe);
+    waitingForCleanup.delete(filename);
+  }
+
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
-    if (objectUrlsRefCount.has(filename)) {
-      objectUrlsRefCount.set(filename, (objectUrlsRefCount.get(filename) as number) + 1);
-      if (objectUrls.get(filename) != null) {
-        resolve(objectUrls.get(filename) as string);
-        // console.debug(`have: ${filename}`, objectUrls, objectUrlsRefCount);
-        return;
-      }
-      // TODO (LOW): this fallthrough case is not optimal, as the image will be fetched multiple times. however it is not incorrect.
-    } else {
-      objectUrlsRefCount.set(filename, 1);
+    if (!objectUrlsRefCount.has(filename)) {
+      console.debug(`init bookkeeping for: ${filename}.`);
+      objectUrlsRefCount.set(filename, 0);
+      if (objectUrls.has(filename)) { throw new Error('objectUrls and ObjectUrlsRefCount out of sync.'); }
       objectUrls.set(filename, null);
     }
+
+    objectUrlsRefCount.set(filename, (objectUrlsRefCount.get(filename) as number) + 1);
+    if (objectUrls.get(filename) != null) {
+      if (debug) { console.debug(`in cache: ${filename}.`); }
+      resolve(objectUrls.get(filename) as string);
+      return;
+    }
+
+    if (debug) { console.debug(`not in cache: ${filename}.`); }
     waiting.push({ filename, resolve, reject });
     serveWaiting();
   });
 };
 
+
 function serveWaiting() {
   if (fetchInProgress.size < MAX_CONCURRENT_FETCH_REQUESTS && waiting.length > 0) {
     const task = waiting.shift() as ImageFetchTask;
+    if (debug) { console.debug(`executing waiting fetch task: ${task.filename}. ` + debugMsg(task.filename) + containerDebugCounts()); }
     if (objectUrls.has(task.filename) && objectUrls.get(task.filename) != null) {
       // a waiting task that has now completed might have been for the same filename.
       task.resolve(objectUrls.get(task.filename) as string);
-      // console.debug(`have (2): ${task.filename}`, objectUrls, objectUrlsRefCount);
+      if (debug) { console.log(`previus waiting task satisfied a subsequent request: ${task.filename}.`) }
       serveWaiting();
       return;
     }
@@ -76,33 +101,23 @@ function serveWaiting() {
         if (!resp.ok || resp.status != 200) {
           throw new Error(`Image fetch request failed: ${resp.status}`);
         }
-        // if (resp.status == 403) {
-        //   // Server rejected due to invalid session.
-        //   // await logout!();
-        //   // return;
-        // }
-        // if (resp.status == 503) {
-        //   // Server rejected request due to too many existing outstanding file requests.
-        //   // TODO (MEDIUM): global image download manager, which pipelines requests.
-        //   // await new Promise(r => setTimeout(r, 1000 + Math.random()*3000));
-        //   // return;
-        // }
         return resp.blob();
       })
       .then((blob) => {
         fetchInProgress.delete(task.filename);
         if (objectUrls.get(task.filename) != null) {
           // it's possible another fetch request for the same filename completed whilst this one was waiting for the blob.
+          if (debug) { console.debug(`fetched complete but task already resolved: ${task.filename}.`); }
           task.resolve(objectUrls.get(task.filename) as string);
-          // console.debug(`fetched (have): ${task.filename}`, objectUrls, objectUrlsRefCount);
         } else {
           const objectUrl: string = URL.createObjectURL(blob);
           objectUrls.set(task.filename, objectUrl);
+          if (debug) { console.debug(`fetch complete: ${task.filename}`); }
           task.resolve(objectUrl);
-          // console.debug(`fetched (added): ${task.filename}`, objectUrls, objectUrlsRefCount);
         }
       })
       .catch((error) => {
+        if (debug) { console.debug(`fetch failed: ${task.filename}`); }
         fetchInProgress.delete(task.filename);
         task.reject(error);
       })
@@ -110,6 +125,8 @@ function serveWaiting() {
         serveWaiting();
       });
     fetchInProgress.set(task.filename, promise);
+  } else {
+    if (debug) { console.debug(`serveWaiting noop: fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}.`); }
   }
 }
 
@@ -122,17 +139,22 @@ export function releaseImage(filename: string) {
   }
   const newRefCount = objectUrlsRefCount.get(filename) as number - 1;
   objectUrlsRefCount.set(filename, newRefCount);
-  // console.debug(`released: ${filename}`, objectUrls, objectUrlsRefCount);
+  if (debug) { console.debug(`releaseImage called: ${filename}. newRefCount: ${newRefCount}.`); }
   if (newRefCount === 0) {
+    if (debug) { console.debug(`setting revoke objectURL timer: ${filename}.`); }
     let timeoutId = setTimeout(() => {
       if (objectUrlsRefCount.get(filename) == 0) {
         URL.revokeObjectURL(objectUrls.get(filename) as string);
         objectUrls.delete(filename);
         objectUrlsRefCount.delete(filename);
         waitingForCleanup.delete(filename);
-        // console.debug(`deleted: ${filename}`, objectUrls, objectUrlsRefCount);
+        if (debug) { console.debug(`revoke objectURL complete: ${filename}.`); }
+      } else {
+        console.log(`WARNING: release called when ref count > 0: ${filename}.`);
       }
     }, CLEANUP_AFTER_MS);
     waitingForCleanup.set(filename, timeoutId);
+  } else {
+    if (debug) { console.debug(`image still in use: ${filename}.`); }
   }
 }
