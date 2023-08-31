@@ -141,6 +141,11 @@ export function releaseImage(filename: string) {
   objectUrlsRefCount.set(filename, newRefCount);
   if (debug) { console.debug(`releaseImage called: ${filename}. newRefCount: ${newRefCount}.`); }
   if (newRefCount === 0) {
+    const waitingSizeBefore = waiting.length;
+    waiting = waiting.filter(t => t.filename != filename);
+    if (waitingSizeBefore > waiting.length) {
+      if (debug) { console.debug(`${waitingSizeBefore - waiting.length} waiting fetch task(s) for ${filename} aborted.`); }
+    }
     if (debug) { console.debug(`setting revoke objectURL timer: ${filename}.`); }
     let timeoutId = setTimeout(() => {
       if (objectUrlsRefCount.get(filename) == 0) {
