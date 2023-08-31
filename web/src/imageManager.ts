@@ -23,7 +23,7 @@
 
 
 const MAX_CONCURRENT_FETCH_REQUESTS: number = 2;
-const CLEANUP_AFTER_MS: number = 10000;
+const CLEANUP_AFTER_MS: number = 30000;
 
 
 interface ImageFetchTask {
@@ -40,7 +40,7 @@ let waitingForCleanup: Map<string, number> = new Map<string, number>(); // filen
 let objectUrls: Map<string, string | null> = new Map<string, string | null>(); // filename => objectUrl.
 let objectUrlsRefCount: Map<string, number> = new Map<string, number>(); // filename => refCount.
 
-const debug = true;
+const debug = false;
 
 function containerDebugCounts(): string {
   return `objectUrls.size: ${objectUrls.size}. obejectURlsRefCount.size: ${objectUrlsRefCount.size}. waitingForCleanup.size: ${waitingForCleanup.size}. fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}. `;
@@ -65,7 +65,7 @@ export function getImage(filename: string, highPriority: boolean): Promise<strin
 
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     if (!objectUrlsRefCount.has(filename)) {
-      console.debug(`init bookkeeping for: ${filename}.`);
+      if (debug) { console.debug(`init bookkeeping for: ${filename}.`); }
       objectUrlsRefCount.set(filename, 0);
       if (objectUrls.has(filename)) { throw new Error('objectUrls and ObjectUrlsRefCount out of sync.'); }
       objectUrls.set(filename, null);
