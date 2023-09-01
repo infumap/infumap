@@ -194,19 +194,30 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
   const drawAsTranslucent = () => {
     return (
       <>
-        <div ref={translucentDiv}
-             class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
-                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
-             onscroll={translucentScrollHandler}>
-          <div class="absolute"
-              style={`left: ${0}px; top: ${0}px; ` +
-                      `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-            <For each={props.visualElement.children}>{childVe =>
-              <VisualElement_Desktop visualElement={childVe.get()} />
-            }</For>
+        <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+          <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; `}>
+            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              <For each={lineVes()}>{childVe =>
+                <VisualElement_LineItem visualElement={childVe.get()} />
+              }</For>
+            </div>
           </div>
-        </div>
+        </Show>
+        <Show when={pageItem().arrangeAlgorithm != ARRANGE_ALGO_LIST}>
+          <div ref={translucentDiv}
+               class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
+                      `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
+               onscroll={translucentScrollHandler}>
+            <div class="absolute"
+                 style={`left: ${0}px; top: ${0}px; ` +
+                        `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+              <For each={props.visualElement.children}>{childVe =>
+                <VisualElement_Desktop visualElement={childVe.get()} />
+              }</For>
+            </div>
+          </div>
+        </Show>
         <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
           <Show when={props.visualElement.mouseIsOver.get()}>
@@ -304,19 +315,32 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
              style={`left: ${boundsPx().x-10 + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
-        <div ref={popupDiv}
-             class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-             style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
-                    `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
-             onscroll={popupScrollHandler}>
-          <div class="absolute"
-               style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
-                      `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
-            <For each={props.visualElement.children}>{childVe =>
-              <VisualElement_Desktop visualElement={childVe.get()} />
-            }</For>
+        <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+          <div ref={popupDiv}
+               class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+               style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
+            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              <For each={lineVes()}>{childVe =>
+                <VisualElement_LineItem visualElement={childVe.get()} />
+              }</For>
+            </div>
           </div>
-        </div>
+        </Show>
+        <Show when={pageItem().arrangeAlgorithm != ARRANGE_ALGO_LIST}>
+          <div ref={popupDiv}
+               class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+               style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+                      `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
+              onscroll={popupScrollHandler}>
+            <div class="absolute"
+                 style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
+                        `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
+              <For each={props.visualElement.children}>{childVe =>
+                <VisualElement_Desktop visualElement={childVe.get()} />
+              }</For>
+            </div>
+          </div>
+        </Show>
         <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
@@ -343,13 +367,15 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     return (
       <div class={`absolute bg-gray-300 ${rootFlagSet(props.visualElement) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${rootFlagSet(props.visualElement) ? fullBgColorVal() : "#ffffff"}`}>
-        <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
-          <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
-            <For each={lineVes()}>{childVe =>
-              <VisualElement_LineItem visualElement={childVe.get()} />
-            }</For>
+        <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+          <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
+            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              <For each={lineVes()}>{childVe =>
+                <VisualElement_LineItem visualElement={childVe.get()} />
+              }</For>
+            </div>
           </div>
-        </div>
+        </Show>
         <Show when={asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ARRANGE_ALGO_LIST}>
           <div class={`absolute bg-slate-700`}
                style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}></div>

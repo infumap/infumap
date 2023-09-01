@@ -134,7 +134,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   VesCache.initFullArrange();
 
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
-  const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
+  const currentPath = currentPage.id;
 
   const selectedVeid = veidFromPath(desktopStore.getSelectedListPageItem(desktopStore.currentPage()!));
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
@@ -230,7 +230,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 
   VesCache.initFullArrange();
 
-  const currentPath = prependVeidToPath(createVeid(pageItem, null), "");
+  const currentPath = pageItem.id;
 
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
@@ -317,7 +317,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   VesCache.initFullArrange();
 
   const currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
-  const currentPath = prependVeidToPath(createVeid(currentPage, null), "");
+  const currentPath = currentPage.id;
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
@@ -458,6 +458,7 @@ const arrangePageWithChildren = (
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
+
   // *** GRID ***
   if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
 
@@ -522,10 +523,9 @@ const arrangePageWithChildren = (
 
 
   // *** SPATIAL_STRETCH ***
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH ||
-             displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_LIST) { // TODO: ...
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
 
-    pageWithChildrenVisualElementSpec= {
+    pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
       mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
       linkItemMaybe: linkItemMaybe_pageWithChildren,
@@ -564,7 +564,58 @@ const arrangePageWithChildren = (
       }
     });
 
+
+  // *** LIST VIEW ***
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+
+    pageWithChildrenVisualElementSpec = {
+      displayItem: displayItem_pageWithChildren,
+      mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
+      linkItemMaybe: linkItemMaybe_pageWithChildren,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
+      boundsPx: outerBoundsPx,
+      childAreaBoundsPx: geometry.boundsPx,
+      hitboxes,
+      parentPath,
+    };
+
+    const _innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+
+    let listVeChildren: Array<VisualElementSignal> = [];
+    for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
+      const childItem = itemState.getItem(displayItem_pageWithChildren.computed_children[idx])!;
+      const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
+      const selectedVeid = veidFromPath(desktopStore.getSelectedListPageItem({ itemId: displayItem.id, linkIdMaybe: linkItemMaybe ? linkItemMaybe.id : null }));
+
+      const widthBl = LIST_PAGE_LIST_WIDTH_BL;
+      const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
+
+      const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl);
+
+      const listItemVeSpec = {
+        displayItem,
+        mightBeDirty: getMightBeDirty(displayItem),
+        linkItemMaybe,
+        flags: VisualElementFlags.LineItem |
+               (compareVeids(selectedVeid, createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
+        boundsPx: geometry.boundsPx,
+        hitboxes: geometry.hitboxes,
+        parentPath: pageWithChildrenVePath,
+        col: 0,
+        row: idx,
+        oneBlockWidthPx: LINE_HEIGHT_PX,
+      };
+      const childPath = prependVeidToPath(createVeid(displayItem, linkItemMaybe), pageWithChildrenVePath);
+      const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
+      listVeChildren.push(listItemVisualElementSignal);
+    }
+    pageWithChildrenVisualElementSpec.children = listVeChildren;
+
+
   } else {
+
     panic();
   }
 
