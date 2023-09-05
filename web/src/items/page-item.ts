@@ -30,12 +30,13 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange, switchToPage } from '../layout/arrange';
+import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
 import { VisualElement, getVeid, lineItemFlagSet, popupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { handleListLineItemClickMaybe } from './base/item-common';
+import { switchToPage } from '../layout/navigation';
 
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {

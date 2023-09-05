@@ -19,7 +19,6 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
-import { switchToPage } from "../layout/arrange";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
@@ -29,6 +28,7 @@ import { EMPTY_UID } from "../util/uid";
 import { ITEM_TYPE_NONE } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
+import { switchToPage } from "../layout/navigation";
 
 
 export let logout: (() => Promise<void>) | null = null;

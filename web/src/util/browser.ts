@@ -21,10 +21,3 @@ import { itemState } from "../store/ItemState";
 import { EMPTY_UID } from "./uid";
 
 
-export function updateHref(desktopStore: DesktopStoreContextModel) {
-  if (itemState.getItem(desktopStore.currentPage()!.itemId)?.parentId == EMPTY_UID) {
-    window.history.replaceState(null, "", "/"); 
-  } else {
-    window.history.replaceState(null, "", `/${desktopStore.currentPage()!.itemId}`);
-  }
-}

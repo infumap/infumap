@@ -26,7 +26,7 @@ import { Item } from "../items/base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID, veidFromId, getVeid } from "./visual-element";
+import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
@@ -37,7 +37,6 @@ import { panic } from "../util/lang";
 import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFromRemote } from "./load";
 import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { newUid } from "../util/uid";
-import { updateHref } from "../util/browser";
 import { HitboxType, createHitbox } from "./hitbox";
 import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
@@ -57,40 +56,6 @@ enum RenderStyle {
 const POPUP_LINK_ID = newUid();
 const LIST_FOCUS_ID = newUid();
 
-
-
-export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
-  desktopStore.pushPage(veid);
-  arrange(desktopStore);
-
-  const currentPage = asPageItem(itemState.getItem(veid.itemId)!);
-  if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    if (desktopStore.getSelectedListPageItem(veid) == "") {
-      if (currentPage.computed_children.length > 0) {
-        const firstItemId = currentPage.computed_children[0];
-        const veid = veidFromId(firstItemId);
-        const path = prependVeidToPath(veid, currentPage.id);
-        desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, path);
-      }
-    }
-  }
-
-  let desktopEl = window.document.getElementById("desktop")!;
-
-  const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
-  const topLevelBoundsPx = topLevelVisualElement.boundsPx;
-  const desktopSizePx = desktopStore.desktopBoundsPx();
-
-  const scrollXPx = desktopStore.getPageScrollXProp(desktopStore.currentPage()!) * (topLevelBoundsPx.w - desktopSizePx.w);
-  const scrollYPx = desktopStore.getPageScrollYProp(desktopStore.currentPage()!) * (topLevelBoundsPx.h - desktopSizePx.h)
-
-  if (desktopEl) {
-    desktopEl.scrollTop = scrollYPx;
-    desktopEl.scrollLeft = scrollXPx;
-  }
-
-  updateHref(desktopStore);
-}
 
 
 /**

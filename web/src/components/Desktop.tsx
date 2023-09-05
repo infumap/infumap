@@ -30,12 +30,13 @@ import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps_Desktop } from "./VisualElement";
 import { VisualElement, veidFromPath } from "../layout/visual-element";
-import { ARRANGE_ALGO_LIST, arrange, switchToPage } from "../layout/arrange";
+import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
 import { panic } from "../util/lang";
 import { mouseMoveState } from "../store/MouseMoveState";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { itemState } from "../store/ItemState";
+import { switchToPage } from "../layout/navigation";
 
 
 export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
@@ -106,7 +107,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
             desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, closest);
             arrange(desktopStore);
           }
-        }3
+        }
       } else {
         if (desktopStore.currentPopupSpec() == null) {
           return;
@@ -140,27 +141,34 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
   const mouseDownListener = (ev: MouseEvent) => {
     ev.preventDefault();
     mouseDownHandler(desktopStore, ev);
-  }
+  };
 
   const mouseMoveListener = (ev: MouseEvent) => {
     mouseMoveState.setLastMouseMoveEvent(ev);
     mouseMoveHandler(desktopStore);
-  }
+  };
 
   const mouseUpListener = (ev: MouseEvent) => {
     ev.preventDefault();
     mouseUpHandler(desktopStore, userStore);
-  }
+  };
 
   const windowResizeListener = () => {
     desktopStore.resetDesktopSizePx();
     arrange(desktopStore);
-  }
+  };
+
+  const windowPopStateListener = () => {
+    desktopStore.setContextMenuInfo(null);
+    desktopStore.setEditDialogInfo(null);
+    desktopStore.popPage();
+    arrange(desktopStore);
+  };
 
   const contextMenuListener = (ev: Event) => {
     ev.stopPropagation();
     ev.preventDefault();
-  }
+  };
 
   const dropListener = async (ev: DragEvent) => {
     ev.stopPropagation();
@@ -178,13 +186,13 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
       }
       await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
     }
-  }
+  };
 
   const dragoverListener = (ev: DragEvent) => {
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) { ev.dataTransfer.dropEffect = "copy"; }
-  }
+  };
 
   onMount(() => {
     // TODO (MEDIUM): attach to desktopDiv?. need tab index.
@@ -193,6 +201,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
     desktopDiv!.addEventListener('dragover', dragoverListener);
     desktopDiv!.addEventListener('drop', dropListener);
     window.addEventListener('resize', windowResizeListener);
+    window.addEventListener('popstate', windowPopStateListener);
   });
 
   onCleanup(() => {

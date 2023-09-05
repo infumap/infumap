@@ -29,7 +29,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
 import { VisualElement, VisualElementPath, getVeid, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementToPath } from "../layout/visual-element";
-import { arrange, switchToPage } from "../layout/arrange";
+import { arrange } from "../layout/arrange";
 import { editDialogSizePx } from "../components/context/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -39,13 +39,13 @@ import { getHitInfo } from "./hitInfo";
 import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
 import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
 import { Item } from "../items/base/item";
-import { updateHref } from "../util/browser";
 import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
 import { mouseMoveState } from "../store/MouseMoveState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
+import { switchToPage, updateHref } from "../layout/navigation";
 
 
 const MOUSE_LEFT = 0;
