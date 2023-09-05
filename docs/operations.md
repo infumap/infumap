@@ -39,7 +39,7 @@ systemctl reload caddy
 
 ## A Security Conscious Deployment on Vultr.com
 
-Always choose a reputable cloud vendor when hosting sensitive information because you have no option but to trust them. In particular, it is generally possible for them take a snapshot of a running instance that includes any data currently in memory. Such a snapshot would likely include sensitive information.
+Always choose a reputable cloud vendor when hosting sensitive information because you have no option but to trust them. In particular, it is generally possible to take a snapshot of a running instance that includes any data currently in memory. Such a snapshot would likely include sensitive information.
 
 Vultr is a well established alternative to AWS / Google Cloud / Azure. I have used them for a long time due to ease of use, familiarity and cost. I host my own Infumap instance with them, and took these notes as I set it up.
 
@@ -71,7 +71,7 @@ A couple of suggestions:
   - Your instance will boot from the Debian installation ISO image you specified.
 
 
-### Insall Debian
+### Install Debian
 
   - When you see the instance is running, select "view console" from the instance "..." menu.
   - If you do this quickly you will see a graphical menu with an "Install" option. If you aren't quick enough, execution will default to a text based install, which is not ideal because you can't scroll the console window. If you see this, it is best to restart the server to get the BIOS menu back.
@@ -184,21 +184,20 @@ Create a tar file with the following information:
 - The Infumap settings.toml file which includes:
   - The object store backup encryption key. IMPORTANT! without this, the database backup data is useless.
   - Connection information and credentials for all S3 compatible object stores.
-- A separate text file with the backup encryption key (because this is so important!).
 - Login credentials for your VPS provider.
   - Username / password.
   - TOTP key / QR code screen capture.
 - ssh keys for logging into the VPS that hosts Infumap.
   - Allows access to user and item database logs, and objects if stored.
-  - Consider copying your entire .ssh folder to guard against accidentally copying the wrong key.
 - Login credentials for S3 provider(s).
   - Username / password.
   - TOTP keys / QR code screen capture.
 - Username / password of the infumap user.
 - Email passwords - these can often be used to recover other accounts.
+- Filesystem encryption key (is used).
 
 
-Double check:
+Checks:
 - Download a backup and ensure you can extract it using the backup key.
 - Ensure you copied the correct ssh key for logging into your VPS.
 
