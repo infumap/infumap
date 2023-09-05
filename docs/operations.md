@@ -1,5 +1,6 @@
 # Operations
 
+
 ## Simple Deployment on Debian 11
 
 Configure `ufw` (Uncomplicated Firewall) to allow HTTPS connections:
@@ -29,10 +30,6 @@ Then reload:
 systemctl reload caddy
 ```
 
-## Use Veracrypt
-
-TODO
-
 
 ## Guarding Against Loss of Access to Your Information
 
@@ -53,7 +50,7 @@ Create a tar file with the following information:
   - TOTP keys / QR code screen capture.
 - Username / password of the infumap user.
 - Email passwords - these can often be used to recover other accounts.
-- 
+
 
 Double check:
 - Download a backup and ensure you can extract it using the backup key.
@@ -79,6 +76,7 @@ Email this to yourself disaster_recovery.aes256 along with these instructions. A
 If possible, prepay for hosting / object store services, and keep the prepaid balances high. Use different credit cards for different providers so if there is a problem with one which ultimately results in loss of data, there is redundancy.
 
 Periodically sync data in remote objects store(s) locally.
+
 
 ## Metrics
 
