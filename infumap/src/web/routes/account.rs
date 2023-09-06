@@ -29,11 +29,11 @@ use uuid::Uuid;
 
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, RelationshipToParent, ItemType};
-use crate::storage::db::user::User;
+use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
 use crate::util::infu::InfuResult;
-use crate::util::uid::{Uid, new_uid};
+use crate::util::uid::{Uid, new_uid, is_uid};
 use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::serve::{json_response, not_found_response, incoming_json};
 use crate::web::session::get_and_validate_session;
@@ -228,6 +228,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
 
   if db.user.get_by_username_case_insensitive(&payload.username).is_some() ||
      db.pending_user.get_by_username_case_insensitive(&payload.username).is_some() ||
+     is_uid(&payload.username) ||
      RESERVED_NAMES.contains(&payload.username.as_str()) {
     return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) } )
   }
@@ -274,7 +275,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     object_encryption_key: generate_key()
   };
 
-  if payload.username == "root" {
+  if payload.username == ROOT_USER_NAME {
     if let Err(e) = db.user.add(user.clone()).await {
       error!("Error adding user: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )

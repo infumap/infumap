@@ -18,17 +18,17 @@
 
 import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
-import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
+import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
 import { Toolbar } from "./Toolbar";
-import { EMPTY_UID } from "../util/uid";
 import { ITEM_TYPE_NONE } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
+import { panic } from "../util/lang";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -44,33 +44,30 @@ export const Main: Component = () => {
     if (!generalStore.installationState()!.hasRootUser) {
       navigate('/setup');
     }
-    let user = userStore.getUserMaybe();
-    if (user == null && !params.id) {
-      navigate('/login');
-    }
+
+    let path;
+    if (!params.user && !params.id) { path = "/"; }
+    else if (!params.user && params.id) { path = `/${params.id}`; }
+    else if (params.user && !params.id) { path = `${params.user}/`; }
+    else if (params.user && params.id) { path = `${params.user}/${params.id}`; }
+    else { panic(); }
 
     try {
-      let result: ItemsAndTheirAttachments;
-      let rootId: string;
-      if (!params.id) {
-        result = await server.fetchItems(null, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY);
-        const rootPageObject = result.items.find((a: any) => a['parentId'] == EMPTY_UID) as any;
-        rootId = rootPageObject.id;
-        childrenLoadInitiatedOrComplete[rootId] = true;
-      } else {
-        result = await server.fetchItems(params.id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
-        const rootPageObject = result.item as any;
-        rootId = rootPageObject.id;
-        itemState.setItemFromServerObject(rootPageObject);
-        if (result.attachments[rootId]) {
-          itemState.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
-        }
-        childrenLoadInitiatedOrComplete[rootId] = true;
+      const result: ItemsAndTheirAttachments =
+        await server.fetchItems(path, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
+      const rootPageObject = result.item as any;
+      const rootId = rootPageObject.id;
+      itemState.setItemFromServerObject(rootPageObject);
+      if (result.attachments[rootId]) {
+        itemState.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
       }
+      childrenLoadInitiatedOrComplete[rootId] = true;
+
       itemState.setChildItemsFromServerObjects(rootId, result.items);
       Object.keys(result.attachments).forEach(id => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
+
       switchToPage(desktopStore, { itemId: rootId, linkIdMaybe: null });
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
@@ -80,6 +77,7 @@ export const Main: Component = () => {
       if (logout) {
         await logout();
       }
+      navigate('/login');
     }
   });
 

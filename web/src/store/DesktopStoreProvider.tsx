@@ -189,11 +189,14 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   function currentDesktopSize(): Dimensions {
-    let rootElement = document.getElementById("root") ?? panic();
+    let rootElement = document.getElementById("rootDiv") ?? panic();
     return { w: rootElement.clientWidth - MAIN_TOOLBAR_WIDTH_PX, h: rootElement.clientHeight };
   }
 
-  const resetDesktopSizePx = () => { setDesktopSizePx(currentDesktopSize()); }
+  const resetDesktopSizePx = () => {
+    setDesktopSizePx(currentDesktopSize());
+  }
+
   const desktopBoundsPx = () => {
     const dimensionsPx = desktopSizePx();
     return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }

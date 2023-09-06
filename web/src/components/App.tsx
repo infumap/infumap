@@ -38,39 +38,48 @@ const App: Component = () => {
     }
   });
 
-  // TODO (MEDIUM): improve this ...
-  const fallback = () => { return <div>waiting ...</div> };
-  const fallback2 = () => { return <Navigate href="/setup" /> };
-  const LoginMaybe: Component = () =>
+  const fallback = () => <div>waiting ...</div>;
+  const fallback2 = () => <Navigate href="/setup" />;
+
+  const LoginPath: Component = () =>
     <Show when={generalStore.installationState() != null} fallback={fallback()}>
       <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <Login />
       </Show>
     </Show>;
-  const SignUpMaybe: Component = () =>
+
+  const SignUpPath: Component = () =>
     <Show when={generalStore.installationState() != null} fallback={fallback()}>
       <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <SignUp />
       </Show>
     </Show>;
-  const MainMaybe: Component = () =>
+
+  const MainPath: Component = () =>
     <Show when={generalStore.installationState() != null} fallback={fallback()}>
       <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <Main />
       </Show>
     </Show>;
-  const SetupMaybe: Component = () =>
+
+  const SetupPath: Component = () =>
     <Show when={generalStore.installationState() != null} fallback={fallback()}>
       <SignUp />
     </Show>;
 
+  const UnknownPath: Component = () =>
+    <div>unknown path</div>;
+
   return (
     <Routes>
-      <Route path="/login" component={LoginMaybe} />
-      <Route path="/signup" component={SignUpMaybe} />
-      <Route path="/setup" component={SetupMaybe} />
-      <Route path="/:id" component={MainMaybe} />
-      <Route path="/" component={MainMaybe} />
+      <Route path="/login" component={LoginPath} />
+      <Route path="/signup" component={SignUpPath} />
+      <Route path="/setup" component={SetupPath} />
+      <Route path="/:user" component={MainPath} />
+      <Route path="/items/:id" component={MainPath} />
+      <Route path="/:user/items/:id" component={MainPath} />
+      <Route path="/" component={MainPath} />
+      <Route path="*" component={UnknownPath} />
     </Routes>
   );
 };

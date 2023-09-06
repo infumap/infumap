@@ -40,4 +40,4 @@ render(() => (
       </GeneralStoreProvider>
     </UserStoreProvider>
   </DesktopStoreProvider>
-), document.getElementById('root') as HTMLElement);
+), document.getElementById("rootDiv") as HTMLElement);

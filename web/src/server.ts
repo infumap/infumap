@@ -37,9 +37,8 @@ export const server = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (itemId: Uid | null, mode: string): Promise<ItemsAndTheirAttachments> => {
-    // TODO (MEDIUM): support for non-root user.
-    let r = await sendCommand(null, "get-items", itemId == null ? { mode } : { userQualifiedItemId: itemId, mode }, null, false);
+  fetchItems: async (path: string, mode: string): Promise<ItemsAndTheirAttachments> => {
+    let r = await sendCommand(null, "get-items", { path, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
@@ -73,9 +72,8 @@ export const remote = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (host: string, itemId: Uid | null, mode: string): Promise<ItemsAndTheirAttachments> => {
-    // TODO: support for non-root users.
-    let r = await sendCommand(host, "get-items", itemId == null ? { mode } : { userQualifiedItemId: itemId, mode }, null, false);
+  fetchItems: async (host: string, path: string, mode: string): Promise<ItemsAndTheirAttachments> => {
+    let r = await sendCommand(host, "get-items", { path, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })

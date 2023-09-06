@@ -120,12 +120,6 @@ impl ItemDb {
         if item.relationship_to_parent != RelationshipToParent::NoParent {
           return Err(format!("Relationship to parent for root page item '{}' must be 'no-parent', not '{}'.", item.id, item.relationship_to_parent.as_str()).into());
         }
-
-        // By convention, root level items are children of themselves.
-        match self.children_of.get_mut(&item.id) {
-          Some(children) => { children.push(item.id.clone()); },
-          None => { self.children_of.insert(item.id.clone(), vec![item.id.clone()]); }
-        }
       }
     }
     Ok(())
@@ -164,14 +158,6 @@ impl ItemDb {
       None => {
         if item.relationship_to_parent != RelationshipToParent::NoParent {
           return Err(format!("Relationship to parent for root page item '{}' must be 'no-parent', not '{}'.", item.id, item.relationship_to_parent.as_str()).into());
-        }
-        // By convention, root level items are children of themselves.
-        let child_list = self.children_of.remove(&item.id)
-          .ok_or(format!("Root item '{}' is missing a children_of index.", item.id))?;
-        let updated_child_list = child_list.iter()
-          .filter(|el| **el != item.id).map(|v| v.clone()).collect::<Vec<String>>();
-        if updated_child_list.len() > 0 {
-          self.children_of.insert(item.id.clone(), updated_child_list);
         }
       }
     }

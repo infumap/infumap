@@ -37,6 +37,7 @@ use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_position
 use crate::storage::db::item::{is_data_item_type, is_image_item, is_container_item_type, is_attachments_item_type};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
+use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
 use crate::util::geometry::{Vector, Dimensions};
 use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
@@ -176,8 +177,8 @@ impl GetItemsMode {
 
 #[derive(Deserialize, Serialize)]
 pub struct GetItemsRequest {
-  #[serde(rename="userQualifiedItemId")]
-  pub user_qualified_item_id_maybe: Option<String>,
+  #[serde(rename="path")]
+  pub path: String,
   #[serde(rename="mode")]
   pub mode: String
 }
@@ -325,31 +326,29 @@ async fn handle_get_items(
     session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let request: GetItemsRequest = serde_json::from_str(json_data)?;
 
-  let qualified_item_user_id_maybe;
-  let item_id_maybe;
-  match &request.user_qualified_item_id_maybe {
-    Some(qualified_item_id) => {
-      let parts = qualified_item_id.split('/').collect::<Vec<&str>>();
-      if parts.len() == 1 {
-        let db = &db.lock().await;
-        let root_user = match db.user.get_by_username_case_insensitive("root") {
-          Some(u) => u,
-          None => { return Err("no root user".into()); }
-        };
-        qualified_item_user_id_maybe = Some(root_user.id.to_owned());
-        item_id_maybe = Some(parts[0].to_owned());
-      } else if parts.len() == 2 {
-        qualified_item_user_id_maybe = Some(parts[0].to_owned());
-        item_id_maybe = Some(parts[1].to_owned());
-      } else {
-        return Err("Invalid itemId".into());
+  let parts = request.path.split('/').collect::<Vec<&str>>();
+  if parts.len() != 2 {
+    return Err(format!("Get items request path '{}' does not have form: user/id.", request.path).into());
+  }
+
+  let item_id_maybe =
+    if parts[1] == "" { None }
+    else { Some(parts[1].to_owned()) };
+
+  let username_or_user_id =
+    if parts[0] == "" { ROOT_USER_NAME.to_owned() }
+    else { parts[0].to_owned() };
+
+  let item_user_id =
+    if is_uid(&username_or_user_id) {
+      username_or_user_id.to_owned()
+    } else {
+      let username = username_or_user_id;
+      match db.lock().await.user.get_by_username_case_insensitive(&username) {
+        Some(u) => u.id.to_owned(),
+        None => { return Err(format!("User '{}' is unknown.", username).into()); }
       }
-    },
-    None => {
-      qualified_item_user_id_maybe = None;
-      item_id_maybe = None;
-    },
-  };
+    };
 
   let session_user_id_maybe = match &session_maybe {
     Some(session) => {
@@ -357,18 +356,6 @@ async fn handle_get_items(
     },
     None => None,
   };
-
-  if qualified_item_user_id_maybe.is_none() && session_user_id_maybe.is_none() {
-    return Err("Sessionless get-items request cannot be for default page.".into());
-  }
-
-  let item_user_id;
-  if let Some(user_id) = qualified_item_user_id_maybe {
-    item_user_id = user_id;
-  } else {
-    let session_user_id_maybe_clone = session_user_id_maybe.clone();
-    item_user_id = session_user_id_maybe_clone.unwrap();
-  }
 
   // TODO (LOW): a bad actor could potentially exploit this to overload server resources.
   match load_user_items_maybe(db.clone(), &item_user_id).await {
@@ -384,16 +371,7 @@ async fn handle_get_items(
 
   let item_id = match item_id_maybe {
     Some(item_id) => item_id,
-    None => {
-      match &session_user_id_maybe {
-        Some(session_user_id) => {
-          &db.user.get(&session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?.root_page_id
-        },
-        None => {
-          return Err("Item id must be explicitly specified for sessionless request.".into());
-        }
-      }.to_owned()
-    }
+    None => { db.user.get(&item_user_id).ok_or(format!("Unknown user '{}'.", item_user_id))?.root_page_id.to_owned() }
   };
 
   let item: &Item = get_item_authorized(db, &item_id, &session_user_id_maybe)?;

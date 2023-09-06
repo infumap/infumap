@@ -107,9 +107,12 @@ impl UserDb {
   pub async fn add(&mut self, user: User) -> InfuResult<()> {
     if self.id_by_lowercase_username.contains_key(&user.username.to_lowercase()) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
-    } else {
-      self.id_by_lowercase_username.insert(user.username.to_ascii_lowercase(), String::from(&user.id));
     }
+    if is_uid(&user.username) {
+      return Err(format!("User has username '{}' which is a uid.", user.username).into());
+    }
+
+    self.id_by_lowercase_username.insert(user.username.to_ascii_lowercase(), String::from(&user.id));
 
     let mut dir = self.data_dir.clone();
     dir.push(format!("{}{}", String::from("user_"), &user.id));

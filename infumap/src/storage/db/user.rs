@@ -24,6 +24,9 @@ use crate::util::json;
 use super::kv_store::JsonLogSerializable;
 
 
+pub const ROOT_USER_NAME: &'static str = "root";
+
+
 const ALL_JSON_FIELDS: [&'static str; 10] = ["__recordType",
   "id", "username", "passwordHash", "passwordSalt", "totpSecret",
   "rootPageId", "defaultPageWidthBl", "defaultPageNaturalAspect",

@@ -21,7 +21,9 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::{storage::db::Db, web::serve::{json_response, not_found_response}};
+use crate::storage::db::Db;
+use crate::web::serve::{json_response, not_found_response};
+use crate::storage::db::user::ROOT_USER_NAME;
 
 
 #[derive(Serialize)]
@@ -32,7 +34,7 @@ pub struct InstallationStateResponse {
 
 pub async fn serve_admin_route(db: &Arc<Mutex<Db>>, req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   match (req.method(), req.uri().path()) {
-    (&Method::POST, "/admin/installation-state") => json_response(&InstallationStateResponse { has_root_user: db.lock().await.user.get_by_username_case_insensitive("root").is_some() }),
+    (&Method::POST, "/admin/installation-state") => json_response(&InstallationStateResponse { has_root_user: db.lock().await.user.get_by_username_case_insensitive(ROOT_USER_NAME).is_some() }),
     _ => not_found_response(),
   }
 }
