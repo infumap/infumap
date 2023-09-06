@@ -25,7 +25,7 @@ import { EMPTY_UID, Uid } from "./util/uid";
 
 export interface ItemsAndTheirAttachments {
   item: object,
-  items: Array<object>,
+  children: Array<object>,
   attachments: { [id: string]: Array<object> }
 }
 
@@ -41,10 +41,10 @@ export const server = {
     let r = await sendCommand(null, "get-items", { path, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
-    r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
+    if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
     return ({
       item: r.item,
-      items: r.children,
+      children: r.children,
       attachments: r.attachments
     });
   },
@@ -76,10 +76,10 @@ export const remote = {
     let r = await sendCommand(host, "get-items", { path, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
-    r.children.forEach((item: any) => { if (item.parentId == null) { item.parentId = EMPTY_UID } })
+    if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
     return ({
       item: r.item,
-      items: r.children,
+      children: r.children,
       attachments: r.attachments
     });
   },

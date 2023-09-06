@@ -26,6 +26,7 @@ import { Veid, prependVeidToPath, veidFromId } from "./visual-element";
 
 export function updateHref(desktopStore: DesktopStoreContextModel) {
   if (itemState.getItem(desktopStore.currentPage()!.itemId)?.parentId == EMPTY_UID) {
+    // TODO (MEDIUM): support multiple users.
     window.history.pushState(null, "", "/"); 
   } else {
     window.history.pushState(null, "", `/items/${desktopStore.currentPage()!.itemId}`);

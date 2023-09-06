@@ -41,7 +41,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemState.setChildItemsFromServerObjects(containerId, result.items);
+          itemState.setChildItemsFromServerObjects(containerId, result.children);
           Object.keys(result.attachments).forEach(id => {
             itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });

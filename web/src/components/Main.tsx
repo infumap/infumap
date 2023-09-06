@@ -63,7 +63,7 @@ export const Main: Component = () => {
       }
       childrenLoadInitiatedOrComplete[rootId] = true;
 
-      itemState.setChildItemsFromServerObjects(rootId, result.items);
+      itemState.setChildItemsFromServerObjects(rootId, result.children);
       Object.keys(result.attachments).forEach(id => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
