@@ -146,3 +146,21 @@ Options:
 - **-d --directory (required):** The path of the directory to upload all files from. This directory must only contain regular files (no links or directories).
 - **-r --resume (optional):** By default, if the Infumap container has a file or image with the same name as a file in the local directory, the bulk upload operation will not start. If this flag is set, these files will be skipped instead.
 - **-a --additional (optional):** By default, an attempt to upload files to an Infumap container that contains files with names other than those in the local directory will fail. Setting this flag disables this check.
+
+
+### pending
+
+List or approve pending users
+
+Options:
+- **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
+
+#### list sub-command
+
+Lists all pending users
+
+
+#### approve sub-command
+
+Options:
+- **-u --username (required):** The username of the pending user to approve.
