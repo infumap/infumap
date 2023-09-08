@@ -65,10 +65,6 @@ impl ItemDb {
     }
   }
 
-  pub fn user_items_loaded(&self, user_id: &Uid) -> bool {
-    self.store_by_user_id.contains_key(user_id)
-  }
-
   pub async fn load_user_items(&mut self, user_id: &str, creating: bool) -> InfuResult<()> {
     info!("Loading items for user {}{}.", user_id, if creating { " (creating)" } else { "" });
 

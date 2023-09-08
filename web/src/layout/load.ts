@@ -35,9 +35,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
   }
   childrenLoadInitiatedOrComplete[containerId] = true;
 
-  const ownerId = itemState.getItem(containerId)!.ownerId;
-
-  server.fetchItems(`${ownerId}/${containerId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
+  server.fetchItems(`${containerId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
         batch(() => {
@@ -64,13 +62,13 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 
 let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, path: string) => {
-  console.log("initiate load item:", path);
-  if (itemLoadInitiatedOrComplete[path]) {
+export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, id: string) => {
+  console.log("initiate load item:", id);
+  if (itemLoadInitiatedOrComplete[id]) {
     return;
   }
-  itemLoadInitiatedOrComplete[path] = true;
-  server.fetchItems(path, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
+  itemLoadInitiatedOrComplete[id] = true;
+  server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
         batch(() => {
@@ -85,11 +83,11 @@ export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, path: s
           };
         });
       } else {
-        console.error(`Empty result fetching '${path}'.`);
+        console.error(`Empty result fetching '${id}'.`);
       }
     })
     .catch((e: any) => {
-      console.error(`Error occurred feching item '${path}': ${e.message}.`);
+      console.error(`Error occurred feching item '${id}': ${e.message}.`);
     });
 }
 

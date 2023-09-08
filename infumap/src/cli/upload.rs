@@ -154,7 +154,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   // Get children of container.
   let get_children_request = serde_json::to_string(&GetItemsRequest {
-    path: format!("{}/{}", named_session.session.username, container_id.clone()),
+    id: container_id.clone(),
     mode: String::from(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str())
   }).unwrap();
   let send_reqest = CommandRequest {

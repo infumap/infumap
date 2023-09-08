@@ -22,6 +22,7 @@ use serde_json::{Map, Value};
 use crate::util::fs::expand_tilde;
 use crate::util::infu::InfuResult;
 use crate::util::json;
+use crate::util::uid::Uid;
 use super::kv_store::KVStore;
 use super::user::User;
 use super::kv_store::JsonLogSerializable;
@@ -59,12 +60,16 @@ impl PendingUserDb {
     self.store.add(user).await
   }
 
-  pub fn _get_iter(&self) -> Iter<String, User> {
-    self.store.get_iter()
+  pub async fn remove(&mut self, id: &Uid) -> InfuResult<User> {
+    let user = self.store.remove(id).await?;
+    if self.id_by_lowercase_username.remove(&user.username).is_none() {
+      return Err("Inconsistency between pending user store and index by username".into());
+    }
+    Ok(user)
   }
 
-  pub fn _get_by_id(&self, id: &str) -> Option<&User> {
-    self.store.get(id)
+  pub fn get_iter(&self) -> Iter<String, User> {
+    self.store.get_iter()
   }
 
   pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {

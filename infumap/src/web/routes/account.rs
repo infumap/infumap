@@ -28,12 +28,12 @@ use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent, ItemType};
+use crate::storage::db::item::default_page;
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
-use crate::util::geometry::{Dimensions, Vector, GRID_SIZE};
+use crate::util::geometry::Dimensions;
 use crate::util::infu::InfuResult;
-use crate::util::uid::{Uid, new_uid, is_uid};
+use crate::util::uid::{new_uid, is_uid};
 use crate::web::cookie::get_session_cookie_maybe;
 use crate::web::serve::{json_response, not_found_response, incoming_json};
 use crate::web::session::get_and_validate_session;
@@ -229,6 +229,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   if db.user.get_by_username_case_insensitive(&payload.username).is_some() ||
      db.pending_user.get_by_username_case_insensitive(&payload.username).is_some() ||
      is_uid(&payload.username) ||
+     payload.username.len() > 16 ||
      RESERVED_NAMES.contains(&payload.username.as_str()) {
     return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) } )
   }
@@ -278,22 +279,26 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   if payload.username == ROOT_USER_NAME {
     if let Err(e) = db.user.add(user.clone()).await {
       error!("Error adding user: {}", e);
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     if let Err(e) = db.item.load_user_items(&user.id, true).await {
       error!("Error initializing item store for user '{}': {}", user.id, e);
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+    if let Err(e) = db.session.create(&user.id).await {
+      error!("Error creating session store for user '{}': {}", user.id, e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     let page = default_page(user_id.as_str(), &payload.username, root_page_id, page_width_bl, natural_aspect);
     if let Err(e) = db.item.add(page).await {
       error!("Error adding default page: {}", e);
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     info!("Created root user.");
   } else {
     if let Err(e) = db.pending_user.add(user.clone()).await {
       error!("Error adding user to pending user db: {}", e);
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) } )
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     info!("Added pending user '{}'.", payload.username);
   }
@@ -335,45 +340,6 @@ fn sanitize_page_size(w_px: i64, h_px: i64) -> Dimensions<i64> {
     w_px = (w_px as f64 * 2000.0 / h_px as f64) as i64;
   }
   Dimensions { w: w_px, h: h_px }
-}
-
-fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
-  Item {
-    item_type: ItemType::Page,
-    owner_id: String::from(owner_id),
-    id: root_page_id,
-    parent_id: None,
-    relationship_to_parent: RelationshipToParent::NoParent,
-    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-    ordering: vec![128],
-    order_children_by: Some(String::from("")),
-    spatial_position_gr: Some(Vector { x: 0, y: 0 }),
-    spatial_width_gr: Some(60 * GRID_SIZE),
-    spatial_height_gr: None,
-    title: Some(title.to_string()),
-    original_creation_date: None,
-    mime_type: None,
-    file_size_bytes: None,
-    flags: None,
-    permission_flags: Some(0),
-    inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
-    natural_aspect: Some(natural_aspect),
-    background_color_index: Some(0),
-    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::SpatialStretch),
-    popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
-    popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
-    popup_width_gr: Some(10 * GRID_SIZE),
-    grid_number_of_columns: Some(10),
-    url: None,
-    table_columns: None,
-    image_size_px: None,
-    thumbnail: None,
-    rating: None,
-    link_to_id: None,
-    link_to_base_url: None,
-    text: None,
-  }
 }
 
 

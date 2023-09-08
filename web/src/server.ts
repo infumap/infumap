@@ -37,8 +37,8 @@ export const server = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (path: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await sendCommand(null, "get-items", { path, mode }, null, false);
+  fetchItems: async (id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
+    let r = await sendCommand(null, "get-items", { id, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
@@ -72,8 +72,8 @@ export const remote = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (host: string, path: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await sendCommand(host, "get-items", { path, mode }, null, false);
+  fetchItems: async (host: string, id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
+    let r = await sendCommand(host, "get-items", { id, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }

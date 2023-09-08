@@ -152,6 +152,16 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     spawn_promethues_listener(prometheus_addr).await?;
   }
 
+  {
+    info!("Loading all items for all users...");
+    let mut db = db.lock().await;
+    let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
+    for user_id in all_user_ids {
+      db.item.load_user_items(&user_id, false).await?;
+    }
+    info!("Done loading all items for all users.");
+  }
+
   listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await
 }
 

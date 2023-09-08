@@ -80,15 +80,6 @@ pub struct CommandResponse {
 }
 
 
-async fn load_user_items_maybe(db: Arc<tokio::sync::Mutex<Db>>, user_id: &String) -> InfuResult<()> {
-  let mut db = db.lock().await;
-  if db.item.user_items_loaded(user_id) {
-    Ok(())
-  } else {
-    db.item.load_user_items(user_id, false).await
-  }
-}
-
 pub async fn serve_command_route(
     db: &Arc<tokio::sync::Mutex<Db>>,
     object_store: &Arc<object::ObjectStore>,
@@ -177,9 +168,7 @@ impl GetItemsMode {
 
 #[derive(Deserialize, Serialize)]
 pub struct GetItemsRequest {
-  #[serde(rename="path")]
-  pub path: String,
-  #[serde(rename="mode")]
+  pub id: String,
   pub mode: String
 }
 
@@ -326,29 +315,21 @@ async fn handle_get_items(
     session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let request: GetItemsRequest = serde_json::from_str(json_data)?;
 
-  let parts = request.path.split('/').collect::<Vec<&str>>();
-  if parts.len() != 2 {
-    return Err(format!("Get items request path '{}' does not have form: user/id.", request.path).into());
+  let parts = request.id.split('/').collect::<Vec<&str>>();
+  if parts.len() != 1 {
+    // TODO (MEDIUM): implement ids of the form: /{username}/{item_label}.
+    return Err(format!("Get items request id '{}' has unexpected format.", request.id).into());
   }
 
-  let item_id_maybe =
-    if parts[1] == "" { None }
-    else { Some(parts[1].to_owned()) };
-
-  let username_or_user_id =
-    if parts[0] == "" { ROOT_USER_NAME.to_owned() }
-    else { parts[0].to_owned() };
-
-  let item_user_id =
-    if is_uid(&username_or_user_id) {
-      username_or_user_id.to_owned()
-    } else {
-      let username = username_or_user_id;
-      match db.lock().await.user.get_by_username_case_insensitive(&username) {
-        Some(u) => u.id.to_owned(),
-        None => { return Err(format!("User '{}' is unknown.", username).into()); }
-      }
-    };
+  let item_id = if is_uid(&request.id) {
+    request.id.to_owned()
+  } else {
+    let username = if request.id.len() == 0 { ROOT_USER_NAME } else { &request.id };
+    match db.lock().await.user.get_by_username_case_insensitive(username) {
+      Some(u) => { u.root_page_id.to_owned() },
+      None => { return Err(format!("User '{}' is unknown.", request.id).into()); }
+    }
+  };
 
   let session_user_id_maybe = match &session_maybe {
     Some(session) => {
@@ -357,22 +338,9 @@ async fn handle_get_items(
     None => None,
   };
 
-  // TODO (LOW): a bad actor could potentially exploit this to overload server resources.
-  match load_user_items_maybe(db.clone(), &item_user_id).await {
-    Ok(_) => {},
-    Err(e) => {
-      return Err(format!("An error occurred loading item state for user '{}': {}", item_user_id, e).into());
-    }
-  }
-
   let db = &db.lock().await;
 
   let mode = GetItemsMode::from_str(&request.mode)?;
-
-  let item_id = match item_id_maybe {
-    Some(item_id) => item_id,
-    None => { db.user.get(&item_user_id).ok_or(format!("Unknown user '{}'.", item_user_id))?.root_page_id.to_owned() }
-  };
 
   let item: &Item = get_item_authorized(db, &item_id, &session_user_id_maybe)?;
 

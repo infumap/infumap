@@ -75,9 +75,8 @@ const App: Component = () => {
       <Route path="/login" component={LoginPath} />
       <Route path="/signup" component={SignUpPath} />
       <Route path="/setup" component={SetupPath} />
-      <Route path="/:user" component={MainPath} />
-      <Route path="/items/:id" component={MainPath} />
-      <Route path="/:user/items/:id" component={MainPath} />
+      <Route path="/:usernameOrItemId" component={MainPath} />
+      <Route path="/:username/:itemLabel" component={MainPath} />
       <Route path="/" component={MainPath} />
       <Route path="*" component={UnknownPath} />
     </Routes>

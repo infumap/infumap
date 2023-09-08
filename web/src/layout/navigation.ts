@@ -19,21 +19,15 @@
 import { asPageItem } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
-import { EMPTY_UID } from "../util/uid";
 import { ARRANGE_ALGO_LIST, arrange } from "./arrange";
 import { Veid, prependVeidToPath, veidFromId } from "./visual-element";
 
 
 export function updateHref(desktopStore: DesktopStoreContextModel) {
-  if (itemState.getItem(desktopStore.currentPage()!.itemId)?.parentId == EMPTY_UID) {
-    // TODO (MEDIUM): support multiple users.
-    window.history.pushState(null, "", "/"); 
-  } else {
-    window.history.pushState(null, "", `/items/${desktopStore.currentPage()!.itemId}`);
-  }
+  window.history.pushState(null, "", `/${desktopStore.currentPage()!.itemId}`);
 }
 
-export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid) => {
+export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid, updateHistory: boolean) => {
   desktopStore.pushPage(veid);
   arrange(desktopStore);
 
@@ -63,5 +57,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid)
     desktopEl.scrollLeft = scrollXPx;
   }
 
-  updateHref(desktopStore);
+  if (updateHistory) {
+    updateHref(desktopStore);
+  }
 }

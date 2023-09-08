@@ -129,7 +129,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (popupFlagSet(hitInfo.overElementVes.get())) {
-      switchToPage(desktopStore, getVeid(hitInfo.overElementVes.get()));
+      switchToPage(desktopStore, getVeid(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);
     }
@@ -302,6 +302,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
           mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
         } else {
+          const _shouldCreateLink = ev.shiftKey;
           const parentItem = itemState.getItem(activeItem.parentId)!;
           if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
             moveActiveItemOutOfTable(desktopStore);

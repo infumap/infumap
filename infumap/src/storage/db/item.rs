@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::time::SystemTime;
+
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, Map, Number};
 
 use crate::util::json;
 use crate::util::uid::{Uid, is_uid};
-use crate::util::geometry::{Vector, Dimensions};
+use crate::util::geometry::{Vector, Dimensions, GRID_SIZE};
 use crate::util::infu::{InfuResult, InfuError};
 use crate::web::routes::WebApiJsonSerializable;
 use crate::storage::db::kv_store::JsonLogSerializable;
@@ -397,6 +399,46 @@ impl Clone for Item {
       link_to_base_url: self.link_to_base_url.clone(),
       text: self.text.clone(),
     }
+  }
+}
+
+
+pub fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
+  Item {
+    item_type: ItemType::Page,
+    owner_id: String::from(owner_id),
+    id: root_page_id,
+    parent_id: None,
+    relationship_to_parent: RelationshipToParent::NoParent,
+    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    ordering: vec![128],
+    order_children_by: Some(String::from("")),
+    spatial_position_gr: Some(Vector { x: 0, y: 0 }),
+    spatial_width_gr: Some(60 * GRID_SIZE),
+    spatial_height_gr: None,
+    title: Some(title.to_string()),
+    original_creation_date: None,
+    mime_type: None,
+    file_size_bytes: None,
+    flags: None,
+    permission_flags: Some(0),
+    inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
+    natural_aspect: Some(natural_aspect),
+    background_color_index: Some(0),
+    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::SpatialStretch),
+    popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
+    popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
+    popup_width_gr: Some(10 * GRID_SIZE),
+    grid_number_of_columns: Some(10),
+    url: None,
+    table_columns: None,
+    image_size_px: None,
+    thumbnail: None,
+    rating: None,
+    link_to_id: None,
+    link_to_base_url: None,
+    text: None,
   }
 }
 

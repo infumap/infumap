@@ -37,6 +37,7 @@ async fn main() {
     .subcommand(cli::ls::make_clap_subcommand())
     .subcommand(cli::migrate::make_clap_subcommand())
     .subcommand(cli::note::make_clap_subcommand())
+    .subcommand(cli::pending::make_clap_subcommand())
     .subcommand(cli::reconcile::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
@@ -70,6 +71,9 @@ async fn main() {
             },
             "note" => {
               cli::note::execute(arg_sub_matches).await
+            },
+            "pending" => {
+              cli::pending::execute(arg_sub_matches).await
             },
             "reconcile" => {
               cli::reconcile::execute(arg_sub_matches).await

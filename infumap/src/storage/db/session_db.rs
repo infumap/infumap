@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use std::collections::HashMap;
-// use std::path::PathBuf;
-use log::warn;
+use log::{warn, info};
 
 use crate::util::infu::InfuResult;
 use crate::util::uid::new_uid;
-use crate::util::fs::expand_tilde;
+use crate::util::fs::{expand_tilde, path_exists};
 use crate::util::uid::{Uid, is_uid};
 use super::session::Session;
 use super::kv_store::KVStore;
@@ -32,8 +32,7 @@ pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 /// Db for managing Session instances, assuming the mandated data folder hierarchy.
 /// Not threadsafe.
 pub struct SessionDb {
-  // TODO: create 
-  // data_dir: PathBuf,
+  data_dir: PathBuf,
   store_by_user_id: HashMap<Uid, KVStore<Session>>,
   user_id_by_session_id: HashMap<Uid, Uid>
 }
@@ -83,10 +82,26 @@ impl SessionDb {
     }
 
     Ok(SessionDb {
-      // data_dir: expanded_data_path,
+      data_dir: expanded_data_path,
       store_by_user_id: store_by_user_id,
       user_id_by_session_id,
     })
+  }
+
+  pub async fn create(&mut self, user_id: &str) -> InfuResult<()> {
+    info!("Creating session db for user {}.", user_id);
+
+    let log_path = self.log_path(user_id)?;
+    let log_path_str = log_path.as_path().to_str().unwrap();
+
+    if path_exists(&log_path).await {
+      return Err(format!("Session log file '{}' already exists for user '{}'.", log_path_str, user_id).into());
+    }
+
+    let store: KVStore<Session> = KVStore::init(log_path_str, CURRENT_SESSIONS_LOG_VERSION).await?;
+    self.store_by_user_id.insert(String::from(user_id), store);
+
+    Ok(())
   }
 
   pub async fn create_session(&mut self, user_id: &str, username: &str) -> InfuResult<Session> {
@@ -123,4 +138,10 @@ impl SessionDb {
     }
   }
 
+  fn log_path(&self, user_id: &str) -> InfuResult<PathBuf> {
+    let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
+    log_path.push(String::from("user_") + user_id);
+    log_path.push("session.json");
+    Ok(log_path)
+  }
 }

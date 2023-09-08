@@ -126,7 +126,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     Some(("orphaned", arg_sub_matches)) => {
       execute_orphaned(arg_sub_matches, &config).await
     },
-    _ => return Err("Sub command was not specified.".into())
+    _ => return Err("Sub command was not recognized or specified.".into())
   }
 }
 

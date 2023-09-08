@@ -723,11 +723,7 @@ function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, 
     } else {
       if (linkItemMaybe.linkTo != EMPTY_UID) {
         if (linkItemMaybe.linkToBaseUrl == "") {
-          if (linkItemMaybe.linkTo.indexOf("/") != -1) {
-            initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
-          } else {
-            initiateLoadItem(desktopStore, `${linkItemMaybe.ownerId}/${linkItemMaybe.linkTo}`);
-          }
+          initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
         } else {
           initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
         }

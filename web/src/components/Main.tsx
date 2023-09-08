@@ -45,30 +45,29 @@ export const Main: Component = () => {
       navigate('/setup');
     }
 
-    let path;
-    if (!params.user && !params.id) { path = "/"; }
-    else if (!params.user && params.id) { path = `/${params.id}`; }
-    else if (params.user && !params.id) { path = `${params.user}/`; }
-    else if (params.user && params.id) { path = `${params.user}/${params.id}`; }
+    let id;
+    if (!params.usernameOrItemId && !params.username && !params.itemLabel) { id = "root"; }
+    else if (params.usernameOrItemId) { id = params.usernameOrItemId; }
+    else if (params.username && params.itemLabel) { id = `${params.username}/${params.itemLabel}`; }
     else { panic(); }
 
     try {
       const result: ItemsAndTheirAttachments =
-        await server.fetchItems(path, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
-      const rootPageObject = result.item as any;
-      const rootId = rootPageObject.id;
-      itemState.setItemFromServerObject(rootPageObject);
-      if (result.attachments[rootId]) {
-        itemState.setAttachmentItemsFromServerObjects(rootId, result.attachments[rootId]);
+        await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
+      const pageObject = result.item as any;
+      const pageId = pageObject.id;
+      itemState.setItemFromServerObject(pageObject);
+      if (result.attachments[pageId]) {
+        itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId]);
       }
-      childrenLoadInitiatedOrComplete[rootId] = true;
+      childrenLoadInitiatedOrComplete[pageId] = true;
 
-      itemState.setChildItemsFromServerObjects(rootId, result.children);
+      itemState.setChildItemsFromServerObjects(pageId, result.children);
       Object.keys(result.attachments).forEach(id => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
 
-      switchToPage(desktopStore, { itemId: rootId, linkIdMaybe: null });
+      switchToPage(desktopStore, { itemId: pageId, linkIdMaybe: null }, false);
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       userStore.clear();

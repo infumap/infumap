@@ -300,7 +300,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
-  switchToPage(desktopStore, getVeid(visualElement));
+  switchToPage(desktopStore, getVeid(visualElement), true);
 }
 
 

@@ -37,6 +37,7 @@ pub mod note;
 pub mod reconcile;
 pub mod restore;
 pub mod upload;
+pub mod pending;
 
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -58,6 +59,14 @@ impl NamedInfuSession {
 
   pub fn command_url(&self) -> InfuResult<Url> {
     command_url_from_base_url(&self.url)
+  }
+
+  pub fn list_pending_users_url(&self) -> InfuResult<Url> {
+    list_pending_users_url_from_base_url(&self.url)
+  }
+
+  pub fn approve_pending_user_url(&self) -> InfuResult<Url> {
+    approve_pending_user_url_from_base_url(&self.url)
   }
 
   pub async fn get(name: &str) -> InfuResult<Option<NamedInfuSession>> {
@@ -136,4 +145,16 @@ fn command_url_from_base_url(base_url: &str) -> InfuResult<Url> {
   let base_url = Url::parse(base_url)
     .map_err(|e| format!("Could not parse URL: {}", e))?;
   base_url.join("/command").map_err(|e| e.to_string().into())
+}
+
+fn list_pending_users_url_from_base_url(base_url: &str) -> InfuResult<Url> {
+  let base_url = Url::parse(base_url)
+    .map_err(|e| format!("Could not parse URL: {}", e))?;
+  base_url.join("/admin/list-pending").map_err(|e| e.to_string().into())
+}
+
+fn approve_pending_user_url_from_base_url(base_url: &str) -> InfuResult<Url> {
+  let base_url = Url::parse(base_url)
+    .map_err(|e| format!("Could not parse URL: {}", e))?;
+  base_url.join("/admin/approve-pending").map_err(|e| e.to_string().into())
 }
