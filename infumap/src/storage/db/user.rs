@@ -29,7 +29,7 @@ pub const ROOT_USER_NAME: &'static str = "root";
 
 const ALL_JSON_FIELDS: [&'static str; 10] = ["__recordType",
   "id", "username", "passwordHash", "passwordSalt", "totpSecret",
-  "rootPageId", "defaultPageWidthBl", "defaultPageNaturalAspect",
+  "homePageId", "defaultPageWidthBl", "defaultPageNaturalAspect",
   "objectEncryptionKey"];
 
 pub struct User {
@@ -38,7 +38,7 @@ pub struct User {
   pub password_hash: String,
   pub password_salt: String,
   pub totp_secret: Option<String>,
-  pub root_page_id: String,
+  pub home_page_id: String,
   pub default_page_width_bl: i64,
   pub default_page_natural_aspect: f64,
   pub object_encryption_key: String,
@@ -60,7 +60,7 @@ impl Clone for User {
       password_hash: self.password_hash.clone(),
       password_salt: self.password_salt.clone(),
       totp_secret: self.totp_secret.clone(),
-      root_page_id: self.root_page_id.clone(),
+      home_page_id: self.home_page_id.clone(),
       default_page_width_bl: self.default_page_width_bl,
       default_page_natural_aspect: self.default_page_natural_aspect,
       object_encryption_key: self.object_encryption_key.clone()
@@ -87,7 +87,7 @@ impl JsonLogSerializable<User> for User {
     if let Some(totp_secret) = &self.totp_secret {
       result.insert(String::from("totpSecret"), Value::String(totp_secret.clone()));
     }
-    result.insert(String::from("rootPageId"), Value::String(self.root_page_id.clone()));
+    result.insert(String::from("homePageId"), Value::String(self.home_page_id.clone()));
     result.insert(String::from("defaultPageWidthBl"), Value::Number(self.default_page_width_bl.into()));
     result.insert(
       String::from("defaultPageNaturalAspect"),
@@ -110,8 +110,8 @@ impl JsonLogSerializable<User> for User {
       password_salt: json::get_string_field(map, "passwordSalt")?
         .ok_or(format!("'passwordSalt' field was missing in an entry for user '{}'.", id))?,
       totp_secret: json::get_string_field(map, "totpSecret")?,
-      root_page_id: json::get_string_field(map, "rootPageId")?
-        .ok_or(format!("'rootPageId' field was missing in an entry for user '{}'.", id))?,
+      home_page_id: json::get_string_field(map, "homePageId")?
+        .ok_or(format!("'homePageId' field was missing in an entry for user '{}'.", id))?,
       default_page_width_bl: json::get_integer_field(map, "defaultPageWidthBl")?
         .ok_or(format!("'defaultPageWidthBl' field was missing in an entry for user '{}'.", id))?,
       default_page_natural_aspect: json::get_float_field(map, "defaultPageNaturalAspect")?
@@ -138,8 +138,8 @@ impl JsonLogSerializable<User> for User {
         result.insert(String::from("totpSecret"), Value::String(new_totp_secret.clone()));
       }
     }
-    if old.root_page_id != new.root_page_id {
-      result.insert(String::from("rootPageId"), Value::String(new.root_page_id.to_string()));
+    if old.home_page_id != new.home_page_id {
+      result.insert(String::from("homePageId"), Value::String(new.home_page_id.to_string()));
     }
     if old.default_page_width_bl != new.default_page_width_bl {
       result.insert(String::from("defaultPageWidthBl"), Value::Number(new.default_page_width_bl.into()));
@@ -159,7 +159,7 @@ impl JsonLogSerializable<User> for User {
     if let Some(u) = json::get_string_field(map, "passwordHash")? { self.password_hash = u; }
     if let Some(u) = json::get_string_field(map, "passwordSalt")? { self.password_salt = u; }
     self.totp_secret = json::get_string_field(map, "totpSecret")?;
-    if let Some(u) = json::get_string_field(map, "rootPageId")? { self.root_page_id = u; }
+    if let Some(u) = json::get_string_field(map, "homePageId")? { self.home_page_id = u; }
     if let Some(u) = json::get_integer_field(map, "defaultPageWidthBl")? { self.default_page_width_bl = u; }
     if let Some(u) = json::get_float_field(map, "defaultPageNaturalAspect")? { self.default_page_natural_aspect = u; }
     if let Some(_) = json::get_string_field(map, "objectEncryptionKey")? {

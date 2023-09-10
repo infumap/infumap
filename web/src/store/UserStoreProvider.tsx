@@ -40,6 +40,7 @@ export type LogoutResult = {
 export type User = {
   username: string,
   userId: Uid,
+  homePageId: Uid,
   sessionId: Uid
 }
 
@@ -72,7 +73,7 @@ export function UserStoreProvider(props: UserStoreContextProps) {
         return { success: false, err: r.err };
       }
       const cookiePayload = JSON.stringify(
-        { username, userId: r.userId, sessionId: r.sessionId });
+        { username, userId: r.userId, homePageId: r.homePageId, sessionId: r.sessionId });
       setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
       setSessionDataString(cookiePayload);
       return { success: true, err: null };

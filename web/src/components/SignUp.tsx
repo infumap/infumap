@@ -24,6 +24,7 @@ import { useUserStore } from "../store/UserStoreProvider";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
+import { ROOT_USERNAME } from "../constants";
 
 
 interface Totp {
@@ -42,8 +43,6 @@ export const SignUp: Component = () => {
   const generalStore = useGeneralStore();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const ROOT_USERNAME = "root";
 
   let username: string = "";
   let password: string = "";

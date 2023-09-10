@@ -141,7 +141,7 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
       // TODO (MEDIUM): get and store user specific values when the pending user request is created.
       let page_width_bl = 60;
       let natural_aspect = 2.0;
-      let page = default_page(pending_user.id.as_str(), &pending_user.username, pending_user.root_page_id, page_width_bl, natural_aspect);
+      let page = default_page(pending_user.id.as_str(), &pending_user.username, pending_user.home_page_id, page_width_bl, natural_aspect);
       if let Err(e) = db.item.add(page).await {
         error!("Error adding default page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );

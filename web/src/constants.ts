@@ -16,6 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+export const ROOT_USERNAME = "root";
+
 export const GRID_PAGE_CELL_ASPECT = 1.5;
 
 export const GRID_SIZE = 60;

@@ -16,18 +16,34 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { ROOT_USERNAME } from "../constants";
 import { asPageItem } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
+import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { ARRANGE_ALGO_LIST, arrange } from "./arrange";
 import { Veid, prependVeidToPath, veidFromId } from "./visual-element";
 
 
-export function updateHref(desktopStore: DesktopStoreContextModel) {
-  window.history.pushState(null, "", `/${desktopStore.currentPage()!.itemId}`);
+export function updateHref(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
+  const userMaybe = userStore.getUserMaybe();
+  if (!userMaybe) {
+    window.history.pushState(null, "", `/${desktopStore.currentPage()!.itemId}`);
+  } else {
+    const user = userMaybe;
+    if (desktopStore.currentPage()!.itemId != user.homePageId) {
+      window.history.pushState(null, "", `/${desktopStore.currentPage()!.itemId}`);
+    } else {
+      if (user.username == ROOT_USERNAME) {
+        window.history.pushState(null, "", "/");
+      } else {
+        window.history.pushState(null, "", `/${user.username}`);
+      }
+    }
+  }
 }
 
-export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid, updateHistory: boolean) => {
+export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, veid: Veid, updateHistory: boolean) => {
   desktopStore.pushPage(veid);
   arrange(desktopStore);
 
@@ -58,6 +74,6 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, veid: Veid,
   }
 
   if (updateHistory) {
-    updateHref(desktopStore);
+    updateHref(desktopStore, userStore);
   }
 }

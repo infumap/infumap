@@ -19,47 +19,34 @@
 import imgUrl from '../assets/circle.png'
 
 import { Component, Show } from "solid-js";
-import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
+import { MAIN_TOOLBAR_WIDTH_PX, ROOT_USERNAME } from "../constants";
 import { asPageItem } from "../items/page-item";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { Colors } from "../style";
 import { hexToRGBA } from "../util/color";
 import { logout } from "./Main";
 import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
-import { server } from '../server';
-import { panic } from '../util/lang';
-import { VesCache } from '../layout/ves-cache';
+import { useUserStore } from '../store/UserStoreProvider';
+import { switchToPage } from '../layout/navigation';
 
-
-const PERSIST_AFTER_MS = 1000;
-let clickTimer: number | null = null;
 
 export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
+  const userStore = useUserStore();
 
-  const rotateArrangeAlgorithm = () => {
-    const page = asPageItem(desktopStore.topLevelVisualElement()!.displayItem);
-    if (page.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
-      page.arrangeAlgorithm = ARRANGE_ALGO_GRID;
-    } else if (page.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
-      page.arrangeAlgorithm = ARRANGE_ALGO_LIST;
-    } else if (page.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-      page.arrangeAlgorithm = ARRANGE_ALGO_SPATIAL_STRETCH;
+  const handleHome = () => {
+    const userMaybe = userStore.getUserMaybe();
+    if (!userMaybe) {
+      window.history.pushState(null, "", "/");
     } else {
-      panic();
+      switchToPage(desktopStore, userStore, { itemId: userStore.getUser().homePageId, linkIdMaybe: null }, false);
+      if (userMaybe.username == ROOT_USERNAME) {
+        window.history.pushState(null, "", "/");
+      } else {
+        window.history.pushState(null, "", `/${userMaybe.username}`);
+      }
     }
-
-    VesCache.clear(); // prevent reuse of VisualElementSignals, as different overrides are sometimes used for different page types.
-    arrange(desktopStore);
-
-    function clickTimerHandler() {
-      server.updateItem(page);
-      clickTimer = null;
-    }
-    if (clickTimer != null) { clearTimeout(clickTimer); }
-    clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
-  };
+  }
 
   const handleBack = () => {
     console.log("back");
@@ -92,7 +79,7 @@ export const Toolbar: Component = () => {
             <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
           </div>
           <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-refresh cursor-pointer" onclick={rotateArrangeAlgorithm} />
+            <i class="fa fa-home cursor-pointer" onclick={handleHome} />
           </div>
           <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-user cursor-pointer" onclick={logout!} />

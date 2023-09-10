@@ -29,7 +29,6 @@ use crate::storage::db::Db;
 use crate::storage::cache::ImageCache;
 use crate::storage::object::ObjectStore;
 use crate::util::infu::InfuResult;
-use crate::util::uid::is_uid;
 use crate::web::dist_handlers::serve_index;
 
 use super::dist_handlers::serve_dist_routes;
@@ -52,10 +51,10 @@ pub async fn http_serve(
     else if req.uri().path().starts_with("/files/") { serve_files_route(config, &db, object_store, image_cache.clone(), &req).await }
     else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
-    else if req.method() == Method::GET &&
-            req.uri().path().len() > 32 &&
-            is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
-      // TODO: support users other than root & tighter condition than the above.
+    else if req.method() == Method::GET { // &&
+      // TODO (MEDIUM): explicit support omly for /{item_id}, /{username} and /{username}/{label}
+      //       req.uri().path().len() > 32 &&
+      //       is_uid(&req.uri().path()[req.uri().path().len()-32..]) {
       serve_index()
     } else {
       not_found_response()

@@ -73,6 +73,8 @@ pub struct LoginResponse {
   pub session_id: Option<String>,
   #[serde(rename="userId")]
   pub user_id: Option<String>,
+  #[serde(rename="homePageId")]
+  pub home_page_id: Option<String>,
 }
 
 pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -82,7 +84,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     // TODO (LOW): rate limit login requests properly.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
-      success: false, session_id: None, user_id: None,
+      success: false, session_id: None, user_id: None, home_page_id: None,
       err: Some(String::from(msg))
     });
   }
@@ -140,6 +142,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
         success: true,
         session_id: Some(session.id),
         user_id: Some(user.id),
+        home_page_id: Some(user.home_page_id),
         err: None
       };
       return json_response(&result);
@@ -261,7 +264,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   }
 
   let user_id = new_uid();
-  let root_page_id = new_uid();
+  let home_page_id = new_uid();
   let password_salt = new_uid();
 
   let user = User {
@@ -270,7 +273,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     password_hash: User::compute_password_hash(&password_salt, &payload.password),
     password_salt,
     totp_secret: payload.totp_secret.clone(),
-    root_page_id: root_page_id.clone(),
+    home_page_id: home_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
     object_encryption_key: generate_key()
@@ -289,7 +292,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
       error!("Error creating session store for user '{}': {}", user.id, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let page = default_page(user_id.as_str(), &payload.username, root_page_id, page_width_bl, natural_aspect);
+    let page = default_page(user_id.as_str(), &payload.username, home_page_id, page_width_bl, natural_aspect);
     if let Err(e) = db.item.add(page).await {
       error!("Error adding default page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });

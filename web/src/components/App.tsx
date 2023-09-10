@@ -70,6 +70,7 @@ const App: Component = () => {
   const UnknownPath: Component = () =>
     <div>unknown path</div>;
 
+  // Reminder: When adding a route here, also update generate_dist_handlers.py or serve.rs
   return (
     <Routes>
       <Route path="/login" component={LoginPath} />

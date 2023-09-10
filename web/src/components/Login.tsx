@@ -23,6 +23,7 @@ import { useUserStore } from "../store/UserStoreProvider";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
+import { ROOT_USERNAME } from "../constants";
 
 
 export const Login: Component = () => {
@@ -51,7 +52,11 @@ export const Login: Component = () => {
       if (urlParams.get("redirect") == "add") {
         location.href = basePath + "/add";
       } else {
-        navigate(`/${username}`);
+        if (username == ROOT_USERNAME) {
+          navigate("/");
+        } else {
+          navigate(`/${username}`);
+        }
       }
     }
     else {

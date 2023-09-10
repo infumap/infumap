@@ -326,7 +326,7 @@ async fn handle_get_items(
   } else {
     let username = if request.id.len() == 0 { ROOT_USER_NAME } else { &request.id };
     match db.lock().await.user.get_by_username_case_insensitive(username) {
-      Some(u) => { u.root_page_id.to_owned() },
+      Some(u) => { u.home_page_id.to_owned() },
       None => { return Err(format!("User '{}' is unknown.", request.id).into()); }
     }
   };
@@ -417,7 +417,7 @@ async fn handle_get_attachments(
   let parent_id = match &request.parent_id_maybe {
     Some(parent_id) => parent_id,
     None => {
-      &db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", &session.user_id))?.root_page_id
+      &db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", &session.user_id))?.home_page_id
     }
   };
 
@@ -468,7 +468,7 @@ async fn handle_add_item(
 
   if !item_map.contains_key("parentId") {
     item_map.insert("parentId".to_owned(),
-      Value::String(db.user.get(&session.user_id).ok_or(format!("No user with id '{}'.", &session.user_id))?.root_page_id.clone()));
+      Value::String(db.user.get(&session.user_id).ok_or(format!("No user with id '{}'.", &session.user_id))?.home_page_id.clone()));
   }
 
   if !item_map.contains_key("ownerId") {

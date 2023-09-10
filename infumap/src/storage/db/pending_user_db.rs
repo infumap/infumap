@@ -26,9 +26,7 @@ use crate::util::uid::Uid;
 use super::kv_store::KVStore;
 use super::user::User;
 use super::kv_store::JsonLogSerializable;
-
-
-const CURRENT_USER_LOG_VERSION: i64 = 2;
+use super::user_db::CURRENT_USER_LOG_VERSION;
 
 
 /// Db for User instances.

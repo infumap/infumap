@@ -403,11 +403,11 @@ impl Clone for Item {
 }
 
 
-pub fn default_page(owner_id: &str, title: &str, root_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
+pub fn default_page(owner_id: &str, title: &str, home_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
   Item {
     item_type: ItemType::Page,
     owner_id: String::from(owner_id),
-    id: root_page_id,
+    id: home_page_id,
     parent_id: None,
     relationship_to_parent: RelationshipToParent::NoParent,
     creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,

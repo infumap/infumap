@@ -129,7 +129,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
     else if (ev.code == "Enter") {
       const spec = desktopStore.currentPopupSpec();
       if (spec && spec.type == PopupType.Page) {
-        switchToPage(desktopStore, veidFromPath(desktopStore.currentPopupSpec()!.vePath), true);
+        switchToPage(desktopStore, userStore, veidFromPath(desktopStore.currentPopupSpec()!.vePath), true);
       }
     }
 
@@ -140,7 +140,7 @@ export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElem
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDownHandler(desktopStore, ev);
+    mouseDownHandler(desktopStore, userStore, ev);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {

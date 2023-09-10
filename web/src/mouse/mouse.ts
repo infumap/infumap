@@ -91,12 +91,13 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 
 export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
+    userStore: UserStoreContextModel,
     ev: MouseEvent) {
   if (desktopStore.currentPage() == null) { return; }
   if (ev.button == MOUSE_LEFT) {
-    mouseLeftDownHandler(desktopStore, ev);
+    mouseLeftDownHandler(desktopStore, userStore, ev);
   } else if (ev.button == MOUSE_RIGHT) {
-    mouseRightDownHandler(desktopStore, ev);
+    mouseRightDownHandler(desktopStore, userStore, ev);
   } else {
     console.error("unsupported mouse button: " + ev.button);
   }
@@ -106,6 +107,7 @@ export function mouseDownHandler(
 // **** LEFT DOWN ****
 export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
+    userStore: UserStoreContextModel,
     ev: MouseEvent) {
 
   const desktopPosPx = desktopPxFromMouseEvent(ev);
@@ -129,7 +131,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (popupFlagSet(hitInfo.overElementVes.get())) {
-      switchToPage(desktopStore, getVeid(hitInfo.overElementVes.get()), true);
+      switchToPage(desktopStore, userStore, getVeid(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);
     }
@@ -205,6 +207,7 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 // **** RIGHT DOWN ****
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
+    userStore: UserStoreContextModel,
     _ev: MouseEvent) {
 
   if (desktopStore.contextMenuInfo()) {
@@ -230,7 +233,7 @@ export function mouseRightDownHandler(
   }
 
   desktopStore.popPage();
-  updateHref(desktopStore);
+  updateHref(desktopStore, userStore);
   arrange(desktopStore);
 }
 

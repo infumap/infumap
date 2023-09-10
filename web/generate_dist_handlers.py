@@ -65,6 +65,8 @@ pub fn serve_dist_routes(req: &Request<hyper::body::Incoming>) -> Option<Respons
   match (req.method(), req.uri().path()) {
     (&Method::GET, "/") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
     (&Method::GET, "/login") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
+    (&Method::GET, "/setup") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
+    (&Method::GET, "/signup") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/index.html"))).unwrap()),
     (&Method::GET, "/add") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, "no-cache").header(hyper::header::CONTENT_TYPE, "text/html").body(full_body(include_str!("../../dist/add.html"))).unwrap()),
 """
 
