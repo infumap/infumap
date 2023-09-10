@@ -81,10 +81,10 @@ export const Main: Component = () => {
   });
 
   logout = async () => {
-    await userStore.logout();
     desktopStore.setEditDialogInfo(null);
     desktopStore.setContextMenuInfo(null);
     desktopStore.clearBreadcrumbs();
+    await userStore.logout();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
       if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {

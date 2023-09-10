@@ -76,7 +76,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
+  const isPoppedUp = () =>  visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -437,13 +437,10 @@ export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: Vis
     const result = { x, y, w, h };
     return result;
   };
-  const isPoppedUp = () => {
-    return visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
-  }
-  const bgOpaqueVal = () => {
-    let bg = `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
-    return bg;
-  }
+
+  const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
+
+  const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 
   return (
     <>

@@ -28,11 +28,13 @@ import { logout } from "./Main";
 import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
 import { useUserStore } from '../store/UserStoreProvider';
 import { switchToPage } from '../layout/navigation';
+import { useNavigate } from '@solidjs/router';
 
 
 export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
+  const navigate = useNavigate();
 
   const handleHome = () => {
     const userMaybe = userStore.getUserMaybe();
@@ -56,6 +58,10 @@ export const Toolbar: Component = () => {
     console.log("up");
   }
 
+  const handleLogin = () => {
+    navigate("/login");
+  }
+
   const bgColIdx = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).backgroundColorIndex;
 
   const isPublic = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).permissionFlags != 0;
@@ -67,7 +73,7 @@ export const Toolbar: Component = () => {
                  `${hexToRGBA(Colors[bgColIdx()], 0.786)}, ` +
                  `${hexToRGBA(Colors[bgColIdx()], 0.864)}); ` +
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
-        <img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" />
+        <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" /></a>
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
           {asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title + (isPublic() ? " ---- (PUBLIC)" : "")}
         </div>
@@ -78,12 +84,19 @@ export const Toolbar: Component = () => {
           <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
           </div>
-          <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-home cursor-pointer" onclick={handleHome} />
-          </div>
-          <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-user cursor-pointer" onclick={logout!} />
-          </div>
+          <Show when={userStore.getUserMaybe()}>
+            <div class="ml-[12px] mb-[12px]">
+              <i class="fa fa-home cursor-pointer" onclick={handleHome} />
+            </div>
+            <div class="ml-[12px] mb-[12px]">
+              <i class="fa fa-user cursor-pointer" onclick={logout!} />
+            </div>
+          </Show>
+          <Show when={!userStore.getUserMaybe()}>
+            <div class="ml-[12px] mb-[12px]">
+              <i class="fa fa-sign-in cursor-pointer" onclick={handleLogin} />
+            </div>
+          </Show>
         </div>
       </div>
     </Show>

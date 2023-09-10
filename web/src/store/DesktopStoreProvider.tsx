@@ -257,7 +257,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   const currentPopupSpec = (): PopupSpec | null => {
-    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs().length == 0) { return null; }
     if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
       return null;
     }
@@ -266,10 +266,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   const currentPopupSpecVePath = (): VisualElementPath | null => {
-    if (breadcrumbs().length == 0) { panic(); }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
-      return null;
-    }
+    if (breadcrumbs().length == 0) { return null; }
+    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) { return null; }
     const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
     const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
     return currentSpec.vePath;
