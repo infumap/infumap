@@ -159,6 +159,7 @@ export interface VisualElement {
 
   movingItemIsOver: BooleanSignal,            // for containers only.
   movingItemIsOverAttach: BooleanSignal,      // for attachment items only.
+  movingItemIsOverAttachComposite: BooleanSignal,      // for attachment items only.
   moveOverRowNumber: NumberSignal,            // for tables only.
   moveOverColAttachmentNumber: NumberSignal,  // for tables only.
 }
@@ -189,6 +190,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
   movingItemIsOver: createBooleanSignal(false),
   movingItemIsOverAttach: createBooleanSignal(false),
+  movingItemIsOverAttachComposite: createBooleanSignal(false),
   moveOverRowNumber: createNumberSignal(-1),
   moveOverColAttachmentNumber: createNumberSignal(-1),
 };
@@ -232,6 +234,7 @@ export function createVisualElement(override: VisualElementSpec): VisualElement 
 
     movingItemIsOver: createBooleanSignal(false),
     movingItemIsOverAttach: createBooleanSignal(false),
+    movingItemIsOverAttachComposite: createBooleanSignal(false),
     moveOverRowNumber: createNumberSignal(-1),
     moveOverColAttachmentNumber: createNumberSignal(-1),
   };

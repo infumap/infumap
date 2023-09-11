@@ -165,6 +165,7 @@ pub struct TableColumn {
 pub enum ItemType {
   Page,
   Table,
+  Composite,
   Note,
   File,
   Password,
@@ -179,6 +180,7 @@ impl ItemType {
     match self {
       ItemType::Page => "page",
       ItemType::Table => "table",
+      ItemType::Composite => "composite",
       ItemType::Note => "note",
       ItemType::File => "file",
       ItemType::Password => "password",
@@ -193,6 +195,7 @@ impl ItemType {
     match s {
       "page" => Ok(ItemType::Page),
       "table" => Ok(ItemType::Table),
+      "composite" => Ok(ItemType::Composite),
       "note" => Ok(ItemType::Note),
       "file" => Ok(ItemType::File),
       "password" => Ok(ItemType::Password),
@@ -218,11 +221,13 @@ pub fn is_positionable_type(item_type: ItemType) -> bool {
 pub fn is_attachments_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image || item_type == ItemType::Password
+  item_type == ItemType::Image || item_type == ItemType::Password ||
+  item_type == ItemType::Composite
 }
 
 pub fn is_container_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Page || item_type == ItemType::Table
+  item_type == ItemType::Page || item_type == ItemType::Table ||
+  item_type == ItemType::Composite
 }
 
 pub fn is_data_item_type(item_type: ItemType) -> bool {
@@ -232,7 +237,8 @@ pub fn is_data_item_type(item_type: ItemType) -> bool {
 pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image || item_type == ItemType::Password
+  item_type == ItemType::Image || item_type == ItemType::Password ||
+  item_type == ItemType::Composite
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
@@ -359,6 +365,8 @@ pub struct Item {
   // link
   pub link_to_id: Option<Uid>,
   pub link_to_base_url: Option<String>,
+
+  // composite
 }
 
 impl Clone for Item {
@@ -692,6 +700,8 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
+    // composite
+
     Ok(result)
   }
 
@@ -865,6 +875,8 @@ impl JsonLogSerializable<Item> for Item {
       self.link_to_base_url = Some(v);
     }
 
+    // composite
+
     Ok(())
   }
 }
@@ -1028,6 +1040,8 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     if item.item_type != ItemType::Link { unexpected_field_err("linkToBaseUrl", &item.id, item.item_type)? }
     result.insert(String::from("linkToBaseUrl"), Value::String(link_to_base_url.clone()));
   }
+
+  // composite
 
   Ok(result)
 }
@@ -1222,6 +1236,8 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkToBaseUrl", item_type, &id)) } },
       None => { if item_type == ItemType::Link { Err(expected_for_err("linkToBaseUrl", item_type, &id)) } else { Ok(None) } }
     }?,
+
+    // composite
 
   })
 }

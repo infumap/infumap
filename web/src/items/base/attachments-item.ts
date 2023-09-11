@@ -21,12 +21,12 @@ import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { HitboxType, createHitbox } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable, ITEM_TYPE_PASSWORD } from "./item";
+import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE } from "./item";
 import { calcSizeForSpatialBl } from "./item-polymorphism";
 import { RESIZE_BOX_SIZE_PX } from "../../constants";
 
 
-const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_PASSWORD];
+const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, ITEM_TYPE_NOTE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE];
 
 export interface AttachmentsMixin {
   computed_attachments: Array<Uid>;

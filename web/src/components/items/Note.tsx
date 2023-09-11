@@ -47,7 +47,15 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
     }
-  }
+  };
+  const attachCompositeBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w / 4.0,
+      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
+      w: boundsPx().w / 2.0,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  };
   const outerClass = () => {
     if ((noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading) {
       if (props.visualElement.mouseIsOver.get()) {
@@ -82,6 +90,12 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                      `background-color: #ff0000;`}>
+          </div>
+        </Show>
+        <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                       `background-color: #ff0000;`}>
           </div>
         </Show>

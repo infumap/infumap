@@ -17,19 +17,15 @@
 */
 
 import { LINE_HEIGHT_PX } from '../../constants';
-import { ARRANGE_ALGO_LIST, arrange } from '../../layout/arrange';
 import { HitboxType, createHitbox } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
-import { VesCache } from '../../layout/ves-cache';
-import { VisualElement, lineItemFlagSet, veidFromPath, visualElementToPath } from '../../layout/visual-element';
-import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
 import { BoundingBox, Dimensions } from '../../util/geometry';
 import { EMPTY_UID, Uid } from '../../util/uid';
-import { asPageItem, isPage } from '../page-item';
 
 export const ITEM_TYPE_NONE = "none";
 export const ITEM_TYPE_PAGE = "page";
 export const ITEM_TYPE_TABLE = "table";
+export const ITEM_TYPE_COMPOSITE = "composite";
 export const ITEM_TYPE_NOTE = "note";
 export const ITEM_TYPE_FILE = "file";
 export const ITEM_TYPE_PASSWORD = "password";

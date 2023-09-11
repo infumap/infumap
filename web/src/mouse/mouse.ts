@@ -46,6 +46,7 @@ import { mouseMoveState } from "../store/MouseMoveState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { switchToPage, updateHref } from "../layout/navigation";
+import { newCompositeItem } from "../items/composite-item";
 
 
 const MOUSE_LEFT = 0;
@@ -66,6 +67,7 @@ interface MouseActionState {
   activeRoot: VisualElementPath,
   moveOver_containerElement: VisualElementPath | null,
   moveOver_attachHitboxElement: VisualElementPath | null,
+  moveOver_attachCompositeHitboxElement: VisualElementPath | null,
   moveOver_scaleDefiningElement: VisualElementPath | null,
   startPx: Vector,
   startPosBl: Vector | null,
@@ -162,6 +164,7 @@ export function mouseLeftDownHandler(
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
+    moveOver_attachCompositeHitboxElement: null,
     moveOver_scaleDefiningElement: visualElementToPath(
       getHitInfo(desktopStore, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
@@ -440,6 +443,17 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       mouseActionState!.moveOver_attachHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
     } else {
       mouseActionState!.moveOver_attachHitboxElement = null;
+    }
+
+    // update move over attach composite state.
+    if (mouseActionState!.moveOver_attachCompositeHitboxElement != null) {
+      VesCache.get(mouseActionState!.moveOver_attachCompositeHitboxElement)!.get().movingItemIsOverAttachComposite.set(false);
+    }
+    if (hitInfo.hitboxType & HitboxType.AttachComposite) {
+      hitInfo.overElementVes.get().movingItemIsOverAttachComposite.set(true);
+      mouseActionState!.moveOver_attachCompositeHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
+    } else {
+      mouseActionState!.moveOver_attachCompositeHitboxElement = null;
     }
 
     if (VesCache.get(mouseActionState.moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
@@ -780,6 +794,12 @@ function mouseUpHandler_moving(
     return;
   }
 
+  if (mouseActionState.moveOver_attachCompositeHitboxElement != null) {
+    // does not include case of move into table cells that are attachments.
+    mouseUpHandler_moving_hitboxAttachToComposite(desktopStore, activeItem);
+    return;
+  }
+
   const overContainerVe = VesCache.get(mouseActionState.moveOver_containerElement!)!.get();
 
   if (isTable(overContainerVe.displayItem)) {
@@ -829,6 +849,42 @@ function cleanupAndPersistPlaceholders() {
 
   mouseActionState!.newPlaceholderItem = null;
   mouseActionState!.startAttachmentsItem = null;
+}
+
+function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+  const prevParentId = activeItem.parentId;
+  const prevParent = itemState.getContainerItem(prevParentId)!;
+
+  const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachCompositeHitboxElement!)!.get();
+  attachToVisualElement.movingItemIsOverAttach.set(false);
+  mouseActionState!.moveOver_attachCompositeHitboxElement = null;
+
+  const attachToItem = asPositionalItem(attachToVisualElement.linkItemMaybe != null ? attachToVisualElement.linkItemMaybe! : attachToVisualElement.displayItem);
+
+  if (attachToVisualElement.displayItem.id == activeItem.id) {
+    // TODO (MEDIUM): More rigorous recursive check. also server side.
+    throwExpression("Attempt was made to attach an item to itself.");
+  }
+
+  const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
+  server.addItem(compositeItem, null);
+  itemState.addItem(compositeItem);
+
+  attachToItem.parentId = compositeItem.id;
+  attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  attachToItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
+  attachToItem.relationshipToParent = Child;
+  server.updateItem(attachToItem);
+
+  activeItem.parentId = compositeItem.id;
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  activeItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
+  activeItem.relationshipToParent = Child;
+  server.updateItem(activeItem);
+
+  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
+
+  arrange(desktopStore);
 }
 
 function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {

@@ -44,6 +44,8 @@ import { LinkDefault_Desktop, LinkDefault_LineItem } from "./items/LinkDefault";
 import { isLink } from "../items/link-item";
 import { isPassword } from "../items/password-item";
 import { Password, PasswordLineItem } from "./items/Password";
+import { Composite_Desktop, Composite_LineItem } from "./items/Composite";
+import { isComposite } from "../items/composite-item";
 
 
 export interface VisualElementProps_Desktop {
@@ -55,6 +57,7 @@ export const VisualElement_Desktop: Component<VisualElementProps_Desktop> = (pro
     <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
+      <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
       <Match when={isNote(props.visualElement.displayItem)}><Note_Desktop {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>
       <Match when={isImage(props.visualElement.displayItem)}><Image_Desktop {...props} /></Match>
@@ -77,6 +80,7 @@ export const VisualElement_LineItem: Component<VisualElementProps_LineItem> = (p
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_LineItem {...props} /></Match>
+      <Match when={isComposite(props.visualElement.displayItem)}><Composite_LineItem {...props} /></Match>
       <Match when={isNote(props.visualElement.displayItem)}><Note_LineItem {...props} /></Match>
       <Match when={isImage(props.visualElement.displayItem)}><Image_LineItem {...props} /></Match>
       <Match when={isFile(props.visualElement.displayItem)}><FileLineItem {...props} /></Match>

@@ -153,6 +153,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     let item_type_short = match item_type {
       ItemType::Page => "P",
       ItemType::Table => "T",
+      ItemType::Composite => "C",
       ItemType::Note => "N",
       ItemType::File => "F",
       ItemType::Password => "W",
