@@ -30,7 +30,7 @@ import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, ve
 import { panic, throwExpression } from "../util/lang";
 import { VisualElement, VisualElementPath, getVeid, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementToPath } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
-import { editDialogSizePx } from "../components/context/EditDialog";
+import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Attachment, Child } from "../layout/relationship-to-parent";

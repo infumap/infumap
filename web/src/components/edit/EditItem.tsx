@@ -24,17 +24,17 @@ import { asNoteItem, isNote } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { EditFile } from "./EditPanels/EditFile";
-import { EditImage } from "./EditPanels/EditImage";
-import { EditNote } from "./EditPanels/EditNote";
-import { EditPage } from "./EditPanels/EditPage";
-import { EditTable } from "./EditPanels/EditTable";
+import { EditFile } from "./Panels/EditFile";
+import { EditImage } from "./Panels/EditImage";
+import { EditNote } from "./Panels/EditNote";
+import { EditPage } from "./Panels/EditPage";
+import { EditTable } from "./Panels/EditTable";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { EditLink } from "./EditPanels/EditLink";
+import { EditLink } from "./Panels/EditLink";
 import { asPasswordItem, isPassword } from "../../items/password-item";
-import { EditPassword } from "./EditPanels/EditPassword";
+import { EditPassword } from "./Panels/EditPassword";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { EditComposite } from "./EditPanels/EditComposite";
+import { EditComposite } from "./Panels/EditComposite";
 
 
 export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {item: Item, linkedTo: boolean}) => {

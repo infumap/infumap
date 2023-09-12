@@ -23,7 +23,7 @@ import { asPageItem, PageItem } from "../../../items/page-item";
 import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { ColorSelector } from "../ColorSelector";
+import { InfuColorSelector } from "../../library/InfuColorSelector";
 import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from "../../../layout/arrange";
 import { panic } from "../../../util/lang";
 import { itemState } from "../../../store/ItemState";
@@ -137,7 +137,7 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
       <div class="text-slate-800 text-sm">Inner block width <InfuTextInput value={(props.pageItem.innerSpatialWidthGr / GRID_SIZE).toString()} onChangeOrCleanup={handleBlockWidthChange} /></div>
       <div class="text-slate-800 text-sm">Natural Aspect <InfuTextInput value={props.pageItem.naturalAspect.toString()} onChangeOrCleanup={handleNaturalAspectChange} /></div>
       <InfuButton text={screenAspect().toString()} onClick={setAspectToMatchScreen} />
-      <ColorSelector item={props.pageItem} />
+      <InfuColorSelector item={props.pageItem} />
       <Show when={!props.linkedTo}>
         <div><InfuButton text="delete" onClick={deletePage} /></div>
       </Show>

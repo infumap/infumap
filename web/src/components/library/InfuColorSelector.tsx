@@ -35,7 +35,7 @@ const ColorButton: Component<{ col: number, onClick: (col: number) => void }> = 
   );
 }
 
-export const ColorSelector: Component<{ item: Item }> = (props: {item: Item }) => {
+export const InfuColorSelector: Component<{ item: Item }> = (props: {item: Item }) => {
   let desktopStore = useDesktopStore();
 
   let itemId = props.item.id;

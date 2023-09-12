@@ -26,7 +26,7 @@ import { mouseDownHandler, mouseMoveHandler, mouseMoveNoButtonDownHandler, mouse
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
-import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
+import { EditDialog, initialEditDialogBounds } from "./edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { VisualElement, veidFromPath } from "../layout/visual-element";

@@ -28,7 +28,7 @@ import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../items/table-item";
 import { arrange } from "../../layout/arrange";
 import { newRatingItem } from "../../items/rating-item";
-import { initialEditDialogBounds } from "./EditDialog";
+import { initialEditDialogBounds } from "../edit/EditDialog";
 import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hitInfo";
 import { newLinkItem } from "../../items/link-item";
