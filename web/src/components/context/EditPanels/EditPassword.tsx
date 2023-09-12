@@ -17,46 +17,45 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../server";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { asFileItem, FileItem } from "../../items/file-item";
-import { InfuButton } from "../library/InfuButton";
-import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange } from "../../layout/arrange";
-import { itemState } from "../../store/ItemState";
+import { server } from "../../../server";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { asPasswordItem, PasswordItem } from "../../../items/password-item";
+import { InfuButton } from "../../library/InfuButton";
+import { InfuTextInput } from "../../library/InfuTextInput";
+import { arrange } from "../../../layout/arrange";
+import { itemState } from "../../../store/ItemState";
 
 
-export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (props: {fileItem: FileItem, linkedTo: boolean}) => {
+export const EditPassword: Component<{passwordItem: PasswordItem, linkedTo: boolean}> = (props: { passwordItem: PasswordItem, linkedTo: boolean }) => {
   const desktopStore = useDesktopStore();
 
-  const fileId = props.fileItem.id;
+  const passwordId = props.passwordItem.id;
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asFileItem(itemState.getItem(fileId)!).title = v;
-    // rearrangeVisualElementsWithItemId(desktopStore, fileId);
+    asPasswordItem(itemState.getItem(passwordId)!).text = v;
     arrange(desktopStore);
   };
 
-  const deleteFile = async () => {
+  const deletePassword = async () => {
     deleted = true;
-    await server.deleteItem(fileId); // throws on failure.
-    itemState.deleteItem(fileId);
+    await server.deleteItem(passwordId); // throws on failure.
+    itemState.deleteItem(passwordId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(fileId)!);
+      server.updateItem(itemState.getItem(passwordId)!);
     }
   });
 
   return (
     <div>
-      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.fileItem.title} onInput={handleTextInput} focus={true} /></div>
+      <div class="text-slate-800 text-sm">Text <InfuTextInput value={props.passwordItem.text} onInput={handleTextInput} focus={true} /></div>
       <Show when={!props.linkedTo}>
-        <div><InfuButton text="delete" onClick={deleteFile} /></div>
+        <div><InfuButton text="delete" onClick={deletePassword} /></div>
       </Show>
     </div>
   );

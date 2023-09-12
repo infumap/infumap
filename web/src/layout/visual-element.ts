@@ -158,11 +158,11 @@ export interface VisualElement {
   mouseIsOver: BooleanSignal,
   mouseIsOverOpenPopup: BooleanSignal,
 
-  movingItemIsOver: BooleanSignal,            // for containers only.
-  movingItemIsOverAttach: BooleanSignal,      // for attachment items only.
-  movingItemIsOverAttachComposite: BooleanSignal,      // for attachment items only.
-  moveOverRowNumber: NumberSignal,            // for tables only.
-  moveOverColAttachmentNumber: NumberSignal,  // for tables only.
+  movingItemIsOver: BooleanSignal,                // for containers only.
+  movingItemIsOverAttach: BooleanSignal,          // for attachment items only.
+  movingItemIsOverAttachComposite: BooleanSignal, //
+  moveOverRowNumber: NumberSignal,                // for tables only.
+  moveOverColAttachmentNumber: NumberSignal,      // for tables only.
 }
 
 /**

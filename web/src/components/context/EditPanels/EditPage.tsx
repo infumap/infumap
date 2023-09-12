@@ -17,20 +17,20 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { GRID_SIZE } from "../../constants";
-import { server } from "../../server";
-import { asPageItem, PageItem } from "../../items/page-item";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { InfuButton } from "../library/InfuButton";
-import { InfuTextInput } from "../library/InfuTextInput";
-import { ColorSelector } from "./ColorSelector";
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from "../../layout/arrange";
-import { panic } from "../../util/lang";
-import { itemState } from "../../store/ItemState";
-import { PermissionFlags } from "../../items/base/permission-flags-item";
+import { GRID_SIZE } from "../../../constants";
+import { server } from "../../../server";
+import { asPageItem, PageItem } from "../../../items/page-item";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { InfuButton } from "../../library/InfuButton";
+import { InfuTextInput } from "../../library/InfuTextInput";
+import { ColorSelector } from "../ColorSelector";
+import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from "../../../layout/arrange";
+import { panic } from "../../../util/lang";
+import { itemState } from "../../../store/ItemState";
+import { PermissionFlags } from "../../../items/base/permission-flags-item";
 
 
-export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (props: {pageItem: PageItem, linkedTo: boolean}) => {
+export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (props: { pageItem: PageItem, linkedTo: boolean }) => {
   const desktopStore = useDesktopStore();
   let checkElement_public: HTMLInputElement | undefined;
 

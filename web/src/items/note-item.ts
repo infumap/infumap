@@ -146,17 +146,24 @@ export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBo
 export function calcGeometryOfNoteItem_InComposite(measurable: NoteMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
   let cloned = asNoteMeasurable(cloneMeasurableFields(measurable));
   cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
-  const size = calcNoteSizeForSpatialBl(cloned);
-
+  const sizePx = calcNoteSizeForSpatialBl(cloned);
   const boundsPx = {
     x: 0,
     y: topPx,
     w: compositeWidthBl * blockSizePx.w,
-    h: size.h * blockSizePx.h
+    h: sizePx.h * blockSizePx.h
   };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx,
-    hitboxes: []
+    hitboxes: [
+      createHitbox(HitboxType.AttachComposite, {
+        x: innerBoundsPx.w / 4,
+        y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+        w: innerBoundsPx.w / 2,
+        h: ATTACH_AREA_SIZE_PX,
+      }),
+    ]
   };
 }
 

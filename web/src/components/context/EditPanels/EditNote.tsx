@@ -17,18 +17,18 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../server";
-import { asNoteItem, NoteItem } from "../../items/note-item";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { InfuButton } from "../library/InfuButton";
-import { InfuTextInput } from "../library/InfuTextInput";
-import { InfuTextArea } from "../library/InfuTextArea";
-import { arrange } from "../../layout/arrange";
-import { itemState } from "../../store/ItemState";
-import { NoteFlags } from "../../items/base/flags-item";
+import { server } from "../../../server";
+import { asNoteItem, NoteItem } from "../../../items/note-item";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { InfuButton } from "../../library/InfuButton";
+import { InfuTextInput } from "../../library/InfuTextInput";
+import { InfuTextArea } from "../../library/InfuTextArea";
+import { arrange } from "../../../layout/arrange";
+import { itemState } from "../../../store/ItemState";
+import { NoteFlags } from "../../../items/base/flags-item";
 
 
-export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (props: {noteItem: NoteItem, linkedTo: boolean}) => {
+export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (props: { noteItem: NoteItem, linkedTo: boolean }) => {
   const desktopStore = useDesktopStore();
   let checkElement_copy: HTMLInputElement | undefined;
   let checkElement_heading: HTMLInputElement | undefined;

@@ -24,15 +24,17 @@ import { asNoteItem, isNote } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { EditFile } from "./EditFile";
-import { EditImage } from "./EditImage";
-import { EditNote } from "./EditNote";
-import { EditPage } from "./EditPage";
-import { EditTable } from "./EditTable";
+import { EditFile } from "./EditPanels/EditFile";
+import { EditImage } from "./EditPanels/EditImage";
+import { EditNote } from "./EditPanels/EditNote";
+import { EditPage } from "./EditPanels/EditPage";
+import { EditTable } from "./EditPanels/EditTable";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { EditLink } from "./EditLink";
+import { EditLink } from "./EditPanels/EditLink";
 import { asPasswordItem, isPassword } from "../../items/password-item";
-import { EditPassword } from "./EditPassword";
+import { EditPassword } from "./EditPanels/EditPassword";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { EditComposite } from "./EditPanels/EditComposite";
 
 
 export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {item: Item, linkedTo: boolean}) => {
@@ -54,7 +56,7 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         <i class={`fa fa-copy text-slate-400 cursor-pointer ml-1`} onclick={copyClickHandler} />
         <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkClickHandler} />
       </div>
-      <Switch fallback={<div>Not Found</div>}>
+      <Switch fallback={<div>Unknown item type: '{props.item.itemType}'</div>}>
         <Match when={isPage(props.item)}>
           <EditPage pageItem={asPageItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
@@ -75,6 +77,9 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         </Match>
         <Match when={isPassword(props.item)}>
           <EditPassword passwordItem={asPasswordItem(props.item)} linkedTo={props.linkedTo} />
+        </Match>
+        <Match when={isComposite(props.item)}>
+          <EditComposite compositeItem={asCompositeItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
       </Switch>
     </div>

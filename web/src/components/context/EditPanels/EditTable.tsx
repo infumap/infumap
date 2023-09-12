@@ -17,18 +17,18 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../server";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { asTableItem, TableItem } from "../../items/table-item";
-import { InfuButton } from "../library/InfuButton";
-import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange } from "../../layout/arrange";
-import { NumberSignal, createNumberSignal } from "../../util/signals";
-import { itemState } from "../../store/ItemState";
-import { TableFlags } from "../../items/base/flags-item";
+import { server } from "../../../server";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { asTableItem, TableItem } from "../../../items/table-item";
+import { InfuButton } from "../../library/InfuButton";
+import { InfuTextInput } from "../../library/InfuTextInput";
+import { arrange } from "../../../layout/arrange";
+import { NumberSignal, createNumberSignal } from "../../../util/signals";
+import { itemState } from "../../../store/ItemState";
+import { TableFlags } from "../../../items/base/flags-item";
 
 
-export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (props: {tableItem: TableItem, linkedTo: boolean}) => {
+export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (props: { tableItem: TableItem, linkedTo: boolean }) => {
   const desktopStore = useDesktopStore();
 
   let checkElement_ord: HTMLInputElement | undefined;

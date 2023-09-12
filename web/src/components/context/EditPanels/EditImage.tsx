@@ -17,16 +17,16 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../server";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { asImageItem, ImageItem } from "../../items/image-item";
-import { InfuButton } from "../library/InfuButton";
-import { InfuTextInput } from "../library/InfuTextInput";
-import { arrange } from "../../layout/arrange";
-import { itemState } from "../../store/ItemState";
+import { server } from "../../../server";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { asImageItem, ImageItem } from "../../../items/image-item";
+import { InfuButton } from "../../library/InfuButton";
+import { InfuTextInput } from "../../library/InfuTextInput";
+import { arrange } from "../../../layout/arrange";
+import { itemState } from "../../../store/ItemState";
 
 
-export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: {imageItem: ImageItem, linkedTo: boolean}) => {
+export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: { imageItem: ImageItem, linkedTo: boolean }) => {
   const desktopStore = useDesktopStore();
 
   const imageId = props.imageItem.id;
