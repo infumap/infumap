@@ -157,6 +157,8 @@ export function calcGeometryOfNoteItem_InComposite(measurable: NoteMeasurable, b
   return {
     boundsPx,
     hitboxes: [
+      createHitbox(HitboxType.Click, innerBoundsPx),
+      createHitbox(HitboxType.Move, innerBoundsPx),
       createHitbox(HitboxType.AttachComposite, {
         x: innerBoundsPx.w / 4,
         y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,

@@ -16,11 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { isComposite } from "../items/composite-item";
 import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, showChildrenFlagSet, fixedFlagSet, getVeid, insideTableFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, veidFromPath } from "../layout/visual-element";
+import { VisualElement, showChildrenFlagSet, fixedFlagSet, getVeid, insideTableFlagSet, lineItemFlagSet, popupFlagSet, rootFlagSet, veidFromPath, insideCompositeFlagSet } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
@@ -192,7 +193,41 @@ export function getHitInfo(
       }
     }
 
-    // handle inside any other item (including pages, which can't be clicked in).
+    // handle inside a composite item.
+    if (isComposite(childVisualElement.displayItem) &&
+        isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
+      const compositeVisualElementSignal = childVisualElementSignal;
+      const compositeVisualElement = childVisualElement;
+
+      // resize hitbox of table takes precedence over everything in the child area.
+      const resizeHitbox = compositeVisualElement.hitboxes[compositeVisualElement.hitboxes.length-1];
+      if (resizeHitbox.type != HitboxType.Resize) { panic(); }
+      if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVisualElement.boundsPx!)))) {
+        return finalize(HitboxType.Resize, rootVisualElement, compositeVisualElementSignal, resizeHitbox.meta);
+      }
+
+      for (let j=0; j<compositeVisualElement.children.length; ++j) {
+        const compositeChildVes = compositeVisualElement.children[j];
+        const compositeChildVe = compositeChildVes.get();
+        const posRelativeToCompositeChildAreaPx = vectorSubtract(
+          posRelativeToRootVisualElementPx, { x: compositeVisualElement.childAreaBoundsPx!.x, y: compositeVisualElement.childAreaBoundsPx!.y });
+        if (isInside(posRelativeToCompositeChildAreaPx, compositeChildVe.boundsPx)) {
+          let hitboxType = HitboxType.None;
+          let meta = null;
+          for (let k=compositeChildVe.hitboxes.length-1; k>=0; --k) {
+            if (isInside(posRelativeToCompositeChildAreaPx, offsetBoundingBoxTopLeftBy(compositeChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx)))) {
+              hitboxType |= compositeChildVe.hitboxes[k].type;
+              if (compositeChildVe.hitboxes[k].meta != null) { meta = compositeChildVe.hitboxes[k].meta; }
+            }
+          }
+          if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
+            return finalize(hitboxType, rootVisualElement, compositeChildVes, meta);
+          }
+        }
+      }
+    }
+
+    // handle inside any other item (including pages that are sized such that they can't be clicked in).
     let hitboxType = HitboxType.None;
     let meta = null;
     for (let j=childVisualElement.hitboxes.length-1; j>=0; --j) {
@@ -218,18 +253,27 @@ export function getHitInfo(
       const parentTableVe = VesCache.get(overVe.parentPath!)!.get();
       const tableParentPageVe = VesCache.get(parentTableVe.parentPath!)!.get();
       assert(isPage(tableParentPageVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
-      assert(showChildrenFlagSet(tableParentPageVe), "page containing table is not marked as drag in positioning.");
+      assert(showChildrenFlagSet(tableParentPageVe), "page containing table is not marked as having children visible.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
     }
 
     if (isTable(overVe.displayItem)) {
       assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a table visual element that is not inside a table is not a page.");
-      assert(showChildrenFlagSet(VesCache.get(overVe.parentPath!)!.get()), "a page containing a table does not allow drag in positioning.");
+      assert(showChildrenFlagSet(VesCache.get(overVe.parentPath!)!.get()), "a page containing a table is not marked as having children visible.");
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: VesCache.get(overVe.parentPath!)!.get() };
     }
 
     if (isPage(overVe.displayItem) && showChildrenFlagSet(overVe)) {
       return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe };
+    }
+
+    if (insideCompositeFlagSet(overVe)) {
+      assert(isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem), "a visual element marked as inside a composite, is not in fact inside a composite.");
+      const parentCompositeVe = VesCache.get(overVe.parentPath!)!.get();
+      const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
+      assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
+      assert(showChildrenFlagSet(compositeParentPageVe), "page containing table is not marked as having children visible.");
+      return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentCompositeVe, overPositionableVe: compositeParentPageVe };
     }
 
     const overVeParent = VesCache.get(overVe.parentPath!)!.get();
@@ -240,3 +284,4 @@ export function getHitInfo(
     }
     return { hitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVeParent, overPositionableVe: overVeParent };
   }
+  

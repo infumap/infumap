@@ -98,6 +98,10 @@ export function insideTableFlagSet(ve: VisualElement): boolean {
   return (ve.flags & VisualElementFlags.InsideTable) == VisualElementFlags.InsideTable;
 }
 
+export function insideCompositeFlagSet(ve: VisualElement): boolean {
+  return (ve.flags & VisualElementFlags.InsideComposite) == VisualElementFlags.InsideComposite;
+}
+
 export function attachmentFlagSet(ve: VisualElement): boolean {
   return (ve.flags & VisualElementFlags.Attachment) == VisualElementFlags.Attachment;
 }
