@@ -18,12 +18,12 @@
 
 import { batch } from "solid-js";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { EMPTY_UID } from "../util/uid";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_InComposite, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
@@ -43,6 +43,7 @@ import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "./ves-cache";
 import { ItemGeometry } from "./item-geometry";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
+import { CompositeItem, asCompositeItem, calcCompositeSizeForSpatialBl, isComposite } from "../items/composite-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -167,7 +168,7 @@ function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: V
   }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = calcGeometryOfItem_Cell(li, boundsPx);
+  const geometry = calcGeometryOfItem_InCell(li, boundsPx);
 
   return arrangeItem(desktopStore, currentPath, ARRANGE_ALGO_LIST, li, geometry, true, false, true);
 }
@@ -318,7 +319,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       h: cellHPx - marginPx * 2.0
     };
 
-    const geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
+    const geometry = calcGeometryOfItem_InCell(item, cellBoundsPx);
     const ves = arrangeItem(desktopStore, currentPath, ARRANGE_ALGO_GRID, item, geometry, true, false, false);
     children.push(ves);
   }
@@ -374,6 +375,12 @@ const arrangeItem = (
     initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
     return arrangeTable(
       desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry);
+  }
+
+  if (isComposite(displayItem)) {
+    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
+    return arrangeComposite(
+      desktopStore, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry);
   }
 
   const renderStyle = renderChildrenAsFull
@@ -465,7 +472,7 @@ const arrangePageWithChildren = (
         h: cellHPx - marginPx * 2.0
       };
 
-      let geometry = calcGeometryOfItem_Cell(item, cellBoundsPx);
+      let geometry = calcGeometryOfItem_InCell(item, cellBoundsPx);
       if (!isLink(item)) {
         const veSpec: VisualElementSpec = {
           displayItem: item,
@@ -591,13 +598,91 @@ const arrangePageWithChildren = (
   return pageWithChildrenVisualElementSignal;
 }
 
+
+const arrangeComposite = (
+    desktopStore: DesktopStoreContextModel,
+    parentPath: VisualElementPath,
+    displayItem_Composite: CompositeItem,
+    linkItemMaybe_Composite: LinkItem | null,
+    compositeGeometry: ItemGeometry): VisualElementSignal => {
+  const compositeVePath = prependVeidToPath(createVeid(displayItem_Composite, linkItemMaybe_Composite), parentPath);
+
+  let childAreaBoundsPx = {
+    x: compositeGeometry.boundsPx.x, y: compositeGeometry.boundsPx.y,
+    w: compositeGeometry.boundsPx.w, h: compositeGeometry.boundsPx.h
+  };
+
+  const compositeVisualElementSpec: VisualElementSpec = {
+    displayItem: displayItem_Composite,
+    mightBeDirty: getMightBeDirty(displayItem_Composite),
+    linkItemMaybe: linkItemMaybe_Composite,
+    flags: VisualElementFlags.Detailed,
+    boundsPx: compositeGeometry.boundsPx,
+    childAreaBoundsPx,
+    hitboxes: compositeGeometry.hitboxes,
+    parentPath,
+  };
+
+  // TODO (LOW): memoize this.
+  const compositeSizeBl = calcSizeForSpatialBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
+  const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
+
+  let compositeVeChildren: Array<VisualElementSignal> = [];
+  let topPx = 0.0;
+  for (let idx=0; idx<displayItem_Composite.computed_children.length; ++idx) {
+    const childId = displayItem_Composite.computed_children[idx];
+    const childItem = itemState.getItem(childId)!;
+
+    const [displayItem_childItem, linkItemMaybe_childItem] = getVeItems(desktopStore, childItem);
+
+    const geometry = calcGeometryOfItem_InComposite(
+      linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
+      blockSizePx,
+      compositeSizeBl.w,
+      topPx);
+
+    topPx += geometry.boundsPx.h;
+
+    const compositeChildVeSpec: VisualElementSpec = {
+      displayItem: displayItem_childItem,
+      mightBeDirty: getMightBeDirty(displayItem_childItem),
+      linkItemMaybe: linkItemMaybe_childItem,
+      flags: VisualElementFlags.InsideComposite | VisualElementFlags.Detailed,
+      boundsPx: {
+        x: geometry.boundsPx.x,
+        y: geometry.boundsPx.y,
+        w: geometry.boundsPx.w - ITEM_BORDER_WIDTH_PX*2,
+        h: geometry.boundsPx.h - ITEM_BORDER_WIDTH_PX*2
+      },
+      hitboxes: geometry.hitboxes,
+      parentPath: compositeVePath,
+      col: 0,
+      row: idx,
+      oneBlockWidthPx: blockSizePx.w,
+    };
+
+    const compositeChildVePath = prependVeidToPath(createVeid(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
+    const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
+    compositeVeChildren.push(compositeChildVeSignal);
+  }
+
+  compositeVisualElementSpec.children = compositeVeChildren;
+
+  const attachments = arrangeItemAttachments(desktopStore, displayItem_Composite, linkItemMaybe_Composite, compositeGeometry.boundsPx, compositeVePath);
+  compositeVisualElementSpec.attachments = attachments;
+
+  const compositeVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath);
+
+  return compositeVisualElementSignal;
+}
+
+
 const arrangeTable = (
     desktopStore: DesktopStoreContextModel,
     parentPath: VisualElementPath,
     displayItem_Table: TableItem,
     linkItemMaybe_Table: LinkItem | null,
-    tableGeometry: ItemGeometry
-    ): VisualElementSignal => {
+    tableGeometry: ItemGeometry): VisualElementSignal => {
 
   const sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
@@ -836,7 +921,7 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
     w: desktopBoundsPx.w * 0.8,
     h: desktopBoundsPx.h * 0.8,
   };
-  let geometry = calcGeometryOfItem_Cell(li, cellBoundsPx);
+  let geometry = calcGeometryOfItem_InCell(li, cellBoundsPx);
 
   const item = itemState.getItem(popupLinkToImageId)!;
 
@@ -867,7 +952,6 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
     return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
   }
 }
-
 
 
 

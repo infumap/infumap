@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, onMount, Show } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
@@ -26,7 +26,7 @@ import { asPasswordItem, calcPasswordSizeForSpatialBl } from "../../items/passwo
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
-export const Password: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -38,12 +38,12 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const sizeBl = createMemo(() => {
+  const sizeBl = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
     }
     return calcPasswordSizeForSpatialBl(passwordItem());
-  });
+  };
   const oneBlockWidthPx = () => boundsPx().w / sizeBl().w;
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
@@ -111,7 +111,7 @@ export const Password: Component<VisualElementProps_Desktop> = (props: VisualEle
 }
 
 
-export const PasswordLineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;

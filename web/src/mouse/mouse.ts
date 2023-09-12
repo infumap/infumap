@@ -20,7 +20,7 @@ import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, POPUP_TOOLBAR_WIDTH_BL } from "../c
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { server } from "../server";
 import { calcSizeForSpatialBl, handleClick, handlePopupClick } from "../items/base/item-polymorphism";
-import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
+import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
@@ -867,6 +867,10 @@ function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStor
   }
 
   const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
+  compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
+  if (isXSizableItem(attachToItem)) {
+    compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr;
+  }
   server.addItem(compositeItem, null);
   itemState.addItem(compositeItem);
 

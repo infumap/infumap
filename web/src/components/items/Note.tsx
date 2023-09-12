@@ -16,25 +16,32 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, Show } from "solid-js";
-import { asNoteItem, calcNoteSizeForSpatialBl } from "../../items/note-item";
+import { Component, For, Show } from "solid-js";
+import { asNoteItem, asNoteMeasurable, calcNoteSizeForSpatialBl } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
-import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
+import { calcSizeForSpatialBl, cloneMeasurableFields } from "../../items/base/item-polymorphism";
+import { VisualElementFlags, attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
+import { VesCache } from "../../layout/ves-cache";
+import { asCompositeItem } from "../../items/composite-item";
 
 
-export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
-  const sizeBl = createMemo(() => {
+  const sizeBl = () => {
+    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+      const cloned = asNoteMeasurable(cloneMeasurableFields(props.visualElement.displayItem));
+      cloned.spatialWidthGr = asCompositeItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem).spatialWidthGr;
+      return calcSizeForSpatialBl(cloned);
+    }
     if (props.visualElement.linkItemMaybe != null) {
       return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
     }
     return calcNoteSizeForSpatialBl(noteItem());
-  });
+  };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();
@@ -57,14 +64,18 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
     }
   };
   const outerClass = () => {
-    if ((noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading) {
-      if (props.visualElement.mouseIsOver.get()) {
-        return 'absolute border border-slate-700 rounded-sm font-bold shadow-lg';
-      } else {
-        return 'absolute border border-transparent rounded-sm font-bold';
+    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+      return 'absolute rounded-sm bg-white';
+    } else {
+      if ((noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading) {
+        if (props.visualElement.mouseIsOver.get()) {
+          return 'absolute border border-slate-700 rounded-sm font-bold shadow-lg';
+        } else {
+          return 'absolute border border-transparent rounded-sm font-bold';
+        }
       }
+      return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
     }
-    return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
   };
   const shiftTextLeft = () =>
     (noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading && !props.visualElement.mouseIsOver.get();
@@ -105,7 +116,7 @@ export const Note_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 }
 
 
-export const Note_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

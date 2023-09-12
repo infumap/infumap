@@ -21,13 +21,13 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, MAIN_TOOLBAR_WIDTH_PX } from "../.
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
-import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, detailedFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
-export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
 
   let imgElement: HTMLImageElement | undefined;
@@ -164,7 +164,7 @@ export const Image_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 }
 
 
-export const Image_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Image_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   let nodeElement: HTMLDivElementWithData | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);

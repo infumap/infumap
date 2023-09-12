@@ -112,6 +112,10 @@ export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, conta
   }
 }
 
+export function calcGeometryOfRatingItem_InComposite(measurable: RatingMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
 export function calcGeometryOfRatingItem_Attachment(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
 }

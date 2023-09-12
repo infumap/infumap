@@ -23,7 +23,7 @@ import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_Cell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getMightBeDirty } from "./base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getMightBeDirty } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
@@ -174,6 +174,10 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
   return calcGeometryOfItem_Desktop(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes)
 }
 
+export function calcGeometryOfLinkItem_InComposite(linkItem: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
 export function calcGeometryOfLinkItem_Attachment(link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   if (getLinkToId(link) == EMPTY_UID) {
     return calcGeometryOfAttachmentItemImpl(link, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
@@ -228,7 +232,7 @@ export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: Boundi
   if (measurableMaybe == null) {
     return noLinkTo();
   }
-  return calcGeometryOfItem_Cell(measurableMaybe!, cellBoundsPx);
+  return calcGeometryOfItem_InCell(measurableMaybe!, cellBoundsPx);
 }
 
 export function isLink(item: ItemTypeMixin | null): boolean {

@@ -71,6 +71,7 @@ export enum VisualElementFlags {
   Attachment           = 0x0040, // The visual element is an attachment.
   ShowChildren         = 0x0080, // Children are visible and an item dragged over the container is positioned according to the mouse position (visual element is also always a page).
   Fixed                = 0x0100, // positioning is fixed, not absolute.
+  InsideComposite      = 0x0200, // The visual element is inside a composite item.
 }
 
 export function selectedFlagSet(ve: VisualElement): boolean {

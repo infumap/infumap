@@ -16,16 +16,16 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createMemo, For, Show } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { asFileItem, calcFileSizeForSpatialBl } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
-import { VisualElement_Desktop, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
 
 
-export const File: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
   const fileItem = () => asFileItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -36,12 +36,12 @@ export const File: Component<VisualElementProps_Desktop> = (props: VisualElement
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const sizeBl = createMemo(() => {
+  const sizeBl = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
     }
     return calcFileSizeForSpatialBl(fileItem());
-  });
+  };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => boundsPx().w / naturalWidthPx();
@@ -75,7 +75,7 @@ export const File: Component<VisualElementProps_Desktop> = (props: VisualElement
 }
 
 
-export const FileLineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const FileLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const fileItem = () => asFileItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

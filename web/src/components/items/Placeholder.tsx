@@ -17,12 +17,12 @@
 */
 
 import { Component, Show } from "solid-js";
-import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
 import { selectedFlagSet } from "../../layout/visual-element";
 
 
-export const Placeholder_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Placeholder_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const boundsPx = () => props.visualElement.boundsPx;
 
   return (
@@ -34,7 +34,7 @@ export const Placeholder_Desktop: Component<VisualElementProps_Desktop> = (props
 }
 
 
-export const Placeholder_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Placeholder_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const boundsPx = () => {
     let result = cloneBoundingBox(props.visualElement.boundsPx)!;
     result.y = result.y + 2;

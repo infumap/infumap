@@ -176,6 +176,10 @@ export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containe
   };
 }
 
+export function calcGeometryOfTableItem_InComposite(measurable: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
 export function calcGeometryOfTableItem_Attachment(table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(table, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
 }

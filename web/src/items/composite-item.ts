@@ -24,9 +24,11 @@ import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, calcBoundsInCell, ITEM_TYPE_COMPOSITE } from './base/item';
-import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
+import { XSizableItem, XSizableMixin, asXSizableItem, isXSizableItem } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
+import { itemState } from '../store/ItemState';
+import { calcSizeForSpatialBl, cloneMeasurableFields } from './base/item-polymorphism';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item {
@@ -105,7 +107,22 @@ export function compositeToObject(p: CompositeItem): object {
 
 
 export function calcCompositeSizeForSpatialBl(composite: CompositeMeasurable): Dimensions {
-  let bh = 4.0; // TODO (HIGH).
+  let bh = 0.0;
+  for (let i=0; i<composite.computed_children.length; ++i) {
+    let childId = composite.computed_children[i];
+    let item = itemState.getItem(childId)!;
+    if (!item) { continue; }
+    let cloned = cloneMeasurableFields(item);
+    // TODO (HIGH): different items will be sized differently in composite items.
+    // Tables: allow to be sized arbitrarily, but will be scaled.
+    // Notes: will be sized to width of composite.
+    // For now, just consider x sizable items, and only in a basic way. assume note or file.
+    if (isXSizableItem(cloned)) {
+      asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
+    }
+    const sizeBl = calcSizeForSpatialBl(cloned);
+    bh += sizeBl.h;
+  }
   return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
 }
 

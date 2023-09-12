@@ -135,6 +135,10 @@ export function calcGeometryOfImageItem_Desktop(image: ImageMeasurable, containe
   }
 }
 
+export function calcGeometryOfImageItem_InComposite(measurable: ImageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
 export function calcGeometryOfImageItem_Attachment(image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
 }

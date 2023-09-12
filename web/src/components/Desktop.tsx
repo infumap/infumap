@@ -28,7 +28,7 @@ import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./context/EditDialog";
 import { Page_Desktop } from "./items/Page";
-import { VisualElementProps_Desktop } from "./VisualElement";
+import { VisualElementProps } from "./VisualElement";
 import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hitInfo";
@@ -39,7 +39,7 @@ import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
 
 
-export const Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
 

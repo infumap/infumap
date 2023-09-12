@@ -19,11 +19,11 @@
 import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
-import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElementProps } from "../VisualElement";
 import { selectedFlagSet } from "../../layout/visual-element";
 
 
-export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Rating_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const naturalHeightPx = () => LINE_HEIGHT_PX;
@@ -46,7 +46,7 @@ export const Rating_Desktop: Component<VisualElementProps_Desktop> = (props: Vis
 }
 
 
-export const Rating_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;

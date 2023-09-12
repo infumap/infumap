@@ -79,6 +79,10 @@ export function calcGeometryOfPlaceholderItem_Desktop(_placeholder: PlaceholderM
   panic();
 }
 
+export function calcGeometryOfPlaceholderItem_InComposite(measurable: PlaceholderMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
 export function calcGeometryOfPlaceholderItem_Attachment(placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
 }

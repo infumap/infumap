@@ -20,7 +20,7 @@ import { Component, For, onMount, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { HTMLDivElementWithData } from "../../util/html";
-import { VisualElement_LineItem, VisualElementProps_LineItem, VisualElement_Desktop, VisualElementProps_Desktop } from "../VisualElement";
+import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
@@ -32,7 +32,7 @@ import { TableFlags } from "../../items/base/flags-item";
 export const HEADER_HEIGHT_BL = 1.0;
 export const COL_HEADER_HEIGHT_BL = 1.0;
 
-export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Table_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
@@ -176,7 +176,7 @@ export const Table_Desktop: Component<VisualElementProps_Desktop> = (props: Visu
 }
 
 
-const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
   let outerDiv: HTMLDivElementWithData | undefined;
 
@@ -263,7 +263,7 @@ const TableChildArea: Component<VisualElementProps_Desktop> = (props: VisualElem
 }
 
 
-export const Table_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Table_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const tableItem = () => asTableItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

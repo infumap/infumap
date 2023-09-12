@@ -22,7 +22,7 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOL
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -33,7 +33,7 @@ import { detailedFlagSet, getVeid, lineItemFlagSet, popupFlagSet, rootFlagSet, s
 import { VesCache } from "../../layout/ves-cache";
 
 
-export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
 
   onMount(() => {
@@ -411,7 +411,7 @@ export const Page_Desktop: Component<VisualElementProps_Desktop> = (props: Visua
 }
 
 
-export const Page_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Page_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;

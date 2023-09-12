@@ -107,6 +107,10 @@ export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBo
   }
 }
 
+export function calcGeometryOfFileItem_InComposite(measurable: FileMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
 export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
 }

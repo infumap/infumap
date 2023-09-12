@@ -48,11 +48,11 @@ import { Composite_Desktop, Composite_LineItem } from "./items/Composite";
 import { isComposite } from "../items/composite-item";
 
 
-export interface VisualElementProps_Desktop {
+export interface VisualElementProps {
   visualElement: VisualElement
 }
 
-export const VisualElement_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   return (
     <Switch fallback={<div>VisualElementOnDesktop: unknown item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
@@ -69,12 +69,7 @@ export const VisualElement_Desktop: Component<VisualElementProps_Desktop> = (pro
   );
 }
 
-
-export interface VisualElementProps_LineItem {
-  visualElement: VisualElement,
-}
-
-export const VisualElement_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const VisualElement_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   return (
     <Switch fallback={<div>VisualElementInTable: unknown item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>

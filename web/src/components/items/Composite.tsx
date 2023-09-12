@@ -16,20 +16,28 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
-import { VisualElementProps_Desktop, VisualElementProps_LineItem } from "../VisualElement";
+import { Component, For } from "solid-js";
+import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
-export const Composite_Desktop: Component<VisualElementProps_Desktop> = (props: VisualElementProps_Desktop) => {
+export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const _desktopStore = useDesktopStore();
 
+  const boundsPx = () => props.visualElement.boundsPx;
+
+
   return (
-    <div>Desktop Composite</div>
-  )
+    <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
+         style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <For each={props.visualElement.children}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
+    </div>
+  );
 };
 
-export const Composite_LineItem: Component<VisualElementProps_LineItem> = (props: VisualElementProps_LineItem) => {
+export const Composite_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const _desktopStore = useDesktopStore();
 
   return (

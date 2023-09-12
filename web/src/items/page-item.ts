@@ -212,6 +212,9 @@ export function calcGeometryOfPageItem_Desktop(page: PageMeasurable, containerBo
   });
 }
 
+export function calcGeometryOfPageItem_InComposite(measurable: PageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
 
 export function calcGeometryOfPageItem_Attachment(page: PageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);

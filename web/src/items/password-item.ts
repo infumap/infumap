@@ -122,6 +122,11 @@ export function calcGeometryOfPasswordItem_Desktop(password: PasswordMeasurable,
   }
 }
 
+export function calcGeometryOfPasswordItem_InComposite(measurable: PasswordMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  panic();
+}
+
+
 export function calcGeometryOfPasswordItem_Attachment(password: PasswordMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   return calcGeometryOfAttachmentItemImpl(password, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
 }

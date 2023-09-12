@@ -24,17 +24,16 @@ import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_NOTE, calcBoundsInCellFromSizeBl } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
-import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
+import { XSizableItem, XSizableMixin, asXSizableItem } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
-import { FlagsMixin, TableFlags } from './base/flags-item';
+import { FlagsMixin, NoteFlags } from './base/flags-item';
 import { VisualElement } from '../layout/visual-element';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { handleListLineItemClickMaybe } from './base/item-common';
+import { cloneMeasurableFields } from './base/item-polymorphism';
 
-
-// TODO: re-imagine this as something more general. note == combination of paragraphs and other things.
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
   url: string,
@@ -59,7 +58,7 @@ export function newNoteItem(ownerId: Uid, parentId: Uid, relationshipToParent: s
 
     spatialWidthGr: 10.0 * GRID_SIZE,
 
-    flags: TableFlags.None,
+    flags: NoteFlags.None,
 
     url: "",
 
@@ -142,6 +141,23 @@ export function calcGeometryOfNoteItem_Desktop(note: NoteMeasurable, containerBo
       createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   }
+}
+
+export function calcGeometryOfNoteItem_InComposite(measurable: NoteMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
+  let cloned = asNoteMeasurable(cloneMeasurableFields(measurable));
+  cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+  const size = calcNoteSizeForSpatialBl(cloned);
+
+  const boundsPx = {
+    x: 0,
+    y: topPx,
+    w: compositeWidthBl * blockSizePx.w,
+    h: size.h * blockSizePx.h
+  };
+  return {
+    boundsPx,
+    hitboxes: []
+  };
 }
 
 export function calcGeometryOfNoteItem_Attachment(note: NoteMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
