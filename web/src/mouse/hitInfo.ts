@@ -220,11 +220,25 @@ export function getHitInfo(
               if (compositeChildVe.hitboxes[k].meta != null) { meta = compositeChildVe.hitboxes[k].meta; }
             }
           }
-          if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-            return finalize(hitboxType, rootVisualElement, compositeChildVes, meta);
+          // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
+          if (hitboxType == HitboxType.None) {
+            let hbType = HitboxType.None;
+            let meta = null;
+            for (let k=compositeVisualElement.hitboxes.length-1; k>=0; --k) {
+              if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(compositeVisualElement.hitboxes[k].boundsPx, getBoundingBoxTopLeft(compositeVisualElement.boundsPx!)))) {
+                hbType |= compositeVisualElement.hitboxes[k].type;
+                if (compositeVisualElement.hitboxes[k].meta != null) { meta = compositeVisualElement.hitboxes[k].meta; }
+              }
+            }
+            return finalize(hbType, rootVisualElement, compositeVisualElementSignal, meta);
+          } else {
+            if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
+              return finalize(hitboxType, rootVisualElement, compositeChildVes, meta);
+            }
           }
         }
       }
+
     }
 
     // handle inside any other item (including pages that are sized such that they can't be clicked in).

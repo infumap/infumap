@@ -154,11 +154,21 @@ export function calcGeometryOfNoteItem_InComposite(measurable: NoteMeasurable, b
     h: sizePx.h * blockSizePx.h
   };
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  let moveWidthPx = 10;
+  if (innerBoundsPx.w < 10) {
+    // TODO (MEDIUM): something sensible.
+    moveWidthPx = 1;
+  }
+  const moveBoundsPx = {
+    x: innerBoundsPx.w - moveWidthPx,
+    y: innerBoundsPx.y,
+    w: moveWidthPx,
+    h: innerBoundsPx.h
+  };
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Move, innerBoundsPx),
+      createHitbox(HitboxType.Move, moveBoundsPx),
       createHitbox(HitboxType.AttachComposite, {
         x: innerBoundsPx.w / 4,
         y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
