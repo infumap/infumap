@@ -189,10 +189,11 @@ export const itemState = {
     return newOrderingAtEnd(attachmentOrderings);
   },
 
-  newOrderingDirectlyAfterChildOrdering: (parentId: Uid, find: Uint8Array) => {
-    let parent = asContainerItem(items.get(parentId)!);
-    let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
-    return newOrderingDirectlyAfter(childrenOrderings, find);
+  newOrderingDirectlyAfterChild: (parentId: Uid, childId: Uid) => {
+    const parent = asContainerItem(items.get(parentId)!);
+    const child = items.get(childId)!;
+    const childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
+    return newOrderingDirectlyAfter(childrenOrderings, child.ordering);
   },
 
   newOrderingAtChildrenPosition: (parentId: Uid, position: number): Uint8Array => {

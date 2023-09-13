@@ -898,25 +898,38 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
   // case #1: attaching to an item inside an existing composite.
   if (isComposite(itemState.getItem(attachToItem.parentId)!)) {
 
-    const compositeItem = itemState.getItem(attachToItem.parentId)!;
+    const destinationCompositeItem = itemState.getItem(attachToItem.parentId)!;
 
     // case #1.1: the moving item is not a composite.
     if (!isComposite(activeItem)) {
-      activeItem.parentId = compositeItem.id;
+      activeItem.parentId = destinationCompositeItem.id;
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      activeItem.ordering = itemState.newOrderingDirectlyAfterChildOrdering(compositeItem.id, attachToItem.ordering);
+      activeItem.ordering = itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id);
       activeItem.relationshipToParent = Child;
       await server.updateItem(activeItem);
 
-      prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
-      asCompositeItem(compositeItem).computed_children.push(activeItem.id);
-      itemState.sortChildren(compositeItem.id);
+      asCompositeItem(destinationCompositeItem).computed_children.push(activeItem.id);
+      itemState.sortChildren(destinationCompositeItem.id);
     }
 
     // case #1.2: the moving item is a composite.
     else {
-      panic();
+      const activeItem_composite = asCompositeItem(activeItem);
+      let lastPrevId = attachToItem.id;
+      for (let i=0; i<activeItem_composite.computed_children.length; ++i) {
+        const child = itemState.getItem(activeItem_composite.computed_children[i])!;
+        child.parentId = destinationCompositeItem.id;
+        child.ordering = itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId);
+        child.relationshipToParent = Child;
+        asCompositeItem(destinationCompositeItem).computed_children.push(child.id);
+        itemState.sortChildren(destinationCompositeItem.id);
+        await server.updateItem(child);
+        lastPrevId = child.id;
+      }
+      await server.deleteItem(activeItem_composite.id);
     }
+
+    prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
 
   // case #2: attaching to an item that is not inside an existing composite.
   } else {
