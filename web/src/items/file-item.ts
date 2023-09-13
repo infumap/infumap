@@ -31,6 +31,7 @@ import { measureLineCount } from '../util/html';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { VisualElement } from '../layout/visual-element';
 import { handleListLineItemClickMaybe } from './base/item-common';
+import { cloneMeasurableFields } from './base/item-polymorphism';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -108,7 +109,39 @@ export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBo
 }
 
 export function calcGeometryOfFileItem_InComposite(measurable: FileMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
-  panic();
+  let cloned = asFileMeasurable(cloneMeasurableFields(measurable));
+  cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+  const sizePx = calcFileSizeForSpatialBl(cloned);
+  const boundsPx = {
+    x: 0,
+    y: topPx,
+    w: compositeWidthBl * blockSizePx.w,
+    h: sizePx.h * blockSizePx.h
+  };
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  let moveWidthPx = 10;
+  if (innerBoundsPx.w < 10) {
+    // TODO (MEDIUM): something sensible.
+    moveWidthPx = 1;
+  }
+  const moveBoundsPx = {
+    x: innerBoundsPx.w - moveWidthPx,
+    y: innerBoundsPx.y,
+    w: moveWidthPx,
+    h: innerBoundsPx.h
+  };
+  return {
+    boundsPx,
+    hitboxes: [
+      createHitbox(HitboxType.Move, moveBoundsPx),
+      createHitbox(HitboxType.AttachComposite, {
+        x: innerBoundsPx.w / 4,
+        y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+        w: innerBoundsPx.w / 2,
+        h: ATTACH_AREA_SIZE_PX,
+      }),
+    ]
+  };
 }
 
 export function calcGeometryOfFileItem_Attachment(file: FileMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {

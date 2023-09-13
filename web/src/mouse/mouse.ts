@@ -828,7 +828,7 @@ function finalizeMouseUp() {
   maybeDeleteComposite()
 }
 
-function maybeDeleteComposite() {
+async function maybeDeleteComposite() {
   if (mouseActionState == null) { return; } // please typescript.
   if (mouseActionState.startCompositeItem == null) { return; }
   const compositeItem = mouseActionState.startCompositeItem;
@@ -847,9 +847,8 @@ function maybeDeleteComposite() {
   itemState.deleteItem(compositeItem.id);
   itemState.sortChildren(compositeItemParent.id);
 
-  server.updateItem(child).then(() => {
-    server.deleteItem(compositeItem.id);
-  })
+  await server.updateItem(child);
+  await server.deleteItem(compositeItem.id);
 
   mouseActionState.startCompositeItem = null;
 }
@@ -881,7 +880,7 @@ function cleanupAndPersistPlaceholders() {
   mouseActionState.startAttachmentsItem = null;
 }
 
-function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
   const prevParentId = activeItem.parentId;
   const prevParent = itemState.getContainerItem(prevParentId)!;
 
@@ -907,7 +906,7 @@ function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStor
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       activeItem.ordering = itemState.newOrderingDirectlyAfterChildOrdering(compositeItem.id, attachToItem.ordering);
       activeItem.relationshipToParent = Child;
-      server.updateItem(activeItem);
+      await server.updateItem(activeItem);
 
       prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
       asCompositeItem(compositeItem).computed_children.push(activeItem.id);
@@ -929,20 +928,20 @@ function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStor
       if (isXSizableItem(attachToItem)) {
         compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr;
       }
-      server.addItem(compositeItem, null);
+      await server.addItem(compositeItem, null);
       itemState.addItem(compositeItem);
 
       attachToItem.parentId = compositeItem.id;
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       attachToItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
       attachToItem.relationshipToParent = Child;
-      server.updateItem(attachToItem);
+      await server.updateItem(attachToItem);
 
       activeItem.parentId = compositeItem.id;
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       activeItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
       activeItem.relationshipToParent = Child;
-      server.updateItem(activeItem);
+      await server.updateItem(activeItem);
 
       prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
     }
