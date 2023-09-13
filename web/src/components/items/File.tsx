@@ -22,7 +22,7 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../cons
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags, attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -33,6 +33,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  };
+  const attachCompositeBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w / 4.0,
+      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
+      w: boundsPx().w / 2.0,
       h: ATTACH_AREA_SIZE_PX,
     }
   };
@@ -48,8 +56,16 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
 
+  const outerClass = () => {
+    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+      return 'absolute rounded-sm bg-white';
+    } else {
+      return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
+    }
+  };
+
   return (
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+    <div class={outerClass()}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={detailedFlagSet(props.visualElement)}>
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
@@ -66,6 +82,12 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                      `background-color: #ff0000;`}>
+          </div>
+        </Show>
+        <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                       `background-color: #ff0000;`}>
           </div>
         </Show>

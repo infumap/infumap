@@ -47,6 +47,7 @@ import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { switchToPage, updateHref } from "../layout/navigation";
 import { CompositeItem, asCompositeItem, isComposite, newCompositeItem } from "../items/composite-item";
+import { newOrdering } from "../util/ordering";
 
 
 const MOUSE_LEFT = 0;
@@ -849,8 +850,6 @@ async function maybeDeleteComposite() {
 
   await server.updateItem(child);
   await server.deleteItem(compositeItem.id);
-
-  mouseActionState.startCompositeItem = null;
 }
 
 function cleanupAndPersistPlaceholders() {
@@ -944,9 +943,10 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 
     attachToItem.parentId = compositeItem.id;
     attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-    attachToItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
+    attachToItem.ordering = newOrdering();
     attachToItem.relationshipToParent = Child;
     await server.updateItem(attachToItem);
+    compositeItem.computed_children.push(attachToItem.id);
 
     // case #2.1: this item is not a composite either.
     if (!isComposite(activeItem)) {
@@ -965,8 +965,8 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
         child.parentId = compositeItem.id;
         child.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
         child.relationshipToParent = Child;
-        asCompositeItem(compositeItem).computed_children.push(child.id);
         await server.updateItem(child);
+        compositeItem.computed_children.push(child.id);
       }
       await server.deleteItem(activeItem_composite.id);
     }
