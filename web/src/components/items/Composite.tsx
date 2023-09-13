@@ -19,8 +19,11 @@
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { ATTACH_AREA_SIZE_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
+import { asCompositeItem } from "../../items/composite-item";
+import { itemState } from "../../store/ItemState";
+import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 
 
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -55,8 +58,37 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
 export const Composite_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const _desktopStore = useDesktopStore();
+  const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
+  const boundsPx = () => props.visualElement.boundsPx;
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const leftPx = () => boundsPx().x + oneBlockWidthPx();
+  const widthPx = () => boundsPx().w - oneBlockWidthPx();
+  const titleText = () => {
+    if (compositeItem().computed_children.length == 0) {
+      return "[empty]";
+    }
+    const topItem = itemState.getItem(compositeItem().computed_children[0])!
+    if (isTitledItem(topItem)) {
+      return asTitledItem(topItem).title + "...";
+    }
+    return "[no title]";
+  }
 
   return (
-    <div>** Composite Line Item (TODO) **</div>
+    <>
+      <div class="absolute text-center"
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <i class={`fas fa-object-group`} />
+      </div>
+      <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
+           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+                  `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <span>{titleText()}</span>
+      </div>
+    </>
   )
 }
