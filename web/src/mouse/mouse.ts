@@ -921,35 +921,44 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
   // case #2: attaching to an item that is not inside an existing composite.
   } else {
 
+    const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
+    compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
+    if (isXSizableItem(attachToItem)) {
+      compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr;
+    }
+    await server.addItem(compositeItem, null);
+    itemState.addItem(compositeItem);
+
+    attachToItem.parentId = compositeItem.id;
+    attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    attachToItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
+    attachToItem.relationshipToParent = Child;
+    await server.updateItem(attachToItem);
+
     // case #2.1: this item is not a composite either.
     if (!isComposite(activeItem)) {
-      const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
-      compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
-      if (isXSizableItem(attachToItem)) {
-        compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr;
-      }
-      await server.addItem(compositeItem, null);
-      itemState.addItem(compositeItem);
-
-      attachToItem.parentId = compositeItem.id;
-      attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      attachToItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
-      attachToItem.relationshipToParent = Child;
-      await server.updateItem(attachToItem);
-
       activeItem.parentId = compositeItem.id;
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       activeItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
       activeItem.relationshipToParent = Child;
       await server.updateItem(activeItem);
-
-      prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
     }
 
     // case #2.2: the moving item being attached is a composite.
     else {
-      panic();
+      const activeItem_composite = asCompositeItem(activeItem);
+      for (let i=0; i<activeItem_composite.computed_children.length; ++i) {
+        const child = itemState.getItem(activeItem_composite.computed_children[i])!;
+        child.parentId = compositeItem.id;
+        child.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
+        child.relationshipToParent = Child;
+        asCompositeItem(compositeItem).computed_children.push(child.id);
+        await server.updateItem(child);
+      }
+      await server.deleteItem(activeItem_composite.id);
     }
+
+    prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
   }
 
   finalizeMouseUp();
