@@ -19,6 +19,7 @@
 import { LINE_HEIGHT_PX } from '../../constants';
 import { HitboxType, createHitbox } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
+import { Child } from '../../layout/relationship-to-parent';
 import { BoundingBox, Dimensions } from '../../util/geometry';
 import { EMPTY_UID, Uid } from '../../util/uid';
 
@@ -55,7 +56,7 @@ export const EMPTY_ITEM = () => ({
   ownerId: EMPTY_UID,
   id: EMPTY_UID,
   parentId: EMPTY_UID,
-  relationshipToParent: "child",
+  relationshipToParent: Child,
   creationDate: 0,
   lastModifiedDate: 0,
   ordering: Uint8Array.from([]),

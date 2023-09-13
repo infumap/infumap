@@ -16,6 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { panic } from "./lang";
+
 const N = 1;
 
 export function newOrderingBefore(start: Uint8Array): Uint8Array {
@@ -148,6 +150,22 @@ export function newOrderingAtBeginning(orderings: Array<Uint8Array>): Uint8Array
   }
   return newOrderingBefore(lowest);
 }
+
+export function newOrderingDirectlyAfter(orderings: Array<Uint8Array>, find: Uint8Array): Uint8Array {
+  let idx = -1;
+  for (let i=0; i<orderings.length; ++i) {
+    if (compareOrderings(orderings[i], find) == 0) {
+      idx = i;
+      break;
+    }
+  }
+  if (idx == -1) { panic(); }
+  if (idx == orderings.length-1) {
+    return newOrderingAtEnd(orderings);
+  }
+  return newOrderingBetween(orderings[idx], orderings[idx+1]);
+}
+
 
 export function testOrdering(): void {
   console.log('### -- Start Ordering tests');

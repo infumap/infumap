@@ -23,7 +23,7 @@ import { itemFromObject } from "../items/base/item-polymorphism";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { Attachment, Child, NoParent } from "../layout/relationship-to-parent";
 import { panic, throwExpression } from "../util/lang";
-import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
+import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
 
 let items = new Map<Uid, Item>();
@@ -187,6 +187,12 @@ export const itemState = {
     let parent = asAttachmentsItem(items.get(parentId)!);
     let attachmentOrderings = parent.computed_attachments.map(c => items.get(c)!.ordering);
     return newOrderingAtEnd(attachmentOrderings);
+  },
+
+  newOrderingDirectlyAfterChildOrdering: (parentId: Uid, find: Uint8Array) => {
+    let parent = asContainerItem(items.get(parentId)!);
+    let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
+    return newOrderingDirectlyAfter(childrenOrderings, find);
   },
 
   newOrderingAtChildrenPosition: (parentId: Uid, position: number): Uint8Array => {

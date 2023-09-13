@@ -36,7 +36,7 @@ import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/
 import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem } from "../items/base/container-item";
 import { getHitInfo } from "./hitInfo";
-import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
+import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
 import { Item } from "../items/base/item";
 import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
@@ -46,7 +46,7 @@ import { mouseMoveState } from "../store/MouseMoveState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { switchToPage, updateHref } from "../layout/navigation";
-import { isComposite, newCompositeItem } from "../items/composite-item";
+import { CompositeItem, asCompositeItem, isComposite, newCompositeItem } from "../items/composite-item";
 
 
 const MOUSE_LEFT = 0;
@@ -74,6 +74,7 @@ interface MouseActionState {
   startWidthBl: number | null,
   startHeightBl: number | null,
   startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
+  startCompositeItem: CompositeItem | null,         // when taking an item out of a composite item.
   clickOffsetProp: Vector | null,
   hitMeta: HitboxMeta | null,
   action: MouseAction,
@@ -159,6 +160,7 @@ export function mouseLeftDownHandler(
     y: (startPx.y - boundsOnDesktopPx.y) / boundsOnDesktopPx.h
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
+  const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
   mouseActionState = {
     activeRoot: visualElementToPath(popupFlagSet(hitInfo.rootVe) ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
@@ -174,6 +176,7 @@ export function mouseLeftDownHandler(
     startWidthBl,
     startHeightBl,
     startAttachmentsItem,
+    startCompositeItem,
     clickOffsetProp,
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
@@ -181,29 +184,24 @@ export function mouseLeftDownHandler(
   }
 }
 
-function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem | null {
-  if (activeItem == null) {
-    return null;
-  }
-
-  if (activeItem.parentId == null) {
-    return null;
-  }
-
-  if (activeItem.relationshipToParent != "attachment") {
-    return null;
-  }
-
+function calcStartCompositeItemMaybe(activeItem: Item): CompositeItem | null {
+  if (activeItem == null) { return null; }
+  if (activeItem.parentId == null) { return null; }
+  if (activeItem.relationshipToParent != Child) { return null; }
   let parent = itemState.getItem(activeItem.parentId)!;
-  if (parent.parentId == null) {
-    return null;
-  }
+  if (parent.parentId == null) { return null; }
+  if (!isComposite(parent)) { return null; }
+  return asCompositeItem(parent);
+}
 
+function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem | null {
+  if (activeItem == null) { return null; }
+  if (activeItem.parentId == null) { return null; }
+  if (activeItem.relationshipToParent != Attachment) { return null; }
+  let parent = itemState.getItem(activeItem.parentId)!;
+  if (parent.parentId == null) { return null; }
   let parentParent = itemState.getItem(parent.parentId)!;
-  if (!isTable(parentParent)) {
-    return null;
-  }
-
+  if (!isTable(parentParent)) { return null; }
   return asAttachmentsItem(parent);
 }
 
@@ -321,6 +319,9 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
           if (activeItem.relationshipToParent == Attachment) {
             moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment);
+          }
+          else if (isComposite(itemState.getItem(activeItem.parentId)!)) {
+            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child);
           }
         }
 
@@ -818,21 +819,50 @@ function mouseUpHandler_moving(
     server.updateItem(itemState.getItem(activeItem.id)!);
   }
 
-  cleanupAndPersistPlaceholders();
-
+  finalizeMouseUp();
   arrange(desktopStore);
 }
 
-function cleanupAndPersistPlaceholders() {
-  if (mouseActionState!.startAttachmentsItem == null) {
+function finalizeMouseUp() {
+  cleanupAndPersistPlaceholders();
+  maybeDeleteComposite()
+}
+
+function maybeDeleteComposite() {
+  if (mouseActionState == null) { return; } // please typescript.
+  if (mouseActionState.startCompositeItem == null) { return; }
+  const compositeItem = mouseActionState.startCompositeItem;
+  if (compositeItem.computed_children.length == 0) { panic(); }
+  if (compositeItem.computed_children.length != 1) {
+    mouseActionState.startCompositeItem = null;
     return;
   }
+  const compositeItemParent = asContainerItem(itemState.getItem(compositeItem.parentId)!);
+  const child = itemState.getItem(compositeItem.computed_children[0])!;
+  if (!isPositionalItem(child)) { panic(); }
+  child.parentId = compositeItem.parentId;
+  asPositionalItem(child).spatialPositionGr = compositeItem.spatialPositionGr;
+  compositeItem.computed_children = [];
+  compositeItemParent.computed_children.push(child.id);
+  itemState.deleteItem(compositeItem.id);
+  itemState.sortChildren(compositeItemParent.id);
 
-  if (mouseActionState!.newPlaceholderItem != null) {
-    server.addItem(mouseActionState!.newPlaceholderItem!, null);
+  server.updateItem(child).then(() => {
+    server.deleteItem(compositeItem.id);
+  })
+
+  mouseActionState.startCompositeItem = null;
+}
+
+function cleanupAndPersistPlaceholders() {
+  if (mouseActionState == null) { return; } // please typescript.
+  if (mouseActionState.startAttachmentsItem == null) { return; }
+
+  if (mouseActionState.newPlaceholderItem != null) {
+    server.addItem(mouseActionState.newPlaceholderItem, null);
   }
 
-  const placeholderParent = mouseActionState!.startAttachmentsItem!;
+  const placeholderParent = mouseActionState.startAttachmentsItem!;
 
   while (true) {
     const attachments = placeholderParent.computed_attachments;
@@ -847,8 +877,8 @@ function cleanupAndPersistPlaceholders() {
     itemState.deleteItem(attachment.id);
   }
 
-  mouseActionState!.newPlaceholderItem = null;
-  mouseActionState!.startAttachmentsItem = null;
+  mouseActionState.newPlaceholderItem = null;
+  mouseActionState.startAttachmentsItem = null;
 }
 
 function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
@@ -871,18 +901,20 @@ function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStor
 
     const compositeItem = itemState.getItem(attachToItem.parentId)!;
 
-    // case #1.1: this item is not a composite.
+    // case #1.1: the moving item is not a composite.
     if (!isComposite(activeItem)) {
       activeItem.parentId = compositeItem.id;
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      activeItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
+      activeItem.ordering = itemState.newOrderingDirectlyAfterChildOrdering(compositeItem.id, attachToItem.ordering);
       activeItem.relationshipToParent = Child;
       server.updateItem(activeItem);
 
       prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
+      asCompositeItem(compositeItem).computed_children.push(activeItem.id);
+      itemState.sortChildren(compositeItem.id);
     }
 
-    // case #1.2:
+    // case #1.2: the moving item is a composite.
     else {
       panic();
     }
@@ -915,12 +947,13 @@ function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStor
       prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
     }
 
-    // case #2.2: the item being attached is a composite.
+    // case #2.2: the moving item being attached is a composite.
     else {
       panic();
     }
   }
 
+  finalizeMouseUp();
   arrange(desktopStore);
 }
 
@@ -949,11 +982,10 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
   const prevParent = itemState.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
 
-  cleanupAndPersistPlaceholders();
-
-  arrange(desktopStore);
-
   server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
 }
 
 function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
@@ -985,8 +1017,7 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
 
   server.updateItem(itemState.getItem(activeItem.id)!);
 
-  cleanupAndPersistPlaceholders();
-
+  finalizeMouseUp();
   arrange(desktopStore);
 }
 
@@ -1017,11 +1048,10 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   const prevParent = itemState.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
 
-  cleanupAndPersistPlaceholders();
-
-  arrange(desktopStore);
-
   server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
 }
 
 function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
@@ -1066,9 +1096,8 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const prevParent = itemState.getContainerItem(prevParentId)!;
   prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
 
-  cleanupAndPersistPlaceholders();
-
-  arrange(desktopStore);
-
   server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
 }
