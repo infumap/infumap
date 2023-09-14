@@ -29,7 +29,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
-import { detailedFlagSet, getVeid, lineItemFlagSet, popupFlagSet, rootFlagSet, selectedFlagSet, showChildrenFlagSet, veidFromPath, VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
+import { getVeid, veidFromPath, VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
 
@@ -37,7 +37,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const desktopStore = useDesktopStore();
 
   onMount(() => {
-    if (popupFlagSet(props.visualElement)) {
+    if (props.visualElement.flags & VisualElementFlags.Popup) {
       // If the popup is from clicking on a link item, the veid of the popup visual element will not reflect
       // that item since the link id will be the constant one used for popups. Therefore, get the veid directly
       // from the desktop store.
@@ -99,7 +99,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
-        <Show when={detailedFlagSet(props.visualElement)}>
+        <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xs font-bold text-white"
                  style={`transform: scale(${opaqueTitleScale()}); transform-origin: center center;`}>
@@ -130,7 +130,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         `background-color: #ff0000;`}>
             </div>
           </Show>
-          <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+          <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
             <div class="absolute"
                  style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
             </div>
@@ -244,7 +244,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         `background-color: #ff0000;`}>
             </div>
           </Show>
-          <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+          <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
             <div class="absolute pointer-events-none"
                  style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
             </div>
@@ -312,12 +312,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const drawAsPopup = () => {
     return (
       <>
-        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10 + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
         <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
           <div ref={popupDiv}
-               class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+               class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
                style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
               <For each={lineVes()}>{childVe =>
@@ -328,8 +328,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <Show when={pageItem().arrangeAlgorithm != ARRANGE_ALGO_LIST}>
           <div ref={popupDiv}
-               class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-               style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+               class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+               style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                       `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
               onscroll={popupScrollHandler}>
             <div class="absolute"
@@ -341,8 +341,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </div>
           </div>
         </Show>
-        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
-             style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
+             style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
             {pageItem().title}
           </div>
@@ -360,13 +360,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.05)}; `;
   }
 
-  const lineVes = () => props.visualElement.children.filter(c => lineItemFlagSet(c.get()));
-  const desktopVes = () => props.visualElement.children.filter(c => !lineItemFlagSet(c.get()));
+  const lineVes = () => props.visualElement.children.filter(c => c.get().flags & VisualElementFlags.LineItem);
+  const desktopVes = () => props.visualElement.children.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
 
   const drawAsFull = () => {
     return (
-      <div class={`absolute bg-gray-300 ${rootFlagSet(props.visualElement) ? "border border-slate-700" : ""}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${rootFlagSet(props.visualElement) ? fullBgColorVal() : "#ffffff"}`}>
+      <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${(props.visualElement.flags & VisualElementFlags.Root) ? fullBgColorVal() : "#ffffff"}`}>
         <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
@@ -389,21 +389,24 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   return (
     <>
-      <Show when={(props.visualElement.parentPath == null || rootFlagSet(props.visualElement)) && !popupFlagSet(props.visualElement)}>
+      <Show when={(props.visualElement.parentPath == null || (props.visualElement.flags & VisualElementFlags.Root)) && !(props.visualElement.flags & VisualElementFlags.Popup)}>
         {drawAsFull()}
       </Show>
-      <Show when={!detailedFlagSet(props.visualElement) ||
-                  (!rootFlagSet(props.visualElement) && !popupFlagSet(props.visualElement) && props.visualElement.parentPath != null && !showChildrenFlagSet(props.visualElement))}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
+                  (!(props.visualElement.flags & VisualElementFlags.Root) &&
+                   !(props.visualElement.flags & VisualElementFlags.Popup) &&
+                   props.visualElement.parentPath != null &&
+                   !(props.visualElement.flags & VisualElementFlags.ShowChildren))}>
         {drawAsOpaque()}
       </Show>
-      <Show when={!rootFlagSet(props.visualElement) &&
-                  !popupFlagSet(props.visualElement) &&
-                  detailedFlagSet(props.visualElement) &&
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Root) &&
+                  !(props.visualElement.flags & VisualElementFlags.Popup) &&
+                  props.visualElement.flags & VisualElementFlags.Detailed &&
                   props.visualElement.parentPath != null &&
-                  showChildrenFlagSet(props.visualElement)}>
+                  props.visualElement.flags & VisualElementFlags.ShowChildren}>
         {drawAsTranslucent()}
       </Show>
-      <Show when={popupFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
         {drawAsPopup()}
       </Show>
     </>
@@ -444,7 +447,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+      <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>

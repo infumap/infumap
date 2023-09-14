@@ -19,7 +19,7 @@
 import { Component, Show } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
-import { selectedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Placeholder_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -46,7 +46,7 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>

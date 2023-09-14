@@ -20,7 +20,7 @@ import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementProps } from "../VisualElement";
-import { selectedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Rating_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -59,7 +59,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>

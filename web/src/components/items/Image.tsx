@@ -23,7 +23,7 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
-import { VisualElementFlags, detailedFlagSet, selectedFlagSet, visualElementToPath } from "../../layout/visual-element";
+import { VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
@@ -45,7 +45,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
   const resizingFromBoundsPx = () => props.visualElement.resizingFromBoundsPx != null ? quantizeBoundingBox(props.visualElement.resizingFromBoundsPx!) : null;
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
-  const isDetailed = () => { return detailedFlagSet(props.visualElement); }
+  const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
   const imgSrc = () => { return "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true); }
   // const imgUrl = () => {
@@ -84,7 +84,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   onMount(() => {
     if (isDetailed_OnLoad) {
-      const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup;
+      const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
       getImage(imgSrcOnLoad, isHighPriority)
         .then((objectUrl) => {
           imgElement!.src = objectUrl;
@@ -100,12 +100,12 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   return (
     <Show when={boundsPx().w > 5}>
-      <Show when={(props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup}>
-        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10 + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
         </div>
-        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden`}
-             style={`left: ${quantizedBoundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden`}
+             style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
           <img class="max-w-none absolute"
                   style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                           `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
@@ -114,8 +114,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   src={thumbnailSrc()} />
         </div>
       </Show>
-      <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed" : "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden`}
-           style={`left: ${quantizedBoundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden`}
+           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <Show when={isDetailed()} fallback={
             <img class="max-w-none absolute"
                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
@@ -129,7 +129,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                       `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;`}
                width={imageWidthToRequestPx(false)} />
-          <Show when={selectedFlagSet(props.visualElement) || isPoppedUp()}>
+          <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; background-color: #dddddd88;`}>
             </div>
@@ -142,18 +142,18 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Show>
         </Show>
       </div>
-      <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
-           style={`left: ${quantizedBoundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
+           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
-        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.None}>
+        <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup)}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
         </Show>
       </div>
-      <Show when={(props.visualElement.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup}>
-        <div class={`${(props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
-             style={`left: ${boundsPx().x + ((props.visualElement.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
+             style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
           <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
             {imageItem().title}
           </div>
@@ -174,7 +174,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>

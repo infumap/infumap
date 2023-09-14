@@ -28,7 +28,7 @@ import { DesktopStoreContextModel, PopupType, findVisualElements } from "../stor
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic, throwExpression } from "../util/lang";
-import { VisualElement, VisualElementPath, getVeid, popupFlagSet, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VisualElementPath, getVeid, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementToPath } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -145,7 +145,7 @@ export function mouseLeftDownHandler(
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
-    if (popupFlagSet(hitInfo.overElementVes.get())) {
+    if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
       switchToPage(desktopStore, userStore, getVeid(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);
@@ -163,7 +163,7 @@ export function mouseLeftDownHandler(
     : itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
   let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get());
   let onePxSizeBl;
-  if (popupFlagSet(hitInfo.overElementVes.get())) {
+  if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
       x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
       y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
@@ -190,7 +190,7 @@ export function mouseLeftDownHandler(
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
   mouseActionState = {
-    activeRoot: visualElementToPath(popupFlagSet(hitInfo.rootVe) ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
+    activeRoot: visualElementToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? visualElementToPath(hitInfo.overContainerVe!) : null,
     moveOver_containerElement: null,
@@ -311,7 +311,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
       if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
         mouseActionState.startPosBl = null;
-        if (popupFlagSet(activeVisualElement)) {
+        if (activeVisualElement.flags & VisualElementFlags.Popup) {
           mouseActionState.startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
           mouseActionState.startHeightBl = null;
           mouseActionState.action = MouseAction.ResizingPopup;
@@ -331,6 +331,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
                  ((mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move))) {
         if (!(mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) &&
             (mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move)) {
+          // if the composite move hitbox is hit, but not the child, then swap out the active element.
           mouseActionState.hitboxTypeOnMouseDown = mouseActionState.compositeHitboxTypeMaybeOnMouseDown!;
           mouseActionState.activeElement = mouseActionState.activeCompositeElementMaybe!;
           activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
@@ -340,7 +341,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
         }
         mouseActionState.startWidthBl = null;
         mouseActionState.startHeightBl = null;
-        if (popupFlagSet(activeVisualElement)) {
+        if (activeVisualElement.flags & VisualElementFlags.Popup) {
           mouseActionState.action = MouseAction.MovingPopup;
           const activeRoot = VesCache.get(mouseActionState.activeRoot)!.get().displayItem;
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
@@ -552,13 +553,13 @@ export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextMo
   }
 
   if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
-      !popupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOver.get() &&
+      !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
   if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
-      ! popupFlagSet(overElementVes.get()) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxType.OpenPopup) {
       overElementVes!.get().mouseIsOverOpenPopup.set(true);
@@ -607,7 +608,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
   const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
-  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - (((tableItem.flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
+  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length

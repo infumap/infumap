@@ -25,7 +25,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { detailedFlagSet, getVeid, lineItemFlagSet, selectedFlagSet } from "../../layout/visual-element";
+import { getVeid, VisualElementFlags } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
 
 
@@ -36,7 +36,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const desktopStore = useDesktopStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
-  const showColHeader = () => (tableItem().flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader;
+  const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
   const boundsPx = () => props.visualElement.boundsPx;
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
   const spatialWidthGr = () => {
@@ -107,12 +107,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   return (
     <>
-      <Show when={!detailedFlagSet(props.visualElement)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; `}>
         </div>
       </Show>
-      <Show when={detailedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div class="absolute"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
           <div class="absolute font-bold"
@@ -191,7 +191,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   }
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
-  const showHeader = () => (tableItem().flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader;
+  const showHeader = () => tableItem().flags & TableFlags.ShowColHeader;
   const spatialHeightGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return props.visualElement.linkItemMaybe.spatialHeightGr;
@@ -230,7 +230,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     }
 
     const drawChild = (child: VisualElementSignal) => {
-      if (!lineItemFlagSet(child.get())) { panic(); }
+      if (!(child.get().flags & VisualElementFlags.LineItem)) { panic(); }
       return (
         <>
           <VisualElement_LineItem visualElement={child.get()} />
@@ -271,7 +271,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>

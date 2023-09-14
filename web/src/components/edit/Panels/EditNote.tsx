@@ -85,11 +85,11 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
       <div class="text-slate-800 text-sm">Text <InfuTextArea focus={true} value={props.noteItem.title} onInput={handleTextInput} /></div>
       <div class="text-slate-800 text-sm">Url <InfuTextInput value={props.noteItem.url} onChangeOrCleanup={handleUrlChange} /></div>
       <div>
-        <input id="copy" name="copy" type="checkbox" ref={checkElement_copy} checked={(props.noteItem.flags & NoteFlags.ShowCopyIcon) == NoteFlags.ShowCopyIcon ? true : false} onClick={changeShowCopy} />
+        <input id="copy" name="copy" type="checkbox" ref={checkElement_copy} checked={(props.noteItem.flags & NoteFlags.ShowCopyIcon) ? true : false} onClick={changeShowCopy} />
         <label for="copy">show copy icon</label>
       </div>
       <div>
-        <input id="heading" name="heading" type="checkbox" ref={checkElement_heading} checked={(props.noteItem.flags & NoteFlags.Heading) == NoteFlags.Heading ? true : false} onClick={changeDisplayAsHeading} />
+        <input id="heading" name="heading" type="checkbox" ref={checkElement_heading} checked={(props.noteItem.flags & NoteFlags.Heading) ? true : false} onClick={changeDisplayAsHeading} />
         <label for="heading">heading</label>
       </div>
       <Show when={!props.linkedTo}>

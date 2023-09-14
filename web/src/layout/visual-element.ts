@@ -74,45 +74,6 @@ export enum VisualElementFlags {
   InsideComposite      = 0x0200, // The visual element is inside a composite item.
 }
 
-export function selectedFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.Selected) == VisualElementFlags.Selected;
-}
-
-export function lineItemFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.LineItem) == VisualElementFlags.LineItem;
-}
-
-export function detailedFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.Detailed) == VisualElementFlags.Detailed;
-}
-
-export function popupFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.Popup) == VisualElementFlags.Popup;
-}
-
-export function rootFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.Root) == VisualElementFlags.Root;
-}
-
-export function insideTableFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.InsideTable) == VisualElementFlags.InsideTable;
-}
-
-export function insideCompositeFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.InsideComposite) == VisualElementFlags.InsideComposite;
-}
-
-export function attachmentFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.Attachment) == VisualElementFlags.Attachment;
-}
-
-export function showChildrenFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.ShowChildren) == VisualElementFlags.ShowChildren;
-}
-
-export function fixedFlagSet(ve: VisualElement): boolean {
-  return (ve.flags & VisualElementFlags.Fixed) == VisualElementFlags.Fixed;
-}
 
 /**
  * Describes a visual element to be rendered.

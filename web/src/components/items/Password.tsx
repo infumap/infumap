@@ -21,9 +21,9 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../cons
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
 import { asPasswordItem, calcPasswordSizeForSpatialBl } from "../../items/password-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -68,7 +68,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   return (
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <Show when={detailedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div class="absolute overflow-hidden whitespace-nowrap"
              style={`left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
@@ -118,10 +118,10 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const leftPx = () => attachmentFlagSet(props.visualElement)
+  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().x
     : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => attachmentFlagSet(props.visualElement)
+  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().w - 1.9 * oneBlockWidthPx()
     : boundsPx().w - 2.9 * oneBlockWidthPx();
 
@@ -140,7 +140,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>
@@ -150,7 +150,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
         </div>
       </Show>
-      <Show when={!attachmentFlagSet(props.visualElement)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
         <div class="absolute text-center"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

@@ -31,7 +31,7 @@ import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvid
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
-import { VisualElement, getVeid, lineItemFlagSet, popupFlagSet, veidFromPath, visualElementToPath } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, getVeid, veidFromPath, visualElementToPath } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hitInfo';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
@@ -309,9 +309,9 @@ export function handlePageClick(visualElement: VisualElement, desktopStore: Desk
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
-  if (lineItemFlagSet(visualElement) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
-  } else if (popupFlagSet(VesCache.get(visualElement.parentPath!)!.get())) {
+  } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
     desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
   } else {
     desktopStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });

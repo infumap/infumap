@@ -107,7 +107,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
         <label for="ord">order by title</label>
       </div>
       <div>
-        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={(props.tableItem.flags & TableFlags.ShowColHeader) == TableFlags.ShowColHeader ? true : false} onClick={changeShowHeader} />
+        <input id="header" name="header" type="checkbox" ref={checkElement_header} checked={(props.tableItem.flags & TableFlags.ShowColHeader) ? true : false} onClick={changeShowHeader} />
         <label for="header">show header</label>
       </div>
       <Show when={!props.linkedTo}>

@@ -22,7 +22,7 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../cons
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { VisualElementFlags, attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags } from "../../layout/visual-element";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -67,7 +67,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   return (
     <div class={outerClass()}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <Show when={detailedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
@@ -102,16 +102,16 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const leftPx = () => attachmentFlagSet(props.visualElement)
+  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().x
     : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => attachmentFlagSet(props.visualElement)
+  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().w
     : boundsPx().w - oneBlockWidthPx();
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>
@@ -121,7 +121,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
         </div>
       </Show>
-      <Show when={!attachmentFlagSet(props.visualElement)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
         <div class="absolute text-center"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

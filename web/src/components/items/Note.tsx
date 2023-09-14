@@ -22,7 +22,7 @@ import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../cons
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl, cloneMeasurableFields } from "../../items/base/item-polymorphism";
-import { VisualElementFlags, attachmentFlagSet, detailedFlagSet, selectedFlagSet } from "../../layout/visual-element";
+import { VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { asCompositeItem } from "../../items/composite-item";
@@ -67,7 +67,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       return 'absolute rounded-sm bg-white';
     } else {
-      if ((noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading) {
+      if ((noteItem().flags & NoteFlags.Heading)) {
         if (props.visualElement.mouseIsOver.get()) {
           return 'absolute border border-slate-700 rounded-sm font-bold shadow-lg';
         } else {
@@ -78,12 +78,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
   };
   const shiftTextLeft = () =>
-    (noteItem().flags & NoteFlags.Heading) == NoteFlags.Heading && !props.visualElement.mouseIsOver.get();
+    (noteItem().flags & NoteFlags.Heading) && !props.visualElement.mouseIsOver.get();
 
   return (
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-      <Show when={detailedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; left: ${shiftTextLeft() ? '-' + NOTE_PADDING_PX : '0'}px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
@@ -122,11 +122,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon) == NoteFlags.ShowCopyIcon;
-  const leftPx = () => attachmentFlagSet(props.visualElement)
+  const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
+  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().x + oneBlockWidthPx() * 0.15
     : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => attachmentFlagSet(props.visualElement)
+  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().w - oneBlockWidthPx() * 0.15 - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
 
@@ -140,7 +140,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   return (
     <>
-      <Show when={selectedFlagSet(props.visualElement)}>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
         </div>
@@ -150,7 +150,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
         </div>
       </Show>
-      <Show when={!attachmentFlagSet(props.visualElement)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
         <div class="absolute text-center"
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
