@@ -22,7 +22,7 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { Measurable, ItemTypeMixin, ITEM_TYPE_LINK } from "./base/item";
+import { Measurable, ItemTypeMixin, ITEM_TYPE_LINK, Item } from "./base/item";
 import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getMightBeDirty } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
@@ -41,6 +41,19 @@ export interface LinkItem extends PositionalItem, XSizableItem, YSizableItem, At
   linkToBaseUrl: string,
 }
 
+export function newLinkItemFromItem(item: Item, relationshipToParent: string, ordering: Uint8Array): LinkItem {
+  const result = newLinkItem(item.ownerId, item.parentId, relationshipToParent, ordering, item.id);
+  if (isPositionalItem(item)) {
+    result.spatialPositionGr = asPositionalItem(item).spatialPositionGr;
+  }
+  if (isXSizableItem(item)) {
+    result.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
+  }
+  if (isYSizableItem(item)) {
+    result.spatialHeightGr = asYSizableItem(item).spatialHeightGr;
+  }
+  return result;
+}
 
 export function newLinkItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkTo: Uid): LinkItem {
   if (parentId == EMPTY_UID) { panic(); }

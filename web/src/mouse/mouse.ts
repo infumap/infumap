@@ -39,7 +39,7 @@ import { getHitInfo } from "./hitInfo";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { PlaceholderItem, isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
 import { Item } from "../items/base/item";
-import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
+import { asLinkItem, getLinkToId, isLink, newLinkItem, newLinkItemFromItem } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
 import { mouseMoveState } from "../store/MouseMoveState";
@@ -370,7 +370,13 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
               y: activeItem.spatialPositionGr.y / GRID_SIZE
             };
             if (shouldCreateLink) {
-              console.log("should create link");
+              const link = newLinkItemFromItem(activeItem, Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+              itemState.addItem(link);
+              server.addItem(link, null);
+              arrange(desktopStore);
+              let ve = findVisualElements(desktopStore, activeItem.id, link.id);
+              if (ve.length != 1) { panic(); }
+              mouseActionState.activeElement = visualElementToPath(ve[0].get());
             }
           }
           mouseActionState.action = MouseAction.Moving;
