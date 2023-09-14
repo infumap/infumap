@@ -347,23 +347,33 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
           mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
         } else {
-          const _shouldCreateLink = ev.shiftKey;
+          const shouldCreateLink = ev.shiftKey;
           const parentItem = itemState.getItem(activeItem.parentId)!;
           if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
-            moveActiveItemOutOfTable(desktopStore);
+            moveActiveItemOutOfTable(desktopStore, shouldCreateLink);
+            mouseActionState.startPosBl = {
+              x: activeItem.spatialPositionGr.x / GRID_SIZE,
+              y: activeItem.spatialPositionGr.y / GRID_SIZE
+            };
           }
-          mouseActionState.startPosBl = {
-            x: activeItem.spatialPositionGr.x / GRID_SIZE,
-            y: activeItem.spatialPositionGr.y / GRID_SIZE
-          };
-          mouseActionState.action = MouseAction.Moving;
-          const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-          if (activeItem.relationshipToParent == Attachment) {
-            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment);
+          else if (activeItem.relationshipToParent == Attachment) {
+            const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment, shouldCreateLink);
           }
           else if (isComposite(itemState.getItem(activeItem.parentId)!)) {
-            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child);
+            const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child, shouldCreateLink);
           }
+          else {
+            mouseActionState.startPosBl = {
+              x: activeItem.spatialPositionGr.x / GRID_SIZE,
+              y: activeItem.spatialPositionGr.y / GRID_SIZE
+            };
+            if (shouldCreateLink) {
+              console.log("should create link");
+            }
+          }
+          mouseActionState.action = MouseAction.Moving;
         }
 
       } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
@@ -504,7 +514,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     }
 
     if (VesCache.get(mouseActionState.moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
-      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child);
+      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child, false);
     }
 
     if (isTable(hitInfo.overContainerVe!.displayItem)) {
@@ -624,7 +634,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
 }
 
-export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string) {
+export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(mouseActionState!.activeElement!)!.get();
   const activeItem = asPositionalItem(activeElement.linkItemMaybe != null ? activeElement.linkItemMaybe! : activeElement.displayItem);
   const activeElementLinkItemMaybeId = activeElement.linkItemMaybe == null ? null : activeElement.linkItemMaybe.id;
@@ -643,10 +653,10 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
     ? { x: Math.round(activeItemDimensionsBl.w * mouseActionState!.clickOffsetProp!.x * 2.0) / 2.0,
         y: Math.round(activeItemDimensionsBl.h * mouseActionState!.clickOffsetProp!.y * 2.0) / 2.0 }
     : { x: 0, y: 0 };
-  const newItemPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
-  const newItemPosGr = { x: newItemPosBl.x * GRID_SIZE, y: newItemPosBl.y * GRID_SIZE };
+  const startPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
+  const newItemPosGr = { x: startPosBl.x * GRID_SIZE, y: startPosBl.y * GRID_SIZE };
   mouseActionState!.startPx = desktopPx;
-  mouseActionState!.startPosBl = newItemPosBl;
+  mouseActionState!.startPosBl = startPosBl;
   const moveToPath = visualElementToPath(moveToVe);
 
   let oldActiveItemOrdering = activeItem.ordering;
@@ -699,7 +709,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   if (!done) { panic(); }
 }
 
-export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel) {
+export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(mouseActionState!.activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.displayItem);
