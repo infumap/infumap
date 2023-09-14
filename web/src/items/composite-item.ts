@@ -139,7 +139,6 @@ export function calcGeometryOfCompositeItem_Desktop(composite: CompositeMeasurab
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
       createHitbox(HitboxType.Move, innerBoundsPx),
-      createHitbox(HitboxType.Click, innerBoundsPx),
       createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
       createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ],

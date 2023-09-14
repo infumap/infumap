@@ -64,21 +64,32 @@ enum MouseAction {
 
 interface MouseActionState {
   hitboxTypeOnMouseDown: HitboxType,
+  compositeHitboxTypeMaybeOnMouseDown: HitboxType,
+
+  hitMeta: HitboxMeta | null,
+
   activeElement: VisualElementPath,
+  activeCompositeElementMaybe: VisualElementPath | null,
+
   activeRoot: VisualElementPath,
+
   moveOver_containerElement: VisualElementPath | null,
   moveOver_attachHitboxElement: VisualElementPath | null,
   moveOver_attachCompositeHitboxElement: VisualElementPath | null,
   moveOver_scaleDefiningElement: VisualElementPath | null,
+
   startPx: Vector,
   startPosBl: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
+
   startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
   startCompositeItem: CompositeItem | null,         // when taking an item out of a composite item.
+
   clickOffsetProp: Vector | null,
-  hitMeta: HitboxMeta | null,
+
   action: MouseAction,
+
   onePxSizeBl: Vector,
   newPlaceholderItem: PlaceholderItem | null,
 }
@@ -108,7 +119,7 @@ export function mouseDownHandler(
 }
 
 
-// **** LEFT DOWN ****
+// **** MOUSE LEFT DOWN HANDLER ****
 export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
@@ -150,12 +161,28 @@ export function mouseLeftDownHandler(
   const activeItem = hitInfo.overElementVes.get().linkItemMaybe != null
     ? itemState.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
     : itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
-  let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get())
-  const onePxSizeBl = popupFlagSet(hitInfo.overElementVes.get())
-    ? { x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
-        y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h }
-    : { x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
+  let boundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overElementVes.get());
+  let onePxSizeBl;
+  if (popupFlagSet(hitInfo.overElementVes.get())) {
+    onePxSizeBl = {
+      x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
+      y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
+  } else {
+    if (hitInfo.compositeHitboxTypeMaybe) {
+      const activeCompositeItem = hitInfo.overContainerVe!.linkItemMaybe != null
+        ? itemState.getItem(hitInfo.overContainerVe!.linkItemMaybe!.id)!
+        : itemState.getItem(hitInfo.overContainerVe!.displayItem.id)!;
+      const compositeBoundsOnDesktopPx = visualElementBoundsOnDesktopPx(hitInfo.overContainerVe!);
+      onePxSizeBl = {
+        x: calcSizeForSpatialBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
+        y: calcSizeForSpatialBl(activeCompositeItem).h / compositeBoundsOnDesktopPx.h };
+    } else {
+      onePxSizeBl = {
+        x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
         y: calcSizeForSpatialBl(activeItem).h / boundsOnDesktopPx.h };
+    }
+  }
+
   let clickOffsetProp = {
     x: (startPx.x - boundsOnDesktopPx.x) / boundsOnDesktopPx.w,
     y: (startPx.y - boundsOnDesktopPx.y) / boundsOnDesktopPx.h
@@ -165,12 +192,14 @@ export function mouseLeftDownHandler(
   mouseActionState = {
     activeRoot: visualElementToPath(popupFlagSet(hitInfo.rootVe) ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     activeElement: visualElementToPath(hitInfo.overElementVes.get()),
+    activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? visualElementToPath(hitInfo.overContainerVe!) : null,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,
     moveOver_scaleDefiningElement: visualElementToPath(
       getHitInfo(desktopStore, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
+    compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,
     action: MouseAction.Ambiguous,
     startPx,
     startPosBl,
@@ -206,7 +235,7 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
   return asAttachmentsItem(parent);
 }
 
-// **** RIGHT DOWN ****
+// **** MOUSE RIGHT DOWN HANDLER ****
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
@@ -240,7 +269,7 @@ export function mouseRightDownHandler(
 }
 
 
-// **** MOVE ****
+// **** MOUSE MOVE HANDLER ****
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   if (desktopStore.currentPage() == null) { return; }
 
@@ -273,8 +302,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   const deltaPx = vectorSubtract(desktopPosPx, mouseActionState.startPx!);
 
-  const activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
-  const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
+  let activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
+  let activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
     ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
     : itemState.getItem(activeVisualElement.displayItem.id)!);
 
@@ -298,7 +327,17 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
           mouseActionState.action = MouseAction.Resizing;
         }
 
-      } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Move) > 0) {
+      } else if (((mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) > 0) ||
+                 ((mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move))) {
+        if (!(mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) &&
+            (mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move)) {
+          mouseActionState.hitboxTypeOnMouseDown = mouseActionState.compositeHitboxTypeMaybeOnMouseDown!;
+          mouseActionState.activeElement = mouseActionState.activeCompositeElementMaybe!;
+          activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
+          activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
+            ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
+            : itemState.getItem(activeVisualElement.displayItem.id)!);
+        }
         mouseActionState.startWidthBl = null;
         mouseActionState.startHeightBl = null;
         if (popupFlagSet(activeVisualElement)) {
@@ -424,7 +463,12 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   // ### Moving
   } else if (mouseActionState.action == MouseAction.Moving) {
 
-    const hitInfo = getHitInfo(desktopStore, desktopPosPx, [activeVisualElement.displayItem.id], false);
+    let ignoreIds = [activeVisualElement.displayItem.id];
+    if (isComposite(activeVisualElement.displayItem)) {
+      const compositeItem = asCompositeItem(activeVisualElement.displayItem);
+      for (let i=0; i<compositeItem.computed_children.length; ++i) { ignoreIds.push(compositeItem.computed_children[i]); }
+    }
+    const hitInfo = getHitInfo(desktopStore, desktopPosPx, ignoreIds, false);
 
     // update move over element state.
     if (mouseActionState.moveOver_containerElement == null ||

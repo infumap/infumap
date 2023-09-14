@@ -133,6 +133,7 @@ export function calcGeometryOfFileItem_InComposite(measurable: FileMeasurable, b
   return {
     boundsPx,
     hitboxes: [
+      createHitbox(HitboxType.Click, innerBoundsPx),
       createHitbox(HitboxType.Move, moveBoundsPx),
       createHitbox(HitboxType.AttachComposite, {
         x: innerBoundsPx.w / 4,
