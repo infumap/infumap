@@ -27,7 +27,7 @@ export type InfuTextAreaProps = {
   /// Triggered after loosing focus, or cleanup.
   onChangeOrCleanup?: ((v: string) => void),
   disabled?: boolean,
-  focus?: boolean
+  focus?: boolean,
 };
 
 export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaProps) => {
@@ -61,8 +61,8 @@ export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaPr
 
   return (
     <textarea ref={textElement}
-              rows={8}
-              class="border border-slate-300 p-2 rounded"
+              class="rounded"
+              style={"width: 100%; height: 100%; padding: 0px; border: 0px; outline: none; resize: none;"}
               value={props.value ? props.value : ""}
               onMouseDown={mouseDownHandler}
               onInput={inputHandler}

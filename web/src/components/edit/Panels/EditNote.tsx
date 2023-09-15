@@ -22,7 +22,6 @@ import { asNoteItem, NoteItem } from "../../../items/note-item";
 import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { InfuTextArea } from "../../library/InfuTextArea";
 import { arrange } from "../../../layout/arrange";
 import { itemState } from "../../../store/ItemState";
 import { NoteFlags } from "../../../items/base/flags-item";
@@ -35,11 +34,6 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
 
   const noteId = props.noteItem.id;
   let deleted = false;
-
-  const handleTextInput = (v: string) => {
-    asNoteItem(itemState.getItem(noteId)!).title = v;
-    arrange(desktopStore);
-  };
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
@@ -82,7 +76,6 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
 
   return (
     <div class="m-1">
-      <div class="text-slate-800 text-sm">Text <InfuTextArea focus={true} value={props.noteItem.title} onInput={handleTextInput} /></div>
       <div class="text-slate-800 text-sm">Url <InfuTextInput value={props.noteItem.url} onChangeOrCleanup={handleUrlChange} /></div>
       <div>
         <input id="copy" name="copy" type="checkbox" ref={checkElement_copy} checked={(props.noteItem.flags & NoteFlags.ShowCopyIcon) ? true : false} onClick={changeShowCopy} />

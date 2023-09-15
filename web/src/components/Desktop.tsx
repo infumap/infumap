@@ -16,13 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup, onMount } from "solid-js";
+import { Component, Show, onCleanup, onMount } from "solid-js";
 import { PopupType, useDesktopStore } from "../store/DesktopStoreProvider";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
-import { mouseDownHandler, mouseMoveHandler, mouseMoveNoButtonDownHandler, mouseUpHandler } from "../mouse/mouse";
+import { mouseDoubleClickHandler, mouseDownHandler, mouseMoveHandler, mouseMoveNoButtonDownHandler, mouseUpHandler } from "../mouse/mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
@@ -37,6 +37,7 @@ import { mouseMoveState } from "../store/MouseMoveState";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
+import { TextEditOverlay } from "./TextEditOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -47,7 +48,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
   const keyListener = (ev: KeyboardEvent) => {
-    if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null) {
+    if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null || desktopStore.textEditOverlayInfo() != null) {
       return;
     }
 
@@ -136,6 +137,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     else {
       panic();
     }
+  };
+
+  const mouseDoubleClickListener = (ev: MouseEvent) => {
+    ev.preventDefault();
+    mouseDoubleClickHandler(desktopStore, userStore, ev);
   };
 
   const mouseDownListener = (ev: MouseEvent) => {
@@ -255,11 +261,15 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
          style={`left: ${MAIN_TOOLBAR_WIDTH_PX}px; ${overflowPolicy(props.visualElement)}`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
+         ondblclick={mouseDoubleClickListener}
          onmouseup={mouseUpListener}
          onscroll={scrollHandler}>
       <Page_Desktop visualElement={props.visualElement} />
       <ContextMenu />
       <EditDialog />
+      <Show when={desktopStore.textEditOverlayInfo() != null}>
+        <TextEditOverlay />
+      </Show>
     </div>
   );
 }

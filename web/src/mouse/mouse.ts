@@ -48,10 +48,11 @@ import { VesCache } from "../layout/ves-cache";
 import { switchToPage, updateHref } from "../layout/navigation";
 import { CompositeItem, asCompositeItem, isComposite, newCompositeItem } from "../items/composite-item";
 import { newOrdering } from "../util/ordering";
+import { isNote } from "../items/note-item";
 
 
-const MOUSE_LEFT = 0;
-const MOUSE_RIGHT = 2;
+export const MOUSE_LEFT = 0;
+export const MOUSE_RIGHT = 2;
 
 enum MouseAction {
   Ambiguous,
@@ -1182,4 +1183,25 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
 
   finalizeMouseUp();
   arrange(desktopStore);
+}
+
+export function mouseDoubleClickHandler(
+    desktopStore: DesktopStoreContextModel,
+    _userStore: UserStoreContextModel,
+    ev: MouseEvent) {
+  if (desktopStore.currentPage() == null) { return; }
+  if (ev.button != MOUSE_LEFT) {
+    console.error("unsupported mouse double click button: " + ev.button);
+    return;
+  }
+
+  const desktopPosPx = desktopPxFromMouseEvent(ev);
+
+  const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+  if (hitInfo.hitboxType == HitboxType.None) { return; }
+
+  const activeDisplayItem = itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
+  if (!isNote(activeDisplayItem)) { return; }
+
+  desktopStore.setTextEditOverlayInfo({ noteItemPath: visualElementToPath(hitInfo.overElementVes.get()) });
 }

@@ -42,6 +42,9 @@ export interface DesktopStoreContextModel {
   contextMenuInfo: Accessor<ContextMenuInfo | null>,
   setContextMenuInfo: Setter<ContextMenuInfo | null>,
 
+  textEditOverlayInfo: Accessor<EditOverlayInfo | null>,
+  setTextEditOverlayInfo: Setter<EditOverlayInfo | null>,
+
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
@@ -67,6 +70,10 @@ export interface DesktopStoreContextModel {
 
   currentVisiblePassword: Accessor<Uid | null>,
   setCurrentVisiblePassword: Setter<Uid | null>,
+}
+
+export interface EditOverlayInfo {
+  noteItemPath: VisualElementPath
 }
 
 export interface ContextMenuInfo {
@@ -107,6 +114,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
+  const [textEditOverlayInfo, setTextEditOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
@@ -279,6 +287,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     topLevelVisualElementSignal,
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,
+    textEditOverlayInfo, setTextEditOverlayInfo,
     getTableScrollYPos, setTableScrollYPos,
     getSelectedListPageItem, setSelectedListPageItem,
     getPageScrollXProp, setPageScrollXProp,
