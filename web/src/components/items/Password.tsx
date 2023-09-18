@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
@@ -47,10 +47,11 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const oneBlockWidthPx = () => boundsPx().w / sizeBl().w;
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => boundsPx().w / naturalWidthPx();
-  const heightScale = () => boundsPx().h / naturalHeightPx();
-  const scale = () => Math.min(heightScale(), widthScale());
-  const smallScale = () => scale() * 0.7;
+  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
+  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const textBlockScale = () => widthScale();
+  const lineHeightScale = () => heightScale() / widthScale();
+  const smallScale = () => textBlockScale() * 0.7;
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
@@ -69,9 +70,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${NOTE_PADDING_PX * scale()}px; top: ${NOTE_PADDING_PX * scale() - LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word;`}>
+        <div style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
           <Show when={isVisible()} fallback={
             <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
           }>

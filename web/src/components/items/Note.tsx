@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { asNoteItem, asNoteMeasurable, calcNoteSizeForSpatialBl } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { calcSizeForSpatialBl, cloneMeasurableFields } from "../../items/base/item-polymorphism";
@@ -44,9 +44,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => boundsPx().w / naturalWidthPx();
-  const heightScale = () => boundsPx().h / naturalHeightPx();
-  const scale = () => Math.min(heightScale(), widthScale());
+  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
+  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const textBlockScale = () => widthScale();
+  const lineHeightScale = () => heightScale() / widthScale();
+
   const attachBoundsPx = (): BoundingBox => {
     return {
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
@@ -84,9 +86,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX * scale()}px; top: ${NOTE_PADDING_PX * scale() - LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word;`}>
+        <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}
                 fallback={<span>{noteItem().title}</span>}>
             <span class={`text-blue-800 cursor-pointer`}>{noteItem().title}</span>

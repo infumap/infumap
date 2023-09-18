@@ -184,10 +184,10 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const pageBoundsPx = (() => {
     let result = desktopStore.desktopBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
-    if (pageAspect / desktopAspect > 1.25) {
+    if (pageAspect / desktopAspect > 1.18) {
       // page to scroll horizontally.
       result.w = Math.round(result.h * pageAspect);
-    } else if (pageAspect / desktopAspect < 0.75) {
+    } else if (pageAspect / desktopAspect < 0.82) {
       // page needs to scroll vertically.
       result.h = Math.round(result.w / pageAspect);
     }
