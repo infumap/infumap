@@ -60,13 +60,14 @@ export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaPr
   });
 
   return (
-    <textarea ref={textElement}
-              class="rounded"
-              style={"width: 100%; height: 100%; padding: 0px; border: 0px; outline: none; resize: none;"}
-              value={props.value ? props.value : ""}
-              onMouseDown={mouseDownHandler}
-              onInput={inputHandler}
-              onChange={changeHandler}
-              disabled={props.disabled} />
+    <textarea
+      ref={textElement}
+      class="rounded"
+      style={"width: 100%; height: 100%; padding: 0px; border: 0px; outline: none; resize: none;"}
+      value={props.value ? props.value : ""}
+      onMouseDown={mouseDownHandler}
+      onInput={inputHandler}
+      onChange={changeHandler}
+      disabled={props.disabled} />
   );
 }

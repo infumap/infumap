@@ -23,7 +23,7 @@ import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { asPageItem, isPage } from "../page-item";
 
 
-export function handleListLineItemClickMaybe(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): boolean {
+export function handleListPageLineItemClickMaybe(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): boolean {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));

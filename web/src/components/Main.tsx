@@ -23,12 +23,12 @@ import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
-import { Toolbar } from "./Toolbar";
 import { ITEM_TYPE_NONE } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
+import { Toolbar } from "./toolbar/Toolbar";
 
 
 export let logout: (() => Promise<void>) | null = null;

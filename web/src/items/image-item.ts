@@ -31,7 +31,7 @@ import { VisualElement, VisualElementFlags, visualElementToPath } from "../layou
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { arrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
-import { handleListLineItemClickMaybe } from "./base/item-common";
+import { handleListPageLineItemClickMaybe } from "./base/item-common";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -176,7 +176,7 @@ export function calcGeometryOfImageItem_Cell(image: ImageMeasurable, cellBoundsP
 }
 
 export function handleImageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
-  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   if (visualElement.flags & VisualElementFlags.Popup) {
     window.open('/files/' + visualElement.displayItem.id, '_blank');
   } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {

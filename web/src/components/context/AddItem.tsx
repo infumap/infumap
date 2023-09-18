@@ -22,7 +22,6 @@ import { newNoteItem } from "../../items/note-item";
 import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Vector } from "../../util/geometry";
-import { ToolbarIcon } from "../ToolbarIcon";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { newTableItem } from "../../items/table-item";
@@ -36,6 +35,7 @@ import { EMPTY_UID } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
 import { newPasswordItem } from "../../items/password-item";
 import { VisualElementFlags } from "../../layout/visual-element";
+import { InfuIconButton } from "../library/InfuIconButton";
 
 
 type ContexMenuProps = {
@@ -130,12 +130,12 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   return (
     <div class="border rounded w-[250px] h-[55px] bg-slate-50 mb-1">
       <div class="text-slate-800 text-sm ml-1">Add new item here</div>
-      <ToolbarIcon icon="folder" margin={18} clickHandler={newPageInContext} />
-      <ToolbarIcon icon="table" margin={4} clickHandler={newTableInContext} />
-      <ToolbarIcon icon="sticky-note" margin={8} clickHandler={newNoteInContext} />
-      <ToolbarIcon icon="star" margin={4} clickHandler={newRatingInContext} />
-      <ToolbarIcon icon="link" margin={4} clickHandler={newLinkInContext} />
-      <ToolbarIcon icon="eye-slash" margin={4} clickHandler={newPasswordInContext} />
+      <InfuIconButton icon="folder" clickHandler={newPageInContext} />
+      <InfuIconButton icon="table" clickHandler={newTableInContext} />
+      <InfuIconButton icon="sticky-note" clickHandler={newNoteInContext} />
+      <InfuIconButton icon="star" clickHandler={newRatingInContext} />
+      <InfuIconButton icon="link" clickHandler={newLinkInContext} />
+      <InfuIconButton icon="eye-slash" clickHandler={newPasswordInContext} />
     </div>
   );
 }

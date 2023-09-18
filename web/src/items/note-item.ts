@@ -24,14 +24,14 @@ import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ItemTypeMixin, ITEM_TYPE_NOTE, calcBoundsInCellFromSizeBl } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
-import { XSizableItem, XSizableMixin, asXSizableItem } from './base/x-sizeable-item';
+import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
 import { FlagsMixin, NoteFlags } from './base/flags-item';
 import { VisualElement } from '../layout/visual-element';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
-import { handleListLineItemClickMaybe } from './base/item-common';
+import { handleListPageLineItemClickMaybe } from './base/item-common';
 import { cloneMeasurableFields } from './base/item-polymorphism';
 
 
@@ -232,7 +232,7 @@ export function asNoteMeasurable(item: ItemTypeMixin): NoteMeasurable {
 }
 
 export function handleNoteClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
-  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   const noteItem = asNoteItem(visualElement.displayItem);
   if (noteItem.url != "") {
     window.open(noteItem.url, '_blank');

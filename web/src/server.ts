@@ -38,7 +38,7 @@ export const server = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await sendCommand(null, "get-items", { id, mode }, null, false);
+    const r = await sendCommand(null, "get-items", { id, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
@@ -50,7 +50,7 @@ export const server = {
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null): Promise<object> => {
-    let returnedItem = await sendCommand(null, "add-item", item, base64Data, true);
+    const returnedItem = await sendCommand(null, "add-item", item, base64Data, true);
     return returnedItem;
   },
 
@@ -73,7 +73,7 @@ export const remote = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    let r = await sendCommand(host, "get-items", { id, mode }, null, false);
+    const r = await sendCommand(host, "get-items", { id, mode }, null, false);
     // Server side, itemId is an optional and the root page does not have this set (== null in the response).
     // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
     if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
@@ -89,9 +89,9 @@ export const remote = {
  * TODO (HIGH): panic logout on error is to ensure consistent state, but is highly disruptive. do something better.
  */
 async function sendCommand(host: string | null, command: string, payload: object, base64Data: string | null, panicLogoutOnError: boolean): Promise<any> {
-  let d: any = { command, jsonData: JSON.stringify(payload) };
+  const d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
-  let r = await post(host, '/command', d);
+  const r = await post(host, '/command', d);
   if (!r.success) {
     if (logout != null && command != "get-items") {
       if (panicLogoutOnError) {
@@ -106,16 +106,17 @@ async function sendCommand(host: string | null, command: string, payload: object
 }
 
 export async function post(host: string | null, path: string, json: any) {
-  let url = host == null
+  const body = JSON.stringify(json);
+  const url = host == null
     ? path
     : host + path;
-  let fetchResult = await fetch(url, {
+  const fetchResult = await fetch(url, {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(json)
+    body
   });
   return await fetchResult.json();
 }

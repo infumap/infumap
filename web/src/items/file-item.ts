@@ -30,7 +30,7 @@ import { PositionalMixin } from './base/positional-item';
 import { measureLineCount } from '../util/html';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { VisualElement } from '../layout/visual-element';
-import { handleListLineItemClickMaybe } from './base/item-common';
+import { handleListPageLineItemClickMaybe } from './base/item-common';
 import { cloneMeasurableFields } from './base/item-polymorphism';
 
 
@@ -197,7 +197,7 @@ export function asFileMeasurable(item: ItemTypeMixin): FileMeasurable {
 }
 
 export function handleFileClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void {
-  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   const fileItem = asFileItem(visualElement.displayItem);
   window.open('/files/' + fileItem.id, '_blank');
 }

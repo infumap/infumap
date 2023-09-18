@@ -1190,6 +1190,7 @@ export function mouseDoubleClickHandler(
     _userStore: UserStoreContextModel,
     ev: MouseEvent) {
   if (desktopStore.currentPage() == null) { return; }
+  if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
   if (ev.button != MOUSE_LEFT) {
     console.error("unsupported mouse double click button: " + ev.button);
     return;

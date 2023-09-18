@@ -84,10 +84,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${shiftTextLeft() ? '-' + NOTE_PADDING_PX : '0'}px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
+        <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX * scale()}px; top: ${NOTE_PADDING_PX * scale() - LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
-          <Show when={noteItem().url != null && noteItem().url != ""}
+                    `overflow-wrap: break-word;`}>
+          <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}
                 fallback={<span>{noteItem().title}</span>}>
             <span class={`text-blue-800 cursor-pointer`}>{noteItem().title}</span>
           </Show>

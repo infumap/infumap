@@ -35,7 +35,7 @@ import { VisualElement, VisualElementFlags, getVeid, veidFromPath, visualElement
 import { getHitInfo } from '../mouse/hitInfo';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
-import { handleListLineItemClickMaybe } from './base/item-common';
+import { handleListPageLineItemClickMaybe } from './base/item-common';
 import { switchToPage } from '../layout/navigation';
 
 
@@ -302,7 +302,7 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
-  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   switchToPage(desktopStore, userStore, getVeid(visualElement), true);
 }
 

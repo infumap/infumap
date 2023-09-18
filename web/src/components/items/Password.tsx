@@ -69,10 +69,9 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div class="absolute overflow-hidden whitespace-nowrap"
-             style={`left: 0px; top: ${-LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
+        <div style={`position: absolute; left: ${NOTE_PADDING_PX * scale()}px; top: ${NOTE_PADDING_PX * scale() - LINE_HEIGHT_PX/4 * scale()}px; width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word; padding: ${NOTE_PADDING_PX}px;`}>
+                    `overflow-wrap: break-word;`}>
           <Show when={isVisible()} fallback={
             <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
           }>

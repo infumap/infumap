@@ -19,10 +19,6 @@
 import { LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
 
 
-export interface HTMLDivElementWithData extends HTMLDivElement {
-  data: object
-}
-
 const cache = new Map<String, number>();
 
 export function measureLineCount(s: string, widthBl: number): number {

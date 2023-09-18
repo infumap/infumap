@@ -20,7 +20,6 @@ import { Component, For, Show, onCleanup, onMount } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
-import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
@@ -165,7 +164,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 
 export const Image_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  let nodeElement: HTMLDivElementWithData | undefined;
+  let nodeElement: HTMLDivElement | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;

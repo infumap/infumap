@@ -33,7 +33,7 @@ import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VisualElement } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
-import { handleListLineItemClickMaybe } from "./base/item-common";
+import { handleListPageLineItemClickMaybe } from "./base/item-common";
 
 
 export interface TableColumn {
@@ -234,7 +234,7 @@ export function asTableMeasurable(item: ItemTypeMixin): TableMeasurable {
 }
 
 export function handleTableClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
-  if (handleListLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   // no other behavior in table case.
 }
 

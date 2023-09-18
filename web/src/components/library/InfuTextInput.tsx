@@ -69,6 +69,7 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
 
   return (
     <input ref={textElement}
+           style="width: 195px"
            class="border border-slate-300 p-2 rounded"
            autocomplete="on"
            value={props.value ? props.value : ""}

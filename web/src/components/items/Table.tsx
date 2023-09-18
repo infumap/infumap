@@ -19,7 +19,6 @@
 import { Component, For, onMount, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { asTableItem } from "../../items/table-item";
-import { HTMLDivElementWithData } from "../../util/html";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
@@ -178,7 +177,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
-  let outerDiv: HTMLDivElementWithData | undefined;
+  let outerDiv: HTMLDivElement | undefined;
 
   const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
 

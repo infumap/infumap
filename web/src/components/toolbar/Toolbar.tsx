@@ -16,18 +16,18 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import imgUrl from '../assets/circle.png'
+import imgUrl from '../../assets/circle.png'
 
 import { Component, Show } from "solid-js";
-import { MAIN_TOOLBAR_WIDTH_PX, ROOT_USERNAME } from "../constants";
-import { asPageItem } from "../items/page-item";
-import { useDesktopStore } from "../store/DesktopStoreProvider";
-import { Colors } from "../style";
-import { hexToRGBA } from "../util/color";
-import { logout } from "./Main";
-import { NONE_VISUAL_ELEMENT } from '../layout/visual-element';
-import { useUserStore } from '../store/UserStoreProvider';
-import { switchToPage } from '../layout/navigation';
+import { MAIN_TOOLBAR_WIDTH_PX, ROOT_USERNAME } from "../../constants";
+import { asPageItem } from "../../items/page-item";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { Colors } from "../../style";
+import { hexToRGBA } from "../../util/color";
+import { logout } from "../Main";
+import { NONE_VISUAL_ELEMENT } from '../../layout/visual-element';
+import { useUserStore } from '../../store/UserStoreProvider';
+import { switchToPage } from '../../layout/navigation';
 import { useNavigate } from '@solidjs/router';
 
 
