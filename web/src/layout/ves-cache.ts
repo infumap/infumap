@@ -21,17 +21,13 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { compareHitboxArrays } from "./hitbox";
-import { VisualElementPath, VisualElementSpec, createVisualElement, parentPath, veidFromPath } from "./visual-element";
+import { VisualElementPath, VisualElementSpec, createVisualElement, parentPath } from "./visual-element";
 
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let newCache = new Map<VisualElementPath, VisualElementSignal>();
 
 export let VesCache = {
-  clear: () => {
-    currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-  },
-
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
     return currentVesCache.get(path);
   },
@@ -62,6 +58,7 @@ export let VesCache = {
    * If there is a difference, the signal will be updated with the new value.
    * In some cases, this is not good enough as an existing element may have additional overrides set (e.g. changing page view types).
    * In those cases, the ves cache should be explicitly cleared, so no values are recycled.
+   * This is achieved via initFullArrange and finalizeFullArange methods.
    */
   createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
@@ -74,11 +71,11 @@ function createOrRecycleVisualElementSignalImpl (
     path: VisualElementPath,
     alwaysUseVes?: VisualElementSignal): VisualElementSignal {
 
-  const debug = false; // veidFromPath(path).itemId == "481ab193957d417d97a1fec9e7156f89";
+  const debug = false; // veidFromPath(path).itemId == "<id of item of interest here>";
 
   if (alwaysUseVes) {
     if (debug) { console.debug("alwaysUse:", path); }
-    // TODO (HIGH): full property reconciliation, to avoid update.
+    // TODO (HIGH): full property reconciliation, to avoid this update.
     newCache.set(path, alwaysUseVes);
     currentVesCache = newCache;
     alwaysUseVes.set(createVisualElement(visualElementOverride));

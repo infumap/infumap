@@ -23,7 +23,7 @@ import { EMPTY_UID } from "../util/uid";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_InComposite, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getMightBeDirty } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_InComposite, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
@@ -43,7 +43,7 @@ import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "./ves-cache";
 import { ItemGeometry } from "./item-geometry";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { CompositeItem, asCompositeItem, calcCompositeSizeForSpatialBl, isComposite } from "../items/composite-item";
+import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -64,12 +64,12 @@ const LIST_FOCUS_ID = newUid();
  * 
  * Design note: Initially, this was implemented such that the visual element state was a function of the item
  * state (arrange was never called imperatively). The arrange function in that implementation did produce (nested)
- * visual element signals though, which had dependencies on the relevant part of the item state. All the items
- * were solidjs signals (whereas in the current approach they are not). The functional approach was simpler from
- * the point of view that the visual elements did not need to be explicitly updated / managed. However, it turned
- * out to be a dead end:
- * 1. It was effectively impossible to perfectly optimize it in the case of resizing pages (and probably other
- *    scenarios) because the children were a function of page size. By comparison, as a general comment, the
+ * visual element signals though, which had dependencies on the relevant part of the item state. In that
+ * implementation, all the items were solidjs signals (whereas in the current approach they are not). The functional
+ * approach was simpler from the point of view that the visual element tree did not need to be explicitly updated /
+ * managed. However, it turned out to be a dead end:
+ * 1. It was effectively impossible to perfectly optimize it in the case of resizing page items (and probably other
+ *    scenarios) because the set of children were a function of page size. By comparison, as a general comment, the
  *    stateful approach makes it easy(er) to make precisely the optimal updates at precisely the required times.
  * 2. The visual element tree state is required for mouse interaction as well as rendering, and it was messy to
  *    create a cached version of this as a side effect of the functional arrange method. And there were associated
@@ -952,88 +952,3 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
     return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
   }
 }
-
-
-
-// export const rearrangeVisualElementsWithItemId = (desktopStore: DesktopStoreContextModel, id: Uid): void => {
-//   visualElementsWithItemId(desktopStore, id).forEach(ve => {
-//     const parentIsDesktopPage =
-//       ve.get().parentPath == null ||
-//       (isPage(currentVesCache[ve.get().parentPath!].get().item) && !attachmentFlagSet(ve.get()));
-//     if (parentIsDesktopPage) {
-//       rearrangeVisualElement(desktopStore, ve);
-//     } else {
-//       console.log("TODO: rearrange table children")
-//     }
-//   });
-// }
-
-// export const rearrangeVisualElement = (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
-//   const visualElement = visualElementSignal.get();
-//   console.log(visualElement);
-//   if (breadcrumbStore.currentPage() == visualElement.item.id) {
-//     arrange(desktopStore);
-//     return;
-//   }
-
-//   if (attachmentFlagSet(visualElement)) {
-//     rearrangeAttachment(visualElementSignal);
-//   } else {
-//     const item = visualElement.linkItemMaybe != null
-//       ? visualElement.linkItemMaybe!
-//       : visualElement.item;
-//     if (isPage(currentVesCache[visualElement.parentPath!].get().item)) {
-//       const pageItem = asPageItem(currentVesCache[visualElement.parentPath!].get().item);
-//       const rearrangedVisualElement = arrangeItem_Desktop(
-//         desktopStore,
-//         {}, // TODO (HIGH): what here?
-//         visualElement.parentPath!,
-//         item,
-//         pageItem,
-//         currentVesCache[visualElement.parentPath!].get().childAreaBoundsPx!,
-//         pagePopupFlagSet(currentVesCache[visualElement.parentPath!].get()),
-//         pagePopupFlagSet(currentVesCache[visualElement.parentPath!].get()),
-//         pagePopupFlagSet(visualElement)).get();
-//       visualElementSignal.set(rearrangedVisualElement);
-//     } else {
-//       // TODO (HIGH)
-//       console.log("TODO: rearrangeVisualElement when parent not page");
-//     }
-//   }
-// }
-
-// function rearrangeAttachment(visualElementSignal: VisualElementSignal) {
-//   const visualElement = visualElementSignal.get();
-//   const parentVisualElement = currentVesCache[visualElement.parentPath!].get();
-//   let index = -1;
-//   for (let i=0; i<parentVisualElement.attachments.length; ++i) {
-//     if (parentVisualElement.attachments[i].get().item == visualElement.item) {
-//       index = i;
-//       break;
-//     }
-//   }
-//   if (index == -1) { panic(); }
-//   if (!insideTableFlagSet(visualElement)) {
-//     let isSelected = false;
-//     const popupSpec = breadcrumbStore.currentPopupSpec();
-//     if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
-//       if (visualElementToPath(visualElement) == popupSpec.vePath) {
-//         isSelected = true;
-//         console.log("selected!");
-//       }
-//     }
-//     const itemSizeBl = calcSizeForSpatialBl(parentVisualElement.item);
-//     const attachmentGeometry = calcGeometryOfItem_Attachment(visualElement.item, parentVisualElement.boundsPx, itemSizeBl, index, isSelected);
-//     const attachmentVisualElement = createVisualElement({
-//       item: visualElement.item,
-//       boundsPx: attachmentGeometry.boundsPx,
-//       hitboxes: attachmentGeometry.hitboxes,
-//       parentPath: visualElement.parentPath!,
-//       flags: VisualElementFlags.Attachment |
-//              (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None)
-//     });
-//     visualElementSignal.set(attachmentVisualElement);
-//   } else {
-//     console.log("TODO: rearrange attachments inside tables.");
-//   }
-// }
