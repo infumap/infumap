@@ -129,6 +129,6 @@ export function placeholderDebugSummary(_placeholderItem: PlaceholderItem) {
   return "[placeholder]";
 }
 
-export function getPlaceholderItemMightBeDirty(placeholderItem: PlaceholderItem): string {
+export function getPlaceholderItemUniqueHash(_placeholderItem: PlaceholderItem): string {
   return "";
 }

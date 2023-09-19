@@ -23,7 +23,7 @@ import { EMPTY_UID } from "../util/uid";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_InComposite, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getMightBeDirty } from "../items/base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_InComposite, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, getUniqueHash } from "../items/base/item-polymorphism";
 import { PageItem, asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr, getPopupWidthGr, isPage } from "../items/page-item";
 import { TableItem, asTableItem, isTable } from "../items/table-item";
 import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createVeid, prependVeidToPath, veidFromPath, compareVeids, EMPTY_VEID } from "./visual-element";
@@ -106,7 +106,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
-    mightBeDirty: getMightBeDirty(currentPage),
+    displayItemHash: getUniqueHash(currentPage),
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
@@ -122,9 +122,9 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 
     const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl);
 
-    const listItemVeSpec = {
+    const listItemVeSpec: VisualElementSpec = {
       displayItem,
-      mightBeDirty: getMightBeDirty(displayItem),
+      displayItemHash: getUniqueHash(displayItem),
       linkItemMaybe,
       flags: VisualElementFlags.LineItem |
              (compareVeids(selectedVeid, createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
@@ -200,7 +200,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
-    mightBeDirty: getMightBeDirty(pageItem),
+    displayItemHash: getUniqueHash(pageItem),
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: pageBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
@@ -301,7 +301,7 @@ const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
-    mightBeDirty: getMightBeDirty(currentPage),
+    displayItemHash: getUniqueHash(currentPage),
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: boundsPx,
     childAreaBoundsPx: boundsPx,
@@ -449,7 +449,7 @@ const arrangePageWithChildren = (
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
-      mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
+      displayItemHash: getUniqueHash(displayItem_pageWithChildren),
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
@@ -476,7 +476,7 @@ const arrangePageWithChildren = (
       if (!isLink(item)) {
         const veSpec: VisualElementSpec = {
           displayItem: item,
-          mightBeDirty: getMightBeDirty(item),
+          displayItemHash: getUniqueHash(item),
           flags: isPagePopup ? VisualElementFlags.Detailed : VisualElementFlags.None,
           boundsPx: geometry.boundsPx,
           childAreaBoundsPx: geometry.boundsPx, // TODO (HIGH): incorrect.
@@ -499,7 +499,7 @@ const arrangePageWithChildren = (
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
-      mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
+      displayItemHash: getUniqueHash(displayItem_pageWithChildren),
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
@@ -542,7 +542,7 @@ const arrangePageWithChildren = (
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
-      mightBeDirty: getMightBeDirty(displayItem_pageWithChildren),
+      displayItemHash: getUniqueHash(displayItem_pageWithChildren),
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
@@ -566,9 +566,9 @@ const arrangePageWithChildren = (
 
       const geometry = calcGeometryOfItem_ListItem(childItem, blockSizePx, idx, 0, widthBl);
 
-      const listItemVeSpec = {
+      const listItemVeSpec: VisualElementSpec = {
         displayItem,
-        mightBeDirty: getMightBeDirty(displayItem),
+        displayItemHash: getUniqueHash(displayItem),
         linkItemMaybe,
         flags: VisualElementFlags.LineItem |
                (compareVeids(selectedVeid, createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
@@ -614,7 +614,7 @@ const arrangeComposite = (
 
   const compositeVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Composite,
-    mightBeDirty: getMightBeDirty(displayItem_Composite),
+    displayItemHash: getUniqueHash(displayItem_Composite),
     linkItemMaybe: linkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed,
     boundsPx: compositeGeometry.boundsPx,
@@ -645,7 +645,7 @@ const arrangeComposite = (
 
     const compositeChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
-      mightBeDirty: getMightBeDirty(displayItem_childItem),
+      displayItemHash: getUniqueHash(displayItem_childItem),
       linkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.InsideComposite | VisualElementFlags.Detailed,
       boundsPx: {
@@ -698,7 +698,7 @@ const arrangeTable = (
 
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
-    mightBeDirty: getMightBeDirty(displayItem_Table),
+    displayItemHash: getUniqueHash(displayItem_Table),
     linkItemMaybe: linkItemMaybe_Table,
     flags: VisualElementFlags.Detailed,
     boundsPx: tableGeometry.boundsPx,
@@ -722,7 +722,7 @@ const arrangeTable = (
 
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
-      mightBeDirty: getMightBeDirty(displayItem_childItem),
+      displayItemHash: getUniqueHash(displayItem_childItem),
       linkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
       boundsPx: geometry.boundsPx,
@@ -754,7 +754,7 @@ const arrangeTable = (
 
         const tableChildAttachmentVeSpec: VisualElementSpec = {
           displayItem: displayItem_attachment,
-          mightBeDirty: getMightBeDirty(displayItem_attachment),
+          displayItemHash: getUniqueHash(displayItem_attachment),
           linkItemMaybe: linkItemMaybe_attachment,
           flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
           boundsPx: geometry.boundsPx,
@@ -832,7 +832,7 @@ const arrangeItemNoChildren = (
   const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {
     displayItem: item,
-    mightBeDirty: getMightBeDirty(item),
+    displayItemHash: getUniqueHash(item),
     linkItemMaybe,
     flags: (renderStyle != RenderStyle.Outline ? VisualElementFlags.Detailed : VisualElementFlags.None) |
            (isPopup ? VisualElementFlags.Popup : VisualElementFlags.None),
@@ -888,7 +888,7 @@ function arrangeItemAttachments(
 
     const veSpec: VisualElementSpec = {
       displayItem: attachmentDisplayItem,
-      mightBeDirty: getMightBeDirty(attachmentDisplayItem),
+      displayItemHash: getUniqueHash(attachmentDisplayItem),
       linkItemMaybe: attachmentLinkItemMaybe,
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
@@ -937,7 +937,7 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
   } else {
     const itemVisualElement: VisualElementSpec = {
       displayItem: item,
-      mightBeDirty: getMightBeDirty(item),
+      displayItemHash: getUniqueHash(item),
       linkItemMaybe: li,
       flags: VisualElementFlags.Detailed | VisualElementFlags.Popup |
              (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None),

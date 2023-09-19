@@ -226,6 +226,6 @@ export function compositeDebugSummary(_compositeItem: CompositeItem) {
 }
 
 
-export function getCompositeItemMightBeDirty(_compositeItem: CompositeItem): string {
+export function getCompositeItemUniqueHash(_compositeItem: CompositeItem): string {
   return "~~~!@#~~~";
 }

@@ -373,6 +373,6 @@ export function popupPositioningHasChanged(pageItem: PageItem): boolean {
 }
 
 
-export function getPageItemMightBeDirty(pageItem: PageItem): string {
+export function getPageItemUniqueHash(pageItem: PageItem): string {
   return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm;
 }

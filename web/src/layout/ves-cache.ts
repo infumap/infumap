@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { getMightBeDirty } from "../items/base/item-polymorphism";
+import { getUniqueHash } from "../items/base/item-polymorphism";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
@@ -96,9 +96,9 @@ function createOrRecycleVisualElementSignalImpl (
 
   const existing = currentVesCache.get(path);
   if (existing) {
-    if (existing.get().mightBeDirty != getMightBeDirty(visualElementOverride.displayItem)) {
+    if (existing.get().displayItemHash != getUniqueHash(visualElementOverride.displayItem)) {
       existing.set(createVisualElement(visualElementOverride));
-      if (debug) { console.debug("might be dirty", existing.get().mightBeDirty); }
+      if (debug) { console.debug("might be dirty", existing.get().displayItemHash); }
       newCache.set(path, existing);
       return existing;
     }

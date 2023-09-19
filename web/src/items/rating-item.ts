@@ -196,6 +196,6 @@ export function ratingDebugSummary(ratingItem: RatingItem) {
   return "[rating] " + ratingItem.rating;
 }
 
-export function getRatingItemMightBeDirty(ratingItem: RatingItem): string {
+export function getRatingItemUniqueHash(ratingItem: RatingItem): string {
   return "" + ratingItem.rating;
 }

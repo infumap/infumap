@@ -215,6 +215,6 @@ export function fileDebugSummary(fileItem: FileItem) {
   return "[file] " + fileItem.title;
 }
 
-export function getFileItemMightBeDirty(fileItem: FileItem): string {
+export function getFileItemUniqueHash(fileItem: FileItem): string {
   return fileItem.title;
 }

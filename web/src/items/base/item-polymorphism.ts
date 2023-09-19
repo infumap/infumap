@@ -23,17 +23,17 @@ import { UserStoreContextModel } from '../../store/UserStoreProvider';
 import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { VisualElement } from '../../layout/visual-element';
-import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileItem_Attachment, calcGeometryOfFileItem_Desktop, calcGeometryOfFileItem_Cell, calcGeometryOfFileItem_ListItem, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile, fileDebugSummary, getFileItemMightBeDirty, calcGeometryOfFileItem_InComposite } from '../file-item';
-import { asImageItem, asImageMeasurable, calcGeometryOfImageItem_Attachment, calcGeometryOfImageItem_Desktop, calcGeometryOfImageItem_Cell, calcGeometryOfImageItem_ListItem, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage, imageDebugSummary, getImageItemMightBeDirty, calcGeometryOfImageItem_InComposite } from '../image-item';
-import { asLinkItem, calcGeometryOfLinkItem_Attachment, calcGeometryOfLinkItem_Desktop, calcGeometryOfLinkItem_Cell, calcGeometryOfLinkItem_ListItem, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject, linkDebugSummary, getLinkItemMightBeDirty, calcGeometryOfLinkItem_InComposite } from '../link-item';
-import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteItem_Attachment, calcGeometryOfNoteItem_Desktop, calcGeometryOfNoteItem_Cell, calcGeometryOfNoteItem_ListItem, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject, noteDebugSummary, getNoteItemMightBeDirty, calcGeometryOfNoteItem_InComposite } from '../note-item';
-import { asPageItem, asPageMeasurable, calcGeometryOfPageItem_Attachment, calcGeometryOfPageItem_Desktop, calcGeometryOfPageItem_Cell, calcGeometryOfPageItem_ListItem, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject, pageDebugSummary, getPageItemMightBeDirty, calcGeometryOfPageItem_InComposite } from '../page-item';
-import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingItem_Attachment, calcGeometryOfRatingItem_Desktop, calcGeometryOfRatingItem_Cell, calcGeometryOfRatingItem_ListItem, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject, ratingDebugSummary, getRatingItemMightBeDirty, calcGeometryOfRatingItem_InComposite } from '../rating-item';
-import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject, tableDebugSummary, getTableItemMightBeDirty, handleTableClick, calcGeometryOfTableItem_InComposite } from '../table-item';
+import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl, calcGeometryOfFileItem_Attachment, calcGeometryOfFileItem_Desktop, calcGeometryOfFileItem_Cell, calcGeometryOfFileItem_ListItem, cloneFileMeasurableFields, fileFromObject, fileToObject, handleFileClick, isFile, fileDebugSummary, getFileItemUniqueHash, calcGeometryOfFileItem_InComposite } from '../file-item';
+import { asImageItem, asImageMeasurable, calcGeometryOfImageItem_Attachment, calcGeometryOfImageItem_Desktop, calcGeometryOfImageItem_Cell, calcGeometryOfImageItem_ListItem, calcImageSizeForSpatialBl, cloneImageMeasurableFields, handleImageClick, imageFromObject, imageToObject, isImage, imageDebugSummary, getImageItemUniqueHash, calcGeometryOfImageItem_InComposite } from '../image-item';
+import { asLinkItem, calcGeometryOfLinkItem_Attachment, calcGeometryOfLinkItem_Desktop, calcGeometryOfLinkItem_Cell, calcGeometryOfLinkItem_ListItem, calcLinkSizeForSpatialBl, isLink, linkFromObject, linkToObject, linkDebugSummary, getLinkItemUniqueHash, calcGeometryOfLinkItem_InComposite } from '../link-item';
+import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteItem_Attachment, calcGeometryOfNoteItem_Desktop, calcGeometryOfNoteItem_Cell, calcGeometryOfNoteItem_ListItem, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject, noteDebugSummary, getNoteItemUniqueHash, calcGeometryOfNoteItem_InComposite } from '../note-item';
+import { asPageItem, asPageMeasurable, calcGeometryOfPageItem_Attachment, calcGeometryOfPageItem_Desktop, calcGeometryOfPageItem_Cell, calcGeometryOfPageItem_ListItem, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject, pageDebugSummary, getPageItemUniqueHash, calcGeometryOfPageItem_InComposite } from '../page-item';
+import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingItem_Attachment, calcGeometryOfRatingItem_Desktop, calcGeometryOfRatingItem_Cell, calcGeometryOfRatingItem_ListItem, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject, ratingDebugSummary, getRatingItemUniqueHash, calcGeometryOfRatingItem_InComposite } from '../rating-item';
+import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject, tableDebugSummary, getTableItemUniqueHash, handleTableClick, calcGeometryOfTableItem_InComposite } from '../table-item';
 import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItem_ListItem } from './item';
-import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_ListItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject, placeholderDebugSummary, getPlaceholderItemMightBeDirty, calcGeometryOfPlaceholderItem_InComposite } from '../placeholder-item';
-import { asPasswordItem, asPasswordMeasurable, calcGeometryOfPasswordItem_Attachment, calcGeometryOfPasswordItem_Cell, calcGeometryOfPasswordItem_InComposite, calcGeometryOfPasswordItem_Desktop, calcGeometryOfPasswordItem_ListItem, calcPasswordSizeForSpatialBl, clonePasswordMeasurableFields, getPasswordItemMightBeDirty, handlePasswordClick, isPassword, passwordDebugSummary, passwordFromObject, passwordToObject } from '../password-item';
-import { asCompositeItem, asCompositeMeasurable, calcCompositeSizeForSpatialBl, calcGeometryOfCompositeItem_Attachment, calcGeometryOfCompositeItem_Cell, calcGeometryOfCompositeItem_Desktop, calcGeometryOfCompositeItem_ListItem, cloneCompositeMeasurableFields, compositeDebugSummary, compositeFromObject, compositeToObject, getCompositeItemMightBeDirty, isComposite } from '../composite-item';
+import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_ListItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject, placeholderDebugSummary, getPlaceholderItemUniqueHash, calcGeometryOfPlaceholderItem_InComposite } from '../placeholder-item';
+import { asPasswordItem, asPasswordMeasurable, calcGeometryOfPasswordItem_Attachment, calcGeometryOfPasswordItem_Cell, calcGeometryOfPasswordItem_InComposite, calcGeometryOfPasswordItem_Desktop, calcGeometryOfPasswordItem_ListItem, calcPasswordSizeForSpatialBl, clonePasswordMeasurableFields, getPasswordItemUniqueHash, handlePasswordClick, isPassword, passwordDebugSummary, passwordFromObject, passwordToObject } from '../password-item';
+import { asCompositeItem, asCompositeMeasurable, calcCompositeSizeForSpatialBl, calcGeometryOfCompositeItem_Attachment, calcGeometryOfCompositeItem_Cell, calcGeometryOfCompositeItem_Desktop, calcGeometryOfCompositeItem_ListItem, cloneCompositeMeasurableFields, compositeDebugSummary, compositeFromObject, compositeToObject, getCompositeItemUniqueHash, isComposite } from '../composite-item';
 
 
 // Poor man's polymorphism
@@ -123,17 +123,17 @@ export function calcGeometryOfItem_InComposite(measurable: Measurable, blockSize
   throw throwExpression(`Unknown item type: ${measurable.itemType}`);
 }
 
-export function getMightBeDirty(item: Item): string {
-  if (isPage(item)) { return getPageItemMightBeDirty(asPageItem(item)); }
-  if (isTable(item)) { return getTableItemMightBeDirty(asTableItem(item)); }
-  if (isComposite(item)) { return getCompositeItemMightBeDirty(asCompositeItem(item)); }
-  if (isNote(item)) { return getNoteItemMightBeDirty(asNoteItem(item)); }
-  if (isImage(item)) { return getImageItemMightBeDirty(asImageItem(item)); }
-  if (isFile(item)) { return getFileItemMightBeDirty(asFileItem(item)); }
-  if (isPassword(item)) { return getPasswordItemMightBeDirty(asPasswordItem(item)); }
-  if (isRating(item)) { return getRatingItemMightBeDirty(asRatingItem(item)); }
-  if (isLink(item)) { return getLinkItemMightBeDirty(asLinkItem(item)); }
-  if (isPlaceholder(item)) { return getPlaceholderItemMightBeDirty(asPlaceholderItem(item)); }
+export function getUniqueHash(item: Item): string {
+  if (isPage(item)) { return getPageItemUniqueHash(asPageItem(item)); }
+  if (isTable(item)) { return getTableItemUniqueHash(asTableItem(item)); }
+  if (isComposite(item)) { return getCompositeItemUniqueHash(asCompositeItem(item)); }
+  if (isNote(item)) { return getNoteItemUniqueHash(asNoteItem(item)); }
+  if (isImage(item)) { return getImageItemUniqueHash(asImageItem(item)); }
+  if (isFile(item)) { return getFileItemUniqueHash(asFileItem(item)); }
+  if (isPassword(item)) { return getPasswordItemUniqueHash(asPasswordItem(item)); }
+  if (isRating(item)) { return getRatingItemUniqueHash(asRatingItem(item)); }
+  if (isLink(item)) { return getLinkItemUniqueHash(asLinkItem(item)); }
+  if (isPlaceholder(item)) { return getPlaceholderItemUniqueHash(asPlaceholderItem(item)); }
   throw throwExpression(`Unknown item type: ${item.itemType}`);
 }
 

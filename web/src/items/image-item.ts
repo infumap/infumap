@@ -201,6 +201,6 @@ export function imageDebugSummary(imageItem: ImageItem) {
   return "[image] " + imageItem.title;
 }
 
-export function getImageItemMightBeDirty(imageItem: ImageItem): string {
+export function getImageItemUniqueHash(imageItem: ImageItem): string {
   return imageItem.title;
 }

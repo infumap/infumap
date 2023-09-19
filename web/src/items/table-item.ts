@@ -254,6 +254,6 @@ export function tableDebugSummary(tableItem: TableItem) {
   return "[table] " + tableItem.title;
 }
 
-export function getTableItemMightBeDirty(tableItem: TableItem): string {
+export function getTableItemUniqueHash(tableItem: TableItem): string {
   return tableItem.title + "~~~!@#~~~" + tableItem.flags;
 }
