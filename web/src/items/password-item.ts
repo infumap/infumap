@@ -190,7 +190,7 @@ export function passwordDebugSummary(passwordItem: PasswordItem) {
   return "[password] ******";
 }
 
-export function getPasswordItemUniqueHash(passwordItem: PasswordItem): string {
+export function getPasswordItemFingerprint(passwordItem: PasswordItem): string {
   return passwordItem.text;
 }
 

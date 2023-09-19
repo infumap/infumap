@@ -23,7 +23,7 @@ import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { Measurable, ItemTypeMixin, ITEM_TYPE_LINK, Item } from "./base/item";
-import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getUniqueHash } from "./base/item-polymorphism";
+import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryOfItem_Desktop, calcGeometryOfItem_ListItem, calcSizeForSpatialBl, cloneMeasurableFields, getItemFingerprint } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
@@ -268,12 +268,12 @@ export function getLinkToId(linkItem: LinkItem): Uid {
     : linkItem.linkToResolvedId;
 }
 
-export function getLinkItemUniqueHash(linkItem: LinkItem): string {
+export function getLinkItemFingerprint(linkItem: LinkItem): string {
   const linkToId = getLinkToId(linkItem);
   if (linkToId == EMPTY_UID) {
     return "";
   }
   const linkedToItemMaybe = itemState.getItem(linkToId);
   if (linkedToItemMaybe == null) { return ""; }
-  return getUniqueHash(linkedToItemMaybe!);
+  return getItemFingerprint(linkedToItemMaybe!);
 }

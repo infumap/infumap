@@ -253,6 +253,6 @@ export function noteDebugSummary(noteItem: NoteItem) {
   return "[note] " + noteItem.title;
 }
 
-export function getNoteItemUniqueHash(noteItem: NoteItem): string {
+export function getNoteItemFingerprint(noteItem: NoteItem): string {
   return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags;
 }

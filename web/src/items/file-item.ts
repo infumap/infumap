@@ -215,6 +215,6 @@ export function fileDebugSummary(fileItem: FileItem) {
   return "[file] " + fileItem.title;
 }
 
-export function getFileItemUniqueHash(fileItem: FileItem): string {
+export function getFileItemFingerprint(fileItem: FileItem): string {
   return fileItem.title;
 }

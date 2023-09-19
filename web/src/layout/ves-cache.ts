@@ -16,9 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { getUniqueHash } from "../items/base/item-polymorphism";
+import { getItemFingerprint } from "../items/base/item-polymorphism";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
+import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { compareHitboxArrays } from "./hitbox";
 import { VisualElementPath, VisualElementSpec, createVisualElement, parentPath } from "./visual-element";
@@ -53,12 +54,12 @@ export let VesCache = {
 
   /**
    * Creates or recycles an existing VisualElementSignal, if one exists for the specified path.
-   * In the case of recycling, the override values (only) are checked against the existing visual element values.
-   * If they are the same, the signal is not updated.
-   * If there is a difference, the signal will be updated with the new value.
-   * In some cases, this is not good enough as an existing element may have additional overrides set (e.g. changing page view types).
-   * In those cases, the ves cache should be explicitly cleared, so no values are recycled.
-   * This is achieved via initFullArrange and finalizeFullArange methods.
+   * In the case of recycling, the overriden values (only) are checked against the existing visual element values.
+   * I.e. a previously overriden value that is not overriden in the new ve spec will not be detected.
+   * Note that this check always includes the display item fingerprint, to pick up on any non-geometric changes that still affect the item render.
+   * I think the above strategy should always work in practice, but a more comprehensive (and expensive) comparison may be required in some instances.
+   * The entire cache should cleared on page change (since there will be little or no overlap anyway).
+   * This is achieved using initFullArrange and finalizeFullArange methods.
    */
   createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
@@ -72,6 +73,10 @@ function createOrRecycleVisualElementSignalImpl (
     alwaysUseVes?: VisualElementSignal): VisualElementSignal {
 
   const debug = false; // veidFromPath(path).itemId == "<id of item of interest here>";
+
+  if (visualElementOverride.displayItemFingerprint) { panic(); }
+  // TODO(LOW): Modifying the input object is a bit dirty.
+  visualElementOverride.displayItemFingerprint = getItemFingerprint(visualElementOverride.displayItem);
 
   if (alwaysUseVes) {
     if (debug) { console.debug("alwaysUse:", path); }
@@ -96,9 +101,9 @@ function createOrRecycleVisualElementSignalImpl (
 
   const existing = currentVesCache.get(path);
   if (existing) {
-    if (existing.get().displayItemHash != getUniqueHash(visualElementOverride.displayItem)) {
+    if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(createVisualElement(visualElementOverride));
-      if (debug) { console.debug("might be dirty", existing.get().displayItemHash); }
+      if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       newCache.set(path, existing);
       return existing;
     }
