@@ -886,11 +886,6 @@ function mouseUpHandler_moving(
   arrange(desktopStore);
 }
 
-function finalizeMouseUp() {
-  cleanupAndPersistPlaceholders();
-  maybeDeleteComposite()
-}
-
 async function maybeDeleteComposite() {
   if (mouseActionState == null) { return; } // please typescript.
   if (mouseActionState.startCompositeItem == null) { return; }
@@ -1041,30 +1036,17 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 }
 
 function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
-  const prevParentId = activeItem.parentId;
-
   const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachHitboxElement!)!.get();
-  const attachmentsItem = asAttachmentsItem(attachToVisualElement.displayItem);
-  attachToVisualElement.movingItemIsOverAttach.set(false);
-  mouseActionState!.moveOver_attachHitboxElement = null;
-
-  if (attachmentsItem.id == activeItem.id) {
+  if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
     throwExpression("Attempt was made to attach an item to itself.");
   }
 
-  activeItem.parentId = attachToVisualElement.displayItem.id;
+  attachToVisualElement.movingItemIsOverAttach.set(false);
+  mouseActionState!.moveOver_attachHitboxElement = null;
+
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  activeItem.ordering = itemState.newOrderingAtEndOfAttachments(attachmentsItem.id);
-  activeItem.relationshipToParent = Attachment;
-
-  const attachments = [activeItem.id, ...attachmentsItem.computed_attachments];
-  attachmentsItem.computed_attachments = attachments;
-  itemState.sortAttachments(attachmentsItem.id);
-
-  const prevParent = itemState.getContainerItem(prevParentId)!;
-  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
+  itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, Attachment);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
@@ -1072,32 +1054,17 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
 }
 
 function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  const moveOverContainerId = overContainerVe.displayItem.id;
+  if (isTable(overContainerVe.displayItem)) { panic(); }
 
+  const moveOverContainerId = overContainerVe.displayItem.id;
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
     throwExpression("Attempt was made to move an item into itself.");
   }
 
-  const prevParentId = activeItem.parentId;
-
-  if (isTable(overContainerVe.displayItem)) {
-    panic();
-  }
-
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 }; // case only covers move into opaque pages. parent changed during move for translucent.
-  activeItem.ordering = itemState.newOrderingAtEndOfChildren(moveOverContainerId);
-  activeItem.parentId = moveOverContainerId;
-
-  const moveOverContainer = itemState.getContainerItem(moveOverContainerId)!;
-  const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
-  moveOverContainer.computed_children = moveOverContainerChildren;
-  itemState.sortChildren(moveOverContainer.id);
-
-  const prevParent = itemState.getContainerItem(prevParentId)!;
-  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  itemState.moveToNewParent(activeItem, moveOverContainerId, Child);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
@@ -1106,7 +1073,6 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
 
 function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const moveOverContainerId = overContainerVe.displayItem.id;
-
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
@@ -1119,7 +1085,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   }
 
   const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
-  itemState.moveToNewParent(activeItem.id, moveOverContainerId, Child, moveToOrdering);
+  itemState.moveToNewParent(activeItem, moveOverContainerId, Child, moveToOrdering);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
@@ -1194,4 +1160,9 @@ export function mouseDoubleClickHandler(
   if (!isNote(activeDisplayItem)) { return; }
 
   desktopStore.setTextEditOverlayInfo({ noteItemPath: visualElementToPath(hitInfo.overElementVes.get()) });
+}
+
+function finalizeMouseUp() {
+  cleanupAndPersistPlaceholders();
+  maybeDeleteComposite()
 }

@@ -220,14 +220,17 @@ export const itemState = {
     }
   },
 
-  moveToNewParent: (itemId: Uid, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array) => {
-    const item = itemState.getItem(itemId)!;
+  moveToNewParent: (item: Item, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array) => {
     const prevParentId = item.parentId;
     const prevRelationshipToParent = item.relationshipToParent;
     if (ordering) {
       item.ordering = ordering;
     } else {
-      item.ordering = itemState.newOrderingAtEndOfChildren(moveToParentId);
+      if (newRelationshipToParent == Child) {
+        item.ordering = itemState.newOrderingAtEndOfChildren(moveToParentId);
+      } else if (newRelationshipToParent == Attachment) {
+        item.ordering = itemState.newOrderingAtEndOfAttachments(moveToParentId);
+      }
     }
     item.parentId = moveToParentId;
     item.relationshipToParent = newRelationshipToParent;
