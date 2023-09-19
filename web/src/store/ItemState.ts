@@ -218,5 +218,42 @@ export const itemState = {
     } else {
       return newOrderingBetween(attachmentOrderings[position-1], attachmentOrderings[position]);
     }
+  },
+
+  moveToNewParent: (itemId: Uid, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array) => {
+    const item = itemState.getItem(itemId)!;
+    const prevParentId = item.parentId;
+    const prevRelationshipToParent = item.relationshipToParent;
+    if (ordering) {
+      item.ordering = ordering;
+    } else {
+      item.ordering = itemState.newOrderingAtEndOfChildren(moveToParentId);
+    }
+    item.parentId = moveToParentId;
+    item.relationshipToParent = newRelationshipToParent;
+    if (newRelationshipToParent == Child) {
+      const moveOverContainer = itemState.getContainerItem(moveToParentId)!;
+      const moveOverContainerChildren = [item.id, ...moveOverContainer.computed_children];
+      moveOverContainer.computed_children = moveOverContainerChildren;
+      itemState.sortChildren(moveOverContainer.id);
+      updatePrevParent();
+    } else if (newRelationshipToParent == Attachment) {
+      const moveOverAttachmentsItem = itemState.getAttachmentsItem(moveToParentId)!;
+      const moveOverAttachments = [item.id, ...moveOverAttachmentsItem.computed_attachments];
+      moveOverAttachmentsItem.computed_attachments = moveOverAttachments;
+      itemState.sortAttachments(moveOverAttachmentsItem.id);
+      updatePrevParent();
+    } else {
+      panic();
+    }
+    function updatePrevParent() {
+      if (prevRelationshipToParent == Child) {
+        const prevParent = itemState.getContainerItem(prevParentId)!;
+        prevParent.computed_children = prevParent.computed_children.filter(i => i != item.id);
+      } else if (prevRelationshipToParent == Attachment) {
+        const prevParent = itemState.getAttachmentsItem(prevParentId)!;
+        prevParent.computed_attachments = prevParent.computed_attachments.filter(i => i != item.id);
+      }
+    }
   }
 }

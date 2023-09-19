@@ -1105,7 +1105,6 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
 }
 
 function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  const prevParentId = activeItem.parentId;
   const moveOverContainerId = overContainerVe.displayItem.id;
 
   if (moveOverContainerId == activeItem.id) {
@@ -1119,18 +1118,8 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
     return;
   }
 
-  const insertPosition = overContainerVe.moveOverRowNumber.get();
-  activeItem.ordering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, insertPosition);
-  activeItem.parentId = moveOverContainerId;
-
-  const moveOverContainer = itemState.getContainerItem(moveOverContainerId)!;
-  const moveOverContainerChildren = [activeItem.id, ...moveOverContainer.computed_children];
-  moveOverContainer.computed_children = moveOverContainerChildren;
-  itemState.sortChildren(moveOverContainer.id);
-
-  const prevParent = itemState.getContainerItem(prevParentId)!;
-  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
+  itemState.moveToNewParent(activeItem.id, moveOverContainerId, Child, moveToOrdering);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
