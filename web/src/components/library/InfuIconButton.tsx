@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { onCleanup, onMount } from "solid-js";
+import { Show, onCleanup, onMount } from "solid-js";
 
 
 export function InfuIconButton(props: { icon: string; clickHandler: () => void }) {
@@ -26,18 +26,26 @@ export function InfuIconButton(props: { icon: string; clickHandler: () => void }
   onCleanup(() => { outerDivElement?.removeEventListener('click', props.clickHandler); });
 
   const icon = () => {
-    // TODO (HIGH): subscript numbers.
     if (props.icon == "header-1") { return "header"; }
     if (props.icon == "header-2") { return "header"; }
     if (props.icon == "header-3") { return "header"; }
     return props.icon;
   }
 
+  const subscript = () => {
+    if (props.icon == "header-1") { return "1"; }
+    if (props.icon == "header-2") { return "2"; }
+    if (props.icon == "header-3") { return "3"; }
+    return null;
+  }
+
   return (
     <div ref={outerDivElement}
-         class="border rounded w-[29px] h-[28px] inline-block text-center cursor-move ml-[5px] text-[18px]"
-         style={`background-color: rgba(40, 57, 83, 0.47); border-color: rgba(23, 32, 47, 0.47);`}>
+         class="hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[5px] text-[14px] hover:bg-slate-100 relative">
       <i class={`fa fa-${icon()}`} />
+      <Show when={subscript() != null}>
+        <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>
+      </Show>
     </div>
   );
 }
