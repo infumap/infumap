@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
+import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
 import { HitboxType } from "../layout/hitbox";
 import { server } from "../server";
 import { calcSizeForSpatialBl } from "../items/base/item-polymorphism";
@@ -45,8 +45,7 @@ import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { isNote } from "../items/note-item";
-import { dialogMoveState } from "./state_dialog";
-import { MouseAction, MouseActionState } from "./state_action";
+import { MouseAction, MouseActionState, dialogMoveState } from "./state_action";
 
 
 export const MOUSE_LEFT = 0;

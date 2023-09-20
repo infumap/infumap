@@ -37,8 +37,7 @@ import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvid
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { panic, throwExpression } from "../util/lang";
-import { MouseAction, MouseActionState } from "./state_action";
-import { DialogMoveState } from "./state_dialog";
+import { DialogMoveState, MouseAction, MouseActionState } from "./state_action";
 
 
 
@@ -126,13 +125,11 @@ function mouseUpHandler_moving(
   }
 
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
-    // does not include case of move into table cells that are attachments.
     mouseUpHandler_moving_hitboxAttachTo(desktopStore, activeItem);
     return;
   }
 
   if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
-    // does not include case of move into table cells that are attachments.
     mouseUpHandler_moving_hitboxAttachToComposite(desktopStore, activeItem);
     return;
   }

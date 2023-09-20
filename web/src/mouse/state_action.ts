@@ -80,3 +80,23 @@ export let MouseActionState = {
     return mouseActionState!;
   }
 }
+
+
+
+export interface DialogMoveStateType {
+  lastMousePosPx: Vector,
+}
+
+
+export let dialogMoveState: DialogMoveStateType | null = null;
+
+export let DialogMoveState = {
+  set: (state: DialogMoveStateType | null): void => { dialogMoveState = state; },
+
+  empty: (): boolean => dialogMoveState == null,
+
+  get: (): DialogMoveStateType => {
+    if (dialogMoveState == null) { panic(); }
+    return dialogMoveState!;
+  }
+}

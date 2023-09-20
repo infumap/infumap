@@ -35,8 +35,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { MOUSE_LEFT, MOUSE_RIGHT, mouseMoveNoButtonDownHandler } from "./mouse";
-import { MouseAction, MouseActionState } from "./state_action";
-import { DialogMoveState } from "./state_dialog";
+import { DialogMoveState, MouseAction, MouseActionState } from "./state_action";
 
 
 export function mouseDownHandler(
@@ -54,7 +53,6 @@ export function mouseDownHandler(
 }
 
 
-// **** MOUSE LEFT DOWN HANDLER ****
 export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
