@@ -141,7 +141,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDoubleClickHandler(desktopStore, userStore, ev);
+    mouseDoubleClickHandler(desktopStore, ev);
   };
 
   const mouseDownListener = (ev: MouseEvent) => {

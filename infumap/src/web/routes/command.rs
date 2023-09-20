@@ -626,7 +626,10 @@ async fn handle_add_item(
   }
 
   let serialized_item = serde_json::to_string(&item.to_api_json()?)?;
+
+  let item_id = item.id.clone();
   db.item.add(item).await?;
+  debug!("Executed 'add' command for item '{}'.", item_id);
 
   Ok(Some(serialized_item))
 }
@@ -654,6 +657,7 @@ async fn handle_update_item(
   }
 
   db.item.update(&item).await?;
+  debug!("Executed 'update' command for item '{}'.", item.id);
   Ok(None)
 }
 
@@ -683,8 +687,14 @@ async fn handle_delete_item<'a>(
     return Err(format!("User '{}' does not own item '{}'.", session.user_id, request.id).into());
   }
 
-  if db.item.has_children_or_attachments(&request.id)? {
-    return Err(format!("Cannot delete item '{}' because it has one or more associated child or attachment item.", request.id).into());
+  if db.item.get_children(&request.id)?.len() > 0 {
+    let child_ids: Vec<&String> = db.item.get_children(&request.id)?.iter().map(|itm| &itm.id).collect();
+    return Err(format!("Cannot delete item '{}' because it has one or more associated children: {:?}", request.id, child_ids).into());
+  }
+
+  if db.item.get_attachments(&request.id)?.len() > 0 {
+    let attachment_ids: Vec<&String> = db.item.get_attachments(&request.id)?.iter().map(|itm| &itm.id).collect();
+    return Err(format!("Cannot delete item '{}' because it has one or more associated attachments: {:?}", request.id, attachment_ids).into());
   }
 
   let item = db.item.remove(&request.id).await?;

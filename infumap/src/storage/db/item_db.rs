@@ -291,10 +291,6 @@ impl ItemDb {
     Ok(attachments)
   }
 
-  pub fn has_children_or_attachments(&self, parent_id: &Uid) -> InfuResult<bool> {
-    Ok(self.get_children(parent_id)?.len() > 0 || self.get_attachments(parent_id)?.len() > 0)
-  }
-
   pub fn all_loaded_items(&self) -> Vec<ItemAndUserId> {
     // TODO (LOW): Proper use of iterators...
     let mut result = vec![];

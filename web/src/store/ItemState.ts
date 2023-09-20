@@ -56,6 +56,10 @@ export const itemState = {
     if (isContainer(item)) {
       const containerItem = asContainerItem(item);
       if (containerItem.computed_children.length > 0) {
+        console.error(
+          `${containerItem.itemType} container has children, can't delete:`, 
+          [...containerItem.computed_children],
+          containerItem.computed_children.map(i => { const itm = itemState.getItem(i)!; return (isTitledItem(itm)) ? asTitledItem(itm).title : "no-title" }));
         panic!();
       }
     }

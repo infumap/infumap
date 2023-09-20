@@ -835,12 +835,14 @@ export function mouseUpHandler(
   mouseActionState = null;
 }
 
+
 function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement, _userStore: UserStoreContextModel) {
   desktopStore.replacePopup({
     type: PopupType.Attachment,
     vePath: visualElementToPath(visualElement)
   })
 }
+
 
 function mouseUpHandler_moving(
     desktopStore: DesktopStoreContextModel,
@@ -886,6 +888,194 @@ function mouseUpHandler_moving(
   arrange(desktopStore);
 }
 
+
+async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+  const prevParentId = activeItem.parentId;
+
+  const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachCompositeHitboxElement!)!.get();
+  attachToVisualElement.movingItemIsOverAttach.set(false);
+  mouseActionState!.moveOver_attachCompositeHitboxElement = null;
+
+  const attachToItem = asPositionalItem(attachToVisualElement.linkItemMaybe != null ? attachToVisualElement.linkItemMaybe! : attachToVisualElement.displayItem);
+
+  if (attachToVisualElement.displayItem.id == activeItem.id) {
+    // TODO (MEDIUM): More rigorous recursive check. also server side.
+    throwExpression("Attempt was made to attach an item to itself.");
+  }
+
+  // case #1: attaching to an item inside an existing composite.
+  if (isComposite(itemState.getItem(attachToItem.parentId)!)) {
+    const destinationCompositeItem = itemState.getItem(attachToItem.parentId)!;
+
+    // case #1.1: the moving item is not a composite.
+    if (!isComposite(activeItem)) {
+      activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+      itemState.moveToNewParent(
+        activeItem, destinationCompositeItem.id, Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
+      await server.updateItem(activeItem);
+    }
+
+    // case #1.2: the moving item is a composite.
+    else {
+      const activeItem_composite = asCompositeItem(activeItem);
+      let lastPrevId = attachToItem.id;
+      while (activeItem_composite.computed_children.length > 0) {
+        const child = itemState.getItem(activeItem_composite.computed_children[0])!;
+        itemState.moveToNewParent(
+          child, destinationCompositeItem.id, Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
+        lastPrevId = child.id;
+        await server.updateItem(child);
+      }
+      itemState.deleteItem(activeItem_composite.id);
+      await server.deleteItem(activeItem_composite.id);
+    }
+
+  // case #2: attaching to an item that is not inside an existing composite.
+  } else {
+    const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
+    compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
+    if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
+    itemState.addItem(compositeItem);
+    await server.addItem(compositeItem, null);
+
+    attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+    itemState.moveToNewParent(attachToItem, compositeItem.id, Child);
+    await server.updateItem(attachToItem);
+
+    // case #2.1: this item is not a composite either.
+    if (!isComposite(activeItem)) {
+      activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+      itemState.moveToNewParent(activeItem, compositeItem.id, Child);
+      await server.updateItem(activeItem);
+    }
+
+    // case #2.2: the moving item being attached is a composite.
+    else {
+      const activeItem_composite = asCompositeItem(activeItem);
+      while (activeItem_composite.computed_children.length > 0) {
+        const child = itemState.getItem(activeItem_composite.computed_children[0])!;
+        itemState.moveToNewParent(child, compositeItem.id, Child);
+        await server.updateItem(child);
+      }
+      itemState.deleteItem(activeItem_composite.id);
+      await server.deleteItem(activeItem_composite.id);
+    }
+
+  }
+
+  finalizeMouseUp();
+  arrange(desktopStore);
+}
+
+
+function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+  const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachHitboxElement!)!.get();
+  if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
+    // TODO (MEDIUM): More rigorous recursive check. also server side.
+    throwExpression("Attempt was made to attach an item to itself.");
+  }
+
+  attachToVisualElement.movingItemIsOverAttach.set(false);
+  mouseActionState!.moveOver_attachHitboxElement = null;
+
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, Attachment);
+  server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
+}
+
+
+function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  if (isTable(overContainerVe.displayItem)) { panic(); }
+
+  const moveOverContainerId = overContainerVe.displayItem.id;
+  if (moveOverContainerId == activeItem.id) {
+    // TODO (HIGH): more rigorous check of entire hierarchy.
+    // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
+    throwExpression("Attempt was made to move an item into itself.");
+  }
+
+  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  itemState.moveToNewParent(activeItem, moveOverContainerId, Child);
+  server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
+}
+
+
+function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  const moveOverContainerId = overContainerVe.displayItem.id;
+  if (moveOverContainerId == activeItem.id) {
+    // TODO (HIGH): more rigorous check of entire hierarchy.
+    // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
+    throwExpression("Attempt was made to move an item into itself.");
+  }
+
+  if (overContainerVe.moveOverColAttachmentNumber.get() >= 0) {
+    mouseUpHandler_moving_toTable_attachmentCell(desktopStore, activeItem, overContainerVe);
+    return;
+  }
+
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
+  itemState.moveToNewParent(activeItem, moveOverContainerId, Child, moveToOrdering);
+  server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
+}
+
+
+function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+  const tableItem = asTableItem(overContainerVe.displayItem);
+  let rowNumber = overContainerVe.moveOverRowNumber.get();
+  const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
+  if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
+
+  const childId = tableItem.computed_children[rowNumber];
+  const child = itemState.getItem(childId)!;
+  const canonicalChild = asAttachmentsItem(isLink(child)
+    ? itemState.getItem(getLinkToId(asLinkItem(child)))!
+    : child);
+  const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
+  const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
+  for (let i=0; i<numPlaceholdersToCreate; ++i) {
+    const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
+    itemState.addItem(placeholderItem);
+    server.addItem(placeholderItem, null);
+  }
+  let newOrdering: Uint8Array | undefined;
+  if (insertPosition < canonicalChild.computed_attachments.length) {
+    const overAttachmentId = canonicalChild.computed_attachments[insertPosition];
+    const placeholderToReplaceMaybe = itemState.getItem(overAttachmentId)!;
+    if (isPlaceholder(placeholderToReplaceMaybe)) {
+      newOrdering = placeholderToReplaceMaybe.ordering;
+      itemState.deleteItem(placeholderToReplaceMaybe.id);
+      server.deleteItem(placeholderToReplaceMaybe.id);
+    } else {
+      // TODO (MEDIUM): probably want to forbid rather than insert in this case.
+      newOrdering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
+    }
+  } else {
+    newOrdering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
+  }
+
+  itemState.moveToNewParent(activeItem, canonicalChild.id, Attachment, newOrdering);
+  server.updateItem(itemState.getItem(activeItem.id)!);
+
+  finalizeMouseUp();
+  arrange(desktopStore);
+}
+
+
+function finalizeMouseUp() {
+  cleanupAndPersistPlaceholders();
+  maybeDeleteComposite()
+}
+
+
 async function maybeDeleteComposite() {
   if (mouseActionState == null) { return; } // please typescript.
   if (mouseActionState.startCompositeItem == null) { return; }
@@ -908,6 +1098,7 @@ async function maybeDeleteComposite() {
   await server.updateItem(child);
   await server.deleteItem(compositeItem.id);
 }
+
 
 function cleanupAndPersistPlaceholders() {
   if (mouseActionState == null) { return; } // please typescript.
@@ -936,233 +1127,24 @@ function cleanupAndPersistPlaceholders() {
   mouseActionState.startAttachmentsItem = null;
 }
 
-async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
-  const prevParentId = activeItem.parentId;
-  const prevParent = itemState.getContainerItem(prevParentId)!;
-
-  const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachCompositeHitboxElement!)!.get();
-  attachToVisualElement.movingItemIsOverAttach.set(false);
-  mouseActionState!.moveOver_attachCompositeHitboxElement = null;
-
-  const attachToItem = asPositionalItem(attachToVisualElement.linkItemMaybe != null ? attachToVisualElement.linkItemMaybe! : attachToVisualElement.displayItem);
-
-  if (attachToVisualElement.displayItem.id == activeItem.id) {
-    // TODO (MEDIUM): More rigorous recursive check. also server side.
-    throwExpression("Attempt was made to attach an item to itself.");
-  }
-
-  // case #1: attaching to an item inside an existing composite.
-  if (isComposite(itemState.getItem(attachToItem.parentId)!)) {
-
-    const destinationCompositeItem = itemState.getItem(attachToItem.parentId)!;
-
-    // case #1.1: the moving item is not a composite.
-    if (!isComposite(activeItem)) {
-      activeItem.parentId = destinationCompositeItem.id;
-      activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      activeItem.ordering = itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id);
-      activeItem.relationshipToParent = Child;
-      await server.updateItem(activeItem);
-
-      asCompositeItem(destinationCompositeItem).computed_children.push(activeItem.id);
-      itemState.sortChildren(destinationCompositeItem.id);
-    }
-
-    // case #1.2: the moving item is a composite.
-    else {
-      const activeItem_composite = asCompositeItem(activeItem);
-      let lastPrevId = attachToItem.id;
-      for (let i=0; i<activeItem_composite.computed_children.length; ++i) {
-        const child = itemState.getItem(activeItem_composite.computed_children[i])!;
-        child.parentId = destinationCompositeItem.id;
-        child.ordering = itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId);
-        child.relationshipToParent = Child;
-        asCompositeItem(destinationCompositeItem).computed_children.push(child.id);
-        itemState.sortChildren(destinationCompositeItem.id);
-        await server.updateItem(child);
-        lastPrevId = child.id;
-      }
-      await server.deleteItem(activeItem_composite.id);
-    }
-
-    prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
-
-  // case #2: attaching to an item that is not inside an existing composite.
-  } else {
-
-    const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
-    compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
-    if (isXSizableItem(attachToItem)) {
-      compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr;
-    }
-    await server.addItem(compositeItem, null);
-    itemState.addItem(compositeItem);
-
-    attachToItem.parentId = compositeItem.id;
-    attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-    attachToItem.ordering = newOrdering();
-    attachToItem.relationshipToParent = Child;
-    await server.updateItem(attachToItem);
-    compositeItem.computed_children.push(attachToItem.id);
-
-    // case #2.1: this item is not a composite either.
-    if (!isComposite(activeItem)) {
-      activeItem.parentId = compositeItem.id;
-      activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      activeItem.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
-      activeItem.relationshipToParent = Child;
-      await server.updateItem(activeItem);
-    }
-
-    // case #2.2: the moving item being attached is a composite.
-    else {
-      const activeItem_composite = asCompositeItem(activeItem);
-      for (let i=0; i<activeItem_composite.computed_children.length; ++i) {
-        const child = itemState.getItem(activeItem_composite.computed_children[i])!;
-        child.parentId = compositeItem.id;
-        child.ordering = itemState.newOrderingAtEndOfChildren(compositeItem.id);
-        child.relationshipToParent = Child;
-        await server.updateItem(child);
-        compositeItem.computed_children.push(child.id);
-      }
-      await server.deleteItem(activeItem_composite.id);
-    }
-
-    prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id && i != attachToItem.id);
-  }
-
-  finalizeMouseUp();
-  arrange(desktopStore);
-}
-
-function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
-  const attachToVisualElement = VesCache.get(mouseActionState!.moveOver_attachHitboxElement!)!.get();
-  if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
-    // TODO (MEDIUM): More rigorous recursive check. also server side.
-    throwExpression("Attempt was made to attach an item to itself.");
-  }
-
-  attachToVisualElement.movingItemIsOverAttach.set(false);
-  mouseActionState!.moveOver_attachHitboxElement = null;
-
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, Attachment);
-  server.updateItem(itemState.getItem(activeItem.id)!);
-
-  finalizeMouseUp();
-  arrange(desktopStore);
-}
-
-function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  if (isTable(overContainerVe.displayItem)) { panic(); }
-
-  const moveOverContainerId = overContainerVe.displayItem.id;
-  if (moveOverContainerId == activeItem.id) {
-    // TODO (HIGH): more rigorous check of entire hierarchy.
-    // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
-    throwExpression("Attempt was made to move an item into itself.");
-  }
-
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, moveOverContainerId, Child);
-  server.updateItem(itemState.getItem(activeItem.id)!);
-
-  finalizeMouseUp();
-  arrange(desktopStore);
-}
-
-function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  const moveOverContainerId = overContainerVe.displayItem.id;
-  if (moveOverContainerId == activeItem.id) {
-    // TODO (HIGH): more rigorous check of entire hierarchy.
-    // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
-    throwExpression("Attempt was made to move an item into itself.");
-  }
-
-  if (overContainerVe.moveOverColAttachmentNumber.get() >= 0) {
-    mouseUpHandler_moving_toTable_attachmentCell(desktopStore, activeItem, overContainerVe);
-    return;
-  }
-
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
-  itemState.moveToNewParent(activeItem, moveOverContainerId, Child, moveToOrdering);
-  server.updateItem(itemState.getItem(activeItem.id)!);
-
-  finalizeMouseUp();
-  arrange(desktopStore);
-}
-
-function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  const prevParentId = activeItem.parentId;
-
-  const tableItem = asTableItem(overContainerVe.displayItem);
-  let rowNumber = overContainerVe.moveOverRowNumber.get();
-  const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
-  if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
-
-  const childId = tableItem.computed_children[rowNumber];
-  const child = itemState.getItem(childId)!;
-  const canonicalChild = asAttachmentsItem(isLink(child)
-    ? itemState.getItem(getLinkToId(asLinkItem(child)))!
-    : child);
-  const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
-  const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
-  for (let i=0; i<numPlaceholdersToCreate; ++i) {
-    const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
-    itemState.addItem(placeholderItem);
-    server.addItem(placeholderItem, null);
-  }
-  if (insertPosition < canonicalChild.computed_attachments.length) {
-    const overAttachmentId = canonicalChild.computed_attachments[insertPosition];
-    const placeholderToReplaceMaybe = itemState.getItem(overAttachmentId)!;
-    if (isPlaceholder(placeholderToReplaceMaybe)) {
-      activeItem.ordering = placeholderToReplaceMaybe.ordering;
-      itemState.deleteItem(overAttachmentId);
-      server.deleteItem(overAttachmentId);
-    } else {
-      activeItem.ordering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
-    }
-  } else {
-    activeItem.ordering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
-  }
-  activeItem.relationshipToParent = Attachment;
-  activeItem.parentId = canonicalChild.id;
-  const childAttachments = [activeItem.id, ...canonicalChild.computed_attachments];
-  canonicalChild.computed_attachments = childAttachments;
-  itemState.sortAttachments(canonicalChild.id);
-
-  const prevParent = itemState.getContainerItem(prevParentId)!;
-  prevParent.computed_children = prevParent.computed_children.filter(i => i != activeItem.id);
-
-  server.updateItem(itemState.getItem(activeItem.id)!);
-
-  finalizeMouseUp();
-  arrange(desktopStore);
-}
 
 export function mouseDoubleClickHandler(
-    desktopStore: DesktopStoreContextModel,
-    _userStore: UserStoreContextModel,
-    ev: MouseEvent) {
-  if (desktopStore.currentPage() == null) { return; }
-  if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
-  if (ev.button != MOUSE_LEFT) {
-    console.error("unsupported mouse double click button: " + ev.button);
-    return;
-  }
-
-  const desktopPosPx = desktopPxFromMouseEvent(ev);
-
-  const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-  if (hitInfo.hitboxType == HitboxType.None) { return; }
-
-  const activeDisplayItem = itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
-  if (!isNote(activeDisplayItem)) { return; }
-
-  desktopStore.setTextEditOverlayInfo({ noteItemPath: visualElementToPath(hitInfo.overElementVes.get()) });
+  desktopStore: DesktopStoreContextModel,
+  ev: MouseEvent) {
+if (desktopStore.currentPage() == null) { return; }
+if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
+if (ev.button != MOUSE_LEFT) {
+  console.error("unsupported mouse double click button: " + ev.button);
+  return;
 }
 
-function finalizeMouseUp() {
-  cleanupAndPersistPlaceholders();
-  maybeDeleteComposite()
+const desktopPosPx = desktopPxFromMouseEvent(ev);
+
+const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+if (hitInfo.hitboxType == HitboxType.None) { return; }
+
+const activeDisplayItem = itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
+if (!isNote(activeDisplayItem)) { return; }
+
+desktopStore.setTextEditOverlayInfo({ noteItemPath: visualElementToPath(hitInfo.overElementVes.get()) });
 }
