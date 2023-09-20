@@ -20,14 +20,15 @@ import { Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 
 
-export interface DialogMoveState {
+export interface DialogMoveStateType {
   lastMousePosPx: Vector,
 }
 
-export let dialogMoveState: DialogMoveState | null = null;
+
+export let dialogMoveState: DialogMoveStateType | null = null;
 
 export let DialogMoveState = {
-  set: (state: DialogMoveState | null): void => { dialogMoveState = state; },
+  set: (state: DialogMoveStateType | null): void => { dialogMoveState = state; },
   empty: (): boolean => { return dialogMoveState == null; },
-  get: (): DialogMoveState => { if (dialogMoveState == null) { panic(); } return dialogMoveState!; }
+  get: (): DialogMoveStateType => { if (dialogMoveState == null) { panic(); } return dialogMoveState!; }
 }

@@ -45,8 +45,8 @@ import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { isNote } from "../items/note-item";
-import { dialogMoveState } from "./mouse_dialogState";
-import { MouseAction, MouseActionState } from "./mouse_actionState";
+import { dialogMoveState } from "./state_dialog";
+import { MouseAction, MouseActionState } from "./state_action";
 
 
 export const MOUSE_LEFT = 0;

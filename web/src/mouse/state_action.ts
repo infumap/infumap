@@ -24,6 +24,7 @@ import { VisualElementPath } from "../layout/visual-element";
 import { Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 
+
 export enum MouseAction {
   Ambiguous,
   Moving,
@@ -33,7 +34,8 @@ export enum MouseAction {
   ResizingPopup,
 }
 
-export interface MouseActionState {
+
+export interface MouseActionStateType {
   hitboxTypeOnMouseDown: HitboxType,
   compositeHitboxTypeMaybeOnMouseDown: HitboxType,
 
@@ -66,14 +68,14 @@ export interface MouseActionState {
 }
 
 
-let mouseActionState: MouseActionState | null = null;
+let mouseActionState: MouseActionStateType | null = null;
 
 export let MouseActionState = {
-  set: (state: MouseActionState | null): void => { mouseActionState = state; },
+  set: (state: MouseActionStateType | null): void => { mouseActionState = state; },
 
   empty: (): boolean => mouseActionState == null,
 
-  get: (): MouseActionState => {
+  get: (): MouseActionStateType => {
     if (mouseActionState == null) { panic!(); }
     return mouseActionState!;
   }
