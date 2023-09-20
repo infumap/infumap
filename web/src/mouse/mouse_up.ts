@@ -37,7 +37,7 @@ import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvid
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { panic, throwExpression } from "../util/lang";
-import { DialogMoveState, MouseAction, MouseActionState } from "./state_action";
+import { DialogMoveState, MouseAction, MouseActionState } from "./state";
 
 
 
