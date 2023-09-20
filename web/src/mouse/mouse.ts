@@ -34,7 +34,7 @@ import { VisualElementSignal } from "../util/signals";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem } from "../items/base/container-item";
-import { getHitInfo } from "./hitInfo";
+import { getHitInfo } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
 import { newPlaceholderItem } from "../items/placeholder-item";
 import { asLinkItem, getLinkToId, isLink, newLinkItemFromItem } from "../items/link-item";

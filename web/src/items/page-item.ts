@@ -32,7 +32,7 @@ import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
 import { VisualElement, VisualElementFlags, getVeid, veidFromPath, visualElementToPath } from '../layout/visual-element';
-import { getHitInfo } from '../mouse/hitInfo';
+import { getHitInfo } from '../mouse/hit';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { handleListPageLineItemClickMaybe } from './base/item-common';

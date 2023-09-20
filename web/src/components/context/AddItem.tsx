@@ -29,7 +29,7 @@ import { arrange } from "../../layout/arrange";
 import { newRatingItem } from "../../items/rating-item";
 import { initialEditDialogBounds } from "../edit/EditDialog";
 import { panic } from "../../util/lang";
-import { HitInfo } from "../../mouse/hitInfo";
+import { HitInfo } from "../../mouse/hit";
 import { newLinkItem } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { itemState } from "../../store/ItemState";

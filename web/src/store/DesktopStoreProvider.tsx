@@ -25,7 +25,7 @@ import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath } from "../layout/visual-element";
 import { createNumberSignal, createVisualElementPathSignal, NumberSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
-import { HitInfo } from "../mouse/hitInfo";
+import { HitInfo } from "../mouse/hit";
 
 
 export interface DesktopStoreContextModel {

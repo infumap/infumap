@@ -33,7 +33,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
-import { getHitInfo } from "./hitInfo";
+import { getHitInfo } from "./hit";
 import { MOUSE_LEFT, MOUSE_RIGHT, mouseMoveNoButtonDownHandler } from "./mouse";
 import { MouseAction, MouseActionState } from "./mouse_actionState";
 import { DialogMoveState } from "./mouse_dialogState";

@@ -31,7 +31,7 @@ import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
-import { getHitInfo } from "../mouse/hitInfo";
+import { getHitInfo } from "../mouse/hit";
 import { panic } from "../util/lang";
 import { mouseMoveState } from "../store/MouseMoveState";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
