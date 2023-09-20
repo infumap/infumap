@@ -36,8 +36,7 @@ export async function handleUpload(
     parent: PageItem) {
 
   // handle string type data.
-  for (let i=0; i<dataTransfer.items.length; ++i) {
-    const item = dataTransfer.items[i];
+  for (let item of dataTransfer.items) {
     if (item.kind != 'string') {
       continue;
     }

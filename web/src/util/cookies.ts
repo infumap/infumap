@@ -29,8 +29,7 @@ export function setCookie(name: string, value: string, days: number | null): voi
 export function getCookie(name: string): string | null {
   let nameEquals = name + "=";
   let cookieArray = document.cookie.split(';');
-  for(let i=0; i<cookieArray.length; ++i) {
-    let cookie = cookieArray[i];
+  for (let cookie of cookieArray) {
     while (cookie.charAt(0) == ' ') {
       cookie = cookie.substring(1, cookie.length);
     }

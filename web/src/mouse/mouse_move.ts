@@ -263,7 +263,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     let ignoreIds = [activeVisualElement.displayItem.id];
     if (isComposite(activeVisualElement.displayItem)) {
       const compositeItem = asCompositeItem(activeVisualElement.displayItem);
-      for (let i=0; i<compositeItem.computed_children.length; ++i) { ignoreIds.push(compositeItem.computed_children[i]); }
+      for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
     }
     const hitInfo = getHitInfo(desktopStore, desktopPosPx, ignoreIds, false);
 
