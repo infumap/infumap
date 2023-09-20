@@ -35,7 +35,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { DialogMoveState, MouseAction, MouseActionState } from "./state";
+import { DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState } from "./state";
 
 
 export const MOUSE_LEFT = 0;
@@ -45,24 +45,29 @@ export const MOUSE_RIGHT = 2;
 export function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
-    ev: MouseEvent) {
+    buttonNumber: number) {
+
   if (desktopStore.currentPage() == null) { return; }
-  if (ev.button == MOUSE_LEFT) {
-    mouseLeftDownHandler(desktopStore, userStore, ev);
-  } else if (ev.button == MOUSE_RIGHT) {
-    mouseRightDownHandler(desktopStore, userStore, ev);
-  } else {
-    console.warn("unsupported mouse button: " + ev.button);
+
+  switch(buttonNumber) {
+    case MOUSE_LEFT:
+      mouseLeftDownHandler(desktopStore, userStore);
+      return;
+    case MOUSE_RIGHT:
+      mouseRightDownHandler(desktopStore, userStore);
+      return;
+    default:
+      console.warn("unsupported mouse button: " + buttonNumber);
+      return;
   }
 }
 
 
 export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel,
-    ev: MouseEvent) {
+    userStore: UserStoreContextModel) {
 
-  const desktopPosPx = desktopPxFromMouseEvent(ev);
+  const desktopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
 
   if (desktopStore.contextMenuInfo() != null) {
     desktopStore.setContextMenuInfo(null);
@@ -95,9 +100,7 @@ export function mouseLeftDownHandler(
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPosPx;
-  const activeItem = hitInfo.overElementVes.get().linkItemMaybe != null
-    ? itemState.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
-    : itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
+  const activeItem = VeFns.getItem(hitInfo.overElementVes.get());
   let boundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
@@ -106,9 +109,7 @@ export function mouseLeftDownHandler(
       y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
-      const activeCompositeItem = hitInfo.overContainerVe!.linkItemMaybe != null
-        ? itemState.getItem(hitInfo.overContainerVe!.linkItemMaybe!.id)!
-        : itemState.getItem(hitInfo.overContainerVe!.displayItem.id)!;
+      const activeCompositeItem = VeFns.getItem(hitInfo.overContainerVe!);
       const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overContainerVe!);
       onePxSizeBl = {
         x: calcSizeForSpatialBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
@@ -156,7 +157,7 @@ function calcStartCompositeItemMaybe(activeItem: Item): CompositeItem | null {
   if (activeItem == null) { return null; }
   if (activeItem.parentId == null) { return null; }
   if (activeItem.relationshipToParent != RelationshipToParent.Child) { return null; }
-  let parent = itemState.getItem(activeItem.parentId)!;
+  let parent = itemState.get(activeItem.parentId)!;
   if (parent.parentId == null) { return null; }
   if (!isComposite(parent)) { return null; }
   return asCompositeItem(parent);
@@ -167,9 +168,9 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
   if (activeItem == null) { return null; }
   if (activeItem.parentId == null) { return null; }
   if (activeItem.relationshipToParent != RelationshipToParent.Attachment) { return null; }
-  let parent = itemState.getItem(activeItem.parentId)!;
+  let parent = itemState.get(activeItem.parentId)!;
   if (parent.parentId == null) { return null; }
-  let parentParent = itemState.getItem(parent.parentId)!;
+  let parentParent = itemState.get(parent.parentId)!;
   if (!isTable(parentParent)) { return null; }
   return asAttachmentsItem(parent);
 }
@@ -177,8 +178,7 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 export function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel,
-    _ev: MouseEvent) {
+    userStore: UserStoreContextModel) {
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
@@ -194,7 +194,7 @@ export function mouseRightDownHandler(
 
   if (desktopStore.currentPopupSpec() != null) {
     desktopStore.popPopup();
-    const page = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
+    const page = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;

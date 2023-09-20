@@ -33,7 +33,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
   let deleted = false;
 
   const handleTitleChange = (v: string) => {
-    asImageItem(itemState.getItem(imageId)!).title = v;
+    asImageItem(itemState.get(imageId)!).title = v;
     // rearrangeVisualElementsWithItemId(desktopStore, imageId);
     arrange(desktopStore);
   };
@@ -41,14 +41,14 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
   const deleteImage = async () => {
     deleted = true;
     await server.deleteItem(imageId); // throws on failure.
-    itemState.deleteItem(imageId);
+    itemState.delete(imageId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(imageId)!);
+      server.updateItem(itemState.get(imageId)!);
     }
   });
 

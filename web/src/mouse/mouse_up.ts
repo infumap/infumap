@@ -51,7 +51,7 @@ export function mouseUpHandler(
 
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
   const activeVisualElement = activeVisualElementSignal.get();
-  const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.displayItem);
+  const activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
 
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
@@ -65,7 +65,7 @@ export function mouseUpHandler(
     case MouseAction.Resizing:
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
           (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
-        server.updateItem(itemState.getItem(activeItem.id)!);
+        server.updateItem(itemState.get(activeItem.id)!);
       }
 
       // mouseActionState.activeVisualElement.update(ve => {
@@ -82,7 +82,7 @@ export function mouseUpHandler(
         ? asTableItem(activeItem).tableColumns[MouseActionState.get().hitMeta!.resizeColNumber!].widthGr
         : asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get().hitMeta!.resizeColNumber!].widthGr;
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != widthGr) {
-        server.updateItem(itemState.getItem(activeVisualElement.displayItem.id)!);
+        server.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
       break;
 
@@ -149,7 +149,7 @@ function mouseUpHandler_moving(
   // root page
   if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
       MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-    server.updateItem(itemState.getItem(activeItem.id)!);
+    server.updateItem(itemState.get(activeItem.id)!);
   }
 
   finalizeMouseUp();
@@ -164,7 +164,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
   attachToVisualElement.movingItemIsOverAttach.set(false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
 
-  const attachToItem = asPositionalItem(attachToVisualElement.linkItemMaybe != null ? attachToVisualElement.linkItemMaybe! : attachToVisualElement.displayItem);
+  const attachToItem = asPositionalItem(VeFns.getItem(attachToVisualElement));
 
   if (attachToVisualElement.displayItem.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
@@ -172,8 +172,8 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
   }
 
   // case #1: attaching to an item inside an existing composite.
-  if (isComposite(itemState.getItem(attachToItem.parentId)!)) {
-    const destinationCompositeItem = itemState.getItem(attachToItem.parentId)!;
+  if (isComposite(itemState.get(attachToItem.parentId)!)) {
+    const destinationCompositeItem = itemState.get(attachToItem.parentId)!;
 
     // case #1.1: the moving item is not a composite.
     if (!isComposite(activeItem)) {
@@ -188,13 +188,13 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       const activeItem_composite = asCompositeItem(activeItem);
       let lastPrevId = attachToItem.id;
       while (activeItem_composite.computed_children.length > 0) {
-        const child = itemState.getItem(activeItem_composite.computed_children[0])!;
+        const child = itemState.get(activeItem_composite.computed_children[0])!;
         itemState.moveToNewParent(
           child, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
         lastPrevId = child.id;
         await server.updateItem(child);
       }
-      itemState.deleteItem(activeItem_composite.id);
+      itemState.delete(activeItem_composite.id);
       await server.deleteItem(activeItem_composite.id);
     }
 
@@ -203,7 +203,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
     const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
     compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
     if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
-    itemState.addItem(compositeItem);
+    itemState.add(compositeItem);
     await server.addItem(compositeItem, null);
 
     attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
@@ -221,11 +221,11 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
     else {
       const activeItem_composite = asCompositeItem(activeItem);
       while (activeItem_composite.computed_children.length > 0) {
-        const child = itemState.getItem(activeItem_composite.computed_children[0])!;
+        const child = itemState.get(activeItem_composite.computed_children[0])!;
         itemState.moveToNewParent(child, compositeItem.id, RelationshipToParent.Child);
         await server.updateItem(child);
       }
-      itemState.deleteItem(activeItem_composite.id);
+      itemState.delete(activeItem_composite.id);
       await server.deleteItem(activeItem_composite.id);
     }
 
@@ -248,7 +248,7 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, RelationshipToParent.Attachment);
-  server.updateItem(itemState.getItem(activeItem.id)!);
+  server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(desktopStore);
@@ -267,7 +267,7 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
-  server.updateItem(itemState.getItem(activeItem.id)!);
+  server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(desktopStore);
@@ -289,7 +289,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
 
   const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
-  server.updateItem(itemState.getItem(activeItem.id)!);
+  server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(desktopStore);
@@ -303,24 +303,24 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];
-  const child = itemState.getItem(childId)!;
+  const child = itemState.get(childId)!;
   const canonicalChild = asAttachmentsItem(isLink(child)
-    ? itemState.getItem(getLinkToId(asLinkItem(child)))!
+    ? itemState.get(getLinkToId(asLinkItem(child)))!
     : child);
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
   const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
     const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
-    itemState.addItem(placeholderItem);
+    itemState.add(placeholderItem);
     server.addItem(placeholderItem, null);
   }
   let newOrdering: Uint8Array | undefined;
   if (insertPosition < canonicalChild.computed_attachments.length) {
     const overAttachmentId = canonicalChild.computed_attachments[insertPosition];
-    const placeholderToReplaceMaybe = itemState.getItem(overAttachmentId)!;
+    const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
       newOrdering = placeholderToReplaceMaybe.ordering;
-      itemState.deleteItem(placeholderToReplaceMaybe.id);
+      itemState.delete(placeholderToReplaceMaybe.id);
       server.deleteItem(placeholderToReplaceMaybe.id);
     } else {
       // TODO (MEDIUM): probably want to forbid rather than insert in this case.
@@ -331,7 +331,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   }
 
   itemState.moveToNewParent(activeItem, canonicalChild.id, RelationshipToParent.Attachment, newOrdering);
-  server.updateItem(itemState.getItem(activeItem.id)!);
+  server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(desktopStore);
@@ -354,14 +354,14 @@ async function maybeDeleteComposite() {
     MouseActionState.get().startCompositeItem = null;
     return;
   }
-  const compositeItemParent = asContainerItem(itemState.getItem(compositeItem.parentId)!);
-  const child = itemState.getItem(compositeItem.computed_children[0])!;
+  const compositeItemParent = asContainerItem(itemState.get(compositeItem.parentId)!);
+  const child = itemState.get(compositeItem.computed_children[0])!;
   if (!isPositionalItem(child)) { panic(); }
   child.parentId = compositeItem.parentId;
   asPositionalItem(child).spatialPositionGr = compositeItem.spatialPositionGr;
   compositeItem.computed_children = [];
   compositeItemParent.computed_children.push(child.id);
-  itemState.deleteItem(compositeItem.id);
+  itemState.delete(compositeItem.id);
   itemState.sortChildren(compositeItemParent.id);
 
   await server.updateItem(child);
@@ -383,13 +383,13 @@ function cleanupAndPersistPlaceholders() {
     const attachments = placeholderParent.computed_attachments;
     if (attachments.length == 0) { break; }
     const attachmentId = placeholderParent.computed_attachments[placeholderParent.computed_attachments.length-1];
-    const attachment = itemState.getItem(attachmentId)!;
+    const attachment = itemState.get(attachmentId)!;
     if (attachment == null) { panic(); }
     if (!isPlaceholder(attachment)) {
       break;
     }
     server.deleteItem(attachment.id);
-    itemState.deleteItem(attachment.id);
+    itemState.delete(attachment.id);
   }
 
   MouseActionState.get().newPlaceholderItem = null;

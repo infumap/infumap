@@ -126,7 +126,7 @@ export function linkToObject(l: LinkItem): object {
 
 
 function constructLinkToMeasurable(link: LinkItem): Measurable | null {
-  const linkedToItemMaybe = itemState.getItem(getLinkToId(link));
+  const linkedToItemMaybe = itemState.get(getLinkToId(link));
   if (linkedToItemMaybe == null) { return null; }
   const linkedToMeasurableFields = cloneMeasurableFields(linkedToItemMaybe!);
   if (isLink(linkedToMeasurableFields)) { panic(); }
@@ -273,7 +273,7 @@ export function getLinkItemFingerprint(linkItem: LinkItem): string {
   if (linkToId == EMPTY_UID) {
     return "";
   }
-  const linkedToItemMaybe = itemState.getItem(linkToId);
+  const linkedToItemMaybe = itemState.get(linkToId);
   if (linkedToItemMaybe == null) { return ""; }
   return getItemFingerprint(linkedToItemMaybe!);
 }

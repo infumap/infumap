@@ -43,7 +43,7 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
           Object.keys(result.attachments).forEach(id => {
             itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
-          asContainerItem(itemState.getItem(containerId)!).childrenLoaded = true;
+          asContainerItem(itemState.get(containerId)!).childrenLoaded = true;
           try {
             arrange(desktopStore);
           } catch (e: any) {
@@ -104,7 +104,7 @@ export const initiateLoadItemFromRemote = (desktopStore: DesktopStoreContextMode
       if (result != null) {
         batch(() => {
           itemState.setItemFromServerObject(result.item);
-          asLinkItem(itemState.getItem(resolveId)!).linkToResolvedId = itemFromObject(result.item).id;
+          asLinkItem(itemState.get(resolveId)!).linkToResolvedId = itemFromObject(result.item).id;
           Object.keys(result.attachments).forEach(id => {
             itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });

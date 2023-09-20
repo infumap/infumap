@@ -114,7 +114,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
       newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
       server.addItem(newItem, null);
-      itemState.addItem(newItem);
+      itemState.add(newItem);
       desktopStore.setContextMenuInfo(null);
       desktopStore.setEditDialogInfo({
         desktopBoundsPx: initialEditDialogBounds(desktopStore),

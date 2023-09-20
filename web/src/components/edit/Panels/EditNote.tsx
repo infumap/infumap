@@ -37,7 +37,7 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
 
   const handleUrlChange = (v: string) => {
     if (!deleted) {
-      asNoteItem(itemState.getItem(noteId)!).url = v;
+      asNoteItem(itemState.get(noteId)!).url = v;
       arrange(desktopStore);
     }
   };
@@ -45,31 +45,31 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
   const deleteNote = async () => {
     deleted = true;
     await server.deleteItem(noteId); // throws on failure.
-    itemState.deleteItem(noteId);
+    itemState.delete(noteId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(noteId)!);
+      server.updateItem(itemState.get(noteId)!);
     }
   });
 
   const changeShowCopy = async () => {
     if (checkElement_copy!.checked) {
-      asNoteItem(itemState.getItem(noteId)!).flags |= NoteFlags.ShowCopyIcon;
+      asNoteItem(itemState.get(noteId)!).flags |= NoteFlags.ShowCopyIcon;
     } else {
-      asNoteItem(itemState.getItem(noteId)!).flags &= ~NoteFlags.ShowCopyIcon;
+      asNoteItem(itemState.get(noteId)!).flags &= ~NoteFlags.ShowCopyIcon;
     }
     arrange(desktopStore);
   }
 
   const changeDisplayAsHeading = async () => {
     if (checkElement_heading!.checked) {
-      asNoteItem(itemState.getItem(noteId)!).flags |= NoteFlags.Heading;
+      asNoteItem(itemState.get(noteId)!).flags |= NoteFlags.Heading;
     } else {
-      asNoteItem(itemState.getItem(noteId)!).flags &= ~NoteFlags.Heading;
+      asNoteItem(itemState.get(noteId)!).flags &= ~NoteFlags.Heading;
     }
     arrange(desktopStore);
   }

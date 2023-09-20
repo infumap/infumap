@@ -241,6 +241,12 @@ export const VeFns = {
     });
   },
 
+  getItem: (visualElement: VisualElement): Item => {
+    return visualElement.linkItemMaybe != null
+      ? visualElement.linkItemMaybe!
+      : visualElement.displayItem;
+  },
+
   prependVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
     let current = veid.itemId;
     if (veid.linkIdMaybe != null) {
@@ -277,7 +283,7 @@ export const VeFns = {
   },
 
   veidFromId: (id: Uid): Veid => {
-    let item = itemState.getItem(id)!;
+    let item = itemState.get(id)!;
     if (isLink(item)) {
       const linkItem = asLinkItem(item);
       const linkToId = getLinkToId(linkItem);

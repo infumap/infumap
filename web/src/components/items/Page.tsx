@@ -55,7 +55,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const parentPage = () => {
     const veParentPath = props.visualElement.parentPath!;
     const parentVe = VesCache.get(veParentPath)!.get();
-    return asPageItem(itemState.getItem(parentVe.displayItem.id)!);
+    return asPageItem(itemState.get(parentVe.displayItem.id)!);
   };
   const boundsPx = () => props.visualElement.boundsPx;
   const innerBoundsPx = () => {
@@ -272,7 +272,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const anchorPopup = () => {
-    const popupParentPage = asPageItem(itemState.getItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem.id)!);
+    const popupParentPage = asPageItem(itemState.get(VesCache.get(props.visualElement.parentPath!)!.get().displayItem.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
       popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
     }

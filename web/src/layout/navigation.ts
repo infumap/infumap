@@ -47,7 +47,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: 
   desktopStore.pushPage(veid);
   arrange(desktopStore);
 
-  const currentPage = asPageItem(itemState.getItem(veid.itemId)!);
+  const currentPage = asPageItem(itemState.get(veid.itemId)!);
   if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     if (desktopStore.getSelectedListPageItem(veid) == "") {
       if (currentPage.computed_children.length > 0) {

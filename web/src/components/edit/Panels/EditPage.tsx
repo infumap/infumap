@@ -44,43 +44,43 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
 
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
-      asPageItem(itemState.getItem(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
+      asPageItem(itemState.get(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
       arrange(desktopStore);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
-      asPageItem(itemState.getItem(pageId)!).naturalAspect = parseFloat(v);
+      asPageItem(itemState.get(pageId)!).naturalAspect = parseFloat(v);
       arrange(desktopStore);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
-      asPageItem(itemState.getItem(pageId)!).gridNumberOfColumns = parseInt(v);
+      asPageItem(itemState.get(pageId)!).gridNumberOfColumns = parseInt(v);
       arrange(desktopStore);
     }
   }
 
   const handleTitleInput = (v: string) => {
-    asPageItem(itemState.getItem(pageId)!).title = v;
+    asPageItem(itemState.get(pageId)!).title = v;
     arrange(desktopStore);
   };
 
   const deletePage = async () => {
     deleted = true;
     await server.deleteItem(pageId); // throws on failure.
-    itemState.deleteItem(pageId);
+    itemState.delete(pageId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   const setAspectToMatchScreen = async () => {
-    asPageItem(itemState.getItem(pageId)!).naturalAspect = screenAspect();
+    asPageItem(itemState.get(pageId)!).naturalAspect = screenAspect();
     desktopStore.setEditDialogInfo({
       desktopBoundsPx: desktopStore.editDialogInfo()!.desktopBoundsPx,
-      item: itemState.getItem(pageId)!
+      item: itemState.get(pageId)!
     });
     arrange(desktopStore);
   }
@@ -101,16 +101,16 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
     } else {
       panic();
     }
-    asPageItem(itemState.getItem(pageId)!).arrangeAlgorithm = t;
+    asPageItem(itemState.get(pageId)!).arrangeAlgorithm = t;
     arrange(desktopStore);
   }
 
   const changeOrderChildrenBy = async () => {
     const orderByTitle = checkElement_ord?.checked;
     if (orderByTitle) {
-      asPageItem(itemState.getItem(pageId)!).orderChildrenBy = "title[ASC]";
+      asPageItem(itemState.get(pageId)!).orderChildrenBy = "title[ASC]";
     } else {
-      asPageItem(itemState.getItem(pageId)!).orderChildrenBy = "";
+      asPageItem(itemState.get(pageId)!).orderChildrenBy = "";
     }
     itemState.sortChildren(pageId);
     arrange(desktopStore);
@@ -118,15 +118,15 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(pageId)!);
+      server.updateItem(itemState.get(pageId)!);
     }
   });
 
   const changePermissions = async () => {
     if (checkElement_public!.checked) {
-      asPageItem(itemState.getItem(pageId)!).permissionFlags |= PermissionFlags.Public;
+      asPageItem(itemState.get(pageId)!).permissionFlags |= PermissionFlags.Public;
     } else {
-      asPageItem(itemState.getItem(pageId)!).permissionFlags &= ~PermissionFlags.Public;
+      asPageItem(itemState.get(pageId)!).permissionFlags &= ~PermissionFlags.Public;
     }
     arrange(desktopStore);
   }

@@ -42,23 +42,23 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     if (props.linkItem.linkTo == EMPTY_UID) {
       return null;
     }
-    const item = itemState.getItem(props.linkItem.linkTo);
+    const item = itemState.get(props.linkItem.linkTo);
     return item;
   }
   let deleted = false;
 
   const handleLinkToInput = (v: string) => {
     if (!deleted) {
-      asLinkItem(itemState.getItem(linkId)!).linkToResolvedId = null;
-      asLinkItem(itemState.getItem(linkId)!).linkTo = v;
+      asLinkItem(itemState.get(linkId)!).linkToResolvedId = null;
+      asLinkItem(itemState.get(linkId)!).linkTo = v;
       arrange(desktopStore);
     }
   };
 
   const handleLinkToBaseUrlInput = (v: string) => {
     if (!deleted) {
-      asLinkItem(itemState.getItem(linkId)!).linkToResolvedId = null;
-      asLinkItem(itemState.getItem(linkId)!).linkToBaseUrl = v;
+      asLinkItem(itemState.get(linkId)!).linkToResolvedId = null;
+      asLinkItem(itemState.get(linkId)!).linkToBaseUrl = v;
       arrange(desktopStore);
     }
   };
@@ -66,14 +66,14 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
   const deleteLink = async () => {
     deleted = true;
     await server.deleteItem(linkId); // throws on failure.
-    itemState.deleteItem(linkId);
+    itemState.delete(linkId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(linkId)!);
+      server.updateItem(itemState.get(linkId)!);
     }
   });
 

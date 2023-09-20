@@ -33,21 +33,21 @@ export const EditPassword: Component<{passwordItem: PasswordItem, linkedTo: bool
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asPasswordItem(itemState.getItem(passwordId)!).text = v;
+    asPasswordItem(itemState.get(passwordId)!).text = v;
     arrange(desktopStore);
   };
 
   const deletePassword = async () => {
     deleted = true;
     await server.deleteItem(passwordId); // throws on failure.
-    itemState.deleteItem(passwordId);
+    itemState.delete(passwordId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(passwordId)!);
+      server.updateItem(itemState.get(passwordId)!);
     }
   });
 

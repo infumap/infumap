@@ -39,7 +39,7 @@ export function mouseDoubleClickHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
   if (hitInfo.hitboxType == HitboxType.None) { return; }
 
-  const activeDisplayItem = itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
+  const activeDisplayItem = itemState.get(hitInfo.overElementVes.get().displayItem.id)!;
   if (!isNote(activeDisplayItem)) { return; }
 
   desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(hitInfo.overElementVes.get()) });

@@ -68,7 +68,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     if (compositeItem().computed_children.length == 0) {
       return "[empty]";
     }
-    const topItem = itemState.getItem(compositeItem().computed_children[0])!
+    const topItem = itemState.get(compositeItem().computed_children[0])!
     if (isTitledItem(topItem)) {
       return asTitledItem(topItem).title + "...";
     }

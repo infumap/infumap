@@ -82,10 +82,8 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
   const deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
 
-  let activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-  let activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
-    ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
-    : itemState.getItem(activeVisualElement.displayItem.id)!);
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
 
   changeMouseActionStateMaybe(deltaPx, activeVisualElement, activeItem, desktopStore, desktopPosPx, ev);
 
@@ -145,9 +143,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElement = MouseActionState.get().activeCompositeElementMaybe!;
       activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-      activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
-        ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
-        : itemState.getItem(activeVisualElement.displayItem.id)!);
+      activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
     }
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
@@ -158,7 +154,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
       const shouldCreateLink = ev.shiftKey;
-      const parentItem = itemState.getItem(activeItem.parentId)!;
+      const parentItem = itemState.get(activeItem.parentId)!;
       if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
         moving_activeItemOutOfTable(desktopStore, shouldCreateLink);
         MouseActionState.get().startPosBl = {
@@ -170,7 +166,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
         const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
         moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
       }
-      else if (isComposite(itemState.getItem(activeItem.parentId)!)) {
+      else if (isComposite(itemState.get(activeItem.parentId)!)) {
         const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
         moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
       }
@@ -181,7 +177,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
         };
         if (shouldCreateLink) {
           const link = newLinkItemFromItem(activeItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
-          itemState.addItem(link);
+          itemState.add(link);
           server.addItem(link, null);
           arrange(desktopStore);
           let ve = findVisualElements(desktopStore, activeItem.id, link.id);
@@ -386,8 +382,8 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
     : 0;
   overContainerVe.moveOverRowNumber.set(insertRow);
 
-  const childItem = itemState.getItem(tableItem.computed_children[insertRow]);
-  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.getItem(getLinkToId(asLinkItem(childItem!))!)))) {
+  const childItem = itemState.get(tableItem.computed_children[insertRow]);
+  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(getLinkToId(asLinkItem(childItem!))!)))) {
     overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
   } else {
     overContainerVe.moveOverColAttachmentNumber.set(-1);
@@ -397,11 +393,11 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
 function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
-  const activeItem = asPositionalItem(activeElement.linkItemMaybe != null ? activeElement.linkItemMaybe! : activeElement.displayItem);
+  const activeItem = asPositionalItem(VeFns.getItem(activeElement));
   const activeElementLinkItemMaybeId = activeElement.linkItemMaybe == null ? null : activeElement.linkItemMaybe.id;
   const activeElementItemId = activeElement.displayItem.id;
 
-  const currentParent = itemState.getItem(activeItem.parentId)!;
+  const currentParent = itemState.get(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.displayItem);
   const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(moveToVe);
   const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
@@ -436,7 +432,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     parent.computed_attachments = parent.computed_attachments.filter(childItem => childItem != activeItem.id);
     if (!isLast) {
       const placeholderItem = newPlaceholderItem(activeItem.ownerId, currentParent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
-      itemState.addItem(placeholderItem);
+      itemState.add(placeholderItem);
       MouseActionState.get().newPlaceholderItem = placeholderItem;
     }
     MouseActionState.get().startAttachmentsItem = parent;
@@ -473,7 +469,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
 function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
-  const activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null ? activeVisualElement.linkItemMaybe! : activeVisualElement.displayItem);
+  const activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);

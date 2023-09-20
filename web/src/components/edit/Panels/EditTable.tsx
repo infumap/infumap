@@ -41,14 +41,14 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
   let deleted = false;
 
   const handleTitleInput = (v: string) => {
-    asTableItem(itemState.getItem(tableId)!).title = v;
+    asTableItem(itemState.get(tableId)!).title = v;
     arrange(desktopStore);
   };
 
   const deleteTable = async () => {
     deleted = true;
     await server.deleteItem(tableId); // throws on failure.
-    itemState.deleteItem(tableId);
+    itemState.delete(tableId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
@@ -70,9 +70,9 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
   const changeOrderChildrenBy = async () => {
     const orderByTitle = checkElement_ord?.checked;
     if (orderByTitle) {
-      asTableItem(itemState.getItem(tableId)!).orderChildrenBy = "title[ASC]";
+      asTableItem(itemState.get(tableId)!).orderChildrenBy = "title[ASC]";
     } else {
-      asTableItem(itemState.getItem(tableId)!).orderChildrenBy = "";
+      asTableItem(itemState.get(tableId)!).orderChildrenBy = "";
     }
     itemState.sortChildren(tableId);
     arrange(desktopStore);
@@ -80,9 +80,9 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
 
   const changeShowHeader = async () => {
     if (checkElement_header!.checked) {
-      asTableItem(itemState.getItem(tableId)!).flags |= TableFlags.ShowColHeader;
+      asTableItem(itemState.get(tableId)!).flags |= TableFlags.ShowColHeader;
     } else {
-      asTableItem(itemState.getItem(tableId)!).flags &= ~TableFlags.ShowColHeader;
+      asTableItem(itemState.get(tableId)!).flags &= ~TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableId);
     arrange(desktopStore);
@@ -90,7 +90,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(tableId)!);
+      server.updateItem(itemState.get(tableId)!);
     }
   });
 

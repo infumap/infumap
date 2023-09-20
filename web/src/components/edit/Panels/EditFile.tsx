@@ -33,7 +33,7 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
   let deleted = false;
 
   const handleTextInput = (v: string) => {
-    asFileItem(itemState.getItem(fileId)!).title = v;
+    asFileItem(itemState.get(fileId)!).title = v;
     // rearrangeVisualElementsWithItemId(desktopStore, fileId);
     arrange(desktopStore);
   };
@@ -41,14 +41,14 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
   const deleteFile = async () => {
     deleted = true;
     await server.deleteItem(fileId); // throws on failure.
-    itemState.deleteItem(fileId);
+    itemState.delete(fileId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.getItem(fileId)!);
+      server.updateItem(itemState.get(fileId)!);
     }
   });
 

@@ -30,26 +30,26 @@ let items = new Map<Uid, Item>();
 
 
 export const itemState = {
-  getItem: (id: Uid): Item | null => {
+  get: (id: Uid): Item | null => {
     const v = items.get(id);
     if (v) { return v; }
     return null;
   },
 
-  getContainerItem: (id: Uid): ContainerItem | null => {
-    const item = itemState.getItem(id);
+  getAsContainerItem: (id: Uid): ContainerItem | null => {
+    const item = itemState.get(id);
     if (item == null) { return null; }
     return asContainerItem(item);
   },
 
-  getAttachmentsItem: (id: Uid): AttachmentsItem | null => {
-    const item = itemState.getItem(id);
+  getAsAttachmentsItem: (id: Uid): AttachmentsItem | null => {
+    const item = itemState.get(id);
     if (item == null) { return null; }
     return asAttachmentsItem(item);
   },
 
-  deleteItem: (id: Uid): void => {
-    const item = itemState.getItem(id)!;
+  delete: (id: Uid): void => {
+    const item = itemState.get(id)!;
     if (item.parentId == EMPTY_UID) {
       panic!();
     }
@@ -59,11 +59,11 @@ export const itemState = {
         console.error(
           `${containerItem.itemType} container has children, can't delete:`, 
           [...containerItem.computed_children],
-          containerItem.computed_children.map(i => { const itm = itemState.getItem(i)!; return (isTitledItem(itm)) ? asTitledItem(itm).title : "no-title" }));
+          containerItem.computed_children.map(i => { const itm = itemState.get(i)!; return (isTitledItem(itm)) ? asTitledItem(itm).title : "no-title" }));
         panic!();
       }
     }
-    const parentItem = itemState.getItem(item.parentId)!;
+    const parentItem = itemState.get(item.parentId)!;
     if (item.relationshipToParent == RelationshipToParent.Child) {
       const containerParentItem = asContainerItem(parentItem);
       containerParentItem.computed_children
@@ -84,17 +84,17 @@ export const itemState = {
   },
 
   sortChildren: (parentId: Uid): void => {
-    const container = asContainerItem(itemState.getItem(parentId)!);
+    const container = asContainerItem(itemState.get(parentId)!);
     if (container.orderChildrenBy == "") {
-      container.computed_children.sort((a, b) => compareOrderings(itemState.getItem(a)!.ordering, itemState.getItem(b)!.ordering));
+      container.computed_children.sort((a, b) => compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering));
     } else if (container.orderChildrenBy == "title[ASC]") {
       container.computed_children.sort((a, b) => {
         let aTitle = "";
-        const aItem = itemState.getItem(a)!
+        const aItem = itemState.get(a)!
         if (isTitledItem(aItem)) { aTitle = asTitledItem(aItem).title; }
         aTitle.toLocaleLowerCase();
         let bTitle = "";
-        const bItem = itemState.getItem(b)!
+        const bItem = itemState.get(b)!
         if (isTitledItem(bItem)) { bTitle = asTitledItem(bItem).title; }
         bTitle.toLocaleLowerCase();
         return aTitle.localeCompare(bTitle);
@@ -103,8 +103,8 @@ export const itemState = {
   },
 
   sortAttachments: (parentId: Uid): void => {
-    const container = asAttachmentsItem(itemState.getItem(parentId)!);
-    container.computed_attachments.sort((a, b) => compareOrderings(itemState.getItem(a)!.ordering, itemState.getItem(b)!.ordering));
+    const container = asAttachmentsItem(itemState.get(parentId)!);
+    container.computed_attachments.sort((a, b) => compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering));
   },
 
   /**
@@ -123,10 +123,10 @@ export const itemState = {
         items.set(childItem.id, childItem);
       }
     });
-    if (!isContainer(itemState.getItem(parentId)!)) {
+    if (!isContainer(itemState.get(parentId)!)) {
       throwExpression(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
     }
-    const parent = itemState.getContainerItem(parentId)!;
+    const parent = itemState.getAsContainerItem(parentId)!;
     let children: Array<Uid> = [];
     childItems.forEach(childItem => {
       if (childItem.parentId == EMPTY_UID) {
@@ -147,10 +147,10 @@ export const itemState = {
 
   setAttachmentItemsFromServerObjects: (parentId: Uid, attachmentItemObject: Array<object>): void => {
     let attachmentItems = attachmentItemObject.map(aio => itemFromObject(aio));
-    if (!isAttachmentsItem(itemState.getItem(parentId)!)) {
-      throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${itemState.getItem(parentId)!.itemType}' which does not allow attachments.`);
+    if (!isAttachmentsItem(itemState.get(parentId)!)) {
+      throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${itemState.get(parentId)!.itemType}' which does not allow attachments.`);
     }
-    const parent = itemState.getAttachmentsItem(parentId)!;
+    const parent = itemState.getAsAttachmentsItem(parentId)!;
     let attachments: Array<Uid> = [];
     attachmentItems.forEach(attachmentItem => {
       items.set(attachmentItem.id, attachmentItem);
@@ -166,14 +166,14 @@ export const itemState = {
     itemState.sortAttachments(parentId);
   },
 
-  addItem: (item: Item): void => {
+  add: (item: Item): void => {
     items.set(item.id, item);
     if (item.relationshipToParent == RelationshipToParent.Child) {
-      const parentItem = itemState.getContainerItem(item.parentId)!;
+      const parentItem = itemState.getAsContainerItem(item.parentId)!;
       parentItem.computed_children = [...parentItem.computed_children, item.id];
       itemState.sortChildren(parentItem.id);
     } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
-      const parentItem = itemState.getAttachmentsItem(item.parentId)!;
+      const parentItem = itemState.getAsAttachmentsItem(item.parentId)!;
       parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
       itemState.sortAttachments(parentItem.id);
     } else {
@@ -239,13 +239,13 @@ export const itemState = {
     item.parentId = moveToParentId;
     item.relationshipToParent = newRelationshipToParent;
     if (newRelationshipToParent == RelationshipToParent.Child) {
-      const moveOverContainer = itemState.getContainerItem(moveToParentId)!;
+      const moveOverContainer = itemState.getAsContainerItem(moveToParentId)!;
       const moveOverContainerChildren = [item.id, ...moveOverContainer.computed_children];
       moveOverContainer.computed_children = moveOverContainerChildren;
       itemState.sortChildren(moveOverContainer.id);
       updatePrevParent();
     } else if (newRelationshipToParent == RelationshipToParent.Attachment) {
-      const moveOverAttachmentsItem = itemState.getAttachmentsItem(moveToParentId)!;
+      const moveOverAttachmentsItem = itemState.getAsAttachmentsItem(moveToParentId)!;
       const moveOverAttachments = [item.id, ...moveOverAttachmentsItem.computed_attachments];
       moveOverAttachmentsItem.computed_attachments = moveOverAttachments;
       itemState.sortAttachments(moveOverAttachmentsItem.id);
@@ -255,10 +255,10 @@ export const itemState = {
     }
     function updatePrevParent() {
       if (prevRelationshipToParent == RelationshipToParent.Child) {
-        const prevParent = itemState.getContainerItem(prevParentId)!;
+        const prevParent = itemState.getAsContainerItem(prevParentId)!;
         prevParent.computed_children = prevParent.computed_children.filter(i => i != item.id);
       } else if (prevRelationshipToParent == RelationshipToParent.Attachment) {
-        const prevParent = itemState.getAttachmentsItem(prevParentId)!;
+        const prevParent = itemState.getAsAttachmentsItem(prevParentId)!;
         prevParent.computed_attachments = prevParent.computed_attachments.filter(i => i != item.id);
       }
     }

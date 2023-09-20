@@ -109,7 +109,7 @@ export function compositeToObject(p: CompositeItem): object {
 export function calcCompositeSizeForSpatialBl(composite: CompositeMeasurable): Dimensions {
   let bh = 0.0;
   for (let childId of composite.computed_children) {
-    let item = itemState.getItem(childId)!;
+    let item = itemState.get(childId)!;
     if (!item) { continue; }
     let cloned = cloneMeasurableFields(item);
     // TODO (HIGH): different items will be sized differently in composite items.

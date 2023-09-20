@@ -34,7 +34,7 @@ export const EditComposite: Component<{compositeItem: CompositeItem, linkedTo: b
   const deleteComposite = async () => {
     deleted = true;
     await server.deleteItem(compositeId); // throws on failure.
-    itemState.deleteItem(compositeId);
+    itemState.delete(compositeId);
     desktopStore.setEditDialogInfo(null);
     arrange(desktopStore);
   }

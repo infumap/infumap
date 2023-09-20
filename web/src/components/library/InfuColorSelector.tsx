@@ -41,9 +41,9 @@ export const InfuColorSelector: Component<{ item: Item }> = (props: {item: Item 
   let itemId = props.item.id;
 
   const handleClick = (col: number) => {
-    asPageItem(itemState.getItem(props.item.id)!).backgroundColorIndex = col;
+    asPageItem(itemState.get(props.item.id)!).backgroundColorIndex = col;
     arrange(desktopStore);
-    server.updateItem(itemState.getItem(itemId)!);
+    server.updateItem(itemState.get(itemId)!);
   }
 
   return (

@@ -101,7 +101,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
       ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-      let currentPage = asPageItem(itemState.getItem(desktopStore.currentPage()!.itemId)!);
+      let currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
       if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
         if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
           const selectedItem = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
@@ -120,7 +120,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction, false)!;
         if (closest != null) {
           const closestVeid = VeFns.veidFromPath(closest);
-          const closestItem = itemState.getItem(closestVeid.itemId);
+          const closestItem = itemState.get(closestVeid.itemId);
           desktopStore.replacePopup({
             type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
             vePath: closest
@@ -149,7 +149,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDownHandler(desktopStore, userStore, ev);
+    mouseDownHandler(desktopStore, userStore, ev.button);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {

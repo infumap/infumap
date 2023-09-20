@@ -79,7 +79,7 @@ export const TextEditOverlay: Component = () => {
   }
 
   const handleUrlChange = (v: string) => {
-    asNoteItem(itemState.getItem(noteItem().id)!).url = v;
+    asNoteItem(itemState.get(noteItem().id)!).url = v;
     arrange(desktopStore);
   };
 

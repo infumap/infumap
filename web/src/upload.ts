@@ -72,7 +72,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-      itemState.addItem(itemFromObject(returnedItem));
+      itemState.add(itemFromObject(returnedItem));
       arrange(desktopStore);
 
     } else {
@@ -90,7 +90,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
-      itemState.addItem(itemFromObject(returnedItem));
+      itemState.add(itemFromObject(returnedItem));
       arrange(desktopStore);
     }
   }
