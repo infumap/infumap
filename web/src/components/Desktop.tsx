@@ -22,7 +22,7 @@ import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
-import { mouseDoubleClickHandler, mouseDownHandler, mouseMoveHandler, mouseMoveNoButtonDownHandler, mouseUpHandler } from "../mouse/mouse";
+import { mouseDoubleClickHandler, mouseDownHandler, mouseMoveHandler, mouseMoveNoButtonDownHandler } from "../mouse/mouse";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
@@ -38,6 +38,7 @@ import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
 import { TextEditOverlay } from "./TextEditOverlay";
+import { mouseUpHandler } from "../mouse/mouse_up";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
