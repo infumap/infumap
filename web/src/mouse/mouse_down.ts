@@ -34,8 +34,12 @@ import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
-import { MOUSE_LEFT, MOUSE_RIGHT, mouseMoveNoButtonDownHandler } from "./mouse";
+import { handlNoButtonDown } from "./mouse_move";
 import { DialogMoveState, MouseAction, MouseActionState } from "./state";
+
+
+export const MOUSE_LEFT = 0;
+export const MOUSE_RIGHT = 2;
 
 
 export function mouseDownHandler(
@@ -178,13 +182,13 @@ export function mouseRightDownHandler(
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
-    mouseMoveNoButtonDownHandler(desktopStore);
+    handlNoButtonDown(desktopStore);
     return;
   }
 
   if (desktopStore.editDialogInfo() != null) {
     desktopStore.setEditDialogInfo(null);
-    mouseMoveNoButtonDownHandler(desktopStore);
+    handlNoButtonDown(desktopStore);
     return;
   }
 

@@ -35,7 +35,7 @@ import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../util/lang";
 import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFromRemote } from "./load";
-import { mouseMoveNoButtonDownHandler } from "../mouse/mouse";
+import { handlNoButtonDown } from "../mouse/mouse_move";
 import { newUid } from "../util/uid";
 import { HitboxType, createHitbox } from "./hitbox";
 import { itemState } from "../store/ItemState";
@@ -89,7 +89,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
     arrange_list(desktopStore);
   }
-  mouseMoveNoButtonDownHandler(desktopStore);
+  handlNoButtonDown(desktopStore);
 }
 
 

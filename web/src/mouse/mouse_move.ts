@@ -27,7 +27,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElement, VisualElementFlags, getVeid, visualElementDesktopBoundsPx as visualElementBoundsOnDesktopPx, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, getVeid, visualElementDesktopBoundsPx, visualElementToPath } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -44,12 +44,7 @@ import { mouseMoveState } from "../store/MouseMoveState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
-import { isNote } from "../items/note-item";
 import { MouseAction, MouseActionState, dialogMoveState } from "./state";
-
-
-export const MOUSE_LEFT = 0;
-export const MOUSE_RIGHT = 2;
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -77,13 +72,13 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       return;
     }
     if (isInside(desktopPosPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
-      mouseMoveNoButtonDownHandler(desktopStore);
+      handlNoButtonDown(desktopStore);
       return;
     }
   }
 
   if (MouseActionState.empty()) {
-    mouseMoveNoButtonDownHandler(desktopStore);
+    handlNoButtonDown(desktopStore);
     return;
   }
 
@@ -332,7 +327,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   }
 }
 
-export function mouseMoveNoButtonDownHandler(desktopStore: DesktopStoreContextModel) {
+export function handlNoButtonDown(desktopStore: DesktopStoreContextModel) {
   const dialogInfo = desktopStore.editDialogInfo();
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null;
@@ -385,7 +380,7 @@ export function handleOverTable(desktopStore: DesktopStoreContextModel, overCont
     w: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
     h: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
   };
-  const tableBoundsPx = visualElementBoundsOnDesktopPx(overContainerVe);
+  const tableBoundsPx = visualElementDesktopBoundsPx(overContainerVe);
 
   // col
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
@@ -433,7 +428,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
 
   const currentParent = itemState.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = visualElementBoundsOnDesktopPx(moveToVe);
+  const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
   const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
@@ -550,26 +545,4 @@ export function moveActiveItemOutOfTable(desktopStore: DesktopStoreContextModel,
     }
   });
   if (!done) { panic(); }
-}
-
-
-export function mouseDoubleClickHandler(
-  desktopStore: DesktopStoreContextModel,
-  ev: MouseEvent) {
-if (desktopStore.currentPage() == null) { return; }
-if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
-if (ev.button != MOUSE_LEFT) {
-  console.error("unsupported mouse double click button: " + ev.button);
-  return;
-}
-
-const desktopPosPx = desktopPxFromMouseEvent(ev);
-
-const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-if (hitInfo.hitboxType == HitboxType.None) { return; }
-
-const activeDisplayItem = itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
-if (!isNote(activeDisplayItem)) { return; }
-
-desktopStore.setTextEditOverlayInfo({ noteItemPath: visualElementToPath(hitInfo.overElementVes.get()) });
 }
