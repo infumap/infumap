@@ -22,7 +22,7 @@ import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { ContextMenu } from "./context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
-import { mouseMoveHandler, handlNoButtonDown } from "../mouse/mouse_move";
+import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
@@ -65,7 +65,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     if (ev.code == "Slash") {
       ev.preventDefault();
       desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(mouseMoveState.lastMouseMoveEvent()), hitInfo });
-      handlNoButtonDown(desktopStore);
+      mouseMove_handleNoButtonDown(desktopStore);
     }
 
     else if (ev.code == "Backslash") {
@@ -88,7 +88,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
           return overVe.displayItem;
         })()
       });
-      handlNoButtonDown(desktopStore);
+      mouseMove_handleNoButtonDown(desktopStore);
     }
 
     else if (ev.code == "Escape") {

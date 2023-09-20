@@ -30,8 +30,8 @@ import { Uid } from "../util/uid";
 
 
 export interface HitInfo {
-  hitboxType: HitboxType,
-  compositeHitboxTypeMaybe: HitboxType,      // if the item hit was inside a composite container, the hitbox flags of the composite container, else none.
+  hitboxType: HitboxType,                    // the intersected hitbox flags of overElement.
+  compositeHitboxTypeMaybe: HitboxType,      // if the item hit was inside a composite container, the intersected hitbox flags of the composite container, else None.
   rootVe: VisualElement,                     // the first fully editable page directly under the specified position.
   overElementVes: VisualElementSignal,       // the visual element under the specified position.
   overElementMeta: HitboxMeta | null,        // meta data from the hit hitbox of the visual element under specified position.

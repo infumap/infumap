@@ -34,7 +34,7 @@ import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
-import { handlNoButtonDown } from "./mouse_move";
+import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DialogMoveState, MouseAction, MouseActionState } from "./state";
 
 
@@ -52,7 +52,7 @@ export function mouseDownHandler(
   } else if (ev.button == MOUSE_RIGHT) {
     mouseRightDownHandler(desktopStore, userStore, ev);
   } else {
-    console.error("unsupported mouse button: " + ev.button);
+    console.warn("unsupported mouse button: " + ev.button);
   }
 }
 
@@ -182,13 +182,13 @@ export function mouseRightDownHandler(
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
-    handlNoButtonDown(desktopStore);
+    mouseMove_handleNoButtonDown(desktopStore);
     return;
   }
 
   if (desktopStore.editDialogInfo() != null) {
     desktopStore.setEditDialogInfo(null);
-    handlNoButtonDown(desktopStore);
+    mouseMove_handleNoButtonDown(desktopStore);
     return;
   }
 
