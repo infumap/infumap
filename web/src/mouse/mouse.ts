@@ -309,98 +309,96 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     : itemState.getItem(activeVisualElement.displayItem.id)!);
 
   if (mouseActionState.action == MouseAction.Ambiguous) {
-    if (Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
-      if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
-        mouseActionState.startPosBl = null;
-        if (activeVisualElement.flags & VisualElementFlags.Popup) {
-          mouseActionState.startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
+    if (!(Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX)) {
+      return;
+    }
+
+    if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
+      mouseActionState.startPosBl = null;
+      if (activeVisualElement.flags & VisualElementFlags.Popup) {
+        mouseActionState.startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
+        mouseActionState.startHeightBl = null;
+        mouseActionState.action = MouseAction.ResizingPopup;
+      } else {
+        mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
+        if (isYSizableItem(activeItem)) {
+          mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
+        } else if(isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
+          mouseActionState.startHeightBl = asLinkItem(activeItem).spatialHeightGr / GRID_SIZE;
+        } else {
           mouseActionState.startHeightBl = null;
-          mouseActionState.action = MouseAction.ResizingPopup;
-        } else {
-          mouseActionState.startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
-          if (isYSizableItem(activeItem)) {
-            mouseActionState.startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
-          } else if(isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
-            mouseActionState.startHeightBl = asLinkItem(activeItem).spatialHeightGr / GRID_SIZE;
-          } else {
-            mouseActionState.startHeightBl = null;
-          }
-          mouseActionState.action = MouseAction.Resizing;
         }
-
-      } else if (((mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) > 0) ||
-                 ((mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move))) {
-        if (!(mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) &&
-            (mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move)) {
-          // if the composite move hitbox is hit, but not the child, then swap out the active element.
-          mouseActionState.hitboxTypeOnMouseDown = mouseActionState.compositeHitboxTypeMaybeOnMouseDown!;
-          mouseActionState.activeElement = mouseActionState.activeCompositeElementMaybe!;
-          activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
-          activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
-            ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
-            : itemState.getItem(activeVisualElement.displayItem.id)!);
-        }
-        mouseActionState.startWidthBl = null;
-        mouseActionState.startHeightBl = null;
-        if (activeVisualElement.flags & VisualElementFlags.Popup) {
-          mouseActionState.action = MouseAction.MovingPopup;
-          const activeRoot = VesCache.get(mouseActionState.activeRoot)!.get().displayItem;
-          const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
-          mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
-        } else {
-          const shouldCreateLink = ev.shiftKey;
-          const parentItem = itemState.getItem(activeItem.parentId)!;
-          if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
-            moveActiveItemOutOfTable(desktopStore, shouldCreateLink);
-            mouseActionState.startPosBl = {
-              x: activeItem.spatialPositionGr.x / GRID_SIZE,
-              y: activeItem.spatialPositionGr.y / GRID_SIZE
-            };
-          }
-          else if (activeItem.relationshipToParent == Attachment) {
-            const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment, shouldCreateLink);
-          }
-          else if (isComposite(itemState.getItem(activeItem.parentId)!)) {
-            const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-            moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child, shouldCreateLink);
-          }
-          else {
-            mouseActionState.startPosBl = {
-              x: activeItem.spatialPositionGr.x / GRID_SIZE,
-              y: activeItem.spatialPositionGr.y / GRID_SIZE
-            };
-            if (shouldCreateLink) {
-              const link = newLinkItemFromItem(activeItem, Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
-              itemState.addItem(link);
-              server.addItem(link, null);
-              arrange(desktopStore);
-              let ve = findVisualElements(desktopStore, activeItem.id, link.id);
-              if (ve.length != 1) { panic(); }
-              mouseActionState.activeElement = visualElementToPath(ve[0].get());
-            }
-          }
-          mouseActionState.action = MouseAction.Moving;
-        }
-
-      } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
-        mouseActionState.startPosBl = null;
-        mouseActionState.startHeightBl = null;
-        const colNum = mouseActionState.hitMeta!.resizeColNumber!;
-        if (activeVisualElement.linkItemMaybe != null) {
-          mouseActionState.startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
-        } else {
-          mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
-        }
-        mouseActionState.action = MouseAction.ResizingColumn;
+        mouseActionState.action = MouseAction.Resizing;
       }
 
+    } else if (((mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) > 0) ||
+                ((mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move))) {
+      if (!(mouseActionState.hitboxTypeOnMouseDown & HitboxType.Move) &&
+          (mouseActionState.compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move)) {
+        // if the composite move hitbox is hit, but not the child, then swap out the active element.
+        mouseActionState.hitboxTypeOnMouseDown = mouseActionState.compositeHitboxTypeMaybeOnMouseDown!;
+        mouseActionState.activeElement = mouseActionState.activeCompositeElementMaybe!;
+        activeVisualElement = VesCache.get(mouseActionState.activeElement)!.get();
+        activeItem = asPositionalItem(activeVisualElement.linkItemMaybe != null
+          ? itemState.getItem(activeVisualElement.linkItemMaybe!.id)!
+          : itemState.getItem(activeVisualElement.displayItem.id)!);
+      }
+      mouseActionState.startWidthBl = null;
+      mouseActionState.startHeightBl = null;
+      if (activeVisualElement.flags & VisualElementFlags.Popup) {
+        mouseActionState.action = MouseAction.MovingPopup;
+        const activeRoot = VesCache.get(mouseActionState.activeRoot)!.get().displayItem;
+        const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
+        mouseActionState.startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
+      } else {
+        const shouldCreateLink = ev.shiftKey;
+        const parentItem = itemState.getItem(activeItem.parentId)!;
+        if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
+          moveActiveItemOutOfTable(desktopStore, shouldCreateLink);
+          mouseActionState.startPosBl = {
+            x: activeItem.spatialPositionGr.x / GRID_SIZE,
+            y: activeItem.spatialPositionGr.y / GRID_SIZE
+          };
+        }
+        else if (activeItem.relationshipToParent == Attachment) {
+          const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment, shouldCreateLink);
+        }
+        else if (isComposite(itemState.getItem(activeItem.parentId)!)) {
+          const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child, shouldCreateLink);
+        }
+        else {
+          mouseActionState.startPosBl = {
+            x: activeItem.spatialPositionGr.x / GRID_SIZE,
+            y: activeItem.spatialPositionGr.y / GRID_SIZE
+          };
+          if (shouldCreateLink) {
+            const link = newLinkItemFromItem(activeItem, Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+            itemState.addItem(link);
+            server.addItem(link, null);
+            arrange(desktopStore);
+            let ve = findVisualElements(desktopStore, activeItem.id, link.id);
+            if (ve.length != 1) { panic(); }
+            mouseActionState.activeElement = visualElementToPath(ve[0].get());
+          }
+        }
+        mouseActionState.action = MouseAction.Moving;
+      }
+
+    } else if ((mouseActionState.hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
+      mouseActionState.startPosBl = null;
+      mouseActionState.startHeightBl = null;
+      const colNum = mouseActionState.hitMeta!.resizeColNumber!;
+      if (activeVisualElement.linkItemMaybe != null) {
+        mouseActionState.startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
+      } else {
+        mouseActionState.startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+      }
+      mouseActionState.action = MouseAction.ResizingColumn;
     }
   }
 
-  if (mouseActionState.action == MouseAction.Ambiguous) {
-    return;
-  }
 
   // ### Resizing
   if (mouseActionState.action == MouseAction.Resizing) {
