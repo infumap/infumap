@@ -33,7 +33,6 @@ import { VisualElement, veidFromPath } from "../layout/visual-element";
 import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hit";
 import { panic } from "../util/lang";
-import { mouseMoveState } from "../store/MouseMoveState";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
@@ -41,6 +40,7 @@ import { TextEditOverlay } from "./TextEditOverlay";
 import { mouseUpHandler } from "../mouse/mouse_up";
 import { mouseDownHandler } from "../mouse/mouse_down";
 import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
+import { LastMouseMoveEventState } from "../mouse/state";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -60,11 +60,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       return;
     }
 
-    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(mouseMoveState.lastMouseMoveEvent()), [], false);
+    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
 
     if (ev.code == "Slash") {
       ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(mouseMoveState.lastMouseMoveEvent()), hitInfo });
+      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(LastMouseMoveEventState.get()), hitInfo });
       mouseMove_handleNoButtonDown(desktopStore);
     }
 
@@ -153,7 +153,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    mouseMoveState.setLastMouseMoveEvent(ev);
+    LastMouseMoveEventState.set(ev);
     mouseMoveHandler(desktopStore);
   };
 

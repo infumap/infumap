@@ -39,11 +39,10 @@ import { newPlaceholderItem } from "../items/placeholder-item";
 import { asLinkItem, getLinkToId, isLink, newLinkItemFromItem } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
-import { mouseMoveState } from "../store/MouseMoveState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
-import { MouseAction, MouseActionState, dialogMoveState } from "./state";
+import { MouseAction, MouseActionState, LastMouseMoveEventState, dialogMoveState } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 
 
@@ -54,7 +53,7 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   if (desktopStore.currentPage() == null) { return; }
 
-  const ev = mouseMoveState.lastMouseMoveEvent();
+  const ev = LastMouseMoveEventState.get();
   const desktopPosPx = desktopPxFromMouseEvent(ev);
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
@@ -528,7 +527,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   const dialogInfo = desktopStore.editDialogInfo();
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null;
-  const ev = mouseMoveState.lastMouseMoveEvent();
+  const ev = LastMouseMoveEventState.get();
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
 

@@ -25,6 +25,9 @@ import { Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 
 
+
+// ### MouseAction State
+
 export enum MouseAction {
   Ambiguous,
   Moving,
@@ -33,7 +36,6 @@ export enum MouseAction {
   ResizingColumn,
   ResizingPopup,
 }
-
 
 export interface MouseActionStateType {
   hitboxTypeOnMouseDown: HitboxType,
@@ -83,6 +85,8 @@ export let MouseActionState = {
 
 
 
+// ### Dialog State
+
 export interface DialogMoveStateType {
   lastMousePosPx: Vector,
 }
@@ -99,4 +103,15 @@ export let DialogMoveState = {
     if (dialogMoveState == null) { panic(); }
     return dialogMoveState!;
   }
+}
+
+
+
+// ### Mouse MoveEvent State
+
+let lastMoveEvent: MouseEvent = new MouseEvent("mousemove");
+
+export const LastMouseMoveEventState = {
+  set: (ev: MouseEvent) => { lastMoveEvent = ev; },
+  get: (): MouseEvent => { return lastMoveEvent; }
 }
