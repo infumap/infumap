@@ -348,6 +348,7 @@ function finalizeMouseUp() {
 
 
 async function maybeDeleteComposite() {
+  if (MouseActionState.empty()) { return; }
   if (MouseActionState.get().startCompositeItem == null) { return; }
 
   const compositeItem = MouseActionState.get().startCompositeItem!;
@@ -372,6 +373,7 @@ async function maybeDeleteComposite() {
 
 
 function cleanupAndPersistPlaceholders() {
+  if (MouseActionState.empty()) { return; }
   if (MouseActionState.get().startAttachmentsItem == null) { return; }
 
   if (MouseActionState.get().newPlaceholderItem != null) {

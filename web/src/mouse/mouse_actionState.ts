@@ -70,6 +70,11 @@ let mouseActionState: MouseActionState | null = null;
 
 export let MouseActionState = {
   set: (state: MouseActionState | null): void => { mouseActionState = state; },
-  empty: (): boolean => { return mouseActionState == null; },
-  get: (): MouseActionState => { if (mouseActionState == null) { panic!(); } return mouseActionState!; }
+
+  empty: (): boolean => mouseActionState == null,
+
+  get: (): MouseActionState => {
+    if (mouseActionState == null) { panic!(); }
+    return mouseActionState!;
+  }
 }
