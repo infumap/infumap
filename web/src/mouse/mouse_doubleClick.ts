@@ -18,7 +18,7 @@
 
 import { isNote } from "../items/note-item";
 import { HitboxType } from "../layout/hitbox";
-import { visualElementToPath } from "../layout/visual-element";
+import { VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { desktopPxFromMouseEvent } from "../util/geometry";
@@ -42,5 +42,5 @@ export function mouseDoubleClickHandler(
   const activeDisplayItem = itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
   if (!isNote(activeDisplayItem)) { return; }
 
-  desktopStore.setTextEditOverlayInfo({ noteItemPath: visualElementToPath(hitInfo.overElementVes.get()) });
+  desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(hitInfo.overElementVes.get()) });
 }

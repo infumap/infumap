@@ -22,7 +22,7 @@ import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
-import { VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
+import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 
 
@@ -69,7 +69,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
-  const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
+  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no

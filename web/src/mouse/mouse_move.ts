@@ -27,7 +27,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElement, VisualElementFlags, getVeid, visualElementDesktopBoundsPx, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
 import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
@@ -186,7 +186,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
           arrange(desktopStore);
           let ve = findVisualElements(desktopStore, activeItem.id, link.id);
           if (ve.length != 1) { panic(); }
-          MouseActionState.get().activeElement = visualElementToPath(ve[0].get());
+          MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
         }
       }
       MouseActionState.get().action = MouseAction.Moving;
@@ -291,12 +291,12 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
-    MouseActionState.get().moveOver_containerElement! != visualElementToPath(hitInfo.overContainerVe!)) {
+    MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(hitInfo.overContainerVe!)) {
     if (MouseActionState.get().moveOver_containerElement != null) {
       VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get().movingItemIsOver.set(false);
     }
     hitInfo.overContainerVe!.movingItemIsOver.set(true);
-    MouseActionState.get().moveOver_containerElement = visualElementToPath(hitInfo.overContainerVe!);
+    MouseActionState.get().moveOver_containerElement = VeFns.veToPath(hitInfo.overContainerVe!);
   }
 
   // update move over attach state.
@@ -305,7 +305,7 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
   }
   if (hitInfo.hitboxType & HitboxType.Attach) {
     hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
-    MouseActionState.get().moveOver_attachHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
+    MouseActionState.get().moveOver_attachHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
   } else {
     MouseActionState.get().moveOver_attachHitboxElement = null;
   }
@@ -316,7 +316,7 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
   }
   if (hitInfo.hitboxType & HitboxType.AttachComposite) {
     hitInfo.overElementVes.get().movingItemIsOverAttachComposite.set(true);
-    MouseActionState.get().moveOver_attachCompositeHitboxElement = visualElementToPath(hitInfo.overElementVes.get());
+    MouseActionState.get().moveOver_attachCompositeHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
   } else {
     MouseActionState.get().moveOver_attachCompositeHitboxElement = null;
   }
@@ -355,7 +355,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
     w: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
     h: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
   };
-  const tableBoundsPx = visualElementDesktopBoundsPx(overContainerVe);
+  const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(overContainerVe);
 
   // col
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
@@ -378,7 +378,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
-  const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
+  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.getVeid(overContainerVe));
   let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
@@ -403,7 +403,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
 
   const currentParent = itemState.getItem(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = visualElementDesktopBoundsPx(moveToVe);
+  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(moveToVe);
   const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
@@ -418,7 +418,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
   const newItemPosGr = { x: startPosBl.x * GRID_SIZE, y: startPosBl.y * GRID_SIZE };
   MouseActionState.get().startPx = desktopPx;
   MouseActionState.get().startPosBl = startPosBl;
-  const moveToPath = visualElementToPath(moveToVe);
+  const moveToPath = VeFns.veToPath(moveToVe);
 
   let oldActiveItemOrdering = activeItem.ordering;
   activeItem.parentId = moveToVe.displayItem.id;
@@ -447,7 +447,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
   let done = false;
   findVisualElements(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
     if (ve.get().parentPath == moveToPath) {
-      MouseActionState.get().activeElement = visualElementToPath(ve.get());
+      MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
       let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
       MouseActionState.get().onePxSizeBl = {
         x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
@@ -462,8 +462,8 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
 
   done = false;
   findVisualElements(desktopStore, moveToVe.displayItem.id, moveToVe.linkItemMaybe == null ? null : moveToVe.linkItemMaybe.id).forEach(ve => {
-    if (visualElementToPath(ve.get()) == moveToPath) {
-      MouseActionState.get().moveOver_scaleDefiningElement = visualElementToPath(ve.get());
+    if (VeFns.veToPath(ve.get()) == moveToPath) {
+      MouseActionState.get().moveOver_scaleDefiningElement = VeFns.veToPath(ve.get());
       done = true;
     }
   });
@@ -477,7 +477,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(getVeid(tableVisualElement)) * tableBlockHeightPx;
+  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(VeFns.getVeid(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
   const tableParentVisualPathString = tableVe.parentPath!;
@@ -508,7 +508,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   let otherVes = [];
   findVisualElements(desktopStore, activeVisualElement.displayItem.id, activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id).forEach(ve => {
     if (ve.get().parentPath == tableParentVisualPathString) {
-      MouseActionState.get().activeElement = visualElementToPath(ve.get());
+      MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
       let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
       MouseActionState.get().onePxSizeBl = {
         x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,

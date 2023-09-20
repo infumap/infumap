@@ -29,7 +29,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
-import { getVeid, veidFromPath, VisualElementFlags, visualElementToPath } from "../../layout/visual-element";
+import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
 
@@ -41,7 +41,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       // If the popup is from clicking on a link item, the veid of the popup visual element will not reflect
       // that item since the link id will be the constant one used for popups. Therefore, get the veid directly
       // from the desktop store.
-      const popupVeid = veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+      const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
 
       const scrollXPx = desktopStore.getPageScrollXProp(popupVeid) * (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
       const scrollYPx = desktopStore.getPageScrollYProp(popupVeid) * (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
@@ -76,7 +76,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const isPoppedUp = () =>  visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
+  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -154,7 +154,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBounds = childAreaBoundsPx();
-    const pageVeid = getVeid(props.visualElement);
+    const pageVeid = VeFns.getVeid(props.visualElement);
 
     // TODO: compensate for toolbar width.
     // if (childAreaBounds.w > pageBoundsPx.w) {
@@ -174,13 +174,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     if (translucentDiv) {
       translucentDiv.scrollTop =
-        desktopStore.getPageScrollYProp(getVeid(props.visualElement)) *
+        desktopStore.getPageScrollYProp(VeFns.getVeid(props.visualElement)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
     }
 
     if (popupDiv && desktopStore.currentPopupSpec()) {
       popupDiv.scrollTop =
-        desktopStore.getPageScrollYProp(veidFromPath(desktopStore.currentPopupSpec()!.vePath)) *
+        desktopStore.getPageScrollYProp(VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
     }
 
@@ -295,7 +295,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBoundsPx_ = childAreaBoundsPx();
 
-    const popupVeid = veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+    const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
 
     // TODO: need to consider toolbar width.
     // if (childAreaBoundsPx_.w > pageBoundsPx.w) {
@@ -441,7 +441,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return result;
   };
 
-  const isPoppedUp = () => visualElementToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
+  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 

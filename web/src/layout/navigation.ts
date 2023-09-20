@@ -22,7 +22,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { ARRANGE_ALGO_LIST, arrange } from "./arrange";
-import { Veid, prependVeidToPath, veidFromId } from "./visual-element";
+import { Veid, VeFns } from "./visual-element";
 
 
 export function updateHref(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
@@ -52,8 +52,8 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: 
     if (desktopStore.getSelectedListPageItem(veid) == "") {
       if (currentPage.computed_children.length > 0) {
         const firstItemId = currentPage.computed_children[0];
-        const veid = veidFromId(firstItemId);
-        const path = prependVeidToPath(veid, currentPage.id);
+        const veid = VeFns.veidFromId(firstItemId);
+        const path = VeFns.prependVeidToPath(veid, currentPage.id);
         desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, path);
       }
     }

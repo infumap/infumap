@@ -51,14 +51,11 @@ export type Veid = {
   linkIdMaybe: Uid | null
 }
 
-export function createVeid(item: Item, linkMaybe: LinkItem | null) {
-  return ({ itemId: item.id, linkIdMaybe: linkMaybe ? linkMaybe.id : null });
-}
-
 export const EMPTY_VEID: Veid = {
   itemId: EMPTY_UID,
   linkIdMaybe: null
 };
+
 
 export enum VisualElementFlags {
   None                 = 0x0000,
@@ -130,6 +127,7 @@ export interface VisualElement {
   moveOverColAttachmentNumber: NumberSignal,      // for tables only.
 }
 
+
 /**
  * Used when there is no top level visual element. This makes typing much easier to deal with
  * than using VisualElement | null
@@ -161,6 +159,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   moveOverColAttachmentNumber: createNumberSignal(-1),
 };
 
+
 export interface VisualElementSpec {
   displayItem: Item,
   displayItemFingerprint?: string,
@@ -178,172 +177,147 @@ export interface VisualElementSpec {
 }
 
 
-export function createVisualElement(override: VisualElementSpec): VisualElement {
-  let result: VisualElement = {
-    displayItem: EMPTY_ITEM(),
-    linkItemMaybe: null,
-    flags: VisualElementFlags.None,
-    resizingFromBoundsPx: null,
-    boundsPx: { x: 0, y: 0, w: 0, h: 0 },
-    childAreaBoundsPx: null,
-    oneBlockWidthPx: null,
-    col: null,
-    row: null,
-    hitboxes: [],
-    children: [],
-    attachments: [],
-    parentPath: null,
+export const VeFns = {
+  create: (override: VisualElementSpec): VisualElement => {
+    let result: VisualElement = {
+      displayItem: EMPTY_ITEM(),
+      linkItemMaybe: null,
+      flags: VisualElementFlags.None,
+      resizingFromBoundsPx: null,
+      boundsPx: { x: 0, y: 0, w: 0, h: 0 },
+      childAreaBoundsPx: null,
+      oneBlockWidthPx: null,
+      col: null,
+      row: null,
+      hitboxes: [],
+      children: [],
+      attachments: [],
+      parentPath: null,
+  
+      displayItemFingerprint: "",
+  
+      mouseIsOver: createBooleanSignal(false),
+      mouseIsOverOpenPopup: createBooleanSignal(false),
+  
+      movingItemIsOver: createBooleanSignal(false),
+      movingItemIsOverAttach: createBooleanSignal(false),
+      movingItemIsOverAttachComposite: createBooleanSignal(false),
+      moveOverRowNumber: createNumberSignal(-1),
+      moveOverColAttachmentNumber: createNumberSignal(-1),
+    };
+  
+    result.displayItem = override.displayItem;
+  
+    if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
+    if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
+    if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
+    if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+    if (typeof(override.oneBlockWidthPx) != 'undefined') { result.oneBlockWidthPx = override.oneBlockWidthPx; }
+    if (typeof(override.col) != 'undefined') { result.col = override.col; }
+    if (typeof(override.row) != 'undefined') { result.row = override.row; }
+    if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
+    if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
+    if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
+    if (typeof(override.children) != 'undefined') { result.children = override.children; }
+    if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
+  
+    if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
+      console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
+      console.trace();
+    }
+    // TODO (LOW): some additional sanity checking here would help catch arrange bugs.
+  
+    return result;
+  },
 
-    displayItemFingerprint: "",
+  createVeid: (item: Item, linkMaybe: LinkItem | null) => {
+    return ({ itemId: item.id, linkIdMaybe: linkMaybe ? linkMaybe.id : null });
+  },
 
-    mouseIsOver: createBooleanSignal(false),
-    mouseIsOverOpenPopup: createBooleanSignal(false),
+  getVeid: (visualElement: VisualElement): Veid => {
+    return ({
+      itemId: visualElement.displayItem.id,
+      linkIdMaybe: visualElement.linkItemMaybe == null ? null : visualElement.linkItemMaybe.id
+    });
+  },
 
-    movingItemIsOver: createBooleanSignal(false),
-    movingItemIsOverAttach: createBooleanSignal(false),
-    movingItemIsOverAttachComposite: createBooleanSignal(false),
-    moveOverRowNumber: createNumberSignal(-1),
-    moveOverColAttachmentNumber: createNumberSignal(-1),
-  };
-
-  result.displayItem = override.displayItem;
-
-  if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
-  if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
-  if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
-  if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
-  if (typeof(override.oneBlockWidthPx) != 'undefined') { result.oneBlockWidthPx = override.oneBlockWidthPx; }
-  if (typeof(override.col) != 'undefined') { result.col = override.col; }
-  if (typeof(override.row) != 'undefined') { result.row = override.row; }
-  if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
-  if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
-  if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
-  if (typeof(override.children) != 'undefined') { result.children = override.children; }
-  if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
-
-  if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
-    console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
-    console.trace();
-  }
-  // TODO (LOW): some additional sanity checking here would help catch arrange bugs.
-
-  return result;
-}
-
-
-export function getVeid(visualElement: VisualElement): Veid {
-  return ({
-    itemId: visualElement.displayItem.id,
-    linkIdMaybe: visualElement.linkItemMaybe == null ? null : visualElement.linkItemMaybe.id
-  });
-}
-
-
-export function prependVeidToPath(veid: Veid, path: VisualElementPath): VisualElementPath {
-  let current = veid.itemId;
-  if (veid.linkIdMaybe != null) {
-    current += "[" + veid.linkIdMaybe! + "]";
-  }
-  if (path != "") {
-    current += "-";
-  }
-  current += path;
-  return current;
-}
-
-
-export function parentPath(path: VisualElementPath): VisualElementPath {
-  const pos = path.indexOf("-");
-  if (pos == -1) { return ""; }
-  return path.substring(pos + 1);
-}
-
-
-export function veidFromId(id: Uid): Veid {
-  let item = itemState.getItem(id)!;
-  if (isLink(item)) {
-    const linkItem = asLinkItem(item);
-    const linkToId = getLinkToId(linkItem);
-    return ({ itemId: linkToId, linkIdMaybe: linkItem.id });
-  }
-  return ({ itemId: id, linkIdMaybe: null });
-}
-
-
-/**
- * Create a string representing the hierarchical path of the visual element from the top level page.
- * The veid of the visual element is at the beginning of the string, that of the top level page at the end.
- */
-export function visualElementToPath(visualElement: VisualElement): VisualElementPath {
-  let current = visualElement.displayItem.id;
-  if (visualElement.linkItemMaybe != null) {
-    current += "[" + visualElement.linkItemMaybe!.id + "]";
-  }
-
-  if (visualElement.parentPath == null) {
+  prependVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
+    let current = veid.itemId;
+    if (veid.linkIdMaybe != null) {
+      current += "[" + veid.linkIdMaybe! + "]";
+    }
+    if (path != "") {
+      current += "-";
+    }
+    current += path;
     return current;
+  },
+
+  /**
+   * Create a string representing the hierarchical path of the visual element from the top level page.
+   * The veid of the visual element is at the beginning of the string, that of the top level page at the end.
+   */
+  veToPath: (visualElement: VisualElement): VisualElementPath => {
+    let current = visualElement.displayItem.id;
+    if (visualElement.linkItemMaybe != null) {
+      current += "[" + visualElement.linkItemMaybe!.id + "]";
+    }
+
+    if (visualElement.parentPath == null) {
+      return current;
+    }
+
+    return current + "-" + visualElement.parentPath!;
+  },
+
+  parentPath: (path: VisualElementPath): VisualElementPath => {
+    const pos = path.indexOf("-");
+    if (pos == -1) { return ""; }
+    return path.substring(pos + 1);
+  },
+
+  veidFromId: (id: Uid): Veid => {
+    let item = itemState.getItem(id)!;
+    if (isLink(item)) {
+      const linkItem = asLinkItem(item);
+      const linkToId = getLinkToId(linkItem);
+      return ({ itemId: linkToId, linkIdMaybe: linkItem.id });
+    }
+    return ({ itemId: id, linkIdMaybe: null });
+  },
+
+  veidFromPath: (path: VisualElementPath): Veid => {
+    if (path == "") { return EMPTY_VEID; }
+    const parts = path.split("-");
+    return getIdsFromPathPart(parts[0]);
+  },
+
+  itemIdFromPath: (path: VisualElementPath): Uid => {
+    if (path == "") { return EMPTY_UID; }
+    const parts = path.split("-");
+    let { itemId } = getIdsFromPathPart(parts[0]);
+    return itemId;
+  },
+
+  compareVeids: (a: Veid, b: Veid) => {
+    if (a.itemId != b.itemId) { return 1; }
+    if (a.linkIdMaybe != b.linkIdMaybe) { return 1; }
+    return 0;
+  },
+
+  veBoundsRelativeToDesktopPx: (visualElement: VisualElement): BoundingBox => {
+    let ve: VisualElement | null = visualElement;
+    let r = { x: 0, y: 0 };
+    while (ve != null) {
+      r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
+      ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
+    }
+    return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
+  },
+
+  printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {
+    printRecursive(desktopStore.topLevelVisualElement(), 0, "c");
   }
-
-  return current + "-" + visualElement.parentPath!;
-}
-
-
-// // TODO (HIGH): can just use VesCache directly instead now.
-// export function visualElementSignalFromPath(
-//     desktopStore: DesktopStoreContextModel,
-//     pathString: VisualElementPath): VisualElementSignal {
-//   const parts = pathString.split("-");
-//   let ves = desktopStore.topLevelVisualElementSignal();
-//   let { itemId } = getIdsFromPathPart(parts[parts.length-1]);
-//   if (ves.get().displayItem.id != itemId) { panic(); }
-
-//   for (let i=parts.length-2; i>=0; --i) {
-//     let ve = ves.get();
-//     let { itemId, linkIdMaybe: linkId } = getIdsFromPathPart(parts[i]);
-//     let done: boolean = false;
-//     for (let j=0; j<ve.children.length && !done; ++j) {
-//       if (ve.children[j].get().displayItem.id == itemId &&
-//           (ve.children[j].get().linkItemMaybe == null ? null : ve.children[j].get().linkItemMaybe!.id) == linkId) {
-//         ves = ve.children[j];
-//         done = true;
-//       }
-//     }
-//     for (let j=0; j<ve.attachments.length && !done; ++j) {
-//       if (ve.attachments[j].get().displayItem.id == itemId &&
-//           (ve.attachments[j].get().linkItemMaybe == null ? null : ve.attachments[j].get().linkItemMaybe!.id) == linkId) {
-//         ves = ve.attachments[j];
-//         done = true;
-//       }
-//     }
-//     if (!done) {
-//       console.error("invalid path string", pathString);
-//       panic!();
-//     }
-//   }
-
-//   return ves;
-// }
-
-
-export function veidFromPath(path: VisualElementPath): Veid {
-  if (path == "") { return EMPTY_VEID; }
-  const parts = path.split("-");
-  return getIdsFromPathPart(parts[0]);
-}
-
-
-export function itemIdFromPath(path: VisualElementPath): Uid {
-  if (path == "") { return EMPTY_UID; }
-  const parts = path.split("-");
-  let { itemId } = getIdsFromPathPart(parts[0]);
-  return itemId;
-}
-
-
-export function compareVeids(a: Veid, b: Veid) {
-  if (a.itemId != b.itemId) { return 1; }
-  if (a.linkIdMaybe != b.linkIdMaybe) { return 1; }
-  return 0;
 }
 
 
@@ -359,21 +333,6 @@ function getIdsFromPathPart(part: string): Veid {
   return { itemId, linkIdMaybe };
 }
 
-
-export function visualElementDesktopBoundsPx(visualElement: VisualElement): BoundingBox {
-  let ve: VisualElement | null = visualElement;
-  let r = { x: 0, y: 0 };
-  while (ve != null) {
-    r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
-    ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
-  }
-  return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
-}
-
-
-export function printCurrentVisualElementTree(desktopStore: DesktopStoreContextModel) {
-  printRecursive(desktopStore.topLevelVisualElement(), 0, "c");
-}
 
 function printRecursive(visualElement: VisualElement, level: number, relationship: string) {
   let indent = "";

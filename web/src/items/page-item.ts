@@ -31,7 +31,7 @@ import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvid
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
-import { VisualElement, VisualElementFlags, getVeid, veidFromPath, visualElementToPath } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hit';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
@@ -303,18 +303,18 @@ export const calcBlockPositionGr = (desktopStore: DesktopStoreContextModel, page
 
 export function handlePageClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
   if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-  switchToPage(desktopStore, userStore, getVeid(visualElement), true);
+  switchToPage(desktopStore, userStore, VeFns.getVeid(visualElement), true);
 }
 
 
 export function handlePagePopupClick(visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
+    desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
   } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-    desktopStore.pushPopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    desktopStore.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
   } else {
-    desktopStore.replacePopup({ type: PopupType.Page, vePath: visualElementToPath(visualElement) });
+    desktopStore.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
   }
   arrange(desktopStore);
 }

@@ -21,7 +21,7 @@ import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { HitboxMeta, HitboxType } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VisualElementFlags, getVeid, veidFromPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
@@ -51,8 +51,8 @@ export function getHitInfo(
   const desktopSizePx = desktopStore.desktopBoundsPx();
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
-      x: desktopStore.getPageScrollXProp(getVeid(topLevelVisualElement)) * (topLevelBoundsPx.w - desktopSizePx.w),
-      y: desktopStore.getPageScrollYProp(getVeid(topLevelVisualElement)) * (topLevelBoundsPx.h - desktopSizePx.h)
+      x: desktopStore.getPageScrollXProp(VeFns.getVeid(topLevelVisualElement)) * (topLevelBoundsPx.w - desktopSizePx.w),
+      y: desktopStore.getPageScrollYProp(VeFns.getVeid(topLevelVisualElement)) * (topLevelBoundsPx.h - desktopSizePx.h)
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
@@ -68,7 +68,7 @@ export function getHitInfo(
         isInside(popupPosRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
-      const popupVeid = veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+      const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
       const scrollYPx = isPage(rootVisualElement.displayItem)
         ? desktopStore.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
         : 0;
@@ -164,7 +164,7 @@ export function getHitInfo(
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x,
-            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(getVeid(tableVisualElement)) * tableBlockHeightPx }
+            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(VeFns.getVeid(tableVisualElement)) * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;

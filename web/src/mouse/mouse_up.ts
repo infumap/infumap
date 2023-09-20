@@ -31,7 +31,7 @@ import { arrange } from "../layout/arrange";
 import { HitboxType } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, getVeid, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VeFns } from "../layout/visual-element";
 import { server } from "../server";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
@@ -110,7 +110,7 @@ export function mouseUpHandler(
 function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement, _userStore: UserStoreContextModel) {
   desktopStore.replacePopup({
     type: PopupType.Attachment,
-    vePath: visualElementToPath(visualElement)
+    vePath: VeFns.veToPath(visualElement)
   })
 }
 
@@ -299,7 +299,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
 function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const tableItem = asTableItem(overContainerVe.displayItem);
   let rowNumber = overContainerVe.moveOverRowNumber.get();
-  const yScrollPos = desktopStore.getTableScrollYPos(getVeid(overContainerVe));
+  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.getVeid(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];

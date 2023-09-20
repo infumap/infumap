@@ -29,7 +29,7 @@ import { asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
-import { VisualElement, veidFromPath } from "../layout/visual-element";
+import { VeFns, VisualElement } from "../layout/visual-element";
 import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
 import { getHitInfo } from "../mouse/hit";
 import { panic } from "../util/lang";
@@ -76,11 +76,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
           const overVe = hitInfo.overElementVes.get();
           if (overVe.linkItemMaybe != null) {
             const poppedUp = desktopStore.currentPopupSpec();
-            if (poppedUp && overVe.displayItem.id == veidFromPath(poppedUp!.vePath).itemId) {
+            if (poppedUp && overVe.displayItem.id == VeFns.veidFromPath(poppedUp!.vePath).itemId) {
               return overVe.displayItem;
             }
             const selected = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
-            if (selected && overVe.displayItem.id == veidFromPath(selected).itemId) {
+            if (selected && overVe.displayItem.id == VeFns.veidFromPath(selected).itemId) {
               return overVe.displayItem;
             }
             return overVe.linkItemMaybe!;
@@ -119,7 +119,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         const direction = findDirectionFromKeyCode(ev.code);
         const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction, false)!;
         if (closest != null) {
-          const closestVeid = veidFromPath(closest);
+          const closestVeid = VeFns.veidFromPath(closest);
           const closestItem = itemState.getItem(closestVeid.itemId);
           desktopStore.replacePopup({
             type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
@@ -133,7 +133,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     else if (ev.code == "Enter") {
       const spec = desktopStore.currentPopupSpec();
       if (spec && spec.type == PopupType.Page) {
-        switchToPage(desktopStore, userStore, veidFromPath(desktopStore.currentPopupSpec()!.vePath), true);
+        switchToPage(desktopStore, userStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true);
       }
     }
 

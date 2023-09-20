@@ -19,14 +19,13 @@
 import { Component, onCleanup } from "solid-js";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { VesCache } from "../layout/ves-cache";
-import { visualElementDesktopBoundsPx } from "../layout/visual-element";
 import { InfuTextArea } from "./library/InfuTextArea";
 import { asNoteItem } from "../items/note-item";
 import { arrange } from "../layout/arrange";
 import { server } from "../server";
-import { InfuTextInput } from "./library/InfuTextInput";
 import { itemState } from "../store/ItemState";
 import { InfuIconButton } from "./library/InfuIconButton";
+import { VeFns } from "../layout/visual-element";
 
 
 export interface TextEditOverlayProps {};
@@ -36,7 +35,7 @@ export const TextEditOverlay: Component = () => {
 
   const noteVisualElement = VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!;
   const noteItem = () => asNoteItem(noteVisualElement.get().displayItem);
-  const noteVeBoundsPx = () => visualElementDesktopBoundsPx(noteVisualElement.get());
+  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(noteVisualElement.get());
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.preventDefault();

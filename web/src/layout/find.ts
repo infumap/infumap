@@ -21,7 +21,7 @@ import { isPage } from "../items/page-item";
 import { boundingBoxCenter, vectorDistance } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VesCache } from "./ves-cache";
-import { VisualElement, VisualElementFlags, VisualElementPath, visualElementToPath } from "./visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./visual-element";
 
 
 export enum FindDirection {
@@ -121,5 +121,5 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
     }
   }
 
-  return visualElementToPath(best);
+  return VeFns.veToPath(best);
 }

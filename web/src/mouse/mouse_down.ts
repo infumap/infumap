@@ -28,7 +28,7 @@ import { HitboxType } from "../layout/hitbox";
 import { switchToPage, updateHref } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElementFlags, getVeid, visualElementDesktopBoundsPx, visualElementToPath } from "../layout/visual-element";
+import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
@@ -83,7 +83,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
-      switchToPage(desktopStore, userStore, getVeid(hitInfo.overElementVes.get()), true);
+      switchToPage(desktopStore, userStore, VeFns.getVeid(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);
     }
@@ -98,7 +98,7 @@ export function mouseLeftDownHandler(
   const activeItem = hitInfo.overElementVes.get().linkItemMaybe != null
     ? itemState.getItem(hitInfo.overElementVes.get().linkItemMaybe!.id)!
     : itemState.getItem(hitInfo.overElementVes.get().displayItem.id)!;
-  let boundsOnDesktopPx = visualElementDesktopBoundsPx(hitInfo.overElementVes.get());
+  let boundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
@@ -109,7 +109,7 @@ export function mouseLeftDownHandler(
       const activeCompositeItem = hitInfo.overContainerVe!.linkItemMaybe != null
         ? itemState.getItem(hitInfo.overContainerVe!.linkItemMaybe!.id)!
         : itemState.getItem(hitInfo.overContainerVe!.displayItem.id)!;
-      const compositeBoundsOnDesktopPx = visualElementDesktopBoundsPx(hitInfo.overContainerVe!);
+      const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overContainerVe!);
       onePxSizeBl = {
         x: calcSizeForSpatialBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
         y: calcSizeForSpatialBl(activeCompositeItem).h / compositeBoundsOnDesktopPx.h };
@@ -127,13 +127,13 @@ export function mouseLeftDownHandler(
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
   MouseActionState.set({
-    activeRoot: visualElementToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
-    activeElement: visualElementToPath(hitInfo.overElementVes.get()),
-    activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? visualElementToPath(hitInfo.overContainerVe!) : null,
+    activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
+    activeElement: VeFns.veToPath(hitInfo.overElementVes.get()),
+    activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(hitInfo.overContainerVe!) : null,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,
-    moveOver_scaleDefiningElement: visualElementToPath(
+    moveOver_scaleDefiningElement: VeFns.veToPath(
       getHitInfo(desktopStore, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,

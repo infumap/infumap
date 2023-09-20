@@ -27,7 +27,7 @@ import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
-import { VisualElement, VisualElementFlags, visualElementToPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { arrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
@@ -180,10 +180,10 @@ export function handleImageClick(visualElement: VisualElement, desktopStore: Des
   if (visualElement.flags & VisualElementFlags.Popup) {
     window.open('/files/' + visualElement.displayItem.id, '_blank');
   } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-    desktopStore.pushPopup({ type: PopupType.Image, vePath: visualElementToPath(visualElement) });
+    desktopStore.pushPopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
     arrange(desktopStore);
   } else {
-    desktopStore.replacePopup({ type: PopupType.Image, vePath: visualElementToPath(visualElement) });
+    desktopStore.replacePopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
     arrange(desktopStore);
   }
 }

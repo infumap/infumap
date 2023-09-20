@@ -22,7 +22,7 @@ import { compareBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { compareHitboxArrays } from "./hitbox";
-import { VisualElementPath, VisualElementSpec, createVisualElement, parentPath } from "./visual-element";
+import { VeFns, VisualElementPath, VisualElementSpec } from "./visual-element";
 
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
@@ -34,10 +34,10 @@ export let VesCache = {
   },
 
   getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
-    const commonPath = parentPath(path);
+    const commonPath = VeFns.parentPath(path);
     const result: Array<VisualElementSignal> = [];
     for (const kv of currentVesCache.entries()) {
-      if (parentPath(kv[0]) == commonPath && kv[0] != path) {
+      if (VeFns.parentPath(kv[0]) == commonPath && kv[0] != path) {
         result.push(kv[1]);
       }
     }
@@ -83,7 +83,7 @@ function createOrRecycleVisualElementSignalImpl (
     // TODO (HIGH): full property reconciliation, to avoid this update.
     newCache.set(path, alwaysUseVes);
     currentVesCache = newCache;
-    alwaysUseVes.set(createVisualElement(visualElementOverride));
+    alwaysUseVes.set(VeFns.create(visualElementOverride));
     return alwaysUseVes;
   }
 
@@ -102,7 +102,7 @@ function createOrRecycleVisualElementSignalImpl (
   const existing = currentVesCache.get(path);
   if (existing) {
     if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
-      existing.set(createVisualElement(visualElementOverride));
+      existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       newCache.set(path, existing);
       return existing;
@@ -159,13 +159,13 @@ function createOrRecycleVisualElementSignalImpl (
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
-    existing.set(createVisualElement(visualElementOverride));
+    existing.set(VeFns.create(visualElementOverride));
     newCache.set(path, existing);
     return existing;
   }
 
   if (debug) { console.debug("creating:", path); }
-  const newElement = createVisualElementSignal(createVisualElement(visualElementOverride));
+  const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
   newCache.set(path, newElement);
   return newElement;
 }

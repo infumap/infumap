@@ -18,7 +18,7 @@
 
 import { ARRANGE_ALGO_LIST, arrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
-import { VisualElement, VisualElementFlags, veidFromPath, visualElementToPath } from "../../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { asPageItem, isPage } from "../page-item";
 
@@ -26,7 +26,7 @@ import { asPageItem, isPage } from "../page-item";
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): boolean {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
-    desktopStore.setSelectedListPageItem(veidFromPath(visualElement.parentPath!), visualElementToPath(visualElement));
+    desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
     arrange(desktopStore);
     return true;
   }
