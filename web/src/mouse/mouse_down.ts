@@ -26,7 +26,7 @@ import { isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxType } from "../layout/hitbox";
 import { switchToPage, updateHref } from "../layout/navigation";
-import { Attachment, Child } from "../layout/relationship-to-parent";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, getVeid, visualElementDesktopBoundsPx, visualElementToPath } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
@@ -155,7 +155,7 @@ export function mouseLeftDownHandler(
 function calcStartCompositeItemMaybe(activeItem: Item): CompositeItem | null {
   if (activeItem == null) { return null; }
   if (activeItem.parentId == null) { return null; }
-  if (activeItem.relationshipToParent != Child) { return null; }
+  if (activeItem.relationshipToParent != RelationshipToParent.Child) { return null; }
   let parent = itemState.getItem(activeItem.parentId)!;
   if (parent.parentId == null) { return null; }
   if (!isComposite(parent)) { return null; }
@@ -166,7 +166,7 @@ function calcStartCompositeItemMaybe(activeItem: Item): CompositeItem | null {
 function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem | null {
   if (activeItem == null) { return null; }
   if (activeItem.parentId == null) { return null; }
-  if (activeItem.relationshipToParent != Attachment) { return null; }
+  if (activeItem.relationshipToParent != RelationshipToParent.Attachment) { return null; }
   let parent = itemState.getItem(activeItem.parentId)!;
   if (parent.parentId == null) { return null; }
   let parentParent = itemState.getItem(parent.parentId)!;

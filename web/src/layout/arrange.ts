@@ -30,7 +30,6 @@ import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, createV
 import { VisualElementSignal } from "../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { LinkItem, asLinkItem, getLinkToId, isLink, newLinkItem } from "../items/link-item";
-import { Child } from "./relationship-to-parent";
 import { newOrdering } from "../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { panic } from "../util/lang";
@@ -44,6 +43,7 @@ import { VesCache } from "./ves-cache";
 import { ItemGeometry } from "./item-geometry";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
+import { RelationshipToParent } from "./relationship-to-parent";
 
 export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
 export const ARRANGE_ALGO_GRID = "grid";
@@ -156,7 +156,7 @@ const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
   const item = itemState.getItem(veid.itemId)!;
 
-  let li = newLinkItem(item.ownerId, item.parentId, Child, newOrdering(), veid.itemId);
+  let li = newLinkItem(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
   li.id = LIST_FOCUS_ID;
   if (isXSizableItem(item)) {
     li.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
@@ -220,7 +220,7 @@ const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
     if (currentPopupSpec.type == PopupType.Page) {
       // Position of page popup in spatial pages is user defined.
       const popupLinkToPageId = veidFromPath(currentPopupSpec.vePath).itemId;
-      const li = newLinkItem(pageItem.ownerId, pageItem.id, Child, newOrdering(), popupLinkToPageId!);
+      const li = newLinkItem(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
       li.id = POPUP_LINK_ID;
       const widthGr = getPopupWidthGr(pageItem);
       const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
@@ -893,7 +893,7 @@ function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElement
   const currentPopupSpec = desktopStore.currentPopupSpec()!;
 
   const popupLinkToImageId = veidFromPath(currentPopupSpec.vePath).itemId;
-  const li = newLinkItem(currentPage.ownerId, currentPage.id, Child, newOrdering(), popupLinkToImageId!);
+  const li = newLinkItem(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
   li.id = POPUP_LINK_ID;
   li.spatialWidthGr = 1000;
   li.spatialPositionGr = { x: 0, y: 0, };

@@ -29,7 +29,7 @@ import { isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxType } from "../layout/hitbox";
-import { Attachment, Child } from "../layout/relationship-to-parent";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, getVeid, visualElementToPath } from "../layout/visual-element";
 import { server } from "../server";
@@ -179,7 +179,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
     if (!isComposite(activeItem)) {
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(
-        activeItem, destinationCompositeItem.id, Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
+        activeItem, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
       await server.updateItem(activeItem);
     }
 
@@ -190,7 +190,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       while (activeItem_composite.computed_children.length > 0) {
         const child = itemState.getItem(activeItem_composite.computed_children[0])!;
         itemState.moveToNewParent(
-          child, destinationCompositeItem.id, Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
+          child, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
         lastPrevId = child.id;
         await server.updateItem(child);
       }
@@ -200,20 +200,20 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 
   // case #2: attaching to an item that is not inside an existing composite.
   } else {
-    const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, Child, attachToItem.ordering);
+    const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
     compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
     if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
     itemState.addItem(compositeItem);
     await server.addItem(compositeItem, null);
 
     attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-    itemState.moveToNewParent(attachToItem, compositeItem.id, Child);
+    itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
     await server.updateItem(attachToItem);
 
     // case #2.1: this item is not a composite either.
     if (!isComposite(activeItem)) {
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      itemState.moveToNewParent(activeItem, compositeItem.id, Child);
+      itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
       await server.updateItem(activeItem);
     }
 
@@ -222,7 +222,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       const activeItem_composite = asCompositeItem(activeItem);
       while (activeItem_composite.computed_children.length > 0) {
         const child = itemState.getItem(activeItem_composite.computed_children[0])!;
-        itemState.moveToNewParent(child, compositeItem.id, Child);
+        itemState.moveToNewParent(child, compositeItem.id, RelationshipToParent.Child);
         await server.updateItem(child);
       }
       itemState.deleteItem(activeItem_composite.id);
@@ -247,7 +247,7 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
   MouseActionState.get().moveOver_attachHitboxElement = null;
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, Attachment);
+  itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, RelationshipToParent.Attachment);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
@@ -266,7 +266,7 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
   }
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-  itemState.moveToNewParent(activeItem, moveOverContainerId, Child);
+  itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
@@ -288,7 +288,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   }
 
   const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
-  itemState.moveToNewParent(activeItem, moveOverContainerId, Child, moveToOrdering);
+  itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();
@@ -310,7 +310,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
   const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
-    const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
+    const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
     itemState.addItem(placeholderItem);
     server.addItem(placeholderItem, null);
   }
@@ -330,7 +330,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
     newOrdering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
   }
 
-  itemState.moveToNewParent(activeItem, canonicalChild.id, Attachment, newOrdering);
+  itemState.moveToNewParent(activeItem, canonicalChild.id, RelationshipToParent.Attachment, newOrdering);
   server.updateItem(itemState.getItem(activeItem.id)!);
 
   finalizeMouseUp();

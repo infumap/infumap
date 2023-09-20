@@ -32,7 +32,6 @@ import { arrange } from "../layout/arrange";
 import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { Attachment, Child } from "../layout/relationship-to-parent";
 import { asContainerItem } from "../items/base/container-item";
 import { getHitInfo } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
@@ -45,6 +44,7 @@ import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { MouseAction, MouseActionState, dialogMoveState } from "./state";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -134,20 +134,20 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       } else {
         const shouldCreateLink = ev.shiftKey;
         const parentItem = itemState.getItem(activeItem.parentId)!;
-        if (isTable(parentItem) && activeItem.relationshipToParent == Child) {
+        if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
           moveActiveItemOutOfTable(desktopStore, shouldCreateLink);
           MouseActionState.get().startPosBl = {
             x: activeItem.spatialPositionGr.x / GRID_SIZE,
             y: activeItem.spatialPositionGr.y / GRID_SIZE
           };
         }
-        else if (activeItem.relationshipToParent == Attachment) {
+        else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
           const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Attachment, shouldCreateLink);
+          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
         }
         else if (isComposite(itemState.getItem(activeItem.parentId)!)) {
           const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child, shouldCreateLink);
+          moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
         }
         else {
           MouseActionState.get().startPosBl = {
@@ -155,7 +155,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
             y: activeItem.spatialPositionGr.y / GRID_SIZE
           };
           if (shouldCreateLink) {
-            const link = newLinkItemFromItem(activeItem, Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+            const link = newLinkItemFromItem(activeItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
             itemState.addItem(link);
             server.addItem(link, null);
             arrange(desktopStore);
@@ -300,7 +300,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
     }
 
     if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
-      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, Child, false);
+      moveActiveItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
     }
 
     if (isTable(hitInfo.overContainerVe!.displayItem)) {
@@ -435,7 +435,7 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
     y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
   const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem);
-  const clickOffsetInActiveItemBl = relationshipToParent == Child
+  const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
     ? { x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
         y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0 }
     : { x: 0, y: 0 };
@@ -449,18 +449,18 @@ export function moveActiveItemToPage(desktopStore: DesktopStoreContextModel, mov
   activeItem.parentId = moveToVe.displayItem.id;
   activeItem.ordering = itemState.newOrderingAtEndOfChildren(moveToVe.displayItem.id);
   activeItem.spatialPositionGr = newItemPosGr;
-  activeItem.relationshipToParent = Child;
+  activeItem.relationshipToParent = RelationshipToParent.Child;
   moveToPage.computed_children = [activeItem.id, ...moveToPage.computed_children];
-  if (relationshipToParent == Child) {
+  if (relationshipToParent == RelationshipToParent.Child) {
     asContainerItem(currentParent).computed_children
       = asContainerItem(currentParent).computed_children.filter(childItem => childItem != activeItem.id);
   }
-  else if (relationshipToParent == Attachment) {
+  else if (relationshipToParent == RelationshipToParent.Attachment) {
     const parent = asAttachmentsItem(currentParent);
     const isLast = parent.computed_attachments[asAttachmentsItem(currentParent).computed_attachments.length-1] == activeItem.id;
     parent.computed_attachments = parent.computed_attachments.filter(childItem => childItem != activeItem.id);
     if (!isLast) {
-      const placeholderItem = newPlaceholderItem(activeItem.ownerId, currentParent.id, Attachment, oldActiveItemOrdering);
+      const placeholderItem = newPlaceholderItem(activeItem.ownerId, currentParent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
       itemState.addItem(placeholderItem);
       MouseActionState.get().newPlaceholderItem = placeholderItem;
     }

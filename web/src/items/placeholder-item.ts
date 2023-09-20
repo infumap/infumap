@@ -17,7 +17,7 @@
 */
 
 import { ItemGeometry } from "../layout/item-geometry";
-import { Attachment } from "../layout/relationship-to-parent";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { BoundingBox, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
@@ -29,7 +29,7 @@ export interface PlaceholderMeasurable extends ItemTypeMixin {}
 
 
 export function newPlaceholderItem(ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): PlaceholderItem {
-  if (relationshipToParent != Attachment) { panic(); }
+  if (relationshipToParent != RelationshipToParent.Attachment) { panic(); }
   if (parentId == EMPTY_UID) { panic(); }
   return {
     itemType: ITEM_TYPE_PLACEHOLDER,

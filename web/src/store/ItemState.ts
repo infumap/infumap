@@ -21,7 +21,7 @@ import { ContainerItem, asContainerItem, isContainer } from "../items/base/conta
 import { Item } from "../items/base/item";
 import { itemFromObject } from "../items/base/item-polymorphism";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
-import { Attachment, Child, NoParent } from "../layout/relationship-to-parent";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic, throwExpression } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
@@ -64,11 +64,11 @@ export const itemState = {
       }
     }
     const parentItem = itemState.getItem(item.parentId)!;
-    if (item.relationshipToParent == Child) {
+    if (item.relationshipToParent == RelationshipToParent.Child) {
       const containerParentItem = asContainerItem(parentItem);
       containerParentItem.computed_children
         = containerParentItem.computed_children.filter(cid => cid != id);
-    } else if (item.relationshipToParent == Attachment) {
+    } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
       const attachmentsParentItem = asAttachmentsItem(parentItem);
       attachmentsParentItem.computed_attachments
         = attachmentsParentItem.computed_attachments.filter(aid => aid != id);
@@ -130,12 +130,12 @@ export const itemState = {
     let children: Array<Uid> = [];
     childItems.forEach(childItem => {
       if (childItem.parentId == EMPTY_UID) {
-        if (childItem.relationshipToParent != NoParent) { panic(); }
+        if (childItem.relationshipToParent != RelationshipToParent.NoParent) { panic(); }
       } else {
         if (childItem.parentId != parentId) {
           throwExpression(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
         }
-        if (childItem.relationshipToParent != Child) {
+        if (childItem.relationshipToParent != RelationshipToParent.Child) {
           throwExpression(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
         }
         children.push(childItem.id);
@@ -157,7 +157,7 @@ export const itemState = {
       if (attachmentItem.parentId != parentId) {
         throwExpression(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
       }
-      if (attachmentItem.relationshipToParent != Attachment) {
+      if (attachmentItem.relationshipToParent != RelationshipToParent.Attachment) {
         throwExpression(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
       }
       attachments.push(attachmentItem.id);
@@ -168,11 +168,11 @@ export const itemState = {
 
   addItem: (item: Item): void => {
     items.set(item.id, item);
-    if (item.relationshipToParent == Child) {
+    if (item.relationshipToParent == RelationshipToParent.Child) {
       const parentItem = itemState.getContainerItem(item.parentId)!;
       parentItem.computed_children = [...parentItem.computed_children, item.id];
       itemState.sortChildren(parentItem.id);
-    } else if (item.relationshipToParent == Attachment) {
+    } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
       const parentItem = itemState.getAttachmentsItem(item.parentId)!;
       parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
       itemState.sortAttachments(parentItem.id);
@@ -230,21 +230,21 @@ export const itemState = {
     if (ordering) {
       item.ordering = ordering;
     } else {
-      if (newRelationshipToParent == Child) {
+      if (newRelationshipToParent == RelationshipToParent.Child) {
         item.ordering = itemState.newOrderingAtEndOfChildren(moveToParentId);
-      } else if (newRelationshipToParent == Attachment) {
+      } else if (newRelationshipToParent == RelationshipToParent.Attachment) {
         item.ordering = itemState.newOrderingAtEndOfAttachments(moveToParentId);
       }
     }
     item.parentId = moveToParentId;
     item.relationshipToParent = newRelationshipToParent;
-    if (newRelationshipToParent == Child) {
+    if (newRelationshipToParent == RelationshipToParent.Child) {
       const moveOverContainer = itemState.getContainerItem(moveToParentId)!;
       const moveOverContainerChildren = [item.id, ...moveOverContainer.computed_children];
       moveOverContainer.computed_children = moveOverContainerChildren;
       itemState.sortChildren(moveOverContainer.id);
       updatePrevParent();
-    } else if (newRelationshipToParent == Attachment) {
+    } else if (newRelationshipToParent == RelationshipToParent.Attachment) {
       const moveOverAttachmentsItem = itemState.getAttachmentsItem(moveToParentId)!;
       const moveOverAttachments = [item.id, ...moveOverAttachmentsItem.computed_attachments];
       moveOverAttachmentsItem.computed_attachments = moveOverAttachments;
@@ -254,10 +254,10 @@ export const itemState = {
       panic();
     }
     function updatePrevParent() {
-      if (prevRelationshipToParent == Child) {
+      if (prevRelationshipToParent == RelationshipToParent.Child) {
         const prevParent = itemState.getContainerItem(prevParentId)!;
         prevParent.computed_children = prevParent.computed_children.filter(i => i != item.id);
-      } else if (prevRelationshipToParent == Attachment) {
+      } else if (prevRelationshipToParent == RelationshipToParent.Attachment) {
         const prevParent = itemState.getAttachmentsItem(prevParentId)!;
         prevParent.computed_attachments = prevParent.computed_attachments.filter(i => i != item.id);
       }

@@ -17,7 +17,6 @@
 */
 
 import { Component } from "solid-js";
-import { Child } from "../../layout/relationship-to-parent";
 import { newNoteItem } from "../../items/note-item";
 import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
@@ -36,6 +35,7 @@ import { itemState } from "../../store/ItemState";
 import { newPasswordItem } from "../../items/password-item";
 import { VisualElementFlags } from "../../layout/visual-element";
 import { InfuIconButton } from "../library/InfuIconButton";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
 
 
 type ContexMenuProps = {
@@ -72,39 +72,39 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         userStore.getUser().userId,
         overElementVe.displayItem.id,
         3,
-        Child,
+        RelationshipToParent.Child,
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id))
     } else if (type == "table") {
       newItem = newTableItem(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
-        Child,
+        RelationshipToParent.Child,
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "note") {
       newItem = newNoteItem(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
-        Child,
+        RelationshipToParent.Child,
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "page") {
       newItem = newPageItem(
         userStore.getUser().userId,
         overElementVe.displayItem.id!,
-        Child,
+        RelationshipToParent.Child,
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "link")  {
       newItem = newLinkItem(userStore.getUser().userId,
         overElementVe.displayItem.id!,
-        Child,
+        RelationshipToParent.Child,
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
         EMPTY_UID);
     } else if (type == "password")  {
       newItem = newPasswordItem(userStore.getUser().userId,
         overElementVe.displayItem.id!,
-        Child,
+        RelationshipToParent.Child,
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else {

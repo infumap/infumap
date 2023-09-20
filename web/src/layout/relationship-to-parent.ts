@@ -16,7 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const NoParent = "no-parent";
-export const Child = "child";
-export const Attachment = "attachment";
-export const Unknown = "unknown";
+export const RelationshipToParent = {
+  NoParent: "no-parent",
+  Child: "child",
+  Attachment: "attachment",
+  Unknown: "unknown"
+}
