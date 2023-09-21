@@ -37,47 +37,45 @@ export interface Hitbox {
   meta: HitboxMeta | null,
 }
 
-export function createHitbox(type: HitboxType, boundsPx: BoundingBox, meta?: HitboxMeta ) {
-  return ({ type, boundsPx, meta: (typeof meta !== 'undefined') ? meta : null });
-}
-
-export function cloneHitbox(hitbox: Hitbox | null): Hitbox | null {
-  if (hitbox == null) { return null; }
-  return {
-    type: hitbox.type,
-    boundsPx: cloneBoundingBox(hitbox.boundsPx)!,
-    meta: hitbox.meta == null ? null : Object.assign({}, hitbox.meta) as HitboxMeta
-  };
-}
-
-export function cloneHitboxes(hitboxes: Array<Hitbox> |  null): Array<Hitbox> | null {
-  if (hitboxes == null) { return null; }
-  return hitboxes.map(h => cloneHitbox(h)!)
-}
-
 export interface HitboxMeta {
   resizeColNumber?: number
 }
 
-export function createHitboxMeta(meta: HitboxMeta) {
-  let result: HitboxMeta = {};
-  if (typeof(meta.resizeColNumber) != 'undefined') { result.resizeColNumber = meta.resizeColNumber; }
-  return result;
-}
-
-export function compareHitboxes(a: Hitbox, b: Hitbox): number {
-  if (a.type != b.type) { return 1; }
-  if (a.meta != b.meta) {
-    if (a.meta == null || b.meta == null) { return 1; }
-    if (a.meta.resizeColNumber != b.meta.resizeColNumber) { return 1; }
-  }
-  return compareBoundingBox(a.boundsPx, b.boundsPx);
-}
-
-export function compareHitboxArrays(a: Array<Hitbox>, b: Array<Hitbox>): number {
-  if (a.length != b.length) { return 1; }
-  for (let i=0; i<a.length; ++i) {
-    if (compareHitboxes(a[i], b[i]) == 1) { return 1; }
-  }
-  return 0;
+export const HitboxFns = {
+  create: (type: HitboxType, boundsPx: BoundingBox, meta?: HitboxMeta ) => {
+    return ({ type, boundsPx, meta: (typeof meta !== 'undefined') ? meta : null });
+  },
+  
+  clone: (hitbox: Hitbox | null): Hitbox | null => {
+    if (hitbox == null) { return null; }
+    return {
+      type: hitbox.type,
+      boundsPx: cloneBoundingBox(hitbox.boundsPx)!,
+      meta: hitbox.meta == null ? null : Object.assign({}, hitbox.meta) as HitboxMeta
+    };
+  },
+  
+  createMeta: (meta: HitboxMeta) => {
+    let result: HitboxMeta = {};
+    if (typeof(meta.resizeColNumber) != 'undefined') { result.resizeColNumber = meta.resizeColNumber; }
+    return result;
+  },
+  
+  compare: (a: Hitbox, b: Hitbox): number => {
+    if (a.type != b.type) { return 1; }
+    if (a.meta != b.meta) {
+      if (a.meta == null || b.meta == null) { return 1; }
+      if (a.meta.resizeColNumber != b.meta.resizeColNumber) { return 1; }
+    }
+    return compareBoundingBox(a.boundsPx, b.boundsPx);
+  },
+  
+  ArrayCompare: (a: Array<Hitbox>, b: Array<Hitbox>): number => {
+    if (a.length != b.length) { return 1; }
+    for (let i=0; i<a.length; ++i) {
+      if (HitboxFns.compare(a[i], b[i]) == 1) { return 1; }
+    }
+    return 0;
+  },
+  
 }

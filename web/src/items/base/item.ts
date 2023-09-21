@@ -17,7 +17,7 @@
 */
 
 import { LINE_HEIGHT_PX } from '../../constants';
-import { HitboxType, createHitbox } from '../../layout/hitbox';
+import { HitboxType, HitboxFns } from '../../layout/hitbox';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { RelationshipToParent } from '../../layout/relationship-to-parent';
 import { BoundingBox, Dimensions } from '../../util/geometry';
@@ -78,8 +78,8 @@ export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Move, innerBoundsPx)
+      HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      HitboxFns.create(HitboxType.Move, innerBoundsPx)
     ]
   };
 }

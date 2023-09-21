@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
-import { HitboxType, createHitbox } from '../layout/hitbox';
+import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
@@ -100,10 +100,10 @@ export function calcGeometryOfFileItem_Desktop(file: FileMeasurable, containerBo
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Move, innerBoundsPx),
-      createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-      createHitbox(HitboxType.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: boundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      HitboxFns.create(HitboxType.Move, innerBoundsPx),
+      HitboxFns.create(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      HitboxFns.create(HitboxType.Resize, { x: boundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: boundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   }
 }
@@ -133,9 +133,9 @@ export function calcGeometryOfFileItem_InComposite(measurable: FileMeasurable, b
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Move, moveBoundsPx),
-      createHitbox(HitboxType.AttachComposite, {
+      HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      HitboxFns.create(HitboxType.Move, moveBoundsPx),
+      HitboxFns.create(HitboxType.AttachComposite, {
         x: innerBoundsPx.w / 4,
         y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
         w: innerBoundsPx.w / 2,
@@ -165,8 +165,8 @@ export function calcGeometryOfFileItem_ListItem(_file: FileMeasurable, blockSize
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Move, innerBoundsPx)
+      HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      HitboxFns.create(HitboxType.Move, innerBoundsPx)
     ]
   };
 }
@@ -176,7 +176,7 @@ export function calcGeometryOfFileItem_Cell(file: FileMeasurable, cellBoundsPx: 
   return ({
     boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [
-      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
+      HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx))
     ]
   });
 }

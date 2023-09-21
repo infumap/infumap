@@ -19,7 +19,7 @@
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
-import { HitboxType, createHitbox } from "../../layout/hitbox";
+import { HitboxType, HitboxFns } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE } from "./item";
 import { calcSizeForSpatialBl } from "./item-polymorphism";
@@ -92,12 +92,12 @@ export function calcGeometryOfAttachmentItemImpl(
   }
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   const hitboxes = [
-    createHitbox(HitboxType.Move, innerBoundsPx)
+    HitboxFns.create(HitboxType.Move, innerBoundsPx)
   ];
   if (canPopup) {
-    hitboxes.push(createHitbox(HitboxType.OpenAttachment, innerBoundsPx));
+    hitboxes.push(HitboxFns.create(HitboxType.OpenAttachment, innerBoundsPx));
   } else {
-    hitboxes.push(createHitbox(HitboxType.Click, innerBoundsPx));
+    hitboxes.push(HitboxFns.create(HitboxType.Click, innerBoundsPx));
   }
   return ({ boundsPx, hitboxes });
 }
@@ -122,9 +122,9 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Move, innerBoundsPx),
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Resize, {
+      HitboxFns.create(HitboxType.Move, innerBoundsPx),
+      HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      HitboxFns.create(HitboxType.Resize, {
         x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2,
         y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2,
         w: RESIZE_BOX_SIZE_PX,

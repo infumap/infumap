@@ -21,7 +21,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
-import { compareHitboxArrays } from "./hitbox";
+import { HitboxFns } from "./hitbox";
 import { VeFns, VisualElementPath, VisualElementSpec } from "./visual-element";
 
 
@@ -139,7 +139,7 @@ function createOrRecycleVisualElementSignalImpl (
             break;
           }
         } else if (newProps[i] == "hitboxes") {
-          if (compareHitboxArrays(oldVal, newVal) != 0) {
+          if (HitboxFns.ArrayCompare(oldVal, newVal) != 0) {
             if (debug) { console.debug("visual element property changed: ", newProps[i]); }
             dirty = true;
             break;

@@ -27,7 +27,7 @@ import { calcGeometryOfItem_Attachment, calcGeometryOfItem_InCell, calcGeometryO
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
-import { HitboxType, createHitbox } from "../layout/hitbox";
+import { HitboxType, HitboxFns } from "../layout/hitbox";
 import { itemState } from "../store/ItemState";
 
 
@@ -169,10 +169,10 @@ export function calcGeometryOfLinkItem_Desktop(link: LinkItem, parentBoundsPx: B
     return {
       boundsPx,
       hitboxes: !emitHitboxes ? [] : [
-        createHitbox(HitboxType.Click, innerBoundsPx),
-        createHitbox(HitboxType.Move, innerBoundsPx),
-        createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-        createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxType.Click, innerBoundsPx),
+        HitboxFns.create(HitboxType.Move, innerBoundsPx),
+        HitboxFns.create(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+        HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ],
     }
   }
@@ -213,7 +213,7 @@ export function calcGeometryOfLinkItem_ListItem(link: LinkItem, blockSizePx: Dim
     return {
       boundsPx,
       hitboxes: [
-        createHitbox(HitboxType.Move, zeroBoundingBoxTopLeft(boundsPx))
+        HitboxFns.create(HitboxType.Move, zeroBoundingBoxTopLeft(boundsPx))
       ]
     };
   }
@@ -233,7 +233,7 @@ export function calcGeometryOfLinkItem_Cell(link: LinkItem, cellBoundsPx: Boundi
     return ({
       boundsPx: cloneBoundingBox(cellBoundsPx)!,
       hitboxes: [
-        createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+        HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
       ]
     });
   }

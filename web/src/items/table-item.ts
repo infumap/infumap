@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
-import { HitboxType, createHitbox, createHitboxMeta } from "../layout/hitbox";
+import { HitboxType, HitboxFns } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
@@ -159,19 +159,19 @@ export function calcGeometryOfTableItem_Desktop(table: TableMeasurable, containe
     accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
     if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
     colResizeHitboxes.push(
-      createHitbox(
+      HitboxFns.create(
         HitboxType.ColResize,
         { x: accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX/2, y: blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h - blockSizePx.h },
-        createHitboxMeta({ resizeColNumber: i })
+        HitboxFns.createMeta({ resizeColNumber: i })
       ));
   }
   return {
     boundsPx,
     hitboxes: !emitHitboxes ? [] : [
-      createHitbox(HitboxType.Move, innerBoundsPx),
-      createHitbox(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      HitboxFns.create(HitboxType.Move, innerBoundsPx),
+      HitboxFns.create(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
       ...colResizeHitboxes,
-      createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   };
 }
@@ -200,8 +200,8 @@ export function calcGeometryOfTableItem_ListItem(_table: TableMeasurable, blockS
   return {
     boundsPx,
     hitboxes: [
-      createHitbox(HitboxType.Click, innerBoundsPx),
-      createHitbox(HitboxType.Move, innerBoundsPx)
+      HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      HitboxFns.create(HitboxType.Move, innerBoundsPx)
     ]
   };
 }
@@ -212,8 +212,8 @@ export function calcGeometryOfTableItem_Cell(table: TableMeasurable, cellBoundsP
   return {
     boundsPx: cloneBoundingBox(boundsPx)!,
     hitboxes: [
-      createHitbox(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx)),
-      createHitbox(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(boundsPx)),
+      HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ]
   };
 }

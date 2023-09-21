@@ -36,7 +36,7 @@ import { panic } from "../util/lang";
 import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFromRemote } from "./load";
 import { mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
 import { newUid } from "../util/uid";
-import { HitboxType, createHitbox } from "./hitbox";
+import { HitboxType, HitboxFns } from "./hitbox";
 import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "./ves-cache";
@@ -418,8 +418,8 @@ const arrangePageWithChildren = (
       if (defaultResizeHitbox.type != HitboxType.Resize) { panic(); }
       const rhbBoundsPx = defaultResizeHitbox.boundsPx;
       hitboxes = [
-        createHitbox(HitboxType.Resize, { x: rhbBoundsPx.x + toolbarWidthPx, y: rhbBoundsPx.y, w: rhbBoundsPx.w, h: rhbBoundsPx.h }),
-        createHitbox(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: outerBoundsPx.h })
+        HitboxFns.create(HitboxType.Resize, { x: rhbBoundsPx.x + toolbarWidthPx, y: rhbBoundsPx.y, w: rhbBoundsPx.w, h: rhbBoundsPx.h }),
+        HitboxFns.create(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: outerBoundsPx.h })
       ];
     }
   }
