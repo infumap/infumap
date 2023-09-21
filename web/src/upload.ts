@@ -18,14 +18,14 @@
 
 import { GRID_SIZE } from "./constants";
 import { server } from "./server";
-import { calcBlockPositionGr, PageItem } from "./items/page-item";
+import { PageItem, PageFns } from "./items/page-item";
 import { DesktopStoreContextModel } from "./store/DesktopStoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./items/base/item";
-import { itemFromObject } from "./items/base/item-polymorphism";
-import { arrange, ARRANGE_ALGO_GRID, ARRANGE_ALGO_SPATIAL_STRETCH } from "./layout/arrange";
+import { ItemFns } from "./items/base/item-polymorphism";
+import { arrange, ARRANGE_ALGO_SPATIAL_STRETCH } from "./layout/arrange";
 import { itemState } from "./store/ItemState";
 
 
@@ -49,7 +49,7 @@ export async function handleUpload(
 
   const posPx = parent.arrangeAlgorithm != ARRANGE_ALGO_SPATIAL_STRETCH
     ? {x: 0.0, y: 0.0}
-    : calcBlockPositionGr(desktopStore, parent, desktopPx);
+    : PageFns.calcBlockPositionGr(desktopStore, parent, desktopPx);
 
   // handle files.
   const files = dataTransfer.files;
@@ -72,7 +72,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-      itemState.add(itemFromObject(returnedItem));
+      itemState.add(ItemFns.fromObject(returnedItem));
       arrange(desktopStore);
 
     } else {
@@ -90,7 +90,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
-      itemState.add(itemFromObject(returnedItem));
+      itemState.add(ItemFns.fromObject(returnedItem));
       arrange(desktopStore);
     }
   }

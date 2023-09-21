@@ -19,10 +19,10 @@
 import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
 import { HitboxType } from "../layout/hitbox";
 import { server } from "../server";
-import { calcSizeForSpatialBl } from "../items/base/item-polymorphism";
+import { ItemFns } from "../items/base/item-polymorphism";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asPageItem, calcPageInnerSpatialDimensionsBl, getPopupPositionGr } from "../items/page-item";
+import { asPageItem, PageFns } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
@@ -35,8 +35,8 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { asContainerItem } from "../items/base/container-item";
 import { getHitInfo } from "./hit";
 import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
-import { newPlaceholderItem } from "../items/placeholder-item";
-import { asLinkItem, getLinkToId, isLink, newLinkItemFromItem } from "../items/link-item";
+import { PlaceholderFns } from "../items/placeholder-item";
+import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
@@ -83,7 +83,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   const deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
 
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-  const activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
 
   changeMouseActionStateMaybe(deltaPx, activeVisualElement, activeItem, desktopStore, desktopPosPx, ev);
 
@@ -143,14 +143,14 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElement = MouseActionState.get().activeCompositeElementMaybe!;
       activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-      activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
+      activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
     }
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       MouseActionState.get().action = MouseAction.MovingPopup;
       const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
-      const popupPositionGr = getPopupPositionGr(asPageItem(activeRoot));
+      const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
       const shouldCreateLink = ev.shiftKey;
@@ -176,7 +176,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
           y: activeItem.spatialPositionGr.y / GRID_SIZE
         };
         if (shouldCreateLink) {
-          const link = newLinkItemFromItem(activeItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+          const link = LinkFns.createFromItem(activeItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
           itemState.add(link);
           server.addItem(link, null);
           arrange(desktopStore);
@@ -334,7 +334,7 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
   newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
   newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
   const inElement = VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem;
-  const dimBl = calcPageInnerSpatialDimensionsBl(asPageItem(inElement));
+  const dimBl = PageFns.calcInnerSpatialDimensionsBl(asPageItem(inElement));
   if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
   if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
@@ -383,7 +383,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   overContainerVe.moveOverRowNumber.set(insertRow);
 
   const childItem = itemState.get(tableItem.computed_children[insertRow]);
-  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(getLinkToId(asLinkItem(childItem!))!)))) {
+  if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(LinkFns.getLinkToId(asLinkItem(childItem!))!)))) {
     overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
   } else {
     overContainerVe.moveOverColAttachmentNumber.set(-1);
@@ -393,19 +393,19 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
 function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
-  const activeItem = asPositionalItem(VeFns.getItem(activeElement));
+  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeElement));
   const activeElementLinkItemMaybeId = activeElement.linkItemMaybe == null ? null : activeElement.linkItemMaybe.id;
   const activeElementItemId = activeElement.displayItem.id;
 
   const currentParent = itemState.get(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.displayItem);
   const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(moveToVe);
-  const moveToPageInnerSizeBl = calcPageInnerSpatialDimensionsBl(moveToPage);
+  const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
     y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
-  const activeItemDimensionsBl = calcSizeForSpatialBl(activeItem);
+  const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(activeItem);
   const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
     ? { x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
         y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0 }
@@ -431,7 +431,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     const isLast = parent.computed_attachments[asAttachmentsItem(currentParent).computed_attachments.length-1] == activeItem.id;
     parent.computed_attachments = parent.computed_attachments.filter(childItem => childItem != activeItem.id);
     if (!isLast) {
-      const placeholderItem = newPlaceholderItem(activeItem.ownerId, currentParent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
+      const placeholderItem = PlaceholderFns.create(activeItem.ownerId, currentParent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
       itemState.add(placeholderItem);
       MouseActionState.get().newPlaceholderItem = placeholderItem;
     }
@@ -446,8 +446,8 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
       MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
       let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
       MouseActionState.get().onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
-        y: calcSizeForSpatialBl(activeItem).h / boundsPx.h
+        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsPx.w,
+        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsPx.h
       };
       done = true;
     }
@@ -469,7 +469,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
 function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
-  const activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
@@ -483,7 +483,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   const tableParentPage = asPageItem(tableParentVe.displayItem);
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / tableParentVe!.boundsPx.w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe!.boundsPx.h * calcPageInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
+    y: itemPosInPagePx.y / tableParentVe!.boundsPx.h * PageFns.calcInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
@@ -507,8 +507,8 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
       MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
       let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
       MouseActionState.get().onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem).w / boundsPx.w,
-        y: calcSizeForSpatialBl(activeItem).h / boundsPx.h
+        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsPx.w,
+        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsPx.h
       };
       done = true;
     } else {

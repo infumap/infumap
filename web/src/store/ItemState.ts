@@ -19,7 +19,7 @@
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { Item } from "../items/base/item";
-import { itemFromObject } from "../items/base/item-polymorphism";
+import { ItemFns } from "../items/base/item-polymorphism";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic, throwExpression } from "../util/lang";
@@ -79,7 +79,7 @@ export const itemState = {
   },
 
   setItemFromServerObject: (itemObject: object): void => {
-    let item = itemFromObject(itemObject);
+    let item = ItemFns.fromObject(itemObject);
     items.set(item.id, item);
   },
 
@@ -116,7 +116,7 @@ export const itemState = {
    * @param childItems The child items.
    */
   setChildItemsFromServerObjects: (parentId: Uid, childItemObjects: Array<object>): void => {
-    let childItems = childItemObjects.map(cio => itemFromObject(cio));
+    let childItems = childItemObjects.map(cio => ItemFns.fromObject(cio));
     childItems.forEach(childItem => {
       if (!items.has(childItem.id)) {
         // item may have already been loaded (including children, and will be flagged as such).
@@ -146,7 +146,7 @@ export const itemState = {
   },
 
   setAttachmentItemsFromServerObjects: (parentId: Uid, attachmentItemObject: Array<object>): void => {
-    let attachmentItems = attachmentItemObject.map(aio => itemFromObject(aio));
+    let attachmentItems = attachmentItemObject.map(aio => ItemFns.fromObject(aio));
     if (!isAttachmentsItem(itemState.get(parentId)!)) {
       throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${itemState.get(parentId)!.itemType}' which does not allow attachments.`);
     }

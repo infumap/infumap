@@ -17,22 +17,22 @@
 */
 
 import { Component } from "solid-js";
-import { newNoteItem } from "../../items/note-item";
-import { asPageItem, calcBlockPositionGr, isPage, newPageItem } from "../../items/page-item";
+import { NoteFns } from "../../items/note-item";
+import { asPageItem, isPage, PageFns } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns } from "../../items/table-item";
 import { arrange } from "../../layout/arrange";
-import { newRatingItem } from "../../items/rating-item";
+import { RatingFns } from "../../items/rating-item";
 import { initialEditDialogBounds } from "../edit/EditDialog";
 import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hit";
-import { newLinkItem } from "../../items/link-item";
+import { LinkFns } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
-import { newPasswordItem } from "../../items/password-item";
+import { PasswordFns } from "../../items/password-item";
 import { VisualElementFlags } from "../../layout/visual-element";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
@@ -68,7 +68,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
     let newItem = null;
     if (type == "rating") {
-      newItem = newRatingItem(
+      newItem = RatingFns.create(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
         3,
@@ -82,27 +82,27 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "note") {
-      newItem = newNoteItem(
+      newItem = NoteFns.create(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
         RelationshipToParent.Child,
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "page") {
-      newItem = newPageItem(
+      newItem = PageFns.create(
         userStore.getUser().userId,
         overElementVe.displayItem.id!,
         RelationshipToParent.Child,
         "",
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
     } else if (type == "link")  {
-      newItem = newLinkItem(userStore.getUser().userId,
+      newItem = LinkFns.create(userStore.getUser().userId,
         overElementVe.displayItem.id!,
         RelationshipToParent.Child,
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
         EMPTY_UID);
     } else if (type == "password")  {
-      newItem = newPasswordItem(userStore.getUser().userId,
+      newItem = PasswordFns.create(userStore.getUser().userId,
         overElementVe.displayItem.id!,
         RelationshipToParent.Child,
         "",
@@ -112,7 +112,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     }
 
     if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
-      newItem.spatialPositionGr = calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
+      newItem.spatialPositionGr = PageFns.calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
       server.addItem(newItem, null);
       itemState.add(newItem);
       desktopStore.setContextMenuInfo(null);

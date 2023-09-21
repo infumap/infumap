@@ -18,7 +18,7 @@
 
 import { logout } from "./components/Main";
 import { Item } from "./items/base/item";
-import { itemToObject } from "./items/base/item-polymorphism";
+import { ItemFns } from "./items/base/item-polymorphism";
 import { throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 
@@ -55,12 +55,12 @@ export const server = {
   },
 
   addItem: async (item: Item, base64Data: string | null): Promise<object> => {
-    let returnedItem = await sendCommand(null, "add-item", itemToObject(item), base64Data, true);
+    let returnedItem = await sendCommand(null, "add-item", ItemFns.toObject(item), base64Data, true);
     return returnedItem;
   },
 
   updateItem: async (item: Item): Promise<void> => {
-    await sendCommand(null, "update-item", itemToObject(item), null, true);
+    await sendCommand(null, "update-item", ItemFns.toObject(item), null, true);
   },
 
   deleteItem: async (id: Uid): Promise<void> => {

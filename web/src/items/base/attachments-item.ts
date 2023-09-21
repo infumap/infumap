@@ -22,7 +22,7 @@ import { Uid } from "../../util/uid";
 import { HitboxType, HitboxFns } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, Measurable, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE } from "./item";
-import { calcSizeForSpatialBl } from "./item-polymorphism";
+import { ItemFns } from "./item-polymorphism";
 import { RESIZE_BOX_SIZE_PX } from "../../constants";
 
 
@@ -63,7 +63,7 @@ export function calcGeometryOfAttachmentItemImpl(
   const blockSizePx = parentBoundsPx.w / parentInnerSizeBl.w;
   const scaleDownBlockSizePx = blockSizePx * SCALE_DOWN_PROP;
   const scaleDownMarginPx = (blockSizePx - scaleDownBlockSizePx) / 2.0;
-  const itemSizeBl = calcSizeForSpatialBl(item);
+  const itemSizeBl = ItemFns.calcSpatialDimensionsBl(item);
   let boundsPx: BoundingBox;
   if (itemSizeBl.w > itemSizeBl.h) {
     const wPx = scaleDownBlockSizePx;
@@ -107,7 +107,7 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
     w: parentBoundsPx.w / parentInnerSizeBl.w,
     h: parentBoundsPx.h / parentInnerSizeBl.h
   };
-  const itemSizeBl = calcSizeForSpatialBl(item);
+  const itemSizeBl = ItemFns.calcSpatialDimensionsBl(item);
   const itemSizePx = {
     w: itemSizeBl.w * blockSizePx.w,
     h: itemSizeBl.h * blockSizePx.h

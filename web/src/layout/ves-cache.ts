@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { getItemFingerprint } from "../items/base/item-polymorphism";
+import { ItemFns } from "../items/base/item-polymorphism";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -76,7 +76,7 @@ function createOrRecycleVisualElementSignalImpl (
 
   if (visualElementOverride.displayItemFingerprint) { panic(); }
   // TODO(LOW): Modifying the input object is a bit dirty.
-  visualElementOverride.displayItemFingerprint = getItemFingerprint(visualElementOverride.displayItem);
+  visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem);
 
   if (alwaysUseVes) {
     if (debug) { console.debug("alwaysUse:", path); }

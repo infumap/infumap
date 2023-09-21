@@ -20,8 +20,8 @@ import { Component, For, Show } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
-import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
-import { asPasswordItem, calcPasswordSizeForSpatialBl } from "../../items/password-item";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElementFlags } from "../../layout/visual-element";
 
@@ -40,9 +40,9 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   };
   const sizeBl = () => {
     if (props.visualElement.linkItemMaybe != null) {
-      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
+      return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);
     }
-    return calcPasswordSizeForSpatialBl(passwordItem());
+    return PasswordFns.calcSpatialDimensionsBl(passwordItem());
   };
   const oneBlockWidthPx = () => boundsPx().w / sizeBl().w;
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;

@@ -17,11 +17,11 @@
 */
 
 import { Component, For, Show } from "solid-js";
-import { asFileItem, asFileMeasurable, calcFileSizeForSpatialBl } from "../../items/file-item";
+import { FileFns, asFileItem } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
-import { calcSizeForSpatialBl, cloneMeasurableFields } from "../../items/base/item-polymorphism";
+import { ItemFns} from "../../items/base/item-polymorphism";
 import { VisualElementFlags } from "../../layout/visual-element";
 import { asCompositeItem } from "../../items/composite-item";
 import { VesCache } from "../../layout/ves-cache";
@@ -48,14 +48,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   };
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
-      const cloned = asFileMeasurable(cloneMeasurableFields(props.visualElement.displayItem));
+      const cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
       cloned.spatialWidthGr = asCompositeItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem).spatialWidthGr;
-      return calcSizeForSpatialBl(cloned);
+      return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {
-      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
+      return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);
     }
-    return calcFileSizeForSpatialBl(fileItem());
+    return FileFns.calcSpatialDimensionsBl(fileItem());
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;

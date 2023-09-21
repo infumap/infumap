@@ -19,13 +19,13 @@
 import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { asContainerItem } from "../items/base/container-item";
-import { handleClick, handlePopupClick } from "../items/base/item-polymorphism";
+import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asCompositeItem, isComposite, newCompositeItem } from "../items/composite-item";
-import { asLinkItem, getLinkToId, isLink } from "../items/link-item";
-import { isPlaceholder, newPlaceholderItem } from "../items/placeholder-item";
+import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
+import { LinkFns, asLinkItem, isLink } from "../items/link-item";
+import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxType } from "../layout/hitbox";
@@ -51,7 +51,7 @@ export function mouseUpHandler(
 
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
   const activeVisualElement = activeVisualElementSignal.get();
-  const activeItem = asPositionalItem(VeFns.getItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
 
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
@@ -88,14 +88,14 @@ export function mouseUpHandler(
 
     case MouseAction.Ambiguous:
       if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.OpenPopup) {
-        handlePopupClick(activeVisualElement, desktopStore, userStore);
+        ItemFns.handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.OpenAttachment) {
         handleAttachmentClick(desktopStore, activeVisualElement, userStore);
         arrange(desktopStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Click) {
-        handleClick(activeVisualElementSignal, desktopStore, userStore);
+        ItemFns.handleClick(activeVisualElementSignal, desktopStore, userStore);
       }
       break;
 
@@ -164,7 +164,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
   attachToVisualElement.movingItemIsOverAttach.set(false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
 
-  const attachToItem = asPositionalItem(VeFns.getItem(attachToVisualElement));
+  const attachToItem = asPositionalItem(VeFns.getCanonicalItem(attachToVisualElement));
 
   if (attachToVisualElement.displayItem.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
@@ -200,7 +200,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 
   // case #2: attaching to an item that is not inside an existing composite.
   } else {
-    const compositeItem = newCompositeItem(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
+    const compositeItem = CompositeFns.create(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
     compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
     if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
     itemState.add(compositeItem);
@@ -305,12 +305,12 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   const childId = tableItem.computed_children[rowNumber];
   const child = itemState.get(childId)!;
   const canonicalChild = asAttachmentsItem(isLink(child)
-    ? itemState.get(getLinkToId(asLinkItem(child)))!
+    ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
     : child);
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
   const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
-    const placeholderItem = newPlaceholderItem(activeItem.ownerId, canonicalChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
+    const placeholderItem = PlaceholderFns.create(activeItem.ownerId, canonicalChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
     itemState.add(placeholderItem);
     server.addItem(placeholderItem, null);
   }

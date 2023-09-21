@@ -19,7 +19,7 @@
 import { POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
-import { calcSizeForSpatialBl } from "../items/base/item-polymorphism";
+import { ItemFns } from "../items/base/item-polymorphism";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asPageItem } from "../items/page-item";
 import { isTable } from "../items/table-item";
@@ -100,24 +100,24 @@ export function mouseLeftDownHandler(
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPosPx;
-  const activeItem = VeFns.getItem(hitInfo.overElementVes.get());
+  const activeItem = VeFns.getCanonicalItem(hitInfo.overElementVes.get());
   let boundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
-      x: (calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
-      y: calcSizeForSpatialBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
+      x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
+      y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
-      const activeCompositeItem = VeFns.getItem(hitInfo.overContainerVe!);
+      const activeCompositeItem = VeFns.getCanonicalItem(hitInfo.overContainerVe!);
       const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overContainerVe!);
       onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
-        y: calcSizeForSpatialBl(activeCompositeItem).h / compositeBoundsOnDesktopPx.h };
+        x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
+        y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnDesktopPx.h };
     } else {
       onePxSizeBl = {
-        x: calcSizeForSpatialBl(activeItem).w / boundsOnDesktopPx.w,
-        y: calcSizeForSpatialBl(activeItem).h / boundsOnDesktopPx.h };
+        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsOnDesktopPx.w,
+        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsOnDesktopPx.h };
     }
   }
 

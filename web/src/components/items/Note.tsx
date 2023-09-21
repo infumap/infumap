@@ -17,11 +17,11 @@
 */
 
 import { Component, For, Show } from "solid-js";
-import { asNoteItem, asNoteMeasurable, calcNoteSizeForSpatialBl } from "../../items/note-item";
+import { NoteFns, asNoteItem } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
-import { calcSizeForSpatialBl, cloneMeasurableFields } from "../../items/base/item-polymorphism";
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
@@ -33,14 +33,14 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
-      const cloned = asNoteMeasurable(cloneMeasurableFields(props.visualElement.displayItem));
+      const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
       cloned.spatialWidthGr = asCompositeItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem).spatialWidthGr;
-      return calcSizeForSpatialBl(cloned);
+      return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {
-      return calcSizeForSpatialBl(props.visualElement.linkItemMaybe!);
+      return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);
     }
-    return calcNoteSizeForSpatialBl(noteItem());
+    return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;

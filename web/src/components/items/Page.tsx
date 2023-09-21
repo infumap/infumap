@@ -17,13 +17,13 @@
 */
 
 import { Component, createEffect, createMemo, For, onMount, Show } from "solid-js";
-import { asPageItem, popupPositioningHasChanged } from "../../items/page-item";
+import { asPageItem, PageFns } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
-import { calcSizeForSpatialBl } from "../../items/base/item-polymorphism";
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
@@ -346,7 +346,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
             {pageItem().title}
           </div>
-          <Show when={popupPositioningHasChanged(parentPage())}>
+          <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
             <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>
               <i class={`fa fa-anchor`} />
             </div>
@@ -420,7 +420,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const dimensionsBl = () => calcSizeForSpatialBl(pageItem());
+  const dimensionsBl = () => ItemFns.calcSpatialDimensionsBl(pageItem());
   const aspect = () => dimensionsBl().w / dimensionsBl().h;
   const thumbBoundsPx = () => {
     if (aspect() >= 1.0) {

@@ -23,7 +23,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
 import { arrange } from "./arrange";
 import { asLinkItem } from "../items/link-item";
-import { itemFromObject } from "../items/base/item-polymorphism";
+import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
 
 
@@ -104,7 +104,7 @@ export const initiateLoadItemFromRemote = (desktopStore: DesktopStoreContextMode
       if (result != null) {
         batch(() => {
           itemState.setItemFromServerObject(result.item);
-          asLinkItem(itemState.get(resolveId)!).linkToResolvedId = itemFromObject(result.item).id;
+          asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item).id;
           Object.keys(result.attachments).forEach(id => {
             itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });

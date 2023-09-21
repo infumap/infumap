@@ -29,146 +29,168 @@ import { server } from '../server';
 import { arrange } from '../layout/arrange';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { handleListPageLineItemClickMaybe } from './base/item-common';
+import { handleListPageLineItemClickMaybe } from './base/item-common-fns';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
   rating: number,
 }
 
-export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin {}
+export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin { }
 
 
-export function newRatingItem(ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem {
-  if (parentId == EMPTY_UID) { panic(); }
-  return {
-    itemType: ITEM_TYPE_RATING,
-    ownerId,
-    id: newUid(),
-    parentId,
-    relationshipToParent,
-    creationDate: currentUnixTimeSeconds(),
-    lastModifiedDate: currentUnixTimeSeconds(),
-    ordering,
-    spatialPositionGr: { x: 0.0, y: 0.0 },
+export const RatingFns = {
+  create: (ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem => {
+    if (parentId == EMPTY_UID) { panic(); }
+    return {
+      itemType: ITEM_TYPE_RATING,
+      ownerId,
+      id: newUid(),
+      parentId,
+      relationshipToParent,
+      creationDate: currentUnixTimeSeconds(),
+      lastModifiedDate: currentUnixTimeSeconds(),
+      ordering,
+      spatialPositionGr: { x: 0.0, y: 0.0 },
+  
+      rating,
+    };
+  },
 
-    rating,
-  };
-}
+  fromObject: (o: any): RatingItem => {
+    // TODO: dynamic type check of o.
+    return ({
+      itemType: o.itemType,
+      ownerId: o.ownerId,
+      id: o.id,
+      parentId: o.parentId,
+      relationshipToParent: o.relationshipToParent,
+      creationDate: o.creationDate,
+      lastModifiedDate: o.lastModifiedDate,
+      ordering: new Uint8Array(o.ordering),
+      spatialPositionGr: o.spatialPositionGr,
+  
+      rating: o.rating,
+    });
+  },
 
+  toObject: (r: RatingItem): object => {
+    return ({
+      itemType: r.itemType,
+      ownerId: r.ownerId,
+      id: r.id,
+      parentId: r.parentId,
+      relationshipToParent: r.relationshipToParent,
+      creationDate: r.creationDate,
+      lastModifiedDate: r.lastModifiedDate,
+      ordering: Array.from(r.ordering),
+      spatialPositionGr: r.spatialPositionGr,
+  
+      rating: r.rating,
+    });
+  },
 
-export function ratingFromObject(o: any): RatingItem {
-  // TODO: dynamic type check of o.
-  return ({
-    itemType: o.itemType,
-    ownerId: o.ownerId,
-    id: o.id,
-    parentId: o.parentId,
-    relationshipToParent: o.relationshipToParent,
-    creationDate: o.creationDate,
-    lastModifiedDate: o.lastModifiedDate,
-    ordering: new Uint8Array(o.ordering),
-    spatialPositionGr: o.spatialPositionGr,
+  calcSpatialDimensionsBl: (_item: RatingMeasurable): Dimensions => {
+    return { w: 1.0, h: 1.0 };
+  },
 
-    rating: o.rating,
-  });
-}
+  calcGeometry_Desktop: (rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry => {
+    const boundsPx = {
+      x: (rating.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
+      y: (rating.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
+      w: RatingFns.calcSpatialDimensionsBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
+      h: RatingFns.calcSpatialDimensionsBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    return {
+      boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxType.Move, innerBoundsPx),
+        HitboxFns.create(HitboxType.Click, innerBoundsPx),
+      ],
+    }
+  },
 
-export function ratingToObject(r: RatingItem): object {
-  return ({
-    itemType: r.itemType,
-    ownerId: r.ownerId,
-    id: r.id,
-    parentId: r.parentId,
-    relationshipToParent: r.relationshipToParent,
-    creationDate: r.creationDate,
-    lastModifiedDate: r.lastModifiedDate,
-    ordering: Array.from(r.ordering),
-    spatialPositionGr: r.spatialPositionGr,
+  calcGeometry_InComposite: (_measurable: RatingMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
+    panic();
+  },
 
-    rating: r.rating,
-  });
-}
+  calcGeometry_Attachment: (rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
+    return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
+  },
 
+  calcGeometry_ListItem: (_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry => {
+    const innerBoundsPx = {
+      x: 0.0,
+      y: 0.0,
+      w: blockSizePx.w * widthBl,
+      h: blockSizePx.h
+    };
+    const boundsPx = {
+      x: blockSizePx.w * col,
+      y: blockSizePx.h * row,
+      w: blockSizePx.w * widthBl,
+      h: blockSizePx.h
+    };
+    return {
+      boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxType.Move, innerBoundsPx),
+        HitboxFns.create(HitboxType.Click, innerBoundsPx)
+      ]
+    };
+  },
 
-export function calcRatingSizeForSpatialBl(_item: RatingMeasurable): Dimensions {
-  return { w: 1.0, h: 1.0 };
-}
+  calcGeometry_Cell: (_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+    return ({
+      boundsPx: cloneBoundingBox(cellBoundsPx)!,
+      hitboxes: [
+        HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+      ]
+    });
+  },
 
-export function calcGeometryOfRatingItem_Desktop(rating: RatingMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry {
-  const boundsPx = {
-    x: (rating.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-    y: (rating.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-    w: calcRatingSizeForSpatialBl(rating).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-    h: calcRatingSizeForSpatialBl(rating).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
-  };
-  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-  return {
-    boundsPx,
-    hitboxes: [
-      HitboxFns.create(HitboxType.Move, innerBoundsPx),
-      HitboxFns.create(HitboxType.Click, innerBoundsPx),
-    ],
-  }
-}
+  handleClick: (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
+    const visualElement = visualElementSignal.get();
+    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
+    const item = asRatingItem(visualElementSignal.get().displayItem);
+    item.rating += 1;
+    if (item.rating == 6) { item.rating = 0; }
+    arrange(desktopStore); // TODO (LOW): only need to rearrange the element.
+  
+    function clickTimerHandler() {
+      server.updateItem(item);
+      clickTimer = null;
+    }
+    if (clickTimer != null) { clearTimeout(clickTimer); }
+    clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
+  },
 
-export function calcGeometryOfRatingItem_InComposite(measurable: RatingMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
-  panic();
-}
+  asPlaceholderMeasurable: (item: ItemTypeMixin): RatingMeasurable => {
+    if (item.itemType == ITEM_TYPE_RATING) { return item as RatingMeasurable; }
+    panic();
+  },
 
-export function calcGeometryOfRatingItem_Attachment(rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
-  return calcGeometryOfAttachmentItemImpl(rating, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
-}
+  cloneMeasurableFields: (rating: RatingMeasurable): RatingMeasurable => {
+    return ({
+      itemType: rating.itemType,
+      spatialPositionGr: rating.spatialPositionGr,
+    });
+  },
 
-export function calcGeometryOfRatingItem_ListItem(_rating: RatingMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
-  const innerBoundsPx = {
-    x: 0.0,
-    y: 0.0,
-    w: blockSizePx.w * widthBl,
-    h: blockSizePx.h
-  };
-  const boundsPx = {
-    x: blockSizePx.w * col,
-    y: blockSizePx.h * row,
-    w: blockSizePx.w * widthBl,
-    h: blockSizePx.h
-  };
-  return {
-    boundsPx,
-    hitboxes: [
-      HitboxFns.create(HitboxType.Move, innerBoundsPx),
-      HitboxFns.create(HitboxType.Click, innerBoundsPx)
-    ]
-  };
-}
+  debugSummary: (ratingItem: RatingItem) => {
+    return "[rating] " + ratingItem.rating;
+  },
 
-export function calcGeometryOfRatingItem_Cell(_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry {
-  return ({
-    boundsPx: cloneBoundingBox(cellBoundsPx)!,
-    hitboxes: [
-      HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
-    ]
-  });
-}
+  getFingerprint: (ratingItem: RatingItem): string => {
+    return "" + ratingItem.rating;
+  } 
+};
 
+// for click handler
 const PERSIST_AFTER_MS = 1000;
 let clickTimer: number | null = null;
 
-export function handleRatingClick(desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void {
-  const visualElement = visualElementSignal.get();
-  if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-  const item = asRatingItem(visualElementSignal.get().displayItem);
-  item.rating += 1;
-  if (item.rating == 6) { item.rating = 0; }
-  arrange(desktopStore); // TODO (LOW): only need to rearrange the element.
-
-  function clickTimerHandler() {
-    server.updateItem(item);
-    clickTimer = null;
-  }
-  if (clickTimer != null) { clearTimeout(clickTimer); }
-  clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
-}
 
 export function isRating(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
@@ -178,24 +200,4 @@ export function isRating(item: ItemTypeMixin | null): boolean {
 export function asRatingItem(item: ItemTypeMixin): RatingItem {
   if (item.itemType == ITEM_TYPE_RATING) { return item as RatingItem; }
   panic();
-}
-
-export function asRatingMeasurable(item: ItemTypeMixin): RatingMeasurable {
-  if (item.itemType == ITEM_TYPE_RATING) { return item as RatingMeasurable; }
-  panic();
-}
-
-export function cloneRatingMeasurableFields(rating: RatingMeasurable): RatingMeasurable {
-  return ({
-    itemType: rating.itemType,
-    spatialPositionGr: rating.spatialPositionGr,
-  });
-}
-
-export function ratingDebugSummary(ratingItem: RatingItem) {
-  return "[rating] " + ratingItem.rating;
-}
-
-export function getRatingItemFingerprint(ratingItem: RatingItem): string {
-  return "" + ratingItem.rating;
 }

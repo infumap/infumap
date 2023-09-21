@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_TABLE, calcBoundsInCellFromSizeBl } from "./base/item";
+import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
@@ -33,11 +33,10 @@ import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VisualElement } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
-import { handleListPageLineItemClickMaybe } from "./base/item-common";
+import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 
 
-export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
-}
+export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin {
   tableColumns: Array<TableColumn>;
@@ -136,12 +135,12 @@ export const TableFns = {
     });
   },
   
-  calcSizeForSpatialBl: (table: TableMeasurable): Dimensions => {
+  calcSpatialDimensionsBl: (table: TableMeasurable): Dimensions => {
     return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
   },
   
   calcGeometry_Desktop: (table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
-    const tableSizeBl: Dimensions = TableFns.calcSizeForSpatialBl(table);
+    const tableSizeBl: Dimensions = TableFns.calcSpatialDimensionsBl(table);
     const boundsPx: BoundingBox = {
       x: (table.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
       y: (table.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -207,7 +206,7 @@ export const TableFns = {
   },
 
   calcGeometry_Cell: (table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
-    const boundsPx = calcBoundsInCellFromSizeBl(TableFns.calcSizeForSpatialBl(table), cellBoundsPx);
+    const boundsPx = calcBoundsInCellFromSizeBl(TableFns.calcSpatialDimensionsBl(table), cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
       boundsPx: cloneBoundingBox(boundsPx)!,
@@ -218,7 +217,7 @@ export const TableFns = {
     };
   },
 
-  asMeasurable: (item: ItemTypeMixin): TableMeasurable => {
+  asTableMeasurable: (item: ItemTypeMixin): TableMeasurable => {
     if (item.itemType == ITEM_TYPE_TABLE) { return item as TableMeasurable; }
     panic();
   },
