@@ -26,18 +26,18 @@ import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../i
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
-import { initiateLoadChildItemsIfNotLoaded } from "../load";
+import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxType, HitboxFns } from "../hitbox";
 import { itemState } from "../../store/ItemState";
 import { TableFlags } from "../../items/base/flags-item";
 import { VesCache } from "../ves-cache";
 import { ItemGeometry } from "../item-geometry";
 import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
-import { getVeItems } from "./util";
 import { arrangeItemAttachments } from "./attachments";
+import { getVePropertiesForItem } from "./util";
 
 
 export const arrangeItem = (
@@ -51,7 +51,7 @@ export const arrangeItem = (
     isRoot: boolean): VisualElementSignal => {
   if (isPopup && !isLink(item)) { panic(); }
 
-  const [displayItem, linkItemMaybe, spatialWidthGr] = getVeItems(desktopStore, item);
+  const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(desktopStore, item);
 
   if (renderChildrenAsFull &&
       (isPage(displayItem) &&
@@ -60,19 +60,19 @@ export const arrangeItem = (
             (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
           : // However, this test does.
             itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL))) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
+    initiateLoadChildItemsMaybe(desktopStore, displayItem.id);
     return arrangePageWithChildren(
       desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot);
   }
 
   if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
+    initiateLoadChildItemsMaybe(desktopStore, displayItem.id);
     return arrangeTable(
       desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry);
   }
 
   if (isComposite(displayItem)) {
-    initiateLoadChildItemsIfNotLoaded(desktopStore, displayItem.id);
+    initiateLoadChildItemsMaybe(desktopStore, displayItem.id);
     return arrangeComposite(
       desktopStore, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry);
   }
@@ -209,11 +209,10 @@ const arrangePageWithChildren = (
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren), isPagePopup, true);
         return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false);
       } else {
-        const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
+        const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
         const itemGeometry = ItemFns.calcGeometry_Spatial(
-          linkItemMaybe ? linkItemMaybe : displayItem,
-          innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
+          childItem, innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
         return arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, true);
       }
     });
@@ -239,7 +238,7 @@ const arrangePageWithChildren = (
     let listVeChildren: Array<VisualElementSignal> = [];
     for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
       const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
-      const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
       const selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem({ itemId: displayItem.id, linkIdMaybe: linkItemMaybe ? linkItemMaybe.id : null }));
 
       const widthBl = LIST_PAGE_LIST_WIDTH_BL;
@@ -311,7 +310,7 @@ const arrangeComposite = (
     const childId = displayItem_Composite.computed_children[idx];
     const childItem = itemState.get(childId)!;
 
-    const [displayItem_childItem, linkItemMaybe_childItem] = getVeItems(desktopStore, childItem);
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
 
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
@@ -388,7 +387,7 @@ const arrangeTable = (
   for (let idx=0; idx<displayItem_Table.computed_children.length; ++idx) {
     const childId = displayItem_Table.computed_children[idx];
     const childItem = itemState.get(childId)!;
-    const [displayItem_childItem, linkItemMaybe_childItem] = getVeItems(desktopStore, childItem);
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
 
     let widthBl = displayItem_Table.tableColumns.length == 1
       ? sizeBl.w
@@ -423,7 +422,7 @@ const arrangeTable = (
 
         const attachmentId = attachmentsItem.computed_attachments[i];
         const attachmentItem = itemState.get(attachmentId)!;
-        const [displayItem_attachment, linkItemMaybe_attachment] = getVeItems(desktopStore, attachmentItem);
+        const { displayItem: displayItem_attachment, linkItemMaybe: linkItemMaybe_attachment } = getVePropertiesForItem(desktopStore, attachmentItem);
 
         const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl);
 

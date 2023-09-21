@@ -26,7 +26,7 @@ import { BoundingBox } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { getVeItems } from "./util";
+import { getVePropertiesForItem } from "./util";
 
 
 export function arrangeItemAttachments(
@@ -47,7 +47,7 @@ export function arrangeItemAttachments(
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
     const attachmentItem = itemState.get(attachmentId)!;
-    const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = getVeItems(desktopStore, attachmentItem);
+    const { displayItem: attachmentDisplayItem, linkItemMaybe: attachmentLinkItemMaybe } = getVePropertiesForItem(desktopStore, attachmentItem);
     const attachmentVeid: Veid = {
       itemId: attachmentDisplayItem.id,
       linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null

@@ -32,7 +32,7 @@ import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
 import { arrangeItem } from "../item";
-import { getVeItems } from "../util";
+import { getVePropertiesForItem } from "../util";
 
 
 const LIST_FOCUS_ID = newUid();
@@ -55,7 +55,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   let listVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childItem = itemState.get(currentPage.computed_children[idx])!;
-    const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
 
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
@@ -94,17 +94,14 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
 
+
 function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
 
   let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
   li.id = LIST_FOCUS_ID;
-  if (isXSizableItem(item)) {
-    li.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
-  }
-  if (isYSizableItem(item)) {
-    li.spatialHeightGr = asYSizableItem(item).spatialHeightGr;
-  }
+  if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
+  if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
   const geometry = ItemFns.calcGeometry_InCell(li, boundsPx);

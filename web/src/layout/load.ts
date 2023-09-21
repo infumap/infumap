@@ -29,10 +29,8 @@ import { arrange } from "./arrange";
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreContextModel, containerId: string) => {
-  if (childrenLoadInitiatedOrComplete[containerId]) {
-    return;
-  }
+export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextModel, containerId: string) => {
+  if (childrenLoadInitiatedOrComplete[containerId]) { return; }
   childrenLoadInitiatedOrComplete[containerId] = true;
 
   server.fetchItems(`${containerId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
@@ -62,12 +60,10 @@ export const initiateLoadChildItemsIfNotLoaded = (desktopStore: DesktopStoreCont
 
 let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, id: string) => {
-  console.log("initiate load item:", id);
-  if (itemLoadInitiatedOrComplete[id]) {
-    return;
-  }
+export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id: string) => {
+  if (itemLoadInitiatedOrComplete[id]) { return; }
   itemLoadInitiatedOrComplete[id] = true;
+
   server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
@@ -94,11 +90,10 @@ export const initiateLoadItem = (desktopStore: DesktopStoreContextModel, id: str
 
 let itemLoadFromRemoteInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemFromRemote = (desktopStore: DesktopStoreContextModel, itemId: string, baseUrl: string, resolveId: string) => {
-  if (itemLoadFromRemoteInitiatedOrComplete[itemId]) {
-    return;
-  }
+export const initiateLoadItemFromRemoteMaybe = (desktopStore: DesktopStoreContextModel, itemId: string, baseUrl: string, resolveId: string) => {
+  if (itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; }
   itemLoadFromRemoteInitiatedOrComplete[itemId] = true;
+
   remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {

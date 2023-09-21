@@ -20,7 +20,8 @@ import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
-import { initiateLoadChildItemsIfNotLoaded } from "../load";
+import { panic } from "../../util/lang";
+import { initiateLoadChildItemsMaybe } from "../load";
 import { arrange_grid } from "./topLevel/grid";
 import { arrange_list } from "./topLevel/list";
 import { arrange_spatialStretch } from "./topLevel/spatial";
@@ -47,14 +48,22 @@ import { arrange_spatialStretch } from "./topLevel/spatial";
  */
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
-  initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.currentPage()!.itemId);
-  let currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-    arrange_grid(desktopStore);
-  } else if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    arrange_spatialStretch(desktopStore);
-  } else if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
-    arrange_list(desktopStore);
+
+  initiateLoadChildItemsMaybe(desktopStore, desktopStore.currentPage()!.itemId);
+
+  switch (asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm) {
+    case ArrangeAlgorithm.Grid:
+      arrange_grid(desktopStore);
+      break;
+    case ArrangeAlgorithm.SpatialStretch:
+      arrange_spatialStretch(desktopStore);
+      break;
+    case ArrangeAlgorithm.List:
+      arrange_list(desktopStore);
+      break;
+    default:
+      panic();
   }
+
   mouseMove_handleNoButtonDown(desktopStore);
 }
