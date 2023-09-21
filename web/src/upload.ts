@@ -23,7 +23,7 @@ import { DesktopStoreContextModel } from "./store/DesktopStoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
-import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./items/base/item";
+import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { arrange } from "./layout/arrange/arrange";
 import { itemState } from "./store/ItemState";
@@ -60,7 +60,7 @@ export async function handleUpload(
 
     if (file.type.startsWith("image")) {
       let imageItem: object = {
-        itemType: ITEM_TYPE_IMAGE,
+        itemType: ItemType.Image,
         parentId: parent.id,
         title: file.name,
         spatialPositionGr: posPx,
@@ -77,7 +77,7 @@ export async function handleUpload(
 
     } else {
       let fileItem: object = {
-        itemType: ITEM_TYPE_FILE,
+        itemType: ItemType.File,
         id: newUid(),
         parentId: parent.id,
         title: file.name,

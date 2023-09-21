@@ -22,7 +22,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_NOTE } from './base/item';
+import { ItemType, ItemTypeMixin } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -46,7 +46,7 @@ export const NoteFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem => {
     if (parentId == EMPTY_UID) { panic(); }
     return {
-      itemType: ITEM_TYPE_NOTE,
+      itemType: ItemType.Note,
       ownerId,
       id: newUid(),
       parentId,
@@ -218,7 +218,7 @@ export const NoteFns = {
   },
 
   asNoteMeasurable: (item: ItemTypeMixin): NoteMeasurable => {
-    if (item.itemType == ITEM_TYPE_NOTE) { return item as NoteMeasurable; }
+    if (item.itemType == ItemType.Note) { return item as NoteMeasurable; }
     panic();
   },
 
@@ -252,10 +252,10 @@ export const NoteFns = {
 
 export function isNote(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_NOTE;
+  return item.itemType == ItemType.Note;
 }
 
 export function asNoteItem(item: ItemTypeMixin): NoteItem {
-  if (item.itemType == ITEM_TYPE_NOTE) { return item as NoteItem; }
+  if (item.itemType == ItemType.Note) { return item as NoteItem; }
   panic();
 }

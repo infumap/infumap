@@ -23,7 +23,7 @@ import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
-import { ITEM_TYPE_NONE } from "../items/base/item";
+import { ItemType } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
@@ -95,7 +95,7 @@ export const Main: Component = () => {
 
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
-      <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != ITEM_TYPE_NONE}>
+      <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != ItemType.None}>
         <Desktop visualElement={desktopStore.topLevelVisualElement()} />
       </Show>
       <Toolbar />

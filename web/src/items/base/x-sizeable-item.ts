@@ -17,11 +17,11 @@
 */
 
 import { panic } from "../../util/lang";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE, ITEM_TYPE_LINK, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE } from "./item";
+import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
-const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_NOTE, ITEM_TYPE_TABLE, ITEM_TYPE_IMAGE, ITEM_TYPE_FILE, ITEM_TYPE_LINK, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE];
-const HALF_SIZEABLE_ITEM_TYPES = [ITEM_TYPE_NOTE, ITEM_TYPE_TABLE, ITEM_TYPE_IMAGE, ITEM_TYPE_FILE, ITEM_TYPE_PASSWORD, ITEM_TYPE_COMPOSITE];
+const ITEM_TYPES = [ItemType.Page, ItemType.Note, ItemType.Table, ItemType.Image, ItemType.File, ItemType.Link, ItemType.Password, ItemType.Composite];
+const HALF_SIZEABLE_ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Image, ItemType.File, ItemType.Password, ItemType.Composite];
 
 export interface XSizableMixin {
   spatialWidthGr: number,

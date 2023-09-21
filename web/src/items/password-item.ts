@@ -22,7 +22,7 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_PASSWORD } from './base/item';
+import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
@@ -42,7 +42,7 @@ export const PasswordFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array): PasswordItem => {
     if (parentId == EMPTY_UID) { panic(); }
     return {
-      itemType: ITEM_TYPE_PASSWORD,
+      itemType: ItemType.Password,
       ownerId,
       id: newUid(),
       parentId,
@@ -162,7 +162,7 @@ export const PasswordFns = {
   },
 
   asPasswordMeasurable: (item: ItemTypeMixin): PasswordMeasurable => {
-    if (item.itemType == ITEM_TYPE_PASSWORD) { return item as PasswordMeasurable; }
+    if (item.itemType == ItemType.Password) { return item as PasswordMeasurable; }
     panic();
   },
 
@@ -191,10 +191,10 @@ export const PasswordFns = {
 
 export function isPassword(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_PASSWORD;
+  return item.itemType == ItemType.Password;
 }
 
 export function asPasswordItem(item: ItemTypeMixin): PasswordItem {
-  if (item.itemType == ITEM_TYPE_PASSWORD) { return item as PasswordItem; }
+  if (item.itemType == ItemType.Password) { return item as PasswordItem; }
   panic();
 }

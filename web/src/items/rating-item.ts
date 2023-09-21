@@ -20,7 +20,7 @@ import { GRID_SIZE, ITEM_BORDER_WIDTH_PX } from '../constants';
 import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { Item, ItemTypeMixin, ITEM_TYPE_RATING } from './base/item';
+import { Item, ItemType, ItemTypeMixin } from './base/item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
@@ -43,7 +43,7 @@ export const RatingFns = {
   create: (ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem => {
     if (parentId == EMPTY_UID) { panic(); }
     return {
-      itemType: ITEM_TYPE_RATING,
+      itemType: ItemType.Rating,
       ownerId,
       id: newUid(),
       parentId,
@@ -167,7 +167,7 @@ export const RatingFns = {
   },
 
   asPlaceholderMeasurable: (item: ItemTypeMixin): RatingMeasurable => {
-    if (item.itemType == ITEM_TYPE_RATING) { return item as RatingMeasurable; }
+    if (item.itemType == ItemType.Rating) { return item as RatingMeasurable; }
     panic();
   },
 
@@ -194,10 +194,10 @@ let clickTimer: number | null = null;
 
 export function isRating(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_RATING;
+  return item.itemType == ItemType.Rating;
 }
 
 export function asRatingItem(item: ItemTypeMixin): RatingItem {
-  if (item.itemType == ITEM_TYPE_RATING) { return item as RatingItem; }
+  if (item.itemType == ItemType.Rating) { return item as RatingItem; }
   panic();
 }

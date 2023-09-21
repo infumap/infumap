@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_COMPOSITE } from './base/item';
+import { Item, ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin, asXSizableItem, isXSizableItem } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
@@ -44,7 +44,7 @@ export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSi
 export const CompositeFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): CompositeItem => {
     return ({
-      itemType: ITEM_TYPE_COMPOSITE,
+      itemType: ItemType.Composite,
       ownerId,
       id: newUid(),
       parentId,
@@ -188,7 +188,7 @@ export const CompositeFns = {
   },
 
   asCompositeMeasurable: (item: ItemTypeMixin): CompositeMeasurable => {
-    if (item.itemType == ITEM_TYPE_COMPOSITE) { return item as CompositeMeasurable; }
+    if (item.itemType == ItemType.Composite) { return item as CompositeMeasurable; }
     panic();
   },
 
@@ -215,10 +215,10 @@ export const CompositeFns = {
 
 export function isComposite(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_COMPOSITE;
+  return item.itemType == ItemType.Composite;
 }
 
 export function asCompositeItem(item: ItemTypeMixin): CompositeItem {
-  if (item.itemType == ITEM_TYPE_COMPOSITE) { return item as CompositeItem; }
+  if (item.itemType == ItemType.Composite) { return item as CompositeItem; }
   panic();
 }

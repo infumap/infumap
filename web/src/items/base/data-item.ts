@@ -17,10 +17,10 @@
 */
 
 import { panic } from "../../util/lang";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./item";
+import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
-const ITEM_TYPES = [ITEM_TYPE_IMAGE, ITEM_TYPE_FILE];
+const ITEM_TYPES = [ItemType.Image, ItemType.File];
 
 export interface DataMixin {
   originalCreationDate: number,

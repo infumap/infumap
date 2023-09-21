@@ -17,7 +17,7 @@
 */
 
 import { panic } from "../../util/lang";
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from "./item";
+import { Item, ItemTypeMixin, ItemType } from "./item";
 
 export enum PermissionFlags {
   None =           0x000,
@@ -25,7 +25,7 @@ export enum PermissionFlags {
 }
 
 
-const ITEM_TYPES = [ITEM_TYPE_PAGE];
+const ITEM_TYPES = [ItemType.Page];
 
 export interface PermissionFlagsMixin {
   permissionFlags: number,

@@ -21,7 +21,7 @@ import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { panic } from '../util/lang';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { ItemTypeMixin, ITEM_TYPE_FILE } from './base/item';
+import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
@@ -183,7 +183,7 @@ export const FileFns = {
   },
 
   asFileMeasurable: (item: ItemTypeMixin): FileMeasurable => {
-    if (item.itemType == ITEM_TYPE_FILE) { return item as FileMeasurable; }
+    if (item.itemType == ItemType.File) { return item as FileMeasurable; }
     panic();
   },
 
@@ -214,10 +214,10 @@ export const FileFns = {
 
 export function isFile(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_FILE;
+  return item.itemType == ItemType.File;
 }
 
 export function asFileItem(item: ItemTypeMixin): FileItem {
-  if (item.itemType == ITEM_TYPE_FILE) { return item as FileItem; }
+  if (item.itemType == ItemType.File) { return item as FileItem; }
   panic();
 }

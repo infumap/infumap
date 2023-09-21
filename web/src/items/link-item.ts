@@ -22,7 +22,7 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { Measurable, ItemTypeMixin, ITEM_TYPE_LINK, Item } from "./base/item";
+import { Measurable, ItemTypeMixin, Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
@@ -60,7 +60,7 @@ export const LinkFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkTo: Uid): LinkItem => {
     if (parentId == EMPTY_UID) { panic(); }
     return {
-      itemType: ITEM_TYPE_LINK,
+      itemType: ItemType.Link,
       ownerId,
       id: newUid(),
       parentId,
@@ -274,10 +274,10 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
 
 export function isLink(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_LINK;
+  return item.itemType == ItemType.Link;
 }
 
 export function asLinkItem(item: ItemTypeMixin): LinkItem {
-  if (item.itemType == ITEM_TYPE_LINK) { return item as LinkItem; }
+  if (item.itemType == ItemType.Link) { return item as LinkItem; }
   panic();
 }

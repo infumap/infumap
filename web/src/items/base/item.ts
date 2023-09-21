@@ -20,17 +20,20 @@ import { RelationshipToParent } from '../../layout/relationship-to-parent';
 import { EMPTY_UID, Uid } from '../../util/uid';
 
 
-export const ITEM_TYPE_NONE = "none";
-export const ITEM_TYPE_PAGE = "page";
-export const ITEM_TYPE_TABLE = "table";
-export const ITEM_TYPE_COMPOSITE = "composite";
-export const ITEM_TYPE_NOTE = "note";
-export const ITEM_TYPE_FILE = "file";
-export const ITEM_TYPE_PASSWORD = "password";
-export const ITEM_TYPE_IMAGE = "image";
-export const ITEM_TYPE_RATING = "rating";
-export const ITEM_TYPE_LINK = "link";
-export const ITEM_TYPE_PLACEHOLDER = "placeholder";
+export const ItemType = {
+  None: "none",
+  Page: "page",
+  Table: "table",
+  Composite: "composite",
+  Note: "note",
+  File: "file",
+  Password: "password",
+  Image: "image",
+  Rating: "rating",
+  Link: "link",
+  Placeholder: "placeholder"
+};
+
 
 export interface ItemTypeMixin {
   itemType: string,
@@ -49,7 +52,7 @@ export interface Item extends ItemTypeMixin {
 }
 
 export const EMPTY_ITEM = () => ({
-  itemType: ITEM_TYPE_NONE,
+  itemType: ItemType.None,
   ownerId: EMPTY_UID,
   id: EMPTY_UID,
   parentId: EMPTY_UID,

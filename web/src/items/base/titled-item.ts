@@ -17,10 +17,10 @@
 */
 
 import { panic } from "../../util/lang";
-import { Item, ItemTypeMixin, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE, ITEM_TYPE_NOTE, ITEM_TYPE_PAGE, ITEM_TYPE_TABLE } from "./item";
+import { Item, ItemTypeMixin, ItemType} from "./item";
 
 
-const ITEM_TYPES = [ITEM_TYPE_PAGE, ITEM_TYPE_NOTE, ITEM_TYPE_TABLE, ITEM_TYPE_FILE, ITEM_TYPE_IMAGE];
+const ITEM_TYPES = [ItemType.Page, ItemType.Note, ItemType.Table, ItemType.File, ItemType.Image];
 
 export interface TitledMixin {
   title: string

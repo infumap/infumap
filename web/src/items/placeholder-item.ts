@@ -22,7 +22,7 @@ import { BoundingBox, Dimensions } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { ITEM_TYPE_PLACEHOLDER, Item, ItemTypeMixin } from "./base/item";
+import { Item, ItemTypeMixin, ItemType } from "./base/item";
 
 export interface PlaceholderItem extends PlaceholderMeasurable, Item { }
 export interface PlaceholderMeasurable extends ItemTypeMixin { }
@@ -33,7 +33,7 @@ export const PlaceholderFns = {
     if (relationshipToParent != RelationshipToParent.Attachment) { panic(); }
     if (parentId == EMPTY_UID) { panic(); }
     return {
-      itemType: ITEM_TYPE_PLACEHOLDER,
+      itemType: ItemType.Placeholder,
       ownerId,
       id: newUid(),
       parentId,
@@ -106,7 +106,7 @@ export const PlaceholderFns = {
   },
 
   asPlaceholderMeasurable: (item: ItemTypeMixin): PlaceholderMeasurable => {
-    if (item.itemType == ITEM_TYPE_PLACEHOLDER) { return item as PlaceholderMeasurable; }
+    if (item.itemType == ItemType.Placeholder) { return item as PlaceholderMeasurable; }
     panic();
   },
 
@@ -128,10 +128,10 @@ export const PlaceholderFns = {
 
 export function isPlaceholder(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_PLACEHOLDER;
+  return item.itemType == ItemType.Placeholder;
 }
 
 export function asPlaceholderItem(item: ItemTypeMixin): PlaceholderItem {
-  if (item.itemType == ITEM_TYPE_PLACEHOLDER) { return item as PlaceholderItem; }
+  if (item.itemType == ItemType.Placeholder) { return item as PlaceholderItem; }
   panic();
 }

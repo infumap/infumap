@@ -22,7 +22,7 @@ import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometr
 import { panic } from "../util/lang";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { DataItem } from "./base/data-item";
-import { ItemTypeMixin, ITEM_TYPE_IMAGE } from "./base/item";
+import { ItemType, ItemTypeMixin } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
@@ -96,7 +96,7 @@ export const ImageFns = {
   },
 
   asImageMeasurable: (item: ItemTypeMixin): ImageMeasurable => {
-    if (item.itemType == ITEM_TYPE_IMAGE) { return item as ImageMeasurable; }
+    if (item.itemType == ItemType.Image) { return item as ImageMeasurable; }
     panic();
   },
 
@@ -199,10 +199,10 @@ export const ImageFns = {
 
 export function isImage(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_IMAGE;
+  return item.itemType == ItemType.Image;
 }
 
 export function asImageItem(item: ItemTypeMixin): ImageItem {
-  if (item.itemType == ITEM_TYPE_IMAGE) { return item as ImageItem; }
+  if (item.itemType == ItemType.Image) { return item as ImageItem; }
   panic();
 }

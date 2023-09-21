@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemTypeMixin, ITEM_TYPE_PAGE } from './base/item';
+import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -74,7 +74,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 export const PageFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem => {
     return ({
-      itemType: ITEM_TYPE_PAGE,
+      itemType: ItemType.Page,
       ownerId,
       id: newUid(),
       parentId,
@@ -276,7 +276,7 @@ export const PageFns = {
   },
 
   asPageMeasurable: (item: ItemTypeMixin): PageMeasurable => {
-    if (item.itemType == ITEM_TYPE_PAGE) { return item as PageMeasurable; }
+    if (item.itemType == ItemType.Page) { return item as PageMeasurable; }
     panic();
   },
 
@@ -363,10 +363,10 @@ export const PageFns = {
 
 export function isPage(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_PAGE;
+  return item.itemType == ItemType.Page;
 }
 
 export function asPageItem(item: ItemTypeMixin): PageItem {
-  if (item.itemType == ITEM_TYPE_PAGE) { return item as PageItem; }
+  if (item.itemType == ItemType.Page) { return item as PageItem; }
   panic();
 }

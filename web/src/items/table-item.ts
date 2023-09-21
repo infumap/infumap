@@ -23,7 +23,7 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
-import { Item, ItemTypeMixin, ITEM_TYPE_TABLE } from "./base/item";
+import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
@@ -52,7 +52,7 @@ export const TableFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem => {
     if (parentId == EMPTY_UID) { panic(); }
     return {
-      itemType: ITEM_TYPE_TABLE,
+      itemType: ItemType.Table,
       ownerId,
       id: newUid(),
       parentId,
@@ -218,7 +218,7 @@ export const TableFns = {
   },
 
   asTableMeasurable: (item: ItemTypeMixin): TableMeasurable => {
-    if (item.itemType == ITEM_TYPE_TABLE) { return item as TableMeasurable; }
+    if (item.itemType == ItemType.Table) { return item as TableMeasurable; }
     panic();
   },
   
@@ -250,10 +250,10 @@ export const TableFns = {
 
 export function isTable(item: Item | ItemTypeMixin): boolean {
   if (item == null) { return false; }
-  return item.itemType == ITEM_TYPE_TABLE;
+  return item.itemType == ItemType.Table;
 }
 
 export function asTableItem(item: ItemTypeMixin): TableItem {
-  if (item.itemType == ITEM_TYPE_TABLE) { return item as TableItem; }
+  if (item.itemType == ItemType.Table) { return item as TableItem; }
   panic();
 }
