@@ -192,7 +192,7 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Desktop: (page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
     const boundsPx = {
       x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
       y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -216,7 +216,7 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_InComposite: (measurable: PageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (_measurable: PageMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
     panic();
   },
 

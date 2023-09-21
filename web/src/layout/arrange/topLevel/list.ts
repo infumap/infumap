@@ -31,7 +31,7 @@ import { newUid } from "../../../util/uid";
 import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
-import { arrangeItem } from "../common";
+import { arrangeItem } from "../item";
 import { getVeItems } from "../util";
 
 

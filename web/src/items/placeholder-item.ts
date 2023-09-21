@@ -76,7 +76,7 @@ export const PlaceholderFns = {
     return { w: 1.0, h: 1.0 };
   },
 
-  calcGeometry_Desktop: (_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry => {
     panic();
   },
 

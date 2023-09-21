@@ -26,7 +26,7 @@ import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../i
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "../load";
@@ -38,7 +38,6 @@ import { ItemGeometry } from "../item-geometry";
 import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { getVeItems } from "./util";
 import { arrangeItemAttachments } from "./attachments";
-import { arrangeItem_Desktop } from "./topLevel/spatial";
 
 
 export const arrangeItem = (
@@ -205,7 +204,7 @@ const arrangePageWithChildren = (
       const itemIsPopup = false;
       const childItem = itemState.get(childId)!;
       if (isPagePopup || isRoot) {
-        return arrangeItem_Desktop(
+        return arrangeItem_Spatial(
           desktopStore,
           pageWithChildrenVePath,
           childItem,
@@ -218,7 +217,7 @@ const arrangePageWithChildren = (
       } else {
         const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
-        const itemGeometry = ItemFns.calcGeometry_Desktop(
+        const itemGeometry = ItemFns.calcGeometry_Spatial(
           linkItemMaybe ? linkItemMaybe : displayItem,
           innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
         return arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, true);
@@ -283,6 +282,23 @@ const arrangePageWithChildren = (
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
+}
+
+
+export const arrangeItem_Spatial = (
+    desktopStore: DesktopStoreContextModel,
+    parentPath: VisualElementPath,
+    item: Item,
+    parentPage: PageItem,
+    parentPageBoundsPx: BoundingBox,
+    renderChildrenAsFull: boolean,
+    parentIsPopup: boolean,
+    isPopup: boolean): VisualElementSignal => {
+  const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, item);
+  const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+  const itemGeometry = ItemFns.calcGeometry_Spatial(
+    linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
+  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }
 
 

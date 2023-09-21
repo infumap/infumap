@@ -25,7 +25,7 @@ import { cloneBoundingBox } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
 import { VesCache } from "../../ves-cache";
 import { VisualElementFlags, VisualElementSpec } from "../../visual-element";
-import { arrangeItem } from "../common";
+import { arrangeItem } from "../item";
 import { arrangeCellPopup } from "../popup";
 
 

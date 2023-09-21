@@ -34,24 +34,27 @@ export function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): 
   let spatialWidthGr = isXSizableItem(displayItem)
     ? asXSizableItem(displayItem).spatialWidthGr
     : 0;
-  if (isLink(item)) {
-    linkItemMaybe = asLinkItem(item);
-    const linkToId = LinkFns.getLinkToId(linkItemMaybe);
-    const displayItemMaybe = itemState.get(linkToId)!;
-    if (displayItemMaybe != null) {
-      displayItem = displayItemMaybe!;
-      if (isXSizableItem(displayItem)) {
-        spatialWidthGr = linkItemMaybe.spatialWidthGr;
-      }
-    } else {
-      if (linkItemMaybe.linkTo != EMPTY_UID) {
-        if (linkItemMaybe.linkToBaseUrl == "") {
-          initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
-        } else {
-          initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
-        }
+  if (!isLink(item)) {
+    return [displayItem, linkItemMaybe, spatialWidthGr];
+  }
+
+  linkItemMaybe = asLinkItem(item);
+  const linkToId = LinkFns.getLinkToId(linkItemMaybe);
+  const displayItemMaybe = itemState.get(linkToId)!;
+  if (displayItemMaybe != null) {
+    displayItem = displayItemMaybe!;
+    if (isXSizableItem(displayItem)) {
+      spatialWidthGr = linkItemMaybe.spatialWidthGr;
+    }
+  } else {
+    if (linkItemMaybe.linkTo != EMPTY_UID) {
+      if (linkItemMaybe.linkToBaseUrl == "") {
+        initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
+      } else {
+        initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
       }
     }
   }
+
   return [displayItem, linkItemMaybe, spatialWidthGr];
 }

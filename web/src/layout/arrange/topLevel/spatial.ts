@@ -30,7 +30,7 @@ import { VisualElementSignal } from "../../../util/signals";
 import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
-import { arrangeItem } from "../common";
+import { arrangeItem, arrangeItem_Spatial } from "../item";
 import { getVeItems } from "../util";
 import { arrangeCellPopup } from "../popup";
 import { newUid } from "../../../util/uid";
@@ -67,7 +67,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   };
 
   const children = pageItem.computed_children
-    .map(childId => arrangeItem_Desktop(
+    .map(childId => arrangeItem_Spatial(
       desktopStore,
       currentPath,
       itemState.get(childId)!,
@@ -94,7 +94,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
         y: PageFns.getPopupPositionGr(pageItem).y - heightGr / 2.0
       };
       children.push(
-        arrangeItem_Desktop(
+        arrangeItem_Spatial(
           desktopStore,
           currentPath,
           li,
@@ -116,21 +116,4 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   visualElementSpec.children = children;
 
   VesCache.finalizeFullArrange(visualElementSpec, currentPath, desktopStore);
-}
-
-
-export const arrangeItem_Desktop = (
-    desktopStore: DesktopStoreContextModel,
-    parentPath: VisualElementPath,
-    item: Item,
-    parentPage: PageItem,
-    parentPageBoundsPx: BoundingBox,
-    renderChildrenAsFull: boolean,
-    parentIsPopup: boolean,
-    isPopup: boolean): VisualElementSignal => {
-  const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, item);
-  const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-  const itemGeometry = ItemFns.calcGeometry_Desktop(
-    linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
-  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }
