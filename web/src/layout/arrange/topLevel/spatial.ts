@@ -17,23 +17,22 @@
 */
 
 import { GRID_SIZE } from "../../../constants";
-import { Item } from "../../../items/base/item";
-import { ItemFns } from "../../../items/base/item-polymorphism";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
-import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
 import { newOrdering } from "../../../util/ordering";
-import { VisualElementSignal } from "../../../util/signals";
 import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
-import { arrangeItem, arrangeItem_Spatial } from "../item";
-import { getVeItems } from "../util";
 import { arrangeCellPopup } from "../popup";
 import { newUid } from "../../../util/uid";
+import { Item } from "../../../items/base/item";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
+import { VisualElementSignal } from "../../../util/signals";
+import { ItemFns } from "../../../items/base/item-polymorphism";
+import { arrangeItem } from "../item";
 
 
 const SPATIAL_POPUP_LINK_ID = newUid();
@@ -116,4 +115,18 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   visualElementSpec.children = children;
 
   VesCache.finalizeFullArrange(visualElementSpec, currentPath, desktopStore);
+}
+
+
+const arrangeItem_Spatial = (
+    desktopStore: DesktopStoreContextModel,
+    parentPath: VisualElementPath,
+    item: Item,
+    parentPage: PageItem,
+    parentPageBoundsPx: BoundingBox,
+    renderChildrenAsFull: boolean,
+    parentIsPopup: boolean,
+    isPopup: boolean): VisualElementSignal => {
+  const itemGeometry = ItemFns.calcGeometry_Spatial(item, zeroBoundingBoxTopLeft(parentPageBoundsPx), PageFns.calcInnerSpatialDimensionsBl(parentPage), parentIsPopup, true);
+  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }

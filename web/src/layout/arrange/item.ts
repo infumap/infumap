@@ -204,16 +204,10 @@ const arrangePageWithChildren = (
       const itemIsPopup = false;
       const childItem = itemState.get(childId)!;
       if (isPagePopup || isRoot) {
-        return arrangeItem_Spatial(
-          desktopStore,
-          pageWithChildrenVePath,
-          childItem,
-          displayItem_pageWithChildren, // parent item
-          pageWithChildrenVisualElementSpec.childAreaBoundsPx!,
-          true, // render children as full
-          isPagePopup, // parent is popup
-          itemIsPopup,
-        );
+        const itemGeometry = ItemFns.calcGeometry_Spatial(
+          childItem, zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
+          PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren), isPagePopup, true);
+        return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false);
       } else {
         const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
@@ -282,23 +276,6 @@ const arrangePageWithChildren = (
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
-}
-
-
-export const arrangeItem_Spatial = (
-    desktopStore: DesktopStoreContextModel,
-    parentPath: VisualElementPath,
-    item: Item,
-    parentPage: PageItem,
-    parentPageBoundsPx: BoundingBox,
-    renderChildrenAsFull: boolean,
-    parentIsPopup: boolean,
-    isPopup: boolean): VisualElementSignal => {
-  const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, item);
-  const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-  const itemGeometry = ItemFns.calcGeometry_Spatial(
-    linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
-  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, false);
 }
 
 
