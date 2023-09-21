@@ -30,7 +30,6 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsIfNotLoaded } from "../load";
-import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
 import { HitboxType, HitboxFns } from "../hitbox";
 import { itemState } from "../../store/ItemState";
 import { TableFlags } from "../../items/base/flags-item";
@@ -38,11 +37,8 @@ import { VesCache } from "../ves-cache";
 import { ItemGeometry } from "../item-geometry";
 import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { getVeItems } from "./util";
-import { arrange_list } from "./root/list";
-import { arrange_grid } from "./root/grid";
 import { arrangeItemAttachments } from "./attachments";
-import { arrangeItem_Desktop, arrange_spatialStretch } from "./root/spatial";
-
+import { arrangeItem_Desktop } from "./topLevel/spatial";
 
 
 export const arrangeItem = (

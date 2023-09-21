@@ -31,8 +31,8 @@ import { arrangeItem } from "./common";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
 
-export const POPUP_LINK_ID = newUid();
 
+const CELL_POPUP_LINK_ID = newUid();
 
 export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
@@ -41,7 +41,7 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
 
   const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
-  li.id = POPUP_LINK_ID;
+  li.id = CELL_POPUP_LINK_ID;
   li.spatialWidthGr = 1000;
   li.spatialPositionGr = { x: 0, y: 0, };
   const desktopBoundsPx = desktopStore.desktopBoundsPx();

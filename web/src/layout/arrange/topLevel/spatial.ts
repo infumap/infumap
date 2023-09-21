@@ -32,8 +32,11 @@ import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
 import { arrangeItem } from "../common";
 import { getVeItems } from "../util";
-import { POPUP_LINK_ID, arrangeCellPopup } from "../popup";
+import { arrangeCellPopup } from "../popup";
+import { newUid } from "../../../util/uid";
 
+
+const SPATIAL_POPUP_LINK_ID = newUid();
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const pageItem = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
@@ -81,7 +84,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
       // Position of page popup in spatial pages is user defined.
       const popupLinkToPageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
       const li = LinkFns.create(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
-      li.id = POPUP_LINK_ID;
+      li.id = SPATIAL_POPUP_LINK_ID;
       const widthGr = PageFns.getPopupWidthGr(pageItem);
       const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
       li.spatialWidthGr = widthGr;

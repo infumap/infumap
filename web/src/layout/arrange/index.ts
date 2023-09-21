@@ -21,9 +21,10 @@ import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
 import { initiateLoadChildItemsIfNotLoaded } from "../load";
-import { arrange_grid } from "./root/grid";
-import { arrange_list } from "./root/list";
-import { arrange_spatialStretch } from "./root/spatial";
+import { arrange_grid } from "./topLevel/grid";
+import { arrange_list } from "./topLevel/list";
+import { arrange_spatialStretch } from "./topLevel/spatial";
+
 
 /**
  * Create the visual element tree for the current page.
