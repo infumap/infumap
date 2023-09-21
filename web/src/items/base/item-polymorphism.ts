@@ -29,7 +29,7 @@ import { asLinkItem, calcGeometryOfLinkItem_Attachment, calcGeometryOfLinkItem_D
 import { asNoteItem, asNoteMeasurable, calcGeometryOfNoteItem_Attachment, calcGeometryOfNoteItem_Desktop, calcGeometryOfNoteItem_Cell, calcGeometryOfNoteItem_ListItem, calcNoteSizeForSpatialBl, cloneNoteMeasurableFields, handleNoteClick, isNote, noteFromObject, noteToObject, noteDebugSummary, getNoteItemFingerprint, calcGeometryOfNoteItem_InComposite } from '../note-item';
 import { asPageItem, asPageMeasurable, calcGeometryOfPageItem_Attachment, calcGeometryOfPageItem_Desktop, calcGeometryOfPageItem_Cell, calcGeometryOfPageItem_ListItem, calcPageSizeForSpatialBl, clonePageMeasurableFields, handlePageClick, handlePagePopupClick, isPage, pageFromObject, pageToObject, pageDebugSummary, getPageItemFingerprint, calcGeometryOfPageItem_InComposite } from '../page-item';
 import { asRatingItem, asRatingMeasurable, calcGeometryOfRatingItem_Attachment, calcGeometryOfRatingItem_Desktop, calcGeometryOfRatingItem_Cell, calcGeometryOfRatingItem_ListItem, calcRatingSizeForSpatialBl, cloneRatingMeasurableFields, handleRatingClick, isRating, ratingFromObject, ratingToObject, ratingDebugSummary, getRatingItemFingerprint, calcGeometryOfRatingItem_InComposite } from '../rating-item';
-import { asTableItem, asTableMeasurable, calcGeometryOfTableItem_Attachment, calcGeometryOfTableItem_Desktop, calcGeometryOfTableItem_Cell, calcGeometryOfTableItem_ListItem, calcTableSizeForSpatialBl, cloneTableMeasurableFields, isTable, tableFromObject, tableToObject, tableDebugSummary, getTableItemFingerprint, handleTableClick, calcGeometryOfTableItem_InComposite } from '../table-item';
+import { asTableItem, isTable, TableFns } from '../table-item';
 import { EMPTY_ITEM, Item, Measurable, calcGeometryOfEmptyItem_ListItem } from './item';
 import { asPlaceholderItem, calcGeometryOfPlaceholderItem_Attachment, calcGeometryOfPlaceholderItem_Desktop, calcGeometryOfPlaceholderItem_Cell, calcGeometryOfPlaceholderItem_ListItem, calcPlaceholderSizeForSpatialBl, clonePlaceholderMeasurableFields, isPlaceholder, placeholderFromObject, placeholderToObject, placeholderDebugSummary, getPlaceholderItemFingerprint, calcGeometryOfPlaceholderItem_InComposite } from '../placeholder-item';
 import { asPasswordItem, asPasswordMeasurable, calcGeometryOfPasswordItem_Attachment, calcGeometryOfPasswordItem_Cell, calcGeometryOfPasswordItem_InComposite, calcGeometryOfPasswordItem_Desktop, calcGeometryOfPasswordItem_ListItem, calcPasswordSizeForSpatialBl, clonePasswordMeasurableFields, getPasswordItemFingerprint, handlePasswordClick, isPassword, passwordDebugSummary, passwordFromObject, passwordToObject } from '../password-item';
@@ -40,7 +40,7 @@ import { asCompositeItem, asCompositeMeasurable, calcCompositeSizeForSpatialBl, 
 
 export function calcSizeForSpatialBl(measurable: Measurable): Dimensions {
   if (isPage(measurable)) { return calcPageSizeForSpatialBl(asPageMeasurable(measurable)); }
-  if (isTable(measurable)) { return calcTableSizeForSpatialBl(asTableMeasurable(measurable)); }
+  if (isTable(measurable)) { return TableFns.calcSizeForSpatialBl(TableFns.asMeasurable(measurable)); }
   if (isComposite(measurable)) { return calcCompositeSizeForSpatialBl(asCompositeMeasurable(measurable)); }
   if (isNote(measurable)) { return calcNoteSizeForSpatialBl(asNoteMeasurable(measurable)); }
   if (isImage(measurable)) { return calcImageSizeForSpatialBl(asImageMeasurable(measurable)); }
@@ -54,7 +54,7 @@ export function calcSizeForSpatialBl(measurable: Measurable): Dimensions {
 
 export function calcGeometryOfItem_Desktop(measurable: Measurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageItem_Desktop(asPageMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-  if (isTable(measurable)) { return calcGeometryOfTableItem_Desktop(asTableMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
+  if (isTable(measurable)) { return TableFns.calcGeometry_Desktop(TableFns.asMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
   if (isComposite(measurable)) { return calcGeometryOfCompositeItem_Desktop(asCompositeMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem_Desktop(asNoteMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
   if (isImage(measurable)) { return calcGeometryOfImageItem_Desktop(asImageMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
@@ -68,7 +68,7 @@ export function calcGeometryOfItem_Desktop(measurable: Measurable, containerBoun
 
 export function calcGeometryOfItem_Attachment(measurable: Measurable, parentBoundsPx: BoundingBox, parentSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageItem_Attachment(asPageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
-  if (isTable(measurable)) { return calcGeometryOfTableItem_Attachment(asTableMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
+  if (isTable(measurable)) { return TableFns.calcGeometry_Attachment(TableFns.asMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
   if (isComposite(measurable)) { return calcGeometryOfCompositeItem_Attachment(asCompositeMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem_Attachment(asNoteMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
   if (isImage(measurable)) { return calcGeometryOfImageItem_Attachment(asImageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
@@ -83,7 +83,7 @@ export function calcGeometryOfItem_Attachment(measurable: Measurable, parentBoun
 export function calcGeometryOfItem_ListItem(measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry {
   if (measurable == EMPTY_ITEM()) { return calcGeometryOfEmptyItem_ListItem(measurable, blockSizePx, row, col, widthBl); }
   if (isPage(measurable)) { return calcGeometryOfPageItem_ListItem(asPageMeasurable(measurable), blockSizePx, row, col, widthBl); }
-  if (isTable(measurable)) { return calcGeometryOfTableItem_ListItem(asTableMeasurable(measurable), blockSizePx, row, col, widthBl); }
+  if (isTable(measurable)) { return TableFns.calcGeometry_ListItem(TableFns.asMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isComposite(measurable)) { return calcGeometryOfCompositeItem_ListItem(asCompositeMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem_ListItem(asNoteMeasurable(measurable), blockSizePx, row, col, widthBl); }
   if (isImage(measurable)) { return calcGeometryOfImageItem_ListItem(asImageMeasurable(measurable), blockSizePx, row, col, widthBl); }
@@ -97,7 +97,7 @@ export function calcGeometryOfItem_ListItem(measurable: Measurable, blockSizePx:
 
 export function calcGeometryOfItem_InCell(measurable: Measurable, cellBoundsPx: BoundingBox): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageItem_Cell(asPageMeasurable(measurable), cellBoundsPx); }
-  if (isTable(measurable)) { return calcGeometryOfTableItem_Cell(asTableMeasurable(measurable), cellBoundsPx); }
+  if (isTable(measurable)) { return TableFns.calcGeometry_Cell(TableFns.asMeasurable(measurable), cellBoundsPx); }
   if (isComposite(measurable)) { return calcGeometryOfCompositeItem_Cell(asCompositeMeasurable(measurable), cellBoundsPx); }
   if (isNote(measurable)) { return calcGeometryOfNoteItem_Cell(asNoteMeasurable(measurable), cellBoundsPx); }
   if (isImage(measurable)) { return calcGeometryOfImageItem_Cell(asImageMeasurable(measurable), cellBoundsPx); }
@@ -111,7 +111,7 @@ export function calcGeometryOfItem_InCell(measurable: Measurable, cellBoundsPx: 
 
 export function calcGeometryOfItem_InComposite(measurable: Measurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry {
   if (isPage(measurable)) { return calcGeometryOfPageItem_InComposite(asPageMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
-  if (isTable(measurable)) { return calcGeometryOfTableItem_InComposite(asTableMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
+  if (isTable(measurable)) { return TableFns.calcGeometry_InComposite(TableFns.asMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
   if (isComposite(measurable)) { panic(); } // composite items are flattened, can't be embedded.
   if (isNote(measurable)) { return calcGeometryOfNoteItem_InComposite(asNoteMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
   if (isImage(measurable)) { return calcGeometryOfImageItem_InComposite(asImageMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
@@ -129,7 +129,7 @@ export function calcGeometryOfItem_InComposite(measurable: Measurable, blockSize
  */
 export function getItemFingerprint(item: Item): string {
   if (isPage(item)) { return getPageItemFingerprint(asPageItem(item)); }
-  if (isTable(item)) { return getTableItemFingerprint(asTableItem(item)); }
+  if (isTable(item)) { return TableFns.getFingerprint(asTableItem(item)); }
   if (isComposite(item)) { return getCompositeItemFingerprint(asCompositeItem(item)); }
   if (isNote(item)) { return getNoteItemFingerprint(asNoteItem(item)); }
   if (isImage(item)) { return getImageItemFingerprint(asImageItem(item)); }
@@ -143,7 +143,7 @@ export function getItemFingerprint(item: Item): string {
 
 export function itemFromObject(o: any): Item {
   if (isPage(o)) { return pageFromObject(o); }
-  if (isTable(o)) { return tableFromObject(o); }
+  if (isTable(o)) { return TableFns.fromObject(o); }
   if (isComposite(o)) { return compositeFromObject(o); }
   if (isNote(o)) { return noteFromObject(o); }
   if (isImage(o)) { return imageFromObject(o); }
@@ -157,7 +157,7 @@ export function itemFromObject(o: any): Item {
 
 export function itemToObject(item: Item): object {
   if (isPage(item)) { return pageToObject(asPageItem(item)); }
-  if (isTable(item)) { return tableToObject(asTableItem(item)); }
+  if (isTable(item)) { return TableFns.toObject(asTableItem(item)); }
   if (isComposite(item)) { return compositeToObject(asCompositeItem(item)); }
   if (isNote(item)) { return noteToObject(asNoteItem(item)); }
   if (isImage(item)) { return imageToObject(asImageItem(item)); }
@@ -172,7 +172,7 @@ export function itemToObject(item: Item): object {
 export function handleClick(visualElementSignal: VisualElementSignal, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void {
   const item = visualElementSignal.get().displayItem;
   if (isPage(item)) { handlePageClick(visualElementSignal.get(), desktopStore, userStore); }
-  else if (isTable(item)) { handleTableClick(visualElementSignal.get(), desktopStore, userStore); }
+  else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), desktopStore, userStore); }
   else if (isComposite(item)) { } // TODO.
   else if (isNote(item)) { handleNoteClick(visualElementSignal.get(), desktopStore); }
   else if (isImage(item)) { handleImageClick(visualElementSignal.get(), desktopStore); }
@@ -202,7 +202,7 @@ export function handlePopupClick(visualElement: VisualElement, desktopStore: Des
 export function cloneMeasurableFields(measurable: Measurable): Measurable {
   if (measurable == null) { panic(); }
   if (isPage(measurable)) { return clonePageMeasurableFields(asPageMeasurable(measurable)); }
-  else if (isTable(measurable)) { return cloneTableMeasurableFields(asTableMeasurable(measurable)); }
+  else if (isTable(measurable)) { return TableFns.cloneMeasurableFields(TableFns.asMeasurable(measurable)); }
   else if (isComposite(measurable)) { return cloneCompositeMeasurableFields(asCompositeMeasurable(measurable)); }
   else if (isNote(measurable)) { return cloneNoteMeasurableFields(asNoteMeasurable(measurable)); }
   else if (isImage(measurable)) { return cloneImageMeasurableFields(asImageMeasurable(measurable)); }
@@ -217,7 +217,7 @@ export function cloneMeasurableFields(measurable: Measurable): Measurable {
 export function debugSummary(item: Item): string {
   if (item == null) { return "null"; }
   if (isPage(item)) { return pageDebugSummary(asPageItem(item)); }
-  if (isTable(item)) { return tableDebugSummary(asTableItem(item)); }
+  if (isTable(item)) { return TableFns.debugSummary(asTableItem(item)); }
   if (isComposite(item)) { return compositeDebugSummary(asCompositeItem(item)); }
   if (isNote(item)) { return noteDebugSummary(asNoteItem(item)); }
   if (isFile(item)) { return fileDebugSummary(asFileItem(item)); }

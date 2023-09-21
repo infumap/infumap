@@ -23,7 +23,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { newTableItem } from "../../items/table-item";
+import { TableFns } from "../../items/table-item";
 import { arrange } from "../../layout/arrange";
 import { newRatingItem } from "../../items/rating-item";
 import { initialEditDialogBounds } from "../edit/EditDialog";
@@ -75,7 +75,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         RelationshipToParent.Child,
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id))
     } else if (type == "table") {
-      newItem = newTableItem(
+      newItem = TableFns.create(
         userStore.getUser().userId,
         overElementVe.displayItem.id,
         RelationshipToParent.Child,
