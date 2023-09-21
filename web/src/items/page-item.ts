@@ -30,7 +30,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from '../layout/arrange';
+import { arrange } from '../layout/arrange/arrange';
 import { VisualElement, VisualElementFlags, VeFns } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hit';
 import { VesCache } from '../layout/ves-cache';
@@ -38,6 +38,12 @@ import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-i
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
 
+
+export const ArrangeAlgorithm = {
+  SpatialStretch: "spatial-stretch",
+  Grid: "grid",
+  List: "list"
+};
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {
   innerSpatialWidthGr: number;
@@ -84,7 +90,7 @@ export const PageFns = {
       innerSpatialWidthGr: 60.0 * GRID_SIZE,
       naturalAspect: 2.0,
       backgroundColorIndex: 0,
-      arrangeAlgorithm: ARRANGE_ALGO_SPATIAL_STRETCH,
+      arrangeAlgorithm: ArrangeAlgorithm.SpatialStretch,
       popupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
       popupAlignmentPoint: "center",
       popupWidthGr: 10.0 * GRID_SIZE,
@@ -291,7 +297,7 @@ export const PageFns = {
 
   handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
     const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
-    if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+    if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       desktopStore.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });

@@ -20,7 +20,7 @@ import { Component, Show } from "solid-js";
 import { CompositeItem } from "../../../items/composite-item";
 import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
-import { arrange } from "../../../layout/arrange";
+import { arrange } from "../../../layout/arrange/arrange";
 import { server } from "../../../server";
 import { itemState } from "../../../store/ItemState";
 

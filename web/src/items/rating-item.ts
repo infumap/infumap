@@ -26,7 +26,7 @@ import { PositionalMixin } from './base/positional-item';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { server } from '../server';
-import { arrange } from '../layout/arrange';
+import { arrange } from '../layout/arrange/arrange';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { handleListPageLineItemClickMaybe } from './base/item-common-fns';

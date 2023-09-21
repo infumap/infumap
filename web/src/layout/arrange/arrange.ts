@@ -16,47 +16,32 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { batch } from "solid-js";
-import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../constants";
-import { EMPTY_UID } from "../util/uid";
-import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
-import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { Item } from "../items/base/item";
-import { ItemFns } from "../items/base/item-polymorphism";
-import { PageItem, asPageItem, isPage, PageFns } from "../items/page-item";
-import { TableItem, asTableItem, isTable } from "../items/table-item";
-import { Veid, VisualElementFlags, VisualElementSpec, VisualElementPath, EMPTY_VEID, VeFns } from "./visual-element";
-import { VisualElementSignal } from "../util/signals";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
-import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
-import { newOrdering } from "../util/ordering";
-import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
-import { panic } from "../util/lang";
-import { initiateLoadChildItemsIfNotLoaded, initiateLoadItem, initiateLoadItemFromRemote } from "./load";
-import { mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
-import { newUid } from "../util/uid";
-import { HitboxType, HitboxFns } from "./hitbox";
-import { itemState } from "../store/ItemState";
-import { TableFlags } from "../items/base/flags-item";
-import { VesCache } from "./ves-cache";
-import { ItemGeometry } from "./item-geometry";
-import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
-import { RelationshipToParent } from "./relationship-to-parent";
-
-export const ARRANGE_ALGO_SPATIAL_STRETCH = "spatial-stretch"
-export const ARRANGE_ALGO_GRID = "grid";
-export const ARRANGE_ALGO_LIST = "list";
-
-enum RenderStyle {
-  Full,
-  Outline,
-}
-
-const POPUP_LINK_ID = newUid();
-const LIST_FOCUS_ID = newUid();
-
+import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../../constants";
+import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
+import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
+import { Item } from "../../items/base/item";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../items/page-item";
+import { TableItem, asTableItem, isTable } from "../../items/table-item";
+import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
+import { VisualElementSignal } from "../../util/signals";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { LinkItem, isLink } from "../../items/link-item";
+import { panic } from "../../util/lang";
+import { initiateLoadChildItemsIfNotLoaded } from "../load";
+import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
+import { HitboxType, HitboxFns } from "../hitbox";
+import { itemState } from "../../store/ItemState";
+import { TableFlags } from "../../items/base/flags-item";
+import { VesCache } from "../ves-cache";
+import { ItemGeometry } from "../item-geometry";
+import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
+import { getVeItems } from "./util";
+import { arrange_list } from "./list";
+import { arrange_grid } from "./grid";
+import { arrangeItemAttachments } from "./attachments";
+import { arrangeItem_Desktop, arrange_spatialStretch } from "./spatial";
 
 
 /**
@@ -82,267 +67,18 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
   initiateLoadChildItemsIfNotLoaded(desktopStore, desktopStore.currentPage()!.itemId);
   let currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
+  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
     arrange_grid(desktopStore);
-  } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
+  } else if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     arrange_spatialStretch(desktopStore);
-  } else if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  } else if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
     arrange_list(desktopStore);
   }
   mouseMove_handleNoButtonDown(desktopStore);
 }
 
 
-
-// ARRANGE LIST PAGE
-
-const arrange_list = (desktopStore: DesktopStoreContextModel) => {
-  VesCache.initFullArrange();
-
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  const currentPath = currentPage.id;
-
-  const selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem(desktopStore.currentPage()!));
-  const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
-  const topLevelVisualElementSpec: VisualElementSpec = {
-    displayItem: currentPage,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: topLevelPageBoundsPx,
-    childAreaBoundsPx: topLevelPageBoundsPx,
-  };
-
-  let listVeChildren: Array<VisualElementSignal> = [];
-  for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
-    const childItem = itemState.get(currentPage.computed_children[idx])!;
-    const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, childItem);
-
-    const widthBl = LIST_PAGE_LIST_WIDTH_BL;
-    const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
-
-    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl);
-
-    const listItemVeSpec: VisualElementSpec = {
-      displayItem,
-      linkItemMaybe,
-      flags: VisualElementFlags.LineItem |
-             (VeFns.compareVeids(selectedVeid, VeFns.createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
-      boundsPx: geometry.boundsPx,
-      hitboxes: geometry.hitboxes,
-      parentPath: currentPath,
-      col: 0,
-      row: idx,
-      oneBlockWidthPx: LINE_HEIGHT_PX,
-    };
-    const childPath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem, linkItemMaybe), currentPath);
-    const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
-    listVeChildren.push(listItemVisualElementSignal);
-  }
-  topLevelVisualElementSpec.children = listVeChildren;
-
-  if (selectedVeid != EMPTY_VEID) {
-    const boundsPx = {
-      x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX,
-      y: LINE_HEIGHT_PX,
-      w: desktopStore.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL+2) * LINE_HEIGHT_PX),
-      h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
-    };
-    topLevelVisualElementSpec.children.push(
-      arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, currentPath));
-  }
-
-  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
-}
-
-function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath): VisualElementSignal {
-  const item = itemState.get(veid.itemId)!;
-
-  let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
-  li.id = LIST_FOCUS_ID;
-  if (isXSizableItem(item)) {
-    li.spatialWidthGr = asXSizableItem(item).spatialWidthGr;
-  }
-  if (isYSizableItem(item)) {
-    li.spatialHeightGr = asYSizableItem(item).spatialHeightGr;
-  }
-  li.spatialPositionGr = { x: 0.0, y: 0.0 };
-
-  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx);
-
-  return arrangeItem(desktopStore, currentPath, ARRANGE_ALGO_LIST, li, geometry, true, false, true);
-}
-
-
-
-// SPATIAL STRETCH
-
-const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
-  const pageItem = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
-  const pageAspect = pageItem.naturalAspect;
-  const pageBoundsPx = (() => {
-    let result = desktopStore.desktopBoundsPx();
-    // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
-    if (pageAspect / desktopAspect > 1.18) {
-      // page to scroll horizontally.
-      result.w = Math.round(result.h * pageAspect);
-    } else if (pageAspect / desktopAspect < 0.82) {
-      // page needs to scroll vertically.
-      result.h = Math.round(result.w / pageAspect);
-    }
-    return result;
-  })();
-
-  VesCache.initFullArrange();
-
-  const currentPath = pageItem.id;
-
-  const visualElementSpec: VisualElementSpec = {
-    displayItem: pageItem,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: pageBoundsPx,
-    childAreaBoundsPx: pageBoundsPx,
-  };
-
-  const children = pageItem.computed_children
-    .map(childId => arrangeItem_Desktop(
-      desktopStore,
-      currentPath,
-      itemState.get(childId)!,
-      pageItem, // parent item
-      pageBoundsPx,
-      true, // render children as full
-      false, // parent is popup
-      false // is popup
-    ));
-
-  const currentPopupSpec = desktopStore.currentPopupSpec();
-  if (currentPopupSpec != null) {
-    if (currentPopupSpec.type == PopupType.Page) {
-      // Position of page popup in spatial pages is user defined.
-      const popupLinkToPageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
-      const li = LinkFns.create(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
-      li.id = POPUP_LINK_ID;
-      const widthGr = PageFns.getPopupWidthGr(pageItem);
-      const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
-      li.spatialWidthGr = widthGr;
-      // assume center positioning.
-      li.spatialPositionGr = {
-        x: PageFns.getPopupPositionGr(pageItem).x - widthGr / 2.0,
-        y: PageFns.getPopupPositionGr(pageItem).y - heightGr / 2.0
-      };
-      children.push(
-        arrangeItem_Desktop(
-          desktopStore,
-          currentPath,
-          li,
-          pageItem, // parent item
-          pageBoundsPx,
-          true, // render children as full
-          false, // parent is popup
-          true // is popup
-        ));
-    } else if (currentPopupSpec.type == PopupType.Attachment) {
-      // Ves are created inline.
-    } else if (currentPopupSpec.type == PopupType.Image) {
-      children.push(arrangeCellPopup(desktopStore));
-    } else {
-      panic();
-    }
-  }
-
-  visualElementSpec.children = children;
-
-  VesCache.finalizeFullArrange(visualElementSpec, currentPath, desktopStore);
-}
-
-
-const arrangeItem_Desktop = (
-    desktopStore: DesktopStoreContextModel,
-    parentPath: VisualElementPath,
-    item: Item,
-    parentPage: PageItem,
-    parentPageBoundsPx: BoundingBox,
-    renderChildrenAsFull: boolean,
-    parentIsPopup: boolean,
-    isPopup: boolean): VisualElementSignal => {
-  const [displayItem, linkItemMaybe, _] = getVeItems(desktopStore, item);
-  const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-  const itemGeometry = ItemFns.calcGeometry_Desktop(
-    linkItemMaybe ? linkItemMaybe : displayItem, zeroBoundingBoxTopLeft(parentPageBoundsPx), parentPageInnerDimensionsBl, parentIsPopup, true);
-  return arrangeItem(desktopStore, parentPath, ARRANGE_ALGO_SPATIAL_STRETCH, item, itemGeometry, renderChildrenAsFull, isPopup, false);
-}
-
-
-
-// ARRANGE GRID PAGE
-
-const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
-  VesCache.initFullArrange();
-
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  const currentPath = currentPage.id;
-
-  const pageBoundsPx = desktopStore.desktopBoundsPx();
-
-  const numCols = currentPage.gridNumberOfColumns;
-  const numRows = Math.ceil(currentPage.computed_children.length / numCols);
-  const cellWPx = pageBoundsPx.w / numCols;
-  const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
-  const marginPx = cellWPx * 0.01;
-  const pageHeightPx = numRows * cellHPx;
-  const boundsPx = (() => {
-    const result = cloneBoundingBox(pageBoundsPx)!;
-    result.h = pageHeightPx;
-    return result;
-  })();
-
-  const topLevelVisualElementSpec: VisualElementSpec = {
-    displayItem: currentPage,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: boundsPx,
-    childAreaBoundsPx: boundsPx,
-  };
-
-  const children = [];
-  for (let i=0; i<currentPage.computed_children.length; ++i) {
-    const item = itemState.get(currentPage.computed_children[i])!;
-    const col = i % numCols;
-    const row = Math.floor(i / numCols);
-    const cellBoundsPx = {
-      x: col * cellWPx + marginPx,
-      y: row * cellHPx + marginPx,
-      w: cellWPx - marginPx * 2.0,
-      h: cellHPx - marginPx * 2.0
-    };
-
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx);
-    const ves = arrangeItem(desktopStore, currentPath, ARRANGE_ALGO_GRID, item, geometry, true, false, false);
-    children.push(ves);
-  }
-
-  const currentPopupSpec = desktopStore.currentPopupSpec();
-  if (currentPopupSpec != null) {
-    if (currentPopupSpec.type == PopupType.Page) {
-      children.push(arrangeCellPopup(desktopStore));
-    } else if (currentPopupSpec.type == PopupType.Attachment) {
-      // Ves are created inline.
-    } else if (currentPopupSpec.type == PopupType.Image) {
-      children.push(arrangeCellPopup(desktopStore));
-    } else {
-      panic();
-    }
-  }
-
-  topLevelVisualElementSpec.children = children;
-
-  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
-}
-
-
-
-// --------
-
-const arrangeItem = (
+export const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
     parentPath: VisualElementPath,
     parentArrangeAlgorithm: string,
@@ -357,7 +93,7 @@ const arrangeItem = (
 
   if (renderChildrenAsFull &&
       (isPage(displayItem) &&
-       (parentArrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH
+       (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
           ? // This test does not depend on pixel size, so is invariant over display devices.
             (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
           : // However, this test does.
@@ -379,11 +115,8 @@ const arrangeItem = (
       desktopStore, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry);
   }
 
-  const renderStyle = renderChildrenAsFull
-    ? RenderStyle.Full
-    : RenderStyle.Outline;
-
-  return arrangeItemNoChildren(desktopStore, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, renderStyle);
+  const renderAsOutline = !renderChildrenAsFull;
+  return arrangeItemNoChildren(desktopStore, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, renderAsOutline);
 }
 
 
@@ -428,7 +161,7 @@ const arrangePageWithChildren = (
 
 
   // *** GRID ***
-  if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_GRID) {
+  if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
 
     const pageItem = asPageItem(displayItem_pageWithChildren);
     const numCols = pageItem.gridNumberOfColumns;
@@ -489,7 +222,7 @@ const arrangePageWithChildren = (
 
 
   // *** SPATIAL_STRETCH ***
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH) {
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
@@ -525,13 +258,13 @@ const arrangePageWithChildren = (
         const itemGeometry = ItemFns.calcGeometry_Desktop(
           linkItemMaybe ? linkItemMaybe : displayItem,
           innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
-        return arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, RenderStyle.Outline);
+        return arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, true);
       }
     });
 
 
   // *** LIST VIEW ***
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.List) {
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
@@ -772,38 +505,6 @@ const arrangeTable = (
 }
 
 
-/**
- * Given an item, calculate the visual element display item (what is visually depicted), linkItemMaybe and spatialWidthGr.
- */
-function getVeItems(desktopStore: DesktopStoreContextModel, item: Item): [Item, LinkItem | null, number] {
-  let displayItem = item;
-  let linkItemMaybe: LinkItem | null = null;
-  let spatialWidthGr = isXSizableItem(displayItem)
-    ? asXSizableItem(displayItem).spatialWidthGr
-    : 0;
-  if (isLink(item)) {
-    linkItemMaybe = asLinkItem(item);
-    const linkToId = LinkFns.getLinkToId(linkItemMaybe);
-    const displayItemMaybe = itemState.get(linkToId)!;
-    if (displayItemMaybe != null) {
-      displayItem = displayItemMaybe!;
-      if (isXSizableItem(displayItem)) {
-        spatialWidthGr = linkItemMaybe.spatialWidthGr;
-      }
-    } else {
-      if (linkItemMaybe.linkTo != EMPTY_UID) {
-        if (linkItemMaybe.linkToBaseUrl == "") {
-          initiateLoadItem(desktopStore, linkItemMaybe.linkTo);
-        } else {
-          initiateLoadItemFromRemote(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
-        }
-      }
-    }
-  }
-  return [displayItem, linkItemMaybe, spatialWidthGr];
-}
-
-
 const arrangeItemNoChildren = (
     desktopStore: DesktopStoreContextModel,
     parentVePath: VisualElementPath,
@@ -811,14 +512,14 @@ const arrangeItemNoChildren = (
     linkItemMaybe: LinkItem | null,
     itemGeometry: ItemGeometry,
     isPopup: boolean,
-    renderStyle: RenderStyle): VisualElementSignal => {
+    renderAsOutline: boolean): VisualElementSignal => {
   const currentVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem, linkItemMaybe), parentVePath);
 
   const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {
     displayItem: item,
     linkItemMaybe,
-    flags: (renderStyle != RenderStyle.Outline ? VisualElementFlags.Detailed : VisualElementFlags.None) |
+    flags: (renderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
            (isPopup ? VisualElementFlags.Popup : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,
@@ -832,105 +533,4 @@ const arrangeItemNoChildren = (
   const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 
   return itemVisualElementSignal;
-}
-
-
-function arrangeItemAttachments(
-    desktopStore: DesktopStoreContextModel,
-    parentDisplayItem: Item,
-    parentLinkItemMaybe: LinkItem | null,
-    parentItemBoundsPx: BoundingBox,
-    parentItemVePath: VisualElementPath): Array<VisualElementSignal> {
-
-  if (!isAttachmentsItem(parentDisplayItem)) {
-    return [];
-  }
-  const attachmentsItem = asAttachmentsItem(parentDisplayItem);
-
-  const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(parentLinkItemMaybe == null ? parentDisplayItem : parentLinkItemMaybe);
-
-  const attachments: Array<VisualElementSignal> = [];
-  for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
-    const attachmentId = attachmentsItem.computed_attachments[i];
-    const attachmentItem = itemState.get(attachmentId)!;
-    const [attachmentDisplayItem, attachmentLinkItemMaybe, _] = getVeItems(desktopStore, attachmentItem);
-    const attachmentVeid: Veid = {
-      itemId: attachmentDisplayItem.id,
-      linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null
-    };
-    const attachmentVePath = VeFns.prependVeidToPath(attachmentVeid, parentItemVePath);
-
-    const popupSpec = desktopStore.currentPopupSpec();
-    let isSelected = false;
-    if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
-      if (attachmentVePath == popupSpec.vePath) {
-        isSelected = true;
-      }
-    }
-
-    const attachmentGeometry = ItemFns.calcGeometry_Attachment(attachmentItem, parentItemBoundsPx, parentItemSizeBl, i, isSelected);
-
-    const veSpec: VisualElementSpec = {
-      displayItem: attachmentDisplayItem,
-      linkItemMaybe: attachmentLinkItemMaybe,
-      boundsPx: attachmentGeometry.boundsPx,
-      hitboxes: attachmentGeometry.hitboxes,
-      parentPath: parentItemVePath,
-      flags: VisualElementFlags.Attachment |
-             (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None),
-    };
-    const attachmentVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
-    attachments.push(attachmentVisualElementSignal);
-  }
-
-  return attachments;
-}
-
-
-function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElementSignal {
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  const currentPath = VeFns.prependVeidToPath(VeFns.createVeid(currentPage, null), "");
-  const currentPopupSpec = desktopStore.currentPopupSpec()!;
-
-  const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
-  const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
-  li.id = POPUP_LINK_ID;
-  li.spatialWidthGr = 1000;
-  li.spatialPositionGr = { x: 0, y: 0, };
-  const desktopBoundsPx = desktopStore.desktopBoundsPx();
-  const cellBoundsPx = {
-    x: desktopBoundsPx.w * 0.1,
-    y: desktopBoundsPx.h * 0.07,
-    w: desktopBoundsPx.w * 0.8,
-    h: desktopBoundsPx.h * 0.8,
-  };
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx);
-
-  const item = itemState.get(popupLinkToImageId)!;
-
-  if (isPage(item)) {
-    let ves: VisualElementSignal;
-    batch(() => {
-      ves = arrangeItem(desktopStore, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true);
-      let newV = ves.get();
-      newV.flags |= (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None);
-      ves.set(newV);
-    });
-    return ves!;
-  } else {
-    const itemVisualElement: VisualElementSpec = {
-      displayItem: item,
-      linkItemMaybe: li,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.Popup |
-             (currentPage.arrangeAlgorithm == ARRANGE_ALGO_GRID ? VisualElementFlags.Fixed : VisualElementFlags.None),
-      boundsPx: geometry.boundsPx,
-      childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
-      hitboxes: geometry.hitboxes,
-      parentPath: currentPath,
-    };
-
-    const itemPath = VeFns.prependVeidToPath(VeFns.createVeid(item, li), currentPath);
-    itemVisualElement.attachments = arrangeItemAttachments(desktopStore, item, li, geometry.boundsPx, itemPath);
-    return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
-  }
 }

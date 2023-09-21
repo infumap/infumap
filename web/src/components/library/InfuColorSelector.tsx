@@ -23,7 +23,7 @@ import { asPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Colors } from "../../style";
 import { itemState } from "../../store/ItemState";
-import { arrange } from "../../layout/arrange";
+import { arrange } from "../../layout/arrange/arrange";
 
 
 const ColorButton: Component<{ col: number, onClick: (col: number) => void }> = (props: { col: number, onClick: (col: number) => void }) => {

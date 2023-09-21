@@ -17,7 +17,7 @@
 */
 
 import { Component, createEffect, createMemo, For, onMount, Show } from "solid-js";
-import { asPageItem, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
@@ -26,7 +26,7 @@ import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } fro
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { arrange, ARRANGE_ALGO_LIST } from "../../layout/arrange";
+import { arrange } from "../../layout/arrange/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -194,7 +194,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const drawAsTranslucent = () => {
     return (
       <>
-        <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+        <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; `}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
               <For each={lineVes()}>{childVe =>
@@ -203,7 +203,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </div>
           </div>
         </Show>
-        <Show when={pageItem().arrangeAlgorithm != ARRANGE_ALGO_LIST}>
+        <Show when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
           <div ref={translucentDiv}
                class={`absolute border border-slate-700 rounded-sm shadow-lg`}
                style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
@@ -315,7 +315,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
              style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
-        <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+        <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div ref={popupDiv}
                class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
                style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
@@ -326,7 +326,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </div>
           </div>
         </Show>
-        <Show when={pageItem().arrangeAlgorithm != ARRANGE_ALGO_LIST}>
+        <Show when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
           <div ref={popupDiv}
                class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
                style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
@@ -367,7 +367,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${(props.visualElement.flags & VisualElementFlags.Root) ? fullBgColorVal() : "#ffffff"}`}>
-        <Show when={pageItem().arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+        <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
               <For each={lineVes()}>{childVe =>
@@ -376,7 +376,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </div>
           </div>
         </Show>
-        <Show when={asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ARRANGE_ALGO_LIST}>
+        <Show when={asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class={`absolute bg-slate-700`}
                style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}></div>
         </Show>

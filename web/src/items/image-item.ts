@@ -29,7 +29,7 @@ import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
-import { arrange } from "../layout/arrange";
+import { arrange } from "../layout/arrange/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 

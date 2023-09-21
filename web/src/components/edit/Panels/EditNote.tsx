@@ -22,7 +22,7 @@ import { asNoteItem, NoteItem } from "../../../items/note-item";
 import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { arrange } from "../../../layout/arrange";
+import { arrange } from "../../../layout/arrange/arrange";
 import { itemState } from "../../../store/ItemState";
 import { NoteFlags } from "../../../items/base/flags-item";
 

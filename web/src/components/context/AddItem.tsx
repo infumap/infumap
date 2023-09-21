@@ -24,7 +24,7 @@ import { Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns } from "../../items/table-item";
-import { arrange } from "../../layout/arrange";
+import { arrange } from "../../layout/arrange/arrange";
 import { RatingFns } from "../../items/rating-item";
 import { initialEditDialogBounds } from "../edit/EditDialog";
 import { panic } from "../../util/lang";

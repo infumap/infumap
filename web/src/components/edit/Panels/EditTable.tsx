@@ -22,7 +22,7 @@ import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { asTableItem, TableItem } from "../../../items/table-item";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { arrange } from "../../../layout/arrange";
+import { arrange } from "../../../layout/arrange/arrange";
 import { NumberSignal, createNumberSignal } from "../../../util/signals";
 import { itemState } from "../../../store/ItemState";
 import { TableFlags } from "../../../items/base/flags-item";

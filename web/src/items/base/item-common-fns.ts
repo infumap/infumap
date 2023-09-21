@@ -17,20 +17,20 @@
 */
 
 import { LINE_HEIGHT_PX } from "../../constants";
-import { ARRANGE_ALGO_LIST, arrange } from "../../layout/arrange";
+import { arrange } from "../../layout/arrange/arrange";
 import { HitboxFns, HitboxType } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
-import { asPageItem, isPage } from "../page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../page-item";
 import { Measurable } from "./item";
 
 
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): boolean {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
-  if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
     arrange(desktopStore);
     return true;

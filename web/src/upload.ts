@@ -18,14 +18,14 @@
 
 import { GRID_SIZE } from "./constants";
 import { server } from "./server";
-import { PageItem, PageFns } from "./items/page-item";
+import { PageItem, PageFns, ArrangeAlgorithm } from "./items/page-item";
 import { DesktopStoreContextModel } from "./store/DesktopStoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
 import { ITEM_TYPE_FILE, ITEM_TYPE_IMAGE } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { arrange, ARRANGE_ALGO_SPATIAL_STRETCH } from "./layout/arrange";
+import { arrange } from "./layout/arrange/arrange";
 import { itemState } from "./store/ItemState";
 
 
@@ -47,7 +47,7 @@ export async function handleUpload(
     }
   }
 
-  const posPx = parent.arrangeAlgorithm != ARRANGE_ALGO_SPATIAL_STRETCH
+  const posPx = parent.arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch
     ? {x: 0.0, y: 0.0}
     : PageFns.calcBlockPositionGr(desktopStore, parent, desktopPx);
 

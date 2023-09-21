@@ -25,12 +25,12 @@ import { useUserStore } from "../store/UserStoreProvider";
 import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
-import { asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { VeFns, VisualElement } from "../layout/visual-element";
-import { ARRANGE_ALGO_LIST, arrange } from "../layout/arrange";
+import { arrange } from "../layout/arrange/arrange";
 import { getHitInfo } from "../mouse/hit";
 import { panic } from "../util/lang";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
@@ -102,7 +102,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
       ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
       let currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-      if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+      if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
         if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
           const selectedItem = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
           const direction = findDirectionFromKeyCode(ev.code);

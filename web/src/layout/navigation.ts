@@ -17,11 +17,11 @@
 */
 
 import { ROOT_USERNAME } from "../constants";
-import { asPageItem } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
-import { ARRANGE_ALGO_LIST, arrange } from "./arrange";
+import { arrange } from "./arrange/arrange";
 import { Veid, VeFns } from "./visual-element";
 
 
@@ -48,7 +48,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: 
   arrange(desktopStore);
 
   const currentPage = asPageItem(itemState.get(veid.itemId)!);
-  if (currentPage.arrangeAlgorithm == ARRANGE_ALGO_LIST) {
+  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
     if (desktopStore.getSelectedListPageItem(veid) == "") {
       if (currentPage.computed_children.length > 0) {
         const firstItemId = currentPage.computed_children[0];

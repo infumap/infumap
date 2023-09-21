@@ -23,7 +23,7 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asPageItem } from "../items/page-item";
 import { isTable } from "../items/table-item";
-import { arrange } from "../layout/arrange";
+import { arrange } from "../layout/arrange/arrange";
 import { HitboxType } from "../layout/hitbox";
 import { switchToPage, updateHref } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";

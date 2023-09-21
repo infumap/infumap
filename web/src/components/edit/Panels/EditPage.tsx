@@ -19,12 +19,12 @@
 import { Component, Show, onCleanup } from "solid-js";
 import { GRID_SIZE } from "../../../constants";
 import { server } from "../../../server";
-import { asPageItem, PageItem } from "../../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, PageItem } from "../../../items/page-item";
 import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
 import { InfuColorSelector } from "../../library/InfuColorSelector";
-import { ARRANGE_ALGO_GRID, ARRANGE_ALGO_LIST, ARRANGE_ALGO_SPATIAL_STRETCH, arrange } from "../../../layout/arrange";
+import { arrange } from "../../../layout/arrange/arrange";
 import { panic } from "../../../util/lang";
 import { itemState } from "../../../store/ItemState";
 import { PermissionFlags } from "../../../items/base/permission-flags-item";
@@ -93,11 +93,11 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
   const changeArrangeAlgo = async () => {
     let t;
     if (checkElement_spatial_stretch?.checked) {
-      t = ARRANGE_ALGO_SPATIAL_STRETCH;
+      t = ArrangeAlgorithm.SpatialStretch;
     } else if (checkElement_grid?.checked) {
-      t = ARRANGE_ALGO_GRID;
+      t = ArrangeAlgorithm.Grid;
     } else if (checkElement_list?.checked) {
-      t = ARRANGE_ALGO_LIST;
+      t = ArrangeAlgorithm.List;
     } else {
       panic();
     }
@@ -143,16 +143,16 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
       </Show>
       <div>
         <div>
-          <input name="aa" type="radio" ref={checkElement_spatial_stretch} id={ARRANGE_ALGO_SPATIAL_STRETCH} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_SPATIAL_STRETCH} onClick={changeArrangeAlgo} />
-          <label for={ARRANGE_ALGO_SPATIAL_STRETCH}>spatial</label>
+          <input name="aa" type="radio" ref={checkElement_spatial_stretch} id={ArrangeAlgorithm.SpatialStretch} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch} onClick={changeArrangeAlgo} />
+          <label for={ArrangeAlgorithm.SpatialStretch}>spatial</label>
         </div>
         <div>
-          <input name="aa" type="radio" ref={checkElement_grid} id={ARRANGE_ALGO_GRID} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_GRID} onClick={changeArrangeAlgo} />
-          <label for={ARRANGE_ALGO_GRID}>grid</label>
+          <input name="aa" type="radio" ref={checkElement_grid} id={ArrangeAlgorithm.Grid} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid} onClick={changeArrangeAlgo} />
+          <label for={ArrangeAlgorithm.Grid}>grid</label>
         </div>
         <div>
-          <input name="aa" type="radio" ref={checkElement_list} id={ARRANGE_ALGO_LIST} checked={props.pageItem.arrangeAlgorithm == ARRANGE_ALGO_LIST} onClick={changeArrangeAlgo} />
-          <label for={ARRANGE_ALGO_LIST}>list</label>
+          <input name="aa" type="radio" ref={checkElement_list} id={ArrangeAlgorithm.List} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.List} onClick={changeArrangeAlgo} />
+          <label for={ArrangeAlgorithm.List}>list</label>
         </div>
       </div>
       <div>
