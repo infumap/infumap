@@ -24,6 +24,23 @@ import { VisualElementSignal, createVisualElementSignal } from "../util/signals"
 import { HitboxFns } from "./hitbox";
 import { VeFns, VisualElementPath, VisualElementSpec } from "./visual-element";
 
+/*
+  Explanation:
+
+  at this end i have my "virtual dom diffing" equivalent code going for 
+  the main display. what i have feels good enough to go with. whenever 
+  there is a change to an item, i need to manually call 'arrange', and it 
+  does the virtual diff and optimally updates a separate 'visual element' 
+  tree comprising solidjs signals which the dom then micro-reactively 
+  responds to when they change. the key benefit of the approach is that 
+  in many scenarios, i could call an alternative method "arrangeWithId" or 
+  some other yet to be written variant, which bypasses almost all of the 
+  diffing computation. This should make most animation / visual mouse 
+  interaction super performant. The reason i need the full diffing is 
+  that sometimes a change to one item could impact the arrangement of 
+  many others in complex ways. but in such cases i don't want to wipe 
+  away all existing dom elements and replace them.
+*/
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let newCache = new Map<VisualElementPath, VisualElementSignal>();

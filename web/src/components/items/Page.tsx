@@ -26,11 +26,11 @@ import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } fro
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { arrange } from "../../layout/arrange/arrange";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
+import { arrange } from "../../layout/arrange";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

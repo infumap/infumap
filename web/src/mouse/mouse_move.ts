@@ -28,7 +28,6 @@ import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopSt
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
-import { arrange } from "../layout/arrange/arrange";
 import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -44,6 +43,7 @@ import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { MouseAction, MouseActionState, LastMouseMoveEventState, dialogMoveState } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { arrange } from "../layout/arrange";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;

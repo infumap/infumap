@@ -21,11 +21,11 @@ import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { VesCache } from "../layout/ves-cache";
 import { InfuTextArea } from "./library/InfuTextArea";
 import { asNoteItem } from "../items/note-item";
-import { arrange } from "../layout/arrange/arrange";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { InfuIconButton } from "./library/InfuIconButton";
 import { VeFns } from "../layout/visual-element";
+import { arrange } from "../layout/arrange";
 
 
 export interface TextEditOverlayProps {};

@@ -30,7 +30,6 @@ import { EditDialog, initialEditDialogBounds } from "./edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { VeFns, VisualElement } from "../layout/visual-element";
-import { arrange } from "../layout/arrange/arrange";
 import { getHitInfo } from "../mouse/hit";
 import { panic } from "../util/lang";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
@@ -41,6 +40,7 @@ import { mouseUpHandler } from "../mouse/mouse_up";
 import { mouseDownHandler } from "../mouse/mouse_down";
 import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
 import { LastMouseMoveEventState } from "../mouse/state";
+import { arrange } from "../layout/arrange";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

@@ -22,8 +22,8 @@ import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { asPasswordItem, PasswordItem } from "../../../items/password-item";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { arrange } from "../../../layout/arrange/arrange";
 import { itemState } from "../../../store/ItemState";
+import { arrange } from "../../../layout/arrange";
 
 
 export const EditPassword: Component<{passwordItem: PasswordItem, linkedTo: boolean}> = (props: { passwordItem: PasswordItem, linkedTo: boolean }) => {

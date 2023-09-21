@@ -25,8 +25,8 @@ import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { arrange } from "./layout/arrange/arrange";
 import { itemState } from "./store/ItemState";
+import { arrange } from "./layout/arrange";
 
 
 export async function handleUpload(

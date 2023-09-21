@@ -16,23 +16,23 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../../constants";
-import { Item } from "../../items/base/item";
-import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkFns } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../items/page-item";
-import { DesktopStoreContextModel, PopupType } from "../../store/DesktopStoreProvider";
-import { itemState } from "../../store/ItemState";
-import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { panic } from "../../util/lang";
-import { newOrdering } from "../../util/ordering";
-import { VisualElementSignal } from "../../util/signals";
-import { RelationshipToParent } from "../relationship-to-parent";
-import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { arrangeItem } from "./arrange";
-import { getVeItems } from "./util";
-import { POPUP_LINK_ID, arrangeCellPopup } from "./popup";
+import { GRID_SIZE } from "../../../constants";
+import { Item } from "../../../items/base/item";
+import { ItemFns } from "../../../items/base/item-polymorphism";
+import { LinkFns } from "../../../items/link-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
+import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
+import { itemState } from "../../../store/ItemState";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
+import { panic } from "../../../util/lang";
+import { newOrdering } from "../../../util/ordering";
+import { VisualElementSignal } from "../../../util/signals";
+import { RelationshipToParent } from "../../relationship-to-parent";
+import { VesCache } from "../../ves-cache";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
+import { arrangeItem } from "../common";
+import { getVeItems } from "../util";
+import { POPUP_LINK_ID, arrangeCellPopup } from "../popup";
 
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {

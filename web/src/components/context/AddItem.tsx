@@ -24,7 +24,6 @@ import { Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns } from "../../items/table-item";
-import { arrange } from "../../layout/arrange/arrange";
 import { RatingFns } from "../../items/rating-item";
 import { initialEditDialogBounds } from "../edit/EditDialog";
 import { panic } from "../../util/lang";
@@ -36,6 +35,7 @@ import { PasswordFns } from "../../items/password-item";
 import { VisualElementFlags } from "../../layout/visual-element";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { arrange } from "../../layout/arrange";
 
 
 type ContexMenuProps = {

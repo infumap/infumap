@@ -16,17 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_PAGE_CELL_ASPECT } from "../../constants";
-import { ItemFns } from "../../items/base/item-polymorphism";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
-import { DesktopStoreContextModel, PopupType } from "../../store/DesktopStoreProvider";
-import { itemState } from "../../store/ItemState";
-import { cloneBoundingBox } from "../../util/geometry";
-import { panic } from "../../util/lang";
-import { VesCache } from "../ves-cache";
-import { VisualElementFlags, VisualElementSpec } from "../visual-element";
-import { arrangeItem } from "./arrange";
-import { arrangeCellPopup } from "./popup";
+import { GRID_PAGE_CELL_ASPECT } from "../../../constants";
+import { ItemFns } from "../../../items/base/item-polymorphism";
+import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
+import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
+import { itemState } from "../../../store/ItemState";
+import { cloneBoundingBox } from "../../../util/geometry";
+import { panic } from "../../../util/lang";
+import { VesCache } from "../../ves-cache";
+import { VisualElementFlags, VisualElementSpec } from "../../visual-element";
+import { arrangeItem } from "../common";
+import { arrangeCellPopup } from "../popup";
 
 
 export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
@@ -90,5 +90,3 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
 }
-
-

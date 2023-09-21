@@ -21,10 +21,10 @@ import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__IT
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { asContainerItem } from "../items/base/container-item";
-import { arrange } from "./arrange/arrange";
 import { asLinkItem } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
+import { arrange } from "./arrange";
 
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};

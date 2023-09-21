@@ -27,7 +27,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, VisualElementFlags, VisualElementSpec } from "../visual-element";
-import { arrangeItem } from "./arrange";
+import { arrangeItem } from "./common";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
 

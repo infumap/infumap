@@ -24,10 +24,10 @@ import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
 import { InfuColorSelector } from "../../library/InfuColorSelector";
-import { arrange } from "../../../layout/arrange/arrange";
 import { panic } from "../../../util/lang";
 import { itemState } from "../../../store/ItemState";
 import { PermissionFlags } from "../../../items/base/permission-flags-item";
+import { arrange } from "../../../layout/arrange";
 
 
 export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (props: { pageItem: PageItem, linkedTo: boolean }) => {

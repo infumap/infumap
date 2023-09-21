@@ -16,23 +16,23 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
-import { ItemFns } from "../../items/base/item-polymorphism";
-import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
-import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { LinkFns } from "../../items/link-item";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
-import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
-import { itemState } from "../../store/ItemState";
-import { BoundingBox } from "../../util/geometry";
-import { newOrdering } from "../../util/ordering";
-import { VisualElementSignal } from "../../util/signals";
-import { newUid } from "../../util/uid";
-import { RelationshipToParent } from "../relationship-to-parent";
-import { VesCache } from "../ves-cache";
-import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { arrangeItem } from "./arrange";
-import { getVeItems } from "./util";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../../constants";
+import { ItemFns } from "../../../items/base/item-polymorphism";
+import { asXSizableItem, isXSizableItem } from "../../../items/base/x-sizeable-item";
+import { asYSizableItem, isYSizableItem } from "../../../items/base/y-sizeable-item";
+import { LinkFns } from "../../../items/link-item";
+import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
+import { DesktopStoreContextModel } from "../../../store/DesktopStoreProvider";
+import { itemState } from "../../../store/ItemState";
+import { BoundingBox } from "../../../util/geometry";
+import { newOrdering } from "../../../util/ordering";
+import { VisualElementSignal } from "../../../util/signals";
+import { newUid } from "../../../util/uid";
+import { RelationshipToParent } from "../../relationship-to-parent";
+import { VesCache } from "../../ves-cache";
+import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
+import { arrangeItem } from "../common";
+import { getVeItems } from "../util";
 
 
 const LIST_FOCUS_ID = newUid();

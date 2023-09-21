@@ -17,7 +17,7 @@
 */
 
 import { LINE_HEIGHT_PX } from "../../constants";
-import { arrange } from "../../layout/arrange/arrange";
+import { arrange } from "../../layout/arrange";
 import { HitboxFns, HitboxType } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";

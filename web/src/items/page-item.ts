@@ -30,13 +30,13 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { arrange } from '../layout/arrange/arrange';
 import { VisualElement, VisualElementFlags, VeFns } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hit';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
+import { arrange } from '../layout/arrange';
 
 
 export const ArrangeAlgorithm = {

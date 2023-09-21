@@ -27,7 +27,7 @@ import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-i
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { arrange } from "../layout/arrange/arrange";
+import { arrange } from "../layout/arrange";
 import { HitboxType } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";

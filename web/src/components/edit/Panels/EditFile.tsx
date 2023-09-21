@@ -22,8 +22,8 @@ import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { asFileItem, FileItem } from "../../../items/file-item";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { arrange } from "../../../layout/arrange/arrange";
 import { itemState } from "../../../store/ItemState";
+import { arrange } from "../../../layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (props: { fileItem: FileItem, linkedTo: boolean }) => {

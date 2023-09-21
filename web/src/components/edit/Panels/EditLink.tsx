@@ -21,13 +21,13 @@ import { server } from "../../../server";
 import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { InfuButton } from "../../library/InfuButton";
 import { InfuTextInput } from "../../library/InfuTextInput";
-import { arrange } from "../../../layout/arrange/arrange";
 import { LinkItem, asLinkItem } from "../../../items/link-item";
 import { EMPTY_UID } from "../../../util/uid";
 import { EditItem } from "../EditItem";
 import { Item } from "../../../items/base/item";
 import { itemState } from "../../../store/ItemState";
 import { panic } from "../../../util/lang";
+import { arrange } from "../../../layout/arrange";
 
 
 export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (props: { linkItem: LinkItem, linkedTo: boolean }) => {
