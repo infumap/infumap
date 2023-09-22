@@ -16,17 +16,19 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, onCleanup } from "solid-js";
-import { useDesktopStore } from "../store/DesktopStoreProvider";
-import { VesCache } from "../layout/ves-cache";
-import { InfuTextArea } from "./library/InfuTextArea";
-import { NoteFns, asNoteItem } from "../items/note-item";
-import { server } from "../server";
-import { itemState } from "../store/ItemState";
-import { InfuIconButton } from "./library/InfuIconButton";
-import { VeFns } from "../layout/visual-element";
-import { arrange } from "../layout/arrange";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
+import { Component, onCleanup, onMount } from "solid-js";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { VesCache } from "../../layout/ves-cache";
+import { InfuTextArea } from "../library/InfuTextArea";
+import { NoteFns, asNoteItem } from "../../items/note-item";
+import { server } from "../../server";
+import { itemState } from "../../store/ItemState";
+import { InfuIconButton } from "../library/InfuIconButton";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { arrange } from "../../layout/arrange";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { asXSizableItem } from "../../items/base/x-sizeable-item";
 
 
 export interface TextEditOverlayProps {};
@@ -34,11 +36,22 @@ export interface TextEditOverlayProps {};
 export const TextEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
 
-  const noteVisualElement = VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!;
-  const noteItem = () => asNoteItem(noteVisualElement.get().displayItem);
-  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(noteVisualElement.get());
+  let textElement: HTMLTextAreaElement | undefined;
+
+  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
+  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(noteVisualElement());
+  const noteItem = () => asNoteItem(noteVisualElement().displayItem);
+  const noteItemOnInitialize = noteItem();
 
   const sizeBl = () => {
+    if (noteVisualElement().flags & VisualElementFlags.InsideComposite) {
+      const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(noteVisualElement().displayItem));
+      cloned.spatialWidthGr = asXSizableItem(VeFns.getCanonicalItem(VesCache.get(noteVisualElement().parentPath!)!.get())).spatialWidthGr;
+      return ItemFns.calcSpatialDimensionsBl(cloned);
+    }
+    if (noteVisualElement().linkItemMaybe != null) {
+      return ItemFns.calcSpatialDimensionsBl(noteVisualElement().linkItemMaybe!);
+    }
     return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
@@ -49,17 +62,20 @@ export const TextEditOverlay: Component = () => {
   const lineHeightScale = () => heightScale() / widthScale();
 
   const mouseDownListener = (ev: MouseEvent) => {
+    console.log("C", ev);
     ev.preventDefault();
     ev.stopPropagation();
     desktopStore.setTextEditOverlayInfo(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
+    console.log("A", ev);
     ev.preventDefault();
     ev.stopPropagation();
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
+    console.log("B", ev);
     ev.preventDefault();
     ev.stopPropagation();
   };
@@ -72,13 +88,13 @@ export const TextEditOverlay: Component = () => {
     }
   }
 
-  const handleTextInput = (v: string) => {
-    noteItem().title = v;
-    arrange(desktopStore);
-  };
 
   onCleanup(() => {
-    server.updateItem(noteItem());
+    server.updateItem(noteItemOnInitialize);
+  });
+
+  onMount(() => {
+    textElement?.focus();
   });
 
   const boldHandler = () => {
@@ -94,6 +110,14 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   };
 
+  const textAreaMouseDownHandler = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  }
+  
+  const textAreaOnInputHandler = () => {
+    noteItem().title = textElement!.value;
+    arrange(desktopStore);
+  }
 
   return (
     <div id="textEntryOverlay"
@@ -103,7 +127,7 @@ export const TextEditOverlay: Component = () => {
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}
          onKeyDown={keyDownListener}>
-      <div class="absolute border rounded w-[250px] h-[55px] bg-white mb-1"
+      {/* <div class="absolute border rounded w-[250px] h-[55px] bg-white mb-1"
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y - 80}px; width: 320px; height: 64px`}>
         <div class="text-slate-800 text-sm">
           <span class="font-mono text-slate-400">{`${noteItem().id}`}</span>
@@ -121,15 +145,25 @@ export const TextEditOverlay: Component = () => {
           <div style="width: 10px; display: inline-block;"></div>
           <InfuIconButton icon="align-left" clickHandler={headingHandler} />
         </div>
+      </div> */}
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+           style={`left: ${noteVeBoundsPx().x + noteVeBoundsPx().w + 10}px; top: ${noteVeBoundsPx().y - 2}px; width: 55px; height: 120px`}>
+        <InfuIconButton icon="font" clickHandler={headingHandler} />
+        <InfuIconButton icon="align-left" clickHandler={headingHandler} />
+        <InfuIconButton icon="link" clickHandler={headingHandler} />
+        <InfuIconButton icon="ellipsis-h" clickHandler={headingHandler} />
       </div>
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
-        <InfuTextArea focus={true} value={noteItem().title}
-                      onInput={handleTextInput}
-                      style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
-                             `width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
-                             `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); ` +
-                             `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`} />
+        <textarea ref={textElement}
+          class="rounded"
+          style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                 `width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
+                 `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); ` +
+                 `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`}
+          value={noteItem().title}
+          onMouseDown={textAreaMouseDownHandler}
+          onInput={textAreaOnInputHandler} />
       </div>
     </div>
   );

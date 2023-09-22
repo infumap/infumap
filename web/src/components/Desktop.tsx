@@ -35,7 +35,7 @@ import { panic } from "../util/lang";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
-import { TextEditOverlay } from "./TextEditOverlay";
+import { TextEditOverlay } from "./overlay/TextEditOverlay";
 import { mouseUpHandler } from "../mouse/mouse_up";
 import { mouseDownHandler } from "../mouse/mouse_down";
 import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
