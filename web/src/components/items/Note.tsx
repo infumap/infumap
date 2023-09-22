@@ -22,10 +22,10 @@ import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } fr
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
-import { asCompositeItem } from "../../items/composite-item";
+import { asXSizableItem } from "../../items/base/x-sizeable-item";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -34,7 +34,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
-      cloned.spatialWidthGr = asCompositeItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem).spatialWidthGr;
+      cloned.spatialWidthGr = asXSizableItem(VeFns.getCanonicalItem(VesCache.get(props.visualElement.parentPath!)!.get())).spatialWidthGr;
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {
@@ -86,7 +86,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; ` +
+        <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}
                 fallback={<span>{noteItem().title}</span>}>

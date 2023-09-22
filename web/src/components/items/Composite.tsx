@@ -52,6 +52,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                       `background-color: #ff0000;`}>
           </div>
         </Show>
+        <Show when={props.visualElement.linkItemMaybe != null}>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+        </Show>
     </div>
   );
 };

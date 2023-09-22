@@ -28,6 +28,7 @@ export type InfuTextAreaProps = {
   onChangeOrCleanup?: ((v: string) => void),
   disabled?: boolean,
   focus?: boolean,
+  style: string,
 };
 
 export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaProps) => {
@@ -60,10 +61,8 @@ export const InfuTextArea: Component<InfuTextAreaProps> = (props: InfuTextAreaPr
   });
 
   return (
-    <textarea
-      ref={textElement}
-      class="rounded"
-      style={"width: 100%; height: 100%; padding: 0px; border: 0px; outline: none; resize: none;"}
+    <textarea ref={textElement}
+      class="rounded" style={props.style}
       value={props.value ? props.value : ""}
       onMouseDown={mouseDownHandler}
       onInput={inputHandler}

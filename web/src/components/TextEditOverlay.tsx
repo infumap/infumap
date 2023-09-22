@@ -20,12 +20,13 @@ import { Component, onCleanup } from "solid-js";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { VesCache } from "../layout/ves-cache";
 import { InfuTextArea } from "./library/InfuTextArea";
-import { asNoteItem } from "../items/note-item";
+import { NoteFns, asNoteItem } from "../items/note-item";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { InfuIconButton } from "./library/InfuIconButton";
 import { VeFns } from "../layout/visual-element";
 import { arrange } from "../layout/arrange";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
 
 
 export interface TextEditOverlayProps {};
@@ -36,6 +37,16 @@ export const TextEditOverlay: Component = () => {
   const noteVisualElement = VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!;
   const noteItem = () => asNoteItem(noteVisualElement.get().displayItem);
   const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(noteVisualElement.get());
+
+  const sizeBl = () => {
+    return NoteFns.calcSpatialDimensionsBl(noteItem());
+  };
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
+  const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
+  const widthScale = () => (noteVeBoundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
+  const heightScale = () => (noteVeBoundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const textBlockScale = () => widthScale();
+  const lineHeightScale = () => heightScale() / widthScale();
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.preventDefault();
@@ -110,11 +121,15 @@ export const TextEditOverlay: Component = () => {
           <div style="width: 10px; display: inline-block;"></div>
           <InfuIconButton icon="align-left" clickHandler={headingHandler} />
         </div>
-        {/* <div class="text-slate-800 text-sm">Url <InfuTextInput value={noteItem().url} onChangeOrCleanup={handleUrlChange} /></div> */}
       </div>
-      <div class="absolute rounded"
+      <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
-        <InfuTextArea focus={true} value={noteItem().title} onInput={handleTextInput} />
+        <InfuTextArea focus={true} value={noteItem().title}
+                      onInput={handleTextInput}
+                      style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                             `width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
+                             `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); ` +
+                             `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`} />
       </div>
     </div>
   );

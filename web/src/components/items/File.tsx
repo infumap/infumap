@@ -22,9 +22,9 @@ import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } fr
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns} from "../../items/base/item-polymorphism";
-import { VisualElementFlags } from "../../layout/visual-element";
-import { asCompositeItem } from "../../items/composite-item";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
+import { asXSizableItem } from "../../items/base/x-sizeable-item";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -49,7 +49,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       const cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
-      cloned.spatialWidthGr = asCompositeItem(VesCache.get(props.visualElement.parentPath!)!.get().displayItem).spatialWidthGr;
+      cloned.spatialWidthGr = asXSizableItem(VeFns.getCanonicalItem(VesCache.get(props.visualElement.parentPath!)!.get())).spatialWidthGr;
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {
