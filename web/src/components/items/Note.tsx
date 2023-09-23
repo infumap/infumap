@@ -82,6 +82,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const shiftTextLeft = () =>
     (noteItem().flags & NoteFlags.Heading3) && !props.visualElement.mouseIsOver.get();
 
+  const aMouseDown = (ev: MouseEvent) => {
+    // prevent the mouse down event being handled in the global handler if the actual link text is clicked.
+    // clicking in the element near the link text will still trigger the global handler.
+    ev.stopPropagation();
+  }
+
   return (
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
@@ -90,7 +96,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}
                 fallback={<span>{noteItem().title}</span>}>
-            <span class={`text-blue-800 cursor-pointer`}>{noteItem().title}</span>
+            <a href={noteItem().url} target="_blank" class={`text-blue-800`} onMouseDown={aMouseDown}>{noteItem().title}</a>
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>

@@ -16,13 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { isNote } from "../items/note-item";
-import { HitboxType } from "../layout/hitbox";
-import { VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
-import { itemState } from "../store/ItemState";
-import { desktopPxFromMouseEvent } from "../util/geometry";
-import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 
 
@@ -36,11 +30,5 @@ export function mouseDoubleClickHandler(
     return;
   }
 
-  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
-  if (hitInfo.hitboxType == HitboxType.None) { return; }
-
-  const activeDisplayItem = itemState.get(hitInfo.overElementVes.get().displayItem.id)!;
-  if (!isNote(activeDisplayItem)) { return; }
-
-  desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(hitInfo.overElementVes.get()) });
+  // Double clicking is no longer used for anything.
 }
