@@ -19,7 +19,7 @@
 import { Show, onCleanup, onMount } from "solid-js";
 
 
-export function InfuIconButton(props: { icon: string; clickHandler: () => void }) {
+export function InfuIconButton(props: { icon: string; highlighted: boolean; clickHandler: () => void }) {
   let outerDivElement : HTMLDivElement | undefined;
 
   onMount(() => { outerDivElement?.addEventListener('click', props.clickHandler); });
@@ -39,9 +39,16 @@ export function InfuIconButton(props: { icon: string; clickHandler: () => void }
     return null;
   }
 
+  const divClass = () => {
+    if (props.highlighted) {
+      return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[5px] text-[14px] bg-slate-200 hover:bg-slate-300 relative";
+    } else {
+      return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[5px] text-[14px] hover:bg-slate-200 relative";
+    }
+  }
+
   return (
-    <div ref={outerDivElement}
-         class="hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[5px] text-[14px] hover:bg-slate-100 relative">
+    <div ref={outerDivElement} class={divClass()}>
       <i class={`fa fa-${icon()}`} />
       <Show when={subscript() != null}>
         <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>

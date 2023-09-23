@@ -69,7 +69,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       return 'absolute rounded-sm bg-white';
     } else {
-      if ((noteItem().flags & NoteFlags.Heading)) {
+      if ((noteItem().flags & NoteFlags.Heading3)) {
         if (props.visualElement.mouseIsOver.get()) {
           return 'absolute border border-slate-700 rounded-sm font-bold shadow-lg';
         } else {
@@ -80,7 +80,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
   };
   const shiftTextLeft = () =>
-    (noteItem().flags & NoteFlags.Heading) && !props.visualElement.mouseIsOver.get();
+    (noteItem().flags & NoteFlags.Heading3) && !props.visualElement.mouseIsOver.get();
 
   return (
     <div class={`${outerClass()}`}

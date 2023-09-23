@@ -26,8 +26,14 @@ export enum TableFlags {
 
 export enum NoteFlags {
   None =           0x000,
-  Heading =        0x001,
+  Heading3 =       0x001,
   ShowCopyIcon =   0x002,
+  Heading1 =       0x004,
+  Heading2 =       0x008,
+  Bullet1 =        0x010,
+  AlignCenter =    0x020, // AlignLeft is implicit.
+  AlignRight =     0x040,
+  AlignJustify =   0x080,
 }
 
 
