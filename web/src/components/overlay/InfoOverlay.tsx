@@ -28,7 +28,7 @@ import { NoteFlags } from "../../items/base/flags-item";
 import { arrange } from "../../layout/arrange";
 
 
-export const StyleSelectOverlay: Component<{styleOverlayVisible: BooleanSignal}> = (props: { styleOverlayVisible: BooleanSignal }) => {
+export const InfoOverlay: Component<{infoOverlayVisible: BooleanSignal}> = (props: { infoOverlayVisible: BooleanSignal }) => {
   const desktopStore = useDesktopStore();
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
@@ -37,10 +37,10 @@ export const StyleSelectOverlay: Component<{styleOverlayVisible: BooleanSignal}>
 
   const toolboxBoundsPx = () => {
     return ({
-      x: noteVeBoundsPx().x + noteVeBoundsPx().w + 15,
-      y: noteVeBoundsPx().y + 3,
-      w: 55,
-      h: 120
+      x: noteVeBoundsPx().x + noteVeBoundsPx().w + 30,
+      y: noteVeBoundsPx().y + 38,
+      w: 340,
+      h: 35
     });
   }
 
@@ -48,7 +48,7 @@ export const StyleSelectOverlay: Component<{styleOverlayVisible: BooleanSignal}>
     ev.stopPropagation();
     const desktopPx = desktopPxFromMouseEvent(ev);
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
-    props.styleOverlayVisible.set(false);
+    props.infoOverlayVisible.set(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -59,27 +59,13 @@ export const StyleSelectOverlay: Component<{styleOverlayVisible: BooleanSignal}>
     ev.stopPropagation();
   };
 
-  const isNormalText = (): boolean => {
-    return (
-      !(noteItem().flags & NoteFlags.Heading1) && 
-      !(noteItem().flags & NoteFlags.Heading2) &&
-      !(noteItem().flags & NoteFlags.Heading3) &&
-      !(noteItem().flags & NoteFlags.Bullet1)
-    );
+  const copyClickHandler = () => {
+    navigator.clipboard.writeText(noteItem().id);
   }
 
-  const clearStyle = () => {
-    noteItem().flags &= ~NoteFlags.Heading1;
-    noteItem().flags &= ~NoteFlags.Heading2;
-    noteItem().flags &= ~NoteFlags.Heading3;
-    noteItem().flags &= ~NoteFlags.Bullet1;
+  const linkClickHandler = () => {
+    navigator.clipboard.writeText(window.location.origin + "/" + noteItem().id);
   }
-
-  const selectNormalText = () => { clearStyle(); arrange(desktopStore); }
-  const selectHeading1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); }
-  const selectHeading2 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); }
-  const selectHeading3 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); }
-  const selectBullet1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); }
 
   return (
     <div id="textEntryOverlay"
@@ -90,11 +76,13 @@ export const StyleSelectOverlay: Component<{styleOverlayVisible: BooleanSignal}>
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
-        <InfuIconButton icon="font" highlighted={isNormalText()} clickHandler={selectNormalText} />
-        <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-        <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-        <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-        <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+        <div class="p-[8px]">
+          <div class="text-slate-800 text-sm">
+            <span class="font-mono text-slate-400">{`${noteItem().id}`}</span>
+            <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyClickHandler} />
+            <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkClickHandler} />
+            </div>
+        </div>
       </div>
     </div>
   );

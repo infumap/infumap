@@ -67,9 +67,9 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
 
   const changeDisplayAsHeading = async () => {
     if (checkElement_heading!.checked) {
-      asNoteItem(itemState.get(noteId)!).flags |= NoteFlags.Heading;
+      asNoteItem(itemState.get(noteId)!).flags |= NoteFlags.Heading1;
     } else {
-      asNoteItem(itemState.get(noteId)!).flags &= ~NoteFlags.Heading;
+      asNoteItem(itemState.get(noteId)!).flags &= ~NoteFlags.Heading1;
     }
     arrange(desktopStore);
   }
@@ -82,7 +82,7 @@ export const EditNote: Component<{noteItem: NoteItem, linkedTo: boolean}> = (pro
         <label for="copy">show copy icon</label>
       </div>
       <div>
-        <input id="heading" name="heading" type="checkbox" ref={checkElement_heading} checked={(props.noteItem.flags & NoteFlags.Heading) ? true : false} onClick={changeDisplayAsHeading} />
+        <input id="heading" name="heading" type="checkbox" ref={checkElement_heading} checked={(props.noteItem.flags & NoteFlags.Heading1) ? true : false} onClick={changeDisplayAsHeading} />
         <label for="heading">heading</label>
       </div>
       <Show when={!props.linkedTo}>

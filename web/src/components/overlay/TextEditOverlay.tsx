@@ -28,9 +28,10 @@ import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
-import { StyleSelectOverlay } from "./StyleSelectOverlay";
+import { InfoOverlay } from "./InfoOverlay";
 import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
-import { AlignmentSelectOverlay } from "./AlignmentSelectOverlay";
+import { NoteFlags } from "../../items/base/flags-item";
+import { UrlOverlay } from "./UrlOverlay";
 
 
 export const TextEditOverlay: Component = () => {
@@ -38,10 +39,8 @@ export const TextEditOverlay: Component = () => {
 
   let textElement: HTMLTextAreaElement | undefined;
 
-  const styleOverlayVisible = createBooleanSignal(false);
-  const alignmentOverlayVisible = createBooleanSignal(false);
-  const linkOverlayVisible = createBooleanSignal(false);
-  const additionalOverlayVisible = createBooleanSignal(false);
+  const urlOverlayVisible = createBooleanSignal(false);
+  const infoOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
   const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(noteVisualElement());
@@ -52,8 +51,8 @@ export const TextEditOverlay: Component = () => {
     return ({
       x: noteVeBoundsPx().x + noteVeBoundsPx().w + 10,
       y: noteVeBoundsPx().y - 2,
-      w: 120,
-      h: 120
+      w: 360,
+      h: 35
     });
   }
 
@@ -106,10 +105,8 @@ export const TextEditOverlay: Component = () => {
     textElement?.focus();
   });
 
-  const styleButtonHandler = () => { styleOverlayVisible.set(!styleOverlayVisible.get()); }
-  const alignmentButtonHandler = () => { alignmentOverlayVisible.set(!alignmentOverlayVisible.get()); }
-  const linkButtonHandler = () => { linkOverlayVisible.set(!linkOverlayVisible.get()); }
-  const additionalButtonHandler = () => { additionalOverlayVisible.set(!additionalOverlayVisible.get()); }
+  const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
+  const infoButtonHandler = () => { infoOverlayVisible.set(!infoOverlayVisible.get()); }
 
   const textAreaMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
@@ -120,8 +117,56 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   }
 
-  const isLeftAlign = () => {
+  const isNormalText = (): boolean => {
+    return (
+      !(noteItem().flags & NoteFlags.Heading1) && 
+      !(noteItem().flags & NoteFlags.Heading2) &&
+      !(noteItem().flags & NoteFlags.Heading3) &&
+      !(noteItem().flags & NoteFlags.Bullet1)
+    );
+  }
 
+  const clearStyle = () => {
+    noteItem().flags &= ~NoteFlags.Heading1;
+    noteItem().flags &= ~NoteFlags.Heading2;
+    noteItem().flags &= ~NoteFlags.Heading3;
+    noteItem().flags &= ~NoteFlags.Bullet1;
+  }
+
+  const selectNormalText = () => { clearStyle(); arrange(desktopStore); }
+  const selectHeading1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); }
+  const selectHeading2 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); }
+  const selectHeading3 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); }
+  const selectBullet1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); }
+
+  const isAlignLeft = () => {
+    return (
+      !(noteItem().flags & NoteFlags.AlignCenter) && 
+      !(noteItem().flags & NoteFlags.AlignJustify) &&
+      !(noteItem().flags & NoteFlags.AlignRight)
+    );
+  }
+
+  const clearAlignment = () => {
+    noteItem().flags &= ~NoteFlags.AlignCenter;
+    noteItem().flags &= ~NoteFlags.AlignRight;
+    noteItem().flags &= ~NoteFlags.AlignJustify;
+  }
+
+  const selectAlignLeft = () => { clearAlignment(); arrange(desktopStore); }
+  const selectAlignCenter = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); }
+  const selectAlignRight = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); }
+  const selectAlignJustify = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); }
+
+  const deleteButtonHandler = () => {}
+
+  const copyButtonHandler = () => {
+    if (noteItem().flags & NoteFlags.ShowCopyIcon) {
+      noteItem().flags &= ~NoteFlags.ShowCopyIcon;
+    } else {
+      noteItem().flags |= NoteFlags.ShowCopyIcon;
+    }
+    arrange(desktopStore);
   }
 
   return (
@@ -134,10 +179,23 @@ export const TextEditOverlay: Component = () => {
          onKeyDown={keyDownListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
-        <InfuIconButton icon="font" highlighted={false} clickHandler={styleButtonHandler} />
-        <InfuIconButton icon="align-left" highlighted={false} clickHandler={alignmentButtonHandler} />
-        <InfuIconButton icon="link" highlighted={false} clickHandler={linkButtonHandler} />
-        <InfuIconButton icon="ellipsis-h" highlighted={false} clickHandler={additionalButtonHandler} />
+        <div class="p-[4px]">
+          <InfuIconButton icon="font" highlighted={isNormalText()} clickHandler={selectNormalText} />
+          <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+          <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+          <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+          <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+          <div class="inline-block ml-[12px]"></div>
+          <InfuIconButton icon="align-left" highlighted={isAlignLeft()} clickHandler={selectAlignLeft} />
+          <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+          <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+          <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+          <div class="inline-block ml-[12px]"></div>
+          <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon="info-circle" highlighted={false} clickHandler={infoButtonHandler} />
+          <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+        </div>
       </div>
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
@@ -151,17 +209,11 @@ export const TextEditOverlay: Component = () => {
           onMouseDown={textAreaMouseDownHandler}
           onInput={textAreaOnInputHandler} />
       </div>
-      <Show when={styleOverlayVisible.get()}>
-        <StyleSelectOverlay styleOverlayVisible={styleOverlayVisible} />
+      <Show when={urlOverlayVisible.get()}>
+        <UrlOverlay urlOverlayVisible={urlOverlayVisible} />
       </Show>
-      <Show when={alignmentOverlayVisible.get()}>
-        <AlignmentSelectOverlay alignmentOverlayVisible={alignmentOverlayVisible} />
-      </Show>
-      <Show when={linkOverlayVisible.get()}>
-        <div>link overlay visible</div>
-      </Show>
-      <Show when={additionalOverlayVisible.get()}>
-        <div>additional overlay visible</div>
+      <Show when={infoOverlayVisible.get()}>
+        <InfoOverlay infoOverlayVisible={infoOverlayVisible} />
       </Show>
     </div>
   );

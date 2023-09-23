@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
@@ -26,9 +26,10 @@ import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { asNoteItem } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { arrange } from "../../layout/arrange";
+import { InfuTextInput } from "../library/InfuTextInput";
 
 
-export const AlignmentSelectOverlay: Component<{alignmentOverlayVisible: BooleanSignal}> = (props: { alignmentOverlayVisible: BooleanSignal }) => {
+export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props: { urlOverlayVisible: BooleanSignal }) => {
   const desktopStore = useDesktopStore();
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
@@ -37,10 +38,10 @@ export const AlignmentSelectOverlay: Component<{alignmentOverlayVisible: Boolean
 
   const toolboxBoundsPx = () => {
     return ({
-      x: noteVeBoundsPx().x + noteVeBoundsPx().w + 15,
-      y: noteVeBoundsPx().y + 3,
-      w: 55,
-      h: 120
+      x: noteVeBoundsPx().x + noteVeBoundsPx().w + 10,
+      y: noteVeBoundsPx().y + 38,
+      w: 360,
+      h: 36
     });
   }
 
@@ -48,7 +49,7 @@ export const AlignmentSelectOverlay: Component<{alignmentOverlayVisible: Boolean
     ev.stopPropagation();
     const desktopPx = desktopPxFromMouseEvent(ev);
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
-    props.alignmentOverlayVisible.set(false);
+    props.urlOverlayVisible.set(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -59,24 +60,16 @@ export const AlignmentSelectOverlay: Component<{alignmentOverlayVisible: Boolean
     ev.stopPropagation();
   };
 
-  const isAlignLeft = () => {
-    return (
-      !(noteItem().flags & NoteFlags.AlignCenter) && 
-      !(noteItem().flags & NoteFlags.AlignJustify) &&
-      !(noteItem().flags & NoteFlags.AlignRight)
-    );
-  }
+  const handleUrlChange = () => {
+    noteItem().url = urlTextElement!.value;
+    arrange(desktopStore);
+  };
 
-  const clearAlignment = () => {
-    noteItem().flags &= ~NoteFlags.AlignCenter;
-    noteItem().flags &= ~NoteFlags.AlignRight;
-    noteItem().flags &= ~NoteFlags.AlignJustify;
-  }
+  onMount(() => {
+    urlTextElement?.focus();
+  });
 
-  const selectAlignLeft = () => { clearAlignment(); arrange(desktopStore); }
-  const selectAlignCenter = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); }
-  const selectAlignRight = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); }
-  const selectAlignJustify = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); }
+  let urlTextElement: HTMLInputElement | undefined;
 
   return (
     <div id="textEntryOverlay"
@@ -87,10 +80,15 @@ export const AlignmentSelectOverlay: Component<{alignmentOverlayVisible: Boolean
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
-        <InfuIconButton icon="align-left" highlighted={isAlignLeft()} clickHandler={selectAlignLeft} />
-        <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-        <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-        <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+        <div class="p-[4px]">
+          <span class="text-sm ml-1 mr-2">Link:</span>
+          <input ref={urlTextElement}
+            class="border border-slate-300 rounded w-[305px] pl-1"
+            autocomplete="on"
+            value={noteItem().url}
+            type="text"
+            onChange={handleUrlChange} />
+        </div>
       </div>
     </div>
   );
