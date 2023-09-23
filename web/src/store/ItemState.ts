@@ -181,6 +181,12 @@ export const itemState = {
     }
   },
 
+  newOrderingAtBeginningOfChildren: (parentId: Uid): Uint8Array => {
+    let parent = asContainerItem(items.get(parentId)!);
+    let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
+    return newOrderingAtBeginning(childrenOrderings);
+  },
+
   newOrderingAtEndOfChildren: (parentId: Uid): Uint8Array => {
     let parent = asContainerItem(items.get(parentId)!);
     let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);

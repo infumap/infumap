@@ -200,33 +200,29 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 
   // case #2: attaching to an item that is not inside an existing composite.
   } else {
-    const compositeItem = CompositeFns.create(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
-    compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
-    if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
-    itemState.add(compositeItem);
-    await server.addItem(compositeItem, null);
-
-    attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-    itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
-    await server.updateItem(attachToItem);
 
     // case #2.1: this item is not a composite either.
     if (!isComposite(activeItem)) {
+      const compositeItem = CompositeFns.create(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
+      compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
+      if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
+      itemState.add(compositeItem);
+      await server.addItem(compositeItem, null);
+  
+      attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+      itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
+      await server.updateItem(attachToItem);
+
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
       await server.updateItem(activeItem);
     }
 
-    // case #2.2: the moving item being attached is a composite.
+    // case #2.2: the moving item being attached is a composite. 
     else {
       const activeItem_composite = asCompositeItem(activeItem);
-      while (activeItem_composite.computed_children.length > 0) {
-        const child = itemState.get(activeItem_composite.computed_children[0])!;
-        itemState.moveToNewParent(child, compositeItem.id, RelationshipToParent.Child);
-        await server.updateItem(child);
-      }
-      itemState.delete(activeItem_composite.id);
-      await server.deleteItem(activeItem_composite.id);
+      itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
+      await server.updateItem(attachToItem);
     }
 
   }
