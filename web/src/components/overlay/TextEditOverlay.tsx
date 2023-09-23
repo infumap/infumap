@@ -32,6 +32,7 @@ import { InfoOverlay } from "./InfoOverlay";
 import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
+import { itemState } from "../../store/ItemState";
 
 
 export const TextEditOverlay: Component = () => {
@@ -98,7 +99,9 @@ export const TextEditOverlay: Component = () => {
 
 
   onCleanup(() => {
-    server.updateItem(noteItemOnInitialize);
+    if (!deleted) {
+      server.updateItem(noteItemOnInitialize);
+    }
   });
 
   onMount(() => {
@@ -158,7 +161,15 @@ export const TextEditOverlay: Component = () => {
   const selectAlignRight = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); }
   const selectAlignJustify = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); }
 
-  const deleteButtonHandler = () => {}
+  let deleted = false;
+
+  const deleteButtonHandler = async () => {
+    deleted = true;
+    await server.deleteItem(noteItem().id); // throws on failure.
+    itemState.delete(noteItem().id);
+    desktopStore.setTextEditOverlayInfo(null);
+    arrange(desktopStore);
+  }
 
   const copyButtonHandler = () => {
     if (noteItem().flags & NoteFlags.ShowCopyIcon) {

@@ -20,13 +20,11 @@ import { Component, Match, Switch } from "solid-js";
 import { Item } from "../../items/base/item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asImageItem, isImage } from "../../items/image-item";
-import { asNoteItem, isNote } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
-import { EditNote } from "./Panels/EditNote";
 import { EditPage } from "./Panels/EditPage";
 import { EditTable } from "./Panels/EditTable";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -62,9 +60,6 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         </Match>
         <Match when={isTable(props.item)}>
           <EditTable tableItem={asTableItem(props.item)} linkedTo={props.linkedTo} />
-        </Match>
-        <Match when={isNote(props.item)}>
-          <EditNote noteItem={asNoteItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isFile(props.item)}>
           <EditFile fileItem={asFileItem(props.item)} linkedTo={props.linkedTo} />

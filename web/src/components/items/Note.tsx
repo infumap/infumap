@@ -96,7 +96,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}
                 fallback={<span>{noteItem().title}</span>}>
-            <a href={noteItem().url} target="_blank" class={`text-blue-800`} onMouseDown={aMouseDown}>{noteItem().title}</a>
+            <a href={noteItem().url}
+               target="_blank"
+               class={`text-blue-800`}
+               style="-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;"
+               onMouseDown={aMouseDown}>
+                {noteItem().title}
+            </a>
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
