@@ -33,6 +33,10 @@ import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
+import { isComposite } from "../../items/composite-item";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { LastMouseMoveEventState } from "../../mouse/state";
+import { FindDirection, findClosest } from "../../layout/find";
 
 
 export const TextEditOverlay: Component = () => {
@@ -52,7 +56,7 @@ export const TextEditOverlay: Component = () => {
     return ({
       x: noteVeBoundsPx().x + noteVeBoundsPx().w + 10,
       y: noteVeBoundsPx().y - 2,
-      w: 360,
+      w: 390,
       h: 35
     });
   }
@@ -60,7 +64,7 @@ export const TextEditOverlay: Component = () => {
   const sizeBl = () => {
     if (noteVisualElement().flags & VisualElementFlags.InsideComposite) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(noteVisualElement().displayItem));
-      cloned.spatialWidthGr = asXSizableItem(VeFns.getCanonicalItem(VesCache.get(noteVisualElement().parentPath!)!.get())).spatialWidthGr;
+      cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(VesCache.get(noteVisualElement().parentPath!)!.get())).spatialWidthGr;
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (noteVisualElement().linkItemMaybe != null) {
@@ -83,20 +87,13 @@ export const TextEditOverlay: Component = () => {
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
+    LastMouseMoveEventState.set(ev);
     ev.stopPropagation();
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
     ev.stopPropagation();
   };
-
-  const keyDownListener = (ev: KeyboardEvent) => {
-    if (ev.code == 'Enter') {
-      ev.preventDefault();
-      return;
-    }
-  }
-
 
   onCleanup(() => {
     if (!deleted) {
@@ -169,7 +166,7 @@ export const TextEditOverlay: Component = () => {
     itemState.delete(noteItem().id);
     desktopStore.setTextEditOverlayInfo(null);
     arrange(desktopStore);
-  }
+  };
 
   const copyButtonHandler = () => {
     if (noteItem().flags & NoteFlags.ShowCopyIcon) {
@@ -178,7 +175,52 @@ export const TextEditOverlay: Component = () => {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
     arrange(desktopStore);
-  }
+  };
+
+  const keyDownListener = (ev: KeyboardEvent) => {
+    switch (ev.code) {
+      case "Enter":
+        keyDown_Enter(ev);
+        return;
+      case "Backspace":
+        keyDown_Backspace(ev);
+        return;
+      case "ArrowDown":
+        return;
+      case "ArrowUp":
+        return;
+    }
+  };
+
+  const keyDown_Backspace = async (ev: KeyboardEvent) => {
+    if (noteItem().title != "") { return; }
+    const ve = noteVisualElement();
+    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return; }
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+    if (closest == null) { return; }
+    ev.preventDefault();
+    desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
+    const canonicalId = VeFns.canonicalItem(ve).id;
+    deleted = true;
+    itemState.delete(canonicalId);
+    await server.deleteItem(canonicalId);
+    arrange(desktopStore);
+  };
+
+  const keyDown_Enter = async (ev: KeyboardEvent) => {
+    ev.preventDefault();
+    const ve = noteVisualElement();
+    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return; }
+    const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
+    const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
+    itemState.add(note);
+    await server.addItem(note, null);
+    arrange(desktopStore);
+    const noteItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
+    desktopStore.setTextEditOverlayInfo({ noteItemPath });
+  };
 
   return (
     <div id="textEntryOverlay"
@@ -202,8 +244,9 @@ export const TextEditOverlay: Component = () => {
           <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
           <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
           <div class="inline-block ml-[12px]"></div>
-          <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <InfuIconButton icon="square" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           <InfuIconButton icon="info-circle" highlighted={false} clickHandler={infoButtonHandler} />
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </div>

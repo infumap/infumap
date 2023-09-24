@@ -292,7 +292,7 @@ export const PageFns = {
 
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    switchToPage(desktopStore, userStore, VeFns.getVeid(visualElement), true);
+    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true);
   },
 
   handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {

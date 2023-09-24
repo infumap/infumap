@@ -49,7 +49,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       const cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
-      cloned.spatialWidthGr = asXSizableItem(VeFns.getCanonicalItem(VesCache.get(props.visualElement.parentPath!)!.get())).spatialWidthGr;
+      cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(VesCache.get(props.visualElement.parentPath!)!.get())).spatialWidthGr;
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {

@@ -90,7 +90,7 @@ const arrangePageWithChildren = (
     geometry: ItemGeometry,
     isPagePopup: boolean,
     isRoot: boolean): VisualElementSignal => {
-  const pageWithChildrenVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren), parentPath);
+  const pageWithChildrenVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren), parentPath);
 
   let outerBoundsPx = geometry.boundsPx;
   let hitboxes = geometry.hitboxes;
@@ -172,7 +172,7 @@ const arrangePageWithChildren = (
           hitboxes: geometry.hitboxes,
           parentPath: pageWithChildrenVePath,
         };
-        const childPath = VeFns.prependVeidToPath(VeFns.createVeid(item, null), pageWithChildrenVePath);
+        const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(item, null), pageWithChildrenVePath);
         const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
 
         children.push(ves);
@@ -250,7 +250,7 @@ const arrangePageWithChildren = (
         displayItem,
         linkItemMaybe,
         flags: VisualElementFlags.LineItem |
-               (VeFns.compareVeids(selectedVeid, VeFns.createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
+               (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
         parentPath: pageWithChildrenVePath,
@@ -258,7 +258,7 @@ const arrangePageWithChildren = (
         row: idx,
         oneBlockWidthPx: LINE_HEIGHT_PX,
       };
-      const childPath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem, linkItemMaybe), pageWithChildrenVePath);
+      const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
       const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
       listVeChildren.push(listItemVisualElementSignal);
     }
@@ -284,7 +284,7 @@ const arrangeComposite = (
     displayItem_Composite: CompositeItem,
     linkItemMaybe_Composite: LinkItem | null,
     compositeGeometry: ItemGeometry): VisualElementSignal => {
-  const compositeVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem_Composite, linkItemMaybe_Composite), parentPath);
+  const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
 
   let childAreaBoundsPx = {
     x: compositeGeometry.boundsPx.x, y: compositeGeometry.boundsPx.y,
@@ -337,7 +337,7 @@ const arrangeComposite = (
       oneBlockWidthPx: blockSizePx.w,
     };
 
-    const compositeChildVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
+    const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
     const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
     compositeVeChildren.push(compositeChildVeSignal);
   }
@@ -381,7 +381,7 @@ const arrangeTable = (
     hitboxes: tableGeometry.hitboxes,
     parentPath,
   };
-  const tableVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem_Table, linkItemMaybe_Table), parentPath);
+  const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);
 
   let tableVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<displayItem_Table.computed_children.length; ++idx) {
@@ -406,7 +406,7 @@ const arrangeTable = (
       row: idx,
       oneBlockWidthPx: blockSizePx.w,
     };
-    const tableChildVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
+    const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 
     if (isAttachmentsItem(displayItem_childItem)) {
       let tableItemVeAttachments: Array<VisualElementSignal> = [];
@@ -437,7 +437,7 @@ const arrangeTable = (
           parentPath: tableChildVePath,
           oneBlockWidthPx: blockSizePx.w
         };
-        const tableChildAttachmentVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
+        const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
         const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
         tableItemVeAttachments.push(tableChildAttachmentVeSignal);
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
@@ -468,7 +468,7 @@ const arrangeItemNoChildren = (
     itemGeometry: ItemGeometry,
     isPopup: boolean,
     renderAsOutline: boolean): VisualElementSignal => {
-  const currentVePath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem, linkItemMaybe), parentVePath);
+  const currentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), parentVePath);
 
   const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {

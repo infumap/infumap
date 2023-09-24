@@ -27,6 +27,7 @@ import { asNoteItem } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { arrange } from "../../layout/arrange";
 import { InfuTextInput } from "../library/InfuTextInput";
+import { LastMouseMoveEventState } from "../../mouse/state";
 
 
 export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props: { urlOverlayVisible: BooleanSignal }) => {
@@ -53,6 +54,7 @@ export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props:
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
+    LastMouseMoveEventState.set(ev);
     ev.stopPropagation();
   };
 

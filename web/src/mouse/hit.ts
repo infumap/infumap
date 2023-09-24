@@ -51,8 +51,8 @@ export function getHitInfo(
   const desktopSizePx = desktopStore.desktopBoundsPx();
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
-      x: desktopStore.getPageScrollXProp(VeFns.getVeid(topLevelVisualElement)) * (topLevelBoundsPx.w - desktopSizePx.w),
-      y: desktopStore.getPageScrollYProp(VeFns.getVeid(topLevelVisualElement)) * (topLevelBoundsPx.h - desktopSizePx.h)
+      x: desktopStore.getPageScrollXProp(VeFns.veidFromVe(topLevelVisualElement)) * (topLevelBoundsPx.w - desktopSizePx.w),
+      y: desktopStore.getPageScrollYProp(VeFns.veidFromVe(topLevelVisualElement)) * (topLevelBoundsPx.h - desktopSizePx.h)
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
@@ -164,7 +164,7 @@ export function getHitInfo(
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x,
-            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(VeFns.getVeid(tableVisualElement)) * tableBlockHeightPx }
+            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxType.None;

@@ -88,7 +88,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
-      switchToPage(desktopStore, userStore, VeFns.getVeid(hitInfo.overElementVes.get()), true);
+      switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);
     }
@@ -100,7 +100,7 @@ export function mouseLeftDownHandler(
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPosPx;
-  const activeItem = VeFns.getCanonicalItem(hitInfo.overElementVes.get());
+  const activeItem = VeFns.canonicalItem(hitInfo.overElementVes.get());
   let boundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
@@ -109,7 +109,7 @@ export function mouseLeftDownHandler(
       y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
-      const activeCompositeItem = VeFns.getCanonicalItem(hitInfo.overContainerVe!);
+      const activeCompositeItem = VeFns.canonicalItem(hitInfo.overContainerVe!);
       const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(hitInfo.overContainerVe!);
       onePxSizeBl = {
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,

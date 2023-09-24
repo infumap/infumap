@@ -53,7 +53,7 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: 
       if (currentPage.computed_children.length > 0) {
         const firstItemId = currentPage.computed_children[0];
         const veid = VeFns.veidFromId(firstItemId);
-        const path = VeFns.prependVeidToPath(veid, currentPage.id);
+        const path = VeFns.addVeidToPath(veid, currentPage.id);
         desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, path);
       }
     }

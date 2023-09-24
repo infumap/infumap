@@ -154,7 +154,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBounds = childAreaBoundsPx();
-    const pageVeid = VeFns.getVeid(props.visualElement);
+    const pageVeid = VeFns.veidFromVe(props.visualElement);
 
     // TODO: compensate for toolbar width.
     // if (childAreaBounds.w > pageBoundsPx.w) {
@@ -174,7 +174,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     if (translucentDiv) {
       translucentDiv.scrollTop =
-        desktopStore.getPageScrollYProp(VeFns.getVeid(props.visualElement)) *
+        desktopStore.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
     }
 

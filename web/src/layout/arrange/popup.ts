@@ -36,7 +36,7 @@ const CELL_POPUP_LINK_ID = newUid();
 
 export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  const currentPath = VeFns.prependVeidToPath(VeFns.createVeid(currentPage, null), "");
+  const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), "");
   const currentPopupSpec = desktopStore.currentPopupSpec()!;
 
   const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
@@ -76,7 +76,7 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
       parentPath: currentPath,
     };
 
-    const itemPath = VeFns.prependVeidToPath(VeFns.createVeid(item, li), currentPath);
+    const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(item, li), currentPath);
     itemVisualElement.attachments = arrangeItemAttachments(desktopStore, item, li, geometry.boundsPx, itemPath);
     return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
   }

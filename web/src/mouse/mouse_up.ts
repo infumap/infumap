@@ -51,7 +51,7 @@ export function mouseUpHandler(
 
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
   const activeVisualElement = activeVisualElementSignal.get();
-  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
@@ -164,7 +164,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
   attachToVisualElement.movingItemIsOverAttach.set(false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
 
-  const attachToItem = asPositionalItem(VeFns.getCanonicalItem(attachToVisualElement));
+  const attachToItem = asPositionalItem(VeFns.canonicalItem(attachToVisualElement));
 
   if (attachToVisualElement.displayItem.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
@@ -295,7 +295,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
 function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const tableItem = asTableItem(overContainerVe.displayItem);
   let rowNumber = overContainerVe.moveOverRowNumber.get();
-  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.getVeid(overContainerVe));
+  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];

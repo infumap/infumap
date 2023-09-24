@@ -83,7 +83,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   const deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
 
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   changeMouseActionStateMaybe(deltaPx, activeVisualElement, activeItem, desktopStore, desktopPosPx, ev);
 
@@ -143,7 +143,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElement = MouseActionState.get().activeCompositeElementMaybe!;
       activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-      activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
+      activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
     }
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
@@ -374,7 +374,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   // row
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
-  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.getVeid(overContainerVe));
+  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
   let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
@@ -393,7 +393,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
 function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
-  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeElement));
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeElement));
   const activeElementLinkItemMaybeId = activeElement.linkItemMaybe == null ? null : activeElement.linkItemMaybe.id;
   const activeElementItemId = activeElement.displayItem.id;
 
@@ -469,11 +469,11 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
 function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
-  const activeItem = asPositionalItem(VeFns.getCanonicalItem(activeVisualElement));
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(VeFns.getVeid(tableVisualElement)) * tableBlockHeightPx;
+  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
   const tableParentVisualPathString = tableVe.parentPath!;

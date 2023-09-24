@@ -66,7 +66,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       displayItem,
       linkItemMaybe,
       flags: VisualElementFlags.LineItem |
-             (VeFns.compareVeids(selectedVeid, VeFns.createVeid(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
+             (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
       boundsPx: geometry.boundsPx,
       hitboxes: geometry.hitboxes,
       parentPath: currentPath,
@@ -74,7 +74,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       row: idx,
       oneBlockWidthPx: LINE_HEIGHT_PX,
     };
-    const childPath = VeFns.prependVeidToPath(VeFns.createVeid(displayItem, linkItemMaybe), currentPath);
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), currentPath);
     const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
   }

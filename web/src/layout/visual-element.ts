@@ -230,24 +230,24 @@ export const VeFns = {
     return result;
   },
 
-  createVeid: (item: Item, linkMaybe: LinkItem | null) => {
+  veidFromItems: (item: Item, linkMaybe: LinkItem | null) => {
     return ({ itemId: item.id, linkIdMaybe: linkMaybe ? linkMaybe.id : null });
   },
 
-  getVeid: (visualElement: VisualElement): Veid => {
+  veidFromVe: (visualElement: VisualElement): Veid => {
     return ({
       itemId: visualElement.displayItem.id,
       linkIdMaybe: visualElement.linkItemMaybe == null ? null : visualElement.linkItemMaybe.id
     });
   },
 
-  getCanonicalItem: (visualElement: VisualElement): Item => {
+  canonicalItem: (visualElement: VisualElement): Item => {
     return visualElement.linkItemMaybe != null
       ? visualElement.linkItemMaybe!
       : visualElement.displayItem;
   },
 
-  prependVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
+  addVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
     let current = veid.itemId;
     if (veid.linkIdMaybe != null) {
       current += "[" + veid.linkIdMaybe! + "]";

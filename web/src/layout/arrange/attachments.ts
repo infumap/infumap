@@ -52,7 +52,7 @@ export function arrangeItemAttachments(
       itemId: attachmentDisplayItem.id,
       linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null
     };
-    const attachmentVePath = VeFns.prependVeidToPath(attachmentVeid, parentItemVePath);
+    const attachmentVePath = VeFns.addVeidToPath(attachmentVeid, parentItemVePath);
 
     const popupSpec = desktopStore.currentPopupSpec();
     let isSelected = false;

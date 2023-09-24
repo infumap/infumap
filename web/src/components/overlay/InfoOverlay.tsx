@@ -26,6 +26,7 @@ import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { asNoteItem } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { arrange } from "../../layout/arrange";
+import { LastMouseMoveEventState } from "../../mouse/state";
 
 
 export const InfoOverlay: Component<{infoOverlayVisible: BooleanSignal}> = (props: { infoOverlayVisible: BooleanSignal }) => {
@@ -52,6 +53,7 @@ export const InfoOverlay: Component<{infoOverlayVisible: BooleanSignal}> = (prop
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
+    LastMouseMoveEventState.set(ev);
     ev.stopPropagation();
   };
 
