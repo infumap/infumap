@@ -24,11 +24,10 @@ import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
+import { CompositeFlags } from "../../items/base/flags-item";
 
 
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const _desktopStore = useDesktopStore();
-
   const boundsPx = () => props.visualElement.boundsPx;
 
   const attachCompositeBoundsPx = (): BoundingBox => {
@@ -40,8 +39,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     }
   };
 
+  const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
+
   return (
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
+    <div class={`absolute border ${showBorder() ? "border-slate-700" : "border-transparent"} rounded-sm ${showBorder() ? "shadow-lg " : ""}bg-white`}
          style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
@@ -60,7 +61,6 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 };
 
 export const Composite_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const _desktopStore = useDesktopStore();
   const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

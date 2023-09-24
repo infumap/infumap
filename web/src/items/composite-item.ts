@@ -215,8 +215,8 @@ export const CompositeFns = {
     return "[composite] ...";
   },
 
-  getFingerprint: (_compositeItem: CompositeItem): string => {
-    return "~~~!@#~~~";
+  getFingerprint: (compositeItem: CompositeItem): string => {
+    return "~~~!@#~~~" + compositeItem.flags;
   }  
 };
 

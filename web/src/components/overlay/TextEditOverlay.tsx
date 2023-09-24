@@ -29,11 +29,11 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
 import { InfoOverlay } from "./InfoOverlay";
-import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
-import { NoteFlags } from "../../items/base/flags-item";
+import { BoundingBox, desktopPxFromMouseEvent, isInside } from "../../util/geometry";
+import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
-import { isComposite } from "../../items/composite-item";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { LastMouseMoveEventState } from "../../mouse/state";
 import { FindDirection, findClosest } from "../../layout/find";
@@ -53,6 +53,18 @@ export const TextEditOverlay: Component = () => {
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 
+  const compositeVisualElementMaybe = () => {
+    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return null; }
+    return parentVe;
+  };
+  const compositeItemMaybe = () => {
+    const compositeVeMaybe = compositeVisualElementMaybe();
+    if (compositeVeMaybe == null) { return null; }
+    return asCompositeItem(compositeVeMaybe.displayItem);
+  };
+  const compositeItemOnInitializeMaybe = compositeItemMaybe();
+
   const toolboxBoundsPx = () => {
     return ({
       x: noteVeBoundsPx().x + noteVeBoundsPx().w + 10,
@@ -60,7 +72,19 @@ export const TextEditOverlay: Component = () => {
       w: 390,
       h: 35
     });
-  }
+  };
+
+  const compositeToolboxBoundsPx = (): BoundingBox | null => {
+    const compositeVeMaybe = compositeVisualElementMaybe();
+    if (compositeVeMaybe == null) { return null; }
+    const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(compositeVeMaybe);
+    return ({
+      x: compositeVeBoundsPx.x,
+      y: compositeVeBoundsPx.y - 45,
+      w: 90,
+      h: 35
+    });
+  };
 
   const sizeBl = () => {
     if (noteVisualElement().flags & VisualElementFlags.InsideComposite) {
@@ -84,6 +108,9 @@ export const TextEditOverlay: Component = () => {
     ev.stopPropagation();
     const desktopPx = desktopPxFromMouseEvent(ev);
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
+    if (compositeVisualElementMaybe() != null) {
+      if (isInside(desktopPx, compositeToolboxBoundsPx()!)) { return; }
+    }
     desktopStore.setTextEditOverlayInfo(null);
   };
 
@@ -99,6 +126,9 @@ export const TextEditOverlay: Component = () => {
   onCleanup(() => {
     if (!deleted) {
       server.updateItem(noteItemOnInitialize);
+      if (compositeItemOnInitializeMaybe != null) {
+        server.updateItem(compositeItemOnInitializeMaybe);
+      }
     }
   });
 
@@ -111,12 +141,12 @@ export const TextEditOverlay: Component = () => {
 
   const textAreaMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
-  }
+  };
 
   const textAreaOnInputHandler = () => {
     noteItem().title = textElement!.value;
     arrange(desktopStore);
-  }
+  };
 
   const isNormalText = (): boolean => {
     return (
@@ -125,20 +155,20 @@ export const TextEditOverlay: Component = () => {
       !(noteItem().flags & NoteFlags.Heading3) &&
       !(noteItem().flags & NoteFlags.Bullet1)
     );
-  }
+  };
 
   const clearStyle = () => {
     noteItem().flags &= ~NoteFlags.Heading1;
     noteItem().flags &= ~NoteFlags.Heading2;
     noteItem().flags &= ~NoteFlags.Heading3;
     noteItem().flags &= ~NoteFlags.Bullet1;
-  }
+  };
 
-  const selectNormalText = () => { clearStyle(); arrange(desktopStore); }
-  const selectHeading1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); }
-  const selectHeading2 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); }
-  const selectHeading3 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); }
-  const selectBullet1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); }
+  const selectNormalText = () => { clearStyle(); arrange(desktopStore); };
+  const selectHeading1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); };
+  const selectHeading2 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); };
+  const selectHeading3 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); };
+  const selectBullet1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); };
 
   const isAlignLeft = () => {
     return (
@@ -146,18 +176,18 @@ export const TextEditOverlay: Component = () => {
       !(noteItem().flags & NoteFlags.AlignJustify) &&
       !(noteItem().flags & NoteFlags.AlignRight)
     );
-  }
+  };
 
   const clearAlignment = () => {
     noteItem().flags &= ~NoteFlags.AlignCenter;
     noteItem().flags &= ~NoteFlags.AlignRight;
     noteItem().flags &= ~NoteFlags.AlignJustify;
-  }
+  };
 
-  const selectAlignLeft = () => { clearAlignment(); arrange(desktopStore); }
-  const selectAlignCenter = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); }
-  const selectAlignRight = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); }
-  const selectAlignJustify = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); }
+  const selectAlignLeft = () => { clearAlignment(); arrange(desktopStore); };
+  const selectAlignCenter = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); };
+  const selectAlignRight = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
+  const selectAlignJustify = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
 
   let deleted = false;
 
@@ -212,7 +242,7 @@ export const TextEditOverlay: Component = () => {
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
     if (closest == null) { return; }
     desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
-  }
+  };
 
   const keyDown_Up = () => {
     const ve = noteVisualElement();
@@ -222,7 +252,7 @@ export const TextEditOverlay: Component = () => {
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
     if (closest == null) { return; }
     desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
-  }
+  };
 
   const keyDown_Backspace = async (ev: KeyboardEvent) => {
     if (noteItem().title != "") { return; }
@@ -256,6 +286,19 @@ export const TextEditOverlay: Component = () => {
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
+  const compositeBorderButtonHandler = () => {
+    if (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) {
+      compositeItemMaybe()!.flags &= ~CompositeFlags.HideBorder;
+    } else {
+      compositeItemMaybe()!.flags |= CompositeFlags.HideBorder;
+    }
+    console.log(compositeItemMaybe()!.flags);
+    arrange(desktopStore);
+  };
+
+  const compositeDeleteButtonHandler = () => {};
+  const compositeInfoButtonHandler = () => {};
+
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -285,6 +328,16 @@ export const TextEditOverlay: Component = () => {
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </div>
       </div>
+      <Show when={compositeToolboxBoundsPx() != null}>
+        <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+             style={`left: ${compositeToolboxBoundsPx()!.x}px; top: ${compositeToolboxBoundsPx()!.y}px; width: ${compositeToolboxBoundsPx()!.w}px; height: ${compositeToolboxBoundsPx()!.h}px`}>
+          <div class="p-[4px]">
+            <InfuIconButton icon="square" highlighted={(compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true} clickHandler={compositeBorderButtonHandler} />
+            <InfuIconButton icon="info-circle" highlighted={false} clickHandler={compositeInfoButtonHandler} />
+            <InfuIconButton icon="trash" highlighted={false} clickHandler={compositeDeleteButtonHandler} />
+          </div>
+        </div>
+      </Show>
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
         <textarea ref={textElement}
