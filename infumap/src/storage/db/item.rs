@@ -268,7 +268,7 @@ pub fn is_link_item(item: &Item) -> bool {
 }
 
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table || item_type == ItemType::Note
+  item_type == ItemType::Table || item_type == ItemType::Note || item_type == ItemType::Composite
 }
 
 pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {

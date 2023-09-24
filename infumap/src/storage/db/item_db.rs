@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 9;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 10;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -639,6 +639,39 @@ pub fn migrate_record_v8_to_v9(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
       if item_type == "page" {
         let existing = result.insert(String::from("permissionFlags"), Value::Number(0.into()));
         if existing.is_some() { return Err("permissionFlags field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add flags field to composite items.
+ */
+pub fn migrate_record_v9_to_v10(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 9);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "composite" {
+        let existing = result.insert(String::from("flags"), Value::Number(0.into()));
+        if existing.is_some() { return Err("flags field already exists.".into()); }
       }
       return Ok(result);
     },

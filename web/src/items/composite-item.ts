@@ -30,11 +30,12 @@ import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCell } from './base/item-common-fns';
+import { CompositeFlags, FlagsMixin } from './base/flags-item';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
 
-export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
+export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
   id: Uid;
   childrenLoaded: boolean;
   computed_children: Array<Uid>;
@@ -56,6 +57,8 @@ export const CompositeFns = {
   
       spatialWidthGr: 4.0 * GRID_SIZE,
   
+      flags: CompositeFlags.None,
+
       orderChildrenBy: "",
   
       computed_children: [],
@@ -79,6 +82,8 @@ export const CompositeFns = {
   
       spatialWidthGr: o.spatialWidthGr,
   
+      flags: o.flags,
+
       orderChildrenBy: o.orderChildrenBy,
   
       computed_children: [],
@@ -102,6 +107,8 @@ export const CompositeFns = {
   
       spatialWidthGr: p.spatialWidthGr,
   
+      flags: p.flags,
+
       orderChildrenBy: p.orderChildrenBy,
     });
   },
@@ -200,6 +207,7 @@ export const CompositeFns = {
       spatialWidthGr: composite.spatialWidthGr,
       childrenLoaded: composite.childrenLoaded,
       computed_children: composite.computed_children,
+      flags: composite.flags,
     });
   },
 

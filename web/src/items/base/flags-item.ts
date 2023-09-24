@@ -19,26 +19,37 @@
 import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ItemType } from "./item";
 
+
 export enum TableFlags {
   None =           0x000,
   ShowColHeader =  0x001,
-}
+};
 
 export enum NoteFlags {
+  // Note:
+  //   PlainText is implicit via lack of other text style flags.
+  //   AlignLeft is implicit via lack of other alignment flags.
+  // TODO (LOW): better group the flags together. Current ordering reflects implementation order.
   None =           0x000,
   Heading3 =       0x001,
   ShowCopyIcon =   0x002,
   Heading1 =       0x004,
   Heading2 =       0x008,
   Bullet1 =        0x010,
-  AlignCenter =    0x020, // AlignLeft is implicit.
+  AlignCenter =    0x020,
   AlignRight =     0x040,
   AlignJustify =   0x080,
   HideBorder =     0x100,
-}
+};
+
+export enum CompositeFlags {
+  None =           0x000,
+  HideBorder =     0x001,
+};
 
 
-const ITEM_TYPES = [ItemType.Note, ItemType.Table];
+const ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Composite];
+
 
 export interface FlagsMixin {
   flags: number,
