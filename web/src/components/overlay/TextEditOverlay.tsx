@@ -186,11 +186,33 @@ export const TextEditOverlay: Component = () => {
         keyDown_Backspace(ev);
         return;
       case "ArrowDown":
+        keyDown_Down();
         return;
       case "ArrowUp":
+        keyDown_Up();
         return;
     }
   };
+
+  const keyDown_Down = () => {
+    const ve = noteVisualElement();
+    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return; }
+    if (textElement!.selectionEnd != noteItem().title.length) { return; }
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
+    if (closest == null) { return; }
+    desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
+  }
+
+  const keyDown_Up = () => {
+    const ve = noteVisualElement();
+    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return; }
+    if (textElement!.selectionStart != 0) { return; }
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+    if (closest == null) { return; }
+    desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
+  }
 
   const keyDown_Backspace = async (ev: KeyboardEvent) => {
     if (noteItem().title != "") { return; }
