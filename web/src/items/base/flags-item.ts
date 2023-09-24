@@ -34,6 +34,7 @@ export enum NoteFlags {
   AlignCenter =    0x020, // AlignLeft is implicit.
   AlignRight =     0x040,
   AlignJustify =   0x080,
+  HideBorder =     0x100,
 }
 
 

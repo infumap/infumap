@@ -21,12 +21,12 @@ import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
-import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { Measurable, ItemTypeMixin, Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
-import { PositionalItem, asPositionalItem, isPositionalItem } from "./base/positional-item";
-import { asXSizableItem, isXSizableItem, XSizableItem } from "./base/x-sizeable-item";
-import { asYSizableItem, isYSizableItem, YSizableItem } from "./base/y-sizeable-item";
+import { PositionalItem, PositionalMixin, asPositionalItem, isPositionalItem } from "./base/positional-item";
+import { asXSizableItem, isXSizableItem, XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
+import { asYSizableItem, isYSizableItem, YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { HitboxType, HitboxFns } from "../layout/hitbox";
 import { itemState } from "../store/ItemState";
 
@@ -35,11 +35,13 @@ import { itemState } from "../store/ItemState";
 // If the linked-to item can not have attachments, then neither can the link item.
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 
-export interface LinkItem extends PositionalItem, XSizableItem, YSizableItem, AttachmentsItem {
+export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   linkTo: Uid,
   linkToResolvedId: Uid | null,
   linkToBaseUrl: string,
 }
+
+export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin { }
 
 
 export const LinkFns = {
@@ -131,13 +133,9 @@ export const LinkFns = {
       return { w: link.spatialWidthGr / GRID_SIZE, h: 1.0 };
     }
   
-    if (LinkFns.getLinkToId(link) == EMPTY_UID) {
-      return noLinkTo();
-    }
+    if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
-    if (measurableMaybe == null) {
-      return noLinkTo();
-    }
+    if (measurableMaybe == null) { return noLinkTo(); }
     return ItemFns.calcSpatialDimensionsBl(measurableMaybe!);
   },
 
@@ -161,18 +159,44 @@ export const LinkFns = {
       }
     }
   
-    if (LinkFns.getLinkToId(link) == EMPTY_UID) {
-      return noLinkTo();
-    }
+    if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
-    if (measurableMaybe == null) {
-      return noLinkTo();
-    }
-    return ItemFns.calcGeometry_Spatial(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes)
+    if (measurableMaybe == null) { return noLinkTo(); }
+    return ItemFns.calcGeometry_Spatial(measurableMaybe, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes)
   },
 
-  calcGeometry_InComposite: (linkItem: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
-    panic();
+  calcGeometry_InComposite: (link: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+    function noLinkTo() {
+      const boundsPx = {
+        x: 0,
+        y: topPx,
+        w: compositeWidthBl * blockSizePx.w,
+        h: blockSizePx.h
+      };
+      const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+      let moveWidthPx = 10;
+      if (innerBoundsPx.w < 10) {
+        // TODO (MEDIUM): something sensible.
+        moveWidthPx = 1;
+      }
+      const moveBoundsPx = {
+        x: innerBoundsPx.w - moveWidthPx,
+        y: innerBoundsPx.y,
+        w: moveWidthPx,
+        h: innerBoundsPx.h
+      };
+      return {
+        boundsPx,
+        hitboxes: [
+          HitboxFns.create(HitboxType.Move, moveBoundsPx),
+        ]
+      };
+    }
+
+    if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
+    const measurableMaybe = constructLinkToMeasurable(link);
+    if (measurableMaybe == null) { return noLinkTo(); }
+    return ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, topPx);
   },
 
   calcGeometry_Attachment: (link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -202,13 +226,9 @@ export const LinkFns = {
       };
     }
   
-    if (LinkFns.getLinkToId(link) == EMPTY_UID) {
-      return noLinkTo();
-    }
+    if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
-    if (measurableMaybe == null) {
-      return noLinkTo();
-    }
+    if (measurableMaybe == null) { return noLinkTo(); }
     return ItemFns.calcGeometry_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl);
   },
 
@@ -222,14 +242,24 @@ export const LinkFns = {
       });
     }
   
-    if (LinkFns.getLinkToId(link) == EMPTY_UID) {
-      return noLinkTo();
-    }
+    if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
-    if (measurableMaybe == null) {
-      return noLinkTo();
-    }
+    if (measurableMaybe == null) { return noLinkTo(); }
     return ItemFns.calcGeometry_InCell(measurableMaybe!, cellBoundsPx);
+  },
+
+  asLinkMeasurable: (item: ItemTypeMixin): LinkMeasurable => {
+    if (item.itemType == ItemType.Link) { return item as LinkMeasurable; }
+    panic();
+  },
+
+  cloneMeasurableFields: (link: LinkMeasurable): LinkMeasurable => {
+    return ({
+      itemType: link.itemType,
+      spatialPositionGr: link.spatialPositionGr,
+      spatialWidthGr: link.spatialWidthGr,
+      spatialHeightGr: link.spatialHeightGr,
+    });
   },
 
   debugSummary: (linkItem: LinkItem) => {

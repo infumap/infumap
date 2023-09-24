@@ -213,7 +213,7 @@ export const ItemFns = {
     else if (isFile(measurable)) { return FileFns.cloneMeasurableFields(FileFns.asFileMeasurable(measurable)); }
     else if (isPassword(measurable)) { return PasswordFns.cloneMeasurableFields(PasswordFns.asPasswordMeasurable(measurable)); }
     else if (isRating(measurable)) { return RatingFns.cloneMeasurableFields(RatingFns.asPlaceholderMeasurable(measurable)); }
-    else if (isLink(measurable)) { panic(); }
+    else if (isLink(measurable)) { return LinkFns.cloneMeasurableFields(LinkFns.asLinkMeasurable(measurable)); }
     else if (isPlaceholder(measurable)) { return PlaceholderFns.cloneMeasurableFields(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
     else { throwExpression(`Unknown item type: ${measurable.itemType}`); }
   },
