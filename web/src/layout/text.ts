@@ -32,7 +32,8 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
     cache.clear();
   }
   const div = document.createElement("div");
-  div.setAttribute("style", `width: ${widthBl*LINE_HEIGHT_PX}px; ` + getTextStyleForNote(flags, 1.0));
+  const style = getTextStyleForNote(flags);
+  div.setAttribute("style", `width: ${widthBl*LINE_HEIGHT_PX}px; ${style.isBold ? 'font-weight: bold; ' : ""}font-size: ${style.fontSize}px; line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; overflow-wrap: break-word;`);
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);
@@ -43,16 +44,21 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
   return result;
 }
 
+export interface InfuTextStyle {
+  fontSize: number,
+  lineHeightMultiplier: number,
+  isBold: boolean,
+}
 
-export function getTextStyleForNote(flags: NoteFlags, lineHeightScale: number) {
+export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
   if (flags & NoteFlags.Heading3) {
-    return `font-weight: bold; font-size: 16px; line-height: ${LINE_HEIGHT_PX * lineHeightScale}px; overflow-wrap: break-word;`;
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true };
   }
   if (flags & NoteFlags.Heading2) {
-    return `font-weight: bold; font-size: 24px; line-height: ${LINE_HEIGHT_PX * 1.25 * lineHeightScale}px; overflow-wrap: break-word;`;
+    return { fontSize: 24, lineHeightMultiplier: 1.25, isBold: true };
   }
   if (flags & NoteFlags.Heading1) {
-    return `font-weight: bold; font-size: 32px; line-height: ${LINE_HEIGHT_PX * 1.5 * lineHeightScale}px; overflow-wrap: break-word;`;
+    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true };
   }
-  return `line-height: ${LINE_HEIGHT_PX * lineHeightScale}px; font-size: 16px overflow-wrap: break-word;`;
+  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false };
 }

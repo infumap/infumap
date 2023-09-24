@@ -88,25 +88,26 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     ev.stopPropagation();
   }
 
-  const textStyle = () => getTextStyleForNote(noteItem().flags, lineHeightScale());
+  const style = () => getTextStyleForNote(noteItem().flags);
 
   return (
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
-                    `transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
+                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word; font-size: ${style().fontSize}px;` +
+                    `${style().isBold ? ' font-weight: bold; ' : ""}`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
             <a href={noteItem().url}
                target="_blank"
                class={`text-blue-800`}
-               style={"-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; " + textStyle()}
+               style={"-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;"}
                onMouseDown={aMouseDown}>
                 {noteItem().title}
             </a>
           </Show>
           <Show when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-            <div class="inline-block" style={textStyle()}>{noteItem().title}</div>
+            <span>{noteItem().title}</span>
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>

@@ -37,6 +37,7 @@ import { isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { LastMouseMoveEventState } from "../../mouse/state";
 import { FindDirection, findClosest } from "../../layout/find";
+import { getTextStyleForNote } from "../../layout/text";
 
 
 export const TextEditOverlay: Component = () => {
@@ -253,6 +254,8 @@ export const TextEditOverlay: Component = () => {
     desktopStore.setTextEditOverlayInfo({ noteItemPath });
   };
 
+  const style = () => getTextStyleForNote(noteItem().flags);
+
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -287,9 +290,10 @@ export const TextEditOverlay: Component = () => {
         <textarea ref={textElement}
           class="rounded"
           style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
-                 `width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
-                 `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); ` +
-                 `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`}
+                 `width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; font-size: ${style().fontSize}px; ` +
+                 `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; transform: scale(${textBlockScale()}); ` +
+                 `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` + 
+                 `${style().isBold ? ' font-weight: bold; ' : ""}`}
           value={noteItem().title}
           onMouseDown={textAreaMouseDownHandler}
           onInput={textAreaOnInputHandler} />
