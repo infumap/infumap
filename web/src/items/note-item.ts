@@ -27,12 +27,12 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { measureLineCount } from '../util/html';
 import { FlagsMixin, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
+import { measureLineCount } from '../layout/text';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -114,7 +114,7 @@ export const NoteFns = {
   },
 
   calcSpatialDimensionsBl: (note: NoteMeasurable): Dimensions => {
-    let lineCount = measureLineCount(note.title, note.spatialWidthGr / GRID_SIZE);
+    let lineCount = measureLineCount(note.title, note.spatialWidthGr / GRID_SIZE, note.flags);
     if (lineCount < 1) { lineCount = 1; }
     return { w: note.spatialWidthGr / GRID_SIZE, h: lineCount };
   },

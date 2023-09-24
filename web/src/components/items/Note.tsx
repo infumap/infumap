@@ -26,6 +26,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { getTextStyleForNote } from "../../layout/text";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -69,18 +70,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       return 'absolute rounded-sm bg-white';
     } else {
-      if ((noteItem().flags & NoteFlags.Heading3)) {
+      if ((noteItem().flags & NoteFlags.HideBorder)) {
         if (props.visualElement.mouseIsOver.get()) {
-          return 'absolute border border-slate-700 rounded-sm font-bold shadow-lg';
+          return 'absolute border border-slate-700 rounded-sm shadow-lg';
         } else {
-          return 'absolute border border-transparent rounded-sm font-bold';
+          return 'absolute border border-transparent rounded-sm';
         }
       }
       return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
     }
   };
-  const shiftTextLeft = () =>
-    (noteItem().flags & NoteFlags.Heading3) && !props.visualElement.mouseIsOver.get();
+  const shiftTextLeft = () => false; // TODO: noteItem().flags & NoteFlags.HideBorder;
 
   const aMouseDown = (ev: MouseEvent) => {
     // prevent the mouse down event being handled in the global handler if the actual link text is clicked.
@@ -88,21 +88,25 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     ev.stopPropagation();
   }
 
+  const textStyle = () => getTextStyleForNote(noteItem().flags, lineHeightScale());
+
   return (
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
-          <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}
-                fallback={<span>{noteItem().title}</span>}>
+                    `transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
+          <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
             <a href={noteItem().url}
                target="_blank"
                class={`text-blue-800`}
-               style="-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;"
+               style={"-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; " + textStyle()}
                onMouseDown={aMouseDown}>
                 {noteItem().title}
             </a>
+          </Show>
+          <Show when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
+            <div class="inline-block" style={textStyle()}>{noteItem().title}</div>
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>

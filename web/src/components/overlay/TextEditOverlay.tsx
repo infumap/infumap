@@ -177,6 +177,15 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   };
 
+  const borderButtonHandler = () => {
+    if (noteItem().flags & NoteFlags.HideBorder) {
+      noteItem().flags &= ~NoteFlags.HideBorder;
+    } else {
+      noteItem().flags |= NoteFlags.HideBorder;
+    }
+    arrange(desktopStore);
+  };
+
   const keyDownListener = (ev: KeyboardEvent) => {
     switch (ev.code) {
       case "Enter":
@@ -268,7 +277,7 @@ export const TextEditOverlay: Component = () => {
           <div class="inline-block ml-[12px]"></div>
           <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
           <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
-          <InfuIconButton icon="square" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <InfuIconButton icon="square" highlighted={(noteItem().flags & NoteFlags.HideBorder) ? false : true} clickHandler={borderButtonHandler} />
           <InfuIconButton icon="info-circle" highlighted={false} clickHandler={infoButtonHandler} />
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </div>

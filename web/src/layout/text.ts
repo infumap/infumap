@@ -17,12 +17,13 @@
 */
 
 import { LINE_HEIGHT_PX } from "../constants";
+import { NoteFlags } from "../items/base/flags-item";
 
 
 const cache = new Map<String, number>();
 
-export function measureLineCount(s: string, widthBl: number): number {
-  const key = s + "-#####-" + widthBl; // TODO (LOW): not foolproof.
+export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): number {
+  const key = s + "-#####-" + widthBl + "~" + flags; // TODO (LOW): not foolproof.
   if (cache.has(key)) {
     return cache.get(key)!;
   }
@@ -31,7 +32,7 @@ export function measureLineCount(s: string, widthBl: number): number {
     cache.clear();
   }
   const div = document.createElement("div");
-  div.setAttribute("style", `line-height: ${LINE_HEIGHT_PX}px; width: ${widthBl*LINE_HEIGHT_PX}px; overflow-wrap: break-word;`);
+  div.setAttribute("style", `width: ${widthBl*LINE_HEIGHT_PX}px; ` + getTextStyleForNote(flags, 1.0));
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);
@@ -40,4 +41,18 @@ export function measureLineCount(s: string, widthBl: number): number {
   const result = Math.floor(lineCount);
   cache.set(key, result);
   return result;
+}
+
+
+export function getTextStyleForNote(flags: NoteFlags, lineHeightScale: number) {
+  if (flags & NoteFlags.Heading3) {
+    return `font-weight: bold; font-size: 16px; line-height: ${LINE_HEIGHT_PX * lineHeightScale}px; overflow-wrap: break-word;`;
+  }
+  if (flags & NoteFlags.Heading2) {
+    return `font-weight: bold; font-size: 24px; line-height: ${LINE_HEIGHT_PX * 1.25 * lineHeightScale}px; overflow-wrap: break-word;`;
+  }
+  if (flags & NoteFlags.Heading1) {
+    return `font-weight: bold; font-size: 32px; line-height: ${LINE_HEIGHT_PX * 1.5 * lineHeightScale}px; overflow-wrap: break-word;`;
+  }
+  return `line-height: ${LINE_HEIGHT_PX * lineHeightScale}px; font-size: 16px overflow-wrap: break-word;`;
 }

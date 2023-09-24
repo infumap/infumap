@@ -27,11 +27,12 @@ import { DataItem } from "./base/data-item";
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { measureLineCount } from '../util/html';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { VisualElement } from '../layout/visual-element';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
+import { measureLineCount } from '../layout/text';
+import { NoteFlags } from './base/flags-item';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -86,7 +87,7 @@ export const FileFns = {
   },
 
   calcSpatialDimensionsBl: (file: FileMeasurable): Dimensions => {
-    let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE);
+    let lineCount = measureLineCount(file.title, file.spatialWidthGr / GRID_SIZE, NoteFlags.None);
     return { w: file.spatialWidthGr / GRID_SIZE, h: lineCount };
   },
 
