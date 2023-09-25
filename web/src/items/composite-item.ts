@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -127,8 +127,10 @@ export const CompositeFns = {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
       }
       const sizeBl = ItemFns.calcSpatialDimensionsBl(cloned);
-      bh += sizeBl.h;
+      bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;
     }
+    bh -= COMPOSITE_ITEM_GAP_BL;
+    bh = Math.ceil(bh*2)/2;
     return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
   },
 

@@ -49,3 +49,5 @@ export const LIST_PAGE_LIST_WIDTH_BL = 8;
 export const CHILD_ITEMS_INTERACTABLE_WIDTH_BL = 20;
 
 export const ITEM_BORDER_WIDTH_PX = 1;
+
+export const COMPOSITE_ITEM_GAP_BL = 0.15;

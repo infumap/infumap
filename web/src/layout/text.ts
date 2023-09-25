@@ -39,7 +39,7 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
   document.body.appendChild(div);
   const lineCount = div.offsetHeight / LINE_HEIGHT_PX;
   document.body.removeChild(div);
-  const result = Math.floor(lineCount);
+  const result = Math.ceil(lineCount * 2) / 2;
   cache.set(key, result);
   return result;
 }
@@ -55,10 +55,10 @@ export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
     return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true };
   }
   if (flags & NoteFlags.Heading2) {
-    return { fontSize: 24, lineHeightMultiplier: 1.25, isBold: true };
+    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true };
   }
   if (flags & NoteFlags.Heading1) {
-    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true };
+    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true };
   }
   return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false };
 }
