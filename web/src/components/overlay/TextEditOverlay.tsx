@@ -310,7 +310,7 @@ export const TextEditOverlay: Component = () => {
   }
 
   const isInTable = () => {
-    return false;
+    return VeFns.isInTable(noteVisualElement());
   }
 
   const borderVisible = () => {

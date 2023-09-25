@@ -27,6 +27,7 @@ import { panic } from "../util/lang";
 import { isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
+import { RelationshipToParent } from "./relationship-to-parent";
 
 
 /**
@@ -323,6 +324,15 @@ export const VeFns = {
 
   printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {
     printRecursive(desktopStore.topLevelVisualElement(), 0, "c");
+  },
+
+  isInTable: (visualElement: VisualElement): boolean => {
+    if (visualElement.parentPath == null) { return false; }
+    const parent = VesCache.get(visualElement.parentPath)!.get();
+    if (VeFns.canonicalItem(visualElement).relationshipToParent == RelationshipToParent.Child && isTable(parent.displayItem)) { return true; }
+    if (VeFns.canonicalItem(visualElement).relationshipToParent != RelationshipToParent.Attachment) { return false; }
+    const parentParent = VesCache.get(parent.parentPath!)!.get();
+    return isTable(parentParent.displayItem);
   }
 }
 

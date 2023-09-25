@@ -38,7 +38,7 @@ import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
 
 
 // Poor man's polymorphism
-// In the original design, items were used as SolidJS signals and could not be classes.
+// In the original design, items were used as SolidJS signals and so could not be classes.
 // Now, they are not and could be, however I don't necessarily mind sticking to the simpler subset of TS, even if it does result in this verbosity.
 
 export const ItemFns = {
