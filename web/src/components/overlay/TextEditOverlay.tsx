@@ -66,24 +66,23 @@ export const TextEditOverlay: Component = () => {
   const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
   const toolboxBoundsPx = () => {
-    return ({
-      x: noteVeBoundsPx().x + noteVeBoundsPx().w + 10,
-      y: noteVeBoundsPx().y - 2,
-      w: 390,
-      h: 35
-    });
-  };
-
-  const compositeToolboxBoundsPx = (): BoundingBox | null => {
-    const compositeVeMaybe = compositeVisualElementMaybe();
-    if (compositeVeMaybe == null) { return null; }
-    const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(compositeVeMaybe);
-    return ({
-      x: compositeVeBoundsPx.x,
-      y: compositeVeBoundsPx.y - 45,
-      w: 90,
-      h: 35
-    });
+    if (compositeItemMaybe() != null) {
+      const compositeVeMaybe = compositeVisualElementMaybe()!;
+      const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(compositeVeMaybe);
+      return ({
+        x: compositeVeBoundsPx.x - 5,
+        y: compositeVeBoundsPx.y - 45,
+        w: 390,
+        h: 35
+      });
+    } else {
+      return ({
+        x: noteVeBoundsPx().x - 5,
+        y: noteVeBoundsPx().y - 45,
+        w: 390,
+        h: 35
+      });
+    }
   };
 
   const sizeBl = () => {
@@ -108,9 +107,6 @@ export const TextEditOverlay: Component = () => {
     ev.stopPropagation();
     const desktopPx = desktopPxFromMouseEvent(ev);
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
-    if (compositeVisualElementMaybe() != null) {
-      if (isInside(desktopPx, compositeToolboxBoundsPx()!)) { return; }
-    }
     desktopStore.setTextEditOverlayInfo(null);
   };
 
@@ -137,7 +133,11 @@ export const TextEditOverlay: Component = () => {
   });
 
   const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
-  const infoButtonHandler = () => { infoOverlayVisible.set(!infoOverlayVisible.get()); }
+
+  const infoButtonHandler = () => {
+    // TODO (HIGH): multiple ids for the various items: link, composite, item.
+    infoOverlayVisible.set(!infoOverlayVisible.get());
+  }
 
   const textAreaMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
@@ -192,11 +192,16 @@ export const TextEditOverlay: Component = () => {
   let deleted = false;
 
   const deleteButtonHandler = async () => {
-    deleted = true;
-    await server.deleteItem(noteItem().id); // throws on failure.
-    itemState.delete(noteItem().id);
-    desktopStore.setTextEditOverlayInfo(null);
-    arrange(desktopStore);
+    if (compositeItemMaybe() != null) {
+      console.log("TODO: delete composite");
+      // TODO (HIGH)
+    } else {
+      deleted = true;
+      await server.deleteItem(noteItem().id); // throws on failure.
+      itemState.delete(noteItem().id);
+      desktopStore.setTextEditOverlayInfo(null);
+      arrange(desktopStore);
+    }
   };
 
   const copyButtonHandler = () => {
@@ -209,10 +214,19 @@ export const TextEditOverlay: Component = () => {
   };
 
   const borderButtonHandler = () => {
-    if (noteItem().flags & NoteFlags.HideBorder) {
-      noteItem().flags &= ~NoteFlags.HideBorder;
+    if (compositeItemMaybe() != null) {
+      if (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) {
+        compositeItemMaybe()!.flags &= ~CompositeFlags.HideBorder;
+      } else {
+        compositeItemMaybe()!.flags |= CompositeFlags.HideBorder;
+      }
+      console.log(compositeItemMaybe()!.flags);
     } else {
-      noteItem().flags |= NoteFlags.HideBorder;
+      if (noteItem().flags & NoteFlags.HideBorder) {
+        noteItem().flags &= ~NoteFlags.HideBorder;
+      } else {
+        noteItem().flags |= NoteFlags.HideBorder;
+      }
     }
     arrange(desktopStore);
   };
@@ -286,18 +300,25 @@ export const TextEditOverlay: Component = () => {
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
-  const compositeBorderButtonHandler = () => {
-    if (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) {
-      compositeItemMaybe()!.flags &= ~CompositeFlags.HideBorder;
-    } else {
-      compositeItemMaybe()!.flags |= CompositeFlags.HideBorder;
-    }
-    console.log(compositeItemMaybe()!.flags);
-    arrange(desktopStore);
-  };
+  const infoCount = () => {
+    let count = 1;
+    const ve = noteVisualElement();
+    if (ve.linkItemMaybe != null) { count += 1; }
+    const parentVe = VesCache.get(ve.parentPath!)!.get();
+    if (isComposite(parentVe.displayItem)) { count += 1; }
+    return count;
+  }
 
-  const compositeDeleteButtonHandler = () => {};
-  const compositeInfoButtonHandler = () => {};
+  const isInTable = () => {
+    return false;
+  }
+
+  const borderVisible = () => {
+    if (compositeItemMaybe() != null) {
+      return (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true;
+    }
+    return (noteItem().flags & NoteFlags.HideBorder) ? false : true;
+  }
 
   return (
     <div id="textEntryOverlay"
@@ -322,22 +343,14 @@ export const TextEditOverlay: Component = () => {
           <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
           <div class="inline-block ml-[12px]"></div>
           <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
-          <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
-          <InfuIconButton icon="square" highlighted={(noteItem().flags & NoteFlags.HideBorder) ? false : true} clickHandler={borderButtonHandler} />
-          <InfuIconButton icon="info-circle" highlighted={false} clickHandler={infoButtonHandler} />
+          <Show when={isInTable()}>
+            <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          </Show>
+          <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </div>
       </div>
-      <Show when={compositeToolboxBoundsPx() != null}>
-        <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-             style={`left: ${compositeToolboxBoundsPx()!.x}px; top: ${compositeToolboxBoundsPx()!.y}px; width: ${compositeToolboxBoundsPx()!.w}px; height: ${compositeToolboxBoundsPx()!.h}px`}>
-          <div class="p-[4px]">
-            <InfuIconButton icon="square" highlighted={(compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true} clickHandler={compositeBorderButtonHandler} />
-            <InfuIconButton icon="info-circle" highlighted={false} clickHandler={compositeInfoButtonHandler} />
-            <InfuIconButton icon="trash" highlighted={false} clickHandler={compositeDeleteButtonHandler} />
-          </div>
-        </div>
-      </Show>
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
         <textarea ref={textElement}

@@ -23,12 +23,16 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
   let outerDivElement : HTMLDivElement | undefined;
 
   onMount(() => { outerDivElement?.addEventListener('click', props.clickHandler); });
+
   onCleanup(() => { outerDivElement?.removeEventListener('click', props.clickHandler); });
 
   const icon = () => {
     if (props.icon == "header-1") { return "header"; }
     if (props.icon == "header-2") { return "header"; }
     if (props.icon == "header-3") { return "header"; }
+    if (props.icon == "info-circle-1") { return "info-circle"; }
+    if (props.icon == "info-circle-2") { return "info-circle"; }
+    if (props.icon == "info-circle-3") { return "info-circle"; }
     return props.icon;
   }
 
@@ -36,15 +40,17 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
     if (props.icon == "header-1") { return "1"; }
     if (props.icon == "header-2") { return "2"; }
     if (props.icon == "header-3") { return "3"; }
+    if (props.icon == "info-circle-1") { return "1"; }
+    if (props.icon == "info-circle-2") { return "2"; }
+    if (props.icon == "info-circle-3") { return "3"; }
     return null;
   }
 
   const divClass = () => {
     if (props.highlighted) {
       return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] bg-slate-200 hover:bg-slate-300 relative";
-    } else {
-      return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-200 relative";
     }
+    return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-200 relative";
   }
 
   return (

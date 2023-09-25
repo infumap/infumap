@@ -106,6 +106,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const showMoveOutOfCompositeArea = () =>
     props.visualElement.mouseIsOver.get() &&
     !desktopStore.itemIsMoving() &&
+    desktopStore.textEditOverlayInfo() == null &&
     isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
 
   return (
