@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -27,9 +27,13 @@ import { NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { getTextStyleForNote } from "../../layout/text";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { isComposite } from "../../items/composite-item";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const desktopStore = useDesktopStore();
+
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => {
@@ -51,21 +55,30 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const lineHeightScale = () => heightScale() / widthScale();
 
   const attachBoundsPx = (): BoundingBox => {
-    return {
+    return ({
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
       y: 0,
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
-    }
+    });
   };
   const attachCompositeBoundsPx = (): BoundingBox => {
-    return {
+    return ({
       x: boundsPx().w / 4.0,
       y: boundsPx().h - ATTACH_AREA_SIZE_PX,
       w: boundsPx().w / 2.0,
       h: ATTACH_AREA_SIZE_PX,
-    }
+    });
   };
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    });
+  };
+
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       return 'absolute rounded-sm bg-white';
@@ -90,6 +103,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
+  const showMoveOutOfCompositeArea = () =>
+    props.visualElement.mouseIsOver.get() &&
+    !desktopStore.itemIsMoving() &&
+    isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
+
   return (
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
@@ -113,6 +131,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
+        <Show when={showMoveOutOfCompositeArea()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                      `background-color: #ff0000;`}>
+          </div>
+        </Show>
         <Show when={props.visualElement.linkItemMaybe != null}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
         </Show>

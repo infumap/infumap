@@ -30,6 +30,9 @@ export const RESIZE_BOX_SIZE_PX = 8;
 
 export const ATTACH_AREA_SIZE_PX = 10;
 
+export const COMPOSITE_MOVE_OUT_AREA_SIZE_PX = 10;
+export const COMPOSITE_MOVE_OUT_AREA_MARGIN_PX = 2;
+
 export const FONT_SIZE_PX = 16;
 
 export const LINE_HEIGHT_PX = 24;

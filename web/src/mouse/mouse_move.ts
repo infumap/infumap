@@ -148,6 +148,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
+      desktopStore.setItemIsMoving(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
       const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
@@ -185,6 +186,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
           MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
         }
       }
+      desktopStore.setItemIsMoving(true);
       MouseActionState.get().action = MouseAction.Moving;
     }
 
@@ -533,6 +535,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
       lastMouseOverVes = null;
     }
   }
+
   if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxType.OpenPopup) || hasModal) {
     if (lastMouseOverOpenPopupVes != null) {
       lastMouseOverOpenPopupVes.get().mouseIsOverOpenPopup.set(false);
@@ -546,6 +549,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
+
   if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {

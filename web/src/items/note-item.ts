@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -155,16 +155,11 @@ export const NoteFns = {
       h: sizeBl.h * blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    let moveWidthPx = 10;
-    if (innerBoundsPx.w < 10) {
-      // TODO (MEDIUM): something sensible.
-      moveWidthPx = 1;
-    }
     const moveBoundsPx = {
-      x: innerBoundsPx.w - moveWidthPx,
-      y: innerBoundsPx.y,
-      w: moveWidthPx,
-      h: innerBoundsPx.h
+      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
     };
     return {
       boundsPx,

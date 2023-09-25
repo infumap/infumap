@@ -45,6 +45,9 @@ export interface DesktopStoreContextModel {
   textEditOverlayInfo: Accessor<EditOverlayInfo | null>,
   setTextEditOverlayInfo: Setter<EditOverlayInfo | null>,
 
+  itemIsMoving: Accessor<boolean>,
+  setItemIsMoving: Setter<boolean>,
+
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
@@ -111,6 +114,7 @@ const DesktopStoreContext = createContext<DesktopStoreContextModel>();
 
 
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
+  const [itemIsMoving, setItemIsMoving] = createSignal<boolean>(false, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
@@ -282,6 +286,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   const value: DesktopStoreContextModel = {
+    itemIsMoving, setItemIsMoving,
     desktopBoundsPx, resetDesktopSizePx,
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,

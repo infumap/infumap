@@ -106,7 +106,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               {pageItem().title}
             </div>
           </div>
-          <Show when={props.visualElement.mouseIsOver.get()}>
+          <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
@@ -220,7 +220,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
-          <Show when={props.visualElement.mouseIsOver.get()}>
+          <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
             <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff22;`}>
