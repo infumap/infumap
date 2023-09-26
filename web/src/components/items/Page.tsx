@@ -31,6 +31,7 @@ import { server } from "../../server";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { arrange } from "../../layout/arrange";
+import { editDialogSizePx } from "../edit/EditDialog";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -309,6 +310,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
   }
 
+  const popupTitleClickHandler = () => {
+    desktopStore.setEditDialogInfo({
+      desktopBoundsPx: {
+        x: boundsPx().x + 65,
+        y: boundsPx().y + 10,
+        w: editDialogSizePx.w,
+        h: editDialogSizePx.h
+      },
+      item: pageItem()
+    });
+  }
+
   const drawAsPopup = () => {
     return (
       <>
@@ -343,8 +356,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
-          <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px]">
-            {pageItem().title}
+          <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px] cursor-pointer" onClick={popupTitleClickHandler}>
+            {pageItem().title == "" ? "[empty]" : pageItem().title}
           </div>
           <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
             <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>

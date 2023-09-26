@@ -29,7 +29,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
 import { InfoOverlay } from "./InfoOverlay";
-import { BoundingBox, desktopPxFromMouseEvent, isInside } from "../../util/geometry";
+import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";

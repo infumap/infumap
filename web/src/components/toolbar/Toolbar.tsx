@@ -29,6 +29,8 @@ import { NONE_VISUAL_ELEMENT } from '../../layout/visual-element';
 import { useUserStore } from '../../store/UserStoreProvider';
 import { switchToPage } from '../../layout/navigation';
 import { useNavigate } from '@solidjs/router';
+import { itemState } from '../../store/ItemState';
+import { editDialogSizePx, initialEditDialogBounds } from '../edit/EditDialog';
 
 
 export const Toolbar: Component = () => {
@@ -66,6 +68,26 @@ export const Toolbar: Component = () => {
 
   const isPublic = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).permissionFlags != 0;
 
+  const titleClick = () => {
+    desktopStore.setEditDialogInfo({
+      desktopBoundsPx: {
+        x: 40,
+        y: 40,
+        w: editDialogSizePx.w,
+        h: editDialogSizePx.h
+      },
+      item: itemState.get(desktopStore.currentPage()!.itemId)!
+    });
+  }
+
+  const titleText = () => {
+    const text = asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title;
+    if (text == "") {
+      return "[empty]";
+    }
+    return text;
+  }
+
   return (
     <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
       <div class="fixed left-0 top-0 bottom-0 border-r border-gray-800 text-gray-100"
@@ -74,8 +96,8 @@ export const Toolbar: Component = () => {
                  `${hexToRGBA(Colors[bgColIdx()], 0.864)}); ` +
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
         <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" /></a>
-        <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px]">
-          {asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title + (isPublic() ? " ---- (PUBLIC)" : "")}
+        <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px] cursor-pointer" onClick={titleClick}>
+          {titleText() + (isPublic() ? " ---- (PUBLIC)" : "")}
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">

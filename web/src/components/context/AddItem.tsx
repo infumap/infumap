@@ -32,7 +32,7 @@ import { LinkFns } from "../../items/link-item";
 import { EMPTY_UID } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
 import { PasswordFns } from "../../items/password-item";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { arrange } from "../../layout/arrange";
@@ -116,11 +116,17 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       server.addItem(newItem, null);
       itemState.add(newItem);
       desktopStore.setContextMenuInfo(null);
-      desktopStore.setEditDialogInfo({
-        desktopBoundsPx: initialEditDialogBounds(desktopStore),
-        item: newItem
-      });
       arrange(desktopStore);
+
+      if (type != "note") {
+        desktopStore.setEditDialogInfo({
+          desktopBoundsPx: initialEditDialogBounds(desktopStore),
+          item: newItem
+        });
+      } else {
+        const noteItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
+        desktopStore.setTextEditOverlayInfo({ noteItemPath: noteItemPath });
+      }
       return;
     }
 
@@ -130,12 +136,12 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   return (
     <div class="border rounded w-[250px] h-[55px] bg-slate-50 mb-1">
       <div class="text-slate-800 text-sm ml-1">Add new item here</div>
-      <InfuIconButton icon="folder" clickHandler={newPageInContext} />
-      <InfuIconButton icon="table" clickHandler={newTableInContext} />
-      <InfuIconButton icon="sticky-note" clickHandler={newNoteInContext} />
-      <InfuIconButton icon="star" clickHandler={newRatingInContext} />
-      <InfuIconButton icon="link" clickHandler={newLinkInContext} />
-      <InfuIconButton icon="eye-slash" clickHandler={newPasswordInContext} />
+      <InfuIconButton icon="folder" highlighted={false} clickHandler={newPageInContext} />
+      <InfuIconButton icon="table" highlighted={false} clickHandler={newTableInContext} />
+      <InfuIconButton icon="sticky-note" highlighted={false} clickHandler={newNoteInContext} />
+      <InfuIconButton icon="star" highlighted={false} clickHandler={newRatingInContext} />
+      <InfuIconButton icon="link" highlighted={false} clickHandler={newLinkInContext} />
+      <InfuIconButton icon="eye-slash" highlighted={false} clickHandler={newPasswordInContext} />
     </div>
   );
 }
