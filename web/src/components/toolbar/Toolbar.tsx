@@ -97,7 +97,7 @@ export const Toolbar: Component = () => {
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
         <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" /></a>
         <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px] cursor-pointer" onClick={titleClick}>
-          {titleText() + (isPublic() ? " ---- (PUBLIC)" : "")}
+          {titleText()}
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">
