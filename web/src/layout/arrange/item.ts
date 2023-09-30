@@ -389,6 +389,10 @@ const arrangeTable = (
     const childItem = itemState.get(childId)!;
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
 
+    if (isComposite(displayItem_childItem)) {
+      initiateLoadChildItemsMaybe(desktopStore, displayItem_childItem.id);
+    }
+
     let widthBl = displayItem_Table.tableColumns.length == 1
       ? sizeBl.w
       : Math.min(displayItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
@@ -423,6 +427,10 @@ const arrangeTable = (
         const attachmentId = attachmentsItem.computed_attachments[i];
         const attachmentItem = itemState.get(attachmentId)!;
         const { displayItem: displayItem_attachment, linkItemMaybe: linkItemMaybe_attachment } = getVePropertiesForItem(desktopStore, attachmentItem);
+
+        if (isComposite(displayItem_attachment)) {
+          initiateLoadChildItemsMaybe(desktopStore, displayItem_attachment.id);
+        }
 
         const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl);
 

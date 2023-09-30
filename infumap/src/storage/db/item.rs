@@ -263,6 +263,10 @@ pub fn is_table_item(item: &Item) -> bool {
   item.item_type == ItemType::Table
 }
 
+pub fn is_composite_item(item: &Item) -> bool {
+  item.item_type == ItemType::Composite
+}
+
 pub fn is_link_item(item: &Item) -> bool {
   item.item_type == ItemType::Link
 }

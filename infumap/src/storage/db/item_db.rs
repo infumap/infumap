@@ -197,12 +197,12 @@ impl ItemDb {
     let old_item = self.store_by_user_id.get(&item.owner_id)
       .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
       .get(&item.id)
-      .ok_or(format!("Attempt was made to update item '{}', but it does not exist.", item.id))?.clone();
+      .ok_or(format!("Request was made to update item '{}', but it does not exist.", item.id))?.clone();
 
     let update_json_map = Item::create_json_update(&old_item, item)?;
     if update_json_map.len() == 2 {
       // "__recordType" and "id" and nothing else.
-      debug!("Attempt was made to update item '{}', but nothing has changed.", item.id);
+      debug!("Request was made to update item '{}', but nothing has changed.", item.id);
       return Ok(());
     }
 
@@ -210,7 +210,7 @@ impl ItemDb {
     if let Some(parent_id_value) = update_json_map.get("parentId") {
       if let Some(parent_id) = parent_id_value.as_str() {
         if parent_id == &item.id {
-          return Err(format!("Attempt was made to update the parent of item '{}' to be itself.", item.id).into());
+          return Err(format!("Request was made to update the parent of item '{}' to be itself.", item.id).into());
         }
         let parent_item_maybe = self.store_by_user_id.get(&item.owner_id)
           .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
@@ -229,20 +229,20 @@ impl ItemDb {
           match relationship_to_parent {
             RelationshipToParent::Child => {
               if !is_container_item_type(parent_item.item_type) {
-                return Err(format!("Attempt was made to update the parent of item '{}' to '{}' (relationship to parent 'child'), but it is not a container item.", item.id, parent_id).into());
+                return Err(format!("Request was made to update the parent of item '{}' to '{}' (relationship to parent 'child'), but it is not a container item.", item.id, parent_id).into());
               }
             },
             RelationshipToParent::Attachment => {
               if !is_attachments_item_type(parent_item.item_type) {
-                return Err(format!("Attempt was made to update the parent of item '{}' to '{}' (relationship to parent 'attachment'), but it is not an attachments item.", item.id, parent_id).into());
+                return Err(format!("Request was made to update the parent of item '{}' to '{}' (relationship to parent 'attachment'), but it is not an attachments item.", item.id, parent_id).into());
               }
             },
             RelationshipToParent::NoParent => {
-              return Err(format!("Attempt was made to update the parent of item '{}' to '{}', but it is a root item.", item.id, parent_id).into());
+              return Err(format!("Request was made to update the parent of item '{}' to '{}', but it is a root item.", item.id, parent_id).into());
             }
           }
         } else {
-          return Err(format!("Attempt was made to update the parent of item '{}' to an item '{}' that doesn't exist.", item.id, parent_id).into());
+          return Err(format!("Request was made to update the parent of item '{}' to an item '{}' that doesn't exist.", item.id, parent_id).into());
         }
       } else {
         return Err(format!("Expected property parentId of item '{}' to have type string.", item.id).into());

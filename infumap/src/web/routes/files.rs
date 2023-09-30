@@ -124,7 +124,7 @@ async fn get_cached_resized_img(
   {
     let db = db.lock().await;
     let item = db.item.get(&String::from(&uid))?;
-    authorize_item(&db, item, session_user_id_maybe)?;
+    authorize_item(&db, item, session_user_id_maybe, 0)?;
     owner_id = item.owner_id.clone();
 
     object_encryption_key = db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
@@ -270,7 +270,7 @@ async fn get_file(
   let (item, object_encryption_key) = {
     let db = db.lock().await;
     let item = db.item.get(&String::from(uid))?.clone();
-    authorize_item(&db, &item, session_user_id_maybe)?;
+    authorize_item(&db, &item, session_user_id_maybe, 0)?;
     let object_encryption_key =
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
     (item, object_encryption_key)

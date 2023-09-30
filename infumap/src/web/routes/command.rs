@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable_type, is_page_item, PermissionFlags, is_table_item, is_flags_item_type, is_permission_flags_item_type};
+use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable_type, is_page_item, PermissionFlags, is_table_item, is_flags_item_type, is_permission_flags_item_type, is_composite_item};
 use crate::storage::db::item::{is_data_item_type, is_image_item, is_container_item_type, is_attachments_item_type};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::session::Session;
@@ -175,19 +175,28 @@ pub struct GetItemsRequest {
 
 /**
  * Access is authorized if and only if:
- * 1. the session user owns the item.
- * 2. the item is a page that is marked as public.
- * 3. the item is in a page that is marked as public.
- * 4. the item is in a table in a page that is marked as public.
- * 5. the item is an attachment of a page that is marked as public.
- * 6. the item is an attachment of an item in a page that is marked as public.
- * 7. the item is an attachment of an item in a table in a page that is marked as public.
- * 
+ * 1.  the session user owns the item.
+ * 2.  the item is a page that is marked as public.
+ * 3.  the item is in a page that is marked as public.
+ * 4.  the item is in a table or composite in a page that is marked as public.
+ * 5.  the item is an attachment of a page that is marked as public.
+ * 6.  the item is an attachment of an item in a page that is marked as public.
+ * 7.  the item is an attachment of an item in a table or composite in a page that is marked as public.
+ * 8.  the item is in a composite in a table in a page that is marked as public.
+ * 9.  the item is in a composite that is an attachment of a page that is marked as public.
+ * 10. the item is in a composite that is an attachment of an item in a page that is marked as public.
+ * 11. the item is in a composite that is an attachment of an item in a table or composite in a page that is marked as public.
+ * 12. TODO (LOW): attachments of items in a composite.
+ *
  * Note that whether or not a link item is authorized has no bearing on whether the
  * corresponding linked-to item is authorized - the authorization is based on the linked
  * to item, and it's canonical parent(s) as above.
  */
-pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>) -> InfuResult<()> {
+pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_maybe: &Option<String>, recursion_level: i32) -> InfuResult<()> {
+  if recursion_level > 1 {
+    return Err(format!("Not authorized to access item '{}' - recursion level too deep.", item.id).into());
+  }
+
   // any item owned by the session user.
   if let Some(session_user_id) = session_user_id_maybe {
     if &item.owner_id == session_user_id {
@@ -214,8 +223,18 @@ pub fn authorize_item(db: &MutexGuard<'_, Db>, item: &Item, session_user_id_mayb
 
       RelationshipToParent::Child => {
         let item_parent = db.item.get(&item_parent_id)?;
-        item_auth_common(db, &item.id, item_parent)?;
-        return Ok(());
+        if is_composite_item(item_parent) {
+          // If the item is inside a composite, then what is effectively needed is authorization of the composite.
+          match authorize_item(db, item_parent, session_user_id_maybe, recursion_level+1) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+              return Err(format!("Not authorized to access item '{}': {}", item.id, e.to_string()).into());
+            }
+          }
+        } else {
+          item_auth_common(db, &item.id, item_parent)?;
+          return Ok(());
+        }
       },
 
       RelationshipToParent::Attachment => {
@@ -255,26 +274,25 @@ fn item_auth_common(db: &MutexGuard<'_, Db>, item_id: &Uid, item_parent: &Item) 
       None => return Err(format!("Page item '{}' does not have a permissions flag property.", item_id).into())
     }
   } else if is_table_item(item_parent) {
-    let table_item = item_parent;
-    let table_parent_id = match &table_item.parent_id {
-      Some(table_parent_id) => table_parent_id,
+    let parent_parent_id = match &item_parent.parent_id {
+      Some(parent_parent_id) => parent_parent_id,
       // Should never occur.
-      None => return Err(format!("Expecting table '{}' to have a parent defined.", table_item.id).into())
+      None => return Err(format!("Expecting table '{}' to have a parent defined.", item_parent.id).into())
     };
-    let table_parent = db.item.get(&table_parent_id)?;
-    if is_page_item(table_parent) {
-      match table_parent.permission_flags {
+    let parent_parent = db.item.get(&parent_parent_id)?;
+    if is_page_item(parent_parent) {
+      match parent_parent.permission_flags {
         Some(flags) => {
           if flags == PermissionFlags::Public as i64 {
             return Ok(());
           }
-          return Err(format!("Not authorized to access parent page '{}' of table '{}' that contains item '{}'.", table_parent.id, table_item.id, item_id).into());
+          return Err(format!("Not authorized to access parent page '{}' of table '{}' that contains item '{}'.", parent_parent.id, item_parent.id, item_id).into());
         },
         // Should never occur.
         None => return Err(format!("Page item '{}' has no permissions flag property.", item_id).into())
       }
     } else {
-      return Err(format!("Expecting parent '{}' of table '{}' to be a page.", table_parent_id, table_parent_id).into());
+      return Err(format!("Expecting parent '{}' of table '{}' to be a page.", parent_parent_id, parent_parent_id).into());
     }
   } else {
     return Err(format!("Item '{}' has unexpected parent type.", item_id).into());
@@ -284,7 +302,7 @@ fn item_auth_common(db: &MutexGuard<'_, Db>, item_id: &Uid, item_parent: &Item) 
 
 fn get_item_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_user_id_maybe: &Option<String>) -> InfuResult<&'a Item> {
   let item = db.item.get(&id)?;
-  authorize_item(db, item, session_user_id_maybe)
+  authorize_item(db, item, session_user_id_maybe, 0)
     .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   Ok(item)
 }
@@ -293,7 +311,7 @@ fn get_children_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_use
   let children = db.item.get_children(id)?;
   for child in &children {
     // TODO (LOW): redundant, but doesn't hurt..
-    authorize_item(db, child, session_user_id_maybe)
+    authorize_item(db, child, session_user_id_maybe, 0)
       .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   }
   Ok(children)
@@ -303,7 +321,7 @@ fn get_attachments_authorized<'a>(db: &'a MutexGuard<'_, Db>, id: &Uid, session_
   let attachments = db.item.get_attachments(id)?;
   for attachment in &attachments {
     // TODO (LOW): redundant, but doesn't hurt..
-    authorize_item(db, attachment, session_user_id_maybe)
+    authorize_item(db, attachment, session_user_id_maybe, 0)
       .map_err(|_| format!("Not authorized to access item '{}'.", id))?;
   }
   Ok(attachments)
@@ -390,6 +408,8 @@ async fn handle_get_items(
   result.insert(String::from("children"), Value::from(children_result));
   result.insert(String::from("attachments"), Value::from(attachments_result));
 
+  debug!("Executed 'get-items' command for item '{}'.", item_id);
+
   Ok(Some(serde_json::to_string(&result)?))
 }
 
@@ -433,6 +453,8 @@ async fn handle_get_attachments(
     .map(|v| v.to_api_json().ok())
     .collect::<Option<Vec<serde_json::Map<String, serde_json::Value>>>>()
     .ok_or(format!("Error occurred getting attachments for item '{}'.", parent_id))?;
+
+  debug!("Executed 'get-attachments' command for item '{}'.", parent_id);
 
   Ok(Some(serde_json::to_string(&attachments_result)?))
 }
@@ -629,7 +651,7 @@ async fn handle_add_item(
 
   let item_id = item.id.clone();
   db.item.add(item).await?;
-  debug!("Executed 'add' command for item '{}'.", item_id);
+  debug!("Executed 'add-item' command for item '{}'.", item_id);
 
   Ok(Some(serialized_item))
 }
@@ -657,7 +679,9 @@ async fn handle_update_item(
   }
 
   db.item.update(&item).await?;
-  debug!("Executed 'update' command for item '{}'.", item.id);
+
+  debug!("Executed 'update-item' command for item '{}'.", item.id);
+
   Ok(None)
 }
 
@@ -708,5 +732,6 @@ async fn handle_delete_item<'a>(
     let num_removed = storage_cache::delete_all(image_cache, &session.user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }
+
   Ok(None)
 }
