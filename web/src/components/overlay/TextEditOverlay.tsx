@@ -28,8 +28,7 @@ import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
-import { InfoOverlay } from "./InfoOverlay";
-import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
+import { BoundingBox, desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
@@ -191,7 +190,7 @@ export const TextEditOverlay: Component = () => {
 
   let deleted = false;
 
-  const deleteButtonHandler = async () => {
+  const deleteButtonHandler = async (): Promise<void> => {
     if (compositeItemMaybe() != null) {
       console.log("TODO: delete composite");
       // TODO (HIGH)
@@ -204,7 +203,7 @@ export const TextEditOverlay: Component = () => {
     }
   };
 
-  const copyButtonHandler = () => {
+  const copyButtonHandler = (): void => {
     if (noteItem().flags & NoteFlags.ShowCopyIcon) {
       noteItem().flags &= ~NoteFlags.ShowCopyIcon;
     } else {
@@ -213,7 +212,7 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   };
 
-  const borderButtonHandler = () => {
+  const borderButtonHandler = (): void => {
     if (compositeItemMaybe() != null) {
       if (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) {
         compositeItemMaybe()!.flags &= ~CompositeFlags.HideBorder;
@@ -231,7 +230,7 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   };
 
-  const keyDownListener = (ev: KeyboardEvent) => {
+  const keyDownListener = (ev: KeyboardEvent): void => {
     switch (ev.code) {
       case "Enter":
         keyDown_Enter(ev);
@@ -248,7 +247,7 @@ export const TextEditOverlay: Component = () => {
     }
   };
 
-  const keyDown_Down = () => {
+  const keyDown_Down = (): void => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return; }
@@ -258,7 +257,7 @@ export const TextEditOverlay: Component = () => {
     desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
   };
 
-  const keyDown_Up = () => {
+  const keyDown_Up = (): void => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return; }
@@ -268,7 +267,7 @@ export const TextEditOverlay: Component = () => {
     desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
   };
 
-  const keyDown_Backspace = async (ev: KeyboardEvent) => {
+  const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
     if (noteItem().title != "") { return; }
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -284,7 +283,7 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   };
 
-  const keyDown_Enter = async (ev: KeyboardEvent) => {
+  const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -300,7 +299,7 @@ export const TextEditOverlay: Component = () => {
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
-  const infoCount = () => {
+  const infoCount = (): number => {
     let count = 1;
     const ve = noteVisualElement();
     if (ve.linkItemMaybe != null) { count += 1; }
@@ -309,16 +308,32 @@ export const TextEditOverlay: Component = () => {
     return count;
   }
 
-  const isInTable = () => {
+  const infoBoxBoundsPx = (): BoundingBox => {
+    const tbBoundsPx = toolboxBoundsPx();
+    tbBoundsPx.x += 5;
+    tbBoundsPx.y += 5;
+    tbBoundsPx.h = infoCount() * 35;
+    tbBoundsPx.w += 35;
+    return tbBoundsPx;
+  }
+
+  const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
   }
 
-  const borderVisible = () => {
+  const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
       return (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true;
     }
     return (noteItem().flags & NoteFlags.HideBorder) ? false : true;
   }
+
+  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(noteItem().id); }
+  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteItem().id); }
+  const copyLinkIdClickHandler = (): void => { navigator.clipboard.writeText(noteVisualElement().linkItemMaybe!.id); }
+  const linkLinkIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteVisualElement().linkItemMaybe!.id); }
+  const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
+  const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
 
   return (
     <div id="textEntryOverlay"
@@ -368,7 +383,37 @@ export const TextEditOverlay: Component = () => {
         <UrlOverlay urlOverlayVisible={urlOverlayVisible} />
       </Show>
       <Show when={infoOverlayVisible.get()}>
-        <InfoOverlay infoOverlayVisible={infoOverlayVisible} />
+        <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+            style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
+          <Show when={compositeItemMaybe() != null}>
+            <div class="pl-[8px] pr-[8px] pt-[8px]">
+              <div class="text-slate-800 text-sm">
+                <div class="text-slate-400 w-[85px] inline-block">Composite</div>
+                <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
+                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
+                <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
+              </div>
+            </div>
+          </Show>
+          <Show when={noteVisualElement().linkItemMaybe != null}>
+            <div class="pl-[8px] pr-[8px] pt-[8px]">
+              <div class="text-slate-800 text-sm">
+                <div class="text-slate-400 w-[85px] inline-block">Link</div>
+                <span class="font-mono text-slate-400">{`${noteVisualElement()!.linkItemMaybe!.id}`}</span>
+                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyLinkIdClickHandler} />
+                <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkLinkIdClickHandler} />
+              </div>
+            </div>
+          </Show>
+          <div class="p-[8px]">
+            <div class="text-slate-800 text-sm">
+              <div class="text-slate-400 w-[85px] inline-block">Item</div>
+              <span class="font-mono text-slate-400">{`${noteItem().id}`}</span>
+              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
+              <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
+            </div>
+          </div>
+        </div>
       </Show>
     </div>
   );

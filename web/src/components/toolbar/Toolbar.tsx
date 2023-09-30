@@ -30,7 +30,7 @@ import { useUserStore } from '../../store/UserStoreProvider';
 import { switchToPage } from '../../layout/navigation';
 import { useNavigate } from '@solidjs/router';
 import { itemState } from '../../store/ItemState';
-import { editDialogSizePx, initialEditDialogBounds } from '../edit/EditDialog';
+import { editDialogSizePx } from '../edit/EditDialog';
 
 
 export const Toolbar: Component = () => {
@@ -66,8 +66,6 @@ export const Toolbar: Component = () => {
 
   const bgColIdx = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).backgroundColorIndex;
 
-  const isPublic = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).permissionFlags != 0;
-
   const titleClick = () => {
     desktopStore.setEditDialogInfo({
       desktopBoundsPx: {
@@ -101,12 +99,18 @@ export const Toolbar: Component = () => {
         </div>
         <div class="absolute bottom-0">
           <div class="ml-[12px] mb-[12px]">
+            <i class="fa fa-search cursor-pointer" onclick={handleUp} />
+          </div>
+          <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
           </div>
           <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
           </div>
           <Show when={userStore.getUserMaybe()}>
+            {/* <div class="ml-[12px] mb-[12px]">
+              <i class="fa fa-cog cursor-pointer" onclick={handleUp} />
+            </div> */}
             <div class="ml-[12px] mb-[12px]">
               <i class="fa fa-home cursor-pointer" onclick={handleHome} />
             </div>
