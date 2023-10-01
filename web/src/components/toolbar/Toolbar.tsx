@@ -104,13 +104,13 @@ export const Toolbar: Component = () => {
           </div>
         </Show>
         <div class="ml-[11px] mt-[12px]">
+          <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
+        </div>
+        <div class="ml-[11px] mt-[12px]">
           <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
         </div>
         <div class="ml-[11px] mt-[12px]">
           <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
-        </div>
-        <div class="ml-[11px] mt-[12px]">
-          <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
         </div>
         {/* <div class="ml-[11px] mt-[10px] mb-[12px]">
           <i class="fa fa-cog cursor-pointer" onclick={titleClick} />
