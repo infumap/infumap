@@ -108,6 +108,7 @@ pub async fn serve_command_route(
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await,
     "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await,
     "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await,
+    "search" => handle_search(db, &request.json_data, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {
         warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
@@ -734,4 +735,92 @@ async fn handle_delete_item<'a>(
   }
 
   Ok(None)
+}
+
+
+#[derive(Deserialize, Serialize)]
+pub struct SearchRequest {
+  pub text: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct FindPathElement {
+  #[serde(rename="itemType")]
+  item_type: String,
+  title: Option<String>,
+  id: Uid,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct FindResult {
+  pub id: Uid,
+  #[serde(rename="parentPath")]
+  pub parent_path: Vec<FindPathElement>,
+  #[serde(rename="textContext")]
+  pub text_context: String,
+}
+
+async fn handle_search(
+    db: &Arc<tokio::sync::Mutex<Db>>,
+    json_data: &str,
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+  let session = match session_maybe {
+    None => return Err("Sessionless search not supported".into()),
+    Some(s) => s
+  };
+
+  let request: SearchRequest = serde_json::from_str(json_data)?;
+
+  let mut db = db.lock().await;
+  let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
+  let home_page_id = user.home_page_id.clone();
+
+  let mut results: Vec<FindResult> = vec![];
+  let mut current_path: Vec<FindPathElement> = vec![];
+  find_recursive(&mut db, &request.text, home_page_id, &mut current_path, &mut results)?;
+
+  let serialized_results = serde_json::to_string(&results)?;
+
+  debug!("Executed 'add-item' command for user '{}'.", session.user_id);
+
+  Ok(Some(serialized_results))
+}
+
+fn find_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid, current_path: &mut Vec<FindPathElement>, results: &mut Vec<FindResult>) -> InfuResult<()> {
+
+  {
+    let item = db.item.get(&item_id)?;
+    match &item.title {
+      None => {},
+      Some(title) => {
+        if title.contains(search_text) {
+          results.push(FindResult {
+            id: item.id.clone(),
+            parent_path: current_path.iter().map(|a| (*a).clone()).collect(),
+            text_context: title.clone()
+          });
+        }
+      }
+    };
+
+    if results.len() >= 20 {
+      return Ok(());
+    }
+
+    current_path.push(FindPathElement { item_type: item.item_type.as_str().to_owned(), title: item.title.clone(), id: item.id.clone() });
+  }
+
+  let child_ids = db.item.get_children_ids(&item_id)?;
+  for child_id in child_ids {
+    find_recursive(db, search_text, child_id, current_path, results)?;
+  }
+
+  let attachment_ids = db.item.get_attachment_ids(&item_id)?;
+  for attachment_id in attachment_ids {
+    find_recursive(db, search_text, attachment_id, current_path, results)?;
+  }
+
+  current_path.pop();
+
+  Ok(())
 }

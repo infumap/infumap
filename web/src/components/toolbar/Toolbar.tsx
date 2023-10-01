@@ -76,7 +76,11 @@ export const Toolbar: Component = () => {
       },
       item: itemState.get(desktopStore.currentPage()!.itemId)!
     });
-  }
+  };
+
+  const handleSearchClick = () => {
+    desktopStore.setSearchOverlayVisible(!desktopStore.searchOverlayVisible())
+  };
 
   const titleText = () => {
     const text = asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title;
@@ -94,13 +98,16 @@ export const Toolbar: Component = () => {
                  `${hexToRGBA(Colors[bgColIdx()], 0.864)}); ` +
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
         <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" /></a>
-        <div class="mt-[16px] uppercase rotate-90 whitespace-pre text-[22px] cursor-pointer" onClick={titleClick}>
+        <div class="ml-[12px] mb-[2px] mt-[24px]">
+          <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
+        </div>
+        <div class="ml-[12px] mb-[4px]">
+          <i class="fa fa-cog cursor-pointer" onclick={titleClick} />
+        </div>
+        <div class="mt-[12px] uppercase rotate-90 whitespace-pre text-[22px]">
           {titleText()}
         </div>
         <div class="absolute bottom-0">
-          <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-search cursor-pointer" onclick={handleUp} />
-          </div>
           <div class="ml-[12px] mb-[12px]">
             <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
           </div>
@@ -108,9 +115,6 @@ export const Toolbar: Component = () => {
             <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
           </div>
           <Show when={userStore.getUserMaybe()}>
-            {/* <div class="ml-[12px] mb-[12px]">
-              <i class="fa fa-cog cursor-pointer" onclick={handleUp} />
-            </div> */}
             <div class="ml-[12px] mb-[12px]">
               <i class="fa fa-home cursor-pointer" onclick={handleHome} />
             </div>

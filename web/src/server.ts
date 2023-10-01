@@ -29,6 +29,18 @@ export interface ItemsAndTheirAttachments {
   attachments: { [id: string]: Array<object> }
 }
 
+export interface SearchResult {
+  id: string,
+  parentPath: Array<FindPathElement>,
+  textContext: string,
+}
+
+export interface FindPathElement {
+  itemType: string,
+  title?: string,
+  id: Uid,
+}
+
 export const GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY = "children-and-their-attachments-only";
 export const GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS = "item-attachments-children-and-their-attachments";
 export const GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY = "item-and-attachments-only";
@@ -65,6 +77,11 @@ export const server = {
 
   deleteItem: async (id: Uid): Promise<void> => {
     await sendCommand(null, "delete-item", { id }, null, true);
+  },
+
+  search: async (text: String): Promise<Array<SearchResult>> => {
+    let result = await sendCommand(null, "search", { text }, null, true);
+    return result;
   }
 }
 

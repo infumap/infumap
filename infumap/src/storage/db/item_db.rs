@@ -278,6 +278,13 @@ impl ItemDb {
     Ok(children)
   }
 
+  pub fn get_children_ids(&self, parent_id: &Uid) -> InfuResult<Vec<String>> {
+    let children = self.children_of
+      .get(parent_id)
+      .unwrap_or(&vec![]).iter().map(|c| (*c).clone()).collect();
+    Ok(children)
+  }
+
   pub fn get_attachments(&self, parent_id: &Uid) -> InfuResult<Vec<&Item>> {
     let owner_id = self.owner_id_by_item_id.get(parent_id)
       .ok_or(format!("Unknown item '{}' - corresponding user item store may not be loaded.", parent_id))?;
@@ -289,6 +296,13 @@ impl ItemDb {
       .iter().map(|id| store.get(&id)).collect::<Option<Vec<&Item>>>()
       .ok_or(format!("One or more attachments of '{}' are missing.", parent_id))?;
     Ok(attachments)
+  }
+
+  pub fn get_attachment_ids(&self, parent_id: &Uid) -> InfuResult<Vec<String>> {
+    let children = self.attachments_of
+      .get(parent_id)
+      .unwrap_or(&vec![]).iter().map(|a| (*a).clone()).collect();
+    Ok(children)
   }
 
   pub fn all_loaded_items(&self) -> Vec<ItemAndUserId> {

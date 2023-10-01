@@ -20,13 +20,10 @@ import { Component, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
-import { InfuIconButton } from "../library/InfuIconButton";
 import { BooleanSignal } from "../../util/signals";
 import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { asNoteItem } from "../../items/note-item";
-import { NoteFlags } from "../../items/base/flags-item";
 import { arrange } from "../../layout/arrange";
-import { InfuTextInput } from "../library/InfuTextInput";
 import { LastMouseMoveEventState } from "../../mouse/state";
 
 

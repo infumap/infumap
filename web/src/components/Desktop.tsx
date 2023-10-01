@@ -41,6 +41,7 @@ import { mouseDownHandler } from "../mouse/mouse_down";
 import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
 import { LastMouseMoveEventState } from "../mouse/state";
 import { arrange } from "../layout/arrange";
+import { SearchOverlay } from "./overlay/SearchOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -272,6 +273,9 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       <EditDialog />
       <Show when={desktopStore.textEditOverlayInfo() != null}>
         <TextEditOverlay />
+      </Show>
+      <Show when={desktopStore.searchOverlayVisible()}>
+        <SearchOverlay />
       </Show>
     </div>
   );

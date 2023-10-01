@@ -45,6 +45,9 @@ export interface DesktopStoreContextModel {
   textEditOverlayInfo: Accessor<EditOverlayInfo | null>,
   setTextEditOverlayInfo: Setter<EditOverlayInfo | null>,
 
+  searchOverlayVisible: Accessor<boolean>,
+  setSearchOverlayVisible: Setter<boolean>,
+
   itemIsMoving: Accessor<boolean>,
   setItemIsMoving: Setter<boolean>,
 
@@ -119,6 +122,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
   const [textEditOverlayInfo, setTextEditOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
+  const [searchOverlayVisible, setSearchOverlayVisible] = createSignal<boolean>(false, { equals: false });
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
@@ -293,6 +297,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     editDialogInfo, setEditDialogInfo,
     contextMenuInfo, setContextMenuInfo,
     textEditOverlayInfo, setTextEditOverlayInfo,
+    searchOverlayVisible, setSearchOverlayVisible,
     getTableScrollYPos, setTableScrollYPos,
     getSelectedListPageItem, setSelectedListPageItem,
     getPageScrollXProp, setPageScrollXProp,
