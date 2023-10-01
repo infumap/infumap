@@ -346,6 +346,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                       `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
               onscroll={popupScrollHandler}>
+            <div class="absolute" style={`color: ${fullTitleColor()}; font-size: 20px; font-weight: bold; width: ${childAreaBoundsPx().w}px; text-align: center; pointer-events: none;`}>
+              {pageItem().title}
+            </div>
             <div class="absolute"
                  style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
                         `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
@@ -357,9 +360,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
-          <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px] cursor-pointer" onClick={popupTitleClickHandler}>
+          {/* <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px] cursor-pointer" onClick={popupTitleClickHandler}>
             {pageItem().title == "" ? "[empty]" : pageItem().title}
-          </div>
+          </div> */}
           <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
             <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>
               <i class={`fa fa-anchor`} />
@@ -374,6 +377,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.05)}; `;
   }
 
+  const fullTitleColor = () => {
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
+  }
+
   const lineVes = () => props.visualElement.children.filter(c => c.get().flags & VisualElementFlags.LineItem);
   const desktopVes = () => props.visualElement.children.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
   const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
@@ -382,6 +389,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${(props.visualElement.flags & VisualElementFlags.Root) ? fullBgColorVal() : "#ffffff"}`}>
+        <div class="absolute" style={`color: ${fullTitleColor()}; font-size: 30px; font-weight: bold; width: ${boundsPx().w}px; text-align: center; pointer-events: none;`}>
+          {pageItem().title}
+        </div>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>

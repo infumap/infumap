@@ -97,37 +97,36 @@ export const Toolbar: Component = () => {
                  `${hexToRGBA(Colors[bgColIdx()], 0.786)}, ` +
                  `${hexToRGBA(Colors[bgColIdx()], 0.864)}); ` +
                  `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
-        <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[5px]" /></a>
-        <div class="ml-[12px] mb-[2px] mt-[24px]">
+        <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[6px]" /></a>
+        <Show when={userStore.getUserMaybe()}>
+          <div class="ml-[11px] mt-[12px]">
+            <i class="fa fa-home cursor-pointer" onclick={handleHome} />
+          </div>
+        </Show>
+        <div class="ml-[11px] mt-[12px]">
+          <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
+        </div>
+        <div class="ml-[11px] mt-[12px]">
+          <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
+        </div>
+        <div class="ml-[11px] mt-[12px]">
           <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
         </div>
-        <div class="ml-[12px] mb-[4px]">
+        {/* <div class="ml-[11px] mt-[10px] mb-[12px]">
           <i class="fa fa-cog cursor-pointer" onclick={titleClick} />
-        </div>
-        <div class="mt-[12px] uppercase rotate-90 whitespace-pre text-[22px]">
-          {titleText()}
-        </div>
-        <div class="absolute bottom-0">
-          <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
-          </div>
-          <div class="ml-[12px] mb-[12px]">
-            <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
-          </div>
-          <Show when={userStore.getUserMaybe()}>
-            <div class="ml-[12px] mb-[12px]">
-              <i class="fa fa-home cursor-pointer" onclick={handleHome} />
-            </div>
-            <div class="ml-[12px] mb-[12px]">
-              <i class="fa fa-user cursor-pointer" onclick={logout!} />
-            </div>
-          </Show>
-          <Show when={!userStore.getUserMaybe()}>
-            <div class="ml-[12px] mb-[12px]">
+        </div> */}
+      <div class="absolute bottom-0">
+      <Show when={!userStore.getUserMaybe()}>
+            <div class="ml-[11px] mt-[12px] mb-[12px]">
               <i class="fa fa-sign-in cursor-pointer" onclick={handleLogin} />
             </div>
           </Show>
-        </div>
+        <Show when={userStore.getUserMaybe()}>
+          <div class="ml-[12px] mt-[12px] mb-[12px]">
+            <i class="fa fa-user cursor-pointer" onclick={logout!} />
+          </div>
+        </Show>
+      </div>
       </div>
     </Show>
   );
