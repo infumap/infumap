@@ -34,16 +34,17 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
   tree comprising solidjs signals which the dom then micro-reactively 
   responds to when they change. the key benefit of the approach is that 
   in many scenarios, i could call an alternative method "arrangeWithId" or 
-  some other yet to be written variant, which bypasses almost all of the 
-  diffing computation. This should make most animation / visual mouse 
-  interaction super performant. The reason i need the full diffing is 
-  that sometimes a change to one item could impact the arrangement of 
-  many others in complex ways. but in such cases i don't want to wipe 
-  away all existing dom elements and replace them.
+  some other variant, which bypasses almost all of the diffing computation.
+  This should make most animation / visual mouse interaction super
+  performant. The reason i need the full diffing is that sometimes a
+  change to one item could impact the arrangement of many others in complex
+  ways. but in such cases i don't want to wipe away all existing dom
+  elements and replace them.
 */
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let newCache = new Map<VisualElementPath, VisualElementSignal>();
+let evaluationRequired = new Set<VisualElementPath>();
 
 export let VesCache = {
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
@@ -63,6 +64,7 @@ export let VesCache = {
 
   initFullArrange: (): void => {
     newCache = new Map<VisualElementPath, VisualElementSignal>();
+    evaluationRequired = new Set<VisualElementPath>();
   },
 
   finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, desktopStore: DesktopStoreContextModel): void => {
@@ -90,7 +92,17 @@ export let VesCache = {
       }
     }
     throwExpression(`${veid} not present in VesCache.`);
-  }
+  },
+
+  markEvaluationRequired: (path: VisualElementPath): void => {
+    evaluationRequired.add(path);
+  },
+
+  getEvaluationRequired: (): Array<VisualElementPath> => {
+    let result: Array<VisualElementPath> = [];
+    evaluationRequired.forEach(s => result.push(s));
+    return result;
+  },
 }
 
 

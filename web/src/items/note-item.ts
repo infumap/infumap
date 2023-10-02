@@ -238,7 +238,11 @@ export const NoteFns = {
 
   getFingerprint: (noteItem: NoteItem): string => {
     return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags;
-  }  
+  },
+
+  isExpression: (noteItem: NoteItem): boolean => {
+    return noteItem.title.startsWith("=");
+  },
 };
 
 

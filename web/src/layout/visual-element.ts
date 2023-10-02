@@ -109,6 +109,8 @@ export interface VisualElement {
 
   parentPath: VisualElementPath | null,
 
+  evaluatedTitle: string | null,
+
   /**
    * Anything from displayItem that would require a re-render if changed.
    * Manage this explicitly to avoid a costly comparison of all displayItem properties.
@@ -147,6 +149,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   children: [],
   attachments: [],
   parentPath: null,
+  evaluatedTitle: null,
 
   displayItemFingerprint: "",
 
@@ -194,6 +197,7 @@ export const VeFns = {
       children: [],
       attachments: [],
       parentPath: null,
+      evaluatedTitle: null,
   
       displayItemFingerprint: "",
   

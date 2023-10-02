@@ -38,6 +38,7 @@ import { ItemGeometry } from "../item-geometry";
 import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
+import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 
 
 export const arrangeItem = (
@@ -494,6 +495,13 @@ const arrangeItemNoChildren = (
   itemVisualElement.attachments = arrangeItemAttachments(desktopStore, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
   const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
+
+  if (isNote(item)) {
+    const noteItem = asNoteItem(item);
+    if (NoteFns.isExpression(noteItem)) {
+      VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));
+    }
+  }
 
   return itemVisualElementSignal;
 }

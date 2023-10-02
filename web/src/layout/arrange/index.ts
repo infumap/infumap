@@ -16,12 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { ExpressionToken, ExpressionTokenType, tokenize } from "../../eval/tokenize";
+import { asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
 import { panic } from "../../util/lang";
+import { findClosest } from "../find";
 import { initiateLoadChildItemsMaybe } from "../load";
+import { VesCache } from "../ves-cache";
+import { VisualElementPath } from "../visual-element";
 import { arrange_grid } from "./topLevel/grid";
 import { arrange_list } from "./topLevel/list";
 import { arrange_spatialStretch } from "./topLevel/spatial";
@@ -36,15 +41,15 @@ import { arrange_spatialStretch } from "./topLevel/spatial";
  * implementation, all the items were solidjs signals (whereas in the current approach they are not). The functional
  * approach was simpler from the point of view that the visual element tree did not need to be explicitly updated /
  * managed. However, it turned out to be a dead end:
- * 1. It was effectively impossible to perfectly optimize it in the case of resizing page items (and probably other
- *    scenarios) because the set of children were a function of page size. By comparison, as a general comment, the
- *    stateful approach makes it easy(er) to make precisely the optimal updates at precisely the required times.
- * 2. The visual element tree state is required for mouse interaction as well as rendering, and it was messy to
+ * 1. The visual element tree state is required for mouse interaction as well as rendering, and it was messy to
  *    create a cached version of this as a side effect of the functional arrange method. And there were associated
  *    bugs, which were not trivial to track down.
+ * 2. It was effectively impossible to perfectly optimize it in the case of resizing page items (and probably other
+ *    scenarios) because the set of children were a function of page size. By comparison, as a general comment, the
+ *    stateful approach makes it easy(er) to make precisely the optimal updates at precisely the required times.
  * 3. The functional represenation was not straightforward (compared to the current approach) to reason about -
  *    you need to be very congisant of functional dependencies, what is being captured etc. Even though the direct
- *    approach is more ad-hoc / less "automated", I think the code is simpler to work on due to this.
+ *    approach is more ad-hoc / less "automated", the code is simpler to work on due to this.
  */
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
@@ -65,5 +70,43 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
       panic();
   }
 
+  evaluate();
+
   mouseMove_handleNoButtonDown(desktopStore);
+}
+
+function evaluate() {
+  for (let path of VesCache.getEvaluationRequired()) {
+    const noteItem = asNoteItem(VesCache.get(path)!.get().displayItem);
+    const equation = noteItem.title;
+    const tokens = tokenize(equation);
+    if (tokens == null) { continue; }
+    const leftValue = evaluateCell(path, tokens[0]);
+    const rightValue = evaluateCell(path, tokens[2]);
+    let result = 0;
+    if (tokens[1].operator == "-") { result = leftValue - rightValue; }
+    if (tokens[1].operator == "+") { result = leftValue + rightValue; }
+    if (tokens[1].operator == "*") { result = leftValue * rightValue; }
+    if (tokens[1].operator == "/") { result = leftValue / rightValue; }
+    const ves = VesCache.get(path)!;
+    ves.get().evaluatedTitle = result.toString();
+    ves.set(ves.get());
+  }
+}
+
+function evaluateCell(path: VisualElementPath, token: ExpressionToken): number {
+  if (token.tokenType == ExpressionTokenType.RelativeReference) {
+    for (let i=0; i<token.referenceFindOffset!; ++i) {
+      path = findClosest(path, token.referenceFindDirection!, true)!;
+    }
+    const ve = VesCache.get(path)!.get();
+    if (!isNote(ve.displayItem)) { return 0; }
+    return parseFloat(asNoteItem(ve.displayItem).title);
+  } else if (token.tokenType == ExpressionTokenType.AbsoluteReference) {
+    const ve = VesCache.get(token.reference!)!.get();
+    if (!isNote(ve.displayItem)) { return 0; }
+    return parseFloat(asNoteItem(ve.displayItem).title);
+  } else {
+    panic();
+  }
 }

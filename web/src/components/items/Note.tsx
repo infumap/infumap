@@ -122,11 +122,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                class={`text-blue-800`}
                style={"-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;"}
                onMouseDown={aMouseDown}>
-                {noteItem().title}
+                {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
             </a>
           </Show>
           <Show when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-            <span>{noteItem().title}</span>
+            <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
           </Show>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
@@ -205,7 +205,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
            style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                   `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>{noteItem().title}</span>
+        <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>
+          {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+        </span>
       </div>
       <Show when={showCopyIcon()}>
         <div class="absolute text-center text-slate-600"

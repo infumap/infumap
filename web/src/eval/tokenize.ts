@@ -24,23 +24,23 @@ import { EMPTY_UID } from "../util/uid";
 // TODO (LOW): write the expression evaluation in Rust. This is just a first trivial version.
 
 
-enum TokenType {
+export enum ExpressionTokenType {
   AbsoluteReference,
   RelativeReference,
   Operator,
 }
 
 // TODO (LOW): something not flat.
-interface Token {
-  tokenType: TokenType,
+export interface ExpressionToken {
+  tokenType: ExpressionTokenType,
   operator: string | null,
   referenceFindDirection: FindDirection | null,
   referenceFindOffset: number | null,
   reference: string | null,
 }
 
-export function tokenize(expression: string): Array<Token> {
-  if (!expression.startsWith("=")) { throwExpression("expression does not start with '='."); }
+export function tokenize(expression: string): Array<ExpressionToken> | null {
+  if (!expression.startsWith("=")) { return null; }
   expression = expression.substring(1);
 
   const parts = expression.split(/[\+\-\*\/]/).map(part => part.replace(" ", ""));
@@ -49,28 +49,33 @@ export function tokenize(expression: string): Array<Token> {
     if (expression.indexOf("+") != -1) { return "+"; }
     if (expression.indexOf("*") != -1) { return "*"; }
     if (expression.indexOf("/") != -1) { return "/"; }
-    throwExpression("no operator.");
+    return null;
   })();
 
-  return [
-    createReferenceToken(parts[0]),
-    {
-      tokenType: TokenType.Operator,
-      operator,
-      reference: null,
-      referenceFindDirection: null,
-      referenceFindOffset: null
-    },
-    createReferenceToken(parts[1])
-  ];
+  try {
+    return [
+      createReferenceToken(parts[0]),
+      {
+        tokenType: ExpressionTokenType.Operator,
+        operator,
+        reference: null,
+        referenceFindDirection: null,
+        referenceFindOffset: null
+      },
+      createReferenceToken(parts[1])
+    ];
+  }
+  catch (_) {
+    return null;
+  }
 }
 
-function createReferenceToken(s: string): Token {
+function createReferenceToken(s: string): ExpressionToken {
   if (!s.startsWith("$")) { throwExpression("invalid reference"); }
   s = s.substring(1);
   if (s.length == EMPTY_UID.length) {
     return ({
-      tokenType: TokenType.AbsoluteReference,
+      tokenType: ExpressionTokenType.AbsoluteReference,
       operator: null,
       referenceFindDirection: null,
       referenceFindOffset: null,
@@ -79,7 +84,7 @@ function createReferenceToken(s: string): Token {
   }
   if (s.length < 2) { throwExpression("invalid reference - not long enough"); }
   return ({
-    tokenType: TokenType.RelativeReference,
+    tokenType: ExpressionTokenType.RelativeReference,
     operator: null,
     reference: null,
     referenceFindDirection: findDirectionFromLetterPrefix(s[0]),
