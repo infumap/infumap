@@ -32,11 +32,13 @@ import { BoundingBox, desktopPxFromMouseEvent, isInside } from "../../util/geome
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
-import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { LastMouseMoveEventState } from "../../mouse/state";
 import { FindDirection, findClosest } from "../../layout/find";
 import { getTextStyleForNote } from "../../layout/text";
+import { newOrdering } from "../../util/ordering";
+import { asPositionalItem } from "../../items/base/positional-item";
 
 
 export const TextEditOverlay: Component = () => {
@@ -287,14 +289,37 @@ export const TextEditOverlay: Component = () => {
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (!isComposite(parentVe.displayItem)) { return; }
-    const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
-    const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
-    itemState.add(note);
-    await server.addItem(note, null);
-    arrange(desktopStore);
-    const noteItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
-    desktopStore.setTextEditOverlayInfo({ noteItemPath });
+    if (isComposite(parentVe.displayItem)) {
+      const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
+      const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
+      itemState.add(note);
+      await server.addItem(note, null);
+      arrange(desktopStore);
+      const noteItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
+      desktopStore.setTextEditOverlayInfo({ noteItemPath });
+      return;
+    } else {
+      // if the note item is in a link, create the new composite under the item's (as opposed to the link item's) parent.
+      const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
+      const spatialWidthGr = asXSizableItem(ve.displayItem).spatialWidthGr;
+      const composite = CompositeFns.create(ve.displayItem.ownerId, ve.displayItem.parentId, ve.displayItem.relationshipToParent, ve.displayItem.ordering);
+      composite.spatialPositionGr = spatialPositionGr;
+      composite.spatialWidthGr = spatialWidthGr;
+      itemState.add(composite);
+      await server.addItem(composite, null);
+      itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
+      await server.updateItem(ve.displayItem);
+
+      const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
+      const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
+      itemState.add(note);
+      await server.addItem(note, null);
+
+      desktopStore.setTextEditOverlayInfo(null);
+      arrange(desktopStore);
+      const newVes = VesCache.find(VeFns.veidFromItems(note, null));
+      desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(newVes.get()) });
+    }
   };
 
   const style = () => getTextStyleForNote(noteItem().flags);

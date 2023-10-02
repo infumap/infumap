@@ -19,10 +19,10 @@
 import { ItemFns } from "../items/base/item-polymorphism";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
-import { panic } from "../util/lang";
+import { panic, throwExpression } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { HitboxFns } from "./hitbox";
-import { VeFns, VisualElementPath, VisualElementSpec } from "./visual-element";
+import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-element";
 
 /*
   Explanation:
@@ -80,6 +80,16 @@ export let VesCache = {
    */
   createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
+  },
+
+  find: (veid: Veid): VisualElementSignal => {
+    for (let key of currentVesCache.keys()) {
+      let v = VeFns.veidFromPath(key);
+      if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
+        return currentVesCache.get(key)!;
+      }
+    }
+    throwExpression(`${veid} not present in VesCache.`);
   }
 }
 
