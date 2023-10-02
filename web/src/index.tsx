@@ -29,7 +29,6 @@ import { UserStoreProvider } from './store/UserStoreProvider';
 // import { testOrdering } from './util/ordering';
 // testOrdering();
 
-
 render(() => (
   <DesktopStoreProvider>
     <UserStoreProvider>

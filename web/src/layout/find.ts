@@ -31,19 +31,20 @@ export enum FindDirection {
   Down
 }
 
+export function findDirectionFromLetterPrefix(prefix: string): FindDirection {
+  prefix = prefix.toUpperCase();
+  if (prefix == "L") { return FindDirection.Left; }
+  if (prefix == "R") { return FindDirection.Right; }
+  if (prefix == "U") { return FindDirection.Up; }
+  if (prefix == "D") { return FindDirection.Down; }
+  panic();
+}
+
 export function findDirectionFromKeyCode(code: string): FindDirection {
-  if (code ==  "ArrowLeft") {
-    return FindDirection.Left;
-  }
-  if (code == "ArrowRight") {
-    return FindDirection.Right;
-  }
-  if (code == "ArrowUp") {
-    return FindDirection.Up;
-  }
-  if (code == "ArrowDown") {
-    return FindDirection.Down;
-  }
+  if (code ==  "ArrowLeft") { return FindDirection.Left; }
+  if (code == "ArrowRight") { return FindDirection.Right; }
+  if (code == "ArrowUp") { return FindDirection.Up; }
+  if (code == "ArrowDown") { return FindDirection.Down; }
   panic();
 }
 
