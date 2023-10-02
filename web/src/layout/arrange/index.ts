@@ -77,7 +77,9 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 
 function evaluate() {
   for (let path of VesCache.getEvaluationRequired()) {
-    const noteItem = asNoteItem(VesCache.get(path)!.get().displayItem);
+    const ves = VesCache.get(path)!;
+    const ve = ves.get();
+    const noteItem = asNoteItem(ve.displayItem);
     const equation = noteItem.title;
     const tokens = tokenize(equation);
     if (tokens == null) { continue; }
@@ -88,22 +90,25 @@ function evaluate() {
     if (tokens[1].operator == "+") { result = leftValue + rightValue; }
     if (tokens[1].operator == "*") { result = leftValue * rightValue; }
     if (tokens[1].operator == "/") { result = leftValue / rightValue; }
-    const ves = VesCache.get(path)!;
-    ves.get().evaluatedTitle = result.toString();
-    ves.set(ves.get());
+    ve.evaluatedTitle = result.toString();
+    ves.set(ve);
   }
 }
 
 function evaluateCell(path: VisualElementPath, token: ExpressionToken): number {
   if (token.tokenType == ExpressionTokenType.RelativeReference) {
     for (let i=0; i<token.referenceFindOffset!; ++i) {
-      path = findClosest(path, token.referenceFindDirection!, true)!;
+      const pathMaybe = findClosest(path, token.referenceFindDirection!, true);
+      if (pathMaybe == null) { return 0; }
+      path = pathMaybe;
     }
     const ve = VesCache.get(path)!.get();
     if (!isNote(ve.displayItem)) { return 0; }
     return parseFloat(asNoteItem(ve.displayItem).title);
   } else if (token.tokenType == ExpressionTokenType.AbsoluteReference) {
-    const ve = VesCache.get(token.reference!)!.get();
+    const vesMaybe = VesCache.get(token.reference!);
+    if (vesMaybe == null) { return 0; }
+    const ve = vesMaybe.get();
     if (!isNote(ve.displayItem)) { return 0; }
     return parseFloat(asNoteItem(ve.displayItem).title);
   } else {
