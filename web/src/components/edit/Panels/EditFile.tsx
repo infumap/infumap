@@ -34,7 +34,7 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
 
   const handleTextInput = (v: string) => {
     asFileItem(itemState.get(fileId)!).title = v;
-    // rearrangeVisualElementsWithItemId(desktopStore, fileId);
+    // rearrangeVisualElementsWithItemId(desktopStore, fileId); TODO (MEDIUM): use VesCache for this now.
     arrange(desktopStore);
   };
 

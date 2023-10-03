@@ -24,7 +24,7 @@ import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-it
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, PageFns } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { DesktopStoreContextModel, findVisualElements } from "../store/DesktopStoreProvider";
+import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
@@ -181,7 +181,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
           itemState.add(link);
           server.addItem(link, null);
           arrange(desktopStore);
-          let ve = findVisualElements(desktopStore, activeItem.id, link.id);
+          let ve = VesCache.find({ itemId: activeItem.id, linkIdMaybe: link.id});
           if (ve.length != 1) { panic(); }
           MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
         }
@@ -395,11 +395,8 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
 function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeElement));
-  const activeElementLinkItemMaybeId = activeElement.linkItemMaybe == null ? null : activeElement.linkItemMaybe.id;
-  const activeElementItemId = activeElement.displayItem.id;
+  const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
-  const currentParent = itemState.get(activeItem.parentId)!;
   const moveToPage = asPageItem(moveToVe.displayItem);
   const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(moveToVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
@@ -407,7 +404,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
     y: Math.round((desktopPx.y - moveToPageAbsoluteBoundsPx.y) / moveToPageAbsoluteBoundsPx.h * moveToPageInnerSizeBl.h * 2.0) / 2.0
   };
-  const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(activeItem);
+  const activeItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(canonicalActiveItem);
   const clickOffsetInActiveItemBl = relationshipToParent == RelationshipToParent.Child
     ? { x: Math.round(activeItemDimensionsBl.w * MouseActionState.get().clickOffsetProp!.x * 2.0) / 2.0,
         y: Math.round(activeItemDimensionsBl.h * MouseActionState.get().clickOffsetProp!.y * 2.0) / 2.0 }
@@ -418,38 +415,31 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
   MouseActionState.get().startPosBl = startPosBl;
   const moveToPath = VeFns.veToPath(moveToVe);
 
-  let oldActiveItemOrdering = activeItem.ordering;
-  activeItem.parentId = moveToVe.displayItem.id;
-  activeItem.ordering = itemState.newOrderingAtEndOfChildren(moveToVe.displayItem.id);
-  activeItem.spatialPositionGr = newItemPosGr;
-  activeItem.relationshipToParent = RelationshipToParent.Child;
-  moveToPage.computed_children = [activeItem.id, ...moveToPage.computed_children];
-  if (relationshipToParent == RelationshipToParent.Child) {
-    asContainerItem(currentParent).computed_children
-      = asContainerItem(currentParent).computed_children.filter(childItem => childItem != activeItem.id);
-  }
-  else if (relationshipToParent == RelationshipToParent.Attachment) {
-    const parent = asAttachmentsItem(currentParent);
-    const isLast = parent.computed_attachments[asAttachmentsItem(currentParent).computed_attachments.length-1] == activeItem.id;
-    parent.computed_attachments = parent.computed_attachments.filter(childItem => childItem != activeItem.id);
+  if (relationshipToParent == RelationshipToParent.Attachment) {
+    const oldActiveItemOrdering = canonicalActiveItem.ordering;
+    const parent = asAttachmentsItem(itemState.get(canonicalActiveItem.parentId)!);
+    const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length-1] == canonicalActiveItem.id;
     if (!isLast) {
-      const placeholderItem = PlaceholderFns.create(activeItem.ownerId, currentParent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
+      const placeholderItem = PlaceholderFns.create(canonicalActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
       itemState.add(placeholderItem);
       MouseActionState.get().newPlaceholderItem = placeholderItem;
     }
     MouseActionState.get().startAttachmentsItem = parent;
   }
 
+  canonicalActiveItem.spatialPositionGr = newItemPosGr;
+  itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
+
   arrange(desktopStore);
 
   let done = false;
-  findVisualElements(desktopStore, activeElementItemId, activeElementLinkItemMaybeId).forEach(ve => {
+  VesCache.find(VeFns.veidFromVe(activeElement)).forEach(ve => {
     if (ve.get().parentPath == moveToPath) {
       MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
       let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
       MouseActionState.get().onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsPx.w,
-        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsPx.h
+        x: ItemFns.calcSpatialDimensionsBl(canonicalActiveItem).w / boundsPx.w,
+        y: ItemFns.calcSpatialDimensionsBl(canonicalActiveItem).h / boundsPx.h
       };
       done = true;
     }
@@ -459,7 +449,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
   }
 
   done = false;
-  findVisualElements(desktopStore, moveToVe.displayItem.id, moveToVe.linkItemMaybe == null ? null : moveToVe.linkItemMaybe.id).forEach(ve => {
+  VesCache.find({ itemId: moveToVe.displayItem.id, linkIdMaybe: moveToVe.linkItemMaybe == null ? null : moveToVe.linkItemMaybe.id }).forEach(ve => {
     if (VeFns.veToPath(ve.get()) == moveToPath) {
       MouseActionState.get().moveOver_scaleDefiningElement = VeFns.veToPath(ve.get());
       done = true;
@@ -504,7 +494,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
 
   let done = false;
   let otherVes = [];
-  findVisualElements(desktopStore, activeVisualElement.displayItem.id, activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id).forEach(ve => {
+  VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id }).forEach(ve => {
     if (ve.get().parentPath == tableParentVisualPathString) {
       MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
       let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;

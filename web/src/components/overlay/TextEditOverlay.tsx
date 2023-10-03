@@ -317,7 +317,7 @@ export const TextEditOverlay: Component = () => {
 
       desktopStore.setTextEditOverlayInfo(null);
       arrange(desktopStore);
-      const newVes = VesCache.find(VeFns.veidFromItems(note, null));
+      const newVes = VesCache.findSingle(VeFns.veidFromItems(note, null));
       desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(newVes.get()) });
     }
   };

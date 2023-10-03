@@ -34,7 +34,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
 
   const handleTitleChange = (v: string) => {
     asImageItem(itemState.get(imageId)!).title = v;
-    // rearrangeVisualElementsWithItemId(desktopStore, imageId);
+    // rearrangeVisualElementsWithItemId(desktopStore, imageId); TODO (MEDIUM): use VesCache for this now.
     arrange(desktopStore);
   };
 

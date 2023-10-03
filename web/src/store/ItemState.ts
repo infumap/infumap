@@ -268,5 +268,11 @@ export const itemState = {
         prevParent.computed_attachments = prevParent.computed_attachments.filter(i => i != item.id);
       }
     }
-  }
+  },
+
+  debugLog: (): void => {
+    console.log("--- start item state list");
+    for (let v of items) { console.log("id: " + v[0] + ", pid: " + v[1].parentId); }
+    console.log("--- end item state list");
+  },
 }

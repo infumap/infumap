@@ -208,7 +208,7 @@ const arrangePageWithChildren = (
         const itemGeometry = ItemFns.calcGeometry_Spatial(
           childItem, zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren), isPagePopup, true);
-        return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false);
+        return arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false);
       } else {
         const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);

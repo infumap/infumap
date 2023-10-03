@@ -84,14 +84,32 @@ export let VesCache = {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
   },
 
-  find: (veid: Veid): VisualElementSignal => {
+  find: (veid: Veid): Array<VisualElementSignal> => {
+    const result = [];
     for (let key of currentVesCache.keys()) {
       let v = VeFns.veidFromPath(key);
       if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
-        return currentVesCache.get(key)!;
+        result.push(currentVesCache.get(key)!);
       }
     }
-    throwExpression(`${veid} not present in VesCache.`);
+    return result;
+  },
+
+  findSingle: (veid: Veid): VisualElementSignal => {
+    let result: VisualElementSignal | null = null;
+    for (let key of currentVesCache.keys()) {
+      let v = VeFns.veidFromPath(key);
+      if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
+        if (result != null) {
+          throwExpression(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
+        }
+        result = currentVesCache.get(key)!;
+      }
+    }
+    if (result == null) {
+      throwExpression(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
+    }
+    return result;
   },
 
   markEvaluationRequired: (path: VisualElementPath): void => {
@@ -103,6 +121,12 @@ export let VesCache = {
     evaluationRequired.forEach(s => result.push(s));
     return result;
   },
+
+  debugLog: (): void => {
+    console.log("--- start ves cache entry list");
+    for (let v of currentVesCache) { console.log(v[0]); }
+    console.log("--- end ves cache entry list");
+  }
 }
 
 
@@ -111,7 +135,7 @@ function createOrRecycleVisualElementSignalImpl (
     path: VisualElementPath,
     alwaysUseVes?: VisualElementSignal): VisualElementSignal {
 
-  const debug = false; // veidFromPath(path).itemId == "<id of item of interest here>";
+  const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
   if (visualElementOverride.displayItemFingerprint) { panic(); }
   // TODO(LOW): Modifying the input object is a bit dirty.
