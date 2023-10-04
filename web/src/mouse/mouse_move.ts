@@ -321,6 +321,8 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
 
   if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
     moving_activeItemToPage(hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
+    arrange(desktopStore);
+    return;
   }
 
   if (isTable(hitInfo.overContainerVe!.displayItem)) {
@@ -342,7 +344,6 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-  console.log("new move pos:", activeItem.spatialPositionGr);
   arrange(desktopStore);
 }
 
@@ -427,7 +428,6 @@ function moving_activeItemToPage(moveToVe: VisualElement, desktopPx: Vector, rel
     MouseActionState.get().startAttachmentsItem = parent;
   }
 
-  console.log("move to new page location:", newItemPosGr);
   canonicalActiveItem.spatialPositionGr = newItemPosGr;
   itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
 
