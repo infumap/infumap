@@ -192,6 +192,7 @@ export const CompositeFns = {
       boundsPx: cloneBoundingBox(boundsPx)!,
       hitboxes: [
         HitboxFns.create(HitboxType.Click, innerBoundsPx),
+        HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ]
     });
   },
