@@ -66,7 +66,8 @@ export const SearchOverlay: Component = () => {
   });
 
   const handleSearchClick = async () => {
-    const result = await server.search(textElement!.value);
+    const pageId = desktopStore.currentPage()!.itemId;
+    const result = await server.search(pageId, textElement!.value);
     resultsSignal.set(result);
   };
 
