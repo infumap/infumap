@@ -29,6 +29,7 @@ import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { Toolbar } from "./toolbar/Toolbar";
+import { PageFns } from "../items/page-item";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -61,8 +62,8 @@ export const Main: Component = () => {
         itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId]);
       }
       childrenLoadInitiatedOrComplete[pageId] = true;
-
       itemState.setChildItemsFromServerObjects(pageId, result.children);
+      PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, { itemId: pageId, linkIdMaybe: null });
       Object.keys(result.attachments).forEach(id => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });

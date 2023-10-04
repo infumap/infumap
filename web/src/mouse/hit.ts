@@ -212,6 +212,7 @@ export function getHitInfo(
 
     // handle inside a composite item.
     if (isComposite(childVisualElement.displayItem) &&
+        !(childVisualElement.flags & VisualElementFlags.LineItem) &&
         isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) {
       const compositeVes = childVisualElementSignal;
       const compositeVe = childVisualElement;

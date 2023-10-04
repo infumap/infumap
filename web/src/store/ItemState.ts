@@ -109,8 +109,6 @@ export const itemState = {
 
   /**
    * Set all the child items of a container.
-   * Special Case (for efficiency): If the container is the root page, then the child items list contains
-   *  the root page item as well.
    *
    * @param parentId The id of the parent to set child items of.
    * @param childItems The child items.
@@ -129,17 +127,14 @@ export const itemState = {
     const parent = itemState.getAsContainerItem(parentId)!;
     let children: Array<Uid> = [];
     childItems.forEach(childItem => {
-      if (childItem.parentId == EMPTY_UID) {
-        if (childItem.relationshipToParent != RelationshipToParent.NoParent) { panic(); }
-      } else {
-        if (childItem.parentId != parentId) {
-          throwExpression(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
-        }
-        if (childItem.relationshipToParent != RelationshipToParent.Child) {
-          throwExpression(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
-        }
-        children.push(childItem.id);
+      if (childItem.parentId == EMPTY_UID) { panic(); }
+      if (childItem.parentId != parentId) {
+        throwExpression(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
       }
+      if (childItem.relationshipToParent != RelationshipToParent.Child) {
+        throwExpression(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
+      }
+      children.push(childItem.id);
     });
     parent.computed_children = children;
     itemState.sortChildren(parentId);

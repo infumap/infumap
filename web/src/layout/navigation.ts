@@ -47,18 +47,6 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: 
   desktopStore.pushPage(veid);
   arrange(desktopStore);
 
-  const currentPage = asPageItem(itemState.get(veid.itemId)!);
-  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
-    if (desktopStore.getSelectedListPageItem(veid) == "") {
-      if (currentPage.computed_children.length > 0) {
-        const firstItemId = currentPage.computed_children[0];
-        const veid = VeFns.veidFromId(firstItemId);
-        const path = VeFns.addVeidToPath(veid, currentPage.id);
-        desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, path);
-      }
-    }
-  }
-
   let desktopEl = window.document.getElementById("desktop")!;
 
   const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();

@@ -53,6 +53,7 @@ export const arrangeItem = (
   if (isPopup && !isLink(item)) { panic(); }
 
   const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(desktopStore, item);
+  const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
 
   if (renderChildrenAsFull &&
       (isPage(displayItem) &&
@@ -61,19 +62,19 @@ export const arrangeItem = (
             (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
           : // However, this test does.
             itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL))) {
-    initiateLoadChildItemsMaybe(desktopStore, displayItem.id);
+    initiateLoadChildItemsMaybe(desktopStore, itemVeid);
     return arrangePageWithChildren(
       desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot);
   }
 
   if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
-    initiateLoadChildItemsMaybe(desktopStore, displayItem.id);
+    initiateLoadChildItemsMaybe(desktopStore, itemVeid);
     return arrangeTable(
       desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry);
   }
 
   if (isComposite(displayItem)) {
-    initiateLoadChildItemsMaybe(desktopStore, displayItem.id);
+    initiateLoadChildItemsMaybe(desktopStore, itemVeid);
     return arrangeComposite(
       desktopStore, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry);
   }
@@ -389,9 +390,11 @@ const arrangeTable = (
     const childId = displayItem_Table.computed_children[idx];
     const childItem = itemState.get(childId)!;
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
+    const childVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
 
     if (isComposite(displayItem_childItem)) {
-      initiateLoadChildItemsMaybe(desktopStore, displayItem_childItem.id);
+
+      initiateLoadChildItemsMaybe(desktopStore, childVeid);
     }
 
     let widthBl = displayItem_Table.tableColumns.length == 1
@@ -428,9 +431,10 @@ const arrangeTable = (
         const attachmentId = attachmentsItem.computed_attachments[i];
         const attachmentItem = itemState.get(attachmentId)!;
         const { displayItem: displayItem_attachment, linkItemMaybe: linkItemMaybe_attachment } = getVePropertiesForItem(desktopStore, attachmentItem);
+        const attachment_veid = VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment);
 
         if (isComposite(displayItem_attachment)) {
-          initiateLoadChildItemsMaybe(desktopStore, displayItem_attachment.id);
+          initiateLoadChildItemsMaybe(desktopStore, attachment_veid);
         }
 
         const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl);

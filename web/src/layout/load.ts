@@ -25,23 +25,29 @@ import { asLinkItem } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
 import { arrange } from "./arrange";
+import { PageFns } from "../items/page-item";
+import { Veid } from "./visual-element";
 
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextModel, containerId: string) => {
-  if (childrenLoadInitiatedOrComplete[containerId]) { return; }
-  childrenLoadInitiatedOrComplete[containerId] = true;
+export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextModel, containerVeid: Veid) => {
+  if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
+    PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
+    return;
+  }
+  childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
 
-  server.fetchItems(`${containerId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
+  server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemState.setChildItemsFromServerObjects(containerId, result.children);
+          itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children);
+          PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
           Object.keys(result.attachments).forEach(id => {
             itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
           });
-          asContainerItem(itemState.get(containerId)!).childrenLoaded = true;
+          asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
           try {
             arrange(desktopStore);
           } catch (e: any) {
@@ -49,11 +55,11 @@ export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextMod
           };
         });
       } else {
-        console.error(`No items were fetched for '${containerId}'.`);
+        console.error(`No items were fetched for '${containerVeid.itemId}'.`);
       }
     })
     .catch((e: any) => {
-      console.error(`Error occurred feching items for '${containerId}': ${e.message}.`);
+      console.error(`Error occurred feching items for '${containerVeid.itemId}': ${e.message}.`);
     });
 }
 

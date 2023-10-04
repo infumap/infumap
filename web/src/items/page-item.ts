@@ -30,13 +30,14 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid } from '../layout/visual-element';
 import { getHitInfo } from '../mouse/hit';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
 import { arrange } from '../layout/arrange';
+import { itemState } from '../store/ItemState';
 
 
 export const ArrangeAlgorithm = {
@@ -357,6 +358,22 @@ export const PageFns = {
 
   getFingerprint: (pageItem: PageItem): string => {
     return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm;
+  },
+
+  setDefaultListPageSelectedItemMaybe: (desktopStore: DesktopStoreContextModel, itemVeid: Veid): void => {
+    if (desktopStore.getSelectedListPageItem(itemVeid) != "") { return; }
+    const item = itemState.get(itemVeid.itemId)!;
+    if (isPage(item)) {
+      const page = asPageItem(item);
+      if (page.arrangeAlgorithm == ArrangeAlgorithm.List) {
+        if (page.computed_children.length > 0) {
+          const firstItemId = page.computed_children[0];
+          const veid = VeFns.veidFromId(firstItemId);
+          const path = VeFns.addVeidToPath(veid, page.id);
+          desktopStore.setSelectedListPageItem(itemVeid, path);
+        }
+      }
+    }
   }
 };
 

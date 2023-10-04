@@ -324,6 +324,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 }
 
 
-export function useDesktopStore() : DesktopStoreContextModel {
+export function useDesktopStore(): DesktopStoreContextModel {
   return useContext(DesktopStoreContext) ?? panic();
 }

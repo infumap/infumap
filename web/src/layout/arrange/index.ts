@@ -54,7 +54,7 @@ import { arrange_spatialStretch } from "./topLevel/spatial";
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
 
-  initiateLoadChildItemsMaybe(desktopStore, desktopStore.currentPage()!.itemId);
+  initiateLoadChildItemsMaybe(desktopStore, desktopStore.currentPage()!);
 
   switch (asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm) {
     case ArrangeAlgorithm.Grid:
