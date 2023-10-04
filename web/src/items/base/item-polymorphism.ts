@@ -177,7 +177,7 @@ export const ItemFns = {
     const item = visualElementSignal.get().displayItem;
     if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), desktopStore, userStore); }
     else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), desktopStore, userStore); }
-    else if (isComposite(item)) { } // TODO.
+    else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), desktopStore); }

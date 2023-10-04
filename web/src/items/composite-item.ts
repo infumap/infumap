@@ -29,8 +29,10 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
-import { calcBoundsInCell } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin } from './base/flags-item';
+import { VisualElement } from '../layout/visual-element';
+import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -186,7 +188,7 @@ export const CompositeFns = {
 
   calcGeometry_Cell: (composite: CompositeMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
     const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
-    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+    const boundsPx = calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(boundsPx)!,
@@ -212,6 +214,10 @@ export const CompositeFns = {
       computed_children: composite.computed_children,
       flags: composite.flags,
     });
+  },
+
+  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   },
 
   debugSummary: (_compositeItem: CompositeItem) => {

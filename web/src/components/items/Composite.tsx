@@ -24,6 +24,7 @@ import { asCompositeItem } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFlags } from "../../items/base/flags-item";
+import { VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -79,6 +80,16 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
 
   return (
     <>
+      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
+        </div>
+      </Show>
+      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
+        </div>
+      </Show>
       <div class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
