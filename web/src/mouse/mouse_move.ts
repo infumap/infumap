@@ -165,11 +165,11 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
       }
       else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
         const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-        moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
+        moving_activeItemToPage(hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
       }
       else if (isComposite(itemState.get(activeItem.parentId)!)) {
         const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-        moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
+        moving_activeItemToPage(hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
       }
       else {
         MouseActionState.get().startPosBl = {
@@ -320,7 +320,7 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
   }
 
   if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
-    moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
+    moving_activeItemToPage(hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
   }
 
   if (isTable(hitInfo.overContainerVe!.displayItem)) {
@@ -342,7 +342,7 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-
+  console.log("new move pos:", activeItem.spatialPositionGr);
   arrange(desktopStore);
 }
 
@@ -393,7 +393,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 
 }
 
-function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
+function moving_activeItemToPage(moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
@@ -427,48 +427,33 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     MouseActionState.get().startAttachmentsItem = parent;
   }
 
+  console.log("move to new page location:", newItemPosGr);
   canonicalActiveItem.spatialPositionGr = newItemPosGr;
   itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
 
-  arrange(desktopStore);
-
-  let done = false;
-  VesCache.find(VeFns.veidFromVe(activeElement)).forEach(ve => {
-    if (ve.get().parentPath == moveToPath) {
-      MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
-      let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
-      MouseActionState.get().onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(canonicalActiveItem).w / boundsPx.w,
-        y: ItemFns.calcSpatialDimensionsBl(canonicalActiveItem).h / boundsPx.h
-      };
-      done = true;
-    }
-  });
-  if (!done) {
-    panic();
-  }
-
-  done = false;
-  VesCache.find({ itemId: moveToVe.displayItem.id, linkIdMaybe: moveToVe.linkItemMaybe == null ? null : moveToVe.linkItemMaybe.id }).forEach(ve => {
-    if (VeFns.veToPath(ve.get()) == moveToPath) {
-      MouseActionState.get().moveOver_scaleDefiningElement = VeFns.veToPath(ve.get());
-      done = true;
-    }
-  });
-  if (!done) { panic(); }
+  MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
+  MouseActionState.get().onePxSizeBl = {
+    x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
+    y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+  };
+  MouseActionState.get().moveOver_scaleDefiningElement = moveToPath;
 }
 
 function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
   itemPosInTablePx.y -= desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
-  const tableParentVisualPathString = tableVe.parentPath!;
+
+  const moveToPage = asPageItem(tableParentVe.displayItem);
+  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(tableParentVe);
+  const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = vectorAdd(tablePosInPagePx, itemPosInTablePx);
@@ -482,32 +467,13 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
   };
 
-  tableParentPage.computed_children
-    = [activeItem.id, ...tableParentPage.computed_children];
-  tableItem.computed_children
-    = tableItem.computed_children.filter(childItem => childItem != activeItem.id);
-  activeItem.parentId = tableParentPage.id;
-  activeItem.ordering = itemState.newOrderingAtEndOfChildren(tableParentPage.id);
   activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
-
-  arrange(desktopStore);
-
-  let done = false;
-  let otherVes = [];
-  VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: activeVisualElement.linkItemMaybe == null ? null : activeVisualElement.linkItemMaybe.id }).forEach(ve => {
-    if (ve.get().parentPath == tableParentVisualPathString) {
-      MouseActionState.get().activeElement = VeFns.veToPath(ve.get());
-      let boundsPx = VesCache.get(MouseActionState.get().activeElement)!.get().boundsPx;
-      MouseActionState.get().onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsPx.w,
-        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsPx.h
-      };
-      done = true;
-    } else {
-      otherVes.push(ve);
-    }
-  });
-  if (!done) { panic(); }
+  itemState.moveToNewParent(activeItem, tableParentPage.id, RelationshipToParent.Child);
+  MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), tableVe.parentPath!);
+  MouseActionState.get().onePxSizeBl = {
+    x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
+    y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+  };
 }
 
 
