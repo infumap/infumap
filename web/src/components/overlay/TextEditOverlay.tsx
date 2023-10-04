@@ -290,6 +290,8 @@ export const TextEditOverlay: Component = () => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
     if (isComposite(parentVe.displayItem)) {
+      noteItem().title = textElement!.value;
+      await server.updateItem(ve.displayItem);
       const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
       itemState.add(note);
