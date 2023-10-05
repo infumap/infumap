@@ -26,7 +26,7 @@ import { Uid } from "../../util/uid";
 import { switchToPage } from "../../layout/navigation";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { VeFns } from "../../layout/visual-element";
-import { createBooleanSignal } from "../../util/signals";
+import { createBooleanSignal, createNumberSignal } from "../../util/signals";
 
 export const SearchOverlay: Component = () => {
   const desktopStore = useDesktopStore();
@@ -36,7 +36,7 @@ export const SearchOverlay: Component = () => {
     return ({
       x: 10,
       y: 55,
-      w: 400,
+      w: 405,
       h: 64
     });
   }
@@ -73,9 +73,39 @@ export const SearchOverlay: Component = () => {
   };
 
   const handleInputKeyDown = async (ev: KeyboardEvent) => {
+    ev.stopPropagation();
     if (ev.code == "Enter") {
-      await handleSearchClick();
+      if (currentSelectedResult.get() != -1) {
+        const uid = currentSelectedPageId()!;
+        console.log(uid);
+        desktopStore.setSearchOverlayVisible(false);
+        switchToPage(desktopStore, userStore, VeFns.veidFromId(uid), true);
+      } else {
+        await handleSearchClick();
+      }
     }
+    if (resultsSignal.get() == null) { return; }
+    if (ev.code == "ArrowUp") {
+      if (currentSelectedResult.get() == -1 && resultsSignal.get()!.length > 0) {
+        currentSelectedResult.set(resultsSignal.get()!.length-1);
+        return;
+      }
+      if (currentSelectedResult.get() > 0) {
+        currentSelectedResult.set(currentSelectedResult.get() - 1);
+      }
+      return;
+    }
+    if (ev.code == "ArrowDown") {
+      if (currentSelectedResult.get() == -1 && resultsSignal.get()!.length > 0) {
+        currentSelectedResult.set(0);
+        return;
+      }
+      if (currentSelectedResult.get() < resultsSignal.get()!.length-1) {
+        currentSelectedResult.set(currentSelectedResult.get() + 1);
+      }
+      return;
+    }
+    currentSelectedResult.set(-1);
   }
 
   let textElement: HTMLInputElement | undefined;
@@ -124,9 +154,14 @@ export const SearchOverlay: Component = () => {
   }
 
   const isGlobalSearchSignal = createBooleanSignal(true);
+  const toggleScope = () => { isGlobalSearchSignal.set(!isGlobalSearchSignal.get()); }
 
-  const toggleScope = () => {
-    isGlobalSearchSignal.set(!isGlobalSearchSignal.get());
+  const currentSelectedResult = createNumberSignal(-1);
+  const currentSelectedId = () => currentSelectedResult.get() == -1 ? null : resultsSignal.get()![currentSelectedResult.get()]!.id;
+  const currentSelectedPageId = () => {
+    if (currentSelectedResult.get() == -1) { return null; }
+    const result =  resultsSignal.get()![currentSelectedResult.get()]!;
+    return containingPageId(result);
   }
 
   return (
@@ -138,21 +173,21 @@ export const SearchOverlay: Component = () => {
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
-        <div class="mt-[3px]">
-          <div class="inline-block ml-[8px]">
+        <div class="mt-[5px]" style="transform: scale(0.8); transform-origin: top left;">
+          <div class="inline-block ml-[10px]">
             Search scope
           </div>
-          <div class="inline-block ml-[8px]">
+          <div class="inline-block ml-[14px]">
             <input type="radio" name="scope" id="global" checked={isGlobalSearchSignal.get()} onClick={toggleScope} />
-            <label for="global">Global</label>
+            <label for="global" class="ml-[4px]">Global</label>
           </div>
-          <div class="inline-block ml-[8px]">
+          <div class="inline-block ml-[14px]">
             <input type="radio" name="scope" id="page" checked={!isGlobalSearchSignal.get()} onClick={toggleScope} />
-            <label for="page">Below current page</label>
+            <label for="page" class="ml-[4px]">Below current page</label>
           </div>
         </div>
         <input ref={textElement}
-            class="border border-slate-300 rounded w-[370px] pl-1 m-[3px]"
+            class="border border-slate-300 rounded w-[370px] pl-1 ml-[5px] mr-[5px]"
             autocomplete="on"
             value={""}
             type="text"
@@ -164,25 +199,25 @@ export const SearchOverlay: Component = () => {
       <Show when={resultsSignal.get() != null}>
         <div onmousedown={resultsDivMouseDownListener}
              onmouseup={resultsDivMouseUpListener}
-             class="absolute border rounded bg-white mb-1 shadow-md border-black"
+             class="absolute border rounded bg-white mb-1 shadow-md border-black text-sm pt-[5px]"
              style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 72}px; width: ${boxBoundsPx().w}px;`}>
           <Show when={resultsSignal.get()!.length > 0}>
             <For each={resultsSignal.get()}>{result =>
-              <div class="mb-[8px] cursor-pointer" onclick={resultClickHandler(containingPageId(result))}>
+              <div class={`mb-[8px] cursor-pointer ${currentSelectedId() == null ? "" : (currentSelectedId() == result.id ? "bg-slate-100" : "")} hover:bg-slate-200`} onclick={resultClickHandler(containingPageId(result))}>
                 <For each={result.parentPath}>{pathElement =>
                   <>
-                    <span class="ml-[8px]">{itemTypeIcon(pathElement.itemType)}</span>
-                    <span>{pathElement.title}</span>
+                    <div class="inline-block ml-[8px]">{itemTypeIcon(pathElement.itemType)}</div>
+                    <div class="inline-block ml-[3px]">{pathElement.title}</div>
                   </>
                 }</For>
-                <span class="ml-[8px]">
+                <div class="ml-[4px] inline-block">
                   {result.textContext}
-                </span>
+                </div>
               </div>
             }</For>
           </Show>
           <Show when={resultsSignal.get()!.length == 0}>
-            <div>[nothing found]</div>
+            <div>[no results found]</div>
           </Show>
         </div>
       </Show>
