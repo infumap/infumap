@@ -79,8 +79,8 @@ export const server = {
     await sendCommand(null, "delete-item", { id }, null, true);
   },
 
-  search: async (pageId: Uid, text: String): Promise<Array<SearchResult>> => {
-    let result = await sendCommand(null, "search", { pageId, text }, null, true);
+  search: async (pageIdMaybe: Uid | null, text: String): Promise<Array<SearchResult>> => {
+    let result = await sendCommand(null, "search", { pageId: pageIdMaybe, text }, null, true);
     return result;``
   }
 }

@@ -741,7 +741,7 @@ async fn handle_delete_item<'a>(
 #[derive(Deserialize, Serialize)]
 pub struct SearchRequest {
   #[serde(rename="pageId")]
-  pub page_id: Uid,
+  pub page_id: Option<Uid>,
   pub text: String,
 }
 
@@ -775,9 +775,16 @@ async fn handle_search(
 
   let mut db = db.lock().await;
 
+  let page_id = if let Some(request_page_id) = request.page_id {
+    request_page_id
+  } else {
+    let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
+    user.home_page_id.clone()
+  };
+
   let mut results: Vec<FindResult> = vec![];
   let mut current_path: Vec<FindPathElement> = vec![];
-  find_recursive(&mut db, &request.text, request.page_id, &mut current_path, &mut results)?;
+  find_recursive(&mut db, &request.text, page_id, &mut current_path, &mut results)?;
 
   let serialized_results = serde_json::to_string(&results)?;
 

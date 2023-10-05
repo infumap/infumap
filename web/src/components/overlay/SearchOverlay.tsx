@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, Component, For, Match, Setter, Switch, createSignal, onMount } from "solid-js";
+import { Accessor, Component, For, Match, Setter, Show, Switch, createSignal, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { LastMouseMoveEventState } from "../../mouse/state";
 import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
@@ -26,6 +26,7 @@ import { Uid } from "../../util/uid";
 import { switchToPage } from "../../layout/navigation";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { VeFns } from "../../layout/visual-element";
+import { createBooleanSignal } from "../../util/signals";
 
 export const SearchOverlay: Component = () => {
   const desktopStore = useDesktopStore();
@@ -35,8 +36,8 @@ export const SearchOverlay: Component = () => {
     return ({
       x: 10,
       y: 55,
-      w: 390,
-      h: 35
+      w: 400,
+      h: 64
     });
   }
 
@@ -66,8 +67,8 @@ export const SearchOverlay: Component = () => {
   });
 
   const handleSearchClick = async () => {
-    const pageId = desktopStore.currentPage()!.itemId;
-    const result = await server.search(pageId, textElement!.value);
+    const pageIdMaybe = isGlobalSearchSignal.get() ? null : desktopStore.currentPage()!.itemId;
+    const result = await server.search(pageIdMaybe, textElement!.value);
     resultsSignal.set(result);
   };
 
@@ -80,12 +81,12 @@ export const SearchOverlay: Component = () => {
   let textElement: HTMLInputElement | undefined;
 
   interface SearchResultSignal {
-    get: Accessor<Array<SearchResult>>,
-    set: Setter<Array<SearchResult>>,
+    get: Accessor<Array<SearchResult> | null>,
+    set: Setter<Array<SearchResult> | null>,
   }
 
   function createResultSignal(): SearchResultSignal {
-    let [uidAccessor, uidSetter] = createSignal<Array<SearchResult>>([], { equals: false });
+    let [uidAccessor, uidSetter] = createSignal<Array<SearchResult> | null>(null, { equals: false });
     return { get: uidAccessor, set: uidSetter };
   }
 
@@ -122,6 +123,12 @@ export const SearchOverlay: Component = () => {
     }
   }
 
+  const isGlobalSearchSignal = createBooleanSignal(true);
+
+  const toggleScope = () => {
+    isGlobalSearchSignal.set(!isGlobalSearchSignal.get());
+  }
+
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -131,8 +138,21 @@ export const SearchOverlay: Component = () => {
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
+        <div class="mt-[3px]">
+          <div class="inline-block ml-[8px]">
+            Search scope
+          </div>
+          <div class="inline-block ml-[8px]">
+            <input type="radio" name="scope" id="global" checked={isGlobalSearchSignal.get()} onClick={toggleScope} />
+            <label for="global">Global</label>
+          </div>
+          <div class="inline-block ml-[8px]">
+            <input type="radio" name="scope" id="page" checked={!isGlobalSearchSignal.get()} onClick={toggleScope} />
+            <label for="page">Below current page</label>
+          </div>
+        </div>
         <input ref={textElement}
-            class="border border-slate-300 rounded w-[305px] pl-1"
+            class="border border-slate-300 rounded w-[370px] pl-1 m-[3px]"
             autocomplete="on"
             value={""}
             type="text"
@@ -141,24 +161,31 @@ export const SearchOverlay: Component = () => {
           <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
         </div>
       </div>
-      <div onmousedown={resultsDivMouseDownListener}
-           onmouseup={resultsDivMouseUpListener}
-           class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 50}px; width: ${boxBoundsPx().w}px;`}>
-        <For each={resultsSignal.get()}>{result =>
-          <div class="mb-[8px] cursor-pointer" onclick={resultClickHandler(containingPageId(result))}>
-            <For each={result.parentPath}>{pathElement =>
-              <>
-                <span class="ml-[8px]">{itemTypeIcon(pathElement.itemType)}</span>
-                <span>{pathElement.title}</span>
-              </>
+      <Show when={resultsSignal.get() != null}>
+        <div onmousedown={resultsDivMouseDownListener}
+             onmouseup={resultsDivMouseUpListener}
+             class="absolute border rounded bg-white mb-1 shadow-md border-black"
+             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 72}px; width: ${boxBoundsPx().w}px;`}>
+          <Show when={resultsSignal.get()!.length > 0}>
+            <For each={resultsSignal.get()}>{result =>
+              <div class="mb-[8px] cursor-pointer" onclick={resultClickHandler(containingPageId(result))}>
+                <For each={result.parentPath}>{pathElement =>
+                  <>
+                    <span class="ml-[8px]">{itemTypeIcon(pathElement.itemType)}</span>
+                    <span>{pathElement.title}</span>
+                  </>
+                }</For>
+                <span class="ml-[8px]">
+                  {result.textContext}
+                </span>
+              </div>
             }</For>
-            <span class="ml-[8px]">
-              {result.textContext}
-            </span>
-          </div>
-        }</For>
-      </div>
+          </Show>
+          <Show when={resultsSignal.get()!.length == 0}>
+            <div>[nothing found]</div>
+          </Show>
+        </div>
+      </Show>
     </div>
   );
 }
