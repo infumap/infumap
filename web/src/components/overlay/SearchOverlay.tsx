@@ -138,12 +138,12 @@ export const SearchOverlay: Component = () => {
   }
 
   const containingPageId = (result: SearchResult) => {
-    for (let i=result.parentPath.length-1; i>=0; --i) {
-      if (result.parentPath[i].itemType == ItemType.Page) {
-        return result.parentPath[i].id;
+    for (let i=result.path.length-2; i>=0; --i) {
+      if (result.path[i].itemType == ItemType.Page) {
+        return result.path[i].id;
       }
     }
-    return result.parentPath[0].id;
+    return result.path[0].id;
   }
 
   const resultClickHandler = (id: Uid) => {
@@ -157,7 +157,11 @@ export const SearchOverlay: Component = () => {
   const toggleScope = () => { isGlobalSearchSignal.set(!isGlobalSearchSignal.get()); }
 
   const currentSelectedResult = createNumberSignal(-1);
-  const currentSelectedId = () => currentSelectedResult.get() == -1 ? null : resultsSignal.get()![currentSelectedResult.get()]!.id;
+  const currentSelectedId = () => {
+    if (currentSelectedResult.get() == -1) { return null; }
+    const result = resultsSignal.get()![currentSelectedResult.get()]!;
+    return result.path[result.path.length-1].id;
+  }
   const currentSelectedPageId = () => {
     if (currentSelectedResult.get() == -1) { return null; }
     const result =  resultsSignal.get()![currentSelectedResult.get()]!;
@@ -203,16 +207,13 @@ export const SearchOverlay: Component = () => {
              style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 72}px; width: ${boxBoundsPx().w}px;`}>
           <Show when={resultsSignal.get()!.length > 0}>
             <For each={resultsSignal.get()}>{result =>
-              <div class={`mb-[8px] cursor-pointer ${currentSelectedId() == null ? "" : (currentSelectedId() == result.id ? "bg-slate-100" : "")} hover:bg-slate-200`} onclick={resultClickHandler(containingPageId(result))}>
-                <For each={result.parentPath}>{pathElement =>
+              <div class={`mb-[8px] cursor-pointer ${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")} hover:bg-slate-200`} onclick={resultClickHandler(containingPageId(result))}>
+                <For each={result.path}>{pathElement =>
                   <>
                     <div class="inline-block ml-[8px]">{itemTypeIcon(pathElement.itemType)}</div>
                     <div class="inline-block ml-[3px]">{pathElement.title}</div>
                   </>
                 }</For>
-                <div class="ml-[4px] inline-block">
-                  {result.textContext}
-                </div>
               </div>
             }</For>
           </Show>

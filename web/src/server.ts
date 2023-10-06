@@ -30,12 +30,10 @@ export interface ItemsAndTheirAttachments {
 }
 
 export interface SearchResult {
-  id: string,
-  parentPath: Array<FindPathElement>,
-  textContext: string,
+  path: Array<SearchPathElement>,
 }
 
-export interface FindPathElement {
+export interface SearchPathElement {
   itemType: string,
   title?: string,
   id: Uid,
