@@ -39,10 +39,12 @@ import { FindDirection, findClosest } from "../../layout/find";
 import { getTextStyleForNote } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
+import { useUserStore } from "../../store/UserStoreProvider";
 
 
 export const TextEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
+  const userStore = useUserStore();
 
   let textElement: HTMLTextAreaElement | undefined;
 
@@ -121,7 +123,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   onCleanup(() => {
-    if (!deleted) {
+    if (!deleted && userStore.getUserMaybe() != null) {
       server.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
         server.updateItem(compositeItemOnInitializeMaybe);
@@ -270,6 +272,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
+    if (userStore.getUserMaybe() == null) { return; }
     if (noteItem().title != "") { return; }
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -286,6 +289,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
+    if (userStore.getUserMaybe() == null) { return; }
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -373,24 +377,28 @@ export const TextEditOverlay: Component = () => {
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
         <div class="p-[4px]">
-          <InfuIconButton icon="font" highlighted={isNormalText()} clickHandler={selectNormalText} />
-          <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-          <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-          <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-          <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-          <div class="inline-block ml-[12px]"></div>
-          <InfuIconButton icon="align-left" highlighted={isAlignLeft()} clickHandler={selectAlignLeft} />
-          <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-          <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-          <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-          <div class="inline-block ml-[12px]"></div>
-          <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
-          <Show when={isInTable()}>
-            <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <Show when={userStore.getUserMaybe() != null}>
+            <InfuIconButton icon="font" highlighted={isNormalText()} clickHandler={selectNormalText} />
+            <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+            <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+            <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+            <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+            <div class="inline-block ml-[12px]"></div>
+            <InfuIconButton icon="align-left" highlighted={isAlignLeft()} clickHandler={selectAlignLeft} />
+            <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+            <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+            <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+            <div class="inline-block ml-[12px]"></div>
+            <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+            <Show when={isInTable()}>
+              <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+            </Show>
+            <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
           </Show>
-          <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
           <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-          <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+          <Show when={userStore.getUserMaybe() != null}>
+            <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+          </Show>
         </div>
       </div>
       <div class={`absolute rounded border`}
@@ -403,6 +411,7 @@ export const TextEditOverlay: Component = () => {
                  `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` + 
                  `${style().isBold ? ' font-weight: bold; ' : ""}`}
           value={noteItem().title}
+          disabled={userStore.getUserMaybe() == null}
           onMouseDown={textAreaMouseDownHandler}
           onInput={textAreaOnInputHandler} />
       </div>

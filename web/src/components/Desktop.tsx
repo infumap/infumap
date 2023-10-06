@@ -66,7 +66,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     if (ev.code == "Slash") {
       ev.preventDefault();
       desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(LastMouseMoveEventState.get()), hitInfo });
-      mouseMove_handleNoButtonDown(desktopStore);
+      mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     }
 
     else if (ev.code == "Backslash") {
@@ -89,7 +89,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
           return overVe.displayItem;
         })()
       });
-      mouseMove_handleNoButtonDown(desktopStore);
+      mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     }
 
     else if (ev.code == "Escape") {
@@ -155,7 +155,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const mouseMoveListener = (ev: MouseEvent) => {
     LastMouseMoveEventState.set(ev);
-    mouseMoveHandler(desktopStore);
+    mouseMoveHandler(desktopStore, userStore);
   };
 
   const mouseUpListener = (ev: MouseEvent) => {

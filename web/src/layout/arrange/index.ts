@@ -72,7 +72,9 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
 
   evaluate();
 
-  mouseMove_handleNoButtonDown(desktopStore);
+  // TODO (LOW): this is not necessarily true. but it'd be a pain to pass this into every arrange call.
+  const hasUser = true;
+  mouseMove_handleNoButtonDown(desktopStore, hasUser);
 }
 
 function evaluate() {

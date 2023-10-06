@@ -44,14 +44,18 @@ import { asCompositeItem, isComposite } from "../items/composite-item";
 import { MouseAction, MouseActionState, LastMouseMoveEventState, dialogMoveState } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrange } from "../layout/arrange";
+import { UserStoreContextModel } from "../store/UserStoreProvider";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 
 
-export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
+export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
   if (desktopStore.currentPage() == null) { return; }
+
+  const hasUser = userStore.getUserMaybe() != null;
+  console.log(hasUser);
 
   const ev = LastMouseMoveEventState.get();
   const desktopPosPx = desktopPxFromMouseEvent(ev);
@@ -70,13 +74,13 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
       return;
     }
     if (isInside(desktopPosPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
-      mouseMove_handleNoButtonDown(desktopStore);
+      mouseMove_handleNoButtonDown(desktopStore, hasUser);
       return;
     }
   }
 
   if (MouseActionState.empty()) {
-    mouseMove_handleNoButtonDown(desktopStore);
+    mouseMove_handleNoButtonDown(desktopStore, hasUser);
     return;
   }
 
@@ -85,7 +89,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
-  changeMouseActionStateMaybe(deltaPx, activeVisualElement, activeItem, desktopStore, desktopPosPx, ev);
+  changeMouseActionStateMaybe(deltaPx, activeVisualElement, activeItem, desktopStore, desktopPosPx, hasUser, ev);
 
   switch (MouseActionState.get().action) {
     case MouseAction.Ambiguous:
@@ -110,8 +114,17 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   }
 }
 
-function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: VisualElement, activeItem: PositionalItem, desktopStore: DesktopStoreContextModel, desktopPosPx: Vector, ev: MouseEvent) {
+
+function changeMouseActionStateMaybe(
+    deltaPx: Vector,
+    activeVisualElement: VisualElement,
+    activeItem: PositionalItem,
+    desktopStore: DesktopStoreContextModel,
+    desktopPosPx: Vector,
+    hasUser: boolean,
+    ev: MouseEvent) {
   if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
+  if (!hasUser) { return; }
 
   if (!(Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX)) {
     return;
@@ -203,6 +216,7 @@ function changeMouseActionStateMaybe(deltaPx: Vector, activeVisualElement: Visua
   }
 }
 
+
 function mouseAction_resizing(deltaPx: Vector, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopStore: DesktopStoreContextModel) {
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
@@ -229,6 +243,7 @@ function mouseAction_resizing(deltaPx: Vector, activeItem: PositionalItem, activ
   arrange(desktopStore);
 }
 
+
 function mouseAction_resizingPopup(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0, // * 2.0 because it's centered, so mouse distance -> half the desired increase in width.
@@ -244,6 +259,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, desktopStore: DesktopStoreCo
 
   arrange(desktopStore);
 }
+
 
 function mouseAction_resizingColumn(deltaPx: Vector, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopStore: DesktopStoreContextModel) {
   const deltaBl = {
@@ -264,6 +280,7 @@ function mouseAction_resizingColumn(deltaPx: Vector, activeItem: PositionalItem,
   arrange(desktopStore);
 }
 
+
 function mouseAction_movingPopup(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
   const deltaBl = {
     x: Math.round(deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0)/2.0,
@@ -278,6 +295,7 @@ function mouseAction_movingPopup(deltaPx: Vector, desktopStore: DesktopStoreCont
 
   arrange(desktopStore);
 }
+
 
 function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector, desktopStore: DesktopStoreContextModel) {
   let ignoreIds = [activeVisualElement.displayItem.id];
@@ -391,8 +409,8 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   } else {
     overContainerVe.moveOverColAttachmentNumber.set(-1);
   }
-
 }
+
 
 function moving_activeItemToPage(moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
@@ -439,6 +457,7 @@ function moving_activeItemToPage(moveToVe: VisualElement, desktopPx: Vector, rel
   MouseActionState.get().moveOver_scaleDefiningElement = moveToPath;
 }
 
+
 function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
@@ -477,7 +496,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
 }
 
 
-export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextModel) {
+export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextModel, hasUser: boolean) {
   const dialogInfo = desktopStore.editDialogInfo();
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null;
@@ -517,11 +536,13 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
     }
   }
 
-  if ((hitInfo.hitboxType & HitboxType.Resize) > 0) {
-    document.body.style.cursor = "nwse-resize";
-  } else if ((hitInfo.hitboxType & HitboxType.ColResize) > 0) {
-    document.body.style.cursor = "ew-resize";
-  } else {
-    document.body.style.cursor = "default";
+  if (hasUser) {
+    if ((hitInfo.hitboxType & HitboxType.Resize) > 0) {
+      document.body.style.cursor = "nwse-resize";
+    } else if ((hitInfo.hitboxType & HitboxType.ColResize) > 0) {
+      document.body.style.cursor = "ew-resize";
+    } else {
+      document.body.style.cursor = "default";
+    }
   }
 }
