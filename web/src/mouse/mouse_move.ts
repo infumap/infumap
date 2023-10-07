@@ -55,7 +55,6 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
   if (desktopStore.currentPage() == null) { return; }
 
   const hasUser = userStore.getUserMaybe() != null;
-  console.log(hasUser);
 
   const ev = LastMouseMoveEventState.get();
   const desktopPosPx = desktopPxFromMouseEvent(ev);
