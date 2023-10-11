@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX } from "../../../constants";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
@@ -36,6 +36,7 @@ import { arrangeItem } from "../item";
 
 
 const SPATIAL_POPUP_LINK_ID = newUid();
+const PAGE_TITLE_UID = newUid();
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
   const pageItem = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
@@ -65,8 +66,32 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
     childAreaBoundsPx: pageBoundsPx,
   };
 
-  const children = pageItem.computed_children
-    .map(childId => arrangeItem_Spatial(
+  function arrangePageTitle(): VisualElementSignal {
+    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(pageItem);
+
+    const li = LinkFns.create(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(pageItem.id), pageItem.id!);
+    li.id = PAGE_TITLE_UID;
+    li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
+    li.spatialPositionGr = { x: 0, y: 0 };
+
+    const geometry = PageFns.calcGeometry_SpatialPageTitle(pageItem, pageBoundsPx);
+    const pageTitleElementSpec: VisualElementSpec = {
+      displayItem: pageItem,
+      linkItemMaybe: li,
+      flags: VisualElementFlags.PageTitle,
+      boundsPx: geometry.boundsPx,
+      hitboxes: geometry.hitboxes,
+      parentPath: currentPath,
+    };
+
+    const pageTitlePath = VeFns.addVeidToPath({ itemId: pageItem.id, linkIdMaybe: PAGE_TITLE_UID }, currentPath);
+    return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
+  }
+
+  const children = [arrangePageTitle()];
+  for (let i=0; i<pageItem.computed_children.length; ++i) {
+    const childId = pageItem.computed_children[i];
+    children.push(arrangeItem_Spatial(
       desktopStore,
       currentPath,
       itemState.get(childId)!,
@@ -76,6 +101,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
       false, // parent is popup
       false // is popup
     ));
+  }
 
   const currentPopupSpec = desktopStore.currentPopupSpec();
   if (currentPopupSpec != null) {

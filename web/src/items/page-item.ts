@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -38,6 +38,8 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-
 import { switchToPage } from '../layout/navigation';
 import { arrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
+import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
+import { NoteFlags } from './base/flags-item';
 
 
 export const ArrangeAlgorithm = {
@@ -181,6 +183,17 @@ export const PageFns = {
     });
   },
 
+  pageTitleStyle: (): InfuTextStyle => {
+    const flags = NoteFlags.Heading2;
+    return getTextStyleForNote(flags);
+  },
+
+  calcTitleSpatialDimensionsBl: (page: PageItem): Dimensions => {
+    const style = PageFns.pageTitleStyle();
+    const widthBl = measureWidthBl(page.title, style);
+    return { w: widthBl, h: style.lineHeightMultiplier };
+  },
+
   calcSpatialDimensionsBl: (page: PageMeasurable): Dimensions => {
     let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
     return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
@@ -273,6 +286,38 @@ export const PageFns = {
         HitboxFns.create(HitboxType.Click, innerBoundsPx),
         HitboxFns.create(HitboxType.OpenPopup, popupClickBoundsPx),
       ]
+    });
+  },
+
+  calcGeometry_SpatialPageTitle: (page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
+    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(page);
+
+    const pageTitleBoundsPx = {
+      x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX) / 2.0,
+      y: 0.05 * LINE_HEIGHT_PX,
+      w: pageTitleDimensionsBl.w * LINE_HEIGHT_PX,
+      h: pageTitleDimensionsBl.h * LINE_HEIGHT_PX,
+    }
+
+    return ({
+      boundsPx: pageTitleBoundsPx,
+      hitboxes: [],
+    });
+  },
+
+  calcGeometry_GridPageTitle: (page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
+    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(page);
+
+    const pageTitleBoundsPx = {
+      x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX) / 2.0,
+      y: 0.05 * LINE_HEIGHT_PX,
+      w: pageTitleDimensionsBl.w * LINE_HEIGHT_PX,
+      h: pageTitleDimensionsBl.h * LINE_HEIGHT_PX,
+    }
+
+    return ({
+      boundsPx: pageTitleBoundsPx,
+      hitboxes: [],
     });
   },
 

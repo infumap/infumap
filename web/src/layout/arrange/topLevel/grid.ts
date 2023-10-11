@@ -16,18 +16,24 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_PAGE_CELL_ASPECT } from "../../../constants";
+import { GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
-import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
+import { LinkFns } from "../../../items/link-item";
+import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
+import { VisualElementSignal } from "../../../util/signals";
+import { newUid } from "../../../util/uid";
+import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
-import { VisualElementFlags, VisualElementSpec } from "../../visual-element";
+import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { arrangeItem } from "../item";
 import { arrangeCellPopup } from "../popup";
 
+
+const PAGE_TITLE_UID = newUid();
 
 export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   VesCache.initFullArrange();
@@ -37,12 +43,14 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
+  const headingMarginPx = LINE_HEIGHT_PX * 2.1;
+
   const numCols = currentPage.gridNumberOfColumns;
   const numRows = Math.ceil(currentPage.computed_children.length / numCols);
   const cellWPx = pageBoundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
   const marginPx = cellWPx * 0.01;
-  const pageHeightPx = numRows * cellHPx;
+  const pageHeightPx = numRows * cellHPx + headingMarginPx;
   const boundsPx = (() => {
     const result = cloneBoundingBox(pageBoundsPx)!;
     result.h = pageHeightPx;
@@ -56,14 +64,39 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     childAreaBoundsPx: boundsPx,
   };
 
+  function arrangePageTitle(): VisualElementSignal {
+    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(currentPage);
+    const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(currentPage.id), currentPage.id!);
+    li.id = PAGE_TITLE_UID;
+    li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
+    li.spatialPositionGr = { x: 0, y: 0 };
+
+    const geometry = PageFns.calcGeometry_GridPageTitle(currentPage, boundsPx);
+
+    const pageTitleElementSpec: VisualElementSpec = {
+      displayItem: currentPage,
+      linkItemMaybe: li,
+      flags: VisualElementFlags.PageTitle,
+      boundsPx: geometry.boundsPx,
+      hitboxes: geometry.hitboxes,
+      parentPath: currentPath,
+    };
+
+    const pageTitlePath = VeFns.addVeidToPath({ itemId: currentPage.id, linkIdMaybe: PAGE_TITLE_UID }, currentPath);
+    return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
+  }
+
   const children = [];
+
+  children.push(arrangePageTitle());
+
   for (let i=0; i<currentPage.computed_children.length; ++i) {
     const item = itemState.get(currentPage.computed_children[i])!;
     const col = i % numCols;
     const row = Math.floor(i / numCols);
     const cellBoundsPx = {
       x: col * cellWPx + marginPx,
-      y: row * cellHPx + marginPx,
+      y: row * cellHPx + marginPx + headingMarginPx,
       w: cellWPx - marginPx * 2.0,
       h: cellHPx - marginPx * 2.0
     };

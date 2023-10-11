@@ -389,9 +389,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${(props.visualElement.flags & VisualElementFlags.Root) ? fullBgColorVal() : "#ffffff"}`}>
-        <div class="absolute" style={`color: ${fullTitleColor()}; font-size: 30px; font-weight: bold; width: ${boundsPx().w}px; text-align: center; pointer-events: none;`}>
-          {pageItem().title}
-        </div>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
@@ -400,10 +397,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               }</For>
             </div>
           </div>
-        </Show>
-        <Show when={asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class={`absolute bg-slate-700`}
-               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}></div>
+               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}>
+          </div>
         </Show>
         <For each={desktopVes()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
