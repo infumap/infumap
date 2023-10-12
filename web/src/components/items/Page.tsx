@@ -360,9 +360,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
-          {/* <div class="mt-[10px] uppercase rotate-90 whitespace-pre text-[18px] cursor-pointer" onClick={popupTitleClickHandler}>
-            {pageItem().title == "" ? "[empty]" : pageItem().title}
-          </div> */}
           <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
             <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>
               <i class={`fa fa-anchor`} />
@@ -374,7 +371,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const fullBgColorVal = () => {
-    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.05)}; `;
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.3)}; `;
   }
 
   const fullTitleColor = () => {
@@ -387,8 +384,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const drawAsFull = () => {
     return (
+      <>
+      <Show when={props.visualElement.flags & VisualElementFlags.Root}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
+             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: ${fullBgColorVal()};`}>
+        </div>
+      </Show>
       <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: ${(props.visualElement.flags & VisualElementFlags.Root) ? fullBgColorVal() : "#ffffff"}`}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff;`}>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
@@ -408,12 +411,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;"></div>
         </Show>
       </div>
+      </>
     );
   }
 
   return (
     <>
-      <Show when={(props.visualElement.parentPath == null || (props.visualElement.flags & VisualElementFlags.Root)) && !(props.visualElement.flags & VisualElementFlags.Popup)}>
+      <Show when={(props.visualElement.parentPath == null || (props.visualElement.flags & VisualElementFlags.Root)) &&
+                  !(props.visualElement.flags & VisualElementFlags.Popup)}>
         {drawAsFull()}
       </Show>
       <Show when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
