@@ -188,6 +188,11 @@ export const PageFns = {
     return getTextStyleForNote(flags);
   },
 
+  pageTitleStyle_List: (): InfuTextStyle => {
+    const flags = NoteFlags.Heading3;
+    return getTextStyleForNote(flags);
+  },
+
   calcTitleSpatialDimensionsBl: (page: PageItem): Dimensions => {
     const style = PageFns.pageTitleStyle();
     const widthBl = measureWidthBl(page.title, style);
@@ -270,6 +275,20 @@ export const PageFns = {
         HitboxFns.create(HitboxType.OpenPopup, popupClickAreaBoundsPx),
         HitboxFns.create(HitboxType.Move, innerBoundsPx)
       ]
+    });
+  },
+
+  calcGeometry_ListPageTitle: (_page: PageItem, blockSizePx: Dimensions, widthBl: number): ItemGeometry => {
+    const innerBoundsPx = {
+      x: 0.0,
+      y: 0.0,
+      w: blockSizePx.w * widthBl,
+      h: blockSizePx.h
+    };
+    const boundsPx = innerBoundsPx;
+    return ({
+      boundsPx,
+      hitboxes: []
     });
   },
 

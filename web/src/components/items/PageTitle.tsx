@@ -31,22 +31,27 @@ export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualEl
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
   }
 
-  // const blockSizePx = pageBoundsPx.w / (pageItem.innerSpatialWidthGr / GRID_SIZE);
-  // const scale = LINE_HEIGHT_PX / blockSizePx;
-
-  // const leftGr = (pageItem.innerSpatialWidthGr / 2.0) - (pageTitleDimensionsBl.w / 2.0);
-  // const leftBl = Math.ceil(leftGr / GRID_SIZE / 2.0) * 2.0;
-
   return (
     <div class="absolute" style={`color: ${fullTitleColor()}; font-size: ${PageFns.pageTitleStyle().fontSize}px; ${PageFns.pageTitleStyle().isBold ? "font-weight: bold;" : ""} width: ${boundsPx().w}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; text-align: center; pointer-events: none;`}>
       {pageItem().title}
-    </div>);
+    </div>
+  );
 }
 
 
 export const PageTitle_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const pageItem = () => asPageItem(props.visualElement.displayItem);
+  const boundsPx = () => props.visualElement.boundsPx;
+  const margin = 4;
+  const widthPx = () => boundsPx().w - margin * 2;
 
-  return (<div>
-    page title line item
-    </div>);
+  const fullTitleColor = () => {
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
+  }
+
+  return (
+    <div class="absolute overflow-hidden border-b border-slate-700" style={`margin-left: 4px; margin-right: 4px; color: ${fullTitleColor()}; font-size: ${PageFns.pageTitleStyle_List().fontSize}px; ${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} width: ${widthPx()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; pointer-events: none;`}>
+      {pageItem().title}
+    </div>
+  );
 }
