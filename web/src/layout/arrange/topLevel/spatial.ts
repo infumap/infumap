@@ -17,8 +17,8 @@
 */
 
 import { GRID_SIZE } from "../../../constants";
-import { LinkFns } from "../../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
+import { LinkFns, isLink } from "../../../items/link-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../../items/page-item";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { panic } from "../../../util/lang";
@@ -153,6 +153,15 @@ const arrangeItem_Spatial = (
     renderChildrenAsFull: boolean,
     parentIsPopup: boolean,
     isPopup: boolean): VisualElementSignal => {
-  const itemGeometry = ItemFns.calcGeometry_Spatial(item, zeroBoundingBoxTopLeft(parentPageBoundsPx), PageFns.calcInnerSpatialDimensionsBl(parentPage), parentIsPopup, true);
-  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, false);
+  const emitHitboxes = true;
+  const isRoot = false;
+  const itemGeometry = ItemFns.calcGeometry_Spatial(
+    item,
+    zeroBoundingBoxTopLeft(parentPageBoundsPx),
+    PageFns.calcInnerSpatialDimensionsBl(parentPage),
+    parentIsPopup,
+    emitHitboxes,
+    isPopup,
+    PageFns.popupPositioningHasChanged(parentPage));
+  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, isRoot);
 }

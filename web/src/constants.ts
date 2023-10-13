@@ -24,8 +24,6 @@ export const GRID_SIZE = 60;
 
 export const MAIN_TOOLBAR_WIDTH_PX = 40;
 
-export const POPUP_TOOLBAR_WIDTH_BL = 1.0;
-
 export const RESIZE_BOX_SIZE_PX = 8;
 
 export const ATTACH_AREA_SIZE_PX = 10;
@@ -51,3 +49,5 @@ export const CHILD_ITEMS_INTERACTABLE_WIDTH_BL = 20;
 export const ITEM_BORDER_WIDTH_PX = 1;
 
 export const COMPOSITE_ITEM_GAP_BL = 0.15;
+
+export const ANCHOR_BOX_SIZE_PX = 20;

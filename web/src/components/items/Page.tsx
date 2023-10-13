@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, onMount, Show } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
@@ -273,21 +273,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `;
   }
 
-  const anchorPopup = () => {
-    const popupParentPage = asPageItem(itemState.get(VesCache.get(props.visualElement.parentPath!)!.get().displayItem.id)!);
-    if (popupParentPage.pendingPopupPositionGr != null) {
-      popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
-    }
-    if (popupParentPage.pendingPopupWidthGr != null) {
-      popupParentPage.popupWidthGr = popupParentPage.pendingPopupWidthGr;
-    }
-    if (popupParentPage.pendingPopupAlignmentPoint != null) {
-      popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
-    }
-    server.updateItem(popupParentPage);
-    arrange(desktopStore);
-  }
-
   let popupDiv: HTMLDivElement | undefined;
 
   const popupScrollHandler = (_ev: Event) => {
@@ -327,7 +312,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
+             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div ref={popupDiv}
@@ -343,7 +328,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
           <div ref={popupDiv}
                class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-               style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                       `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
               onscroll={popupScrollHandler}>
             <div class="absolute"
@@ -355,14 +340,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </div>
           </div>
         </Show>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
-             style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w - childAreaBoundsPx().w}px; height: ${boundsPx().h}px; background-color: ${borderColorVal()}`}>
-          <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
-            <div class={`absolute`} style={"bottom: 10px; left: 5px; cursor: pointer;"} onClick={anchorPopup}>
+        <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
+          <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
+               style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; width: ${ANCHOR_BOX_SIZE_PX}px; height: ${ANCHOR_BOX_SIZE_PX}px; background-color: #ff0000;`}>
+            <div class={`absolute`} style={"cursor: pointer;"}>
               <i class={`fa fa-anchor`} />
             </div>
-          </Show>
-        </div>
+          </div>
+        </Show>
       </>
     );
   }

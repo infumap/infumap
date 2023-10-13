@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { POPUP_TOOLBAR_WIDTH_BL } from "../constants";
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -105,7 +104,7 @@ export function mouseLeftDownHandler(
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
-      x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w + POPUP_TOOLBAR_WIDTH_BL) / boundsOnDesktopPx.w,
+      x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w) / boundsOnDesktopPx.w,
       y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
@@ -182,13 +181,13 @@ export function mouseRightDownHandler(
 
   if (desktopStore.contextMenuInfo()) {
     desktopStore.setContextMenuInfo(null);
-    mouseMove_handleNoButtonDown(desktopStore);
+    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     return;
   }
 
   if (desktopStore.editDialogInfo() != null) {
     desktopStore.setEditDialogInfo(null);
-    mouseMove_handleNoButtonDown(desktopStore);
+    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     return;
   }
 

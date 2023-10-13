@@ -536,10 +536,12 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   }
 
   if (hasUser) {
-    if ((hitInfo.hitboxType & HitboxType.Resize) > 0) {
+    if ((hitInfo.hitboxType & HitboxType.Resize)) {
       document.body.style.cursor = "nwse-resize";
-    } else if ((hitInfo.hitboxType & HitboxType.ColResize) > 0) {
+    } else if ((hitInfo.hitboxType & HitboxType.ColResize)) {
       document.body.style.cursor = "ew-resize";
+    } else if ((hitInfo.hitboxType & HitboxType.Move) && (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup)) {
+      document.body.style.cursor = "move";
     } else {
       document.body.style.cursor = "default";
     }

@@ -17,7 +17,7 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, POPUP_TOOLBAR_WIDTH_BL } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
@@ -98,32 +98,8 @@ const arrangePageWithChildren = (
     isRoot: boolean): VisualElementSignal => {
   const pageWithChildrenVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren), parentPath);
 
-  let outerBoundsPx = geometry.boundsPx;
-  let hitboxes = geometry.hitboxes;
-  if (isPagePopup) {
-    const spatialWidthBl = linkItemMaybe_pageWithChildren!.spatialWidthGr / GRID_SIZE;
-    const widthPx = outerBoundsPx.w;
-    const blockWidthPx = widthPx / spatialWidthBl;
-    const toolbarWidthPx = blockWidthPx * POPUP_TOOLBAR_WIDTH_BL;
-    outerBoundsPx = {
-      x: geometry.boundsPx.x - toolbarWidthPx,
-      y: geometry.boundsPx.y,
-      w: geometry.boundsPx.w + toolbarWidthPx,
-      h: geometry.boundsPx.h,
-    };
-    const rsHbs = geometry.hitboxes.filter(hb => hb.type == HitboxType.Resize);
-    if (rsHbs.length == 0) { // popup page in page type that does not allow it to be moved.
-      hitboxes = [];
-    } else {
-      const defaultResizeHitbox = rsHbs[0];
-      if (defaultResizeHitbox.type != HitboxType.Resize) { panic(); }
-      const rhbBoundsPx = defaultResizeHitbox.boundsPx;
-      hitboxes = [
-        HitboxFns.create(HitboxType.Resize, { x: rhbBoundsPx.x + toolbarWidthPx, y: rhbBoundsPx.y, w: rhbBoundsPx.w, h: rhbBoundsPx.h }),
-        HitboxFns.create(HitboxType.Move, { x: 0, y: 0, w: toolbarWidthPx, h: outerBoundsPx.h })
-      ];
-    }
-  }
+  const outerBoundsPx = geometry.boundsPx;
+  const hitboxes = geometry.hitboxes;
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -231,19 +207,33 @@ const arrangePageWithChildren = (
     const children = isPagePopup || isRoot ? [arrangePageTitle()] : [];
     for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
       const childId = displayItem_pageWithChildren.computed_children[i];
-      const itemIsPopup = false;
       const childItem = itemState.get(childId)!;
+      const parentIsPopup = isPagePopup;
+      const emitHitboxes = true;
+      const childItemIsPopup = false; // never the case.
+      const hasPendingChanges = false; // it may do, but only matters for popups.
       if (isPagePopup || isRoot) {
         const itemGeometry = ItemFns.calcGeometry_Spatial(
-          childItem, zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
-          PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren), isPagePopup, true);
-        children.push(arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false));
+          childItem,
+          zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
+          PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
+          parentIsPopup,
+          emitHitboxes,
+          childItemIsPopup,
+          hasPendingChanges);
+        children.push(arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false));
       } else {
         const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
         const itemGeometry = ItemFns.calcGeometry_Spatial(
-          childItem, innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
-        children.push(arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, true));
+          childItem,
+          innerBoundsPx,
+          parentPageInnerDimensionsBl,
+          parentIsPopup,
+          emitHitboxes,
+          childItemIsPopup,
+          hasPendingChanges);
+        children.push(arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, true));
       }
     }
     pageWithChildrenVisualElementSpec.children = children;

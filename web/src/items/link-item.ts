@@ -139,7 +139,7 @@ export const LinkFns = {
     return ItemFns.calcSpatialDimensionsBl(measurableMaybe!);
   },
 
-  calcGeometry_Spatial: (link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
     function noLinkTo() {
       const boundsPx = {
         x: (link.spatialPositionGr.x / (parentInnerSizeBl.w * GRID_SIZE)) * parentBoundsPx.w + parentBoundsPx.x,
@@ -162,7 +162,7 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_Spatial(measurableMaybe, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes)
+    return ItemFns.calcGeometry_Spatial(measurableMaybe, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
   },
 
   calcGeometry_InComposite: (link: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {

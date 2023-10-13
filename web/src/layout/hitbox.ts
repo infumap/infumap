@@ -20,15 +20,16 @@ import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geome
 
 
 export enum HitboxType {
-  None =            0x000,
-  Click =           0x001,
-  Move =            0x002,
-  Resize =          0x004,
-  OpenPopup =       0x008,
-  Attach =          0x010,
-  ColResize =       0x020,
-  OpenAttachment =  0x040,
-  AttachComposite = 0x080,
+  None =            0x0000,
+  Click =           0x0001,
+  Move =            0x0002,
+  Resize =          0x0004,
+  OpenPopup =       0x0008,
+  Attach =          0x0010,
+  ColResize =       0x0020,
+  OpenAttachment =  0x0040,
+  AttachComposite = 0x0080,
+  Anchor =          0x0100,
 }
 
 export interface Hitbox {

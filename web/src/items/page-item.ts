@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -40,6 +40,7 @@ import { arrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
 import { NoteFlags } from './base/flags-item';
+import { server } from '../server';
 
 
 export const ArrangeAlgorithm = {
@@ -211,7 +212,7 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Spatial: (page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
     const boundsPx = {
       x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
       y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -223,15 +224,34 @@ export const PageFns = {
     ? cloneBoundingBox(innerBoundsPx)!
     : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
         w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+    if (!isPopup) {
+      return ({
+        boundsPx,
+        hitboxes: !emitHitboxes ? [] : [
+          HitboxFns.create(HitboxType.Move, innerBoundsPx),
+          HitboxFns.create(HitboxType.Click, innerBoundsPx),
+          HitboxFns.create(HitboxType.OpenPopup, popupClickBoundsPx),
+          HitboxFns.create(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+          HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+        ],
+      });
+    }
+
+    const hitboxes = [
+      HitboxFns.create(HitboxType.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxType.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxType.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxType.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+    ];
+
+    if (hasPendingChanges) {
+      hitboxes.push(HitboxFns.create(HitboxType.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+    }
+
     return ({
       boundsPx,
-      hitboxes: !emitHitboxes ? [] : [
-        HitboxFns.create(HitboxType.Move, innerBoundsPx),
-        HitboxFns.create(HitboxType.Click, innerBoundsPx),
-        HitboxFns.create(HitboxType.OpenPopup, popupClickBoundsPx),
-        HitboxFns.create(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-        HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
-      ],
+      hitboxes: !emitHitboxes ? [] : hitboxes,
     });
   },
 
@@ -373,6 +393,21 @@ export const PageFns = {
     } else {
       desktopStore.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
     }
+    arrange(desktopStore);
+  },
+
+  handleAnchorClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
+    const popupParentPage = asPageItem(itemState.get(VesCache.get(visualElement.parentPath!)!.get().displayItem.id)!);
+    if (popupParentPage.pendingPopupPositionGr != null) {
+      popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
+    }
+    if (popupParentPage.pendingPopupWidthGr != null) {
+      popupParentPage.popupWidthGr = popupParentPage.pendingPopupWidthGr;
+    }
+    if (popupParentPage.pendingPopupAlignmentPoint != null) {
+      popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
+    }
+    server.updateItem(popupParentPage);
     arrange(desktopStore);
   },
 
