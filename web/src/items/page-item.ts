@@ -348,14 +348,16 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_GridPageTitle: (page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_GridPageTitle: (desktopStore: DesktopStoreContextModel, page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
     const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(page);
 
+    const scale = pageBoundsPx.w / desktopStore.desktopBoundsPx().w;
+
     const pageTitleBoundsPx = {
-      x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX) / 2.0,
-      y: 0.05 * LINE_HEIGHT_PX,
-      w: pageTitleDimensionsBl.w * LINE_HEIGHT_PX,
-      h: pageTitleDimensionsBl.h * LINE_HEIGHT_PX,
+      x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale) / 2.0,
+      y: 0,
+      w: pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale,
+      h: pageTitleDimensionsBl.h * LINE_HEIGHT_PX * scale,
     }
 
     return ({

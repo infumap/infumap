@@ -43,7 +43,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
-  const headingMarginPx = LINE_HEIGHT_PX * 2.1;
+  const headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
 
   const numCols = currentPage.gridNumberOfColumns;
   const numRows = Math.ceil(currentPage.computed_children.length / numCols);
@@ -66,12 +66,13 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   function arrangePageTitle(): VisualElementSignal {
     const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(currentPage);
+
     const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(currentPage.id), currentPage.id!);
     li.id = PAGE_TITLE_UID;
     li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
     li.spatialPositionGr = { x: 0, y: 0 };
 
-    const geometry = PageFns.calcGeometry_GridPageTitle(currentPage, boundsPx);
+    const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, currentPage, boundsPx);
 
     const pageTitleElementSpec: VisualElementSpec = {
       displayItem: currentPage,

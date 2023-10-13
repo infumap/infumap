@@ -107,13 +107,17 @@ const arrangePageWithChildren = (
   // *** GRID ***
   if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
 
+    const scale = geometry.boundsPx.w / desktopStore.desktopBoundsPx().w;
+
+    const headingMarginPx = isPagePopup || isRoot ? LINE_HEIGHT_PX * (PageFns.pageTitleStyle().lineHeightMultiplier) * scale : 0;
+
     const pageItem = asPageItem(displayItem_pageWithChildren);
     const numCols = pageItem.gridNumberOfColumns;
     const numRows = Math.ceil(pageItem.computed_children.length / numCols);
     const cellWPx = geometry.boundsPx.w / numCols;
     const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
     const marginPx = cellWPx * 0.01;
-    const pageHeightPx = numRows * cellHPx;
+    const pageHeightPx = numRows * cellHPx + headingMarginPx;
     const boundsPx = (() => {
       const result = cloneBoundingBox(geometry.boundsPx)!;
       result.h = pageHeightPx;
@@ -132,14 +136,36 @@ const arrangePageWithChildren = (
       parentPath,
     };
 
-    const children = [];
+    function arrangePageTitle(): VisualElementSignal {
+      const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(displayItem_pageWithChildren);
+
+      const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(displayItem_pageWithChildren.id), displayItem_pageWithChildren.id!);
+      li.id = PAGE_TITLE_UID;
+      li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
+      li.spatialPositionGr = { x: 0, y: 0 };
+
+      const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
+      const pageTitleElementSpec: VisualElementSpec = {
+        displayItem: displayItem_pageWithChildren,
+        linkItemMaybe: li,
+        flags: VisualElementFlags.PageTitle,
+        boundsPx: geometry.boundsPx,
+        hitboxes: geometry.hitboxes,
+        parentPath: parentPath,
+      };
+
+      const pageTitlePath = VeFns.addVeidToPath({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: PAGE_TITLE_UID }, parentPath);
+      return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
+    }
+
+    const children = isPagePopup || isRoot ? [arrangePageTitle()] : [];
     for (let i=0; i<pageItem.computed_children.length; ++i) {
       const item = itemState.get(pageItem.computed_children[i])!;
       const col = i % numCols;
       const row = Math.floor(i / numCols);
       const cellBoundsPx = {
         x: col * cellWPx + marginPx,
-        y: row * cellHPx + marginPx,
+        y: row * cellHPx + marginPx + headingMarginPx,
         w: cellWPx - marginPx * 2.0,
         h: cellHPx - marginPx * 2.0
       };
