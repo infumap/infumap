@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX } from "../../../constants";
+import { GRID_SIZE } from "../../../constants";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";

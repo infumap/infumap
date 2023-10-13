@@ -346,9 +346,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                       `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
               onscroll={popupScrollHandler}>
-            <div class="absolute" style={`color: ${fullTitleColor()}; font-size: 20px; font-weight: bold; width: ${childAreaBoundsPx().w}px; text-align: center; pointer-events: none;`}>
-              {pageItem().title}
-            </div>
             <div class="absolute"
                  style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
                         `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>

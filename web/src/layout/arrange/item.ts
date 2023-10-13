@@ -27,7 +27,7 @@ import { TableItem, asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { LinkItem, isLink } from "../../items/link-item";
+import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxType, HitboxFns } from "../hitbox";
@@ -39,7 +39,11 @@ import { CompositeItem, asCompositeItem, isComposite } from "../../items/composi
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
+import { newUid } from "../../util/uid";
+import { RelationshipToParent } from "../relationship-to-parent";
 
+
+const PAGE_TITLE_UID = newUid();
 
 export const arrangeItem = (
     desktopStore: DesktopStoreContextModel,
@@ -202,22 +206,47 @@ const arrangePageWithChildren = (
 
     const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-    pageWithChildrenVisualElementSpec.children = displayItem_pageWithChildren.computed_children.map(childId => {
+    function arrangePageTitle(): VisualElementSignal {
+      const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(displayItem_pageWithChildren);
+
+      const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(displayItem_pageWithChildren.id), displayItem_pageWithChildren.id!);
+      li.id = PAGE_TITLE_UID;
+      li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
+      li.spatialPositionGr = { x: 0, y: 0 };
+
+      const geometry = PageFns.calcGeometry_SpatialPageTitle(displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
+      const pageTitleElementSpec: VisualElementSpec = {
+        displayItem: displayItem_pageWithChildren,
+        linkItemMaybe: li,
+        flags: VisualElementFlags.PageTitle,
+        boundsPx: geometry.boundsPx,
+        hitboxes: geometry.hitboxes,
+        parentPath: parentPath,
+      };
+
+      const pageTitlePath = VeFns.addVeidToPath({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: PAGE_TITLE_UID }, parentPath);
+      return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
+    }
+
+    const children = isPagePopup || isRoot ? [arrangePageTitle()] : [];
+    for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
+      const childId = displayItem_pageWithChildren.computed_children[i];
       const itemIsPopup = false;
       const childItem = itemState.get(childId)!;
       if (isPagePopup || isRoot) {
         const itemGeometry = ItemFns.calcGeometry_Spatial(
           childItem, zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren), isPagePopup, true);
-        return arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false);
+        children.push(arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, itemIsPopup, false));
       } else {
         const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
         const itemGeometry = ItemFns.calcGeometry_Spatial(
           childItem, innerBoundsPx, parentPageInnerDimensionsBl, isPagePopup, true);
-        return arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, true);
+        children.push(arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, itemIsPopup, true));
       }
-    });
+    }
+    pageWithChildrenVisualElementSpec.children = children;
 
 
   // *** LIST VIEW ***

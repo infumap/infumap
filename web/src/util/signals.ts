@@ -44,17 +44,6 @@ export function createBooleanSignal(v: boolean): BooleanSignal {
 }
 
 
-export interface UidArraySignal {
-  get: Accessor<Array<Uid>>,
-  set: Setter<Array<Uid>>,
-}
-
-export function createUidArraySignal(array: Array<Uid>): UidArraySignal {
-  let [arrayAccessor, arraySetter] = createSignal<Array<Uid>>([], { equals: false });
-  return { get: arrayAccessor, set: arraySetter };
-}
-
-
 export interface VectorSignal {
   get: Accessor<Vector>,
   set: Setter<Vector>,
