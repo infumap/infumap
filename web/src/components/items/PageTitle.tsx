@@ -21,7 +21,7 @@ import { VisualElementProps } from "../VisualElement";
 import { PageFns, asPageItem } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
-import { LINE_HEIGHT_PX } from "../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 
 
 export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -29,9 +29,7 @@ export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualEl
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => PageFns.calcTitleSpatialDimensionsBl(pageItem());
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
-  const widthScale = () => {
-    return boundsPx().w / naturalWidthPx();
-  }
+  const widthScale = () => boundsPx().w / naturalWidthPx();
   const textBlockScale = () => widthScale();
   const fullTitleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
   return (
@@ -50,13 +48,20 @@ export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualEl
 
 export const PageTitle_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const pageItem = () => asPageItem(props.visualElement.displayItem);
-  const boundsPx = () => props.visualElement.boundsPx;
-  const margin = 4;
-  const widthPx = () => boundsPx().w - margin * 2;
+  const boundsPx = () => {
+    console.log("B", props.visualElement.boundsPx);
+    return props.visualElement.boundsPx;
+  }
+  const sizeBl = () => LIST_PAGE_LIST_WIDTH_BL;
+  const naturalWidthPx = () => sizeBl() * LINE_HEIGHT_PX;
+  const widthScale = () => boundsPx().w / naturalWidthPx();
+  const textBlockScale = () => widthScale();
+  const marginPx = 4;
+  const widthPx = () => boundsPx().w - marginPx * 2;
   const fullTitleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
 
   return (
-    <div class="absolute overflow-hidden border-b border-slate-700" style={`margin-left: 4px; margin-right: 4px; color: ${fullTitleColor()}; font-size: ${PageFns.pageTitleStyle_List().fontSize}px; ${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} width: ${widthPx()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; pointer-events: none;`}>
+    <div class="absolute overflow-hidden border-b border-slate-700" style={`margin-left: 4px; margin-right: 4px; color: ${fullTitleColor()}; font-size: ${PageFns.pageTitleStyle_List().fontSize * textBlockScale()}px; ${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} width: ${widthPx()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; pointer-events: none;`}>
       {pageItem().title}
     </div>
   );

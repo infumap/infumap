@@ -30,7 +30,6 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
-import { HitboxType, HitboxFns } from "../hitbox";
 import { itemState } from "../../store/ItemState";
 import { TableFlags } from "../../items/base/flags-item";
 import { VesCache } from "../ves-cache";
@@ -151,7 +150,7 @@ const arrangePageWithChildren = (
         flags: VisualElementFlags.PageTitle,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
-        parentPath: parentPath,
+        parentPath,
       };
 
       const pageTitlePath = VeFns.addVeidToPath({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: PAGE_TITLE_UID }, parentPath);
@@ -223,7 +222,7 @@ const arrangePageWithChildren = (
         flags: VisualElementFlags.PageTitle,
         boundsPx: geometry.boundsPx,
         hitboxes: geometry.hitboxes,
-        parentPath: parentPath,
+        parentPath,
       };
 
       const pageTitlePath = VeFns.addVeidToPath({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: PAGE_TITLE_UID }, parentPath);
@@ -268,6 +267,8 @@ const arrangePageWithChildren = (
   // *** LIST VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.List) {
 
+    const scale = outerBoundsPx.w / desktopStore.desktopBoundsPx().w;
+
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
       linkItemMaybe: linkItemMaybe_pageWithChildren,
@@ -280,8 +281,6 @@ const arrangePageWithChildren = (
       parentPath,
     };
 
-    const _innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
-
     let listVeChildren: Array<VisualElementSignal> = [];
     for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
       const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
@@ -289,9 +288,9 @@ const arrangePageWithChildren = (
       const selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem({ itemId: displayItem.id, linkIdMaybe: linkItemMaybe ? linkItemMaybe.id : null }));
 
       const widthBl = LIST_PAGE_LIST_WIDTH_BL;
-      const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
+      const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
-      const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl);
+      const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx + 1, 0, widthBl);
 
       const listItemVeSpec: VisualElementSpec = {
         displayItem,
@@ -303,7 +302,7 @@ const arrangePageWithChildren = (
         parentPath: pageWithChildrenVePath,
         col: 0,
         row: idx,
-        oneBlockWidthPx: LINE_HEIGHT_PX,
+        oneBlockWidthPx: LINE_HEIGHT_PX * scale,
       };
       const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
       const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);

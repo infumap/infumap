@@ -199,6 +199,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; `}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              <div class="absolute overflow-hidden border-b border-slate-700"
+                   style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
+                          `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
+                          `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
+                          `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
+                          `pointer-events: none;`}>
+                {pageItem().title}
+              </div>
               <For each={lineVes()}>{childVe =>
                 <VisualElement_LineItem visualElement={childVe.get()} />
               }</For>
@@ -308,6 +316,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     });
   }
 
+  const listViewScale = () => props.visualElement.boundsPx.w / desktopStore.desktopBoundsPx().w;
+  const marginPx = 4;
+  const widthPx = () => LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale() - marginPx * 2;
+
   const drawAsPopup = () => {
     return (
       <>
@@ -317,8 +329,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div ref={popupDiv}
                class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-               style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
+               style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              <div class="absolute overflow-hidden border-b border-slate-700"
+                   style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
+                          `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
+                          `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
+                          `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
+                          `pointer-events: none;`}>
+                {pageItem().title}
+              </div>
               <For each={lineVes()}>{childVe =>
                 <VisualElement_LineItem visualElement={childVe.get()} />
               }</For>
@@ -375,15 +395,23 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff;`}>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
-          <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px`}>
-            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+          <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${boundsPx().h}px`}>
+            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              <div class="absolute overflow-hidden border-b border-slate-700"
+                   style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
+                          `font-size: ${PageFns.pageTitleStyle_List().fontSize*listViewScale()}px; ` +
+                          `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
+                          `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
+                          `pointer-events: none;`}>
+                {pageItem().title}
+              </div>
               <For each={lineVes()}>{childVe =>
                 <VisualElement_LineItem visualElement={childVe.get()} />
               }</For>
             </div>
           </div>
           <div class={`absolute bg-slate-700`}
-               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}>
+               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}>
           </div>
         </Show>
         <For each={desktopVes()}>{childVe =>

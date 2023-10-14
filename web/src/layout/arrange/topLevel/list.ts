@@ -55,32 +55,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 
   const widthBl = LIST_PAGE_LIST_WIDTH_BL;
 
-  function arrangePageTitle(): VisualElementSignal {
-    const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(currentPage.id), currentPage.id!);
-    li.id = PAGE_TITLE_UID;
-    li.spatialWidthGr = LIST_PAGE_LIST_WIDTH_BL * GRID_SIZE;
-    li.spatialPositionGr = { x: 0, y: 0 };
-
-    const geometry = PageFns.calcGeometry_ListPageTitle(currentPage, { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX }, widthBl);
-
-    const pageTitleElementSpec: VisualElementSpec = {
-      displayItem: currentPage,
-      linkItemMaybe: li,
-      flags: VisualElementFlags.PageTitle | VisualElementFlags.LineItem,
-      boundsPx: geometry.boundsPx,
-      hitboxes: geometry.hitboxes,
-      parentPath: currentPath,
-    };
-
-    const pageTitlePath = VeFns.addVeidToPath({ itemId: currentPage.id, linkIdMaybe: PAGE_TITLE_UID }, currentPath);
-    return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
-  }
-
-
   let listVeChildren: Array<VisualElementSignal> = [];
-
-  listVeChildren.push(arrangePageTitle());
-
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childItem = itemState.get(currentPage.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);

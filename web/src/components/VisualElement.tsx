@@ -75,8 +75,7 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
   return (
     <Switch fallback={<div>VisualElementInTable: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
-      <Match when={isPage(props.visualElement.displayItem) && !(props.visualElement.flags & VisualElementFlags.PageTitle)}><Page_LineItem {...props} /></Match>
-      <Match when={isPage(props.visualElement.displayItem) && (props.visualElement.flags & VisualElementFlags.PageTitle)}><PageTitle_LineItem {...props} /></Match>
+      <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_LineItem {...props} /></Match>
       <Match when={isComposite(props.visualElement.displayItem)}><Composite_LineItem {...props} /></Match>
       <Match when={isNote(props.visualElement.displayItem)}><Note_LineItem {...props} /></Match>
