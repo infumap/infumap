@@ -312,20 +312,30 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean): ItemGeometry => {
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    const popupClickBoundsPx =
-      { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-        w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
-    return ({
-      boundsPx: cloneBoundingBox(boundsPx)!,
-      hitboxes: [
+
+    let hitboxes;
+    if (expandable) {
+      hitboxes = [
+        HitboxFns.create(HitboxType.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxType.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+        HitboxFns.create(HitboxType.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+        HitboxFns.create(HitboxType.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      ];
+    } else {
+      const popupClickBoundsPx =
+        { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+          w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+      hitboxes = [
         HitboxFns.create(HitboxType.Click, innerBoundsPx),
         HitboxFns.create(HitboxType.OpenPopup, popupClickBoundsPx),
-      ]
-    });
+      ];
+    }
+
+    return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
   },
 
   calcGeometry_SpatialPageTitle: (page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
@@ -411,6 +421,10 @@ export const PageFns = {
     }
     server.updateItem(popupParentPage);
     arrange(desktopStore);
+  },
+
+  handleExpandClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
+    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

@@ -51,7 +51,7 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
     w: desktopBoundsPx.w * 0.8,
     h: desktopBoundsPx.h * 0.8,
   };
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx);
+  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false);
 
   const item = itemState.get(popupLinkToImageId)!;
 

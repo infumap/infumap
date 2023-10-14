@@ -170,7 +170,7 @@ const arrangePageWithChildren = (
         h: cellHPx - marginPx * 2.0
       };
 
-      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx);
+      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
       if (!isLink(item)) {
         const veSpec: VisualElementSpec = {
           displayItem: item,

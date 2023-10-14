@@ -88,6 +88,15 @@ export function getHitInfo(
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
       posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
+      let hitboxType = HitboxType.None;
+      for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
+        if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
+          hitboxType |= rootVisualElement.hitboxes[j].type;
+        }
+      }
+      if (hitboxType != HitboxType.None) {
+        return finalize(hitboxType, HitboxType.None, rootVisualElement, rootVisualElementSignal, null);
+      }
     }
   }
 

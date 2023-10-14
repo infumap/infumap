@@ -102,7 +102,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       h: cellHPx - marginPx * 2.0
     };
 
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx);
+    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
     const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
     children.push(ves);
   }

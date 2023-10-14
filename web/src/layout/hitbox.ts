@@ -30,6 +30,7 @@ export enum HitboxType {
   OpenAttachment =  0x0040,
   AttachComposite = 0x0080,
   Anchor =          0x0100,
+  Expand =          0x0200,
 }
 
 export interface Hitbox {

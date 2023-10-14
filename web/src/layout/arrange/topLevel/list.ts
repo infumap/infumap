@@ -56,7 +56,6 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   const widthBl = LIST_PAGE_LIST_WIDTH_BL;
 
   function arrangePageTitle(): VisualElementSignal {
-    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(currentPage);
     const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(currentPage.id), currentPage.id!);
     li.id = PAGE_TITLE_UID;
     li.spatialWidthGr = LIST_PAGE_LIST_WIDTH_BL * GRID_SIZE;
@@ -132,7 +131,8 @@ function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: V
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx);
+  const expandable = true;
+  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable);
 
   return arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, true);
 }

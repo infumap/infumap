@@ -103,6 +103,9 @@ export function mouseUpHandler(
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Anchor) {
         PageFns.handleAnchorClick(activeVisualElement, desktopStore, userStore);
       }
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Expand) {
+        PageFns.handleExpandClick(activeVisualElement, desktopStore, userStore);
+      }
       break;
 
     default:

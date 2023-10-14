@@ -31,7 +31,6 @@ import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-eleme
 import { editDialogSizePx } from "../components/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { asContainerItem } from "../items/base/container-item";
 import { getHitInfo } from "./hit";
 import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
 import { PlaceholderFns } from "../items/placeholder-item";
@@ -499,6 +498,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   const dialogInfo = desktopStore.editDialogInfo();
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null;
+
   const ev = LastMouseMoveEventState.get();
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
@@ -536,12 +536,14 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   }
 
   if (hasUser) {
-    if ((hitInfo.hitboxType & HitboxType.Resize)) {
+    if (hitInfo.hitboxType & HitboxType.Resize) {
       document.body.style.cursor = "nwse-resize";
-    } else if ((hitInfo.hitboxType & HitboxType.ColResize)) {
+    } else if (hitInfo.hitboxType & HitboxType.ColResize) {
       document.body.style.cursor = "ew-resize";
     } else if ((hitInfo.hitboxType & HitboxType.Move) && (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup)) {
       document.body.style.cursor = "move";
+    } else if (hitInfo.hitboxType & HitboxType.Expand) {
+      document.body.style.cursor = "zoom-in";
     } else {
       document.body.style.cursor = "default";
     }
