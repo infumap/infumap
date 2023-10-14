@@ -17,6 +17,7 @@
 */
 
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
+import { TouchOrMouseEvent } from "../mouse/state";
 
 
 export interface BoundingBox {
@@ -121,11 +122,11 @@ export function cloneDimensions(dimensions: Dimensions | null): Dimensions | nul
 }
 
 
-function clientPxFromMouseEvent(ev: MouseEvent): Vector {
+function clientPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
   return { x: ev.clientX, y: ev.clientY };
 }
 
-export function desktopPxFromMouseEvent(ev: MouseEvent): Vector {
+export function desktopPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
   return vectorSubtract(clientPxFromMouseEvent(ev), { x: MAIN_TOOLBAR_WIDTH_PX, y: 0 });
 }
 

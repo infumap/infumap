@@ -109,9 +109,32 @@ export let DialogMoveState = {
 
 // ### Mouse MoveEvent State
 
-let lastMoveEvent: MouseEvent = new MouseEvent("mousemove");
+export interface TouchOrMouseEvent {
+  clientX: number,
+  clientY: number,
+  shiftDown: boolean,
+}
+
+let lastMoveEvent: TouchOrMouseEvent = {
+  clientX: 0,
+  clientY: 0,
+  shiftDown: false,
+};
 
 export const LastMouseMoveEventState = {
-  set: (ev: MouseEvent) => { lastMoveEvent = ev; },
-  get: (): MouseEvent => { return lastMoveEvent; }
+  setFromMouseEvent: (ev: MouseEvent) => {
+    lastMoveEvent = {
+      clientX: ev.clientX,
+      clientY: ev.clientY,
+      shiftDown: ev.shiftKey,
+    };
+  },
+  setFromTouchEvent: (ev: TouchEvent) => {
+    lastMoveEvent = {
+      clientX: ev.touches[0].clientX,
+      clientY: ev.touches[0].clientY,
+      shiftDown: false,
+    }
+  },
+  get: (): TouchOrMouseEvent => { return lastMoveEvent; }
 }

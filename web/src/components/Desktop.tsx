@@ -37,7 +37,7 @@ import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
 import { TextEditOverlay } from "./overlay/TextEditOverlay";
 import { mouseUpHandler } from "../mouse/mouse_up";
-import { mouseDownHandler } from "../mouse/mouse_down";
+import { MOUSE_RIGHT, mouseDownHandler } from "../mouse/mouse_down";
 import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
 import { LastMouseMoveEventState } from "../mouse/state";
 import { arrange } from "../layout/arrange";
@@ -153,8 +153,16 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     mouseDownHandler(desktopStore, userStore, ev.button);
   };
 
+  const touchListener = (ev: TouchEvent) => {
+    if (ev.touches.length > 1) {
+      LastMouseMoveEventState.setFromTouchEvent(ev);
+      ev.preventDefault();
+      mouseDownHandler(desktopStore, userStore, MOUSE_RIGHT);
+    }
+  }
+
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.set(ev);
+    LastMouseMoveEventState.setFromMouseEvent(ev);
     mouseMoveHandler(desktopStore, userStore);
   };
 
@@ -181,10 +189,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   };
 
   const dropListener = async (ev: DragEvent) => {
+    LastMouseMoveEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+      let hi = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
       if (hi.hitboxType != HitboxType.None) {
         console.log("must upload on background.");
         return;
@@ -194,7 +203,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         console.log("must upload on page.");
         return;
       }
-      await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(ev), asPageItem(item));
+      await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), asPageItem(item));
     }
   };
 
@@ -263,6 +272,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
          ref={desktopDiv}
          class="absolute top-0 bottom-0 right-0 select-none outline-none"
          style={`left: ${MAIN_TOOLBAR_WIDTH_PX}px; ${overflowPolicy(props.visualElement)}`}
+         ontouchstart={touchListener}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          ondblclick={mouseDoubleClickListener}

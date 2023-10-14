@@ -40,7 +40,7 @@ import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
-import { MouseAction, MouseActionState, LastMouseMoveEventState, dialogMoveState } from "./state";
+import { MouseAction, MouseActionState, LastMouseMoveEventState, dialogMoveState, TouchOrMouseEvent } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrange } from "../layout/arrange";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
@@ -120,7 +120,7 @@ function changeMouseActionStateMaybe(
     desktopStore: DesktopStoreContextModel,
     desktopPosPx: Vector,
     hasUser: boolean,
-    ev: MouseEvent) {
+    ev: TouchOrMouseEvent) {
   if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
   if (!hasUser) { return; }
 
@@ -165,7 +165,7 @@ function changeMouseActionStateMaybe(
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
-      const shouldCreateLink = ev.shiftKey;
+      const shouldCreateLink = ev.shiftDown;
       const parentItem = itemState.get(activeItem.parentId)!;
       if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
         moving_activeItemOutOfTable(desktopStore, shouldCreateLink);
