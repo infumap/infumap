@@ -118,14 +118,16 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       desktopStore.setContextMenuInfo(null);
       arrange(desktopStore);
 
-      if (type != "note") {
+      if (type == "note") {
+        const noteItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
+        desktopStore.setTextEditOverlayInfo({ noteItemPath: noteItemPath });
+      } else if (type == "rating") {
+        // noop.
+      } else {
         desktopStore.setEditDialogInfo({
           desktopBoundsPx: initialEditDialogBounds(desktopStore),
           item: newItem
         });
-      } else {
-        const noteItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
-        desktopStore.setTextEditOverlayInfo({ noteItemPath: noteItemPath });
       }
       return;
     }
