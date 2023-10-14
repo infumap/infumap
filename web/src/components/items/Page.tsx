@@ -327,9 +327,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
         </div>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
+          <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+               style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #ffffff;`}>
+          </div>
           <div ref={popupDiv}
-               class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-               style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #f8f8f8; border-color: ${borderColorVal()}`}>
+               class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
+               style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #ffffff;`}>
             <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
               <div class="absolute overflow-hidden border-b border-slate-700"
                    style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
