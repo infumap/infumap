@@ -27,16 +27,16 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { HitboxType } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
-import { server } from "../../server";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
-import { arrange } from "../../layout/arrange";
 import { editDialogSizePx } from "../edit/EditDialog";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
+import { useUserStore } from "../../store/UserStoreProvider";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
+  const userStore = useUserStore();
 
   onMount(() => {
     if (props.visualElement.flags & VisualElementFlags.Popup) {
@@ -420,7 +420,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <For each={desktopVes()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={isPublic()}>
+        <Show when={isPublic() && userStore.getUserMaybe() != null}>
           <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;"></div>
         </Show>
       </div>
