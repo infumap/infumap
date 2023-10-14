@@ -36,7 +36,6 @@ import { getVePropertiesForItem } from "../util";
 
 
 const LIST_FOCUS_ID = newUid();
-const PAGE_TITLE_UID = newUid();
 
 export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   VesCache.initFullArrange();
