@@ -311,6 +311,22 @@ const arrangePageWithChildren = (
     pageWithChildrenVisualElementSpec.children = listVeChildren;
 
 
+  // *** DOCUMENT VIEW ***
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+
+    pageWithChildrenVisualElementSpec = {
+      displayItem: displayItem_pageWithChildren,
+      linkItemMaybe: linkItemMaybe_pageWithChildren,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None),
+      boundsPx: outerBoundsPx,
+      childAreaBoundsPx: geometry.boundsPx,
+      hitboxes,
+      parentPath,
+    };
+
+
   } else {
 
     panic();

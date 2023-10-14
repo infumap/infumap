@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../../items/base/y-sizeable-item";

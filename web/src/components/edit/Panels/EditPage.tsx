@@ -88,6 +88,7 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
   let checkElement_spatial_stretch: HTMLInputElement | undefined;
   let checkElement_grid: HTMLInputElement | undefined;
   let checkElement_list: HTMLInputElement | undefined;
+  let checkElement_document: HTMLInputElement | undefined;
   let checkElement_ord: HTMLInputElement | undefined;
 
   const changeArrangeAlgo = async () => {
@@ -98,6 +99,8 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
       t = ArrangeAlgorithm.Grid;
     } else if (checkElement_list?.checked) {
       t = ArrangeAlgorithm.List;
+    } else if (checkElement_document?.checked) {
+      t = ArrangeAlgorithm.Document;
     } else {
       panic();
     }
@@ -142,17 +145,21 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
         <div><InfuButton text="delete" onClick={deletePage} /></div>
       </Show>
       <div>
-        <div>
+        <div class="inline-block">
           <input name="aa" type="radio" ref={checkElement_spatial_stretch} id={ArrangeAlgorithm.SpatialStretch} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch} onClick={changeArrangeAlgo} />
           <label for={ArrangeAlgorithm.SpatialStretch}>spatial</label>
         </div>
-        <div>
+        <div class="inline-block ml-2">
           <input name="aa" type="radio" ref={checkElement_grid} id={ArrangeAlgorithm.Grid} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid} onClick={changeArrangeAlgo} />
           <label for={ArrangeAlgorithm.Grid}>grid</label>
         </div>
-        <div>
+        <div class="inline-block ml-2">
           <input name="aa" type="radio" ref={checkElement_list} id={ArrangeAlgorithm.List} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.List} onClick={changeArrangeAlgo} />
           <label for={ArrangeAlgorithm.List}>list</label>
+        </div>
+        <div class="inline-block ml-2">
+          <input name="aa" type="radio" ref={checkElement_document} id={ArrangeAlgorithm.Document} checked={props.pageItem.arrangeAlgorithm == ArrangeAlgorithm.Document} onClick={changeArrangeAlgo} />
+          <label for={ArrangeAlgorithm.Document}>document</label>
         </div>
       </div>
       <div>

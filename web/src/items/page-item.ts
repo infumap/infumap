@@ -46,7 +46,8 @@ import { server } from '../server';
 export const ArrangeAlgorithm = {
   SpatialStretch: "spatial-stretch",
   Grid: "grid",
-  List: "list"
+  List: "list",
+  Document: "document",
 };
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {

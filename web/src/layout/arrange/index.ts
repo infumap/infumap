@@ -27,6 +27,7 @@ import { findClosest } from "../find";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VisualElementPath } from "../visual-element";
+import { arrange_document } from "./topLevel/document";
 import { arrange_grid } from "./topLevel/grid";
 import { arrange_list } from "./topLevel/list";
 import { arrange_spatialStretch } from "./topLevel/spatial";
@@ -65,6 +66,9 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
       break;
     case ArrangeAlgorithm.List:
       arrange_list(desktopStore);
+      break;
+    case ArrangeAlgorithm.Document:
+      arrange_document(desktopStore);
       break;
     default:
       panic();
