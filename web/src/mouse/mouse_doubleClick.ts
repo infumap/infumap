@@ -17,11 +17,17 @@
 */
 
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { UserStoreContextModel } from "../store/UserStoreProvider";
+import { desktopPxFromMouseEvent } from "../util/geometry";
+import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
+import { mouseMove_handleNoButtonDown } from "./mouse_move";
+import { LastMouseMoveEventState } from "./state";
 
 
 export function mouseDoubleClickHandler(
     desktopStore: DesktopStoreContextModel,
+    userStore: UserStoreContextModel,
     ev: MouseEvent) {
   if (desktopStore.currentPage() == null) { return; }
   if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
@@ -30,5 +36,8 @@ export function mouseDoubleClickHandler(
     return;
   }
 
-  // Double clicking is no longer used for anything.
+  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
+
+  desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(LastMouseMoveEventState.get()), hitInfo });
+  mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
 }

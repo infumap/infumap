@@ -61,7 +61,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       return;
     }
 
-    let hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
+    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
 
     if (ev.code == "Slash") {
       ev.preventDefault();
@@ -102,7 +102,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
     else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
       ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-      let currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+      const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
       if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
         if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
           const selectedItem = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
@@ -145,7 +145,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDoubleClickHandler(desktopStore, ev);
+    mouseDoubleClickHandler(desktopStore, userStore, ev);
   };
 
   const mouseDownListener = (ev: MouseEvent) => {
