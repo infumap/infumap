@@ -17,12 +17,10 @@
 */
 
 import { ROOT_USERNAME } from "../constants";
-import { ArrangeAlgorithm, asPageItem } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
-import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { arrange } from "./arrange";
-import { Veid, VeFns } from "./visual-element";
+import { Veid } from "./visual-element";
 
 
 export function updateHref(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
