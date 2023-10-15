@@ -98,31 +98,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   return (
-    <Show when={boundsPx().w > 5}>
-      <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
-             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
-        </div>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
-             style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
-          <img class="max-w-none absolute pointer-events-none"
-                  style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                          `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-                  width={imageWidthToRequestPx(false)}
-                  height={imageWidthToRequestPx(false) / imageAspect()}
-                  src={thumbnailSrc()} />
-        </div>
-      </Show>
+    <Show when={boundsPx().w > 5} fallback={tooSmallFallback()}>
+      {renderPopupBaseMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
            style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
-        <Show when={isDetailed()} fallback={
-            <img class="max-w-none absolute pointer-events-none"
-                 style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                        `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
-                 width={imageWidthToRequestPx(false)}
-                 height={imageWidthToRequestPx(false) / imageAspect()}
-                 src={thumbnailSrc()} />
-          }>
+        <Show when={isDetailed()} fallback={notDetailedFallback()}>
           <img ref={imgElement}
                class="max-w-none absolute pointer-events-none"
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
@@ -142,7 +122,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
-           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                  `top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
@@ -150,6 +131,52 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
         </Show>
       </div>
+      {renderTitleMaybe()}
+    </Show>
+  );
+
+  function renderPopupBaseMaybe() {
+    return (
+      <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
+             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
+        </div>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
+             style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+          <img class="max-w-none absolute pointer-events-none"
+               style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+               width={imageWidthToRequestPx(false)}
+               height={imageWidthToRequestPx(false) / imageAspect()}
+               src={thumbnailSrc()} />
+        </div>
+      </Show>
+    );
+  }
+
+  function tooSmallFallback() {
+    return (
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
+                  `border border-slate-700 overflow-hidden pointer-events-none`}
+           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                  `top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}></div>
+    );
+  }
+
+  function notDetailedFallback() {
+    return (
+      <img class="max-w-none absolute pointer-events-none"
+           style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                  `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; ` +
+                  `height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+           width={imageWidthToRequestPx(false)}
+           height={imageWidthToRequestPx(false) / imageAspect()}
+           src={thumbnailSrc()} />
+    );
+  }
+
+  function renderTitleMaybe() {
+    return (
       <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
              style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
@@ -158,8 +185,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </div>
         </div>
       </Show>
-    </Show>
-  );
+    );
+  }
 }
 
 
