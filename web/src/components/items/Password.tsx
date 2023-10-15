@@ -28,6 +28,7 @@ import { VisualElementFlags } from "../../layout/visual-element";
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
+
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
@@ -112,6 +113,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
 export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
+
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;

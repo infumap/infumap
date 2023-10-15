@@ -177,6 +177,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
+
   let outerDiv: HTMLDivElement | undefined;
 
   const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
