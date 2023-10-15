@@ -18,6 +18,7 @@
 
 import { LINE_HEIGHT_PX } from "../../constants";
 import { arrange } from "../../layout/arrange";
+import { POPUP_LINK_ID } from "../../layout/arrange/popup";
 import { HitboxFns, HitboxType } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";
@@ -31,7 +32,12 @@ import { Measurable } from "./item";
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): boolean {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
+    const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
+    if (parentVeid.linkIdMaybe == POPUP_LINK_ID) {
+      desktopStore.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
+    } else {
+      desktopStore.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+    }
     arrange(desktopStore);
     return true;
   }

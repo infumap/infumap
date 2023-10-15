@@ -24,9 +24,9 @@ import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../items/page-item";
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
-import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns } from "../visual-element";
+import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, EMPTY_VEID, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -40,6 +40,9 @@ import { getVePropertiesForItem } from "./util";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { newUid } from "../../util/uid";
 import { RelationshipToParent } from "../relationship-to-parent";
+import { newOrdering } from "../../util/ordering";
+import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
+import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 
 
 const PAGE_TITLE_UID = newUid();
@@ -281,11 +284,21 @@ const arrangePageWithChildren = (
       parentPath,
     };
 
+    let selectedVeid = EMPTY_VEID;
+    if (isPagePopup) {
+      const poppedUp = desktopStore.currentPopupSpec()!;
+      const poppedUpPath = poppedUp.vePath;
+      const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
+      selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem(poppedUpVeid));
+    } else if (isRoot) {
+      // TODO (MEDIUM): list pages in list pages.
+      console.log("not implemented");
+    }
+
     let listVeChildren: Array<VisualElementSignal> = [];
     for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
       const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
-      const selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem({ itemId: displayItem.id, linkIdMaybe: linkItemMaybe ? linkItemMaybe.id : null }));
 
       const widthBl = LIST_PAGE_LIST_WIDTH_BL;
       const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
@@ -309,6 +322,17 @@ const arrangePageWithChildren = (
       listVeChildren.push(listItemVisualElementSignal);
     }
     pageWithChildrenVisualElementSpec.children = listVeChildren;
+
+    if (selectedVeid != EMPTY_VEID) {
+      const boundsPx = {
+        x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX * scale,
+        y: LINE_HEIGHT_PX * scale,
+        w: outerBoundsPx.w - ((LIST_PAGE_LIST_WIDTH_BL+2) * LINE_HEIGHT_PX) * scale,
+        h: outerBoundsPx.h - (2 * LINE_HEIGHT_PX) * scale
+      };
+      pageWithChildrenVisualElementSpec.children.push(
+        arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, pageWithChildrenVePath, false));
+    }
 
 
   // *** DOCUMENT VIEW ***
@@ -568,4 +592,22 @@ const arrangeItemNoChildren = (
   }
 
   return itemVisualElementSignal;
+}
+
+
+const LIST_FOCUS_ID = newUid();
+
+export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, expandable: boolean): VisualElementSignal {
+  const item = itemState.get(veid.itemId)!;
+
+  let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
+  li.id = LIST_FOCUS_ID;
+  if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
+  if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
+  li.spatialPositionGr = { x: 0.0, y: 0.0 };
+
+  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable);
+
+  const result = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, true);
+  return result;
 }

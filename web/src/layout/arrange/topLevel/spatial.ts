@@ -26,7 +26,7 @@ import { newOrdering } from "../../../util/ordering";
 import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
-import { arrangeCellPopup } from "../popup";
+import { POPUP_LINK_ID, arrangeCellPopup } from "../popup";
 import { newUid } from "../../../util/uid";
 import { Item } from "../../../items/base/item";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
@@ -35,7 +35,6 @@ import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
 
 
-const SPATIAL_POPUP_LINK_ID = newUid();
 const PAGE_TITLE_UID = newUid();
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
@@ -109,7 +108,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
       // Position of page popup in spatial pages is user defined.
       const popupLinkToPageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
       const li = LinkFns.create(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
-      li.id = SPATIAL_POPUP_LINK_ID;
+      li.id = POPUP_LINK_ID;
       const widthGr = PageFns.getPopupWidthGr(pageItem);
       const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
       li.spatialWidthGr = widthGr;
