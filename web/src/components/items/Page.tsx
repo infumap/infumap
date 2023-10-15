@@ -171,9 +171,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   let updatingScrollTop = false;
-  const _updateScrollTop = createEffect(() => {
-    updatingScrollTop = true;
+  createEffect(() => {
+    // occurs on page arrange algorithm change.
+    if (!childAreaBoundsPx()) { return; }
 
+    updatingScrollTop = true;
     if (translucentDiv) {
       translucentDiv.scrollTop =
         desktopStore.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
