@@ -63,12 +63,12 @@ export let VesCache = {
   },
 
   initFullArrange: (): void => {
-    newCache = new Map<VisualElementPath, VisualElementSignal>();
     evaluationRequired = new Set<VisualElementPath>();
   },
 
   finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, desktopStore: DesktopStoreContextModel): void => {
     createOrRecycleVisualElementSignalImpl(topLevelVisualElementSpec, topLevelPath, desktopStore.topLevelVisualElementSignal());
+    newCache = new Map<VisualElementPath, VisualElementSignal>();
   },
 
   /**
@@ -84,32 +84,56 @@ export let VesCache = {
     return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
   },
 
+  /**
+   * Find all current cached visual element signals with the specified veid.
+   * This includes any ves created in the current arrange pass (if one is underway) in addition to
+   * any from the last completed one.
+   */
   find: (veid: Veid): Array<VisualElementSignal> => {
-    const result = [];
-    for (let key of currentVesCache.keys()) {
-      let v = VeFns.veidFromPath(key);
-      if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
-        result.push(currentVesCache.get(key)!);
+    function findImpl(map: Map<VisualElementPath, VisualElementSignal>, result: Array<VisualElementSignal>) {
+      for (let key of map.keys()) {
+        const v = VeFns.veidFromPath(key);
+        if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
+          const ves = map.get(key)!;
+          if (!result.find(r => r == ves)) {
+            result.push(ves);
+          }
+        }
       }
     }
+    const result: Array<VisualElementSignal> = [];
+    findImpl(newCache, result);
+    findImpl(currentVesCache, result);
     return result;
   },
 
+  /**
+   * Find the single cached visual element with the specified veid. If other than one (none, or more than one)
+   * corresponding ves exists, throw an exception.
+   * The search includes any ves created in the current arrange pass (if one is underway) in addition to
+   * any from the last completed one.
+   */
   findSingle: (veid: Veid): VisualElementSignal => {
-    let result: VisualElementSignal | null = null;
-    for (let key of currentVesCache.keys()) {
-      let v = VeFns.veidFromPath(key);
-      if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
-        if (result != null) {
-          throwExpression(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
+    function findSingleImpl(map: Map<VisualElementPath, VisualElementSignal>): VisualElementSignal | null {
+      let result: VisualElementSignal | null = null;
+      for (let key of map.keys()) {
+        let v = VeFns.veidFromPath(key);
+        if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
+          if (result != null) {
+            throwExpression(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
+          }
+          result = map.get(key)!;
         }
-        result = currentVesCache.get(key)!;
       }
+      return result;
     }
-    if (result == null) {
+    let resultMaybe = findSingleImpl(newCache);
+    if (resultMaybe != null) { return resultMaybe; }
+    resultMaybe = findSingleImpl(currentVesCache);
+    if (resultMaybe == null) {
       throwExpression(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
     }
-    return result;
+    return resultMaybe;
   },
 
   markEvaluationRequired: (path: VisualElementPath): void => {

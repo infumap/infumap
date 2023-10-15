@@ -21,7 +21,7 @@ import { ItemFns } from "../../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../../items/base/y-sizeable-item";
 import { LinkFns } from "../../../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
+import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { DesktopStoreContextModel } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { BoundingBox } from "../../../util/geometry";

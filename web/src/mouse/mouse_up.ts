@@ -217,7 +217,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
       itemState.add(compositeItem);
       await server.addItem(compositeItem, null);
-  
+
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
       await server.updateItem(attachToItem);

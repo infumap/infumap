@@ -41,7 +41,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
-      const parentVe = VesCache.find(VeFns.veidFromPath(props.visualElement.parentPath!))[0].get();
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+      const parentVe = VesCache.find(parentVeid)[0].get();
       cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(parentVe)).spatialWidthGr;
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
