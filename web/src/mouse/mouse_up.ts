@@ -230,8 +230,11 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
     // case #2.2: the moving item being attached is a composite. 
     else {
       const activeItem_composite = asCompositeItem(activeItem);
+      const attachToPositionGr = attachToItem.spatialPositionGr;
+      activeItem_composite.spatialPositionGr = attachToPositionGr;
       itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
       await server.updateItem(attachToItem);
+      await server.updateItem(activeItem_composite);
     }
 
   }
