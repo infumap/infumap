@@ -321,10 +321,20 @@ export const VeFns = {
     let ve: VisualElement | null = visualElement;
     let r = { x: 0, y: 0 };
     while (ve != null) {
-      r = vectorAdd(r, getBoundingBoxTopLeft(ve.childAreaBoundsPx != null ? ve.childAreaBoundsPx : ve.boundsPx));
+      r = vectorAdd(r, getBoundingBoxTopLeft(ve.boundsPx));
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
+  },
+
+  veChildAreaBoundsRelativeToDesktopPx: (visualElement: VisualElement): BoundingBox => {
+    let ve: VisualElement | null = visualElement;
+    let r = { x: 0, y: 0 };
+    while (ve != null) {
+      r = vectorAdd(r, getBoundingBoxTopLeft(ve.childAreaBoundsPx!));
+      ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
+    }
+    return { x: r.x, y: r.y, w: visualElement.childAreaBoundsPx!.w, h: visualElement.childAreaBoundsPx!.h };
   },
 
   printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {

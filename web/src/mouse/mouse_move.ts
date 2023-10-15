@@ -370,7 +370,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
     w: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
     h: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
   };
-  const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(overContainerVe);
+  const tableBoundsPx = VeFns.veChildAreaBoundsRelativeToDesktopPx(overContainerVe);
 
   // col
   const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
@@ -394,7 +394,7 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
   const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
   const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
   const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
-  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
+  let insertRow = rawTableRowNumber + yScrollPos - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
   if (insertRow < yScrollPos) { insertRow = yScrollPos; }
   insertRow -= insertRow > tableItem.computed_children.length
     ? insertRow - tableItem.computed_children.length
@@ -415,7 +415,7 @@ function moving_activeItemToPage(moveToVe: VisualElement, desktopPx: Vector, rel
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(moveToVe);
+  const moveToPageAbsoluteBoundsPx = VeFns.veChildAreaBoundsRelativeToDesktopPx(moveToVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
     x: Math.round((desktopPx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
@@ -469,7 +469,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
 
   const moveToPage = asPageItem(tableParentVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDesktopPx(tableParentVe);
+  const moveToPageAbsoluteBoundsPx = VeFns.veChildAreaBoundsRelativeToDesktopPx(tableParentVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);

@@ -108,13 +108,14 @@ export const TextEditOverlay: Component = () => {
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
-    const desktopPx = desktopPxFromMouseEvent(ev);
+    LastMouseMoveEventState.setFromMouseEvent(ev);
+    const desktopPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
     desktopStore.setTextEditOverlayInfo(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.set(ev);
+    LastMouseMoveEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
   };
 

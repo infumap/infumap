@@ -46,7 +46,7 @@ import { isPassword } from "../items/password-item";
 import { Password, PasswordLineItem } from "./items/Password";
 import { Composite_Desktop, Composite_LineItem } from "./items/Composite";
 import { isComposite } from "../items/composite-item";
-import { PageTitle_Desktop, PageTitle_LineItem } from "./items/PageTitle";
+import { PageTitle_Desktop } from "./items/PageTitle";
 
 
 export interface VisualElementProps {
