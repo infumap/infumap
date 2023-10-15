@@ -136,6 +136,19 @@ export let VesCache = {
     return resultMaybe;
   },
 
+  /**
+   * Remove the visual element signal with the specified key from the cache.
+   */
+  remove: (veid: Veid): void => {
+    for (let key of currentVesCache.keys()) {
+      let v = VeFns.veidFromPath(key);
+      if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
+        currentVesCache.delete(key);
+        return;
+      }
+    }
+  },
+
   markEvaluationRequired: (path: VisualElementPath): void => {
     evaluationRequired.add(path);
   },

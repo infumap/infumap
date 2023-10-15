@@ -71,6 +71,7 @@ export enum VisualElementFlags {
   Fixed                = 0x0100, // positioning is fixed, not absolute.
   InsideComposite      = 0x0200, // The visual element is inside a composite item.
   PageTitle            = 0x0400, // Is a page title element, not a page.
+  TopZ                 = 0x0800, // Render above everything else.
 }
 
 

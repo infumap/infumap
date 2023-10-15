@@ -117,6 +117,8 @@ export function mouseUpHandler(
 
 
 function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement, _userStore: UserStoreContextModel) {
+  const veid = VeFns.veidFromVe(visualElement);
+  VesCache.remove(veid);
   desktopStore.replacePopup({
     type: PopupType.Attachment,
     vePath: VeFns.veToPath(visualElement)

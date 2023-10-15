@@ -71,7 +71,8 @@ export function arrangeItemAttachments(
       hitboxes: attachmentGeometry.hitboxes,
       parentPath: parentItemVePath,
       flags: VisualElementFlags.Attachment |
-            (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None),
+             (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None) |
+             (isSelected ? VisualElementFlags.TopZ : VisualElementFlags.None),
     };
     const attachmentVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
     attachments.push(attachmentVisualElementSignal);
