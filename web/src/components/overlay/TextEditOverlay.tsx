@@ -367,6 +367,12 @@ export const TextEditOverlay: Component = () => {
   const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
   const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
 
+  // determined by trial and error to be the minimum amount needed to be added
+  // to a textarea to prevent it from scrolling, given the same text layout as
+  // the rendered item. TODO (LOW): this could probably be avoided with some
+  // more careful reasoning.
+  const HACK_ADJUST_TEXTAREA_HEIGHT = 2.5;
+
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -410,7 +416,7 @@ export const TextEditOverlay: Component = () => {
                  `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
                  `width: ${naturalWidthPx()}px; ` +
-                 `height: ${naturalHeightPx() * heightScale()/widthScale()}px; ` +
+                 `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
                  `font-size: ${style().fontSize}px; ` +
                  `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
                  `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
