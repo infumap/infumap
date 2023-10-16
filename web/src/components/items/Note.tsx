@@ -51,7 +51,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
     return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX*2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
@@ -97,7 +97,6 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
     }
   };
-  const shiftTextLeft = () => false; // TODO: noteItem().flags & NoteFlags.HideBorder;
 
   const aHrefMouseDown = (ev: MouseEvent) => {
     // prevent the mouse down event being handled in the global handler if the actual link text is clicked.
@@ -121,10 +120,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ${zIndexStyle()}`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; ` +
-                    `left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; ` +
-                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                    `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
                     `width: ${naturalWidthPx()}px; ` +
-                    `height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; `+
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                     `font-size: ${style().fontSize}px; ` +

@@ -57,7 +57,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     }
     return FileFns.calcSpatialDimensionsBl(fileItem());
   };
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX*2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
@@ -79,8 +79,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; ` +
-                    `left: ${NOTE_PADDING_PX}px; ` +
-                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                    `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
                     `width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +

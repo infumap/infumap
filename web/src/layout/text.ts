@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX } from "../constants";
+import { LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
 import { NoteFlags } from "../items/base/flags-item";
 
 
@@ -34,7 +34,10 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
   const div = document.createElement("div");
   const style = getTextStyleForNote(flags);
   div.setAttribute("style",
-    `width: ${widthBl*LINE_HEIGHT_PX}px; ` +
+    `left: ${NOTE_PADDING_PX}px; ` +
+    `top: ${NOTE_PADDING_PX - LINE_HEIGHT_PX/4}px; ` +
+    `right: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX}px; ` +
+    `width: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX*2}px; ` +
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
     `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +

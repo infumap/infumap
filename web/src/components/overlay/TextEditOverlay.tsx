@@ -99,7 +99,7 @@ export const TextEditOverlay: Component = () => {
     }
     return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (noteVeBoundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
   const heightScale = () => (noteVeBoundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
@@ -405,11 +405,16 @@ export const TextEditOverlay: Component = () => {
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
         <textarea ref={textElement}
-          class="rounded"
-          style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
-                 `width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; font-size: ${style().fontSize}px; ` +
-                 `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; transform: scale(${textBlockScale()}); ` +
-                 `transform-origin: top left; overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` + 
+          class="rounded overflow-hidden resize-none"
+          style={`position: absolute; ` +
+                 `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                 `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
+                 `width: ${naturalWidthPx()}px; ` +
+                 `height: ${naturalHeightPx() * heightScale()/widthScale()}px; ` +
+                 `font-size: ${style().fontSize}px; ` +
+                 `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
+                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                 `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
                  `${style().isBold ? ' font-weight: bold; ' : ""}`}
           value={noteItem().title}
           disabled={userStore.getUserMaybe() == null}
