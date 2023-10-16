@@ -126,7 +126,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; `+
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                     `font-size: ${style().fontSize}px; ` +
-                    `overflow-wrap: break-word; ` +
+                    `overflow-wrap: break-word; white-space: pre-wrap; ` +
                     `${style().isBold ? ' font-weight: bold; ' : ""}; ` +
                     `${zIndexStyle()}`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>

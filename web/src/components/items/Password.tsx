@@ -77,7 +77,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
                     `width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word;`}>
+                    `overflow-wrap: break-word; white-space: pre-wrap;`}>
           <Show when={isVisible()} fallback={
             <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
           }>

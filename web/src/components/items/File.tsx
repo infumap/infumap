@@ -84,7 +84,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                     `width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word;` +
+                    `overflow-wrap: break-word; white-space: pre-wrap; ` +
                     `${zIndexStyle()}`}>
           <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
         </div>

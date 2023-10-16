@@ -405,7 +405,7 @@ export const TextEditOverlay: Component = () => {
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
         <textarea ref={textElement}
-          class="rounded overflow-hidden resize-none"
+          class="rounded overflow-hidden resize-none whitespace-pre-wrap"
           style={`position: absolute; ` +
                  `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +

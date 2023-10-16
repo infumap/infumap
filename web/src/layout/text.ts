@@ -41,7 +41,7 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
     `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
-    `overflow-wrap: break-word;`);
+    `overflow-wrap: break-word; white-space: pre-wrap;`);
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);
