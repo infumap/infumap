@@ -33,7 +33,12 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
   }
   const div = document.createElement("div");
   const style = getTextStyleForNote(flags);
-  div.setAttribute("style", `width: ${widthBl*LINE_HEIGHT_PX}px; ${style.isBold ? 'font-weight: bold; ' : ""}font-size: ${style.fontSize}px; line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; overflow-wrap: break-word;`);
+  div.setAttribute("style",
+    `width: ${widthBl*LINE_HEIGHT_PX}px; ` +
+    `${style.isBold ? 'font-weight: bold; ' : ""}` +
+    `font-size: ${style.fontSize}px; ` +
+    `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
+    `overflow-wrap: break-word;`);
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);
@@ -56,7 +61,11 @@ export function measureWidthBl(s: string, style: InfuTextStyle): number {
     widthCache.clear();
   }
   const div = document.createElement("div");
-  div.setAttribute("style", `${style.isBold ? 'font-weight: bold; ' : ""}font-size: ${style.fontSize}px; line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; display: inline-block;`);
+  div.setAttribute("style",
+    `${style.isBold ? 'font-weight: bold; ' : ""}` +
+    `font-size: ${style.fontSize}px; ` +
+    `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; `+
+    `display: inline-block;`);
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);

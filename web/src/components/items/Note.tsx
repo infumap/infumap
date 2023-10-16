@@ -99,11 +99,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const shiftTextLeft = () => false; // TODO: noteItem().flags & NoteFlags.HideBorder;
 
-  const aMouseDown = (ev: MouseEvent) => {
+  const aHrefMouseDown = (ev: MouseEvent) => {
     // prevent the mouse down event being handled in the global handler if the actual link text is clicked.
     // clicking in the element near the link text will still trigger the global handler.
     ev.stopPropagation();
-  }
+  };
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
@@ -136,7 +136,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                target="_blank"
                class={`text-blue-800`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-               onMouseDown={aMouseDown}>
+               onMouseDown={aHrefMouseDown}>
                 {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
             </a>
           </Show>
