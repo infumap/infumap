@@ -71,8 +71,13 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
+        <div style={`position: absolute; ` + 
+                    `left: ${NOTE_PADDING_PX}px; ` +
+                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                    `width: ${naturalWidthPx()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+                    `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                    `overflow-wrap: break-word;`}>
           <Show when={isVisible()} fallback={
             <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
           }>
@@ -80,8 +85,10 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
           </Show>
         </div>
         <div class="absolute text-center text-slate-600"
-             style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().h*0.15}px; ` +
-                    `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+             style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; ` +
+                    `top: ${boundsPx().h*0.15}px; ` +
+                    `width: ${oneBlockWidthPx() / smallScale()}px; ` +
+                    `height: ${boundsPx().h/smallScale()}px; `+
                     `transform: scale(${smallScale()}); transform-origin: top left;`}
              onclick={copyClickHandler}>
           <i class={`fas fa-copy cursor-pointer`} />
@@ -97,13 +104,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`}>
-          </div>
+                      `background-color: #ff0000;`} />
         </Show>
       </Show>
     </div>
@@ -143,8 +149,8 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     <>
       <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
-        </div>
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #dddddd88;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"

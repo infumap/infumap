@@ -120,9 +120,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <div class={`${outerClass()}`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ${zIndexStyle()}`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word; font-size: ${style().fontSize}px;` +
-                    `${style().isBold ? ' font-weight: bold; ' : ""}; ${zIndexStyle()}`}>
+        <div style={`position: absolute; ` +
+                    `left: ${shiftTextLeft() ? "0" : NOTE_PADDING_PX}px; ` +
+                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                    `width: ${naturalWidthPx()}px; ` +
+                    `height: ${naturalHeightPx()*heightScale()/widthScale()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; `+
+                    `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                    `font-size: ${style().fontSize}px; ` +
+                    `overflow-wrap: break-word; ` +
+                    `${style().isBold ? ' font-weight: bold; ' : ""}; ` +
+                    `${zIndexStyle()}`}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
             <a href={noteItem().url}
                target="_blank"
@@ -142,23 +150,21 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={showMoveOutOfCompositeArea()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                      `background-color: #ff0000;`}>
-          </div>
+                      `background-color: #ff0000;`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800; ${zIndexStyle()}`}></div>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800; ` +
+                      `${zIndexStyle()}`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`}>
-          </div>
+                      `background-color: #ff0000;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`}>
-          </div>
+                      `background-color: #ff0000;`} />
         </Show>
       </Show>
     </div>
@@ -192,13 +198,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <>
       <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
-        </div>
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
-        </div>
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
       </Show>
       <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
         <div class="absolute text-center"

@@ -80,6 +80,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const isPoppedUp = () => VeFns.veToPath(props.visualElement) == desktopStore.currentPopupSpecVePath();
 
+  const lineVes = () => props.visualElement.children.filter(c => c.get().flags & VisualElementFlags.LineItem);
+  const desktopVes = () => props.visualElement.children.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
+  const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
+
   const calcTitleScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
     outerDiv.setAttribute("class", "flex items-center justify-center");
@@ -100,9 +104,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const drawAsOpaque = () => {
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-          <div class="flex items-center justify-center" style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+          <div class="flex items-center justify-center"
+               style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
             <div class="flex items-center text-center text-xs font-bold text-white"
                  style={`transform: scale(${opaqueTitleScale()}); transform-origin: center center;`}>
               {pageItem().title}
@@ -111,37 +117,33 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                        `background-color: #ffffff22;`}>
-            </div>
+                        `background-color: #ffffff22;`} />
             <Show when={hasPopupClickBoundsPx()}>
               <div class={`absolute rounded-sm`}
                   style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                          `background-color: #ffffff44;`}>
-              </div>
+                          `background-color: #ffffff44;`} />
             </Show>
           </Show>
           <Show when={props.visualElement.movingItemIsOver.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                        `background-color: #ffffff22;`}>
-            </div>
+                        `background-color: #ffffff22;`} />
           </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
             <div class={`absolute rounded-sm`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000;`}>
-            </div>
+                        `background-color: #ff0000;`} />
           </Show>
           <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
             <div class="absolute"
-                 style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
-            </div>
+                 style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; ` +
+                        `background-color: #dddddd88;`} />
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           <Show when={props.visualElement.linkItemMaybe != null}>
-            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
           </Show>
         </Show>
       </div>
@@ -199,10 +201,19 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
-          <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; `}>
-            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+          <div class="absolute"
+               style={`overflow-y: auto; overflow-x: hidden; ` +
+                      `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
+                      `height: ${boundsPx().h}px; ` +
+                      `left: ${boundsPx().x}px; ` +
+                      `top: ${boundsPx().y}px; `}>
+            <div class="absolute"
+                 style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
+                        `height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
               <div class="absolute overflow-hidden border-b border-slate-700"
-                   style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
+                   style={`margin-left: ${marginPx*listViewScale()}px; ` +
+                          `margin-right: ${marginPx*listViewScale()}px; ` +
+                          `color: ${fullTitleColor()}; ` +
                           `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
                           `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
                           `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
@@ -218,8 +229,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
           <div ref={translucentDiv}
                class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff; ` +
-                      `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                      `background-color: #ffffff; ` +
+                      `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                      `overflow-x: hidden;`}
                onscroll={translucentScrollHandler}>
             <div class="absolute"
                  style={`left: ${0}px; top: ${0}px; ` +
@@ -231,41 +244,38 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           </div>
         </Show>
         <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+             `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
           <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
             <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                        `background-color: #ffffff22;`}>
-            </div>
+                        `background-color: #ffffff22;`} />
             <Show when={hasPopupClickBoundsPx()}>
               <div class={`absolute rounded-sm pointer-events-none`}
                   style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                          `background-color: #ffffff44;`}>
-              </div>
+                         `background-color: #ffffff44;`} />
             </Show>
           </Show>
           <Show when={props.visualElement.movingItemIsOver.get()}>
             <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                        `background-color: #ffffff22;`}>
-            </div>
+                        `background-color: #ffffff22;`} />
           </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
             <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000;`}>
-            </div>
+                        `background-color: #ff0000;`} />
           </Show>
           <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
             <div class="absolute pointer-events-none"
-                 style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; background-color: #dddddd88;`}>
-            </div>
+                 style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; ` +
+                        `background-color: #dddddd88;`} />
           </Show>
           <For each={props.visualElement.attachments}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           <Show when={props.visualElement.linkItemMaybe != null}>
-            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
           </Show>
         </div>
         <div class="absolute flex items-center justify-center pointer-events-none"
@@ -326,17 +336,25 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;`}>
+             style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
+                    `background-color: #303030d0;`}>
         </div>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-               style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; background-color: #ffffff;`}>
+               style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                      `background-color: #ffffff;`}>
             <div ref={popupDiv}
                  class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
-                 style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; height: ${boundsPx().h}px; background-color: #ffffff;`}>
-              <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+                 style={`overflow-y: auto; overflow-x: hidden; ` +
+                        `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
+                        `height: ${boundsPx().h}px; ` +
+                        `background-color: #ffffff;`}>
+              <div class="absolute"
+                   style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
                 <div class="absolute overflow-hidden border-b border-slate-700"
-                    style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
+                    style={`margin-left: ${marginPx*listViewScale()}px; ` +
+                           `margin-right: ${marginPx*listViewScale()}px; ` +
+                           `color: ${fullTitleColor()}; ` +
                            `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
                            `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
                            `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
@@ -356,12 +374,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
           <div ref={popupDiv}
                class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                      `background-color: #f8f8f8; border-color: ${borderColorVal()}` +
                       `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
               onscroll={popupScrollHandler}>
             <div class="absolute"
-                 style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; top: ${0}px; ` +
-                        `width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
+                 style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; ` +
+                        `top: ${0}px; ` +
+                        `width: ${childAreaBoundsPx().w}px; ` +
+                        `height: ${childAreaBoundsPx().h}px;`}>
               <For each={props.visualElement.children}>{childVe =>
                 <VisualElement_Desktop visualElement={childVe.get()} />
               }</For>
@@ -370,7 +391,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
           <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
-               style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; width: ${ANCHOR_BOX_SIZE_PX}px; height: ${ANCHOR_BOX_SIZE_PX}px; background-color: #ff0000;`}>
+               style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
+                      `top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
+                      `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
+                      `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
+                      `background-color: #ff0000;`}>
             <div class={`absolute`} style={"cursor: pointer;"}>
               <i class={`fa fa-anchor`} />
             </div>
@@ -383,28 +408,34 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const fullBgColorVal = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.3)}; `;
   const fullTitleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
 
-  const lineVes = () => props.visualElement.children.filter(c => c.get().flags & VisualElementFlags.LineItem);
-  const desktopVes = () => props.visualElement.children.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
-  const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
-
   const drawAsFull = () => {
     return (
       <>
       <Show when={props.visualElement.flags & VisualElementFlags.Root}>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: ${fullBgColorVal()};`}>
-        </div>
+             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                    `top: ${boundsPx().y-10}px; ` +
+                    `width: ${boundsPx().w+20}px; ` +
+                    `height: ${boundsPx().h+20}px; ` +
+                    `background-color: ${fullBgColorVal()};`} />
       </Show>
       <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; background-color: #ffffff;`}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `background-color: #ffffff;`}>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
-          <div class="absolute" style={`overflow-y: auto; overflow-x: hidden; width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${boundsPx().h}px`}>
-            <div class="absolute" style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+          <div class="absolute"
+               style={`overflow-y: auto; overflow-x: hidden; ` +
+                      `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${boundsPx().h}px`}>
+            <div class="absolute"
+                 style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
               <div class="absolute overflow-hidden border-b border-slate-700"
-                   style={`margin-left: ${marginPx*listViewScale()}px; margin-right: ${marginPx*listViewScale()}px; color: ${fullTitleColor()}; ` +
+                   style={`margin-left: ${marginPx*listViewScale()}px;` +
+                          `margin-right: ${marginPx*listViewScale()}px; ` +
+                          `color: ${fullTitleColor()}; ` +
                           `font-size: ${PageFns.pageTitleStyle_List().fontSize*listViewScale()}px; ` +
                           `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
-                          `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
+                          `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; ` +
+                          `left: 0px; top: 0px; ` +
                           `pointer-events: none;`}>
                 {pageItem().title}
               </div>
@@ -414,14 +445,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </div>
           </div>
           <div class={`absolute bg-slate-700`}
-               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; top: 0px; height: ${boundsPx().h}px; width: 1px`}>
-          </div>
+               style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; top: 0px; height: ${boundsPx().h}px; width: 1px`} />
         </Show>
         <For each={desktopVes()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         <Show when={isPublic() && userStore.getUserMaybe() != null}>
-          <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;"></div>
+          <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
         </Show>
       </div>
       </>
@@ -491,25 +521,24 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <>
       <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
-        </div>
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
       </Show>
       <Show when={props.visualElement.mouseIsOverOpenPopup.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${oneBlockWidthPx()-4}px; height: ${boundsPx().h-4}px;`}>
-        </div>
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${oneBlockWidthPx()-4}px; height: ${boundsPx().h-4}px;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
-        </div>
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
       </Show>
       <div class="absolute border border-slate-700 rounded-sm shadow-sm"
-           style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` + bgOpaqueVal()}>
-      </div>
+           style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
+                  bgOpaqueVal()} />
       <div class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
+                  `top: ${boundsPx().y}px; ` +
+                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; ` +
+                  `height: ${boundsPx().h / scale()}px; ` +
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         {pageItem().title}
       </div>

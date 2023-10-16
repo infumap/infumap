@@ -21,7 +21,7 @@ import { VisualElementProps } from "../VisualElement";
 import { PageFns, asPageItem } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
+import { LINE_HEIGHT_PX } from "../../constants";
 
 
 export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -32,37 +32,17 @@ export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualEl
   const widthScale = () => boundsPx().w / naturalWidthPx();
   const textBlockScale = () => widthScale();
   const fullTitleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
+
   return (
     <div class="absolute pointer-events-none"
          style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px;`}>
       <div class="inline-block whitespace-nowrap"
-           style={`color: ${fullTitleColor()}; font-size: ${PageFns.pageTitleStyle().fontSize}px; ` +
+           style={`color: ${fullTitleColor()}; ` +
+                  `font-size: ${PageFns.pageTitleStyle().fontSize}px; ` +
                   `${PageFns.pageTitleStyle().isBold ? "font-weight: bold;" : ""} ` +
                   `transform: scale(${textBlockScale()}); transform-origin: top left;`}>
         {pageItem().title}
       </div>
-    </div>
-  );
-}
-
-
-export const PageTitle_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const pageItem = () => asPageItem(props.visualElement.displayItem);
-  const boundsPx = () => {
-    console.log("B", props.visualElement.boundsPx);
-    return props.visualElement.boundsPx;
-  }
-  const sizeBl = () => LIST_PAGE_LIST_WIDTH_BL;
-  const naturalWidthPx = () => sizeBl() * LINE_HEIGHT_PX;
-  const widthScale = () => boundsPx().w / naturalWidthPx();
-  const textBlockScale = () => widthScale();
-  const marginPx = 4;
-  const widthPx = () => boundsPx().w - marginPx * 2;
-  const fullTitleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
-
-  return (
-    <div class="absolute overflow-hidden border-b border-slate-700" style={`margin-left: 4px; margin-right: 4px; color: ${fullTitleColor()}; font-size: ${PageFns.pageTitleStyle_List().fontSize * textBlockScale()}px; ${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} width: ${widthPx()}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; pointer-events: none;`}>
-      {pageItem().title}
     </div>
   );
 }

@@ -100,14 +100,23 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   function renderPopupBaseMaybe(): JSX.Element {
     return (
       <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
-             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; background-color: #303030d0;}`}>
-        </div>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
-             style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
+                    `text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
+             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                    `top: ${boundsPx().y-10}px; ` +
+                    `width: ${boundsPx().w+20}px; ` +
+                    `height: ${boundsPx().h+20}px; ` +
+                    `background-color: #303030d0;}`} />
+        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
+                    `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
+             style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                    `top: ${quantizedBoundsPx().y}px; ` +
+                    `width: ${quantizedBoundsPx().w}px; ` +
+                    `height: ${quantizedBoundsPx().h}px;`}>
           <img class="max-w-none absolute pointer-events-none"
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
+                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; ` +
+                      `height: ${imageWidthToRequestPx(false) / imageAspect()}px;`}
                width={imageWidthToRequestPx(false)}
                height={imageWidthToRequestPx(false) / imageAspect()}
                src={thumbnailSrc()} />
@@ -141,7 +150,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return (
       <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
-             style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${boundsPx().y + boundsPx().h - 50}px; width: ${boundsPx().w}px; height: ${50}px;`}>
+             style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                    `top: ${boundsPx().y + boundsPx().h - 50}px; ` +
+                    `width: ${boundsPx().w}px; ` +
+                    `height: ${50}px;`}>
           <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
             {imageItem().title}
           </div>
@@ -157,7 +169,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       {renderPopupBaseMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
                   `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
-           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ${zIndexStyle()}`}>
+           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                  `top: ${quantizedBoundsPx().y}px; ` +
+                  `width: ${quantizedBoundsPx().w}px; ` +
+                  `height: ${quantizedBoundsPx().h}px; ` +
+                  `${zIndexStyle()}`}>
         <Show when={isDetailed()} fallback={notDetailedFallback()}>
           <img ref={imgElement}
                class="max-w-none absolute pointer-events-none"
@@ -167,14 +183,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                width={imageWidthToRequestPx(false)} />
           <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isMainPoppedUp()}>
             <div class="absolute"
-                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; background-color: #dddddd88; ${zIndexStyle()}`}>
-            </div>
+                 style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
+                        `background-color: #dddddd88; ${zIndexStyle()}`} />
           </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
             <div class="absolute rounded-sm"
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000; ${zIndexStyle()}`}>
-            </div>
+                        `background-color: #ff0000; ${zIndexStyle()}`} />
           </Show>
         </Show>
       </div>
@@ -185,7 +200,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup)}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
       </div>
       {renderTitleMaybe()}
@@ -206,13 +221,12 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
     <>
       <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
-        </div>
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #dddddd88;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
-        </div>
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
       </Show>
       <div class="absolute text-center"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +

@@ -72,31 +72,38 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     }
   };
 
+  const zIndexStyle = () => props.visualElement.flags & VisualElementFlags.TopZ ? " z-index: 10;" : "";
+
   return (
     <div class={outerClass()}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; left: ${NOTE_PADDING_PX}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; width: ${naturalWidthPx()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; transform: scale(${textBlockScale()}); transform-origin: top left; overflow-wrap: break-word;`}>
+        <div style={`position: absolute; ` +
+                    `left: ${NOTE_PADDING_PX}px; ` +
+                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)}px; ` +
+                    `width: ${naturalWidthPx()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+                    `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                    `overflow-wrap: break-word;` +
+                    `${zIndexStyle()}`}>
           <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;` +
+                      `${zIndexStyle()}`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`}>
-          </div>
+                      `background-color: #ff0000;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`}>
-          </div>
+                      `background-color: #ff0000;`} />
         </Show>
       </Show>
     </div>
@@ -120,13 +127,11 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     <>
       <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
-        </div>
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
-        </div>
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
       </Show>
       <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
         <div class="absolute text-center"
