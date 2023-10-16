@@ -42,8 +42,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
   return (
-    <div class={`absolute border ${showBorder() ? "border-slate-700" : "border-transparent"} rounded-sm ${showBorder() ? "shadow-lg " : ""}bg-white`}
-         style={`left: ${boundsPx().x-1}px; top: ${boundsPx().y-1}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+    <div class={`absolute border ${showBorder() ? "border-slate-700" : "border-transparent"} rounded-sm ${showBorder() ? "shadow-lg " : ""}bg-white overflow-hidden`}
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <For each={props.visualElement.children}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>

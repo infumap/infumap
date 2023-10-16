@@ -413,8 +413,8 @@ const arrangeComposite = (
       boundsPx: {
         x: geometry.boundsPx.x,
         y: geometry.boundsPx.y,
-        w: geometry.boundsPx.w - ITEM_BORDER_WIDTH_PX*2,
-        h: geometry.boundsPx.h - ITEM_BORDER_WIDTH_PX*2
+        w: geometry.boundsPx.w,
+        h: geometry.boundsPx.h,
       },
       hitboxes: geometry.hitboxes,
       parentPath: compositeVePath,
