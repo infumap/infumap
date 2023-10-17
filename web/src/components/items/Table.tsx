@@ -163,7 +163,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </div>
         <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
           <div class={`absolute border border-black`}
-               style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 2px;`}></div>
+               style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px;`}></div>
         </Show>
         <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverColAttachmentNumber.get() >= 0}>
           <div class={`absolute border border-black bg-black`}

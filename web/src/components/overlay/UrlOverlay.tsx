@@ -45,13 +45,14 @@ export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props:
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
-    const desktopPx = desktopPxFromMouseEvent(ev);
+    LastMouseMoveEventState.setFromMouseEvent(ev);
+    const desktopPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
     props.urlOverlayVisible.set(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.set(ev);
+    LastMouseMoveEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
   };
 

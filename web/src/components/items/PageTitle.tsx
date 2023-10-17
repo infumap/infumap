@@ -24,6 +24,8 @@ import { Colors } from "../../style";
 import { LINE_HEIGHT_PX } from "../../constants";
 
 
+// TODO (MEDIUM): This should be made part of the page render, should not be a separate item type.
+
 export const PageTitle_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
