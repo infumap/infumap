@@ -334,7 +334,7 @@ export const VeFns = {
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
         r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
         // skip the item that is a child of the table - the attachment ve is relative to the table.
-        // TODO (LOW): it would probably be better if the attachment were relative to the item, not the table.
+        // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
         ve = VesCache.get(ve.parentPath!)!.get();
       }
     }

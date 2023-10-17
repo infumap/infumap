@@ -24,7 +24,7 @@ import { server } from "../../server";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
@@ -36,10 +36,11 @@ import { CompositeFns, asCompositeItem, isComposite } from "../../items/composit
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { LastMouseMoveEventState } from "../../mouse/state";
 import { FindDirection, findClosest } from "../../layout/find";
-import { getTextStyleForNote } from "../../layout/text";
+import { getTextStyleForNote, measureLineCount } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
+import { asTableItem } from "../../items/table-item";
 
 
 export const TextEditOverlay: Component = () => {
@@ -53,6 +54,18 @@ export const TextEditOverlay: Component = () => {
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
   const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(desktopStore, noteVisualElement());
+  const editBoxBoundsPx = () => {
+    if (noteVisualElement()!.flags & VisualElementFlags.InsideTable) {
+      const sBl = sizeBl();
+      const nbPx = noteVeBoundsPx();
+      return ({
+        x: nbPx.x, y: nbPx.y,
+        w: nbPx.w, h: nbPx.h * sBl.h,
+      });
+    }
+
+    return noteVeBoundsPx();
+  };
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 
@@ -89,20 +102,38 @@ export const TextEditOverlay: Component = () => {
   };
 
   const sizeBl = () => {
-    if (noteVisualElement().flags & VisualElementFlags.InsideComposite) {
+    const noteVe = noteVisualElement()!;
+    if (noteVe.flags & VisualElementFlags.InsideTable) {
+      let tableVe;
+      if (noteVe.col == 0) {
+        tableVe = VesCache.get(noteVe.parentPath!)!.get();
+      } else {
+        const itemVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+        tableVe = VesCache.get(itemVe.parentPath!)!.get();
+      }
+      const tableItem = asTableItem(tableVe.displayItem);
+      const widthBl = tableItem.tableColumns[noteVe.col!].widthGr / GRID_SIZE;
+      let lineCount = measureLineCount(noteItem().title, widthBl, noteItem().flags);
+      if (lineCount < 1) { lineCount = 1; }
+      return ({ w: widthBl, h: lineCount });
+    }
+
+    if (noteVe.flags & VisualElementFlags.InsideComposite) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(noteVisualElement().displayItem));
       cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(VesCache.get(noteVisualElement().parentPath!)!.get())).spatialWidthGr;
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
-    if (noteVisualElement().linkItemMaybe != null) {
+
+    if (noteVe.linkItemMaybe != null) {
       return ItemFns.calcSpatialDimensionsBl(noteVisualElement().linkItemMaybe!);
     }
+
     return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => (noteVeBoundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
-  const heightScale = () => (noteVeBoundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const widthScale = () => (editBoxBoundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
+  const heightScale = () => (editBoxBoundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
 
