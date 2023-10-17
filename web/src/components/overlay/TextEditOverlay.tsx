@@ -52,7 +52,7 @@ export const TextEditOverlay: Component = () => {
   const infoOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
-  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(noteVisualElement());
+  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(desktopStore, noteVisualElement());
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 
@@ -71,7 +71,7 @@ export const TextEditOverlay: Component = () => {
   const toolboxBoundsPx = () => {
     if (compositeItemMaybe() != null) {
       const compositeVeMaybe = compositeVisualElementMaybe()!;
-      const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(compositeVeMaybe);
+      const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, compositeVeMaybe);
       return ({
         x: compositeVeBoundsPx.x - 5,
         y: compositeVeBoundsPx.y - 45,

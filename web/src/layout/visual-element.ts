@@ -24,10 +24,11 @@ import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { panic } from "../util/lang";
-import { isTable } from "../items/table-item";
+import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
+import { GRID_SIZE } from "../constants";
 
 
 /**
@@ -318,12 +319,18 @@ export const VeFns = {
     return 0;
   },
 
-  veBoundsRelativeToDesktopPx: (visualElement: VisualElement): BoundingBox => {
+  veBoundsRelativeToDesktopPx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
     let r = getBoundingBoxTopLeft(ve.boundsPx);
     ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     while (ve != null) {
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.childAreaBoundsPx ? ve.childAreaBoundsPx : ve.boundsPx));
+      if (isTable(ve.displayItem)) {
+        const tableItem = asTableItem(ve.displayItem);
+        const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
+        const blockHeightPx = ve.boundsPx.h / fullHeightBl;
+        r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
+      }
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
