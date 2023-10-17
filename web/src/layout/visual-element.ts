@@ -322,6 +322,23 @@ export const VeFns = {
   veBoundsRelativeToDesktopPx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
     let r = getBoundingBoxTopLeft(ve.boundsPx);
+
+    // handle case of attachment in a table.
+    const canonicalItem = VeFns.canonicalItem(ve);
+    if (canonicalItem.relationshipToParent == RelationshipToParent.Attachment) {
+      const veParent = VesCache.get(ve.parentPath!)!.get();
+      const veParentParent = VesCache.get(veParent.parentPath!)!.get();
+      if (isTable(veParentParent.displayItem)) {
+        const tableItem = asTableItem(veParentParent.displayItem);
+        const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
+        const blockHeightPx = ve.boundsPx.h / fullHeightBl;
+        r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
+        // skip the item that is a child of the table - the attachment ve is relative to the table.
+        // TODO (LOW): it would probably be better if the attachment were relative to the item, not the table.
+        ve = VesCache.get(ve.parentPath!)!.get();
+      }
+    }
+
     ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     while (ve != null) {
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.childAreaBoundsPx ? ve.childAreaBoundsPx : ve.boundsPx));
