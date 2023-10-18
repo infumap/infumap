@@ -328,19 +328,21 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
 
   const childId = tableItem.computed_children[rowNumber];
   const child = itemState.get(childId)!;
-  const canonicalChild = asAttachmentsItem(isLink(child)
+
+  const disaplyedChild = asAttachmentsItem(isLink(child)
     ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
     : child);
   const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
-  const numPlaceholdersToCreate = insertPosition > canonicalChild.computed_attachments.length ? insertPosition - canonicalChild.computed_attachments.length : 0;
+
+  const numPlaceholdersToCreate = insertPosition > disaplyedChild.computed_attachments.length ? insertPosition - disaplyedChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {
-    const placeholderItem = PlaceholderFns.create(activeItem.ownerId, canonicalChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(canonicalChild.id));
+    const placeholderItem = PlaceholderFns.create(activeItem.ownerId, disaplyedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(disaplyedChild.id));
     itemState.add(placeholderItem);
     server.addItem(placeholderItem, null);
   }
   let newOrdering: Uint8Array | undefined;
-  if (insertPosition < canonicalChild.computed_attachments.length) {
-    const overAttachmentId = canonicalChild.computed_attachments[insertPosition];
+  if (insertPosition < disaplyedChild.computed_attachments.length) {
+    const overAttachmentId = disaplyedChild.computed_attachments[insertPosition];
     const placeholderToReplaceMaybe = itemState.get(overAttachmentId)!;
     if (isPlaceholder(placeholderToReplaceMaybe)) {
       newOrdering = placeholderToReplaceMaybe.ordering;
@@ -348,13 +350,13 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
       server.deleteItem(placeholderToReplaceMaybe.id);
     } else {
       // TODO (MEDIUM): probably want to forbid rather than insert in this case.
-      newOrdering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
+      newOrdering = itemState.newOrderingAtAttachmentsPosition(disaplyedChild.id, insertPosition);
     }
   } else {
-    newOrdering = itemState.newOrderingAtAttachmentsPosition(canonicalChild.id, insertPosition);
+    newOrdering = itemState.newOrderingAtAttachmentsPosition(disaplyedChild.id, insertPosition);
   }
 
-  itemState.moveToNewParent(activeItem, canonicalChild.id, RelationshipToParent.Attachment, newOrdering);
+  itemState.moveToNewParent(activeItem, disaplyedChild.id, RelationshipToParent.Attachment, newOrdering);
   server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();

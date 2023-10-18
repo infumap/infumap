@@ -23,12 +23,12 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { isInside, Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { isTable, TableFns } from "../../items/table-item";
+import { asTableItem, isTable, TableFns } from "../../items/table-item";
 import { RatingFns } from "../../items/rating-item";
 import { initialEditDialogBounds } from "./edit/EditDialog";
 import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hit";
-import { LinkFns } from "../../items/link-item";
+import { asLinkItem, isLink, LinkFns } from "../../items/link-item";
 import { EMPTY_UID, Uid } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
 import { PasswordFns } from "../../items/password-item";
@@ -38,9 +38,10 @@ import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { arrange } from "../../layout/arrange";
 import { MOUSE_LEFT } from "../../mouse/mouse_down";
 import { PositionalItem } from "../../items/base/positional-item";
-import { isPlaceholder } from "../../items/placeholder-item";
+import { isPlaceholder, PlaceholderFns } from "../../items/placeholder-item";
 import { VesCache } from "../../layout/ves-cache";
 import { GRID_SIZE } from "../../constants";
+import { asAttachmentsItem } from "../../items/base/attachments-item";
 
 
 type ContexMenuProps = {
@@ -131,8 +132,9 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     else if (isTable(overElementVe.displayItem)) {
       if (isInside(props.desktopPosPx, overElementVe.childAreaBoundsPx!)) {
         const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(desktopStore, overElementVe, props.desktopPosPx);
+        const tableItem = asTableItem(overElementVe.displayItem);
 
-        if (attachmentPos == -1) {
+        if (attachmentPos == -1 || insertRow >= tableItem.computed_children.length) {
           newItem = createNewItem(
             type,
             overElementVe.displayItem.id,
@@ -145,9 +147,31 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
           newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
         } else {
-          console.log("make table child attachment");
+          const childId = tableItem.computed_children[insertRow];
+          const child = asAttachmentsItem(itemState.get(childId)!);
+          const displayedChild = asAttachmentsItem(isLink(child)
+            ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
+            : child);
 
-          return;
+          const numPlaceholdersToCreate = attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
+          for (let i=0; i<numPlaceholdersToCreate; ++i) {
+            const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
+            itemState.add(placeholderItem);
+            server.addItem(placeholderItem, null);
+          }
+
+          newItem = createNewItem(
+            type,
+            displayedChild.id,
+            itemState.newOrderingAtEndOfAttachments(childId),
+            RelationshipToParent.Attachment);
+
+          server.addItem(newItem, null);
+          itemState.add(newItem);
+          desktopStore.setContextMenuInfo(null);
+          arrange(desktopStore);
+
+          newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
         }
       }
 
