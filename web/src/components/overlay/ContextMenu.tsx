@@ -130,33 +130,52 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
     else if (isTable(overElementVe.displayItem)) {
       if (isInside(props.desktopPosPx, overElementVe.childAreaBoundsPx!)) {
-        console.log("make in table", overElementVe);
-        panic();
+        const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(desktopStore, overElementVe, props.desktopPosPx);
+
+        if (attachmentPos == -1) {
+          newItem = createNewItem(
+            type,
+            overElementVe.displayItem.id,
+            itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
+            RelationshipToParent.Child);
+          server.addItem(newItem, null);
+          itemState.add(newItem);
+          desktopStore.setContextMenuInfo(null);
+          arrange(desktopStore);
+          newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
+
+        } else {
+          console.log("make table child attachment");
+
+          return;
+        }
       }
 
-      // not inside child area: create item in the page containing the table.
-      const parentVe = VesCache.get(overElementVe.parentPath!)!.get();
-      newItem = createNewItem(
-        type,
-        parentVe.displayItem.id,
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId),
-        RelationshipToParent.Child);
+      else {
+        // not inside child area: create item in the page containing the table.
+        const parentVe = VesCache.get(overElementVe.parentPath!)!.get();
+        newItem = createNewItem(
+          type,
+          parentVe.displayItem.id,
+          itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId),
+          RelationshipToParent.Child);
 
-      const page = asPageItem(overPositionableVe!.displayItem);
-      const propX = (props.desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
-      const propY = (props.desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
-      newItem.spatialPositionGr = {
-        x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-        y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-      };
+        const page = asPageItem(overPositionableVe!.displayItem);
+        const propX = (props.desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
+        const propY = (props.desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
+        newItem.spatialPositionGr = {
+          x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+          y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+        };
 
-      server.addItem(newItem, null);
-      itemState.add(newItem);
+        server.addItem(newItem, null);
+        itemState.add(newItem);
 
-      desktopStore.setContextMenuInfo(null);
-      arrange(desktopStore);
+        desktopStore.setContextMenuInfo(null);
+        arrange(desktopStore);
 
-      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
+        newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
+      }
     }
 
     else {

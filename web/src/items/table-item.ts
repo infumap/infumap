@@ -18,7 +18,7 @@
 
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxType, HitboxFns } from "../layout/hitbox";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions } from "../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
@@ -30,10 +30,11 @@ import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
-import { VisualElement } from "../layout/visual-element";
+import { VeFns, VisualElement } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
+import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -257,7 +258,47 @@ export const TableFns = {
       return result;
     }
     return tableItem.tableColumns[index].widthGr / GRID_SIZE;
-  }
+  },
+
+  tableModifiableColRow(desktopStore: DesktopStoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number} {
+    const tableItem = asTableItem(tableVe.displayItem);
+    const tableDimensionsBl: Dimensions = {
+      w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
+      h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
+    };
+    const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, tableVe);
+
+    // col
+    const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
+    const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
+    let accumBl = 0;
+    let colNumber = tableItem.tableColumns.length - 1;
+    for (let i=0; i<tableItem.tableColumns.length; ++i) {
+      accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
+      if (accumBl >= tableDimensionsBl.w) {
+        colNumber = i;
+        break;
+      }
+      if (tableXBl < accumBl) {
+        colNumber = i;
+        break;
+      }
+    }
+    const attachmentPos = colNumber - 1;
+
+    // row
+    const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
+    const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
+    const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+    let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
+    if (insertRow < yScrollPos) { insertRow = yScrollPos; }
+    insertRow -= insertRow > tableItem.computed_children.length
+      ? insertRow - tableItem.computed_children.length
+      : 0;
+
+    return { insertRow, attachmentPos };
+  },
+
 };
 
 

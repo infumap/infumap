@@ -23,7 +23,7 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, PageFns } from "../items/page-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -381,42 +381,10 @@ function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeV
 
 
 function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
-  const tableItem = asTableItem(overContainerVe.displayItem);
-  const tableDimensionsBl: Dimensions = {
-    w: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
-    h: (overContainerVe.linkItemMaybe ? overContainerVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
-  };
-  const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, overContainerVe);
-
-  // col
-  const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
-  const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
-  let accumBl = 0;
-  let colNumber = tableItem.tableColumns.length - 1;
-  for (let i=0; i<tableItem.tableColumns.length; ++i) {
-    accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
-    if (accumBl >= tableDimensionsBl.w) {
-      colNumber = i;
-      break;
-    }
-    if (tableXBl < accumBl) {
-      colNumber = i;
-      break;
-    }
-  }
-  const attachmentPos = colNumber - 1;
-
-  // row
-  const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
-  const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
-  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
-  let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
-  if (insertRow < yScrollPos) { insertRow = yScrollPos; }
-  insertRow -= insertRow > tableItem.computed_children.length
-    ? insertRow - tableItem.computed_children.length
-    : 0;
+  const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(desktopStore, overContainerVe, desktopPx);
   overContainerVe.moveOverRowNumber.set(insertRow);
 
+  const tableItem = asTableItem(overContainerVe.displayItem);
   const childItem = itemState.get(tableItem.computed_children[insertRow]);
   if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(LinkFns.getLinkToId(asLinkItem(childItem!))!)))) {
     overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
