@@ -29,7 +29,7 @@ import { initialEditDialogBounds } from "./edit/EditDialog";
 import { panic } from "../../util/lang";
 import { HitInfo } from "../../mouse/hit";
 import { LinkFns } from "../../items/link-item";
-import { EMPTY_UID } from "../../util/uid";
+import { EMPTY_UID, Uid } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
 import { PasswordFns } from "../../items/password-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
@@ -37,6 +37,7 @@ import { InfuIconButton } from "../library/InfuIconButton";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { arrange } from "../../layout/arrange";
 import { MOUSE_LEFT } from "../../mouse/mouse_down";
+import { PositionalItem } from "../../items/base/positional-item";
 
 
 type ContexMenuProps = {
@@ -55,62 +56,33 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newLinkInContext = () => newItemInContext("link");
   const newPasswordInContext = () => newItemInContext("password");
 
-  const newItemInContext = (type: string) => {
-    const overElementVe = props.hitInfo.overElementVes.get();
-    if (overElementVe.flags & VisualElementFlags.InsideTable) {
-      const attachmentNumber = props.hitInfo.overElementVes.get();
-      console.log(attachmentNumber);
-      panic();
-    } else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
-
-    } else {
-      console.log("unsupported add position");
-    }
-
+  function createNewItem(type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
     let newItem = null;
     if (type == "rating") {
-      newItem = RatingFns.create(
-        userStore.getUser().userId,
-        overElementVe.displayItem.id,
-        3,
-        RelationshipToParent.Child,
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id))
+      newItem = RatingFns.create(userStore.getUser().userId, parentId, 3, relationship, ordering)
     } else if (type == "table") {
-      newItem = TableFns.create(
-        userStore.getUser().userId,
-        overElementVe.displayItem.id,
-        RelationshipToParent.Child,
-        "",
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+      newItem = TableFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "note") {
-      newItem = NoteFns.create(
-        userStore.getUser().userId,
-        overElementVe.displayItem.id,
-        RelationshipToParent.Child,
-        "",
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+      newItem = NoteFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "page") {
-      newItem = PageFns.create(
-        userStore.getUser().userId,
-        overElementVe.displayItem.id!,
-        RelationshipToParent.Child,
-        "",
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+      newItem = PageFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "link")  {
-      newItem = LinkFns.create(userStore.getUser().userId,
-        overElementVe.displayItem.id!,
-        RelationshipToParent.Child,
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
-        EMPTY_UID);
+      newItem = LinkFns.create(userStore.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
     } else if (type == "password")  {
-      newItem = PasswordFns.create(userStore.getUser().userId,
-        overElementVe.displayItem.id!,
-        RelationshipToParent.Child,
-        "",
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id));
+      newItem = PasswordFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
     } else {
       panic();
     }
+    return newItem;
+  }
+
+  const newItemInContext = (type: string) => {
+    const overElementVe = props.hitInfo.overElementVes.get();
+    const newItem = createNewItem(
+      type,
+      overElementVe.displayItem.id,
+      itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
+      RelationshipToParent.Child);
 
     if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
       newItem.spatialPositionGr = PageFns.calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
