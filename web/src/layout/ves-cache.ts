@@ -47,6 +47,16 @@ let newCache = new Map<VisualElementPath, VisualElementSignal>();
 let evaluationRequired = new Set<VisualElementPath>();
 
 export let VesCache = {
+
+  /**
+   * Re-initialize - clears all cached data.
+   */
+  clear: (): void => {
+    currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
+    newCache = new Map<VisualElementPath, VisualElementSignal>();
+    evaluationRequired = new Set<VisualElementPath>();
+  },
+
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
     return currentVesCache.get(path);
   },

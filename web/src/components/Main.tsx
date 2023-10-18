@@ -30,6 +30,7 @@ import { switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { Toolbar } from "./toolbar/Toolbar";
 import { PageFns } from "../items/page-item";
+import { VesCache } from "../layout/ves-cache";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -82,10 +83,9 @@ export const Main: Component = () => {
   });
 
   logout = async () => {
-    desktopStore.setEditDialogInfo(null);
-    desktopStore.setEditUserSettingsInfo(null);
-    desktopStore.setContextMenuInfo(null);
-    desktopStore.clearBreadcrumbs();
+    desktopStore.clear();
+    itemState.clear();
+    VesCache.clear();
     await userStore.logout();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {

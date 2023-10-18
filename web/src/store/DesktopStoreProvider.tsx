@@ -66,7 +66,6 @@ export interface DesktopStoreContextModel {
   getPageScrollYProp: (veid: Veid) => number,
   setPageScrollYProp: (veid: Veid, path: number) => void,
 
-  clearBreadcrumbs: () => void,
   pushPage: (veid: Veid) => void,
   popPage: () => void,
   currentPage: () => Veid | null,
@@ -79,6 +78,8 @@ export interface DesktopStoreContextModel {
 
   currentVisiblePassword: Accessor<Uid | null>,
   setCurrentVisiblePassword: Setter<Uid | null>,
+
+  clear: () => void,
 }
 
 export interface EditOverlayInfo {
@@ -227,8 +228,19 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
 
-  const clearBreadcrumbs = (): void => {
+  const clear = (): void => {
+    setEditDialogInfo(null);
+    setEditUserSettingsInfo(null);
+    setContextMenuInfo(null);
+    setTextEditOverlayInfo(null);
+    setSearchOverlayVisible(false);
     setBreadcrumbs([]);
+    setCurrentVisiblePassword(null);
+    tableScrollPositions.clear();
+    pageScrollXPxs.clear();
+    pageScrollYPxs.clear();
+    selectedItems.clear();
+    topLevelVisualElementSignal().set(NONE_VISUAL_ELEMENT);
   };
 
 
@@ -313,7 +325,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     getPageScrollYProp, setPageScrollYProp,
     currentVisiblePassword, setCurrentVisiblePassword,
 
-    clearBreadcrumbs,
     pushPage,
     popPage,
     currentPage,
@@ -323,6 +334,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     popAllPopups,
     currentPopupSpec,
     currentPopupSpecVePath,
+
+    clear,
   };
 
   return (

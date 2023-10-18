@@ -30,6 +30,14 @@ let items = new Map<Uid, Item>();
 
 
 export const itemState = {
+
+  /**
+   * Re-initialize - clears all items data.
+   */
+  clear: (): void => {
+    items = new Map<Uid, Item>();
+  },
+
   get: (id: Uid): Item | null => {
     const v = items.get(id);
     if (v) { return v; }
