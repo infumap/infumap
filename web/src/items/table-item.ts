@@ -221,7 +221,7 @@ export const TableFns = {
     if (item.itemType == ItemType.Table) { return item as TableMeasurable; }
     panic();
   },
-  
+
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
     // no other behavior in table case.
@@ -237,13 +237,26 @@ export const TableFns = {
       flags: table.flags,
     });
   },
-  
+
   debugSummary: (tableItem: TableItem) => {
     return "[table] " + tableItem.title;
   },
-  
+
   getFingerprint: (tableItem: TableItem): string => {
     return tableItem.title + "~~~!@#~~~" + tableItem.flags;
+  },
+
+  columnWidthBl: (tableItem: TableItem, index: number): number => {
+    if (index == tableItem.tableColumns.length - 1) {
+      let accumBl = 0;
+      for (let i=0; i<tableItem.tableColumns.length - 1; ++i) {
+        accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
+      }
+      let result = tableItem.spatialWidthGr / GRID_SIZE - accumBl;
+      if (result < 1) { result = 1; } // naive sanitize.
+      return result;
+    }
+    return tableItem.tableColumns[index].widthGr / GRID_SIZE;
   }
 };
 

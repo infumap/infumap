@@ -40,7 +40,7 @@ import { getTextStyleForNote, measureLineCount } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { asTableItem } from "../../items/table-item";
+import { TableFns, asTableItem } from "../../items/table-item";
 
 
 export const TextEditOverlay: Component = () => {
@@ -63,7 +63,6 @@ export const TextEditOverlay: Component = () => {
         w: nbPx.w, h: nbPx.h * sBl.h,
       });
     }
-
     return noteVeBoundsPx();
   };
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
@@ -112,7 +111,7 @@ export const TextEditOverlay: Component = () => {
         tableVe = VesCache.get(itemVe.parentPath!)!.get();
       }
       const tableItem = asTableItem(tableVe.displayItem);
-      const widthBl = tableItem.tableColumns[noteVe.col!].widthGr / GRID_SIZE;
+      const widthBl = TableFns.columnWidthBl(tableItem, noteVe.col!);
       let lineCount = measureLineCount(noteItem().title, widthBl, noteItem().flags);
       if (lineCount < 1) { lineCount = 1; }
       return ({ w: widthBl, h: lineCount });
@@ -130,6 +129,7 @@ export const TextEditOverlay: Component = () => {
 
     return NoteFns.calcSpatialDimensionsBl(noteItem());
   };
+
   const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (editBoxBoundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
