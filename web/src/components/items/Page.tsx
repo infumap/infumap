@@ -29,7 +29,6 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
-import { editDialogSizePx } from "../overlay/edit/EditDialog";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 
@@ -314,18 +313,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - pageBoundsPx.h);
       desktopStore.setPageScrollYProp(popupVeid, scrollYProp);
     }
-  }
-
-  const popupTitleClickHandler = () => {
-    desktopStore.setEditDialogInfo({
-      desktopBoundsPx: {
-        x: boundsPx().x + 65,
-        y: boundsPx().y + 10,
-        w: editDialogSizePx.w,
-        h: editDialogSizePx.h
-      },
-      item: pageItem()
-    });
   }
 
   const listViewScale = () => props.visualElement.boundsPx.w / desktopStore.desktopBoundsPx().w;
