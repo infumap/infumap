@@ -20,10 +20,10 @@ import { Component } from "solid-js";
 import { NoteFns } from "../../items/note-item";
 import { asPageItem, isPage, PageFns } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { Vector } from "../../util/geometry";
+import { isInside, Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { TableFns } from "../../items/table-item";
+import { isTable, TableFns } from "../../items/table-item";
 import { RatingFns } from "../../items/rating-item";
 import { initialEditDialogBounds } from "./edit/EditDialog";
 import { panic } from "../../util/lang";
@@ -39,6 +39,8 @@ import { arrange } from "../../layout/arrange";
 import { MOUSE_LEFT } from "../../mouse/mouse_down";
 import { PositionalItem } from "../../items/base/positional-item";
 import { isPlaceholder } from "../../items/placeholder-item";
+import { VesCache } from "../../layout/ves-cache";
+import { GRID_SIZE } from "../../constants";
 
 
 type ContexMenuProps = {
@@ -79,6 +81,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   const newItemInContext = (type: string) => {
     const overElementVe = props.hitInfo.overElementVes.get();
+    const overPositionableVe = props.hitInfo.overPositionableVe;
 
     let newItem;
     let newItemPath;
@@ -108,7 +111,14 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
         RelationshipToParent.Child);
 
-      newItem.spatialPositionGr = PageFns.calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
+      const page = asPageItem(overElementVe.displayItem);
+      const propX = (props.desktopPosPx.x - overElementVe.boundsPx.x) / overElementVe.boundsPx.w;
+      const propY = (props.desktopPosPx.y - overElementVe.boundsPx.y) / overElementVe.boundsPx.h;
+      newItem.spatialPositionGr = {
+        x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+        y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+      };
+
       server.addItem(newItem, null);
       itemState.add(newItem);
 
@@ -116,6 +126,37 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       arrange(desktopStore);
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
+    }
+
+    else if (isTable(overElementVe.displayItem)) {
+      if (isInside(props.desktopPosPx, overElementVe.childAreaBoundsPx!)) {
+        console.log("make in table", overElementVe);
+        panic();
+      }
+
+      // not inside child area: create item in the page containing the table.
+      const parentVe = VesCache.get(overElementVe.parentPath!)!.get();
+      newItem = createNewItem(
+        type,
+        parentVe.displayItem.id,
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId),
+        RelationshipToParent.Child);
+
+      const page = asPageItem(overPositionableVe!.displayItem);
+      const propX = (props.desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
+      const propY = (props.desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
+      newItem.spatialPositionGr = {
+        x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+        y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+      };
+
+      server.addItem(newItem, null);
+      itemState.add(newItem);
+
+      desktopStore.setContextMenuInfo(null);
+      arrange(desktopStore);
+
+      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
     }
 
     else {

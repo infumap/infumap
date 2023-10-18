@@ -27,6 +27,7 @@ import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { itemState } from "./store/ItemState";
 import { arrange } from "./layout/arrange";
+import { getHitInfo } from "./mouse/hit";
 
 
 export async function handleUpload(
@@ -47,9 +48,16 @@ export async function handleUpload(
     }
   }
 
-  const posPx = parent.arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch
-    ? {x: 0.0, y: 0.0}
-    : PageFns.calcBlockPositionGr(desktopStore, parent, desktopPx);
+  let posPx = { x: 0.0, y: 0.0 };
+  if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    const hbi = getHitInfo(desktopStore, desktopPx, [], false);
+    const propX = (desktopPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
+    const propY = (desktopPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
+    posPx = {
+      x: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
+      y: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE / parent.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+    };
+  }
 
   // handle files.
   const files = dataTransfer.files;

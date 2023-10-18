@@ -382,16 +382,6 @@ export const PageFns = {
     panic();
   },
 
-  calcBlockPositionGr: (desktopStore: DesktopStoreContextModel, page: PageItem, desktopPosPx: Vector): Vector => {
-    const hbi = getHitInfo(desktopStore, desktopPosPx, [], false);
-    const propX = (desktopPosPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
-    const propY = (desktopPosPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
-    return ({
-      x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-      y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-    });
-  },
-
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
     switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true);
