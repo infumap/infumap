@@ -36,6 +36,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { arrange } from "../../layout/arrange";
+import { MOUSE_LEFT } from "../../mouse/mouse_down";
 
 
 type ContexMenuProps = {
@@ -154,7 +155,9 @@ export const ContextMenu: Component = () => {
 
   // Prevent mouse down events bubbling up, which would trigger the handler that hides the context menu.
   let mouseDownListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
+    if (ev.button == MOUSE_LEFT) {
+      ev.stopPropagation();
+    }
   }
 
   const posPx = () => desktopStore.contextMenuInfo()!.posPx;
