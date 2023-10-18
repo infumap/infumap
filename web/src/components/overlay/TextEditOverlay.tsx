@@ -325,7 +325,12 @@ export const TextEditOverlay: Component = () => {
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (isComposite(parentVe.displayItem)) {
+    if (ve.flags & VisualElementFlags.InsideTable) {
+      await server.updateItem(ve.displayItem);
+      desktopStore.setTextEditOverlayInfo(null);
+      arrange(desktopStore);
+
+    } else if (isComposite(parentVe.displayItem)) {
       noteItem().title = textElement!.value;
       await server.updateItem(ve.displayItem);
       const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
@@ -335,7 +340,7 @@ export const TextEditOverlay: Component = () => {
       arrange(desktopStore);
       const noteItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
       desktopStore.setTextEditOverlayInfo({ noteItemPath });
-      return;
+
     } else {
       // if the note item is in a link, create the new composite under the item's (as opposed to the link item's) parent.
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;

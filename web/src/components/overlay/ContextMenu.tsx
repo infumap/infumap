@@ -38,6 +38,7 @@ import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { arrange } from "../../layout/arrange";
 import { MOUSE_LEFT } from "../../mouse/mouse_down";
 import { PositionalItem } from "../../items/base/positional-item";
+import { isPlaceholder } from "../../items/placeholder-item";
 
 
 type ContexMenuProps = {
@@ -78,34 +79,60 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   const newItemInContext = (type: string) => {
     const overElementVe = props.hitInfo.overElementVes.get();
-    const newItem = createNewItem(
-      type,
-      overElementVe.displayItem.id,
-      itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
-      RelationshipToParent.Child);
 
-    if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
-      newItem.spatialPositionGr = PageFns.calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
-      server.addItem(newItem, null);
+    let newItem;
+    let newItemPath;
+
+    if (isPlaceholder(overElementVe.displayItem)) {
+      newItem = createNewItem(
+        type,
+        overElementVe.displayItem.parentId,
+        overElementVe.displayItem.ordering,
+        overElementVe.displayItem.relationshipToParent);
+
+      itemState.delete(overElementVe.displayItem.id);
+      server.deleteItem(overElementVe.displayItem.id);
       itemState.add(newItem);
+      server.addItem(newItem, null);
+
       desktopStore.setContextMenuInfo(null);
       arrange(desktopStore);
 
-      if (type == "note") {
-        const noteItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
-        desktopStore.setTextEditOverlayInfo({ noteItemPath: noteItemPath });
-      } else if (type == "rating") {
-        // noop.
-      } else {
-        desktopStore.setEditDialogInfo({
-          desktopBoundsPx: initialEditDialogBounds(desktopStore),
-          item: newItem
-        });
-      }
-      return;
+      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
     }
 
-    panic();
+    else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
+      newItem = createNewItem(
+        type,
+        overElementVe.displayItem.id,
+        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
+        RelationshipToParent.Child);
+
+      newItem.spatialPositionGr = PageFns.calcBlockPositionGr(desktopStore, asPageItem(overElementVe.displayItem), props.desktopPosPx);
+      server.addItem(newItem, null);
+      itemState.add(newItem);
+
+      desktopStore.setContextMenuInfo(null);
+      arrange(desktopStore);
+
+      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
+    }
+
+    else {
+      panic();
+    }
+
+
+    if (type == "note") {
+      desktopStore.setTextEditOverlayInfo({ noteItemPath: newItemPath });
+    } else if (type == "rating") {
+      // noop.
+    } else {
+      desktopStore.setEditDialogInfo({
+        desktopBoundsPx: initialEditDialogBounds(desktopStore),
+        item: newItem
+      });
+    }
   }
 
   return (
