@@ -24,13 +24,11 @@ import { asPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Colors } from "../../style";
 import { hexToRGBA } from "../../util/color";
-import { logout } from "../Main";
 import { NONE_VISUAL_ELEMENT } from '../../layout/visual-element';
 import { useUserStore } from '../../store/UserStoreProvider';
 import { switchToPage } from '../../layout/navigation';
 import { useNavigate } from '@solidjs/router';
-import { itemState } from '../../store/ItemState';
-import { editDialogSizePx } from '../overlay/edit/EditDialog';
+import { initialEditUserSettingsBounds } from '../overlay/UserSettings';
 
 
 export const Toolbar: Component = () => {
@@ -66,28 +64,12 @@ export const Toolbar: Component = () => {
 
   const bgColIdx = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).backgroundColorIndex;
 
-  const titleClick = () => {
-    desktopStore.setEditDialogInfo({
-      desktopBoundsPx: {
-        x: 40,
-        y: 40,
-        w: editDialogSizePx.w,
-        h: editDialogSizePx.h
-      },
-      item: itemState.get(desktopStore.currentPage()!.itemId)!
-    });
-  };
-
   const handleSearchClick = () => {
     desktopStore.setSearchOverlayVisible(!desktopStore.searchOverlayVisible())
   };
 
-  const titleText = () => {
-    const text = asPageItem(desktopStore.topLevelVisualElement()!.displayItem).title;
-    if (text == "") {
-      return "[empty]";
-    }
-    return text;
+  const showUserSettings = () => {
+    desktopStore.setEditUserSettingsInfo({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) });
   }
 
   return (
@@ -106,9 +88,6 @@ export const Toolbar: Component = () => {
         <div class="ml-[11px] mt-[12px]">
           <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
         </div>
-        {/* <div class="ml-[11px] mt-[10px] mb-[12px]">
-          <i class="fa fa-refresh cursor-pointer" onclick={titleClick} />
-        </div> */}
         <div class="ml-[11px] mt-[12px]">
           <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
         </div>
@@ -123,7 +102,7 @@ export const Toolbar: Component = () => {
           </Show>
         <Show when={userStore.getUserMaybe()}>
           <div class="ml-[12px] mt-[12px] mb-[12px]">
-            <i class="fa fa-user cursor-pointer" onclick={logout!} />
+            <i class="fa fa-user cursor-pointer" onclick={showUserSettings!} />
           </div>
         </Show>
       </div>

@@ -83,6 +83,7 @@ export const Main: Component = () => {
 
   logout = async () => {
     desktopStore.setEditDialogInfo(null);
+    desktopStore.setEditUserSettingsInfo(null);
     desktopStore.setContextMenuInfo(null);
     desktopStore.clearBreadcrumbs();
     await userStore.logout();

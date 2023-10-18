@@ -17,25 +17,25 @@
 */
 
 import { Component } from "solid-js";
-import { NoteFns } from "../../../items/note-item";
-import { asPageItem, isPage, PageFns } from "../../../items/page-item";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { Vector } from "../../../util/geometry";
-import { server } from "../../../server";
-import { useUserStore } from "../../../store/UserStoreProvider";
-import { TableFns } from "../../../items/table-item";
-import { RatingFns } from "../../../items/rating-item";
-import { initialEditDialogBounds } from "../edit/EditDialog";
-import { panic } from "../../../util/lang";
-import { HitInfo } from "../../../mouse/hit";
-import { LinkFns } from "../../../items/link-item";
-import { EMPTY_UID } from "../../../util/uid";
-import { itemState } from "../../../store/ItemState";
-import { PasswordFns } from "../../../items/password-item";
-import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
-import { InfuIconButton } from "../../library/InfuIconButton";
-import { RelationshipToParent } from "../../../layout/relationship-to-parent";
-import { arrange } from "../../../layout/arrange";
+import { NoteFns } from "../../items/note-item";
+import { asPageItem, isPage, PageFns } from "../../items/page-item";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { Vector } from "../../util/geometry";
+import { server } from "../../server";
+import { useUserStore } from "../../store/UserStoreProvider";
+import { TableFns } from "../../items/table-item";
+import { RatingFns } from "../../items/rating-item";
+import { initialEditDialogBounds } from "./edit/EditDialog";
+import { panic } from "../../util/lang";
+import { HitInfo } from "../../mouse/hit";
+import { LinkFns } from "../../items/link-item";
+import { EMPTY_UID } from "../../util/uid";
+import { itemState } from "../../store/ItemState";
+import { PasswordFns } from "../../items/password-item";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { InfuIconButton } from "../library/InfuIconButton";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { arrange } from "../../layout/arrange";
 
 
 type ContexMenuProps = {
@@ -144,6 +144,27 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <InfuIconButton icon="star" highlighted={false} clickHandler={newRatingInContext} />
       <InfuIconButton icon="link" highlighted={false} clickHandler={newLinkInContext} />
       <InfuIconButton icon="eye-slash" highlighted={false} clickHandler={newPasswordInContext} />
+    </div>
+  );
+}
+
+
+export const ContextMenu: Component = () => {
+  const desktopStore = useDesktopStore();
+
+  // Prevent mouse down events bubbling up, which would trigger the handler that hides the context menu.
+  let mouseDownListener = (ev: MouseEvent) => {
+    ev.stopPropagation();
+  }
+
+  const posPx = () => desktopStore.contextMenuInfo()!.posPx;
+  const hitInfo = () => desktopStore.contextMenuInfo()!.hitInfo;
+
+  return (
+    <div class="absolute"
+         style={`left: ${posPx().x}px; top: ${posPx().y}px`}
+         onMouseDown={mouseDownListener}>
+      <AddItem desktopPosPx={posPx()} hitInfo={hitInfo()} />
     </div>
   );
 }

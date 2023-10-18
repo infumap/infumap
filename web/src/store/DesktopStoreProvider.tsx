@@ -39,6 +39,9 @@ export interface DesktopStoreContextModel {
   editDialogInfo: Accessor<EditDialogInfo | null>,
   setEditDialogInfo: Setter<EditDialogInfo | null>,
 
+  editUserSettingsInfo: Accessor<EditUserSettingsInfo | null>,
+  setEditUserSettingsInfo: Setter<EditUserSettingsInfo | null>,
+
   contextMenuInfo: Accessor<ContextMenuInfo | null>,
   setContextMenuInfo: Setter<ContextMenuInfo | null>,
 
@@ -92,6 +95,10 @@ export interface EditDialogInfo {
   item: Item
 }
 
+export interface EditUserSettingsInfo {
+  desktopBoundsPx: BoundingBox,
+}
+
 export enum PopupType {
   Page,
   Attachment,
@@ -120,6 +127,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [itemIsMoving, setItemIsMoving] = createSignal<boolean>(false, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
+  const [editUserSettingsInfo, setEditUserSettingsInfo] = createSignal<EditUserSettingsInfo | null>(null, { equals: false });
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
   const [textEditOverlayInfo, setTextEditOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
   const [searchOverlayVisible, setSearchOverlayVisible] = createSignal<boolean>(false, { equals: false });
@@ -295,6 +303,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,
     editDialogInfo, setEditDialogInfo,
+    editUserSettingsInfo, setEditUserSettingsInfo,
     contextMenuInfo, setContextMenuInfo,
     textEditOverlayInfo, setTextEditOverlayInfo,
     searchOverlayVisible, setSearchOverlayVisible,

@@ -99,10 +99,26 @@ export let DialogMoveState = {
 
   empty: (): boolean => dialogMoveState == null,
 
-  get: (): DialogMoveStateType => {
-    if (dialogMoveState == null) { panic(); }
-    return dialogMoveState!;
-  }
+  get: (): DialogMoveStateType | null => dialogMoveState
+}
+
+
+
+// ### User Settings State
+
+export interface UserSettingsMoveStateType {
+  lastMousePosPx: Vector,
+}
+
+
+export let userSettingsMoveState: UserSettingsMoveStateType | null = null;
+
+export let UserSettingsMoveState = {
+  set: (state: UserSettingsMoveStateType | null): void => { userSettingsMoveState = state; },
+
+  empty: (): boolean => userSettingsMoveState == null,
+
+  get: (): UserSettingsMoveStateType | null => userSettingsMoveState
 }
 
 
@@ -129,6 +145,7 @@ export const LastMouseMoveEventState = {
       shiftDown: ev.shiftKey,
     };
   },
+
   setFromTouchEvent: (ev: TouchEvent) => {
     lastMoveEvent = {
       clientX: ev.touches[0].clientX,
@@ -136,7 +153,8 @@ export const LastMouseMoveEventState = {
       shiftDown: false,
     }
   },
-  get: (): TouchOrMouseEvent => { return lastMoveEvent; }
+
+  get: (): TouchOrMouseEvent => lastMoveEvent
 }
 
 

@@ -38,7 +38,7 @@ import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvid
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { panic, throwExpression } from "../util/lang";
-import { ClickState, DialogMoveState, MouseAction, MouseActionState } from "./state";
+import { ClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
 
 
 
@@ -49,6 +49,7 @@ export function mouseUpHandler(
   desktopStore.setItemIsMoving(false);
 
   DialogMoveState.set(null);
+  UserSettingsMoveState.set(null);
 
   if (MouseActionState.empty()) { return; }
 

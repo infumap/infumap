@@ -19,7 +19,7 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { PopupType, useDesktopStore } from "../store/DesktopStoreProvider";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { ContextMenu } from "./overlay/context/ContextMenu";
+import { ContextMenu } from "./overlay/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
 import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
@@ -42,6 +42,7 @@ import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
 import { LastMouseMoveEventState } from "../mouse/state";
 import { arrange } from "../layout/arrange";
 import { SearchOverlay } from "./overlay/SearchOverlay";
+import { EditUserSettings } from "./overlay/UserSettings";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -179,6 +180,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   const windowPopStateListener = () => {
     desktopStore.setContextMenuInfo(null);
     desktopStore.setEditDialogInfo(null);
+    desktopStore.setEditUserSettingsInfo(null);
     desktopStore.popPage();
     arrange(desktopStore);
   };
@@ -283,6 +285,9 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
       <Show when={desktopStore.editDialogInfo() != null}>
         <EditDialog />
+      </Show>
+      <Show when={desktopStore.editUserSettingsInfo() != null}>
+        <EditUserSettings />
       </Show>
       <Show when={desktopStore.contextMenuInfo() != null}>
         <ContextMenu />

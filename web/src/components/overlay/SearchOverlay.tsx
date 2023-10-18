@@ -28,6 +28,7 @@ import { useUserStore } from "../../store/UserStoreProvider";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
 
+
 export const SearchOverlay: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();

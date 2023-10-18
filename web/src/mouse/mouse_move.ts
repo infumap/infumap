@@ -40,10 +40,11 @@ import { itemState } from "../store/ItemState";
 import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
-import { MouseAction, MouseActionState, LastMouseMoveEventState, dialogMoveState, TouchOrMouseEvent } from "./state";
+import { MouseAction, MouseActionState, LastMouseMoveEventState, TouchOrMouseEvent, DialogMoveState, UserSettingsMoveState } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrange } from "../layout/arrange";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
+import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -61,17 +62,32 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
   if (desktopStore.editDialogInfo() != null) {
-    if (dialogMoveState != null) {
+    if (DialogMoveState.get() != null) {
       let currentMousePosPx = desktopPxFromMouseEvent(ev);
-      let changePx = vectorSubtract(currentMousePosPx, dialogMoveState.lastMousePosPx!);
+      let changePx = vectorSubtract(currentMousePosPx, DialogMoveState.get()!.lastMousePosPx!);
       desktopStore.setEditDialogInfo(({
         item: desktopStore.editDialogInfo()!.item,
         desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
       }));
-      dialogMoveState.lastMousePosPx = currentMousePosPx;
+      DialogMoveState.get()!.lastMousePosPx = currentMousePosPx;
       return;
     }
     if (isInside(desktopPosPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
+      mouseMove_handleNoButtonDown(desktopStore, hasUser);
+      return;
+    }
+  }
+  if (desktopStore.editUserSettingsInfo() != null) {
+    if (UserSettingsMoveState.get() != null) {
+      let currentMousePosPx = desktopPxFromMouseEvent(ev);
+      let changePx = vectorSubtract(currentMousePosPx, UserSettingsMoveState.get()!.lastMousePosPx!);
+      desktopStore.setEditUserSettingsInfo(({
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editUserSettingsInfo()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
+      }));
+      UserSettingsMoveState.get()!.lastMousePosPx = currentMousePosPx;
+      return;
+    }
+    if (isInside(desktopPosPx, desktopStore.editUserSettingsInfo()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(desktopStore, hasUser);
       return;
     }
@@ -496,8 +512,9 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
 
 export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextModel, hasUser: boolean) {
   const dialogInfo = desktopStore.editDialogInfo();
+  const userSettingsInfo = desktopStore.editUserSettingsInfo();
   const contextMenuInfo = desktopStore.contextMenuInfo();
-  const hasModal = dialogInfo != null || contextMenuInfo != null;
+  const hasModal = dialogInfo != null || contextMenuInfo != null || userSettingsInfo != null;
 
   const ev = LastMouseMoveEventState.get();
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
