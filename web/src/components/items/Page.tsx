@@ -29,7 +29,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
-import { editDialogSizePx } from "../edit/EditDialog";
+import { editDialogSizePx } from "../overlay/edit/EditDialog";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 

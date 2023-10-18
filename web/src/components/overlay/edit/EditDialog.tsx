@@ -17,10 +17,10 @@
 */
 
 import { Component, Show } from "solid-js";
-import { DesktopStoreContextModel, useDesktopStore } from "../../store/DesktopStoreProvider";
-import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
+import { DesktopStoreContextModel, useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../../util/geometry";
 import { EditItem } from "./EditItem";
-import { MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
+import { MAIN_TOOLBAR_WIDTH_PX } from "../../../constants";
 
 const DIALOG_WIDTH_PX = 400;
 
@@ -34,7 +34,7 @@ export function initialEditDialogBounds(desktopStore: DesktopStoreContextModel) 
   return boundingBoxFromPosSize(posPx, { ...editDialogSizePx }); 
 }
 
-export const EditDialogInner: Component = () => {
+export const EditDialog: Component = () => {
   const desktopStore = useDesktopStore();
 
   let editDialogDiv: HTMLDivElement | undefined;
@@ -54,15 +54,5 @@ export const EditDialogInner: Component = () => {
         <EditItem item={item()} linkedTo={false} />
       </div>
     </>
-  );
-}
-
-export const EditDialog: Component = () => {
-  const desktopStore = useDesktopStore();
-
-  return (
-    <Show when={desktopStore.editDialogInfo() != null}>
-      <EditDialogInner />
-    </Show>
   );
 }

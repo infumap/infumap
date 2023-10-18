@@ -17,25 +17,25 @@
 */
 
 import { Component } from "solid-js";
-import { NoteFns } from "../../items/note-item";
-import { asPageItem, isPage, PageFns } from "../../items/page-item";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { Vector } from "../../util/geometry";
-import { server } from "../../server";
-import { useUserStore } from "../../store/UserStoreProvider";
-import { TableFns } from "../../items/table-item";
-import { RatingFns } from "../../items/rating-item";
+import { NoteFns } from "../../../items/note-item";
+import { asPageItem, isPage, PageFns } from "../../../items/page-item";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { Vector } from "../../../util/geometry";
+import { server } from "../../../server";
+import { useUserStore } from "../../../store/UserStoreProvider";
+import { TableFns } from "../../../items/table-item";
+import { RatingFns } from "../../../items/rating-item";
 import { initialEditDialogBounds } from "../edit/EditDialog";
-import { panic } from "../../util/lang";
-import { HitInfo } from "../../mouse/hit";
-import { LinkFns } from "../../items/link-item";
-import { EMPTY_UID } from "../../util/uid";
-import { itemState } from "../../store/ItemState";
-import { PasswordFns } from "../../items/password-item";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { arrange } from "../../layout/arrange";
+import { panic } from "../../../util/lang";
+import { HitInfo } from "../../../mouse/hit";
+import { LinkFns } from "../../../items/link-item";
+import { EMPTY_UID } from "../../../util/uid";
+import { itemState } from "../../../store/ItemState";
+import { PasswordFns } from "../../../items/password-item";
+import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
+import { InfuIconButton } from "../../library/InfuIconButton";
+import { RelationshipToParent } from "../../../layout/relationship-to-parent";
+import { arrange } from "../../../layout/arrange";
 
 
 type ContexMenuProps = {

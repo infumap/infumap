@@ -18,10 +18,10 @@
 
 import { Component, Show } from "solid-js";
 import { AddItem } from "./AddItem";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 
 
-const ContextMenuInner: Component = () => {
+export const ContextMenu: Component = () => {
   const desktopStore = useDesktopStore();
 
   // Prevent mouse down events bubbling up, which would trigger the handler that hides the context menu.
@@ -38,16 +38,5 @@ const ContextMenuInner: Component = () => {
          onMouseDown={mouseDownListener}>
       <AddItem desktopPosPx={posPx()} hitInfo={hitInfo()} />
     </div>
-  );
-}
-
-
-export const ContextMenu: Component = () => {
-  const desktopStore = useDesktopStore();
-
-  return (
-    <Show when={desktopStore.contextMenuInfo() != null}>
-      <ContextMenuInner />
-    </Show>
   );
 }

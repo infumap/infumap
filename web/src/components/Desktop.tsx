@@ -19,14 +19,14 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { PopupType, useDesktopStore } from "../store/DesktopStoreProvider";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { ContextMenu } from "./context/ContextMenu";
+import { ContextMenu } from "./overlay/context/ContextMenu";
 import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
 import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
 import { handleUpload } from "../upload";
 import { HitboxType } from "../layout/hitbox";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { EditDialog, initialEditDialogBounds } from "./edit/EditDialog";
+import { EditDialog, initialEditDialogBounds } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -278,9 +278,15 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
          ondblclick={mouseDoubleClickListener}
          onmouseup={mouseUpListener}
          onscroll={scrollHandler}>
+
       <Page_Desktop visualElement={props.visualElement} />
-      <ContextMenu />
-      <EditDialog />
+
+      <Show when={desktopStore.editDialogInfo() != null}>
+        <EditDialog />
+      </Show>
+      <Show when={desktopStore.contextMenuInfo() != null}>
+        <ContextMenu />
+      </Show>
       <Show when={desktopStore.textEditOverlayInfo() != null}>
         <TextEditOverlay />
       </Show>

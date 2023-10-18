@@ -17,12 +17,12 @@
 */
 
 import { Component, Show } from "solid-js";
-import { CompositeItem } from "../../../items/composite-item";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { InfuButton } from "../../library/InfuButton";
-import { server } from "../../../server";
-import { itemState } from "../../../store/ItemState";
-import { arrange } from "../../../layout/arrange";
+import { CompositeItem } from "../../../../items/composite-item";
+import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { InfuButton } from "../../../library/InfuButton";
+import { server } from "../../../../server";
+import { itemState } from "../../../../store/ItemState";
+import { arrange } from "../../../../layout/arrange";
 
 
 export const EditComposite: Component<{compositeItem: CompositeItem, linkedTo: boolean}> = (props: { compositeItem: CompositeItem, linkedTo: boolean }) => {

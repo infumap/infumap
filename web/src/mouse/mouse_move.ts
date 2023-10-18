@@ -28,7 +28,7 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
-import { editDialogSizePx } from "../components/edit/EditDialog";
+import { editDialogSizePx } from "../components/overlay/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { getHitInfo } from "./hit";

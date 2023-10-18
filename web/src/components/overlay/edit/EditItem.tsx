@@ -17,21 +17,21 @@
 */
 
 import { Component, Match, Switch } from "solid-js";
-import { Item } from "../../items/base/item";
-import { asFileItem, isFile } from "../../items/file-item";
-import { asImageItem, isImage } from "../../items/image-item";
-import { asPageItem, isPage } from "../../items/page-item";
-import { asTableItem, isTable } from "../../items/table-item";
-import { useUserStore } from "../../store/UserStoreProvider";
+import { Item } from "../../../items/base/item";
+import { asFileItem, isFile } from "../../../items/file-item";
+import { asImageItem, isImage } from "../../../items/image-item";
+import { asPageItem, isPage } from "../../../items/page-item";
+import { asTableItem, isTable } from "../../../items/table-item";
+import { useUserStore } from "../../../store/UserStoreProvider";
 import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
 import { EditPage } from "./Panels/EditPage";
 import { EditTable } from "./Panels/EditTable";
-import { asLinkItem, isLink } from "../../items/link-item";
+import { asLinkItem, isLink } from "../../../items/link-item";
 import { EditLink } from "./Panels/EditLink";
-import { asPasswordItem, isPassword } from "../../items/password-item";
+import { asPasswordItem, isPassword } from "../../../items/password-item";
 import { EditPassword } from "./Panels/EditPassword";
-import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { EditComposite } from "./Panels/EditComposite";
 
 

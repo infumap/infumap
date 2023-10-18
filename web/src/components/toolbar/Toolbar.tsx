@@ -30,7 +30,7 @@ import { useUserStore } from '../../store/UserStoreProvider';
 import { switchToPage } from '../../layout/navigation';
 import { useNavigate } from '@solidjs/router';
 import { itemState } from '../../store/ItemState';
-import { editDialogSizePx } from '../edit/EditDialog';
+import { editDialogSizePx } from '../overlay/edit/EditDialog';
 
 
 export const Toolbar: Component = () => {

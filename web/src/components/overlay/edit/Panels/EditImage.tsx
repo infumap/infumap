@@ -17,13 +17,13 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../../server";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { asImageItem, ImageItem } from "../../../items/image-item";
-import { InfuButton } from "../../library/InfuButton";
-import { InfuTextInput } from "../../library/InfuTextInput";
-import { itemState } from "../../../store/ItemState";
-import { arrange } from "../../../layout/arrange";
+import { server } from "../../../../server";
+import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { asImageItem, ImageItem } from "../../../../items/image-item";
+import { InfuButton } from "../../../library/InfuButton";
+import { InfuTextInput } from "../../../library/InfuTextInput";
+import { itemState } from "../../../../store/ItemState";
+import { arrange } from "../../../../layout/arrange";
 
 
 export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: { imageItem: ImageItem, linkedTo: boolean }) => {
