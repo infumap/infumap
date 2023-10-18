@@ -22,19 +22,18 @@ import { desktopPxFromMouseEvent } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { LastMouseMoveEventState } from "./state";
+import { ClickState, LastMouseMoveEventState } from "./state";
 
 
 export function mouseDoubleClickHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
     ev: MouseEvent) {
+  if (!ClickState.canDoubleClick()) { return; }
   if (desktopStore.currentPage() == null) { return; }
   if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
-  if (ev.button != MOUSE_LEFT) {
-    console.log("double click: unsupported mouse button: " + ev.button + " (ignoring).");
-    return;
-  }
+  if (desktopStore.textEditOverlayInfo() != null) { return; }
+  if (ev.button != MOUSE_LEFT) { return; }
 
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
 

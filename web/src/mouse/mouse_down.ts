@@ -34,7 +34,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState } from "./state";
+import { ClickState, DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState } from "./state";
 
 
 export const MOUSE_LEFT = 0;
@@ -69,12 +69,14 @@ export function mouseLeftDownHandler(
   const desktopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
 
   if (desktopStore.contextMenuInfo() != null) {
+    ClickState.preventDoubleClick();
     desktopStore.setContextMenuInfo(null);
     return;
   }
 
   let dialogInfo = desktopStore.editDialogInfo();
   if (dialogInfo != null) {
+    ClickState.preventDoubleClick();
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
       DialogMoveState.set({ lastMousePosPx: desktopPosPx });
       return;
@@ -87,6 +89,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
+      ClickState.preventDoubleClick();
       switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);

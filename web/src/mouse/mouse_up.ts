@@ -38,7 +38,7 @@ import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvid
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { panic, throwExpression } from "../util/lang";
-import { DialogMoveState, MouseAction, MouseActionState } from "./state";
+import { ClickState, DialogMoveState, MouseAction, MouseActionState } from "./state";
 
 
 
@@ -58,14 +58,17 @@ export function mouseUpHandler(
 
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
+      ClickState.preventDoubleClick();
       mouseUpHandler_moving(desktopStore, activeItem);
       break;
 
     case MouseAction.MovingPopup: {
+      ClickState.preventDoubleClick();
       break;
     }
 
     case MouseAction.Resizing:
+      ClickState.preventDoubleClick();
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
           (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
         server.updateItem(itemState.get(activeItem.id)!);
@@ -77,10 +80,12 @@ export function mouseUpHandler(
       break;
 
     case MouseAction.ResizingPopup: {
+      ClickState.preventDoubleClick();
       break;
     }
 
     case MouseAction.ResizingColumn:
+      ClickState.preventDoubleClick();
       const widthGr = activeVisualElement.linkItemMaybe == null
         ? asTableItem(activeItem).tableColumns[MouseActionState.get().hitMeta!.resizeColNumber!].widthGr
         : asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get().hitMeta!.resizeColNumber!].widthGr;
@@ -91,20 +96,28 @@ export function mouseUpHandler(
 
     case MouseAction.Ambiguous:
       if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.OpenPopup) {
+        ClickState.preventDoubleClick();
         ItemFns.handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.OpenAttachment) {
+        ClickState.preventDoubleClick();
         handleAttachmentClick(desktopStore, activeVisualElement, userStore);
         arrange(desktopStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Click) {
+        ClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, desktopStore, userStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Anchor) {
+        ClickState.preventDoubleClick();
         PageFns.handleAnchorClick(activeVisualElement, desktopStore, userStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Expand) {
+        ClickState.preventDoubleClick();
         PageFns.handleExpandClick(activeVisualElement, desktopStore, userStore);
+      } else {
+        // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
+        console.debug("no action taken");
       }
       break;
 

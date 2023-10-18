@@ -138,3 +138,28 @@ export const LastMouseMoveEventState = {
   },
   get: (): TouchOrMouseEvent => { return lastMoveEvent; }
 }
+
+
+
+// ### Click State
+
+const DOUBLE_CLICK_TIMEOUT_MS = 500; // this is standard.
+let canDoubleClick = true;
+let timer: number | undefined = undefined;
+
+export const ClickState = {
+  preventDoubleClick: (): void => {
+    if (timer === undefined) {
+      clearTimeout(timer);
+    }
+    canDoubleClick = false;
+    timer = setTimeout(() => {
+      canDoubleClick = true;
+      timer = undefined;
+    }, DOUBLE_CLICK_TIMEOUT_MS);
+  },
+
+  canDoubleClick: (): boolean => {
+    return canDoubleClick;
+  },
+}
