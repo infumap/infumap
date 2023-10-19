@@ -41,6 +41,7 @@ import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns, asTableItem } from "../../items/table-item";
+import { MOUSE_RIGHT } from "../../mouse/mouse_down";
 
 
 export const TextEditOverlay: Component = () => {
@@ -174,8 +175,12 @@ export const TextEditOverlay: Component = () => {
     infoOverlayVisible.set(!infoOverlayVisible.get());
   }
 
-  const textAreaMouseDownHandler = (ev: MouseEvent) => {
+  const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
+    if (ev.button == MOUSE_RIGHT) {
+      await server.updateItem(noteVisualElement().displayItem);
+      desktopStore.setTextEditOverlayInfo(null);
+    }
   };
 
   const textAreaOnInputHandler = () => {
