@@ -138,11 +138,12 @@ export const TextEditOverlay: Component = () => {
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
 
-  const mouseDownListener = (ev: MouseEvent) => {
+  const mouseDownListener = async (ev: MouseEvent) => {
     ev.stopPropagation();
     LastMouseMoveEventState.setFromMouseEvent(ev);
     const desktopPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
+    await server.updateItem(noteVisualElement().displayItem);
     desktopStore.setTextEditOverlayInfo(null);
   };
 
@@ -188,46 +189,16 @@ export const TextEditOverlay: Component = () => {
     arrange(desktopStore);
   };
 
-  const isNormalText = (): boolean => {
-    return (
-      !(noteItem().flags & NoteFlags.Heading1) && 
-      !(noteItem().flags & NoteFlags.Heading2) &&
-      !(noteItem().flags & NoteFlags.Heading3) &&
-      !(noteItem().flags & NoteFlags.Bullet1)
-    );
-  };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); arrange(desktopStore); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); };
 
-  const clearStyle = () => {
-    noteItem().flags &= ~NoteFlags.Heading1;
-    noteItem().flags &= ~NoteFlags.Heading2;
-    noteItem().flags &= ~NoteFlags.Heading3;
-    noteItem().flags &= ~NoteFlags.Bullet1;
-  };
-
-  const selectNormalText = () => { clearStyle(); arrange(desktopStore); };
-  const selectHeading1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); };
-  const selectHeading2 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); };
-  const selectHeading3 = () => { clearStyle(); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); };
-  const selectBullet1 = () => { clearStyle(); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); };
-
-  const isAlignLeft = () => {
-    return (
-      !(noteItem().flags & NoteFlags.AlignCenter) && 
-      !(noteItem().flags & NoteFlags.AlignJustify) &&
-      !(noteItem().flags & NoteFlags.AlignRight)
-    );
-  };
-
-  const clearAlignment = () => {
-    noteItem().flags &= ~NoteFlags.AlignCenter;
-    noteItem().flags &= ~NoteFlags.AlignRight;
-    noteItem().flags &= ~NoteFlags.AlignJustify;
-  };
-
-  const selectAlignLeft = () => { clearAlignment(); arrange(desktopStore); };
-  const selectAlignCenter = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); };
-  const selectAlignRight = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
-  const selectAlignJustify = () => { clearAlignment(); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); arrange(desktopStore); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
 
   let deleted = false;
 
@@ -426,13 +397,13 @@ export const TextEditOverlay: Component = () => {
            style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
         <div class="p-[4px]">
           <Show when={userStore.getUserMaybe() != null}>
-            <InfuIconButton icon="font" highlighted={isNormalText()} clickHandler={selectNormalText} />
+            <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
             <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
             <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
             <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
             <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
             <div class="inline-block ml-[12px]"></div>
-            <InfuIconButton icon="align-left" highlighted={isAlignLeft()} clickHandler={selectAlignLeft} />
+            <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
             <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
             <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
             <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />

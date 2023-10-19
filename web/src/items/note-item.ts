@@ -243,6 +243,36 @@ export const NoteFns = {
   isExpression: (noteItem: NoteItem): boolean => {
     return noteItem.title.startsWith("=");
   },
+
+  isStyleNormalText: (noteItem: NoteItem): boolean => {
+    return (
+      !(noteItem.flags & NoteFlags.Heading1) &&
+      !(noteItem.flags & NoteFlags.Heading2) &&
+      !(noteItem.flags & NoteFlags.Heading3) &&
+      !(noteItem.flags & NoteFlags.Bullet1)
+    );
+  },
+
+  isAlignedLeft: (noteItem: NoteItem): boolean => {
+    return (
+      !(noteItem.flags & NoteFlags.AlignCenter) &&
+      !(noteItem.flags & NoteFlags.AlignJustify) &&
+      !(noteItem.flags & NoteFlags.AlignRight)
+    );
+  },
+
+  clearTextStyleFlags: (noteItem: NoteItem): void => {
+    noteItem.flags &= ~NoteFlags.Heading1;
+    noteItem.flags &= ~NoteFlags.Heading2;
+    noteItem.flags &= ~NoteFlags.Heading3;
+    noteItem.flags &= ~NoteFlags.Bullet1;
+  },
+
+  clearAlignmentFlags: (noteItem: NoteItem): void => {
+    noteItem.flags &= ~NoteFlags.AlignCenter;
+    noteItem.flags &= ~NoteFlags.AlignRight;
+    noteItem.flags &= ~NoteFlags.AlignJustify;
+  },
 };
 
 
