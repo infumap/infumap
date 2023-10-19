@@ -104,7 +104,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)};`}>
+                  `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)}; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           <div class="flex items-center justify-center"
                style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
@@ -205,7 +206,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
                       `height: ${boundsPx().h}px; ` +
                       `left: ${boundsPx().x}px; ` +
-                      `top: ${boundsPx().y}px; `}>
+                      `top: ${boundsPx().y}px; ` +
+                      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
             <div class="absolute"
                  style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
                         `height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
@@ -231,7 +233,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                       `background-color: #ffffff; ` +
                       `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                      `overflow-x: hidden;`}
+                      `overflow-x: hidden;` +
+                      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
                onscroll={translucentScrollHandler}>
             <div class="absolute"
                  style={`left: ${0}px; top: ${0}px; ` +
@@ -244,7 +247,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-             `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`}>
+                    `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
             <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
@@ -302,12 +306,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const childAreaBoundsPx_ = childAreaBoundsPx();
 
     const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
-
-    // TODO: need to consider toolbar width.
-    // if (childAreaBoundsPx_.w > pageBoundsPx.w) {
-    //   const scrollXProp = popupDiv!.scrollLeft / (childAreaBoundsPx_.w - pageBoundsPx.w);
-    //   desktopStore.setPageScrollXProp(popupVeid, scrollXProp);
-    // }
 
     if (childAreaBoundsPx_.h > pageBoundsPx.h) {
       const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - pageBoundsPx.h);

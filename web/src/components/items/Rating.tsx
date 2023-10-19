@@ -20,7 +20,7 @@ import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementProps } from "../VisualElement";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Rating_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -35,7 +35,8 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
 
   return (
     <div class={`absolute`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <div class={`fas fa-star text-gray-400 absolute`}
            style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; ` +
                   `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +

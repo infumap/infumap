@@ -162,8 +162,6 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
   }
 
-  const zIndexStyle = () => props.visualElement.flags & VisualElementFlags.TopZ ? " z-index: 10;" : "";
-
   return (
     <Show when={boundsPx().w > 5} fallback={tooSmallFallback()}>
       {renderPopupBaseMaybe()}
@@ -173,34 +171,36 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   `top: ${quantizedBoundsPx().y}px; ` +
                   `width: ${quantizedBoundsPx().w}px; ` +
                   `height: ${quantizedBoundsPx().h}px; ` +
-                  `${zIndexStyle()}`}>
+                  `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <Show when={isDetailed()} fallback={notDetailedFallback()}>
           <img ref={imgElement}
                class="max-w-none absolute pointer-events-none"
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                       `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;` +
-                      `${zIndexStyle()}`}
+                      `${VeFns.zIndexStyle(props.visualElement)}`}
                width={imageWidthToRequestPx(false)} />
           <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isMainPoppedUp()}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
-                        `background-color: #dddddd88; ${zIndexStyle()}`} />
+                        `background-color: #dddddd88; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
           <Show when={props.visualElement.movingItemIsOverAttach.get()}>
             <div class="absolute rounded-sm"
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000; ${zIndexStyle()}`} />
+                        `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
         </Show>
       </div>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
            style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                  `top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`}>
+                  `top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
+                  `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup)}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;` +
+                      `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`} />
         </Show>
       </div>
       {renderTitleMaybe()}

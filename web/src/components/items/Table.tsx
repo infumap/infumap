@@ -104,16 +104,22 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }));
   };
 
+
   return (
     <>
       <Show when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; `}>
+             style={`left: ${boundsPx().x}px; ` +
+                    `top: ${boundsPx().y + blockSizePx().h}px; ` +
+                    `width: ${boundsPx().w}px; ` +
+                    `height: ${boundsPx().h - blockSizePx().h}px; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         </div>
       </Show>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div class="absolute"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `${VeFns.opacityStyle(props.visualElement)};`}>
           <div class="absolute font-bold"
                style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                       `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
@@ -144,7 +150,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <TableChildArea visualElement={props.visualElement} />
         <div class="absolute pointer-events-none"
              style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
-                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px;`}>
+                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           <For each={columnSpecs()}>{spec =>
             <>
               <Show when={!spec.isLast}>
@@ -248,12 +255,15 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     );
   }
 
+  const opacityStyle = () => props.visualElement.flags & VisualElementFlags.Moving ? "opacity: 0.3 " : "";
+
   return (
     <div ref={outerDiv}
          id={props.visualElement.displayItem.id}
          class="absolute"
          style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
-                `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;`}
+                `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;` +
+                `${opacityStyle()};`}
                 onscroll={scrollHandler}>
       <div class="absolute" style={`width: ${childAreaBoundsPx()!.w}px; height: ${totalScrollableHeightPx()}px;`}>
         {drawVisibleItems()}

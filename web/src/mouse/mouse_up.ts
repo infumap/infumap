@@ -178,6 +178,7 @@ function mouseUpHandler_moving(
   }
 
   finalizeMouseUp();
+  MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
   arrange(desktopStore);
 }
 

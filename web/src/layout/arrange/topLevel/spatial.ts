@@ -38,6 +38,7 @@ import { arrangeItem } from "../item";
 const PAGE_TITLE_UID = newUid();
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
+
   const pageItem = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
   const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
   const pageAspect = pageItem.naturalAspect;

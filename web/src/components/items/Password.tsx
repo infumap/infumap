@@ -23,7 +23,7 @@ import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -69,7 +69,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   return (
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; ` + 
                     `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +

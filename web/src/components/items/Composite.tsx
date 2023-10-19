@@ -24,7 +24,7 @@ import { asCompositeItem } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFlags } from "../../items/base/flags-item";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -42,19 +42,24 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
   return (
-    <div class={`absolute border ${showBorder() ? "border-slate-700" : "border-transparent"} rounded-sm ${showBorder() ? "shadow-lg " : ""}bg-white overflow-hidden`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <For each={props.visualElement.children}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} />
-        }</For>
-        <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
-          <div class={`absolute rounded-sm`}
-               style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`} />
-        </Show>
-        <Show when={props.visualElement.linkItemMaybe != null}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
-        </Show>
+    <div class={`absolute border ` +
+                `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
+                `rounded-sm ` +
+                `${showBorder() ? "shadow-lg " : ""}` +
+                `bg-white overflow-hidden`}
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+      <For each={props.visualElement.children}>{childVe =>
+        <VisualElement_Desktop visualElement={childVe.get()} />
+      }</For>
+      <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+        <div class={`absolute rounded-sm`}
+              style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                     `background-color: #ff0000;`} />
+      </Show>
+      <Show when={props.visualElement.linkItemMaybe != null}>
+        <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+      </Show>
     </div>
   );
 };
@@ -81,7 +86,8 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     <>
       <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #dddddd88;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"

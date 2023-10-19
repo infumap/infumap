@@ -19,7 +19,7 @@
 import { Component, Show } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
 export const LinkDefault_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -28,7 +28,8 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
   return (
     <div class={`absolute rounded-sm border border-slate-200`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
-                "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);"} />
+                "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);" +
+                `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`} />
   );
 }
 
@@ -48,7 +49,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
       <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-             `background-color: #dddddd88;`} />
+                    `background-color: #dddddd88;`} />
       </Show>
       <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"

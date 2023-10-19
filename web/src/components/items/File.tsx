@@ -72,11 +72,10 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     }
   };
 
-  const zIndexStyle = () => props.visualElement.flags & VisualElementFlags.TopZ ? " z-index: 10;" : "";
-
   return (
     <div class={outerClass()}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; ` +
                     `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
@@ -84,16 +83,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                     `width: ${naturalWidthPx()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                    `${zIndexStyle()}`}>
+                    `overflow-wrap: break-word; white-space: pre-wrap; `}>
           <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;` +
-                      `${zIndexStyle()}`} />
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}

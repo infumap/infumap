@@ -51,3 +51,10 @@ export const ITEM_BORDER_WIDTH_PX = 1;
 export const COMPOSITE_ITEM_GAP_BL = 0.15;
 
 export const ANCHOR_BOX_SIZE_PX = 20;
+
+
+export const Z_INDEX_SHADOW = 0;
+export const Z_INDEX_ITEMS = 2;
+export const Z_INDEX_POPUP = 10;
+export const Z_INDEX_MOVING = 20;
+export const Z_INDEX_TEXT_OVERLAY = 30;

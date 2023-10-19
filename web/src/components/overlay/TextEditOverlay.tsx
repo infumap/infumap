@@ -24,7 +24,7 @@ import { server } from "../../server";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
@@ -417,7 +417,7 @@ export const TextEditOverlay: Component = () => {
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
-         style={`background-color: #00000010;`}
+         style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}

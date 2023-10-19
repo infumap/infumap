@@ -28,7 +28,7 @@ import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
 
 
 /**
@@ -72,7 +72,8 @@ export enum VisualElementFlags {
   Fixed                = 0x0100, // positioning is fixed, not absolute.
   InsideComposite      = 0x0200, // The visual element is inside a composite item.
   PageTitle            = 0x0400, // Is a page title element, not a page.
-  TopZ                 = 0x0800, // Render above everything else.
+  ZAbove               = 0x0800, // Render above everything else (except moving).
+  Moving               = 0x1000, // Render the visual element partially transparent and on top of everything else.
 }
 
 
@@ -364,7 +365,17 @@ export const VeFns = {
     if (VeFns.canonicalItem(visualElement).relationshipToParent != RelationshipToParent.Attachment) { return false; }
     const parentParent = VesCache.get(parent.parentPath!)!.get();
     return isTable(parentParent.displayItem);
-  }
+  },
+
+  zIndexStyle: (visualElement: VisualElement): string => {
+    if (visualElement.flags & VisualElementFlags.Moving) { return ` z-index: ${Z_INDEX_MOVING};`; }
+    if (visualElement.flags & VisualElementFlags.ZAbove) { return ` z-index: ${Z_INDEX_POPUP};`; }
+    return ` z-index: ${Z_INDEX_ITEMS};`;
+  },
+
+  opacityStyle: (visualElement: VisualElement): string => {
+    return visualElement.flags & VisualElementFlags.Moving ? " opacity: 0.3;" : "";
+  },
 }
 
 

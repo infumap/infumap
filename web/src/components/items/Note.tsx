@@ -113,11 +113,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     desktopStore.textEditOverlayInfo() == null &&
     isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
 
-  const zIndexStyle = () => props.visualElement.flags & VisualElementFlags.TopZ ? " z-index: 10;" : "";
-
   return (
     <div class={`${outerClass()}`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ${zIndexStyle()}`}>
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)};`}>
       <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
         <div style={`position: absolute; ` +
                     `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
@@ -127,8 +126,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                     `font-size: ${style().fontSize}px; ` +
                     `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                    `${style().isBold ? ' font-weight: bold; ' : ""}; ` +
-                    `${zIndexStyle()}`}>
+                    `${style().isBold ? ' font-weight: bold; ' : ""}; `}>
           <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
             <a href={noteItem().url}
                target="_blank"
@@ -151,8 +149,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `background-color: #ff0000;`} />
         </Show>
         <Show when={props.visualElement.linkItemMaybe != null}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800; ` +
-                      `${zIndexStyle()}`} />
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
