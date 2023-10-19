@@ -40,7 +40,7 @@ import { MOUSE_LEFT } from "../../mouse/mouse_down";
 import { PositionalItem } from "../../items/base/positional-item";
 import { isPlaceholder, PlaceholderFns } from "../../items/placeholder-item";
 import { VesCache } from "../../layout/ves-cache";
-import { GRID_SIZE } from "../../constants";
+import { GRID_SIZE, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { asAttachmentsItem } from "../../items/base/attachments-item";
 
 
@@ -222,9 +222,9 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   return (
     <div class="border rounded w-[250px] h-[55px] bg-slate-50 mb-1">
       <div class="text-slate-800 text-sm ml-1">Add new item here</div>
+      <InfuIconButton icon="sticky-note" highlighted={false} clickHandler={newNoteInContext} />
       <InfuIconButton icon="folder" highlighted={false} clickHandler={newPageInContext} />
       <InfuIconButton icon="table" highlighted={false} clickHandler={newTableInContext} />
-      <InfuIconButton icon="sticky-note" highlighted={false} clickHandler={newNoteInContext} />
       <InfuIconButton icon="star" highlighted={false} clickHandler={newRatingInContext} />
       <InfuIconButton icon="link" highlighted={false} clickHandler={newLinkInContext} />
       <InfuIconButton icon="eye-slash" highlighted={false} clickHandler={newPasswordInContext} />
@@ -248,7 +248,8 @@ export const ContextMenu: Component = () => {
 
   return (
     <div class="absolute"
-         style={`left: ${posPx().x}px; top: ${posPx().y}px`}
+         style={`left: ${posPx().x-10}px; top: ${posPx().y-30}px; ` +
+                `z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <AddItem desktopPosPx={posPx()} hitInfo={hitInfo()} />
     </div>
