@@ -106,13 +106,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                     `top: ${boundsPx().y-10}px; ` +
                     `width: ${boundsPx().w+20}px; ` +
                     `height: ${boundsPx().h+20}px; ` +
-                    `background-color: #303030d0;}`} />
+                    `background-color: #303030d0;` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`} />
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                     `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
              style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
                     `top: ${quantizedBoundsPx().y}px; ` +
                     `width: ${quantizedBoundsPx().w}px; ` +
-                    `height: ${quantizedBoundsPx().h}px;`}>
+                    `height: ${quantizedBoundsPx().h}px;` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`}>
           <img class="max-w-none absolute pointer-events-none"
                style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
                       `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px; ` +
@@ -153,7 +155,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
              style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
                     `top: ${boundsPx().y + boundsPx().h - 50}px; ` +
                     `width: ${boundsPx().w}px; ` +
-                    `height: ${50}px;`}>
+                    `height: ${50}px;` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
             {imageItem().title}
           </div>

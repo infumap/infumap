@@ -322,12 +322,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
              style={`left: ${boundsPx().x-10}px; top: ${boundsPx().y-10}px; width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
-                    `background-color: #303030d0;`}>
+                    `background-color: #303030d0;` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`}>
         </div>
         <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
           <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
                style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                      `background-color: #ffffff;`}>
+                      `background-color: #ffffff;` +
+                      `${VeFns.zIndexStyle(props.visualElement)}`}>
             <div ref={popupDiv}
                  class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
                  style={`overflow-y: auto; overflow-x: hidden; ` +
@@ -361,7 +363,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
                style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                       `background-color: #f8f8f8; border-color: ${borderColorVal()}` +
-                      `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;`}
+                      `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` + 
+                      `${VeFns.zIndexStyle(props.visualElement)}`}
               onscroll={popupScrollHandler}>
             <div class="absolute"
                  style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; ` +
@@ -380,7 +383,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
                       `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
                       `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
-                      `background-color: #ff0000;`}>
+                      `background-color: #ff0000;` +
+                      `${VeFns.zIndexStyle(props.visualElement)}`}>
             <div class={`absolute`} style={"cursor: pointer;"}>
               <i class={`fa fa-anchor`} />
             </div>
