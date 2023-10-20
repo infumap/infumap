@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, onMount, Show } from "solid-js";
+import { Component, For, Match, onMount, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -104,80 +104,85 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }));
   };
 
+  const renderNotDetailed = () =>
+    <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
+         style={`left: ${boundsPx().x}px; ` +
+                `top: ${boundsPx().y + blockSizePx().h}px; ` +
+                `width: ${boundsPx().w}px; ` +
+                `height: ${boundsPx().h - blockSizePx().h}px; ` +
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />;
+
+  const renderDetailed = () =>
+    <>
+      <div class='absolute'
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div class="absolute font-bold"
+             style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                    `overflow-wrap: break-word;`}>
+          {tableItem().title}
+        </div>
+        <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
+             style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
+        <Show when={showColHeader()}>
+          <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
+               style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
+        </Show>
+        <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                      `background-color: #ff0000;`} />
+        </Show>
+        <For each={props.visualElement.attachments}>{attachmentVe =>
+          <VisualElement_Desktop visualElement={attachmentVe.get()} />
+        }</For>
+        <Show when={props.visualElement.linkItemMaybe != null}>
+          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+        </Show>
+      </div>
+      <TableChildArea visualElement={props.visualElement} />
+      <div class="absolute pointer-events-none"
+           style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
+                  `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        <For each={columnSpecs()}>{spec =>
+          <>
+            <Show when={!spec.isLast}>
+              <div class="absolute bg-slate-700"
+                   style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+            </Show>
+            <Show when={showColHeader()}>
+              <div class="absolute whitespace-nowrap overflow-hidden"
+                   style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                          `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
+                {spec.name}
+              </div>
+            </Show>
+          </>
+        }</For>
+      </div>
+      <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
+        <div class={`absolute border border-black`}
+             style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px;` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+      </Show>
+      <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverColAttachmentNumber.get() >= 0}>
+        <div class={`absolute border border-black bg-black`}
+             style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
+      </Show>
+    </>;
 
   return (
-    <>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
-        <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
-             style={`left: ${boundsPx().x}px; ` +
-                    `top: ${boundsPx().y + blockSizePx().h}px; ` +
-                    `width: ${boundsPx().w}px; ` +
-                    `height: ${boundsPx().h - blockSizePx().h}px; ` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-        </div>
-      </Show>
-      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `${VeFns.opacityStyle(props.visualElement)};`}>
-          <div class="absolute font-bold"
-               style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                      `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                      `overflow-wrap: break-word;`}>
-            {tableItem().title}
-          </div>
-          <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
-               style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`}>
-          </div>
-          <Show when={showColHeader()}>
-            <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
-                 style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`}>
-            </div>
-          </Show>
-          <Show when={props.visualElement.movingItemIsOverAttach.get()}>
-            <div class={`absolute rounded-sm`}
-                 style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000;`}>
-            </div>
-          </Show>
-          <For each={props.visualElement.attachments}>{attachmentVe =>
-            <VisualElement_Desktop visualElement={attachmentVe.get()} />
-          }</For>
-          <Show when={props.visualElement.linkItemMaybe != null}>
-            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`}></div>
-          </Show>
-        </div>
-        <TableChildArea visualElement={props.visualElement} />
-        <div class="absolute pointer-events-none"
-             style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
-                    `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-          <For each={columnSpecs()}>{spec =>
-            <>
-              <Show when={!spec.isLast}>
-                <div class="absolute bg-slate-700"
-                     style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`}></div>
-              </Show>
-              <Show when={showColHeader()}>
-                <div class="absolute whitespace-nowrap overflow-hidden"
-                     style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                            `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
-                  {spec.name}
-                </div>
-              </Show>
-            </>
-          }</For>
-        </div>
-        <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
-          <div class={`absolute border border-black`}
-               style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px;`}></div>
-        </Show>
-        <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverColAttachmentNumber.get() >= 0}>
-          <div class={`absolute border border-black bg-black`}
-               style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;`}></div>
-        </Show>
-      </Show>
-    </>
+    <Switch>
+      <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
+        {renderNotDetailed()}
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Detailed}>
+        {renderDetailed()}
+      </Match>
+    </Switch>
   );
 }
 
@@ -255,17 +260,15 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     );
   }
 
-  const opacityStyle = () => props.visualElement.flags & VisualElementFlags.Moving ? "opacity: 0.3 " : "";
-
   return (
     <div ref={outerDiv}
          id={props.visualElement.displayItem.id}
-         class="absolute"
+         class='absolute'
          style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
                 `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;` +
-                `${opacityStyle()};`}
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
                 onscroll={scrollHandler}>
-      <div class="absolute" style={`width: ${childAreaBoundsPx()!.w}px; height: ${totalScrollableHeightPx()}px;`}>
+      <div class='absolute' style={`width: ${childAreaBoundsPx()!.w}px; height: ${totalScrollableHeightPx()}px;`}>
         {drawVisibleItems()}
       </div>
     </div>
@@ -279,30 +282,42 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
 
-  return (
-    <>
-      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`}>
-        </div>
-      </Show>
-      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+  const renderHighlightsMaybe = () =>
+    <Switch>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
         </div>
-      </Show>
-      <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-table`} />
-      </div>
-      <div class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span>{tableItem().title}</span>
-      </div>
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #dddddd88;`}>
+        </div>
+      </Match>
+    </Switch>;
+
+  const drawIcon = () =>
+    <div class="absolute text-center"
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <i class={`fas fa-table`} />
+    </div>;
+
+  const drawText = () =>
+    <div class="absolute overflow-hidden"
+         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+                `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <span>{tableItem().title}</span>
+    </div>;
+
+  return (
+    <>
+      {renderHighlightsMaybe()}
+      {drawIcon()}
+      {drawText()}
     </>
   );
 }

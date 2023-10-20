@@ -306,6 +306,9 @@ const arrangePageWithChildren = (
     } else if (isRoot) {
       // TODO (MEDIUM): list pages in list pages.
       console.log("not implemented");
+    } else {
+      const listPageVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+      selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem(listPageVeid)!);
     }
 
     let listVeChildren: Array<VisualElementSignal> = [];
