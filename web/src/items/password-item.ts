@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxType, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -29,6 +29,7 @@ import { PositionalMixin } from './base/positional-item';
 import { VisualElement } from '../layout/visual-element';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { ItemFns } from './base/item-polymorphism';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -122,8 +123,36 @@ export const PasswordFns = {
     }
   },
 
-  calcGeometry_InComposite: (_measurable: PasswordMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
-    panic();
+  calcGeometry_InComposite: (measurable: PasswordMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+    let cloned = PasswordFns.asPasswordMeasurable(ItemFns.cloneMeasurableFields(measurable));
+    cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+    const sizeBl = PasswordFns.calcSpatialDimensionsBl(cloned);
+    const boundsPx = {
+      x: 0,
+      y: topPx,
+      w: compositeWidthBl * blockSizePx.w,
+      h: sizeBl.h * blockSizePx.h
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const moveBoundsPx = {
+      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+    };
+    return {
+      boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxType.Click, innerBoundsPx),
+        HitboxFns.create(HitboxType.Move, moveBoundsPx),
+        HitboxFns.create(HitboxType.AttachComposite, {
+          x: innerBoundsPx.w / 4,
+          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w / 2,
+          h: ATTACH_AREA_SIZE_PX,
+        }),
+      ]
+    };
   },
 
   calcGeometry_Attachment: (password: PasswordMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {

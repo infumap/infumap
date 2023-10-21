@@ -80,7 +80,7 @@ export const PlaceholderFns = {
     panic();
   },
 
-  calcGeometry_InComposite: (measurable: PlaceholderMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (_measurable: PlaceholderMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
     panic();
   },
 
