@@ -26,7 +26,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
   const boundsPx = () => props.visualElement.boundsPx;
 
   return (
-    <div class={`absolute rounded-sm border border-slate-200`}
+    <div class={`absolute rounded-sm border border-slate-700`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
                 "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #fdd 2px, #fdd 5px);" +
                 `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`} />

@@ -132,7 +132,6 @@ export const LinkFns = {
     function noLinkTo() {
       return { w: link.spatialWidthGr / GRID_SIZE, h: 1.0 };
     }
-  
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
@@ -151,14 +150,12 @@ export const LinkFns = {
       return {
         boundsPx,
         hitboxes: !emitHitboxes ? [] : [
-          HitboxFns.create(HitboxType.Click, innerBoundsPx),
           HitboxFns.create(HitboxType.Move, innerBoundsPx),
-          HitboxFns.create(HitboxType.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
           HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ],
       }
     }
-  
+
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
@@ -287,6 +284,8 @@ export const LinkFns = {
 function constructLinkToMeasurable(link: LinkItem): Measurable | null {
   const linkedToItemMaybe = itemState.get(LinkFns.getLinkToId(link));
   if (linkedToItemMaybe == null) { return null; }
+  if (isLink(linkedToItemMaybe)) { return null; }
+
   const linkedToMeasurableFields = ItemFns.cloneMeasurableFields(linkedToItemMaybe!);
 
   if (isPositionalItem(linkedToMeasurableFields)) {
@@ -298,6 +297,7 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
   if (isYSizableItem(linkedToMeasurableFields)) {
     (asYSizableItem(linkedToMeasurableFields)).spatialHeightGr = link.spatialHeightGr;
   }
+
   return linkedToMeasurableFields
 }
 
