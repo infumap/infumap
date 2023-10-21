@@ -73,8 +73,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`}>
-        </div>
+                    `background-color: #dddddd88;`} />
       </Match>
     </Switch>;
 

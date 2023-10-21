@@ -26,7 +26,6 @@ import { EMPTY_UID } from "../../../../util/uid";
 import { EditItem } from "../EditItem";
 import { Item } from "../../../../items/base/item";
 import { itemState } from "../../../../store/ItemState";
-import { panic } from "../../../../util/lang";
 import { arrange } from "../../../../layout/arrange";
 
 
@@ -36,8 +35,7 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
   const linkId = props.linkItem.id;
   const linkToItem = (): Item | null => {
     if (props.linkedTo) {
-      // not supported to have link item linked to.
-      panic();
+      return null;
     }
     if (props.linkItem.linkTo == EMPTY_UID) {
       return null;

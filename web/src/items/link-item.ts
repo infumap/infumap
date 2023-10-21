@@ -288,7 +288,7 @@ function constructLinkToMeasurable(link: LinkItem): Measurable | null {
   const linkedToItemMaybe = itemState.get(LinkFns.getLinkToId(link));
   if (linkedToItemMaybe == null) { return null; }
   const linkedToMeasurableFields = ItemFns.cloneMeasurableFields(linkedToItemMaybe!);
-  if (isLink(linkedToMeasurableFields)) { panic(); }
+
   if (isPositionalItem(linkedToMeasurableFields)) {
     (asPositionalItem(linkedToMeasurableFields)).spatialPositionGr = link.spatialPositionGr;
   }

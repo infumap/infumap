@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch } from "solid-js";
+import { Component, Match, Switch } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
