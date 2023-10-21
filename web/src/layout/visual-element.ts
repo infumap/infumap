@@ -76,6 +76,24 @@ export enum VisualElementFlags {
   Moving               = 0x1000, // Render the visual element partially transparent and on top of everything else.
 }
 
+function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {
+  let result = "";
+  if (visualElementFlags & VisualElementFlags.Selected) { result += "Selected "; }
+  if (visualElementFlags & VisualElementFlags.LineItem) { result += "LineItem "; }
+  if (visualElementFlags & VisualElementFlags.Detailed) { result += "Detailed "; }
+  if (visualElementFlags & VisualElementFlags.Popup) { result += "Popup "; }
+  if (visualElementFlags & VisualElementFlags.Root) { result += "Root "; }
+  if (visualElementFlags & VisualElementFlags.InsideTable) { result += "InsideTable "; }
+  if (visualElementFlags & VisualElementFlags.Attachment) { result += "Attachment "; }
+  if (visualElementFlags & VisualElementFlags.ShowChildren) { result += "ShowChildren "; }
+  if (visualElementFlags & VisualElementFlags.Fixed) { result += "Fixed "; }
+  if (visualElementFlags & VisualElementFlags.InsideComposite) { result += "InsideComposite "; }
+  if (visualElementFlags & VisualElementFlags.PageTitle) { result += "PageTitle "; }
+  if (visualElementFlags & VisualElementFlags.ZAbove) { result += "ZAbove "; }
+  if (visualElementFlags & VisualElementFlags.Moving) { result += "Moving "; }
+  return result;
+}
+
 
 /**
  * Describes a visual element to be rendered.
@@ -356,6 +374,10 @@ export const VeFns = {
 
   printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {
     printRecursive(desktopStore.topLevelVisualElement(), 0, "c");
+  },
+
+  visualElementFlagsToString: (visualElementFlags: VisualElementFlags) => {
+    return visualElementFlagsToString(visualElementFlags);
   },
 
   isInTable: (visualElement: VisualElement): boolean => {

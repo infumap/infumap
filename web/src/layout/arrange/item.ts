@@ -273,7 +273,7 @@ const arrangePageWithChildren = (
           emitHitboxes,
           childItemIsPopup,
           hasPendingChanges);
-        children.push(arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, true, isMoving));
+        children.push(arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, isMoving, true));
       }
     }
     pageWithChildrenVisualElementSpec.children = children;
