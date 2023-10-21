@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -113,37 +113,42 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
-  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().x
-    : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().w
-    : boundsPx().w - oneBlockWidthPx();
+  const leftPx = () => boundsPx().x + oneBlockWidthPx();
+  const widthPx = () => boundsPx().w - oneBlockWidthPx();
+
+  const renderHighlightsMaybe = () =>
+    <Switch>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
+      </Match>
+    </Switch>;
+
+  const renderIcon = () =>
+    <div class="absolute text-center"
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <i class={`fas fa-file`} />
+    </div>;
+
+  const renderText = () =>
+    <div class="absolute overflow-hidden whitespace-nowrap"
+         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
+    </div>;
 
   return (
     <>
-      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
-      </Show>
-      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
-      </Show>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
-        <div class="absolute text-center"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                    `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                    `transform: scale(${scale()}); transform-origin: top left;`}>
-          <i class={`fas fa-file`} />
-        </div>
-      </Show>
-      <div class="absolute overflow-hidden whitespace-nowrap"
-           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
-      </div>
+      {renderHighlightsMaybe()}
+      {renderIcon()}
+      {renderText()}
     </>
   );
 }

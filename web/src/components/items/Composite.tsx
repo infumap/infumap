@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
@@ -82,29 +82,40 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     return "[no title]";
   }
 
-  return (
-    <>
-      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
+  const renderHighlightsMaybe = () =>
+    <Switch>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
                     `background-color: #dddddd88;`} />
-      </Show>
-      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
-      </Show>
-      <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-object-group`} />
-      </div>
-      <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
-           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span>{titleText()}</span>
-      </div>
+      </Match>
+    </Switch>;
+
+  const renderIcon = () =>
+    <div class="absolute text-center"
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <i class={`fas fa-object-group`} />
+    </div>;
+
+  const renderText = () =>
+    <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
+         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <span>{titleText()}</span>
+    </div>;
+
+  return (
+    <>
+      {renderHighlightsMaybe()}
+      {renderIcon()}
+      {renderText()}
     </>
   )
 }

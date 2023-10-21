@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Match, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
@@ -146,50 +146,67 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     }
   }
 
-  return (
-    <>
-      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
-      </Show>
-      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+  const renderHighlightsMaybe = () =>
+    <Switch>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`}>
         </div>
-      </Show>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
-        <div class="absolute text-center"
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                    `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                    `transform: scale(${scale()}); transform-origin: top left;`}>
-          <i class={`fas fa-eye-slash`} />
-        </div>
-      </Show>
-      <div class="absolute overflow-hidden whitespace-nowrap"
-           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
+        <div class="absolute"
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #dddddd88;`} />
+      </Match>
+    </Switch>;
+
+  const renderIconMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+      <div class="absolute text-center"
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
-        <Show when={isVisible()} fallback={
-          <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
-        }>
-          <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
-        </Show>
+        <i class={`fas fa-eye-slash`} />
       </div>
-      <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onclick={copyClickHandler}>
-        <i class={`fas fa-copy cursor-pointer`} />
-      </div>
-      <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onclick={VisibleClickHandler}>
-        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
-      </div>
+    </Show>;
+
+  const renderText = () =>
+    <div class="absolute overflow-hidden whitespace-nowrap"
+         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <Show when={isVisible()} fallback={
+        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
+      }>
+        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
+      </Show>
+    </div>;
+
+  const renderCopyIcon = () =>
+    <div class="absolute text-center text-slate-600"
+         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                `transform: scale(${smallScale()}); transform-origin: top left;`}
+         onclick={copyClickHandler}>
+      <i class={`fas fa-copy cursor-pointer`} />
+    </div>;
+
+  const renderShowIcon = () =>
+    <div class="absolute text-center text-slate-600"
+         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                `transform: scale(${smallScale()}); transform-origin: top left;`}
+         onclick={VisibleClickHandler}>
+      <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+    </div>;
+
+  return (
+    <>
+      {renderHighlightsMaybe()}
+      {renderIconMaybe()}
+      {renderText()}
+      {renderCopyIcon()}
+      {renderShowIcon()}
     </>
   );
 }

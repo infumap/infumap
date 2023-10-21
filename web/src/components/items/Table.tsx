@@ -297,7 +297,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       </Match>
     </Switch>;
 
-  const drawIcon = () =>
+  const renderIcon = () =>
     <div class="absolute text-center"
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
@@ -305,7 +305,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       <i class={`fas fa-table`} />
     </div>;
 
-  const drawText = () =>
+  const renderText = () =>
     <div class="absolute overflow-hidden"
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
@@ -316,8 +316,8 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   return (
     <>
       {renderHighlightsMaybe()}
-      {drawIcon()}
-      {drawText()}
+      {renderIcon()}
+      {renderText()}
     </>
   );
 }

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, JSX, Show, onCleanup, onMount } from "solid-js";
+import { Component, For, JSX, Match, Show, Switch, onCleanup, onMount } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
@@ -213,38 +213,46 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 
 export const Image_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  let nodeElement: HTMLDivElement | undefined;
-
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
 
-  return (
-    <>
-      <Show when={props.visualElement.flags & VisualElementFlags.Selected}>
+  const renderHighlightsMaybe = () =>
+    <Switch>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
                     `background-color: #dddddd88;`} />
-      </Show>
-      <Show when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
-      </Show>
-      <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-image`} />
-      </div>
-      <div ref={nodeElement}
-           id={props.visualElement.displayItem.id}
-           class="absolute overflow-hidden"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span class="text-red-800 cursor-pointer">{imageItem().title}</span>
-      </div>
+      </Match>
+    </Switch>;
+
+  const renderIcon = () =>
+    <div class="absolute text-center"
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <i class={`fas fa-image`} />
+    </div>;
+
+  const renderText = () =>
+    <div id={props.visualElement.displayItem.id}
+         class="absolute overflow-hidden"
+         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
+                `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left;`}>
+      <span class="text-red-800 cursor-pointer">{imageItem().title}</span>
+    </div>;
+
+  return (
+    <>
+      {renderHighlightsMaybe()}
+      {renderIcon()}
+      {renderText()}
     </>
   );
 }
