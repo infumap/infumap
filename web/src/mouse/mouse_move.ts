@@ -428,22 +428,36 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
   MouseActionState.get().startPosBl = startPosBl;
   const moveToPath = VeFns.veToPath(moveToVe);
 
-  if (relationshipToParent == RelationshipToParent.Attachment) {
-    const oldActiveItemOrdering = canonicalActiveItem.ordering;
-    const parent = asAttachmentsItem(itemState.get(canonicalActiveItem.parentId)!);
-    const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length-1] == canonicalActiveItem.id;
-    if (!isLast) {
-      const placeholderItem = PlaceholderFns.create(canonicalActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
-      itemState.add(placeholderItem);
-      MouseActionState.get().newPlaceholderItem = placeholderItem;
+  if (shouldCreateLink && !isLink(activeElement.displayItem)) {
+    const link = LinkFns.createFromItem(activeElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
+    link.parentId = moveToPage.id;
+    link.spatialPositionGr = newItemPosGr;
+    itemState.add(link);
+    server.addItem(link, null);
+    arrange(desktopStore);
+    let ve = VesCache.find({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id});
+    if (ve.length != 1) { panic(); }
+    MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
+
+  } else {
+    if (relationshipToParent == RelationshipToParent.Attachment) {
+      const oldActiveItemOrdering = canonicalActiveItem.ordering;
+      const parent = asAttachmentsItem(itemState.get(canonicalActiveItem.parentId)!);
+      const isLast = parent.computed_attachments[asAttachmentsItem(parent).computed_attachments.length-1] == canonicalActiveItem.id;
+      if (!isLast) {
+        const placeholderItem = PlaceholderFns.create(canonicalActiveItem.ownerId, parent.id, RelationshipToParent.Attachment, oldActiveItemOrdering);
+        itemState.add(placeholderItem);
+        MouseActionState.get().newPlaceholderItem = placeholderItem;
+      }
+      MouseActionState.get().startAttachmentsItem = parent;
     }
-    MouseActionState.get().startAttachmentsItem = parent;
+
+    canonicalActiveItem.spatialPositionGr = newItemPosGr;
+    itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
+
+    MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
   }
 
-  canonicalActiveItem.spatialPositionGr = newItemPosGr;
-  itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
-
-  MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
   MouseActionState.get().onePxSizeBl = {
     x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
     y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
