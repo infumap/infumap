@@ -20,7 +20,7 @@ import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
 import { HitboxType } from "../layout/hitbox";
 import { server } from "../server";
 import { ItemFns } from "../items/base/item-polymorphism";
-import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
+import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, PageFns } from "../items/page-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
@@ -198,12 +198,20 @@ function changeMouseActionStateMaybe(
           x: activeItem.spatialPositionGr.x / GRID_SIZE,
           y: activeItem.spatialPositionGr.y / GRID_SIZE
         };
-        if (shouldCreateLink) {
-          const link = LinkFns.createFromItem(activeItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+        if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
+          const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+          link.parentId = activeItem.parentId;
+          link.spatialPositionGr = activeItem.spatialPositionGr;
+          if (isXSizableItem(activeVisualElement.displayItem)) {
+            link.spatialWidthGr = asXSizableItem(activeVisualElement.displayItem).spatialWidthGr;
+          }
+          if (isYSizableItem(activeVisualElement.displayItem)) {
+            link.spatialHeightGr = asYSizableItem(activeVisualElement.displayItem).spatialHeightGr;
+          }
           itemState.add(link);
           server.addItem(link, null);
           arrange(desktopStore);
-          let ve = VesCache.find({ itemId: activeItem.id, linkIdMaybe: link.id});
+          let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
           if (ve.length != 1) { panic(); }
           MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
         }
