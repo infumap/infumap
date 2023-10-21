@@ -25,19 +25,17 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, PageFns } from "../items/page-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
-import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, Dimensions } from "../util/geometry";
+import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { editDialogSizePx } from "../components/overlay/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { getHitInfo } from "./hit";
-import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
+import { asPositionalItem } from "../items/base/positional-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
-import { TableFlags } from "../items/base/flags-item";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { MouseAction, MouseActionState, LastMouseMoveEventState, TouchOrMouseEvent, DialogMoveState, UserSettingsMoveState } from "./state";
@@ -100,28 +98,25 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
 
   const deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
 
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
-  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
-
-  changeMouseActionStateMaybe(deltaPx, activeVisualElement, activeItem, desktopStore, desktopPosPx, hasUser, ev);
+  changeMouseActionStateMaybe(deltaPx, desktopStore, desktopPosPx, hasUser, ev);
 
   switch (MouseActionState.get().action) {
     case MouseAction.Ambiguous:
       return;
     case MouseAction.Resizing:
-      mouseAction_resizing(deltaPx, activeItem, activeVisualElement, desktopStore);
+      mouseAction_resizing(deltaPx, desktopStore);
       return;
     case MouseAction.ResizingPopup:
       mouseAction_resizingPopup(deltaPx, desktopStore);
       return;
     case MouseAction.ResizingColumn:
-      mouseAction_resizingColumn(deltaPx, activeItem, activeVisualElement, desktopStore);
+      mouseAction_resizingColumn(deltaPx, desktopStore);
       return;
     case MouseAction.MovingPopup:
       mouseAction_movingPopup(deltaPx, desktopStore);
       return;
     case MouseAction.Moving:
-      mouseAction_moving(deltaPx, activeItem, activeVisualElement, desktopPosPx, desktopStore);
+      mouseAction_moving(deltaPx, desktopPosPx, desktopStore);
       return;
     default:
       panic();
@@ -131,8 +126,6 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
 
 function changeMouseActionStateMaybe(
     deltaPx: Vector,
-    activeVisualElement: VisualElement,
-    activeItem: PositionalItem,
     desktopStore: DesktopStoreContextModel,
     desktopPosPx: Vector,
     hasUser: boolean,
@@ -143,6 +136,9 @@ function changeMouseActionStateMaybe(
   if (!(Math.abs(deltaPx.x) > MOUSE_MOVE_AMBIGUOUS_PX || Math.abs(deltaPx.y) > MOUSE_MOVE_AMBIGUOUS_PX)) {
     return;
   }
+
+  let activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  let activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
     MouseActionState.get().startPosBl = null;
@@ -231,7 +227,10 @@ function changeMouseActionStateMaybe(
 }
 
 
-function mouseAction_resizing(deltaPx: Vector, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopStore: DesktopStoreContextModel) {
+function mouseAction_resizing(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
     y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
@@ -275,7 +274,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, desktopStore: DesktopStoreCo
 }
 
 
-function mouseAction_resizingColumn(deltaPx: Vector, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopStore: DesktopStoreContextModel) {
+function mouseAction_resizingColumn(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
     y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
@@ -311,7 +313,10 @@ function mouseAction_movingPopup(deltaPx: Vector, desktopStore: DesktopStoreCont
 }
 
 
-function mouseAction_moving(deltaPx: Vector, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector, desktopStore: DesktopStoreContextModel) {
+function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, desktopStore: DesktopStoreContextModel) {
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
+
   let ignoreIds = [activeVisualElement.displayItem.id];
   if (isComposite(activeVisualElement.displayItem)) {
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
