@@ -154,26 +154,21 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
       </Show>;
 
-    const renderDetail = () =>
-      <>
-        {renderBoxTitle()}
-        {renderHoverOverMaybe()}
-        {renderMovingOverMaybe()}
-        {renderMovingOverAttachMaybe()}
-        {renderPopupSelectedOverlayMaybe()}
-        <For each={props.visualElement.attachments}>{attachmentVe =>
-          <VisualElement_Desktop visualElement={attachmentVe.get()} />
-        }</For>
-        {renderIsLinkMaybe()}
-      </>;
-
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)}; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-          {renderDetail()}
+          {renderBoxTitle()}
+          {renderHoverOverMaybe()}
+          {renderMovingOverMaybe()}
+          {renderMovingOverAttachMaybe()}
+          {renderPopupSelectedOverlayMaybe()}
+          <For each={props.visualElement.attachments}>{attachmentVe =>
+            <VisualElement_Desktop visualElement={attachmentVe.get()} />
+          }</For>
+          {renderIsLinkMaybe()}
         </Show>
       </div>
     );
