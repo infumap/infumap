@@ -96,7 +96,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
     return;
   }
 
-  const deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
+  let deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
 
   changeMouseActionStateMaybe(deltaPx, desktopStore, desktopPosPx, hasUser, ev);
 
@@ -181,18 +181,17 @@ function changeMouseActionStateMaybe(
       const parentItem = itemState.get(activeItem.parentId)!;
       if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
         moving_activeItemOutOfTable(desktopStore, shouldCreateLink);
-        MouseActionState.get().startPosBl = {
-          x: activeItem.spatialPositionGr.x / GRID_SIZE,
-          y: activeItem.spatialPositionGr.y / GRID_SIZE
-        };
+        arrange(desktopStore);
       }
       else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
         const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
         moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
+        arrange(desktopStore);
       }
       else if (isComposite(itemState.get(activeItem.parentId)!)) {
         const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
         moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
+        arrange(desktopStore);
       }
       else {
         MouseActionState.get().startPosBl = {
@@ -473,13 +472,31 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
     y: Math.round(itemPosInPageGr.y / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE
   };
 
-  activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
-  itemState.moveToNewParent(activeItem, tableParentPage.id, RelationshipToParent.Child);
-  MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), tableVe.parentPath!);
-  MouseActionState.get().onePxSizeBl = {
-    x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
-    y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
-  };
+  if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
+    const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(tableParentPage.id));
+    link.parentId = tableParentPage.id;
+    link.spatialPositionGr = itemPosInPageQuantizedGr;
+    itemState.add(link);
+    server.addItem(link, null);
+    arrange(desktopStore);
+    let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
+    if (ve.length != 1) { panic(); }
+    MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
+    MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
+    MouseActionState.get().onePxSizeBl = {
+      x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
+      y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+    };
+  } else {
+    activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
+    itemState.moveToNewParent(activeItem, tableParentPage.id, RelationshipToParent.Child);
+    MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), tableVe.parentPath!);
+    MouseActionState.get().onePxSizeBl = {
+      x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
+      y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
+    };
+  }
+  MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
 }
 
 
