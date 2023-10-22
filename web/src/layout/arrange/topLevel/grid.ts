@@ -127,12 +127,13 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     children.push(ves);
   }
 
-  if (movingItem) {
+  if (movingItem && movingItem.parentId == currentPage.id) {
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
     const cellBoundsPx = {
-      x: LastMouseMoveEventState.get().clientX - MouseActionState.get().startPx.x,
-      y: LastMouseMoveEventState.get().clientY - MouseActionState.get().startPx.y,
-      w: cellWPx - marginPx * 2.0,
-      h: cellHPx - marginPx * 2.0
+      x: LastMouseMoveEventState.get().clientX,
+      y: LastMouseMoveEventState.get().clientY,
+      w: dimensionsBl.w * LINE_HEIGHT_PX,
+      h: dimensionsBl.h * LINE_HEIGHT_PX,
     };
     const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
     const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
