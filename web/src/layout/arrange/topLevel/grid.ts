@@ -35,6 +35,7 @@ import { arrangeCellPopup } from "../popup";
 
 
 const PAGE_TITLE_UID = newUid();
+const GRID_PLACEHOLDER_UID = newUid();
 
 export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   VesCache.initFullArrange();
@@ -43,14 +44,15 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPath = currentPage.id;
 
   let movingItem = null;
-  if (!MouseActionState.empty()) {
-    if (MouseActionState.get().action & MouseAction.Moving) {
-      const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
-      if (veid.linkIdMaybe) {
-        movingItem = itemState.get(veid.linkIdMaybe);
-      } else {
-        movingItem = itemState.get(veid.itemId);
-      }
+  if (!MouseActionState.empty() && (MouseActionState.get().action & MouseAction.Moving)) {
+    const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
+    if (veid.linkIdMaybe) {
+      movingItem = itemState.get(veid.linkIdMaybe);
+    } else {
+      movingItem = itemState.get(veid.itemId);
+    }
+    if (movingItem!.parentId != currentPage.id) {
+      movingItem = null;
     }
   }
 
@@ -104,17 +106,10 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   children.push(arrangePageTitle());
 
-  let passedMoving = false;
   for (let i=0; i<currentPage.computed_children.length; ++i) {
     const item = itemState.get(currentPage.computed_children[i])!;
-    if (movingItem != null && item.id == movingItem.id) {
-      passedMoving = true;
-      continue;
-    }
-
-    const adjustedI = i - (passedMoving ? 1 : 0);
-    const col = adjustedI % numCols;
-    const row = Math.floor(adjustedI / numCols);
+    const col = i % numCols;
+    const row = Math.floor(i / numCols);
     const cellBoundsPx = {
       x: col * cellWPx + marginPx,
       y: row * cellHPx + marginPx + headingMarginPx,
@@ -122,12 +117,16 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       h: cellHPx - marginPx * 2.0
     };
 
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
-    const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
-    children.push(ves);
+    if (movingItem != null && item.id == movingItem.id) {
+      // TODO (placeholder).
+    } else {
+      const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
+      const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
+      children.push(ves);
+    }
   }
 
-  if (movingItem && movingItem.parentId == currentPage.id) {
+  if (movingItem) {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
     const cellBoundsPx = {
       x: LastMouseMoveEventState.get().clientX,

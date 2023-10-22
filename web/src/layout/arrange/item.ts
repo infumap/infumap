@@ -43,7 +43,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { MouseAction, MouseActionState } from "../../mouse/state";
+import { LastMouseMoveEventState, MouseAction, MouseActionState } from "../../mouse/state";
 
 
 const PAGE_TITLE_UID = newUid();
@@ -118,6 +118,19 @@ const arrangePageWithChildren = (
 
   // *** GRID ***
   if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+
+    let movingItem = null;
+    if (!MouseActionState.empty() && (MouseActionState.get().action & MouseAction.Moving)) {
+      const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
+      if (veid.linkIdMaybe) {
+        movingItem = itemState.get(veid.linkIdMaybe);
+      } else {
+        movingItem = itemState.get(veid.itemId);
+      }
+      if (movingItem!.parentId != displayItem_pageWithChildren.id) {
+        movingItem = null;
+      }
+    }
 
     const scale = geometry.boundsPx.w / desktopStore.desktopBoundsPx().w;
 
@@ -201,6 +214,20 @@ const arrangePageWithChildren = (
         console.log("TODO: child tables in grid pages.");
       }
     }
+
+    if (movingItem) {
+      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
+      const cellBoundsPx = {
+        x: LastMouseMoveEventState.get().clientX - outerBoundsPx.x,
+        y: LastMouseMoveEventState.get().clientY - outerBoundsPx.y,
+        w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
+        h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
+      };
+      const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
+      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
+      children.push(ves);
+    }
+
     pageWithChildrenVisualElementSpec.children = children;
 
 
