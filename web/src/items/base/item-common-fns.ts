@@ -19,7 +19,7 @@
 import { LINE_HEIGHT_PX } from "../../constants";
 import { arrange } from "../../layout/arrange";
 import { POPUP_LINK_ID } from "../../layout/arrange/popup";
-import { HitboxFns, HitboxType } from "../../layout/hitbox";
+import { HitboxFns, HitboxFlags } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -60,8 +60,8 @@ export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx
   return {
     boundsPx,
     hitboxes: [
-      HitboxFns.create(HitboxType.Click, innerBoundsPx),
-      HitboxFns.create(HitboxType.Move, innerBoundsPx)
+      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
     ]
   };
 }

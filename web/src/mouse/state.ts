@@ -19,7 +19,7 @@
 import { AttachmentsItem } from "../items/base/attachments-item";
 import { CompositeItem } from "../items/composite-item";
 import { PlaceholderItem } from "../items/placeholder-item";
-import { HitboxMeta, HitboxType } from "../layout/hitbox";
+import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VisualElementPath } from "../layout/visual-element";
 import { Vector } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -38,8 +38,8 @@ export enum MouseAction {
 }
 
 export interface MouseActionStateType {
-  hitboxTypeOnMouseDown: HitboxType,
-  compositeHitboxTypeMaybeOnMouseDown: HitboxType,
+  hitboxTypeOnMouseDown: HitboxFlags,
+  compositeHitboxTypeMaybeOnMouseDown: HitboxFlags,
 
   hitMeta: HitboxMeta | null,
 
@@ -80,6 +80,13 @@ export let MouseActionState = {
   get: (): MouseActionStateType => {
     if (mouseActionState == null) { panic!(); }
     return mouseActionState!;
+  },
+
+  debugLog: (): void => {
+    if (mouseActionState == null) {
+      console.debug("[null]");
+      return;
+    }
   }
 }
 

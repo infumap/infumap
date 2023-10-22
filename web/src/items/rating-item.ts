@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, ITEM_BORDER_WIDTH_PX } from '../constants';
-import { HitboxType, HitboxFns } from '../layout/hitbox';
+import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { Item, ItemType, ItemTypeMixin } from './base/item';
@@ -28,7 +28,7 @@ import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { server } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { arrange } from '../layout/arrange';
 
 
@@ -105,8 +105,8 @@ export const RatingFns = {
     return {
       boundsPx,
       hitboxes: [
-        HitboxFns.create(HitboxType.Move, innerBoundsPx),
-        HitboxFns.create(HitboxType.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
       ],
     }
   },
@@ -135,17 +135,19 @@ export const RatingFns = {
     return {
       boundsPx,
       hitboxes: [
-        HitboxFns.create(HitboxType.Move, innerBoundsPx),
-        HitboxFns.create(HitboxType.Click, innerBoundsPx)
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
       ]
     };
   },
 
-  calcGeometry_Cell: (_rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_Cell: (rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+    const boundsPx = calcBoundsInCellFromSizeBl(RatingFns.calcSpatialDimensionsBl(rating), cellBoundsPx);
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(cellBoundsPx)!,
       hitboxes: [
-        HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
       ]
     });
   },

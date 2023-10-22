@@ -27,7 +27,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { PositionalItem, PositionalMixin, asPositionalItem, isPositionalItem } from "./base/positional-item";
 import { asXSizableItem, isXSizableItem, XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem, YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
-import { HitboxType, HitboxFns } from "../layout/hitbox";
+import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { itemState } from "../store/ItemState";
 
 
@@ -150,8 +150,8 @@ export const LinkFns = {
       return {
         boundsPx,
         hitboxes: !emitHitboxes ? [] : [
-          HitboxFns.create(HitboxType.Move, innerBoundsPx),
-          HitboxFns.create(HitboxType.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ],
       }
     }
@@ -185,7 +185,7 @@ export const LinkFns = {
       return {
         boundsPx,
         hitboxes: [
-          HitboxFns.create(HitboxType.Move, moveBoundsPx),
+          HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         ]
       };
     }
@@ -218,7 +218,7 @@ export const LinkFns = {
       return {
         boundsPx,
         hitboxes: [
-          HitboxFns.create(HitboxType.Move, zeroBoundingBoxTopLeft(boundsPx))
+          HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx))
         ]
       };
     }
@@ -234,7 +234,7 @@ export const LinkFns = {
       return ({
         boundsPx: cloneBoundingBox(cellBoundsPx)!,
         hitboxes: [
-          HitboxFns.create(HitboxType.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
+          HitboxFns.create(HitboxFlags.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
         ]
       });
     }

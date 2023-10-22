@@ -29,7 +29,7 @@ import { PageFns } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VeFns } from "../layout/visual-element";
@@ -100,24 +100,24 @@ export function mouseUpHandler(
         ItemFns.handleLinkClick(activeVisualElement);
         ClickState.setLinkWasClicked(false);
       }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.OpenPopup) {
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handlePopupClick(activeVisualElement, desktopStore, userStore);
       }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.OpenAttachment) {
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();
         handleAttachmentClick(desktopStore, activeVisualElement, userStore);
         arrange(desktopStore);
       }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Click) {
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, desktopStore, userStore);
       }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Anchor) {
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleAnchorClick(activeVisualElement, desktopStore, userStore);
       }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Expand) {
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleExpandClick(activeVisualElement, desktopStore, userStore);
       } else {

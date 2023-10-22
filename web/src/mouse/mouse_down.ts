@@ -23,7 +23,7 @@ import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-
 import { asPageItem } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { switchToPage, updateHref } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -99,7 +99,7 @@ export function mouseLeftDownHandler(
   }
 
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-  if (hitInfo.hitboxType == HitboxType.None) {
+  if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
       DoubleClickState.preventDoubleClick();
       switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true);

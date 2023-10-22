@@ -24,7 +24,7 @@ import { Colors, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { HitboxType } from "../../layout/hitbox";
+import { HitboxFlags } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -66,9 +66,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return r;
   }
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
-  const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.Click || hb.type == HitboxType.OpenAttachment)!.boundsPx;
-  const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup)!.boundsPx;
-  const hasPopupClickBoundsPx = (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxType.OpenPopup) != undefined;
+  const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.Click || hb.type == HitboxFlags.OpenAttachment)!.boundsPx;
+  const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup)!.boundsPx;
+  const hasPopupClickBoundsPx = (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup) != undefined;
   const attachBoundsPx = (): BoundingBox => {
     return {
       x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,

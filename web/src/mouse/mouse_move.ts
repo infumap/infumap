@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { server } from "../server";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -140,7 +140,7 @@ function changeMouseActionStateMaybe(
   let activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
   let activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
-  if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.Resize) > 0) {
+  if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
     MouseActionState.get().startPosBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       MouseActionState.get().startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
@@ -158,10 +158,10 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.Resizing;
     }
 
-  } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxType.Move) > 0) ||
-             ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move))) {
-    if (!(MouseActionState.get().hitboxTypeOnMouseDown & HitboxType.Move) &&
-        (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxType.Move)) {
+  } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
+             ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
+    if (!(MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) &&
+        (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move)) {
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElement = MouseActionState.get().activeCompositeElementMaybe!;
@@ -220,7 +220,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.Moving;
     }
 
-  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxType.ColResize) > 0) {
+  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ColResize) > 0) {
     MouseActionState.get().startPosBl = null;
     MouseActionState.get().startHeightBl = null;
     const colNum = MouseActionState.get().hitMeta!.resizeColNumber!;
@@ -345,7 +345,7 @@ function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, desktopStore:
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
     VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get().movingItemIsOverAttach.set(false);
   }
-  if (hitInfo.hitboxType & HitboxType.Attach) {
+  if (hitInfo.hitboxType & HitboxFlags.Attach) {
     hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
     MouseActionState.get().moveOver_attachHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
   } else {
@@ -356,7 +356,7 @@ function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, desktopStore:
   if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
     VesCache.get(MouseActionState.get().moveOver_attachCompositeHitboxElement!)!.get().movingItemIsOverAttachComposite.set(false);
   }
-  if (hitInfo.hitboxType & HitboxType.AttachComposite) {
+  if (hitInfo.hitboxType & HitboxFlags.AttachComposite) {
     hitInfo.overElementVes.get().movingItemIsOverAttachComposite.set(true);
     MouseActionState.get().moveOver_attachCompositeHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
   } else {
@@ -539,7 +539,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
     }
   }
 
-  if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxType.OpenPopup) || hasModal) {
+  if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal) {
     if (lastMouseOverOpenPopupVes != null) {
       lastMouseOverOpenPopupVes.get().mouseIsOverOpenPopup.set(false);
       lastMouseOverOpenPopupVes = null;
@@ -556,7 +556,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
-    if (hitInfo.hitboxType & HitboxType.OpenPopup) {
+    if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
       overElementVes!.get().mouseIsOverOpenPopup.set(true);
       lastMouseOverOpenPopupVes = overElementVes;
     } else {
@@ -565,13 +565,13 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   }
 
   if (hasUser) {
-    if (hitInfo.hitboxType & HitboxType.Resize) {
+    if (hitInfo.hitboxType & HitboxFlags.Resize) {
       document.body.style.cursor = "nwse-resize";
-    } else if (hitInfo.hitboxType & HitboxType.ColResize) {
+    } else if (hitInfo.hitboxType & HitboxFlags.ColResize) {
       document.body.style.cursor = "ew-resize";
-    } else if ((hitInfo.hitboxType & HitboxType.Move) && (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup)) {
+    } else if ((hitInfo.hitboxType & HitboxFlags.Move) && (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup)) {
       document.body.style.cursor = "move";
-    } else if (hitInfo.hitboxType & HitboxType.Expand) {
+    } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
       document.body.style.cursor = "zoom-in";
     } else {
       document.body.style.cursor = "default";

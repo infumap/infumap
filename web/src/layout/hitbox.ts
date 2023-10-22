@@ -19,7 +19,7 @@
 import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geometry";
 
 
-export enum HitboxType {
+export enum HitboxFlags {
   None =            0x0000,
   Click =           0x0001,
   Move =            0x0002,
@@ -33,8 +33,23 @@ export enum HitboxType {
   Expand =          0x0200,
 }
 
+function hitboxFlagsToString(flags: HitboxFlags): string {
+  let result = "";
+  if (flags & HitboxFlags.Click) { result += "Click "; }
+  if (flags & HitboxFlags.Move) { result += "Move "; }
+  if (flags & HitboxFlags.Resize) { result += "Resize "; }
+  if (flags & HitboxFlags.OpenPopup) { result += "OpenPopup "; }
+  if (flags & HitboxFlags.Attach) { result += "Attach "; }
+  if (flags & HitboxFlags.ColResize) { result += "ColResize "; }
+  if (flags & HitboxFlags.OpenAttachment) { result += "OpenAttachment "; }
+  if (flags & HitboxFlags.AttachComposite) { result += "AttachComposite "; }
+  if (flags & HitboxFlags.Anchor) { result += "Anchor "; }
+  if (flags & HitboxFlags.Expand) { result += "Expand "; }
+  return result;
+}
+
 export interface Hitbox {
-  type: HitboxType,
+  type: HitboxFlags,
   boundsPx: BoundingBox,
   meta: HitboxMeta | null,
 }
@@ -44,7 +59,7 @@ export interface HitboxMeta {
 }
 
 export const HitboxFns = {
-  create: (type: HitboxType, boundsPx: BoundingBox, meta?: HitboxMeta ) => {
+  create: (type: HitboxFlags, boundsPx: BoundingBox, meta?: HitboxMeta ) => {
     return ({ type, boundsPx, meta: (typeof meta !== 'undefined') ? meta : null });
   },
   
@@ -80,4 +95,8 @@ export const HitboxFns = {
     return 0;
   },
   
+  hitboxFlagsToString: (flags: HitboxFlags): string => {
+    return hitboxFlagsToString(flags);
+  },
+
 }

@@ -24,7 +24,7 @@ import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
 import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
 import { handleUpload } from "../upload";
-import { HitboxType } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
@@ -196,7 +196,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.preventDefault();
     if (ev.dataTransfer) {
       let hi = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
-      if (hi.hitboxType != HitboxType.None) {
+      if (hi.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
       }

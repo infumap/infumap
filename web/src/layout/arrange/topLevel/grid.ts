@@ -18,8 +18,9 @@
 
 import { GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
-import { LinkFns } from "../../../items/link-item";
+import { LinkFns, isLink } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
+import { LastMouseMoveEventState, MouseAction, MouseActionState } from "../../../mouse/state";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";
@@ -41,12 +42,24 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
+  let movingItem = null;
+  if (!MouseActionState.empty()) {
+    if (MouseActionState.get().action & MouseAction.Moving) {
+      const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
+      if (veid.linkIdMaybe) {
+        movingItem = itemState.get(veid.linkIdMaybe);
+      } else {
+        movingItem = itemState.get(veid.itemId);
+      }
+    }
+  }
+
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
   const headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
 
   const numCols = currentPage.gridNumberOfColumns;
-  const numRows = Math.ceil(currentPage.computed_children.length / numCols);
+  const numRows = Math.ceil((currentPage.computed_children.length - (movingItem == null ? 0 : 1)) / numCols);
   const cellWPx = pageBoundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
   const marginPx = cellWPx * 0.01;
@@ -91,10 +104,17 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   children.push(arrangePageTitle());
 
+  let passedMoving = false;
   for (let i=0; i<currentPage.computed_children.length; ++i) {
     const item = itemState.get(currentPage.computed_children[i])!;
-    const col = i % numCols;
-    const row = Math.floor(i / numCols);
+    if (movingItem != null && item.id == movingItem.id) {
+      passedMoving = true;
+      continue;
+    }
+
+    const adjustedI = i - (passedMoving ? 1 : 0);
+    const col = adjustedI % numCols;
+    const row = Math.floor(adjustedI / numCols);
     const cellBoundsPx = {
       x: col * cellWPx + marginPx,
       y: row * cellHPx + marginPx + headingMarginPx,
@@ -104,6 +124,18 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
     const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
     const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
+    children.push(ves);
+  }
+
+  if (movingItem) {
+    const cellBoundsPx = {
+      x: LastMouseMoveEventState.get().clientX - MouseActionState.get().startPx.x,
+      y: LastMouseMoveEventState.get().clientY - MouseActionState.get().startPx.y,
+      w: cellWPx - marginPx * 2.0,
+      h: cellHPx - marginPx * 2.0
+    };
+    const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
+    const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
     children.push(ves);
   }
 
