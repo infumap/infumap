@@ -131,6 +131,7 @@ const arrangePageWithChildren = (
         movingItem = null;
       }
     }
+    const movingItemIsNewlyCreatedLink = !MouseActionState.empty() && movingItem && MouseActionState.get().linkCreatedOnMoveStart;
 
     const scale = geometry.boundsPx.w / desktopStore.desktopBoundsPx().w;
 
@@ -138,7 +139,8 @@ const arrangePageWithChildren = (
 
     const pageItem = asPageItem(displayItem_pageWithChildren);
     const numCols = pageItem.gridNumberOfColumns;
-    const numRows = Math.ceil(pageItem.computed_children.length / numCols);
+    // don't leave a space for link items that were created at the start of the move action.
+    const numRows = Math.ceil((pageItem.computed_children.length - (movingItemIsNewlyCreatedLink ? 1 : 0)) / numCols);
     const cellWPx = geometry.boundsPx.w / numCols;
     const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
     const marginPx = cellWPx * 0.01;
@@ -185,10 +187,15 @@ const arrangePageWithChildren = (
     }
 
     const children = isPagePopup || isRoot ? [arrangePageTitle()] : [];
+    let idx = 0;
     for (let i=0; i<pageItem.computed_children.length; ++i) {
       const item = itemState.get(pageItem.computed_children[i])!;
-      const col = i % numCols;
-      const row = Math.floor(i / numCols);
+      if (movingItemIsNewlyCreatedLink && item.id == movingItem!.id) {
+        continue;
+      }
+      const col = idx % numCols;
+      const row = Math.floor(idx / numCols);
+      idx += 1;
       const cellBoundsPx = {
         x: col * cellWPx + marginPx,
         y: row * cellHPx + marginPx + headingMarginPx,
@@ -197,22 +204,8 @@ const arrangePageWithChildren = (
       };
 
       let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
-      if (!isLink(item)) {
-        const veSpec: VisualElementSpec = {
-          displayItem: item,
-          flags: isPagePopup ? VisualElementFlags.Detailed : VisualElementFlags.None,
-          boundsPx: geometry.boundsPx,
-          childAreaBoundsPx: geometry.boundsPx, // TODO (HIGH): incorrect.
-          hitboxes: geometry.hitboxes,
-          parentPath: pageWithChildrenVePath,
-        };
-        const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(item, null), pageWithChildrenVePath);
-        const ves = VesCache.createOrRecycleVisualElementSignal(veSpec, childPath);
-
-        children.push(ves);
-      } else {
-        console.log("TODO: child tables in grid pages.");
-      }
+      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
+      children.push(ves);
     }
 
     if (movingItem) {

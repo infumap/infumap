@@ -199,7 +199,10 @@ function changeMouseActionStateMaybe(
           y: activeItem.spatialPositionGr.y / GRID_SIZE
         };
         if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
-          const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
+          const link = LinkFns.createFromItem(
+            activeVisualElement.displayItem,
+            RelationshipToParent.Child,
+            itemState.newOrderingDirectlyAfterChild(activeItem.parentId, activeItem.id));
           link.parentId = activeItem.parentId;
           link.spatialPositionGr = activeItem.spatialPositionGr;
           if (isXSizableItem(activeVisualElement.displayItem)) {
@@ -210,10 +213,15 @@ function changeMouseActionStateMaybe(
           }
           itemState.add(link);
           server.addItem(link, null);
+
+          desktopStore.setItemIsMoving(true);
+          const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElement);
+          const newLinkVeid = VeFns.veidFromId(link.id);
+          MouseActionState.get().activeElement = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
+          MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
+          MouseActionState.get().linkCreatedOnMoveStart = true;
+
           arrange(desktopStore);
-          let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
-          if (ve.length != 1) { panic(); }
-          MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
         }
       }
       desktopStore.setItemIsMoving(true);
@@ -434,10 +442,11 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     link.spatialPositionGr = newItemPosGr;
     itemState.add(link);
     server.addItem(link, null);
-    arrange(desktopStore);
+    arrange(desktopStore); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic(); }
     MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
+    MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
     if (relationshipToParent == RelationshipToParent.Attachment) {
@@ -500,7 +509,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
     link.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.add(link);
     server.addItem(link, null);
-    arrange(desktopStore);
+    arrange(desktopStore); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic(); }
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
@@ -509,6 +518,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
       x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
       y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
     };
+    MouseActionState.get().linkCreatedOnMoveStart = true;
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.moveToNewParent(activeItem, tableParentPage.id, RelationshipToParent.Child);

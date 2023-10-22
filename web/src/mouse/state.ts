@@ -64,6 +64,7 @@ export interface MouseActionStateType {
   clickOffsetProp: Vector | null,
 
   action: MouseAction,
+  linkCreatedOnMoveStart: boolean,
 
   onePxSizeBl: Vector,
   newPlaceholderItem: PlaceholderItem | null,
@@ -81,13 +82,6 @@ export let MouseActionState = {
     if (mouseActionState == null) { panic!(); }
     return mouseActionState!;
   },
-
-  debugLog: (): void => {
-    if (mouseActionState == null) {
-      console.debug("[null]");
-      return;
-    }
-  }
 }
 
 

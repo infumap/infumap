@@ -153,6 +153,7 @@ export function mouseLeftDownHandler(
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,
     action: MouseAction.Ambiguous,
+    linkCreatedOnMoveStart: false,
     startPx,
     startPosBl,
     startWidthBl,
