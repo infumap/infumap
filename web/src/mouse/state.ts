@@ -159,13 +159,13 @@ export const LastMouseMoveEventState = {
 
 
 
-// ### Click State
+// ### Double Click State
 
 const DOUBLE_CLICK_TIMEOUT_MS = 500; // this is standard.
 let canDoubleClick = true;
 let timer: number | undefined = undefined;
 
-export const ClickState = {
+export const DoubleClickState = {
   preventDoubleClick: (): void => {
     if (timer === undefined) {
       clearTimeout(timer);
@@ -180,4 +180,19 @@ export const ClickState = {
   canDoubleClick: (): boolean => {
     return canDoubleClick;
   },
+}
+
+
+
+// ### Click State
+
+let linkWasClicked: boolean = false;
+export const ClickState = {
+  setLinkWasClicked: (clickState: boolean): void => {
+    linkWasClicked = clickState;
+  },
+
+  getLinkWasClicked: (): boolean => {
+    return linkWasClicked;
+  }
 }

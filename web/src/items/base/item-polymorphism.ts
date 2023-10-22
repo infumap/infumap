@@ -188,6 +188,21 @@ export const ItemFns = {
     else { throwExpression(`Unknown item type: ${item.itemType}`); }
   },
 
+  handleLinkClick: (visualElement: VisualElement): void => {
+    const item = visualElement.displayItem;
+    if (isPage(item)) { panic(); }
+    else if (isTable(item)) { panic(); }
+    else if (isComposite(item)) { panic(); }
+    else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }
+    else if (isImage(item)) { panic(); }
+    else if (isFile(item)) { FileFns.handleLinkClick(visualElement); }
+    else if (isPassword(item)) { panic(); }
+    else if (isRating(item)) { panic(); }
+    else if (isLink(item)) { panic(); }
+    else if (isPlaceholder(item)) { panic(); }
+    else { throwExpression(`Unknown item type: ${item.itemType}`); }
+  },
+
   handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
     const item = visualElement.displayItem;
     if (isPage(item)) { PageFns.handlePopupClick(visualElement, desktopStore, userStore); }

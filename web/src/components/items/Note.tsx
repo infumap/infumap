@@ -30,6 +30,8 @@ import { getTextStyleForNote } from "../../layout/text";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { isComposite } from "../../items/composite-item";
 import { useUserStore } from "../../store/UserStoreProvider";
+import { ClickState } from "../../mouse/state";
+import { MOUSE_LEFT } from "../../mouse/mouse_down";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -98,13 +100,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
   };
 
+  // Link click events are handled in the global mouse up handler. However, calculating the text
+  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
   const aHrefMouseDown = (ev: MouseEvent) => {
-    // prevent the mouse down event being handled in the global handler if the actual link text is clicked.
-    // clicking in the element near the link text will still trigger the global handler.
-    ev.stopPropagation();
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(noteItem().url != null && noteItem().url != ""); }
+    ev.preventDefault();
   };
+  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
 
-  const style = () => getTextStyleForNote(noteItem().flags);
+  const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
   const showMoveOutOfCompositeArea = () =>
     userStore.getUserMaybe() != null &&
@@ -126,23 +131,26 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
                       `width: ${naturalWidthPx()}px; ` +
-                      `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; `+
+                      `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                      `font-size: ${style().fontSize}px; ` +
+                      `font-size: ${infuTextStyle().fontSize}px; ` +
                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                      `${style().isBold ? ' font-weight: bold; ' : ""}; `}>
-            <Show when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
-              <a href={noteItem().url}
-                target="_blank"
-                class={`text-blue-800`}
-                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-                onMouseDown={aHrefMouseDown}>
-                  {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
-              </a>
-            </Show>
-            <Show when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-              <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
-            </Show>
+                      `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+            <Switch>
+              <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
+                <a href={""}
+                   class={`text-blue-800`}
+                   style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+                   onClick={aHrefClick}
+                   onMouseDown={aHrefMouseDown}
+                   onMouseUp={aHrefMouseUp}>
+                    {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+                </a>
+              </Match>
+              <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
+                <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+              </Match>
+            </Switch>
           </div>
           <For each={props.visualElement.attachments}>{attachment =>
             <VisualElement_Desktop visualElement={attachment.get()} />
@@ -194,6 +202,15 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     }
   }
 
+  // Link click events are handled in the global mouse up handler. However, calculating the text
+  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
+  const aHrefMouseDown = (ev: MouseEvent) => {
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(noteItem().url != null && noteItem().url != ""); }
+    ev.preventDefault();
+  };
+  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
+
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
@@ -221,9 +238,21 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      <span class={`${noteItem().url == "" ? "" : "text-blue-800 cursor-pointer"}`}>
-        {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
-      </span>
+      <Switch>
+        <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
+          <a href={""}
+             class={`text-blue-800`}
+             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+             onClick={aHrefClick}
+             onMouseDown={aHrefMouseDown}
+             onMouseUp={aHrefMouseUp}>
+             {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+          </a>
+        </Match>
+        <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
+          <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+        </Match>
+      </Switch>
     </div>;
 
   const renderCopyIconMaybe = () =>

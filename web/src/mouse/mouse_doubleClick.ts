@@ -22,14 +22,14 @@ import { desktopPxFromMouseEvent } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { ClickState, LastMouseMoveEventState } from "./state";
+import { DoubleClickState, LastMouseMoveEventState } from "./state";
 
 
 export function mouseDoubleClickHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
     ev: MouseEvent) {
-  if (!ClickState.canDoubleClick()) { return; }
+  if (!DoubleClickState.canDoubleClick()) { return; }
   if (desktopStore.currentPage() == null) { return; }
   if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
   if (desktopStore.textEditOverlayInfo() != null) { return; }

@@ -217,6 +217,10 @@ export const NoteFns = {
     panic();
   },
 
+  handleLinkClick: (visualElement: VisualElement): void => {
+    window.open(asNoteItem(visualElement.displayItem).url, '_blank');
+  },
+
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
     desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(visualElement) });

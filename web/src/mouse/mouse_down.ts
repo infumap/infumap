@@ -34,7 +34,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { ClickState, DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
+import { DoubleClickState, DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
 
 
 export const MOUSE_LEFT = 0;
@@ -69,14 +69,14 @@ export function mouseLeftDownHandler(
   const desktopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
 
   if (desktopStore.contextMenuInfo() != null) {
-    ClickState.preventDoubleClick();
+    DoubleClickState.preventDoubleClick();
     desktopStore.setContextMenuInfo(null);
     return;
   }
 
   let dialogInfo = desktopStore.editDialogInfo();
   if (dialogInfo != null) {
-    ClickState.preventDoubleClick();
+    DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
       DialogMoveState.set({ lastMousePosPx: desktopPosPx });
       return;
@@ -88,7 +88,7 @@ export function mouseLeftDownHandler(
 
   let userSettingsInfo = desktopStore.editUserSettingsInfo();
   if (userSettingsInfo != null) {
-    ClickState.preventDoubleClick();
+    DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, userSettingsInfo!.desktopBoundsPx)) {
       UserSettingsMoveState.set({ lastMousePosPx: desktopPosPx });
       return;
@@ -101,7 +101,7 @@ export function mouseLeftDownHandler(
   const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxType.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
-      ClickState.preventDoubleClick();
+      DoubleClickState.preventDoubleClick();
       switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true);
     } else {
       arrange(desktopStore);

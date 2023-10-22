@@ -25,6 +25,8 @@ import { ItemFns} from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { MOUSE_LEFT } from "../../mouse/mouse_down";
+import { ClickState } from "../../mouse/state";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -64,6 +66,15 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
 
+  // Link click events are handled in the global mouse up handler. However, calculating the text
+  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
+  const aHrefMouseDown = (ev: MouseEvent) => {
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(true); }
+    ev.preventDefault();
+  };
+  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
+
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
       return 'absolute rounded-sm bg-white';
@@ -84,7 +95,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; white-space: pre-wrap; `}>
-          <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
+          <a href={""}
+                class={`text-green-800`}
+                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+                onClick={aHrefClick}
+                onMouseDown={aHrefMouseDown}
+                onMouseUp={aHrefMouseUp}>
+                  {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : fileItem().title}
+          </a>
         </div>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
@@ -116,6 +134,15 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const leftPx = () => boundsPx().x + oneBlockWidthPx();
   const widthPx = () => boundsPx().w - oneBlockWidthPx();
 
+  // Link click events are handled in the global mouse up handler. However, calculating the text
+  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
+  const aHrefMouseDown = (ev: MouseEvent) => {
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(true); }
+    ev.preventDefault();
+  };
+  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
+
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
@@ -141,7 +168,14 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      <span class="text-green-800 cursor-pointer">{fileItem().title}</span>
+      <a href={""}
+         class={`text-green-800`}
+         style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+         onClick={aHrefClick}
+         onMouseDown={aHrefMouseDown}
+         onMouseUp={aHrefMouseUp}>
+          {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : fileItem().title}
+      </a>
     </div>;
 
   return (

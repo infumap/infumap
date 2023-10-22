@@ -188,10 +188,13 @@ export const FileFns = {
     panic();
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  handleLinkClick: (visualElement: VisualElement): void => {
     const fileItem = asFileItem(visualElement.displayItem);
     window.open('/files/' + fileItem.id, '_blank');
+  },
+
+  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
   },
 
   cloneMeasurableFields: (file: FileMeasurable): FileMeasurable => {
