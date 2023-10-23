@@ -141,6 +141,7 @@ export const SearchOverlay: Component = () => {
   }
 
   const containingPageId = (result: SearchResult) => {
+    console.debug(result);
     for (let i=result.path.length-2; i>=0; --i) {
       if (result.path[i].itemType == ItemType.Page) {
         return result.path[i].id;
@@ -151,6 +152,7 @@ export const SearchOverlay: Component = () => {
 
   const resultClickHandler = (id: Uid) => {
     return (_ev: MouseEvent) => {
+      console.debug("switching to page", VeFns.veidFromId(id));
       desktopStore.setSearchOverlayVisible(false);
       switchToPage(desktopStore, userStore, VeFns.veidFromId(id), true);
     }
@@ -194,11 +196,11 @@ export const SearchOverlay: Component = () => {
           </div>
         </div>
         <input ref={textElement}
-            class="border border-slate-300 rounded w-[370px] pl-1 ml-[5px] mr-[5px]"
-            autocomplete="on"
-            value={""}
-            type="text"
-            onKeyDown={handleInputKeyDown} />
+               class="border border-slate-300 rounded w-[370px] pl-1 ml-[5px] mr-[5px]"
+               autocomplete="on"
+               value={""}
+               type="text"
+               onKeyDown={handleInputKeyDown} />
         <div class="inline-block">
           <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
         </div>
@@ -212,10 +214,10 @@ export const SearchOverlay: Component = () => {
             <For each={resultsSignal.get()}>{result =>
               <div class={`mb-[8px] cursor-pointer ${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")} hover:bg-slate-200`} onclick={resultClickHandler(containingPageId(result))}>
                 <For each={result.path}>{pathElement =>
-                  <>
-                    <div class="inline-block ml-[8px]">{itemTypeIcon(pathElement.itemType)}</div>
-                    <div class="inline-block ml-[3px]">{pathElement.title}</div>
-                  </>
+                  <Show when={pathElement.itemType != "composite"}>
+                    <span class="ml-[12px]">{itemTypeIcon(pathElement.itemType)}</span>
+                    <span class="ml-[4px]">{pathElement.title}</span>
+                  </Show>
                 }</For>
               </div>
             }</For>
