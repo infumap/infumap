@@ -26,7 +26,7 @@ import { Colors } from "../../style";
 import { hexToRGBA } from "../../util/color";
 import { NONE_VISUAL_ELEMENT } from '../../layout/visual-element';
 import { useUserStore } from '../../store/UserStoreProvider';
-import { navigateBack, switchToPage } from '../../layout/navigation';
+import { navigateBack, navigateUp, switchToPage } from '../../layout/navigation';
 import { useNavigate } from '@solidjs/router';
 import { initialEditUserSettingsBounds } from '../overlay/UserSettings';
 
@@ -52,9 +52,7 @@ export const Toolbar: Component = () => {
 
   const handleBack = () => navigateBack(desktopStore, userStore);
 
-  const handleUp = () => {
-    console.log("up");
-  }
+  const handleUp = () => navigateUp(desktopStore, userStore);
 
   const handleLogin = () => {
     navigate("/login");

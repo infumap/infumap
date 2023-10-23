@@ -21,7 +21,9 @@ import { asPageItem } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
+import { EMPTY_UID } from "../util/uid";
 import { arrange } from "./arrange";
+import { initiateLoadItemMaybe } from "./load";
 import { Veid } from "./visual-element";
 
 
@@ -82,4 +84,24 @@ export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: 
   desktopStore.popPage();
   updateHref(desktopStore, userStore);
   arrange(desktopStore);
+}
+
+
+export async function navigateUp(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
+  const currentPageVeid = desktopStore.currentPage();
+  if (currentPageVeid == null) { return; }
+  const currentPage = itemState.get(currentPageVeid.itemId)!;
+  const parentId = currentPage.parentId;
+  if (parentId == EMPTY_UID) {
+    // already at top.
+    return;
+  }
+  const parentPage = itemState.get(parentId);
+  if (parentPage != null) {
+    switchToPage(desktopStore, userStore, { itemId: parentId, linkIdMaybe: null }, true);
+    return;
+  }
+
+  await initiateLoadItemMaybe(desktopStore, parentId);
+  switchToPage(desktopStore, userStore, { itemId: parentId, linkIdMaybe: null }, true);
 }
