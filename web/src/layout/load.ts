@@ -68,6 +68,7 @@ let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
 export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id: string): Promise<void> => {
   if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(); }
+  if (itemState.get(id) != null) { return Promise.resolve(); }
   itemLoadInitiatedOrComplete[id] = true;
 
   return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)

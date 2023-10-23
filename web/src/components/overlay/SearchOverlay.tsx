@@ -83,9 +83,10 @@ export const SearchOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.code == "Enter") {
       if (currentSelectedResult.get() != -1) {
-        const uid = currentSelectedPageId()!;
+        const selectedPageId = currentSelectedPageId()!;
         desktopStore.setSearchOverlayVisible(false);
-        switchToPage(desktopStore, userStore, VeFns.veidFromId(uid), true);
+        await initiateLoadItemMaybe(desktopStore, selectedPageId);
+        switchToPage(desktopStore, userStore, VeFns.veidFromId(selectedPageId), true);
       } else {
         await handleSearchClick();
       }
@@ -152,11 +153,11 @@ export const SearchOverlay: Component = () => {
     return result.path[0].id;
   };
 
-  const resultClickHandler = (id: Uid) => {
+  const resultClickHandler = (resultPageId: Uid) => {
     return async (_ev: MouseEvent) => {
-      await initiateLoadItemMaybe(desktopStore, id);
+      await initiateLoadItemMaybe(desktopStore, resultPageId);
       desktopStore.setSearchOverlayVisible(false);
-      switchToPage(desktopStore, userStore, VeFns.veidFromId(id), true);
+      switchToPage(desktopStore, userStore, VeFns.veidFromId(resultPageId), true);
     }
   };
 
@@ -230,7 +231,9 @@ export const SearchOverlay: Component = () => {
              style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y + 72}px; width: ${boxBoundsPx().w}px;`}>
           <Show when={resultsSignal.get()!.length > 0}>
             <For each={resultsSignal.get()}>{result =>
-              <div class={`mb-[8px] cursor-pointer ${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")} hover:bg-slate-200`} onclick={resultClickHandler(containingPageId(result))}>
+              <div class={`mb-[8px] cursor-pointer hover:bg-slate-200 ` +
+                          `${currentSelectedId() == null ? "" : (currentSelectedId() == result.path[result.path.length-1].id ? "bg-slate-100" : "")}`}
+                   onclick={resultClickHandler(containingPageId(result))}>
                 <For each={result.path}>{pathElement =>
                   <Show when={pathElement.itemType != "composite"}>
                     <span class="ml-[12px]">{itemTypeIcon(pathElement.itemType)}</span>
