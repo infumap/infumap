@@ -28,6 +28,7 @@ import { useUserStore } from "../../store/UserStoreProvider";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { initiateLoadItemMaybe } from "../../layout/load";
 
 
 export const SearchOverlay: Component = () => {
@@ -141,7 +142,6 @@ export const SearchOverlay: Component = () => {
   }
 
   const containingPageId = (result: SearchResult) => {
-    console.debug(result);
     for (let i=result.path.length-2; i>=0; --i) {
       if (result.path[i].itemType == ItemType.Page) {
         return result.path[i].id;
@@ -151,8 +151,8 @@ export const SearchOverlay: Component = () => {
   }
 
   const resultClickHandler = (id: Uid) => {
-    return (_ev: MouseEvent) => {
-      console.debug("switching to page", VeFns.veidFromId(id));
+    return async (_ev: MouseEvent) => {
+      await initiateLoadItemMaybe(desktopStore, id);
       desktopStore.setSearchOverlayVisible(false);
       switchToPage(desktopStore, userStore, VeFns.veidFromId(id), true);
     }

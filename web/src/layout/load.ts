@@ -66,11 +66,11 @@ export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextMod
 
 let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id: string) => {
-  if (itemLoadInitiatedOrComplete[id]) { return; }
+export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id: string): Promise<void> => {
+  if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(); }
   itemLoadInitiatedOrComplete[id] = true;
 
-  server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
+  return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
         batch(() => {
