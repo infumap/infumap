@@ -204,7 +204,8 @@ const arrangePageWithChildren = (
       };
 
       let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
-      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
+      const renderChildrenAsFull = isPagePopup || isRoot;
+      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false);
       children.push(ves);
     }
 
