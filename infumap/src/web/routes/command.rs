@@ -743,6 +743,8 @@ pub struct SearchRequest {
   #[serde(rename="pageId")]
   pub page_id: Option<Uid>,
   pub text: String,
+  #[serde(rename="numResults")]
+  pub num_results: i64,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -781,7 +783,7 @@ async fn handle_search(
 
   let mut results: Vec<SearchResult> = vec![];
   let mut current_path: Vec<SearchPathElement> = vec![];
-  search_recursive(&mut db, &request.text, page_id, &mut current_path, &mut results)?;
+  search_recursive(&mut db, &request.text, page_id, &session.user_id.clone(), request.num_results, &mut current_path, &mut results)?;
 
   let serialized_results = serde_json::to_string(&results)?;
 
@@ -791,10 +793,11 @@ async fn handle_search(
 }
 
 
-fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid, current_path: &mut Vec<SearchPathElement>, results: &mut Vec<SearchResult>) -> InfuResult<()> {
+fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid, user_id: &Uid, num_results: i64, current_path: &mut Vec<SearchPathElement>, results: &mut Vec<SearchResult>) -> InfuResult<()> {
 
   {
     let item = db.item.get(&item_id)?;
+    if &item.owner_id != user_id { return Ok(()); } // paranoid.
     match &item.title {
       None => {},
       Some(title) => {
@@ -810,7 +813,7 @@ fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid
       }
     };
 
-    if results.len() >= 20 {
+    if results.len() >= num_results as usize {
       return Ok(());
     }
 
@@ -819,12 +822,12 @@ fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid
 
   let child_ids = db.item.get_children_ids(&item_id)?;
   for child_id in child_ids {
-    search_recursive(db, search_text, child_id, current_path, results)?;
+    search_recursive(db, search_text, child_id, user_id, num_results, current_path, results)?;
   }
 
   let attachment_ids = db.item.get_attachment_ids(&item_id)?;
   for attachment_id in attachment_ids {
-    search_recursive(db, search_text, attachment_id, current_path, results)?;
+    search_recursive(db, search_text, attachment_id, user_id, num_results, current_path, results)?;
   }
 
   current_path.pop();
