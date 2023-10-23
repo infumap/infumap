@@ -75,6 +75,7 @@ export interface DesktopStoreContextModel {
   popAllPopups: () => void,
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVePath: () => VisualElementPath | null,
+  setHistoryToSinglePage: (currentPage: Veid) => void,
 
   currentVisiblePassword: Accessor<Uid | null>,
   setCurrentVisiblePassword: Setter<Uid | null>,
@@ -309,6 +310,10 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return currentSpec.vePath;
   };
 
+  const setHistoryToSinglePage = (pageVeid: Veid): void => {
+    setBreadcrumbs([{ pageVeid: pageVeid, popupBreadcrumbs: [] }]);
+  };
+
   const value: DesktopStoreContextModel = {
     itemIsMoving, setItemIsMoving,
     desktopBoundsPx, resetDesktopSizePx,
@@ -334,6 +339,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     popAllPopups,
     currentPopupSpec,
     currentPopupSpecVePath,
+    setHistoryToSinglePage,
 
     clear,
   };

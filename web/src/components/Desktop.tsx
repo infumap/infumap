@@ -135,7 +135,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     else if (ev.code == "Enter") {
       const spec = desktopStore.currentPopupSpec();
       if (spec && spec.type == PopupType.Page) {
-        switchToPage(desktopStore, userStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true);
+        switchToPage(desktopStore, userStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true, false);
       }
     }
 

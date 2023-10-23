@@ -102,7 +102,7 @@ export function mouseLeftDownHandler(
   if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
       DoubleClickState.preventDoubleClick();
-      switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true);
+      switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
     } else {
       arrange(desktopStore);
     }

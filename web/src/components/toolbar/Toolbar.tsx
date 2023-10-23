@@ -41,32 +41,27 @@ export const Toolbar: Component = () => {
     if (!userMaybe) {
       window.history.pushState(null, "", "/");
     } else {
-      switchToPage(desktopStore, userStore, { itemId: userStore.getUser().homePageId, linkIdMaybe: null }, false);
+      switchToPage(desktopStore, userStore, { itemId: userStore.getUser().homePageId, linkIdMaybe: null }, false, false);
       if (userMaybe.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
       } else {
         window.history.pushState(null, "", `/${userMaybe.username}`);
       }
     }
-  }
+  };
 
   const handleBack = () => navigateBack(desktopStore, userStore);
 
   const handleUp = () => navigateUp(desktopStore, userStore);
 
-  const handleLogin = () => {
-    navigate("/login");
-  }
+  const handleLogin = () => navigate("/login");
+
+  const handleSearchClick = () => { desktopStore.setSearchOverlayVisible(!desktopStore.searchOverlayVisible()); };
+
+  const showUserSettings = () => { desktopStore.setEditUserSettingsInfo({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) }); }
+
 
   const bgColIdx = () => asPageItem(desktopStore.topLevelVisualElement()!.displayItem).backgroundColorIndex;
-
-  const handleSearchClick = () => {
-    desktopStore.setSearchOverlayVisible(!desktopStore.searchOverlayVisible())
-  };
-
-  const showUserSettings = () => {
-    desktopStore.setEditUserSettingsInfo({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) });
-  }
 
   return (
     <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>

@@ -17,10 +17,11 @@
 */
 
 import { ROOT_USERNAME } from "../constants";
-import { asPageItem } from "../items/page-item";
+import { asPageItem, isPage } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
+import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
 import { arrange } from "./arrange";
 import { initiateLoadItemMaybe } from "./load";
@@ -46,8 +47,12 @@ export function updateHref(desktopStore: DesktopStoreContextModel, userStore: Us
 }
 
 
-export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, veid: Veid, updateHistory: boolean) {
-  desktopStore.pushPage(veid);
+export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean) {
+  if (clearHistory) {
+    desktopStore.setHistoryToSinglePage(pageVeid);
+  } else {
+    desktopStore.pushPage(pageVeid);
+  }
   arrange(desktopStore);
 
   let desktopEl = window.document.getElementById("desktop")!;
@@ -91,17 +96,28 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
   const currentPageVeid = desktopStore.currentPage();
   if (currentPageVeid == null) { return; }
   const currentPage = itemState.get(currentPageVeid.itemId)!;
-  const parentId = currentPage.parentId;
-  if (parentId == EMPTY_UID) {
-    // already at top.
-    return;
-  }
-  const parentPage = itemState.get(parentId);
-  if (parentPage != null) {
-    switchToPage(desktopStore, userStore, { itemId: parentId, linkIdMaybe: null }, true);
-    return;
+
+  let cnt = 0;
+  let parentId = currentPage.parentId;
+  while (cnt++ < 5) {
+    if (parentId == EMPTY_UID) {
+      // already at top.
+      return;
+    }
+
+    const parentPageMaybe = itemState.get(parentId);
+    if (parentPageMaybe != null) {
+      if (isPage(parentPageMaybe)) {
+        switchToPage(desktopStore, userStore, { itemId: parentId, linkIdMaybe: null }, true, true);
+        return;
+      } else {
+        parentId = parentPageMaybe!.parentId;
+        continue;
+      }
+    }
+
+    await initiateLoadItemMaybe(desktopStore, parentId);
   }
 
-  await initiateLoadItemMaybe(desktopStore, parentId);
-  switchToPage(desktopStore, userStore, { itemId: parentId, linkIdMaybe: null }, true);
+  panic();
 }
