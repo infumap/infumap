@@ -783,7 +783,7 @@ async fn handle_search(
 
   let mut results: Vec<SearchResult> = vec![];
   let mut current_path: Vec<SearchPathElement> = vec![];
-  search_recursive(&mut db, &request.text, page_id, &session.user_id.clone(), request.num_results, &mut current_path, &mut results)?;
+  search_recursive(&mut db, &request.text.to_lowercase(), page_id, &session.user_id.clone(), request.num_results, &mut current_path, &mut results)?;
 
   let serialized_results = serde_json::to_string(&results)?;
 
@@ -802,7 +802,7 @@ fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid
       match &item.title {
         None => {},
         Some(title) => {
-          if title.contains(search_text) {
+          if title.to_lowercase().contains(search_text) {
             let mut path: Vec<SearchPathElement> = current_path.iter().map(|a| (*a).clone()).collect();
             path.push(SearchPathElement {
               item_type: item.item_type.as_str().to_owned(),
