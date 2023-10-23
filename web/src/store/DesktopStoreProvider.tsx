@@ -67,7 +67,7 @@ export interface DesktopStoreContextModel {
   setPageScrollYProp: (veid: Veid, path: number) => void,
 
   pushPage: (veid: Veid) => void,
-  popPage: () => void,
+  popPage: () => boolean,
   currentPage: () => Veid | null,
   pushPopup: (popupSpec: PopupSpec) => void,
   replacePopup: (popupSpec: PopupSpec) => void,
@@ -250,12 +250,13 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setBreadcrumbs(breadcrumbs());
   };
 
-  const popPage = (): void => {
+  const popPage = (): boolean => {
     if (breadcrumbs().length <= 1) {
-      return;
+      return false;
     }
     breadcrumbs().pop();
     setBreadcrumbs(breadcrumbs());
+    return true;
   };
 
   const currentPage = (): Veid | null => {

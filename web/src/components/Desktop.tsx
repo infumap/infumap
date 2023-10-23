@@ -149,16 +149,16 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     mouseDoubleClickHandler(desktopStore, userStore, ev);
   };
 
-  const mouseDownListener = (ev: MouseEvent) => {
+  const mouseDownListener = async (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDownHandler(desktopStore, userStore, ev.button);
+    await mouseDownHandler(desktopStore, userStore, ev.button);
   };
 
-  const touchListener = (ev: TouchEvent) => {
+  const touchListener = async (ev: TouchEvent) => {
     if (ev.touches.length > 1) {
       LastMouseMoveEventState.setFromTouchEvent(ev);
       ev.preventDefault();
-      mouseDownHandler(desktopStore, userStore, MOUSE_RIGHT);
+      await mouseDownHandler(desktopStore, userStore, MOUSE_RIGHT);
     }
   }
 

@@ -86,9 +86,14 @@ export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: 
     return;
   }
 
-  desktopStore.popPage();
-  updateHref(desktopStore, userStore);
-  arrange(desktopStore);
+  const changePages = desktopStore.popPage();
+  if (changePages) {
+    updateHref(desktopStore, userStore);
+    arrange(desktopStore);
+    return true;
+  }
+
+  return false;
 }
 
 

@@ -24,7 +24,7 @@ import { asPageItem } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
-import { navigateBack, switchToPage, updateHref } from "../layout/navigation";
+import { navigateBack, navigateUp, switchToPage, updateHref } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
@@ -41,7 +41,7 @@ export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
 
 
-export function mouseDownHandler(
+export async function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel,
     buttonNumber: number) {
@@ -53,7 +53,7 @@ export function mouseDownHandler(
       mouseLeftDownHandler(desktopStore, userStore);
       return;
     case MOUSE_RIGHT:
-      mouseRightDownHandler(desktopStore, userStore);
+      await mouseRightDownHandler(desktopStore, userStore);
       return;
     default:
       console.warn("unsupported mouse button: " + buttonNumber);
@@ -191,7 +191,7 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 }
 
 
-export function mouseRightDownHandler(
+export async function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {
 
@@ -213,5 +213,8 @@ export function mouseRightDownHandler(
     return;
   }
 
-  navigateBack(desktopStore, userStore);
+  const changedPages = navigateBack(desktopStore, userStore);
+  if (!changedPages) {
+    await navigateUp(desktopStore, userStore);
+  }
 }
