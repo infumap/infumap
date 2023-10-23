@@ -798,20 +798,22 @@ fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid
   {
     let item = db.item.get(&item_id)?;
     if &item.owner_id != user_id { return Ok(()); } // paranoid.
-    match &item.title {
-      None => {},
-      Some(title) => {
-        if title.contains(search_text) {
-          let mut path: Vec<SearchPathElement> = current_path.iter().map(|a| (*a).clone()).collect();
-          path.push(SearchPathElement {
-            item_type: item.item_type.as_str().to_owned(),
-            title: item.title.to_owned(),
-            id: item.id.to_owned()
-          });
-          results.push(SearchResult { path });
+    if item.item_type != ItemType::Password {
+      match &item.title {
+        None => {},
+        Some(title) => {
+          if title.contains(search_text) {
+            let mut path: Vec<SearchPathElement> = current_path.iter().map(|a| (*a).clone()).collect();
+            path.push(SearchPathElement {
+              item_type: item.item_type.as_str().to_owned(),
+              title: item.title.to_owned(),
+              id: item.id.to_owned()
+            });
+            results.push(SearchResult { path });
+          }
         }
-      }
-    };
+      };
+    }
 
     if results.len() >= num_results as usize {
       return Ok(());
