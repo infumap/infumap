@@ -70,9 +70,12 @@ export const SearchOverlay: Component = () => {
     textElement?.focus();
   });
 
+  let searchedFor = null;
+
   const handleSearchClick = async () => {
     const pageIdMaybe = isGlobalSearchSignal.get() ? null : desktopStore.currentPage()!.itemId;
     const result = await server.search(pageIdMaybe, textElement!.value);
+    searchedFor = textElement!.value;
     resultsSignal.set(result);
   };
 
@@ -81,7 +84,6 @@ export const SearchOverlay: Component = () => {
     if (ev.code == "Enter") {
       if (currentSelectedResult.get() != -1) {
         const uid = currentSelectedPageId()!;
-        console.log(uid);
         desktopStore.setSearchOverlayVisible(false);
         switchToPage(desktopStore, userStore, VeFns.veidFromId(uid), true);
       } else {
@@ -139,7 +141,7 @@ export const SearchOverlay: Component = () => {
         <Match when={itemType == ItemType.Rating}><i class="fa fa-star" /></Match>
       </Switch>
     );
-  }
+  };
 
   const containingPageId = (result: SearchResult) => {
     for (let i=result.path.length-2; i>=0; --i) {
@@ -148,7 +150,7 @@ export const SearchOverlay: Component = () => {
       }
     }
     return result.path[0].id;
-  }
+  };
 
   const resultClickHandler = (id: Uid) => {
     return async (_ev: MouseEvent) => {
@@ -156,22 +158,38 @@ export const SearchOverlay: Component = () => {
       desktopStore.setSearchOverlayVisible(false);
       switchToPage(desktopStore, userStore, VeFns.veidFromId(id), true);
     }
-  }
+  };
 
   const isGlobalSearchSignal = createBooleanSignal(true);
-  const toggleScope = () => { isGlobalSearchSignal.set(!isGlobalSearchSignal.get()); }
+  const toggleScope = () => { isGlobalSearchSignal.set(!isGlobalSearchSignal.get()); };
 
   const currentSelectedResult = createNumberSignal(-1);
   const currentSelectedId = () => {
     if (currentSelectedResult.get() == -1) { return null; }
     const result = resultsSignal.get()![currentSelectedResult.get()]!;
     return result.path[result.path.length-1].id;
-  }
+  };
   const currentSelectedPageId = () => {
     if (currentSelectedResult.get() == -1) { return null; }
     const result =  resultsSignal.get()![currentSelectedResult.get()]!;
     return containingPageId(result);
-  }
+  };
+
+  const shortenTextMaybe = (text: string): string => {
+    if (text.length <= 60) {
+      return text;
+    }
+    const idx = text.toLowerCase().indexOf(searchedFor!.toLowerCase());
+    if (idx == -1) { return text; } // should never occur.
+    let startIdx = 0;
+    let prefix = "";
+    if (idx > 30) { startIdx = idx - 30; prefix = "..."; }
+    let endIdx = idx + searchedFor!.length + 30;
+    let postfix = ""
+    if (endIdx > text.length) { endIdx = text.length; }
+    else { postfix = "..."; }
+    return prefix + text.substring(startIdx, endIdx) + postfix;
+  };
 
   return (
     <div id="textEntryOverlay"
@@ -216,7 +234,7 @@ export const SearchOverlay: Component = () => {
                 <For each={result.path}>{pathElement =>
                   <Show when={pathElement.itemType != "composite"}>
                     <span class="ml-[12px]">{itemTypeIcon(pathElement.itemType)}</span>
-                    <span class="ml-[4px]">{pathElement.title}</span>
+                    <span class="ml-[4px]">{shortenTextMaybe(pathElement.title!)}</span>
                   </Show>
                 }</For>
               </div>

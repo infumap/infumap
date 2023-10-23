@@ -78,7 +78,7 @@ export const server = {
   },
 
   search: async (pageIdMaybe: Uid | null, text: String): Promise<Array<SearchResult>> => {
-    let result = await sendCommand(null, "search", { pageId: pageIdMaybe, text, numResults: 20 }, null, true);
+    let result = await sendCommand(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true);
     return result;``
   }
 }
