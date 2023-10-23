@@ -24,7 +24,7 @@ import { asPageItem } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
-import { switchToPage, updateHref } from "../layout/navigation";
+import { navigateBack, switchToPage, updateHref } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
@@ -213,17 +213,5 @@ export function mouseRightDownHandler(
     return;
   }
 
-  if (desktopStore.currentPopupSpec() != null) {
-    desktopStore.popPopup();
-    const page = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-    page.pendingPopupAlignmentPoint = null;
-    page.pendingPopupPositionGr = null;
-    page.pendingPopupWidthGr = null;
-    arrange(desktopStore);
-    return;
-  }
-
-  desktopStore.popPage();
-  updateHref(desktopStore, userStore);
-  arrange(desktopStore);
+  navigateBack(desktopStore, userStore);
 }

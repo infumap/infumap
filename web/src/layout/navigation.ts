@@ -17,7 +17,9 @@
 */
 
 import { ROOT_USERNAME } from "../constants";
+import { asPageItem } from "../items/page-item";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { arrange } from "./arrange";
 import { Veid } from "./visual-element";
@@ -41,7 +43,8 @@ export function updateHref(desktopStore: DesktopStoreContextModel, userStore: Us
   }
 }
 
-export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, veid: Veid, updateHistory: boolean) => {
+
+export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, veid: Veid, updateHistory: boolean) {
   desktopStore.pushPage(veid);
   arrange(desktopStore);
 
@@ -62,4 +65,21 @@ export const switchToPage = (desktopStore: DesktopStoreContextModel, userStore: 
   if (updateHistory) {
     updateHref(desktopStore, userStore);
   }
+}
+
+
+export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
+  if (desktopStore.currentPopupSpec() != null) {
+    desktopStore.popPopup();
+    const page = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+    page.pendingPopupAlignmentPoint = null;
+    page.pendingPopupPositionGr = null;
+    page.pendingPopupWidthGr = null;
+    arrange(desktopStore);
+    return;
+  }
+
+  desktopStore.popPage();
+  updateHref(desktopStore, userStore);
+  arrange(desktopStore);
 }
