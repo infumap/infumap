@@ -37,6 +37,7 @@ export enum MouseAction {
   ResizingPopup,
 }
 
+
 export interface MouseActionStateType {
   hitboxTypeOnMouseDown: HitboxFlags,
   compositeHitboxTypeMaybeOnMouseDown: HitboxFlags,

@@ -120,7 +120,7 @@ const arrangePageWithChildren = (
   if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
 
     let movingItem = null;
-    if (!MouseActionState.empty() && (MouseActionState.get().action & MouseAction.Moving)) {
+    if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
       const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
       if (veid.linkIdMaybe) {
         movingItem = itemState.get(veid.linkIdMaybe);
