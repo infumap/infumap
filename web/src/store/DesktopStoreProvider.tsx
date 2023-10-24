@@ -142,6 +142,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const [currentVisiblePassword, setCurrentVisiblePassword] = createSignal<Uid | null>(null, { equals: false });
 
+  // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly want to keep the number under control on page changes (delete those with value 0).
   const tableScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
@@ -169,7 +170,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const getPageScrollXProp = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollXPxs.get(key)) {
-      return 0.0;
+      pageScrollXPxs.set(key, createNumberSignal(0.0));
     }
     return pageScrollXPxs.get(key)!.get();
   };
@@ -186,7 +187,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const getPageScrollYProp = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollYPxs.get(key)) {
-      return 0.0;
+      pageScrollYPxs.set(key, createNumberSignal(0.0));
     }
     return pageScrollYPxs.get(key)!.get();
   };
