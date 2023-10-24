@@ -71,7 +71,7 @@ export function tokenize(expression: string): Array<ExpressionToken> | null {
 }
 
 function createReferenceToken(s: string): ExpressionToken {
-  if (!s.startsWith("$")) { panic("invalid reference"); }
+  if (!s.startsWith("$")) { throw new Error("invalid reference"); }
   s = s.substring(1);
   if (s.length == EMPTY_UID.length) {
     return ({
@@ -82,7 +82,7 @@ function createReferenceToken(s: string): ExpressionToken {
       reference: s
     });
   }
-  if (s.length < 2) { panic("invalid reference - not long enough"); }
+  if (s.length < 2) { throw new Error("invalid reference - not long enough"); }
   return ({
     tokenType: ExpressionTokenType.RelativeReference,
     operator: null,
