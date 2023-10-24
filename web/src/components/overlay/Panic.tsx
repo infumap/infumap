@@ -23,12 +23,12 @@ import { getPanickedMessage } from "../../util/lang";
 
 export const Panic: Component = () => {
   return (
-    <div id="textEntryOverlay"
-         class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none pointer-events-none"
+    <div id="panicOverlay"
+         class="absolute left-0 top-0 bottom-0 right-0 outline-none pointer-events-none"
          style={`background-color: #ff888888; z-index: ${Z_PANIC};`}>
       <div style="background-color: #ff8888bb; text-align: center; padding: 20px;">
         <div style="font-size: 64px;">Logic Error</div>
-        <div style="font-size: 20px;">A programmer logic error was encountered - there is a bug in the code.</div>
+        <div style="font-size: 20px;">A programmer logic error was encountered - the developers expected this case should never occur - there is a bug in the code.</div>
         <div style="font-size: 20px;">There is a good chance it is safe to ignore this and <a href="">reload</a> the page.</div>
         <div style="font-size: 20px;">You might consider letting the developers know this happened and provide them with the following message:</div>
         <div style="font-size: 20px;"><i>{getPanickedMessage()}</i></div>
