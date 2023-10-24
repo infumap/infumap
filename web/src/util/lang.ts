@@ -21,7 +21,8 @@ export function currentUnixTimeSeconds(): number {
   return Math.floor(new Date().getTime()/1000);
 }
 
-export let panickedMessage: string | null = null;
+let panickedMessage: string | null = null;
+export function getPanickedMessage(): string | null { return panickedMessage; }
 export function panic(errorMessage: string): never {
   panickedMessage = errorMessage;
   console.trace();

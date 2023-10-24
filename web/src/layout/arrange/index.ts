@@ -22,7 +22,7 @@ import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
-import { panic, panickedMessage } from "../../util/lang";
+import { panic, getPanickedMessage } from "../../util/lang";
 import { findClosest } from "../find";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
@@ -55,7 +55,7 @@ import { arrange_spatialStretch } from "./topLevel/spatial";
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
 
-  if (panickedMessage != null) {
+  if (getPanickedMessage() != null) {
     desktopStore.setPanicked(true);
     return;
   }

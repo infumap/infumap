@@ -18,11 +18,8 @@
 
 import { Component } from "solid-js";
 import { Z_PANIC } from "../../constants";
-import { panickedMessage } from "../../util/lang";
+import { getPanickedMessage } from "../../util/lang";
 
-function msg() {
-  return panickedMessage;
-}
 
 export const Panic: Component = () => {
   return (
@@ -30,7 +27,7 @@ export const Panic: Component = () => {
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
          style={`background-color: #80000030; z-index: ${Z_PANIC};`}>
       <div style="font-size: 64px;">panic!</div>
-      <div style="font-size: 20px;">${msg()}</div>
+      <div style="font-size: 20px;">${getPanickedMessage()}</div>
     </div>
   );
 }
