@@ -17,7 +17,7 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
@@ -26,7 +26,7 @@ import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../i
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, EMPTY_VEID, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, desktopPxFromMouseEvent, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -211,12 +211,15 @@ const arrangePageWithChildren = (
 
     if (movingItem) {
       const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
+      const mouseDestkopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
       const cellBoundsPx = {
-        x: LastMouseMoveEventState.get().clientX - outerBoundsPx.x,
-        y: LastMouseMoveEventState.get().clientY - outerBoundsPx.y,
+        x: mouseDestkopPosPx.x - outerBoundsPx.x,
+        y: mouseDestkopPosPx.y - outerBoundsPx.y,
         w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
       };
+      cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
+      cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
       const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
       const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
       children.push(ves);

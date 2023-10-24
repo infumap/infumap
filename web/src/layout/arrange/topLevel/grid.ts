@@ -18,12 +18,12 @@
 
 import { GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
-import { LinkFns, isLink } from "../../../items/link-item";
+import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
 import { LastMouseMoveEventState, MouseAction, MouseActionState } from "../../../mouse/state";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
-import { cloneBoundingBox } from "../../../util/geometry";
+import { cloneBoundingBox, desktopPxFromMouseEvent } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
 import { VisualElementSignal } from "../../../util/signals";
 import { newUid } from "../../../util/uid";
@@ -35,7 +35,6 @@ import { arrangeCellPopup } from "../popup";
 
 
 const PAGE_TITLE_UID = newUid();
-const GRID_PLACEHOLDER_UID = newUid();
 
 export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   VesCache.initFullArrange();
@@ -134,12 +133,15 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   if (movingItem) {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
+    const mouseDestkopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
     const cellBoundsPx = {
-      x: LastMouseMoveEventState.get().clientX,
-      y: LastMouseMoveEventState.get().clientY,
+      x: mouseDestkopPosPx.x,
+      y: mouseDestkopPosPx.y,
       w: dimensionsBl.w * LINE_HEIGHT_PX,
       h: dimensionsBl.h * LINE_HEIGHT_PX,
     };
+    cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
+    cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
     const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
     const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
     children.push(ves);
