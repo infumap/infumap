@@ -26,7 +26,7 @@ import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../i
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, EMPTY_VEID, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { BoundingBox, cloneBoundingBox, desktopPxFromMouseEvent, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -211,7 +211,7 @@ const arrangePageWithChildren = (
 
     if (movingItem) {
       const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-      const mouseDestkopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
+      const mouseDestkopPosPx = LastMouseMoveEventState.getLastDesktopPx();
       const cellBoundsPx = {
         x: mouseDestkopPosPx.x - outerBoundsPx.x,
         y: mouseDestkopPosPx.y - outerBoundsPx.y,

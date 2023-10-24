@@ -23,7 +23,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item"
 import { LastMouseMoveEventState, MouseAction, MouseActionState } from "../../../mouse/state";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
-import { cloneBoundingBox, desktopPxFromMouseEvent } from "../../../util/geometry";
+import { cloneBoundingBox } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
 import { VisualElementSignal } from "../../../util/signals";
 import { newUid } from "../../../util/uid";
@@ -133,7 +133,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   if (movingItem) {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-    const mouseDestkopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
+    const mouseDestkopPosPx = LastMouseMoveEventState.getLastDesktopPx();
     const cellBoundsPx = {
       x: mouseDestkopPosPx.x,
       y: mouseDestkopPosPx.y,

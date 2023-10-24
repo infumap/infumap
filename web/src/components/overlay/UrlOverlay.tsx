@@ -21,7 +21,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
 import { BooleanSignal } from "../../util/signals";
-import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
+import { isInside } from "../../util/geometry";
 import { asNoteItem } from "../../items/note-item";
 import { arrange } from "../../layout/arrange";
 import { LastMouseMoveEventState } from "../../mouse/state";
@@ -47,7 +47,7 @@ export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props:
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     LastMouseMoveEventState.setFromMouseEvent(ev);
-    const desktopPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
+    const desktopPx = LastMouseMoveEventState.getLastDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
     props.urlOverlayVisible.set(false);
   };

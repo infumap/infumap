@@ -19,7 +19,6 @@
 import { Accessor, Component, For, Match, Setter, Show, Switch, createSignal, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { LastMouseMoveEventState } from "../../mouse/state";
-import { desktopPxFromMouseEvent, isInside } from "../../util/geometry";
 import { SearchResult, server } from "../../server";
 import { ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";
@@ -29,6 +28,7 @@ import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { initiateLoadItemMaybe } from "../../layout/load";
+import { isInside } from "../../util/geometry";
 
 
 export const SearchOverlay: Component = () => {
@@ -51,8 +51,7 @@ export const SearchOverlay: Component = () => {
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     LastMouseMoveEventState.setFromMouseEvent(ev);
-    const desktopPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
-    if (isInside(desktopPx, boxBoundsPx())) { return; }
+    if (isInside(LastMouseMoveEventState.getLastDesktopPx(), boxBoundsPx())) { return; }
     if (overResultsDiv) { return; }
     desktopStore.setSearchOverlayVisible(false);
   };

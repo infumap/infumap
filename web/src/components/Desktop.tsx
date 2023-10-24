@@ -20,7 +20,6 @@ import { Component, Show, onCleanup, onMount } from "solid-js";
 import { PopupType, useDesktopStore } from "../store/DesktopStoreProvider";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { ContextMenu } from "./overlay/ContextMenu";
-import { desktopPxFromMouseEvent } from "../util/geometry";
 import { useUserStore } from "../store/UserStoreProvider";
 import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
 import { handleUpload } from "../upload";
@@ -62,11 +61,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       return;
     }
 
-    const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
+    const hitInfo = getHitInfo(desktopStore, LastMouseMoveEventState.getLastDesktopPx(), [], false);
 
     if (ev.code == "Slash") {
       ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: desktopPxFromMouseEvent(LastMouseMoveEventState.get()), hitInfo });
+      desktopStore.setContextMenuInfo({ posPx: LastMouseMoveEventState.getLastDesktopPx(), hitInfo });
       mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     }
 
@@ -195,7 +194,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(desktopStore, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), [], false);
+      let hi = getHitInfo(desktopStore, LastMouseMoveEventState.getLastDesktopPx(), [], false);
       if (hi.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
@@ -205,7 +204,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         console.log("must upload on page.");
         return;
       }
-      await handleUpload(desktopStore, ev.dataTransfer, desktopPxFromMouseEvent(LastMouseMoveEventState.get()), asPageItem(item));
+      await handleUpload(desktopStore, ev.dataTransfer, LastMouseMoveEventState.getLastDesktopPx(), asPageItem(item));
     }
   };
 

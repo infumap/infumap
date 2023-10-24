@@ -38,7 +38,7 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { itemState } from "../store/ItemState";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
-import { MouseAction, MouseActionState, LastMouseMoveEventState, TouchOrMouseEvent, DialogMoveState, UserSettingsMoveState } from "./state";
+import { MouseAction, MouseActionState, LastMouseMoveEventState, DialogMoveState, UserSettingsMoveState } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrange } from "../layout/arrange";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
@@ -54,38 +54,35 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
 
   const hasUser = userStore.getUserMaybe() != null;
 
-  const ev = LastMouseMoveEventState.get();
-  const desktopPosPx = desktopPxFromMouseEvent(ev);
+  const currentMouseDesktopPx = LastMouseMoveEventState.getLastDesktopPx();
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
   if (desktopStore.editDialogInfo() != null) {
     if (DialogMoveState.get() != null) {
-      let currentMousePosPx = desktopPxFromMouseEvent(ev);
-      let changePx = vectorSubtract(currentMousePosPx, DialogMoveState.get()!.lastMousePosPx!);
+      let changePx = vectorSubtract(currentMouseDesktopPx, DialogMoveState.get()!.lastMousePosPx!);
       desktopStore.setEditDialogInfo(({
         item: desktopStore.editDialogInfo()!.item,
         desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
       }));
-      DialogMoveState.get()!.lastMousePosPx = currentMousePosPx;
+      DialogMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(desktopPosPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
+    if (isInside(currentMouseDesktopPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(desktopStore, hasUser);
       return;
     }
   }
   if (desktopStore.editUserSettingsInfo() != null) {
     if (UserSettingsMoveState.get() != null) {
-      let currentMousePosPx = desktopPxFromMouseEvent(ev);
-      let changePx = vectorSubtract(currentMousePosPx, UserSettingsMoveState.get()!.lastMousePosPx!);
+      let changePx = vectorSubtract(currentMouseDesktopPx, UserSettingsMoveState.get()!.lastMousePosPx!);
       desktopStore.setEditUserSettingsInfo(({
         desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editUserSettingsInfo()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
       }));
-      UserSettingsMoveState.get()!.lastMousePosPx = currentMousePosPx;
+      UserSettingsMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(desktopPosPx, desktopStore.editUserSettingsInfo()!.desktopBoundsPx)) {
+    if (isInside(currentMouseDesktopPx, desktopStore.editUserSettingsInfo()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(desktopStore, hasUser);
       return;
     }
@@ -96,9 +93,9 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
     return;
   }
 
-  let deltaPx = vectorSubtract(desktopPosPx, MouseActionState.get().startPx!);
+  let deltaPx = vectorSubtract(currentMouseDesktopPx, MouseActionState.get().startPx!);
 
-  changeMouseActionStateMaybe(deltaPx, desktopStore, desktopPosPx, hasUser, ev);
+  changeMouseActionStateMaybe(deltaPx, desktopStore, currentMouseDesktopPx, hasUser);
 
   switch (MouseActionState.get().action) {
     case MouseAction.Ambiguous:
@@ -116,7 +113,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
       mouseAction_movingPopup(deltaPx, desktopStore);
       return;
     case MouseAction.Moving:
-      mouseAction_moving(deltaPx, desktopPosPx, desktopStore);
+      mouseAction_moving(deltaPx, currentMouseDesktopPx, desktopStore);
       return;
     default:
       panic("unknown mouse action.");
@@ -128,8 +125,7 @@ function changeMouseActionStateMaybe(
     deltaPx: Vector,
     desktopStore: DesktopStoreContextModel,
     desktopPosPx: Vector,
-    hasUser: boolean,
-    ev: TouchOrMouseEvent) {
+    hasUser: boolean) {
   if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
   if (!hasUser) { return; }
 
@@ -177,7 +173,7 @@ function changeMouseActionStateMaybe(
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
-      const shouldCreateLink = ev.shiftDown;
+      const shouldCreateLink = LastMouseMoveEventState.get().shiftDown;
       const parentItem = itemState.get(activeItem.parentId)!;
       if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
         moving_activeItemOutOfTable(desktopStore, shouldCreateLink);

@@ -20,7 +20,6 @@ import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-it
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
-import { asPageItem } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
@@ -31,7 +30,7 @@ import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
-import { desktopPxFromMouseEvent, isInside } from "../util/geometry";
+import { isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
@@ -66,7 +65,7 @@ export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {
 
-  const desktopPosPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
+  const desktopPosPx = LastMouseMoveEventState.getLastDesktopPx();
 
   if (desktopStore.contextMenuInfo() != null) {
     DoubleClickState.preventDoubleClick();

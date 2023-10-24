@@ -28,7 +28,7 @@ import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } f
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
-import { BoundingBox, desktopPxFromMouseEvent, isInside } from "../../util/geometry";
+import { BoundingBox, isInside } from "../../util/geometry";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
@@ -141,7 +141,7 @@ export const TextEditOverlay: Component = () => {
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.stopPropagation();
     LastMouseMoveEventState.setFromMouseEvent(ev);
-    const desktopPx = desktopPxFromMouseEvent(LastMouseMoveEventState.get());
+    const desktopPx = LastMouseMoveEventState.getLastDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
     await server.updateItem(noteVisualElement().displayItem);
     desktopStore.setTextEditOverlayInfo(null);
