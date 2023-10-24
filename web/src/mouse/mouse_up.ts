@@ -98,7 +98,6 @@ export function mouseUpHandler(
     case MouseAction.Ambiguous:
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
-        ClickState.setLinkWasClicked(false);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
@@ -130,6 +129,7 @@ export function mouseUpHandler(
       panic(`mouseUpHandler: unknown action ${MouseActionState.get().action}.`);
   }
 
+  ClickState.setLinkWasClicked(false);
   MouseActionState.set(null);
 }
 
