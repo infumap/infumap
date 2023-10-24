@@ -16,25 +16,20 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export function panic(): never {
-  console.trace();
-  throw new Error("logic error");
-}
-
-export function notImplemented(): never {
-  throw new Error("not implemented");
-}
-
-export function throwExpression(errorMessage: string): never {
-  throw new Error(errorMessage);
-}
 
 export function currentUnixTimeSeconds(): number {
   return Math.floor(new Date().getTime()/1000);
 }
 
+export let panickedMessage: string | null = null;
+export function panic(errorMessage: string): never {
+  panickedMessage = errorMessage;
+  console.trace();
+  throw new Error("logic error: " + errorMessage);
+}
+
 export function assert(condition: boolean, errorMessage: string): void {
   if (!condition) {
-    throwExpression(errorMessage);
+    panic(errorMessage);
   }
 }

@@ -17,7 +17,7 @@
 */
 
 import { BoundingBox, Dimensions } from '../../util/geometry';
-import { panic, throwExpression } from '../../util/lang';
+import { panic } from '../../util/lang';
 import { VisualElementSignal } from '../../util/signals';
 import { UserStoreContextModel } from '../../store/UserStoreProvider';
 import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
@@ -50,10 +50,10 @@ export const ItemFns = {
     if (isImage(measurable)) { return ImageFns.calcSpatialDimensionsBl(ImageFns.asImageMeasurable(measurable)); }
     if (isFile(measurable)) { return FileFns.calcSpatialDimensionsBl(FileFns.asFileMeasurable(measurable)); }
     if (isPassword(measurable)) { return PasswordFns.calcSpatialDimensionsBl(PasswordFns.asPasswordMeasurable(measurable)); }
-    if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asPlaceholderMeasurable(measurable)); }
+    if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(measurable)); }
     if (isLink(measurable)) { return LinkFns.calcSpatialDimensionsBl(asLinkItem(measurable)); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcSpatialDimensionsBl(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
-    throwExpression(`Unknown item type: ${measurable.itemType}`);
+    panic(`Unknown item type: ${measurable.itemType}`);
   },
 
   calcGeometry_Spatial: (measurable: Measurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
@@ -64,10 +64,10 @@ export const ItemFns = {
     if (isImage(measurable)) { return ImageFns.calcGeometry_Spatial(ImageFns.asImageMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isFile(measurable)) { return FileFns.calcGeometry_Spatial(FileFns.asFileMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Spatial(PasswordFns.asPasswordMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-    if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asPlaceholderMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
+    if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Spatial(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Spatial(PlaceholderFns.asPlaceholderMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-    throwExpression(`Unknown item type: ${measurable.itemType}`);
+    panic(`Unknown item type: ${measurable.itemType}`);
   },
 
   calcGeometry_Attachment: (measurable: Measurable, parentBoundsPx: BoundingBox, parentSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -78,10 +78,10 @@ export const ItemFns = {
     if (isImage(measurable)) { return ImageFns.calcGeometry_Attachment(ImageFns.asImageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isFile(measurable)) { return FileFns.calcGeometry_Attachment(FileFns.asFileMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Attachment(PasswordFns.asPasswordMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
-    if (isRating(measurable)) { return RatingFns.calcGeometry_Attachment(RatingFns.asPlaceholderMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
+    if (isRating(measurable)) { return RatingFns.calcGeometry_Attachment(RatingFns.asRatingMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Attachment(asLinkItem(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Attachment(PlaceholderFns.asPlaceholderMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
-    throwExpression(`Unknown item type: ${measurable.itemType}`);
+    panic(`Unknown item type: ${measurable.itemType}`);
   },
 
   calcGeometry_ListItem: (measurable: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry => {
@@ -93,10 +93,10 @@ export const ItemFns = {
     if (isImage(measurable)) { return ImageFns.calcGeometry_ListItem(ImageFns.asImageMeasurable(measurable), blockSizePx, row, col, widthBl); }
     if (isFile(measurable)) { return FileFns.calcGeometry_ListItem(FileFns.asFileMeasurable(measurable), blockSizePx, row, col, widthBl); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_ListItem(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, row, col, widthBl); }
-    if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asPlaceholderMeasurable(measurable), blockSizePx, row, col, widthBl); }
+    if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asRatingMeasurable(measurable), blockSizePx, row, col, widthBl); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_ListItem(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, row, col, widthBl); }
-    throwExpression(`Unknown item type: ${measurable.itemType}`);
+    panic(`Unknown item type: ${measurable.itemType}`);
   },
 
   calcGeometry_InCell: (measurable: Measurable, cellBoundsPx: BoundingBox, expandable: boolean): ItemGeometry => {
@@ -107,24 +107,24 @@ export const ItemFns = {
     if (isImage(measurable)) { return ImageFns.calcGeometry_Cell(ImageFns.asImageMeasurable(measurable), cellBoundsPx); }
     if (isFile(measurable)) { return FileFns.calcGeometry_Cell(FileFns.asFileMeasurable(measurable), cellBoundsPx); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Cell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx); }
-    if (isRating(measurable)) { return RatingFns.calcGeometry_Cell(RatingFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
+    if (isRating(measurable)) { return RatingFns.calcGeometry_Cell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Cell(asLinkItem(measurable), cellBoundsPx, expandable); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Cell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
-    throw throwExpression(`Unknown item type: ${measurable.itemType}`);
+    panic(`Unknown item type: ${measurable.itemType}`);
   },
 
   calcGeometry_InComposite: (measurable: Measurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
     if (isPage(measurable)) { return PageFns.calcGeometry_InComposite(PageFns.asPageMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
     if (isTable(measurable)) { return TableFns.calcGeometry_InComposite(TableFns.asTableMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
-    if (isComposite(measurable)) { panic(); } // composite items are flattened, can't be embedded.
+    if (isComposite(measurable)) { panic("calcGeometry_InComposite: composite item."); } // composite items are flattened, can't be embedded.
     if (isNote(measurable)) { return NoteFns.calcGeometry_InComposite(NoteFns.asNoteMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_InComposite(ImageFns.asImageMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
     if (isFile(measurable)) { return FileFns.calcGeometry_InComposite(FileFns.asFileMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InComposite(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
-    if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
+    if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, topPx); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, topPx); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, topPx);}
-    throw throwExpression(`Unknown item type: ${measurable.itemType}`);
+    panic(`Unknown item type: ${measurable.itemType}`);
   },
 
   /**
@@ -142,7 +142,7 @@ export const ItemFns = {
     if (isRating(item)) { return RatingFns.getFingerprint(asRatingItem(item)); }
     if (isLink(item)) { return LinkFns.getFingerprint(asLinkItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.getFingerprint(asPlaceholderItem(item)); }
-    throw throwExpression(`Unknown item type: ${item.itemType}`);
+    panic(`Unknown item type: ${item.itemType}`);
   },
 
   fromObject: (o: any): Item => {
@@ -156,7 +156,7 @@ export const ItemFns = {
     if (isRating(o)) { return RatingFns.fromObject(o); }
     if (isLink(o)) { return LinkFns.fromObject(o); }
     if (isPlaceholder(o)) { return PlaceholderFns.fromObject(o); }
-    throwExpression(`Unknown item type: ${o.itemType}`);
+    panic(`Unknown item type: ${o.itemType}`);
   },
 
   toObject: (item: Item): object => {
@@ -170,7 +170,7 @@ export const ItemFns = {
     if (isRating(item)) { return RatingFns.toObject(asRatingItem(item)); }
     if (isLink(item)) { return LinkFns.toObject(asLinkItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.toObject(asPlaceholderItem(item)); }
-    throwExpression(`Unknown item type: ${item.itemType}`);
+    panic(`Unknown item type: ${item.itemType}`);
   },
 
   handleClick: (visualElementSignal: VisualElementSignal, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
@@ -184,23 +184,23 @@ export const ItemFns = {
     else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isRating(item)) { RatingFns.handleClick(desktopStore, visualElementSignal); }
     else if (isLink(item)) { }
-    else if (isPlaceholder(item)) { panic(); }
-    else { throwExpression(`Unknown item type: ${item.itemType}`); }
+    else if (isPlaceholder(item)) { panic("handleClick: placeholder."); }
+    else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
   handleLinkClick: (visualElement: VisualElement): void => {
     const item = visualElement.displayItem;
-    if (isPage(item)) { panic(); }
-    else if (isTable(item)) { panic(); }
-    else if (isComposite(item)) { panic(); }
+    if (isPage(item)) { panic("handleLinkClick: page"); }
+    else if (isTable(item)) { panic("handleLinkClick: table"); }
+    else if (isComposite(item)) { panic("handleLinkClick: composite"); }
     else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }
-    else if (isImage(item)) { panic(); }
+    else if (isImage(item)) { panic("handleLinkClick: image"); }
     else if (isFile(item)) { FileFns.handleLinkClick(visualElement); }
-    else if (isPassword(item)) { panic(); }
-    else if (isRating(item)) { panic(); }
-    else if (isLink(item)) { panic(); }
-    else if (isPlaceholder(item)) { panic(); }
-    else { throwExpression(`Unknown item type: ${item.itemType}`); }
+    else if (isPassword(item)) { panic("handleLinkClick: password"); }
+    else if (isRating(item)) { panic("handleLinkClick: rating"); }
+    else if (isLink(item)) { panic("handleLinkClick: link"); }
+    else if (isPlaceholder(item)) { panic("handleLinkClick: placeholder"); }
+    else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
   handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
@@ -214,12 +214,12 @@ export const ItemFns = {
     else if (isPassword(item)) { }
     else if (isRating(item)) { }
     else if (isLink(item)) { }
-    else if (isPlaceholder(item)) { panic!() }
-    else { throwExpression(`Unknown item type: ${item.itemType}`); }
+    else if (isPlaceholder(item)) { panic!("handlePopupClick: placeholder") }
+    else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
   cloneMeasurableFields: (measurable: Measurable): Measurable => {
-    if (measurable == null) { panic(); }
+    if (measurable == null) { panic("measurable is null."); }
     if (isPage(measurable)) { return PageFns.cloneMeasurableFields(PageFns.asPageMeasurable(measurable)); }
     else if (isTable(measurable)) { return TableFns.cloneMeasurableFields(TableFns.asTableMeasurable(measurable)); }
     else if (isComposite(measurable)) { return CompositeFns.cloneMeasurableFields(CompositeFns.asCompositeMeasurable(measurable)); }
@@ -227,10 +227,10 @@ export const ItemFns = {
     else if (isImage(measurable)) { return ImageFns.cloneMeasurableFields(ImageFns.asImageMeasurable(measurable)); }
     else if (isFile(measurable)) { return FileFns.cloneMeasurableFields(FileFns.asFileMeasurable(measurable)); }
     else if (isPassword(measurable)) { return PasswordFns.cloneMeasurableFields(PasswordFns.asPasswordMeasurable(measurable)); }
-    else if (isRating(measurable)) { return RatingFns.cloneMeasurableFields(RatingFns.asPlaceholderMeasurable(measurable)); }
+    else if (isRating(measurable)) { return RatingFns.cloneMeasurableFields(RatingFns.asRatingMeasurable(measurable)); }
     else if (isLink(measurable)) { return LinkFns.cloneMeasurableFields(LinkFns.asLinkMeasurable(measurable)); }
     else if (isPlaceholder(measurable)) { return PlaceholderFns.cloneMeasurableFields(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
-    else { throwExpression(`Unknown item type: ${measurable.itemType}`); }
+    else { panic(`Unknown item type: ${measurable.itemType}`); }
   },
 
   debugSummary: (item: Item): string => {

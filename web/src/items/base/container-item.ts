@@ -41,5 +41,5 @@ export function isContainer(item: ItemTypeMixin | null): boolean {
 
 export function asContainerItem(item: ItemTypeMixin): ContainerItem {
   if (isContainer(item)) { return item as ContainerItem; }
-  panic();
+  panic("not container item.");
 }

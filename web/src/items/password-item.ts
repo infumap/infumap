@@ -41,7 +41,7 @@ export interface PasswordMeasurable extends ItemTypeMixin, PositionalMixin, XSiz
 
 export const PasswordFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array): PasswordItem => {
-    if (parentId == EMPTY_UID) { panic(); }
+    if (parentId == EMPTY_UID) { panic("PasswordFns.create: parentId is empty."); }
     return {
       itemType: ItemType.Password,
       ownerId,
@@ -195,7 +195,7 @@ export const PasswordFns = {
 
   asPasswordMeasurable: (item: ItemTypeMixin): PasswordMeasurable => {
     if (item.itemType == ItemType.Password) { return item as PasswordMeasurable; }
-    panic();
+    panic("not password measurable.");
   },
 
   cloneMeasurableFields: (password: PasswordMeasurable): PasswordMeasurable => {
@@ -228,5 +228,5 @@ export function isPassword(item: ItemTypeMixin | null): boolean {
 
 export function asPasswordItem(item: ItemTypeMixin): PasswordItem {
   if (item.itemType == ItemType.Password) { return item as PasswordItem; }
-  panic();
+  panic("not password item.");
 }

@@ -19,7 +19,7 @@
 import { ItemFns } from "../items/base/item-polymorphism";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { compareBoundingBox } from "../util/geometry";
-import { panic, throwExpression } from "../util/lang";
+import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { HitboxFns } from "./hitbox";
 import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-element";
@@ -130,7 +130,7 @@ export let VesCache = {
         let v = VeFns.veidFromPath(key);
         if (v.itemId == veid.itemId && v.linkIdMaybe == veid.linkIdMaybe) {
           if (result != null) {
-            throwExpression(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
+            throw new Error(`multiple visual elements found: ${veid.itemId}/${veid.linkIdMaybe}.`);
           }
           result = map.get(key)!;
         }
@@ -141,7 +141,7 @@ export let VesCache = {
     if (resultMaybe != null) { return resultMaybe; }
     resultMaybe = findSingleImpl(currentVesCache);
     if (resultMaybe == null) {
-      throwExpression(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
+      throw new Error(`${veid.itemId}/${veid.linkIdMaybe} not present in VesCache.`);
     }
     return resultMaybe;
   },
@@ -184,8 +184,8 @@ function createOrRecycleVisualElementSignalImpl (
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
-  if (visualElementOverride.displayItemFingerprint) { panic(); }
-  // TODO(LOW): Modifying the input object is a bit dirty.
+  if (visualElementOverride.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
+  // TODO (LOW): Modifying the input object is a bit dirty.
   visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem);
 
   if (alwaysUseVes) {

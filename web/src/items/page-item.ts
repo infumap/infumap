@@ -409,12 +409,12 @@ export const PageFns = {
 
   asPageMeasurable: (item: ItemTypeMixin): PageMeasurable => {
     if (item.itemType == ItemType.Page) { return item as PageMeasurable; }
-    panic();
+    panic("not page measurable.");
   },
 
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true);
+    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true, false);
   },
 
   handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
@@ -445,7 +445,7 @@ export const PageFns = {
   },
 
   handleExpandClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
-    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true);
+    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true, false);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {
@@ -525,5 +525,5 @@ export function isPage(item: ItemTypeMixin | null): boolean {
 
 export function asPageItem(item: ItemTypeMixin): PageItem {
   if (item.itemType == ItemType.Page) { return item as PageItem; }
-  panic();
+  panic("not page item.");
 }

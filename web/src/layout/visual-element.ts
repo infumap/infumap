@@ -408,7 +408,7 @@ function getIdsFromPathPart(part: string): Veid {
     itemId = part.substring(0, EMPTY_UID.length);
     linkIdMaybe = part.substring(EMPTY_UID.length+1, part.length-1);
   } else if (part.length != EMPTY_UID.length) {
-    panic();
+    panic("getIdsFromPathPart: wrong uid length.");
   }
   return { itemId, linkIdMaybe };
 }

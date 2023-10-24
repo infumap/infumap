@@ -97,7 +97,7 @@ export const ImageFns = {
 
   asImageMeasurable: (item: ItemTypeMixin): ImageMeasurable => {
     if (item.itemType == ItemType.Image) { return item as ImageMeasurable; }
-    panic();
+    panic("not image measurable.");
   },
 
   calcSpatialDimensionsBl: (image: ImageMeasurable): Dimensions => {
@@ -126,7 +126,7 @@ export const ImageFns = {
   },
 
   calcGeometry_InComposite: (measurable: ImageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
-    panic();
+    panic("calcGeometry_InComposite: (image). not implemented.");
   },
 
   calcGeometry_Attachment: (image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -206,5 +206,5 @@ export function isImage(item: ItemTypeMixin | null): boolean {
 
 export function asImageItem(item: ItemTypeMixin): ImageItem {
   if (item.itemType == ItemType.Image) { return item as ImageItem; }
-  panic();
+  panic("not image item.");
 }

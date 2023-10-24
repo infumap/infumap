@@ -43,6 +43,7 @@ import { LastMouseMoveEventState } from "../mouse/state";
 import { arrange } from "../layout/arrange";
 import { SearchOverlay } from "./overlay/SearchOverlay";
 import { EditUserSettings } from "./overlay/UserSettings";
+import { Panic } from "./overlay/Panic";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -58,7 +59,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     }
 
     if (!recognizedKeys.find(a => a == ev.code)) {
-      console.debug("unhandled key:", ev.code);
       return;
     }
 
@@ -140,7 +140,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     }
 
     else {
-      panic();
+      panic(`Unexpected key code: ${ev.code}`);
     }
   };
 
@@ -297,6 +297,9 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       </Show>
       <Show when={desktopStore.searchOverlayVisible()}>
         <SearchOverlay />
+      </Show>
+      <Show when={desktopStore.getPanicked()}>
+        <Panic />
       </Show>
     </div>
   );

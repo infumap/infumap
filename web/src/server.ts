@@ -19,7 +19,6 @@
 import { logout } from "./components/Main";
 import { Item } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { throwExpression } from "./util/lang";
 import { EMPTY_UID, Uid } from "./util/uid";
 
 
@@ -112,9 +111,9 @@ async function sendCommand(host: string | null, command: string, payload: object
       if (panicLogoutOnError) {
         await logout();
       }
-      throwExpression(`'${command}' command failed. Reason: ${r.failReason}`);
+      throw new Error(`'${command}' command failed. Reason: ${r.failReason}`);
     } else {
-      throwExpression(`'${command}' command failed. Reason: ${r.failReason}`);
+      throw new Error(`'${command}' command failed. Reason: ${r.failReason}`);
     }
   }
   return JSON.parse(r.jsonData);

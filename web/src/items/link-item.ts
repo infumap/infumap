@@ -60,7 +60,7 @@ export const LinkFns = {
   },
 
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkTo: Uid): LinkItem => {
-    if (parentId == EMPTY_UID) { panic(); }
+    if (parentId == EMPTY_UID) { panic("LinkFns.create: parent is empty."); }
     return {
       itemType: ItemType.Link,
       ownerId,
@@ -247,7 +247,7 @@ export const LinkFns = {
 
   asLinkMeasurable: (item: ItemTypeMixin): LinkMeasurable => {
     if (item.itemType == ItemType.Link) { return item as LinkMeasurable; }
-    panic();
+    panic("not link measurable.");
   },
 
   cloneMeasurableFields: (link: LinkMeasurable): LinkMeasurable => {
@@ -309,5 +309,5 @@ export function isLink(item: ItemTypeMixin | null): boolean {
 
 export function asLinkItem(item: ItemTypeMixin): LinkItem {
   if (item.itemType == ItemType.Link) { return item as LinkItem; }
-  panic();
+  panic("not link item.");
 }

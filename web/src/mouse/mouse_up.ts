@@ -37,7 +37,7 @@ import { server } from "../server";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
-import { panic, throwExpression } from "../util/lang";
+import { panic } from "../util/lang";
 import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 
 
@@ -127,7 +127,7 @@ export function mouseUpHandler(
       break;
 
     default:
-      panic();
+      panic(`mouseUpHandler: unknown action ${MouseActionState.get().action}.`);
   }
 
   MouseActionState.set(null);
@@ -198,7 +198,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 
   if (attachToVisualElement.displayItem.id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
-    throwExpression("Attempt was made to attach an item to itself.");
+    panic("mouseUpHandler_moving_hitboxAttachToComposite: Attempt was made to attach an item to itself.");
   }
 
   // case #1: attaching to an item inside an existing composite.
@@ -269,7 +269,7 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
   const attachToVisualElement = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
   if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
-    throwExpression("Attempt was made to attach an item to itself.");
+    panic("mouseUpHandler_moving_hitboxAttachTo: Attempt was made to attach an item to itself.");
   }
 
   attachToVisualElement.movingItemIsOverAttach.set(false);
@@ -285,13 +285,13 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
 
 
 function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
-  if (isTable(overContainerVe.displayItem)) { panic(); }
+  if (isTable(overContainerVe.displayItem)) { panic("mouseUpHandler_moving_toOpaquePage: over container is a table."); }
 
   const moveOverContainerId = overContainerVe.displayItem.id;
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
-    throwExpression("Attempt was made to move an item into itself.");
+    panic("mouseUpHandler_moving_toOpaquePage: Attempt was made to move an item into itself.");
   }
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
@@ -308,7 +308,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
     // TODO (HIGH): quite possibly quite hard if only partial hierarchy loaded.
-    throwExpression("Attempt was made to move an item into itself.");
+    panic("mouseUpHandler_moving_toTable: Attempt was made to move an item into itself.");
   }
 
   if (overContainerVe.moveOverColAttachmentNumber.get() >= 0) {
@@ -380,14 +380,14 @@ async function maybeDeleteComposite() {
   if (MouseActionState.get().startCompositeItem == null) { return; }
 
   const compositeItem = MouseActionState.get().startCompositeItem!;
-  if (compositeItem.computed_children.length == 0) { panic(); }
+  if (compositeItem.computed_children.length == 0) { panic("maybeDeleteComposite: composite has no children."); }
   if (compositeItem.computed_children.length != 1) {
     MouseActionState.get().startCompositeItem = null;
     return;
   }
   const compositeItemParent = asContainerItem(itemState.get(compositeItem.parentId)!);
   const child = itemState.get(compositeItem.computed_children[0])!;
-  if (!isPositionalItem(child)) { panic(); }
+  if (!isPositionalItem(child)) { panic("maybeDeleteComposite: child is not positional."); }
   child.parentId = compositeItem.parentId;
   asPositionalItem(child).spatialPositionGr = compositeItem.spatialPositionGr;
   compositeItem.computed_children = [];
@@ -415,7 +415,7 @@ function cleanupAndPersistPlaceholders() {
     if (attachments.length == 0) { break; }
     const attachmentId = placeholderParent.computed_attachments[placeholderParent.computed_attachments.length-1];
     const attachment = itemState.get(attachmentId)!;
-    if (attachment == null) { panic(); }
+    if (attachment == null) { panic("cleanupAndPersistPlaceholders: no attachment."); }
     if (!isPlaceholder(attachment)) {
       break;
     }

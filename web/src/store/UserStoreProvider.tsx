@@ -108,12 +108,12 @@ export function UserStoreProvider(props: UserStoreContextProps) {
 
     getUser: (): User => {
       const data = sessionDataString();
-      if (data == null) { panic(); };
+      if (data == null) { panic("no session data string."); };
       if (getCookie(SESSION_COOKIE_NAME) == null) {
         // Session cookie has expired. Update SolidJS state to reflect this.
         console.log("Session cookie has expired.");
         setSessionDataString(null);
-        panic();
+        panic("session cookie has expired");
       }
       return JSON.parse(data!);
     },
@@ -132,5 +132,5 @@ export function UserStoreProvider(props: UserStoreContextProps) {
 }
 
 export function useUserStore() : UserStoreContextModel {
-  return useContext(UserStoreContext) ?? panic();
+  return useContext(UserStoreContext) ?? panic("no user store context.");
 }

@@ -43,7 +43,7 @@ export function isAttachmentsItem(item: ItemTypeMixin | null): boolean {
 
 export function asAttachmentsItem(item: ItemTypeMixin): AttachmentsItem {
   if (isAttachmentsItem(item)) { return item as AttachmentsItem; }
-  panic();
+  panic("not attachments item.");
 }
 
 

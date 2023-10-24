@@ -41,5 +41,5 @@ export function isPermissionFlagsItem(item: ItemTypeMixin | null): boolean {
 
 export function asPermissionFlagsItem(item: ItemTypeMixin): PermissionFlagsItem {
   if (isPermissionFlagsItem(item)) { return item as PermissionFlagsItem; }
-  panic();
+  panic("not permissions item.");
 }

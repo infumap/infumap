@@ -81,6 +81,8 @@ export interface DesktopStoreContextModel {
   setCurrentVisiblePassword: Setter<Uid | null>,
 
   clear: () => void,
+  setPanicked: (panicked: boolean) => void,
+  getPanicked: () => boolean,
 }
 
 export interface EditOverlayInfo {
@@ -126,6 +128,7 @@ const DesktopStoreContext = createContext<DesktopStoreContextModel>();
 
 
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
+  const [getPanicked, setPanicked] = createSignal<boolean>(false, { equals: false });
   const [itemIsMoving, setItemIsMoving] = createSignal<boolean>(false, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
   const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
@@ -215,7 +218,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   function currentDesktopSize(): Dimensions {
-    let rootElement = document.getElementById("rootDiv") ?? panic();
+    let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
     return { w: rootElement.clientWidth - MAIN_TOOLBAR_WIDTH_PX, h: rootElement.clientHeight };
   }
 
@@ -268,19 +271,19 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
 
   const pushPopup = (popupSpec: PopupSpec): void => {
-    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs().length == 0) { panic("pushPopup: no breadcrumbs."); }
     breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.push(popupSpec);
     setBreadcrumbs(breadcrumbs());
   };
 
   const replacePopup = (popupSpec: PopupSpec): void => {
-    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs().length == 0) { panic("replacePopup: no breadcrumbs."); }
     breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [popupSpec];
     setBreadcrumbs(breadcrumbs());
   };
 
   const popPopup = (): void => {
-    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
     if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
       return;
     }
@@ -289,7 +292,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   const popAllPopups = (): void => {
-    if (breadcrumbs().length == 0) { panic(); }
+    if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
     breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [];
     setBreadcrumbs(breadcrumbs());
   };
@@ -343,6 +346,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setHistoryToSinglePage,
 
     clear,
+    setPanicked,
+    getPanicked,
   };
 
   return (
@@ -354,5 +359,5 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
 
 export function useDesktopStore(): DesktopStoreContextModel {
-  return useContext(DesktopStoreContext) ?? panic();
+  return useContext(DesktopStoreContext) ?? panic("no desktop context");
 }

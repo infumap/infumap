@@ -22,7 +22,7 @@ import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
-import { panic } from "../../util/lang";
+import { panic, panickedMessage } from "../../util/lang";
 import { findClosest } from "../find";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
@@ -55,6 +55,11 @@ import { arrange_spatialStretch } from "./topLevel/spatial";
 export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
 
+  if (panickedMessage != null) {
+    desktopStore.setPanicked(true);
+    return;
+  }
+
   initiateLoadChildItemsMaybe(desktopStore, desktopStore.currentPage()!);
 
   switch (asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm) {
@@ -71,7 +76,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
       arrange_document(desktopStore);
       break;
     default:
-      panic();
+      panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm}.`);
   }
 
   evaluate();
@@ -118,6 +123,6 @@ function evaluateCell(path: VisualElementPath, token: ExpressionToken): number {
     if (!isNote(ve.displayItem)) { return 0; }
     return parseFloat(asNoteItem(ve.displayItem).title);
   } else {
-    panic();
+    panic("evaluateCell: unknown token type.");
   }
 }

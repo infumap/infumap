@@ -134,7 +134,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
     } else if (currentPopupSpec.type == PopupType.Image) {
       children.push(arrangeCellPopup(desktopStore));
     } else {
-      panic();
+      panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
     }
   }
 

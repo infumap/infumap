@@ -22,7 +22,7 @@ import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { panic, throwExpression } from "../util/lang";
+import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
 
@@ -59,7 +59,7 @@ export const itemState = {
   delete: (id: Uid): void => {
     const item = itemState.get(id)!;
     if (item.parentId == EMPTY_UID) {
-      panic!();
+      panic!("delete: parent is empty.");
     }
     if (isContainer(item)) {
       const containerItem = asContainerItem(item);
@@ -68,7 +68,7 @@ export const itemState = {
           `${containerItem.itemType} container has children, can't delete:`, 
           [...containerItem.computed_children],
           containerItem.computed_children.map(i => { const itm = itemState.get(i)!; return (isTitledItem(itm)) ? asTitledItem(itm).title : "no-title" }));
-        panic!();
+        panic!("can't delete container with children.");
       }
     }
     const parentItem = itemState.get(item.parentId)!;
@@ -81,7 +81,7 @@ export const itemState = {
       attachmentsParentItem.computed_attachments
         = attachmentsParentItem.computed_attachments.filter(aid => aid != id);
     } else {
-      panic();
+      panic("delete: unexpected relationshipToParent.");
     }
     items.delete(id);
   },
@@ -130,17 +130,17 @@ export const itemState = {
       }
     });
     if (!isContainer(itemState.get(parentId)!)) {
-      throwExpression(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
+      throw new Error(`Cannot set ${childItems.length} child items of parent '${parentId}' because it is not a container.`);
     }
     const parent = itemState.getAsContainerItem(parentId)!;
     let children: Array<Uid> = [];
     childItems.forEach(childItem => {
-      if (childItem.parentId == EMPTY_UID) { panic(); }
+      if (childItem.parentId == EMPTY_UID) { panic("setChildItemsFromServerObjects: parent is empty."); }
       if (childItem.parentId != parentId) {
-        throwExpression(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
+        throw new Error(`Child item had parent '${childItem.parentId}', but '${parentId}' was expected.`);
       }
       if (childItem.relationshipToParent != RelationshipToParent.Child) {
-        throwExpression(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
+        throw new Error(`Unexpected relationship to parent ${childItem.relationshipToParent}`);
       }
       children.push(childItem.id);
     });
@@ -151,17 +151,17 @@ export const itemState = {
   setAttachmentItemsFromServerObjects: (parentId: Uid, attachmentItemObject: Array<object>): void => {
     let attachmentItems = attachmentItemObject.map(aio => ItemFns.fromObject(aio));
     if (!isAttachmentsItem(itemState.get(parentId)!)) {
-      throwExpression(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${itemState.get(parentId)!.itemType}' which does not allow attachments.`);
+      throw new Error(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${itemState.get(parentId)!.itemType}' which does not allow attachments.`);
     }
     const parent = itemState.getAsAttachmentsItem(parentId)!;
     let attachments: Array<Uid> = [];
     attachmentItems.forEach(attachmentItem => {
       items.set(attachmentItem.id, attachmentItem);
       if (attachmentItem.parentId != parentId) {
-        throwExpression(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
+        throw new Error(`Attachment item had parent '${attachmentItem.parentId}', but '${parentId}' was expected.`);
       }
       if (attachmentItem.relationshipToParent != RelationshipToParent.Attachment) {
-        throwExpression(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
+        throw new Error(`Unexpected relationship to parent ${attachmentItem.relationshipToParent}`);
       }
       attachments.push(attachmentItem.id);
     });
@@ -180,7 +180,7 @@ export const itemState = {
       parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
       itemState.sortAttachments(parentItem.id);
     } else {
-      throwExpression(`unsupported relationship to parent: ${item.relationshipToParent}.`);
+      panic(`unsupported relationship to parent: ${item.relationshipToParent}.`);
     }
   },
 
@@ -260,7 +260,7 @@ export const itemState = {
       itemState.sortAttachments(moveOverAttachmentsItem.id);
       updatePrevParent();
     } else {
-      panic();
+      panic("moveToNewParent: unexpected relationship to parent.");
     }
     function updatePrevParent() {
       if (prevRelationshipToParent == RelationshipToParent.Child) {

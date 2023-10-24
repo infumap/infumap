@@ -75,7 +75,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     } else if (type == "password")  {
       newItem = PasswordFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
     } else {
-      panic();
+      panic("AddItem.createNewItem: unexpected item type.");
     }
     return newItem;
   }
@@ -203,7 +203,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     }
 
     else {
-      panic();
+      panic("cannot create item in context here.");
     }
 
 

@@ -153,7 +153,7 @@ export function getHitInfo(
 
       // resize hitbox of table takes precedence over everything in the child area.
       const resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
-      if (resizeHitbox.type != HitboxFlags.Resize) { panic(); }
+      if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
         return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta);
       }
@@ -228,7 +228,7 @@ export function getHitInfo(
 
       // resize hitbox of table takes precedence over everything in the child area.
       const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
-      if (resizeHitbox.type != HitboxFlags.Resize) { panic(); }
+      if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
       if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
         return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta);
       }

@@ -44,7 +44,7 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 export const NoteFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem => {
-    if (parentId == EMPTY_UID) { panic(); }
+    if (parentId == EMPTY_UID) { panic("NoteFns.create: parent is empty."); }
     return {
       itemType: ItemType.Note,
       ownerId,
@@ -211,7 +211,7 @@ export const NoteFns = {
 
   asNoteMeasurable: (item: ItemTypeMixin): NoteMeasurable => {
     if (item.itemType == ItemType.Note) { return item as NoteMeasurable; }
-    panic();
+    panic("not note measurable");
   },
 
   handleLinkClick: (visualElement: VisualElement): void => {
@@ -284,5 +284,5 @@ export function isNote(item: ItemTypeMixin | null): boolean {
 
 export function asNoteItem(item: ItemTypeMixin): NoteItem {
   if (item.itemType == ItemType.Note) { return item as NoteItem; }
-  panic();
+  panic("not note item.");
 }

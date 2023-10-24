@@ -242,7 +242,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     }
 
     const drawChild = (child: VisualElementSignal) => {
-      if (!(child.get().flags & VisualElementFlags.LineItem)) { panic(); }
+      if (!(child.get().flags & VisualElementFlags.LineItem)) { panic("drawChild: table child is not a line item."); }
       return (
         <>
           <VisualElement_LineItem visualElement={child.get()} />

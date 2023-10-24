@@ -102,7 +102,7 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
     } else if (checkElement_document?.checked) {
       t = ArrangeAlgorithm.Document;
     } else {
-      panic();
+      panic(`changeArrangeAlgo: Unexpected arrange algo: ${changeArrangeAlgo}`);
     }
     asPageItem(itemState.get(pageId)!).arrangeAlgorithm = t;
     arrange(desktopStore);

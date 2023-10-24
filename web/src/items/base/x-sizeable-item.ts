@@ -37,7 +37,7 @@ export function isXSizableItem(item: ItemTypeMixin | null): boolean {
 
 export function asXSizableItem(item: ItemTypeMixin): XSizableItem {
   if (isXSizableItem(item)) { return item as XSizableItem; }
-  panic();
+  panic("not x-sizable item.");
 }
 
 export function allowHalfBlockWidth(item: XSizableItem): boolean {

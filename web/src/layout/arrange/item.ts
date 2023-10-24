@@ -57,7 +57,7 @@ export const arrangeItem = (
     renderChildrenAsFull: boolean,
     isPopup: boolean,
     isRoot: boolean): VisualElementSignal => {
-  if (isPopup && !isLink(item)) { panic(); }
+  if (isPopup && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
 
   const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(desktopStore, item);
   const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
@@ -391,7 +391,7 @@ const arrangePageWithChildren = (
 
   } else {
 
-    panic();
+    panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
   }
 
   const attachments = arrangeItemAttachments(desktopStore, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);

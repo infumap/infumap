@@ -65,5 +65,5 @@ export function isFlagsItem(item: ItemTypeMixin | null): boolean {
 
 export function asFlagsItem(item: ItemTypeMixin): FlagsItem {
   if (isFlagsItem(item)) { return item as FlagsItem; }
-  panic();
+  panic("not flags item.");
 }

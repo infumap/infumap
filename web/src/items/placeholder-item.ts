@@ -30,8 +30,8 @@ export interface PlaceholderMeasurable extends ItemTypeMixin { }
 
 export const PlaceholderFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): PlaceholderItem => {
-    if (relationshipToParent != RelationshipToParent.Attachment) { panic(); }
-    if (parentId == EMPTY_UID) { panic(); }
+    if (relationshipToParent != RelationshipToParent.Attachment) { panic("PlaceholderFns.create: relationshipToParent is not Attachment."); }
+    if (parentId == EMPTY_UID) { panic("PlaceholderFns.create: parent is empty."); }
     return {
       itemType: ItemType.Placeholder,
       ownerId,
@@ -77,11 +77,11 @@ export const PlaceholderFns = {
   },
 
   calcGeometry_Spatial: (_placeholder: PlaceholderMeasurable, _containerBoundsPx: BoundingBox, _containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, _emitHitboxes: boolean): ItemGeometry => {
-    panic();
+    panic("PlaceholderFns.calcGeometry_Spatial: not implemented.");
   },
 
   calcGeometry_InComposite: (_measurable: PlaceholderMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
-    panic();
+    panic("PlaceholderFns.calcGeometry_InComposite: not implemented.");
   },
 
   calcGeometry_Attachment: (placeholder: PlaceholderMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -102,12 +102,12 @@ export const PlaceholderFns = {
   },
 
   calcGeometry_Cell: (_placeholder: PlaceholderMeasurable, _cellBoundsPx: BoundingBox): ItemGeometry => {
-    panic();
+    panic("PlaceholderFns.calcGeometry_Cell: not implemented.");
   },
 
   asPlaceholderMeasurable: (item: ItemTypeMixin): PlaceholderMeasurable => {
     if (item.itemType == ItemType.Placeholder) { return item as PlaceholderMeasurable; }
-    panic();
+    panic("PlaceholderFns.asPlaceholderMeasurable: not implemented.");
   },
 
   cloneMeasurableFields: (placeholder: PlaceholderMeasurable): PlaceholderMeasurable => {
@@ -133,5 +133,5 @@ export function isPlaceholder(item: ItemTypeMixin | null): boolean {
 
 export function asPlaceholderItem(item: ItemTypeMixin): PlaceholderItem {
   if (item.itemType == ItemType.Placeholder) { return item as PlaceholderItem; }
-  panic();
+  panic("not placeholder item.");
 }

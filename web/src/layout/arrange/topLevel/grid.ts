@@ -154,7 +154,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     } else if (currentPopupSpec.type == PopupType.Image) {
       children.push(arrangeCellPopup(desktopStore));
     } else {
-      panic();
+      panic(`arrange_grid: unknown popup type: ${currentPopupSpec.type}.`);
     }
   }
 

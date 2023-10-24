@@ -51,7 +51,7 @@ export interface TableColumn {
 
 export const TableFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem => {
-    if (parentId == EMPTY_UID) { panic(); }
+    if (parentId == EMPTY_UID) { panic("TableFns.create: parent is empty."); }
     return {
       itemType: ItemType.Table,
       ownerId,
@@ -177,7 +177,7 @@ export const TableFns = {
   },
 
   calcGeometry_InComposite: (measurable: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
-    panic();
+    panic("TableFns.calcGeometry_InComposite: not implemented.");
   },
 
   calcGeometry_Attachment: (table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -221,7 +221,7 @@ export const TableFns = {
 
   asTableMeasurable: (item: ItemTypeMixin): TableMeasurable => {
     if (item.itemType == ItemType.Table) { return item as TableMeasurable; }
-    panic();
+    panic("not table measurable.");
   },
 
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
@@ -310,5 +310,5 @@ export function isTable(item: Item | ItemTypeMixin): boolean {
 
 export function asTableItem(item: ItemTypeMixin): TableItem {
   if (item.itemType == ItemType.Table) { return item as TableItem; }
-  panic();
+  panic("not table item.");
 }

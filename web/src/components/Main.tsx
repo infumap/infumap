@@ -51,7 +51,7 @@ export const Main: Component = () => {
     if (!params.usernameOrItemId && !params.username && !params.itemLabel) { id = "root"; }
     else if (params.usernameOrItemId) { id = params.usernameOrItemId; }
     else if (params.username && params.itemLabel) { id = `${params.username}/${params.itemLabel}`; }
-    else { panic(); }
+    else { panic("Main.onMount: unexpected params."); }
 
     try {
       const result: ItemsAndTheirAttachments =
@@ -69,7 +69,7 @@ export const Main: Component = () => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
       });
 
-      switchToPage(desktopStore, userStore, { itemId: pageId, linkIdMaybe: null }, false);
+      switchToPage(desktopStore, userStore, { itemId: pageId, linkIdMaybe: null }, false, false);
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       userStore.clear();

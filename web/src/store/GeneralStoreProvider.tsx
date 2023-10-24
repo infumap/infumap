@@ -96,5 +96,5 @@ export function GeneralStoreProvider(props: GeneralStoreContextProps) {
 }
 
 export function useGeneralStore() : GeneralStoreContextModel {
-  return useContext(GeneralStoreContext) ?? panic();
+  return useContext(GeneralStoreContext) ?? panic("no general store context");
 }

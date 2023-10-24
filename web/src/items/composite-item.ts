@@ -202,7 +202,7 @@ export const CompositeFns = {
 
   asCompositeMeasurable: (item: ItemTypeMixin): CompositeMeasurable => {
     if (item.itemType == ItemType.Composite) { return item as CompositeMeasurable; }
-    panic();
+    panic("not composite measurable.");
   },
 
   cloneMeasurableFields: (composite: CompositeMeasurable): CompositeMeasurable => {
@@ -238,5 +238,5 @@ export function isComposite(item: ItemTypeMixin | null): boolean {
 
 export function asCompositeItem(item: ItemTypeMixin): CompositeItem {
   if (item.itemType == ItemType.Composite) { return item as CompositeItem; }
-  panic();
+  panic("not composite item.");
 }

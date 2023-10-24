@@ -36,5 +36,5 @@ export function isYSizableItem(item: ItemTypeMixin | null): boolean {
 
 export function asYSizableItem(item: ItemTypeMixin): YSizableItem {
   if (isYSizableItem(item)) { return item as YSizableItem; }
-  panic();
+  panic("not y-sizeable item.");
 }

@@ -119,7 +119,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
       mouseAction_moving(deltaPx, desktopPosPx, desktopStore);
       return;
     default:
-      panic();
+      panic("unknown mouse action.");
   }
 }
 
@@ -444,7 +444,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     server.addItem(link, null);
     arrange(desktopStore); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id});
-    if (ve.length != 1) { panic(); }
+    if (ve.length != 1) { panic("moving_activeItemToPage: could not find element."); }
     MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
@@ -511,7 +511,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
     server.addItem(link, null);
     arrange(desktopStore); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
-    if (ve.length != 1) { panic(); }
+    if (ve.length != 1) { panic("moving_activeItemOutOfTable: could not find element."); }
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
     MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
     MouseActionState.get().onePxSizeBl = {

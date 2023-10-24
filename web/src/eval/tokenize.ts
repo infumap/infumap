@@ -17,7 +17,7 @@
 */
 
 import { FindDirection, findDirectionFromLetterPrefix } from "../layout/find";
-import { throwExpression } from "../util/lang";
+import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
 
 
@@ -71,7 +71,7 @@ export function tokenize(expression: string): Array<ExpressionToken> | null {
 }
 
 function createReferenceToken(s: string): ExpressionToken {
-  if (!s.startsWith("$")) { throwExpression("invalid reference"); }
+  if (!s.startsWith("$")) { panic("invalid reference"); }
   s = s.substring(1);
   if (s.length == EMPTY_UID.length) {
     return ({
@@ -82,7 +82,7 @@ function createReferenceToken(s: string): ExpressionToken {
       reference: s
     });
   }
-  if (s.length < 2) { throwExpression("invalid reference - not long enough"); }
+  if (s.length < 2) { panic("invalid reference - not long enough"); }
   return ({
     tokenType: ExpressionTokenType.RelativeReference,
     operator: null,

@@ -102,9 +102,10 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
   if (currentPageVeid == null) { return; }
   const currentPage = itemState.get(currentPageVeid.itemId)!;
 
+  const MAX_LEVELS = 8;
   let cnt = 0;
   let parentId = currentPage.parentId;
-  while (cnt++ < 5) {
+  while (cnt++ < MAX_LEVELS) {
     if (parentId == EMPTY_UID) {
       // already at top.
       return;
@@ -124,5 +125,5 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
     await initiateLoadItemMaybe(desktopStore, parentId);
   }
 
-  panic();
+  panic(`navigateUp: could not find page after ${MAX_LEVELS} levels.`);
 }

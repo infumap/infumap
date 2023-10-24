@@ -187,7 +187,7 @@ export const FileFns = {
 
   asFileMeasurable: (item: ItemTypeMixin): FileMeasurable => {
     if (item.itemType == ItemType.File) { return item as FileMeasurable; }
-    panic();
+    panic("not file measurable.");
   },
 
   handleLinkClick: (visualElement: VisualElement): void => {
@@ -225,5 +225,5 @@ export function isFile(item: ItemTypeMixin | null): boolean {
 
 export function asFileItem(item: ItemTypeMixin): FileItem {
   if (item.itemType == ItemType.File) { return item as FileItem; }
-  panic();
+  panic("not file item.");
 }

@@ -80,7 +80,7 @@ export let MouseActionState = {
   empty: (): boolean => mouseActionState == null,
 
   get: (): MouseActionStateType => {
-    if (mouseActionState == null) { panic!(); }
+    if (mouseActionState == null) { panic!("MouseActionState.get: no mouseActionState."); }
     return mouseActionState!;
   },
 }

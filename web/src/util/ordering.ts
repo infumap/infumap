@@ -159,7 +159,7 @@ export function newOrderingDirectlyAfter(orderings: Array<Uint8Array>, find: Uin
       break;
     }
   }
-  if (idx == -1) { panic(); }
+  if (idx == -1) { panic("newOrderingDirectlyAfter: idx == -1"); }
   if (idx == orderings.length-1) {
     return newOrderingAtEnd(orderings);
   }

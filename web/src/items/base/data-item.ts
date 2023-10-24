@@ -38,5 +38,5 @@ export function isDataItem(item: ItemTypeMixin | null): boolean {
 
 export function asDataItem(item: ItemTypeMixin): DataItem {
   if (isDataItem(item)) { return item as DataItem; }
-  panic();
+  panic("not data item.");
 }

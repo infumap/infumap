@@ -16,21 +16,18 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { hexToRGBA } from "./util/color";
-import { assert } from "./util/lang";
+import { Component } from "solid-js";
+import { Z_PANIC } from "../../constants";
+import { panickedMessage } from "../../util/lang";
 
-export let Colors = [
-  "#395176", // blue [default]
-  "#395176", // blue
-  "#76393A", // red
-  "#764F39", // orange
-  "#767139", // yellow
-  "#3B7639", // green
-  "#6F3976", // purple
-  "#767676"  // gray
-];
 
-export function linearGradient(colIndex: number, lightenByAlpha: number): string {
-  assert(lightenByAlpha < 0.986, "invalid lightenByAlpha: " + lightenByAlpha);
-  return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`
+export const Panic: Component = () => {
+  return (
+    <div id="textEntryOverlay"
+         class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
+         style={`background-color: #80000030; z-index: ${Z_PANIC};`}>
+      <div style="font-size: 64px;">panic!</div>
+      <div style="font-size: 20px;">${panickedMessage}</div>
+    </div>
+  );
 }

@@ -37,7 +37,7 @@ export function findDirectionFromLetterPrefix(prefix: string): FindDirection {
   if (prefix == "R") { return FindDirection.Right; }
   if (prefix == "U") { return FindDirection.Up; }
   if (prefix == "D") { return FindDirection.Down; }
-  panic();
+  panic(`Unexpected direction letter: ${prefix}.`);
 }
 
 export function findDirectionFromKeyCode(code: string): FindDirection {
@@ -45,7 +45,7 @@ export function findDirectionFromKeyCode(code: string): FindDirection {
   if (code == "ArrowRight") { return FindDirection.Right; }
   if (code == "ArrowUp") { return FindDirection.Up; }
   if (code == "ArrowDown") { return FindDirection.Down; }
-  panic();
+  panic(`Unexpected direction keycode: ${code}`);
 }
 
 export function findClosest(path: VisualElementPath, direction: FindDirection, allItemTypes: boolean): VisualElementPath | null {
@@ -104,7 +104,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
     }
   }
   else {
-    panic();
+    panic(`Unknown direction: ${direction}`);
   }
 
   if (candidates.length == 0) {

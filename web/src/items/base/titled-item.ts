@@ -36,5 +36,5 @@ export function isTitledItem(item: ItemTypeMixin | null): boolean {
 
 export function asTitledItem(item: ItemTypeMixin): TitledItem {
   if (isTitledItem(item)) { return item as TitledItem; }
-  panic();
+  panic("not titled item.");
 }

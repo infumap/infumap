@@ -41,7 +41,7 @@ export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin { }
 
 export const RatingFns = {
   create: (ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem => {
-    if (parentId == EMPTY_UID) { panic(); }
+    if (parentId == EMPTY_UID) { panic("RatingFns.create: parent is empty."); }
     return {
       itemType: ItemType.Rating,
       ownerId,
@@ -112,7 +112,7 @@ export const RatingFns = {
   },
 
   calcGeometry_InComposite: (_measurable: RatingMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
-    panic();
+    panic("RatingFns.calcGeometry_InComposite: not implemented.");
   },
 
   calcGeometry_Attachment: (rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -168,9 +168,9 @@ export const RatingFns = {
     clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
   },
 
-  asPlaceholderMeasurable: (item: ItemTypeMixin): RatingMeasurable => {
+  asRatingMeasurable: (item: ItemTypeMixin): RatingMeasurable => {
     if (item.itemType == ItemType.Rating) { return item as RatingMeasurable; }
-    panic();
+    panic("not rating measurable.");
   },
 
   cloneMeasurableFields: (rating: RatingMeasurable): RatingMeasurable => {
@@ -201,5 +201,5 @@ export function isRating(item: ItemTypeMixin | null): boolean {
 
 export function asRatingItem(item: ItemTypeMixin): RatingItem {
   if (item.itemType == ItemType.Rating) { return item as RatingItem; }
-  panic();
+  panic("not rating item.");
 }
