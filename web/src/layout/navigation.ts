@@ -75,7 +75,7 @@ export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: 
 }
 
 
-export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
+export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): boolean {
   if (desktopStore.currentPopupSpec() != null) {
     desktopStore.popPopup();
     const page = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
@@ -83,7 +83,7 @@ export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: 
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
     arrange(desktopStore);
-    return;
+    return true;
   }
 
   const changePages = desktopStore.popPage();
