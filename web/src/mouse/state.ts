@@ -139,7 +139,7 @@ let lastMoveEvent: TouchOrMouseEvent = {
   shiftDown: false,
 };
 
-export const LastMouseMoveEventState = {
+export const CursorEventState = {
   setFromMouseEvent: (ev: MouseEvent) => {
     lastMoveEvent = {
       clientX: ev.clientX,
@@ -158,7 +158,7 @@ export const LastMouseMoveEventState = {
 
   get: (): TouchOrMouseEvent => lastMoveEvent,
 
-  getLastDesktopPx: (): Vector => desktopPxFromMouseEvent(lastMoveEvent),
+  getLastestDesktopPx: (): Vector => desktopPxFromMouseEvent(lastMoveEvent),
 }
 
 

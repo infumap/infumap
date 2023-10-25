@@ -18,7 +18,7 @@
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
-import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
+import { DesktopStoreContextModel, PopupType } from "../../store/DesktopStoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -28,7 +28,7 @@ import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, EMPTY_
 import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
-import { panic } from "../../util/lang";
+import { assert, panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { itemState } from "../../store/ItemState";
 import { TableFlags } from "../../items/base/flags-item";
@@ -43,7 +43,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { LastMouseMoveEventState, MouseAction, MouseActionState } from "../../mouse/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../../mouse/state";
 
 
 const PAGE_TITLE_UID = newUid();
@@ -210,11 +210,20 @@ const arrangePageWithChildren = (
     }
 
     if (movingItem) {
+      let scrollProp;
+      if (isPagePopup) {
+        const popupSpec = desktopStore.currentPopupSpec();
+        assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
+        scrollProp = desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
+      } else {
+        scrollProp = desktopStore.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+      }
+      const yOffsetPx = scrollProp * (boundsPx.h - outerBoundsPx.h);
       const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-      const mouseDestkopPosPx = LastMouseMoveEventState.getLastDesktopPx();
+      const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
       const cellBoundsPx = {
         x: mouseDestkopPosPx.x - outerBoundsPx.x,
-        y: mouseDestkopPosPx.y - outerBoundsPx.y,
+        y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx,
         w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
       };

@@ -34,7 +34,7 @@ import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
 import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { LastMouseMoveEventState } from "../../mouse/state";
+import { CursorEventState } from "../../mouse/state";
 import { FindDirection, findClosest } from "../../layout/find";
 import { getTextStyleForNote, measureLineCount } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
@@ -140,15 +140,15 @@ export const TextEditOverlay: Component = () => {
 
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.stopPropagation();
-    LastMouseMoveEventState.setFromMouseEvent(ev);
-    const desktopPx = LastMouseMoveEventState.getLastDesktopPx();
+    CursorEventState.setFromMouseEvent(ev);
+    const desktopPx = CursorEventState.getLastestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
     await server.updateItem(noteVisualElement().displayItem);
     desktopStore.setTextEditOverlayInfo(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.setFromMouseEvent(ev);
+    CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
   };
 

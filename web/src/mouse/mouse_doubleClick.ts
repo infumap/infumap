@@ -21,7 +21,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { DoubleClickState, LastMouseMoveEventState } from "./state";
+import { DoubleClickState, CursorEventState } from "./state";
 
 
 export function mouseDoubleClickHandler(
@@ -34,8 +34,8 @@ export function mouseDoubleClickHandler(
   if (desktopStore.textEditOverlayInfo() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
-  const hitInfo = getHitInfo(desktopStore, LastMouseMoveEventState.getLastDesktopPx(), [], false);
+  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
 
-  desktopStore.setContextMenuInfo({ posPx: LastMouseMoveEventState.getLastDesktopPx(), hitInfo });
+  desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLastestDesktopPx(), hitInfo });
   mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
 }

@@ -38,7 +38,7 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { itemState } from "../store/ItemState";
 import { VesCache } from "../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../items/composite-item";
-import { MouseAction, MouseActionState, LastMouseMoveEventState, DialogMoveState, UserSettingsMoveState } from "./state";
+import { MouseAction, MouseActionState, CursorEventState, DialogMoveState, UserSettingsMoveState } from "./state";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrange } from "../layout/arrange";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
@@ -54,7 +54,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
 
   const hasUser = userStore.getUserMaybe() != null;
 
-  const currentMouseDesktopPx = LastMouseMoveEventState.getLastDesktopPx();
+  const currentMouseDesktopPx = CursorEventState.getLastestDesktopPx();
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
@@ -173,7 +173,7 @@ function changeMouseActionStateMaybe(
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
-      const shouldCreateLink = LastMouseMoveEventState.get().shiftDown;
+      const shouldCreateLink = CursorEventState.get().shiftDown;
       const parentItem = itemState.get(activeItem.parentId)!;
       if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
         moving_activeItemOutOfTable(desktopStore, shouldCreateLink);
@@ -534,7 +534,7 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
   const contextMenuInfo = desktopStore.contextMenuInfo();
   const hasModal = dialogInfo != null || contextMenuInfo != null || userSettingsInfo != null;
 
-  const ev = LastMouseMoveEventState.get();
+  const ev = CursorEventState.get();
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
 

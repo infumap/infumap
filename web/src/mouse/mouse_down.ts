@@ -33,7 +33,7 @@ import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { DoubleClickState, DialogMoveState, LastMouseMoveEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
+import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
 
 
 export const MOUSE_LEFT = 0;
@@ -65,7 +65,7 @@ export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {
 
-  const desktopPosPx = LastMouseMoveEventState.getLastDesktopPx();
+  const desktopPosPx = CursorEventState.getLastestDesktopPx();
 
   if (desktopStore.contextMenuInfo() != null) {
     DoubleClickState.preventDoubleClick();

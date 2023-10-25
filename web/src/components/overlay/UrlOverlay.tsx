@@ -24,7 +24,7 @@ import { BooleanSignal } from "../../util/signals";
 import { isInside } from "../../util/geometry";
 import { asNoteItem } from "../../items/note-item";
 import { arrange } from "../../layout/arrange";
-import { LastMouseMoveEventState } from "../../mouse/state";
+import { CursorEventState } from "../../mouse/state";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 
 
@@ -46,14 +46,14 @@ export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props:
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
-    LastMouseMoveEventState.setFromMouseEvent(ev);
-    const desktopPx = LastMouseMoveEventState.getLastDesktopPx();
+    CursorEventState.setFromMouseEvent(ev);
+    const desktopPx = CursorEventState.getLastestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
     props.urlOverlayVisible.set(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.setFromMouseEvent(ev);
+    CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
   };
 

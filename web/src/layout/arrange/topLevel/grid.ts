@@ -20,7 +20,7 @@ import { GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX } from "../../../const
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
-import { LastMouseMoveEventState, MouseAction, MouseActionState } from "../../../mouse/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../../../mouse/state";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";
@@ -133,7 +133,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   if (movingItem) {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-    const mouseDestkopPosPx = LastMouseMoveEventState.getLastDesktopPx();
+    const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
     const cellBoundsPx = {
       x: mouseDestkopPosPx.x,
       y: mouseDestkopPosPx.y,

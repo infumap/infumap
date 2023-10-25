@@ -18,7 +18,7 @@
 
 import { Accessor, Component, For, Match, Setter, Show, Switch, createSignal, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { LastMouseMoveEventState } from "../../mouse/state";
+import { CursorEventState } from "../../mouse/state";
 import { SearchResult, server } from "../../server";
 import { ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";
@@ -50,14 +50,14 @@ export const SearchOverlay: Component = () => {
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
-    LastMouseMoveEventState.setFromMouseEvent(ev);
-    if (isInside(LastMouseMoveEventState.getLastDesktopPx(), boxBoundsPx())) { return; }
+    CursorEventState.setFromMouseEvent(ev);
+    if (isInside(CursorEventState.getLastestDesktopPx(), boxBoundsPx())) { return; }
     if (overResultsDiv) { return; }
     desktopStore.setSearchOverlayVisible(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.setFromMouseEvent(ev);
+    CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
   };
 

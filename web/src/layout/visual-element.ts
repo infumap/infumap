@@ -21,14 +21,15 @@ import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
 import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
-import { panic } from "../util/lang";
+import { assert, panic } from "../util/lang";
 import { asTableItem, isTable } from "../items/table-item";
 import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
+import { isPage } from "../items/page-item";
 
 
 /**
@@ -366,6 +367,16 @@ export const VeFns = {
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
         r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
+      } else if (isPage(ve.displayItem)) {
+        let adj;
+        if (ve.flags & VisualElementFlags.Popup) {
+          const popupSpec = desktopStore.currentPopupSpec()!;
+          assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
+          adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
+        } else {
+          adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
+        }
+        r.y -= adj;
       }
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }

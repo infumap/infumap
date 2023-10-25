@@ -38,7 +38,7 @@ import { TextEditOverlay } from "./overlay/TextEditOverlay";
 import { mouseUpHandler } from "../mouse/mouse_up";
 import { MOUSE_RIGHT, mouseDownHandler } from "../mouse/mouse_down";
 import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
-import { LastMouseMoveEventState } from "../mouse/state";
+import { CursorEventState } from "../mouse/state";
 import { arrange } from "../layout/arrange";
 import { SearchOverlay } from "./overlay/SearchOverlay";
 import { EditUserSettings } from "./overlay/UserSettings";
@@ -61,11 +61,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       return;
     }
 
-    const hitInfo = getHitInfo(desktopStore, LastMouseMoveEventState.getLastDesktopPx(), [], false);
+    const hitInfo = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
 
     if (ev.code == "Slash") {
       ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: LastMouseMoveEventState.getLastDesktopPx(), hitInfo });
+      desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLastestDesktopPx(), hitInfo });
       mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     }
 
@@ -155,14 +155,14 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const touchListener = async (ev: TouchEvent) => {
     if (ev.touches.length > 1) {
-      LastMouseMoveEventState.setFromTouchEvent(ev);
+      CursorEventState.setFromTouchEvent(ev);
       ev.preventDefault();
       await mouseDownHandler(desktopStore, userStore, MOUSE_RIGHT);
     }
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
-    LastMouseMoveEventState.setFromMouseEvent(ev);
+    CursorEventState.setFromMouseEvent(ev);
     mouseMoveHandler(desktopStore, userStore);
   };
 
@@ -190,11 +190,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   };
 
   const dropListener = async (ev: DragEvent) => {
-    LastMouseMoveEventState.setFromMouseEvent(ev);
+    CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(desktopStore, LastMouseMoveEventState.getLastDesktopPx(), [], false);
+      let hi = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
       if (hi.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
@@ -204,7 +204,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         console.log("must upload on page.");
         return;
       }
-      await handleUpload(desktopStore, ev.dataTransfer, LastMouseMoveEventState.getLastDesktopPx(), asPageItem(item));
+      await handleUpload(desktopStore, ev.dataTransfer, CursorEventState.getLastestDesktopPx(), asPageItem(item));
     }
   };
 
