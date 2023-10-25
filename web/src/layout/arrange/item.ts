@@ -120,15 +120,17 @@ const arrangePageWithChildren = (
   if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
 
     let movingItem = null;
+    let movingItemInThisPage = null;
     if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
       const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
       if (veid.linkIdMaybe) {
-        movingItem = itemState.get(veid.linkIdMaybe);
+        movingItemInThisPage = itemState.get(veid.linkIdMaybe);
       } else {
-        movingItem = itemState.get(veid.itemId);
+        movingItemInThisPage = itemState.get(veid.itemId);
       }
-      if (movingItem!.parentId != displayItem_pageWithChildren.id) {
-        movingItem = null;
+      movingItem = movingItemInThisPage;
+      if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
+        movingItemInThisPage = null;
       }
     }
 
@@ -138,7 +140,19 @@ const arrangePageWithChildren = (
 
     const pageItem = asPageItem(displayItem_pageWithChildren);
     const numCols = pageItem.gridNumberOfColumns;
-    const numRows = Math.ceil((pageItem.computed_children.length - (movingItem ? 1 : 0)) / numCols);
+
+    // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
+    // change until after the move is complete to avoid a very distruptive jump in y scroll px.
+    let nItemAdj = 0;
+    if (movingItem && !MouseActionState.get().linkCreatedOnMoveStart) {
+      const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
+      const startParent = startParentVes.get().displayItem;
+      if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
+        nItemAdj = 1;
+      }
+    }
+
+    const numRows = Math.ceil((pageItem.computed_children.length + nItemAdj) / numCols);
     const cellWPx = geometry.boundsPx.w / numCols;
     const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
     const marginPx = cellWPx * 0.01;
@@ -188,7 +202,7 @@ const arrangePageWithChildren = (
     let idx = 0;
     for (let i=0; i<pageItem.computed_children.length; ++i) {
       const item = itemState.get(pageItem.computed_children[i])!;
-      if (movingItem && item.id == movingItem!.id) {
+      if (movingItemInThisPage && item.id == movingItemInThisPage!.id) {
         continue;
       }
       const col = idx % numCols;
@@ -207,7 +221,7 @@ const arrangePageWithChildren = (
       children.push(ves);
     }
 
-    if (movingItem) {
+    if (movingItemInThisPage) {
       let scrollProp;
       if (isPagePopup) {
         const popupSpec = desktopStore.currentPopupSpec();
@@ -217,7 +231,7 @@ const arrangePageWithChildren = (
         scrollProp = desktopStore.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       }
       const yOffsetPx = scrollProp * (boundsPx.h - outerBoundsPx.h);
-      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
+      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
       const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
       const cellBoundsPx = {
         x: mouseDestkopPosPx.x - outerBoundsPx.x,
@@ -227,8 +241,8 @@ const arrangePageWithChildren = (
       };
       cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-      const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
-      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
+      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false);
+      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false);
       children.push(ves);
     }
 

@@ -43,15 +43,17 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const currentPath = currentPage.id;
 
   let movingItem = null;
+  let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
     const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
     if (veid.linkIdMaybe) {
-      movingItem = itemState.get(veid.linkIdMaybe);
+      movingItemInThisPage = itemState.get(veid.linkIdMaybe);
     } else {
-      movingItem = itemState.get(veid.itemId);
+      movingItemInThisPage = itemState.get(veid.itemId);
     }
-    if (movingItem!.parentId != currentPage.id) {
-      movingItem = null;
+    movingItem = movingItemInThisPage;
+    if (movingItemInThisPage!.parentId != currentPage.id) {
+      movingItemInThisPage = null;
     }
   }
 
@@ -60,7 +62,19 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
 
   const numCols = currentPage.gridNumberOfColumns;
-  const numRows = Math.ceil((currentPage.computed_children.length - (movingItem == null ? 0 : 1)) / numCols);
+
+  // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
+  // change until after the move is complete to avoid a very distruptive jump in y scroll px.
+  let nItemAdj = 0;
+  if (movingItem && !MouseActionState.get().linkCreatedOnMoveStart) {
+    const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
+    const startParent = startParentVes.get().displayItem;
+    if (startParent.id == currentPage.id && movingItem!.parentId != startParent.id) {
+      nItemAdj = 1;
+    }
+  }
+
+  const numRows = Math.ceil((currentPage.computed_children.length + nItemAdj) / numCols);
   const cellWPx = pageBoundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
   const marginPx = cellWPx * 0.01;

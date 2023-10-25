@@ -142,6 +142,7 @@ export function mouseLeftDownHandler(
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
+    startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
     activeElement: VeFns.veToPath(hitInfo.overElementVes.get()),
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(hitInfo.overContainerVe!) : null,
     moveOver_containerElement: null,

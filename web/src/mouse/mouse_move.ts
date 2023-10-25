@@ -220,6 +220,7 @@ function changeMouseActionStateMaybe(
           arrange(desktopStore);
         }
       }
+
       desktopStore.setItemIsMoving(true);
       MouseActionState.get().action = MouseAction.Moving;
     }

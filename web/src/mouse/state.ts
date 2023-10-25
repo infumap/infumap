@@ -20,7 +20,7 @@ import { AttachmentsItem } from "../items/base/attachments-item";
 import { CompositeItem } from "../items/composite-item";
 import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
-import { VisualElementPath } from "../layout/visual-element";
+import { VisualElement, VisualElementPath } from "../layout/visual-element";
 import { Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
 
@@ -44,6 +44,7 @@ export interface MouseActionStateType {
 
   hitMeta: HitboxMeta | null,
 
+  startActiveElementParent: VisualElementPath,
   activeElement: VisualElementPath,
   activeCompositeElementMaybe: VisualElementPath | null,
 
