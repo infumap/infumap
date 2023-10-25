@@ -54,7 +54,6 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       movingItem = null;
     }
   }
-  const movingItemIsNewlyCreatedLink = !MouseActionState.empty() && movingItem && MouseActionState.get().linkCreatedOnMoveStart;
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
@@ -109,7 +108,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   let idx = 0;
   for (let i=0; i<currentPage.computed_children.length; ++i) {
     const item = itemState.get(currentPage.computed_children[i])!;
-    if (movingItemIsNewlyCreatedLink && item.id == movingItem!.id) {
+    if (movingItem && item.id == movingItem!.id) {
       continue;
     }
     const col = idx % numCols;
