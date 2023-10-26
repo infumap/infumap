@@ -42,60 +42,109 @@ export const GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY = "children-and
 export const GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS = "item-attachments-children-and-their-attachments";
 export const GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY = "item-and-attachments-only";
 
+interface ServerCommand {
+  host: string | null,
+  command: string,
+  payload: object,
+  base64data: string | null,
+  panicLogoutOnError: boolean,
+  resolve: (response: any) => void,
+  reject: (reason: any) => void,
+}
+
+// TODO (MEDIUM): Allow multiple in flight requests. But add seq number and enforce execution order on server.
+const commandQueue: Array<ServerCommand> = [];
+let inProgress: ServerCommand | null = null;
+
+function serveWaiting() {
+  if (commandQueue.length == 0) { return; }
+  const command = commandQueue.shift() as ServerCommand;
+  sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+    .then((resp: any) => {
+      inProgress = null;
+      command.resolve(resp);
+    })
+    .catch((error) => {
+      inProgress = null;
+      command.reject(error);
+    })
+    .finally(() => {
+      serveWaiting();
+    });
+}
+
+function constructCommandPromise(
+    host: string | null,
+    command: string,
+    payload: object,
+    base64data: string | null,
+    panicLogoutOnError: boolean): Promise<any> {
+  return new Promise((resolve, reject) => { // called when the Promise is constructed.
+    const commandObj: ServerCommand = {
+      host, command, payload, base64data, panicLogoutOnError,
+      resolve, reject
+    };
+    commandQueue.push(commandObj);
+    serveWaiting();
+  })
+}
+
 export const server = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    const r = await sendCommand(null, "get-items", { id, mode }, null, false);
-    // Server side, itemId is an optional and the root page does not have this set (== null in the response).
-    // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
-    if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
-    return ({
-      item: r.item,
-      children: r.children,
-      attachments: r.attachments
-    });
+    return constructCommandPromise(null, "get-items", { id, mode }, null, false)
+      .then((r: any) => {
+        // Server side, itemId is an optional and the root page does not have this set (== null in the response).
+        // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
+        if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
+        return ({
+          item: r.item,
+          children: r.children,
+          attachments: r.attachments
+        });
+      });
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null): Promise<object> => {
-    const returnedItem = await sendCommand(null, "add-item", item, base64Data, true);
-    return returnedItem;
+    return constructCommandPromise(null, "add-item", item, base64Data, true);
   },
 
   addItem: async (item: Item, base64Data: string | null): Promise<object> => {
-    let returnedItem = await sendCommand(null, "add-item", ItemFns.toObject(item), base64Data, true);
-    return returnedItem;
+    return constructCommandPromise(null, "add-item", ItemFns.toObject(item), base64Data, true);
   },
 
   updateItem: async (item: Item): Promise<void> => {
-    await sendCommand(null, "update-item", ItemFns.toObject(item), null, true);
+    return constructCommandPromise(null, "update-item", ItemFns.toObject(item), null, true);
   },
 
   deleteItem: async (id: Uid): Promise<void> => {
-    await sendCommand(null, "delete-item", { id }, null, true);
+    return constructCommandPromise(null, "delete-item", { id }, null, true);
   },
 
   search: async (pageIdMaybe: Uid | null, text: String): Promise<Array<SearchResult>> => {
-    let result = await sendCommand(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true);
-    return result;``
+    return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true);
   }
 }
+
 
 export const remote = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    const r = await sendCommand(host, "get-items", { id, mode }, null, false);
-    // Server side, itemId is an optional and the root page does not have this set (== null in the response).
-    // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
-    if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
-    return ({
-      item: r.item,
-      children: r.children,
-      attachments: r.attachments
-    });
+    return constructCommandPromise(host, "get-items", { id, mode }, null, false)
+      .then((r: any) => {
+        // Server side, itemId is an optional and the root page does not have this set (== null in the response).
+        // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
+        if (r.item && r.item.parentId == null) { r.item.parentId = EMPTY_UID; }
+        return ({
+          item: r.item,
+          children: r.children,
+          attachments: r.attachments
+        });
+      });
   },
 }
 
