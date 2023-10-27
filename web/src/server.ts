@@ -59,6 +59,8 @@ let inProgress: ServerCommand | null = null;
 function serveWaiting() {
   if (commandQueue.length == 0) { return; }
   const command = commandQueue.shift() as ServerCommand;
+  const debug = false;
+  if (debug) { console.debug(command.command, command.payload); }
   sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
     .then((resp: any) => {
       inProgress = null;

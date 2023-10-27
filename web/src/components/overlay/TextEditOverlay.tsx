@@ -331,6 +331,8 @@ export const TextEditOverlay: Component = () => {
           deleted = true;
           itemState.delete(justCreatedCompositeMaybe.id);
           server.deleteItem(justCreatedCompositeMaybe.id);
+        } else if (asContainerItem(parentVe.displayItem).computed_children.length == 1) {
+          console.log("TODO (HIGH): delete composite.");
         }
         desktopStore.setTextEditOverlayInfo(null);
         arrange(desktopStore);
