@@ -151,7 +151,7 @@ export const TextEditOverlay: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLastestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
-    await server.updateItem(noteVisualElement().displayItem);
+    server.updateItem(noteVisualElement().displayItem);
     desktopStore.setTextEditOverlayInfo(null);
   };
 
@@ -187,7 +187,7 @@ export const TextEditOverlay: Component = () => {
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      await server.updateItem(noteVisualElement().displayItem);
+      server.updateItem(noteVisualElement().displayItem);
       desktopStore.setTextEditOverlayInfo(null);
     }
   };
@@ -216,7 +216,7 @@ export const TextEditOverlay: Component = () => {
       // TODO (HIGH)
     } else {
       deleted = true;
-      await server.deleteItem(noteItem().id); // throws on failure.
+      server.deleteItem(noteItem().id); // throws on failure.
       itemState.delete(noteItem().id);
       desktopStore.setTextEditOverlayInfo(null);
       arrange(desktopStore);
@@ -314,7 +314,7 @@ export const TextEditOverlay: Component = () => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
     if (ve.flags & VisualElementFlags.InsideTable) {
-      await server.updateItem(ve.displayItem);
+      server.updateItem(ve.displayItem);
       desktopStore.setTextEditOverlayInfo(null);
       arrange(desktopStore);
 
@@ -342,11 +342,11 @@ export const TextEditOverlay: Component = () => {
       }
 
       noteItem().title = textElement!.value;
-      await server.updateItem(ve.displayItem);
+      server.updateItem(ve.displayItem);
       const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
       itemState.add(note);
-      await server.addItem(note, null);
+      server.addItem(note, null);
       const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
       if (parent.computed_children[parent.computed_children.length-1] == note.id) {
         justCreatedNoteMaybe = note;
@@ -365,15 +365,15 @@ export const TextEditOverlay: Component = () => {
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);
-      await server.addItem(composite, null);
+      server.addItem(composite, null);
       justCreatedCompositeMaybe = composite;
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
-      await server.updateItem(ve.displayItem);
+      server.updateItem(ve.displayItem);
 
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       itemState.add(note);
-      await server.addItem(note, null);
+      server.addItem(note, null);
       justCreatedNoteMaybe = note;
 
       desktopStore.setTextEditOverlayInfo(null);

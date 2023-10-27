@@ -57,10 +57,11 @@ const commandQueue: Array<ServerCommand> = [];
 let inProgress: ServerCommand | null = null;
 
 function serveWaiting() {
-  if (commandQueue.length == 0) { return; }
+  if (commandQueue.length == 0 || inProgress != null) { return; }
   const command = commandQueue.shift() as ServerCommand;
-  const debug = false;
-  if (debug) { console.debug(command.command, command.payload); }
+  inProgress = command;
+  const DEBUG = false;
+  if (DEBUG) { console.debug(command.command, command.payload); }
   sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
     .then((resp: any) => {
       inProgress = null;

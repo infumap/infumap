@@ -210,7 +210,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(
         activeItem, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
-      await server.updateItem(activeItem);
+      server.updateItem(activeItem);
     }
 
     // case #1.2: the moving item is a composite.
@@ -222,10 +222,10 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
         itemState.moveToNewParent(
           child, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
         lastPrevId = child.id;
-        await server.updateItem(child);
+        server.updateItem(child);
       }
       itemState.delete(activeItem_composite.id);
-      await server.deleteItem(activeItem_composite.id);
+      server.deleteItem(activeItem_composite.id);
     }
 
   // case #2: attaching to an item that is not inside an existing composite.
@@ -237,15 +237,15 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
       if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
       itemState.add(compositeItem);
-      await server.addItem(compositeItem, null);
+      server.addItem(compositeItem, null);
 
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
-      await server.updateItem(attachToItem);
+      server.updateItem(attachToItem);
 
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
-      await server.updateItem(activeItem);
+      server.updateItem(activeItem);
     }
 
     // case #2.2: the moving item being attached is a composite. 
@@ -254,13 +254,14 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       const attachToPositionGr = attachToItem.spatialPositionGr;
       activeItem_composite.spatialPositionGr = attachToPositionGr;
       itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
-      await server.updateItem(attachToItem);
-      await server.updateItem(activeItem_composite);
+      server.updateItem(attachToItem);
+      server.updateItem(activeItem_composite);
     }
 
   }
 
   finalizeMouseUp();
+  MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
   arrange(desktopStore);
 }
 
@@ -395,8 +396,8 @@ async function maybeDeleteComposite() {
   itemState.delete(compositeItem.id);
   itemState.sortChildren(compositeItemParent.id);
 
-  await server.updateItem(child);
-  await server.deleteItem(compositeItem.id);
+  server.updateItem(child);
+  server.deleteItem(compositeItem.id);
 }
 
 
