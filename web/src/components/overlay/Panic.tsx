@@ -46,7 +46,7 @@ export const Panic: Component = () => {
         <div style="font-size: 20px;">There is a good chance it is safe to ignore this and <a style="color: #88f;" href="" onClick={reload}>reload</a> the page to continue.</div>
         <div style="font-size: 20px;">If the problem persists, try removing lines from the end of your items.json database file.</div>
         <div style="font-size: 20px;">You might consider letting the developers know this happened and provide them with the following message:</div>
-        <div style={`font-size: 20px; z-index: ${Z_PANIC+1}`}>{getPanickedMessage()}</div>
+        <div style={`font-size: 20px; z-index: ${Z_PANIC+1}`}><i>{getPanickedMessage()}</i></div>
       </div>
     </div>
   );

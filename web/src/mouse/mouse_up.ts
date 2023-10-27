@@ -226,6 +226,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
       }
       itemState.delete(activeItem_composite.id);
       server.deleteItem(activeItem_composite.id);
+      MouseActionState.get().startCompositeItem = null;
     }
 
   // case #2: attaching to an item that is not inside an existing composite.
