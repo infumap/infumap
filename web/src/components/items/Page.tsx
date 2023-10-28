@@ -213,7 +213,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <>
-        <div class="absolute"
+        <div class="absolute border-r border-slate-700"
              style={`overflow-y: auto; overflow-x: hidden; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
                     `height: ${boundsPx().h}px; ` +
@@ -446,7 +446,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderAnchorMaybe = () =>
       <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
-             style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+             style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
                     `top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
                     `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
                     `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
