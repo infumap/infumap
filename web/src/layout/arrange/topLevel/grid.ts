@@ -138,7 +138,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     if (movingItem != null && item.id == movingItem.id) {
       // TODO (placeholder).
     } else {
-      const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
+      const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false);
       const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false);
       children.push(ves);
     }
@@ -155,7 +155,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     };
     cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-    const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false);
+    const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false, false, false);
     const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false);
     children.push(ves);
   }

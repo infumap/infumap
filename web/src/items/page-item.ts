@@ -342,31 +342,49 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean): ItemGeometry => {
+  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
-    let hitboxes;
-    if (expandable) {
-      hitboxes = [
-        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-        HitboxFns.create(HitboxFlags.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      ];
-    } else {
+    if (!isPopup) {
+      if (expandable) {
+        const hitboxes = [
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+          HitboxFns.create(HitboxFlags.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        ];
+        return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
+      }
+
       const popupClickBoundsPx =
         { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
           w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
-      hitboxes = [
+      const hitboxes = [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
       ];
+      return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
     }
 
-    return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+    ];
+
+    if (hasPendingChanges) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+    }
+
+    return ({
+      boundsPx,
+      hitboxes,
+    });
   },
 
   calcGeometry_SpatialPageTitle: (page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {

@@ -19,7 +19,7 @@
 import { batch } from "solid-js";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns } from "../../items/link-item";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
@@ -51,7 +51,7 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
     w: desktopBoundsPx.w * 0.8,
     h: desktopBoundsPx.h * 0.8,
   };
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false);
+  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, true, PageFns.popupPositioningHasChanged(currentPage));
 
   const item = itemState.get(popupLinkToImageId)!;
 

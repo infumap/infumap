@@ -215,7 +215,7 @@ const arrangePageWithChildren = (
         h: cellHPx - marginPx * 2.0
       };
 
-      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false);
+      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false);
       const renderChildrenAsFull = isPagePopup || isRoot;
       const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false);
       children.push(ves);
@@ -241,7 +241,7 @@ const arrangePageWithChildren = (
       };
       cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false);
+      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, false, false);
       const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false);
       children.push(ves);
     }
@@ -674,7 +674,7 @@ export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, 
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable);
+  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable, false, false);
 
   const result = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, true);
   return result;
