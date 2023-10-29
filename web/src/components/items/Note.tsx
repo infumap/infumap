@@ -118,62 +118,71 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     desktopStore.textEditOverlayInfo() == null &&
     isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
 
+  const renderShadow = () =>
+    <div class={`${outerClass(true)}`}
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />;
+
+  const renderDetailed = () =>
+    <>
+      <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
+           style={`position: absolute; ` +
+                  `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                  `width: ${naturalWidthPx()}px; ` +
+                  `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
+                  `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                  `font-size: ${infuTextStyle().fontSize}px; ` +
+                  `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+        <Switch>
+          <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
+            <a href={""}
+                class={`text-blue-800`}
+                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+                onClick={aHrefClick}
+                onMouseDown={aHrefMouseDown}
+                onMouseUp={aHrefMouseUp}>
+                {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+            </a>
+          </Match>
+          <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
+            <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+          </Match>
+        </Switch>
+      </div>
+      <For each={props.visualElement.attachments}>{attachment =>
+        <VisualElement_Desktop visualElement={attachment.get()} />
+      }</For>
+      <Show when={showMoveOutOfCompositeArea()}>
+        <div class={`absolute rounded-sm`}
+            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                    `background-color: #ff0000;`} />
+      </Show>
+      <Show when={props.visualElement.linkItemMaybe != null}>
+        <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+      </Show>
+      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+        <div class={`absolute rounded-sm`}
+            style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                    `background-color: #ff0000;`} />
+      </Show>
+      <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+        <div class={`absolute rounded-sm`}
+            style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                    `background-color: #ff0000;`} />
+      </Show>
+    </>;
+
   return (
     <>
-      <div class={`${outerClass(true)}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`}></div>
+      {renderShadow()}
       <div class={`${outerClass(false)}`}
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)};`}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
+                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-          <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
-               style={`position: absolute; ` +
-                      `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                      `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                      `width: ${naturalWidthPx()}px; ` +
-                      `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
-                      `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                      `font-size: ${infuTextStyle().fontSize}px; ` +
-                      `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                      `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-            <Switch>
-              <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
-                <a href={""}
-                   class={`text-blue-800`}
-                   style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-                   onClick={aHrefClick}
-                   onMouseDown={aHrefMouseDown}
-                   onMouseUp={aHrefMouseUp}>
-                    {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
-                </a>
-              </Match>
-              <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-                <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
-              </Match>
-            </Switch>
-          </div>
-          <For each={props.visualElement.attachments}>{attachment =>
-            <VisualElement_Desktop visualElement={attachment.get()} />
-          }</For>
-          <Show when={showMoveOutOfCompositeArea()}>
-            <div class={`absolute rounded-sm`}
-                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                        `background-color: #ff0000;`} />
-          </Show>
-          <Show when={props.visualElement.linkItemMaybe != null}>
-            <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
-          </Show>
-          <Show when={props.visualElement.movingItemIsOverAttach.get()}>
-            <div class={`absolute rounded-sm`}
-                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                        `background-color: #ff0000;`} />
-          </Show>
-          <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
-            <div class={`absolute rounded-sm`}
-                style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                        `background-color: #ff0000;`} />
-          </Show>
+          {renderDetailed()}
         </Show>
       </div>
     </>
