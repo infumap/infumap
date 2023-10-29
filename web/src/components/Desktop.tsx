@@ -28,7 +28,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { EditDialog, initialEditDialogBounds } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import { VeFns } from "../layout/visual-element";
 import { getHitInfo } from "../mouse/hit";
 import { panic } from "../util/lang";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
@@ -232,53 +232,16 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     window.removeEventListener('resize', windowResizeListener);
   });
 
-  const scrollHandler = (_ev: Event) => {
-    if (!desktopDiv) { return; }
-
-    const pageBoundsPx = desktopStore.topLevelVisualElementSignal().get().boundsPx;
-    const desktopSizePx = desktopStore.desktopBoundsPx();
-
-    if (desktopSizePx.w < pageBoundsPx.w) {
-      const scrollXProp = desktopDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
-      desktopStore.setPageScrollXProp(desktopStore.currentPage()!, scrollXProp);
-    }
-
-    if (desktopSizePx.h < pageBoundsPx.h) {
-      const scrollYProp = desktopDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
-      desktopStore.setPageScrollYProp(desktopStore.currentPage()!, scrollYProp);
-    }
-  }
-
-  function overflowPolicy(topLevelVisualElement: VisualElement) {
-    // Child items may extend outside the bounds of the page, even if the page is the same size as the desktop.
-    // This means overflow policy can't just be set to auto.
-
-    let desktopPx = desktopStore.desktopBoundsPx();
-    if (topLevelVisualElement.childAreaBoundsPx!.w == desktopPx.w &&
-        topLevelVisualElement.childAreaBoundsPx!.h == desktopPx.h) {
-      return "";
-    }
-    if (topLevelVisualElement.childAreaBoundsPx!.w != desktopPx.w &&
-        topLevelVisualElement.childAreaBoundsPx!.h != desktopPx.h) {
-      return "overflow: auto;"
-    }
-    if (topLevelVisualElement.childAreaBoundsPx!.w != desktopPx.w) {
-      return "overflow-x: auto; overflow-y: hidden;"
-    }
-    return "overflow-y: auto; overflow-x: hidden;";
-  }
-
   return (
     <div id="desktop"
          ref={desktopDiv}
          class="absolute top-0 bottom-0 right-0 select-none outline-none"
-         style={`left: ${MAIN_TOOLBAR_WIDTH_PX}px; ${overflowPolicy(props.visualElement)}`}
+         style={`left: ${MAIN_TOOLBAR_WIDTH_PX}px;`}
          ontouchstart={touchListener}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          ondblclick={mouseDoubleClickListener}
-         onmouseup={mouseUpListener}
-         onscroll={scrollHandler}>
+         onmouseup={mouseUpListener}>
 
       <Page_Desktop visualElement={props.visualElement} />
 
@@ -300,6 +263,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       <Show when={desktopStore.getPanicked()}>
         <Panic />
       </Show>
+
     </div>
   );
 }

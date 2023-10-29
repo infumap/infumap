@@ -487,22 +487,34 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `background-color: ${shadowColor()};`} />
       </Show>;
 
-    const renderListItemsMaybe = () =>
-      <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
-        <div class="absolute"
-             style={`overflow-y: auto; overflow-x: hidden; ` +
-                    `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${boundsPx().h}px`}>
+    const renderIsPublicBorder = () =>
+      <Show when={isPublic() && userStore.getUserMaybe() != null}>
+        <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
+      </Show>;
+
+    const renderListPage = () =>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+          style={`width: ${boundsPx().w + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                 `height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                 `background-color: #ffffff;` +
+                 `${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div ref={rootDiv}
+            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
+            style={`overflow-y: auto; overflow-x: hidden; ` +
+                   `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
+                   `height: ${boundsPx().h}px; ` +
+                   `background-color: #ffffff;` +
+                   `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
-               style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+              style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
             <div class="absolute overflow-hidden border-b border-slate-700"
-                 style={`margin-left: ${marginPx*listViewScale()}px;` +
-                        `margin-right: ${marginPx*listViewScale()}px; ` +
-                        `color: ${titleOnPageColor()}; ` +
-                        `font-size: ${PageFns.pageTitleStyle_List().fontSize*listViewScale()}px; ` +
-                        `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
-                        `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; ` +
-                        `left: 0px; top: 0px; ` +
-                        `pointer-events: none;`}>
+                style={`margin-left: ${marginPx*listViewScale()}px; ` +
+                       `margin-right: ${marginPx*listViewScale()}px; ` +
+                       `color: ${titleOnPageColor()}; ` +
+                       `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
+                       `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
+                       `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
+                       `pointer-events: none;`}>
               {pageItem().title}
             </div>
             <For each={lineVes()}>{childVe =>
@@ -510,19 +522,48 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }</For>
           </div>
         </div>
-        <div class={`absolute bg-slate-700`}
-              style={`left: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL*listViewScale()}px; top: 0px; height: ${boundsPx().h}px; width: 1px`} />
-      </Show>;
+        <For each={desktopVes()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
+      </div>;
 
-    const renderDesktopItems = () =>
-      <For each={desktopVes()}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} />
-      }</For>;
+    const rootScrollHandler = (_ev: Event) => {
+      if (!rootDiv) { return; }
 
-    const renderIsPublicBorder = () =>
-      <Show when={isPublic() && userStore.getUserMaybe() != null}>
-        <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
-      </Show>;
+      const pageBoundsPx = props.visualElement.boundsPx;
+      const desktopSizePx = desktopStore.desktopBoundsPx();
+
+      if (desktopSizePx.w < pageBoundsPx.w) {
+        const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
+        desktopStore.setPageScrollXProp(desktopStore.currentPage()!, scrollXProp);
+      }
+
+      if (desktopSizePx.h < pageBoundsPx.h) {
+        const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
+        desktopStore.setPageScrollYProp(desktopStore.currentPage()!, scrollYProp);
+      }
+    }
+
+    let rootDiv: HTMLDivElement | undefined;
+
+    const renderPage = () =>
+      <div ref={rootDiv}
+          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+          style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                 `top: 0px; width: ${desktopStore.desktopBoundsPx().w}px; height: ${desktopStore.desktopBoundsPx().h}px; ` +
+                 `overflow-y: ${desktopStore.desktopBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` +
+                 `${VeFns.zIndexStyle(props.visualElement)}`}
+          onscroll={rootScrollHandler}>
+        <div class="absolute"
+            style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; ` +
+                   `top: ${0}px; ` +
+                   `width: ${childAreaBoundsPx().w}px; ` +
+                   `height: ${childAreaBoundsPx().h}px;`}>
+          <For each={props.visualElement.children}>{childVe =>
+            <VisualElement_Desktop visualElement={childVe.get()} />
+          }</For>
+        </div>
+      </div>;
 
     return (
       <>
@@ -530,8 +571,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: #ffffff;`}>
-          {renderListItemsMaybe()}
-          {renderDesktopItems()}
+          <Switch>
+            <Match when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
+              {renderListPage()}
+            </Match>
+            <Match when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
+              {renderPage()}
+            </Match>
+          </Switch>
           {renderIsPublicBorder()}
         </div>
       </>

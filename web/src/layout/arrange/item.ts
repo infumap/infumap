@@ -392,7 +392,7 @@ const arrangePageWithChildren = (
         h: outerBoundsPx.h - (2 * LINE_HEIGHT_PX) * scale
       };
       pageWithChildrenVisualElementSpec.children.push(
-        arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, pageWithChildrenVePath, false));
+        arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
     }
 
 
@@ -664,7 +664,7 @@ const arrangeItemNoChildren = (
 
 const LIST_FOCUS_ID = newUid();
 
-export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, expandable: boolean): VisualElementSignal {
+export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, expandable: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
 
   let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
@@ -675,6 +675,6 @@ export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, 
 
   const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable, false, false);
 
-  const result = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, true);
+  const result = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, isRoot);
   return result;
 }

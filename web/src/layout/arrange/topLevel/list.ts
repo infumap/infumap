@@ -80,7 +80,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
     topLevelVisualElementSpec.children.push(
-      arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, currentPath, true));
+      arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, currentPath, true, true));
   }
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
