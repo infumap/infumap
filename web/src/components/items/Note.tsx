@@ -127,7 +127,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)};`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-          <div class={`${infuTextStyle().isCode ? ' font-mono' : ''}`}
+          <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
                style={`position: absolute; ` +
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
@@ -239,14 +239,15 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderText = () =>
-    <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
+    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis ` +
+                `${infuTextStyle().alignClass} `}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
           <a href={""}
-             class={`text-blue-800 ${noteItem().flags & NoteFlags.Code ? 'font-mono' : ''}`}
+             class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
                     `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
              onClick={aHrefClick}
@@ -256,17 +257,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
           </a>
         </Match>
         <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-          <Switch>
-            <Match when={noteItem().flags & NoteFlags.Code}>
-              <span class="font-mono">{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
-            </Match>
-            <Match when={noteItem().flags & NoteFlags.Heading3}>
-              <span style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
-            </Match>
-            <Match when={true}>
-              <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
-            </Match>
-          </Switch>
+          <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+            {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+          </span>
         </Match>
       </Switch>
     </div>;

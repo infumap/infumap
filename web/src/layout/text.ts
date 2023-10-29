@@ -33,9 +33,7 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
   }
   const div = document.createElement("div");
   const style = getTextStyleForNote(flags);
-  if (style.isCode) {
-    div.setAttribute("class", "font-mono");
-  }
+  div.setAttribute("class", `${style.alignClass} ${style.isCode ? ' font-mono' : '' }`);
   div.setAttribute("style",
     `left: ${NOTE_PADDING_PX}px; ` +
     `top: ${NOTE_PADDING_PX - LINE_HEIGHT_PX/4}px; ` +
@@ -67,6 +65,7 @@ export function measureWidthBl(s: string, style: InfuTextStyle): number {
     widthCache.clear();
   }
   const div = document.createElement("div");
+  div.setAttribute("class", `${style.alignClass} ${style.isCode ? ' font-mono' : '' }`);
   div.setAttribute("style",
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
@@ -88,20 +87,30 @@ export interface InfuTextStyle {
   lineHeightMultiplier: number,
   isBold: boolean,
   isCode: boolean,
+  alignClass: string,
 }
 
 export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
+  let alignClass = "text-left";
+  if (flags & NoteFlags.AlignRight) {
+    alignClass = "text-right";
+  } else if (flags & NoteFlags.AlignCenter) {
+    alignClass = "text-center";
+  } else if (flags & NoteFlags.AlignJustify) {
+    alignClass = "text-justify";
+  }
+
   if (flags & NoteFlags.Heading3) {
-    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode: false };
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode: false, alignClass };
   }
   if (flags & NoteFlags.Heading2) {
-    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode: false };
+    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode: false, alignClass };
   }
   if (flags & NoteFlags.Heading1) {
-    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true, isCode: false };
+    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true, isCode: false, alignClass };
   }
   if (flags & NoteFlags.Code) {
-    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: true }
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: true, alignClass }
   }
-  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: false };
+  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: false, alignClass };
 }
