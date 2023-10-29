@@ -487,15 +487,14 @@ const arrangeComposite = (
       oneBlockWidthPx: blockSizePx.w,
     };
 
+    const attachments = arrangeItemAttachments(desktopStore, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, compositeVePath);
+    compositeChildVeSpec.attachments = attachments;
+
     const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
     const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
     compositeVeChildren.push(compositeChildVeSignal);
   }
-
   compositeVisualElementSpec.children = compositeVeChildren;
-
-  const attachments = arrangeItemAttachments(desktopStore, displayItem_Composite, linkItemMaybe_Composite, compositeGeometry.boundsPx, compositeVePath);
-  compositeVisualElementSpec.attachments = attachments;
 
   const compositeVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath);
 
