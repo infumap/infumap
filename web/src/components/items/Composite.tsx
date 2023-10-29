@@ -48,7 +48,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                 `${showBorder() ? "shadow-lg " : ""}` +
                 `bg-white overflow-hidden`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
+                `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}`}>
       <For each={props.visualElement.children}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
@@ -63,6 +64,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     </div>
   );
 };
+
 
 export const Composite_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
