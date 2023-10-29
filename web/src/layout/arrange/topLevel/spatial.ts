@@ -62,7 +62,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: pageBoundsPx,
+    boundsPx: pageBoundsPx, // TODO (HIGH): this should change to desktopStore.desktopBoundsPx()
     childAreaBoundsPx: pageBoundsPx,
   };
 

@@ -114,7 +114,7 @@ export function mouseLeftDownHandler(
   const startHeightBl = null;
   const startPx = desktopPosPx;
   const activeItem = VeFns.canonicalItem(hitInfo.overElementVes.get());
-  let boundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, hitInfo.overElementVes.get());
+  let boundsOnDesktopPx = VeFns.veBoundsRelativeToPagePx(desktopStore, hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
@@ -123,7 +123,7 @@ export function mouseLeftDownHandler(
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const activeCompositeItem = VeFns.canonicalItem(hitInfo.overContainerVe!);
-      const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, hitInfo.overContainerVe!);
+      const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToPagePx(desktopStore, hitInfo.overContainerVe!);
       onePxSizeBl = {
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
         y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnDesktopPx.h };

@@ -61,7 +61,7 @@ export const TextEditOverlay: Component = () => {
   const compositeInfoOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
-  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(desktopStore, noteVisualElement());
+  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToPagePx(desktopStore, noteVisualElement());
   const editBoxBoundsPx = () => {
     if (noteVisualElement()!.flags & VisualElementFlags.InsideTable) {
       const sBl = sizeBl();
@@ -91,7 +91,7 @@ export const TextEditOverlay: Component = () => {
   const compositeToolboxBoundsPx = () => {
     const compositeVe = compositeVisualElementMaybe()!;
     if (compositeVe == null) { panic("compositeToolboxBoundsPx: compositeVe is null"); }
-    const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, compositeVe);
+    const compositeVeBoundsPx = VeFns.veBoundsRelativeToPagePx(desktopStore, compositeVe);
     return ({
       x: compositeVeBoundsPx.x - 5,
       y: compositeVeBoundsPx.y - 42,
@@ -103,7 +103,7 @@ export const TextEditOverlay: Component = () => {
   const toolboxBoundsPx = () => {
     if (compositeItemMaybe() != null) {
       const compositeVeMaybe = compositeVisualElementMaybe()!;
-      const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, compositeVeMaybe);
+      const compositeVeBoundsPx = VeFns.veBoundsRelativeToPagePx(desktopStore, compositeVeMaybe);
       return ({
         x: compositeVeBoundsPx.x + 87,
         y: compositeVeBoundsPx.y - 42,

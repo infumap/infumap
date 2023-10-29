@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, vectorAdd, getBoundingBoxTopLeft } from "../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, Vector } from "../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
@@ -339,7 +339,7 @@ export const VeFns = {
     return 0;
   },
 
-  veBoundsRelativeToDesktopPx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
+  veBoundsRelativeToPagePx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
     let r = getBoundingBoxTopLeft(ve.boundsPx);
 
@@ -383,6 +383,15 @@ export const VeFns = {
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
+  },
+
+  desktopPxToPagePx: (desktopStore: DesktopStoreContextModel, desktopPosPx: Vector): Vector => {
+    const ve = desktopStore.topLevelVisualElement();
+    const adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
+    return ({
+      x: desktopPosPx.x,
+      y: desktopPosPx.y - adj
+    });
   },
 
   printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {
