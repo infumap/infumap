@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show, onCleanup, onMount } from "solid-js";
+import { Component, Match, Show, Switch, onCleanup, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
@@ -42,13 +42,13 @@ import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns, asTableItem } from "../../items/table-item";
 import { MOUSE_RIGHT } from "../../mouse/mouse_down";
-import { assert } from "../../util/lang";
+import { assert, panic } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 
 
 // TODO (MEDIUM): don't create items on the server until it is certain that they are needed.
-let justCreatedNoteMaybe: NoteItem | null = null;
-let justCreatedCompositeMaybe: CompositeItem | null = null;
+let justCreatedNoteItemMaybe: NoteItem | null = null;
+let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
 export const TextEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
@@ -58,6 +58,7 @@ export const TextEditOverlay: Component = () => {
 
   const urlOverlayVisible = createBooleanSignal(false);
   const infoOverlayVisible = createBooleanSignal(false);
+  const compositeInfoOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
   const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDesktopPx(desktopStore, noteVisualElement());
@@ -87,21 +88,33 @@ export const TextEditOverlay: Component = () => {
   };
   const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
+  const compositeToolboxBoundsPx = () => {
+    const compositeVe = compositeVisualElementMaybe()!;
+    if (compositeVe == null) { panic("compositeToolboxBoundsPx: compositeVe is null"); }
+    const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, compositeVe);
+    return ({
+      x: compositeVeBoundsPx.x - 5,
+      y: compositeVeBoundsPx.y - 42,
+      w: 90,
+      h: 35
+    });
+  }
+
   const toolboxBoundsPx = () => {
     if (compositeItemMaybe() != null) {
       const compositeVeMaybe = compositeVisualElementMaybe()!;
       const compositeVeBoundsPx = VeFns.veBoundsRelativeToDesktopPx(desktopStore, compositeVeMaybe);
       return ({
-        x: compositeVeBoundsPx.x - 5,
-        y: compositeVeBoundsPx.y - 45,
-        w: 390,
+        x: compositeVeBoundsPx.x + 87,
+        y: compositeVeBoundsPx.y - 42,
+        w: 340,
         h: 35
       });
     } else {
       return ({
         x: noteVeBoundsPx().x - 5,
-        y: noteVeBoundsPx().y - 45,
-        w: 390,
+        y: noteVeBoundsPx().y - 42,
+        w: isInTable() ? 390 : 360,
         h: 35
       });
     }
@@ -145,12 +158,14 @@ export const TextEditOverlay: Component = () => {
   const lineHeightScale = () => heightScale() / widthScale();
 
   const mouseDownListener = async (ev: MouseEvent) => {
-    justCreatedNoteMaybe = null;
-    justCreatedCompositeMaybe = null;
+    justCreatedNoteItemMaybe = null;
+    justCreatedCompositeItemMaybe = null;
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLastestDesktopPx();
-    if (isInside(desktopPx, noteVeBoundsPx()) || isInside(desktopPx, toolboxBoundsPx())) { return; }
+    if (isInside(desktopPx, noteVeBoundsPx()) ||
+        isInside(desktopPx, toolboxBoundsPx()) ||
+        (compositeVisualElementMaybe() != null && isInside(desktopPx, compositeToolboxBoundsPx()))) { return; }
     server.updateItem(noteVisualElement().displayItem);
     desktopStore.setTextEditOverlayInfo(null);
   };
@@ -180,8 +195,11 @@ export const TextEditOverlay: Component = () => {
   const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
 
   const infoButtonHandler = () => {
-    // TODO (HIGH): multiple ids for the various items: link, composite, item.
     infoOverlayVisible.set(!infoOverlayVisible.get());
+  }
+
+  const compositeInfoButtonHandler = () => {
+    compositeInfoOverlayVisible.set(!infoOverlayVisible.get());
   }
 
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
@@ -267,8 +285,8 @@ export const TextEditOverlay: Component = () => {
         break;
     }
 
-    justCreatedNoteMaybe = null;
-    justCreatedCompositeMaybe = null;
+    justCreatedNoteItemMaybe = null;
+    justCreatedCompositeItemMaybe = null;
   };
 
   const keyDown_Down = (): void => {
@@ -320,24 +338,24 @@ export const TextEditOverlay: Component = () => {
 
     } else if (isComposite(parentVe.displayItem)) {
 
-      if (justCreatedNoteMaybe != null) {
-        itemState.delete(justCreatedNoteMaybe.id);
-        server.deleteItem(justCreatedNoteMaybe.id);
-        if (justCreatedCompositeMaybe != null) {
-          assert(justCreatedCompositeMaybe!.computed_children.length == 1, "unexpected number of new composite child elements");
-          const originalNote = itemState.get(justCreatedCompositeMaybe!.computed_children[0])!;
-          itemState.moveToNewParent(originalNote, justCreatedCompositeMaybe.parentId, justCreatedCompositeMaybe.relationshipToParent, justCreatedCompositeMaybe.ordering);
+      if (justCreatedNoteItemMaybe != null) {
+        itemState.delete(justCreatedNoteItemMaybe.id);
+        server.deleteItem(justCreatedNoteItemMaybe.id);
+        if (justCreatedCompositeItemMaybe != null) {
+          assert(justCreatedCompositeItemMaybe!.computed_children.length == 1, "unexpected number of new composite child elements");
+          const originalNote = itemState.get(justCreatedCompositeItemMaybe!.computed_children[0])!;
+          itemState.moveToNewParent(originalNote, justCreatedCompositeItemMaybe.parentId, justCreatedCompositeItemMaybe.relationshipToParent, justCreatedCompositeItemMaybe.ordering);
           server.updateItem(originalNote);
           deleted = true;
-          itemState.delete(justCreatedCompositeMaybe.id);
-          server.deleteItem(justCreatedCompositeMaybe.id);
+          itemState.delete(justCreatedCompositeItemMaybe.id);
+          server.deleteItem(justCreatedCompositeItemMaybe.id);
         } else if (asContainerItem(parentVe.displayItem).computed_children.length == 1) {
           console.log("TODO (HIGH): delete composite.");
         }
         desktopStore.setTextEditOverlayInfo(null);
         arrange(desktopStore);
-        justCreatedCompositeMaybe = null;
-        justCreatedNoteMaybe = null;
+        justCreatedCompositeItemMaybe = null;
+        justCreatedNoteItemMaybe = null;
         return;
       }
 
@@ -349,14 +367,14 @@ export const TextEditOverlay: Component = () => {
       server.addItem(note, null);
       const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
       if (parent.computed_children[parent.computed_children.length-1] == note.id) {
-        justCreatedNoteMaybe = note;
+        justCreatedNoteItemMaybe = note;
       }
       arrange(desktopStore);
       const noteItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
       desktopStore.setTextEditOverlayInfo({ noteItemPath });
 
     } else {
-      assert(justCreatedNoteMaybe == null, "not expecting note to have been just created");
+      assert(justCreatedNoteItemMaybe == null, "not expecting note to have been just created");
 
       // if the note item is in a link, create the new composite under the item's (as opposed to the link item's) parent.
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
@@ -366,7 +384,7 @@ export const TextEditOverlay: Component = () => {
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);
       server.addItem(composite, null);
-      justCreatedCompositeMaybe = composite;
+      justCreatedCompositeItemMaybe = composite;
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
       server.updateItem(ve.displayItem);
 
@@ -374,7 +392,7 @@ export const TextEditOverlay: Component = () => {
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       itemState.add(note);
       server.addItem(note, null);
-      justCreatedNoteMaybe = note;
+      justCreatedNoteItemMaybe = note;
 
       desktopStore.setTextEditOverlayInfo(null);
       arrange(desktopStore);
@@ -389,8 +407,6 @@ export const TextEditOverlay: Component = () => {
     let count = 1;
     const ve = noteVisualElement();
     if (ve.linkItemMaybe != null) { count += 1; }
-    const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (isComposite(parentVe.displayItem)) { count += 1; }
     return count;
   }
 
@@ -435,33 +451,78 @@ export const TextEditOverlay: Component = () => {
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}
          onKeyDown={keyDownListener}>
-      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
-        <div class="p-[4px]">
-          <Show when={userStore.getUserMaybe() != null}>
-            <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-            <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-            <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-            <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-            <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-            <div class="inline-block ml-[12px]"></div>
-            <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-            <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-            <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-            <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-            <div class="inline-block ml-[12px]"></div>
-            <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
-            <Show when={isInTable()}>
-              <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
-            </Show>
-            <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-          </Show>
-          <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-          <Show when={userStore.getUserMaybe() != null}>
-            <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
-          </Show>
-        </div>
-      </div>
+
+      <Switch>
+        <Match when={compositeItemMaybe() == null}>
+          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+              style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
+            <div class="p-[4px]">
+              <Show when={userStore.getUserMaybe() != null}>
+                <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
+                <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+                <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+                <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+                <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+                <div class="inline-block ml-[12px]"></div>
+                <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
+                <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+                <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+                <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+                <div class="inline-block ml-[12px]"></div>
+                <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+                <Show when={isInTable()}>
+                  <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+                </Show>
+                <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+              </Show>
+              <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
+              <Show when={userStore.getUserMaybe() != null}>
+                <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+              </Show>
+            </div>
+          </div>
+        </Match>
+
+        <Match when={compositeItemMaybe() != null}>
+          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+               style={`left: ${compositeToolboxBoundsPx().x}px; top: ${compositeToolboxBoundsPx().y}px; width: ${compositeToolboxBoundsPx().w}px; height: ${compositeToolboxBoundsPx().h}px`}>
+            <div class="p-[4px]">
+              <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+              <InfuIconButton icon={'info-circle'} highlighted={false} clickHandler={compositeInfoButtonHandler} />
+              <Show when={userStore.getUserMaybe() != null}>
+                <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+              </Show>
+            </div>
+          </div>
+          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+              style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
+            <div class="p-[4px]">
+              <Show when={userStore.getUserMaybe() != null}>
+                <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
+                <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+                <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+                <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+                <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+                <div class="inline-block ml-[12px]"></div>
+                <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
+                <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+                <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+                <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+                <div class="inline-block ml-[12px]"></div>
+                <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+                <Show when={isInTable()}>
+                  <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+                </Show>
+              </Show>
+              <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
+              <Show when={userStore.getUserMaybe() != null}>
+                <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+              </Show>
+            </div>
+          </div>
+        </Match>
+      </Switch>
+
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
         <textarea ref={textElement}
@@ -481,22 +542,27 @@ export const TextEditOverlay: Component = () => {
           onMouseDown={textAreaMouseDownHandler}
           onInput={textAreaOnInputHandler} />
       </div>
+
       <Show when={urlOverlayVisible.get()}>
         <UrlOverlay urlOverlayVisible={urlOverlayVisible} />
+      </Show>
+
+      <Show when={compositeInfoOverlayVisible.get()}>
+        <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+             style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
+          <div class="pl-[8px] pr-[8px] pt-[8px]">
+            <div class="text-slate-800 text-sm">
+              <div class="text-slate-400 w-[85px] inline-block">Composite</div>
+              <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
+              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
+              <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
+            </div>
+          </div>
+        </div>
       </Show>
       <Show when={infoOverlayVisible.get()}>
         <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
             style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
-          <Show when={compositeItemMaybe() != null}>
-            <div class="pl-[8px] pr-[8px] pt-[8px]">
-              <div class="text-slate-800 text-sm">
-                <div class="text-slate-400 w-[85px] inline-block">Composite</div>
-                <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
-                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
-                <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
-              </div>
-            </div>
-          </Show>
           <Show when={noteVisualElement().linkItemMaybe != null}>
             <div class="pl-[8px] pr-[8px] pt-[8px]">
               <div class="text-slate-800 text-sm">
