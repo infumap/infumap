@@ -444,6 +444,149 @@ export const TextEditOverlay: Component = () => {
   // more careful reasoning.
   const HACK_ADJUST_TEXTAREA_HEIGHT = 2.5;
 
+  const renderSingleNoteToolbox = () =>
+    <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+         style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
+      <div class="p-[4px]">
+        <Show when={userStore.getUserMaybe() != null}>
+          <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
+          <Show when={!isInTable()}>
+            <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+            <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+          </Show>
+          <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+          <Show when={!isInTable()}>
+            <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+          </Show>
+          <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
+          <div class="inline-block ml-[12px]"></div>
+          <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
+          <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+          <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+          <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+          <div class="inline-block ml-[12px]"></div>
+          <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+          <Show when={isInTable()}>
+            <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          </Show>
+          <Show when={!isInTable()}>
+            <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          </Show>
+        </Show>
+        <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
+        <Show when={userStore.getUserMaybe() != null}>
+          <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+        </Show>
+      </div>
+    </div>;
+
+  const renderCompositeToolbox = () =>
+    <>
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+           style={`left: ${compositeToolboxBoundsPx().x}px; top: ${compositeToolboxBoundsPx().y}px; width: ${compositeToolboxBoundsPx().w}px; height: ${compositeToolboxBoundsPx().h}px`}>
+        <div class="p-[4px]">
+          <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          <InfuIconButton icon={'info-circle'} highlighted={false} clickHandler={compositeInfoButtonHandler} />
+          <Show when={userStore.getUserMaybe() != null}>
+            <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+          </Show>
+        </div>
+      </div>
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+          style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
+        <div class="p-[4px]">
+          <Show when={userStore.getUserMaybe() != null}>
+            <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
+            <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+            <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+            <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+            <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+            <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
+            <div class="inline-block ml-[12px]"></div>
+            <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
+            <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+            <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+            <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+            <div class="inline-block ml-[12px]"></div>
+            <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+            <Show when={isInTable()}>
+              <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+            </Show>
+          </Show>
+          <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
+          <Show when={userStore.getUserMaybe() != null}>
+            <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+          </Show>
+        </div>
+      </div>
+    </>;
+
+  const renderTextArea = () =>
+    <div class={`absolute rounded border`}
+         style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
+      <textarea ref={textElement}
+                class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
+                style={`position: absolute; ` +
+                       `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
+                       `font-size: ${style().fontSize}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
+                       `${style().isBold ? ' font-weight: bold; ' : ""}`}
+                value={noteItem().title}
+                disabled={userStore.getUserMaybe() == null}
+                onMouseDown={textAreaMouseDownHandler}
+                onInput={textAreaOnInputHandler} />
+    </div>;
+
+  const renderUrlOverlyMaybe = () =>
+    <Show when={urlOverlayVisible.get()}>
+      <UrlOverlay urlOverlayVisible={urlOverlayVisible} />
+    </Show>;
+
+  const renderCompositeInfoOverlayMaybe = () =>
+    <Show when={compositeInfoOverlayVisible.get()}>
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+           style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
+        <div class="pl-[8px] pr-[8px] pt-[8px]">
+          <div class="text-slate-800 text-sm">
+            <div class="text-slate-400 w-[85px] inline-block">Composite</div>
+            <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
+            <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
+            <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
+          </div>
+        </div>
+      </div>
+    </Show>;
+
+  const renderItemInfoOverlayMaybe = () =>
+    <Show when={infoOverlayVisible.get()}>
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+           style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
+        <Show when={noteVisualElement().linkItemMaybe != null}>
+          <div class="pl-[8px] pr-[8px] pt-[8px]">
+            <div class="text-slate-800 text-sm">
+              <div class="text-slate-400 w-[85px] inline-block">Link</div>
+              <span class="font-mono text-slate-400">{`${noteVisualElement()!.linkItemMaybe!.id}`}</span>
+              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyLinkIdClickHandler} />
+              <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkLinkIdClickHandler} />
+            </div>
+          </div>
+        </Show>
+        <div class="p-[8px]">
+          <div class="text-slate-800 text-sm">
+            <div class="text-slate-400 w-[85px] inline-block">Item</div>
+            <span class="font-mono text-slate-400">{`${noteItem().id}`}</span>
+            <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
+            <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
+          </div>
+        </div>
+      </div>
+    </Show>;
+
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -452,146 +595,14 @@ export const TextEditOverlay: Component = () => {
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}
          onKeyDown={keyDownListener}>
-
       <Switch>
-        <Match when={compositeItemMaybe() == null}>
-          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-              style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
-            <div class="p-[4px]">
-              <Show when={userStore.getUserMaybe() != null}>
-                <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-                <Show when={!isInTable()}>
-                  <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-                  <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-                </Show>
-                <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-                <Show when={!isInTable()}>
-                  <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-                </Show>
-                <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
-                <div class="inline-block ml-[12px]"></div>
-                <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-                <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-                <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-                <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-                <div class="inline-block ml-[12px]"></div>
-                <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
-                <Show when={isInTable()}>
-                  <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
-                </Show>
-                <Show when={!isInTable()}>
-                  <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-                </Show>
-              </Show>
-              <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-              <Show when={userStore.getUserMaybe() != null}>
-                <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
-              </Show>
-            </div>
-          </div>
-        </Match>
-
-        <Match when={compositeItemMaybe() != null}>
-          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${compositeToolboxBoundsPx().x}px; top: ${compositeToolboxBoundsPx().y}px; width: ${compositeToolboxBoundsPx().w}px; height: ${compositeToolboxBoundsPx().h}px`}>
-            <div class="p-[4px]">
-              <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-              <InfuIconButton icon={'info-circle'} highlighted={false} clickHandler={compositeInfoButtonHandler} />
-              <Show when={userStore.getUserMaybe() != null}>
-                <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
-              </Show>
-            </div>
-          </div>
-          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-              style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
-            <div class="p-[4px]">
-              <Show when={userStore.getUserMaybe() != null}>
-                <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-                <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-                <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-                <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-                <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-                <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
-                <div class="inline-block ml-[12px]"></div>
-                <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-                <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-                <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-                <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-                <div class="inline-block ml-[12px]"></div>
-                <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
-                <Show when={isInTable()}>
-                  <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
-                </Show>
-              </Show>
-              <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-              <Show when={userStore.getUserMaybe() != null}>
-                <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
-              </Show>
-            </div>
-          </div>
-        </Match>
+        <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
+        <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>
       </Switch>
-
-      <div class={`absolute rounded border`}
-           style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
-        <textarea ref={textElement}
-          class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
-          style={`position: absolute; ` +
-                 `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                 `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
-                 `width: ${naturalWidthPx()}px; ` +
-                 `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
-                 `font-size: ${style().fontSize}px; ` +
-                 `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
-                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                 `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
-                 `${style().isBold ? ' font-weight: bold; ' : ""}`}
-          value={noteItem().title}
-          disabled={userStore.getUserMaybe() == null}
-          onMouseDown={textAreaMouseDownHandler}
-          onInput={textAreaOnInputHandler} />
-      </div>
-
-      <Show when={urlOverlayVisible.get()}>
-        <UrlOverlay urlOverlayVisible={urlOverlayVisible} />
-      </Show>
-
-      <Show when={compositeInfoOverlayVisible.get()}>
-        <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-             style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
-          <div class="pl-[8px] pr-[8px] pt-[8px]">
-            <div class="text-slate-800 text-sm">
-              <div class="text-slate-400 w-[85px] inline-block">Composite</div>
-              <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
-              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
-              <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
-            </div>
-          </div>
-        </div>
-      </Show>
-      <Show when={infoOverlayVisible.get()}>
-        <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-            style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
-          <Show when={noteVisualElement().linkItemMaybe != null}>
-            <div class="pl-[8px] pr-[8px] pt-[8px]">
-              <div class="text-slate-800 text-sm">
-                <div class="text-slate-400 w-[85px] inline-block">Link</div>
-                <span class="font-mono text-slate-400">{`${noteVisualElement()!.linkItemMaybe!.id}`}</span>
-                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyLinkIdClickHandler} />
-                <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkLinkIdClickHandler} />
-              </div>
-            </div>
-          </Show>
-          <div class="p-[8px]">
-            <div class="text-slate-800 text-sm">
-              <div class="text-slate-400 w-[85px] inline-block">Item</div>
-              <span class="font-mono text-slate-400">{`${noteItem().id}`}</span>
-              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
-              <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
-            </div>
-          </div>
-        </div>
-      </Show>
+      {renderTextArea()}
+      {renderUrlOverlyMaybe()}
+      {renderCompositeInfoOverlayMaybe()}
+      {renderItemInfoOverlayMaybe()}
     </div>
   );
 }
