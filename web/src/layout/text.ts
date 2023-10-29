@@ -33,6 +33,9 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags): 
   }
   const div = document.createElement("div");
   const style = getTextStyleForNote(flags);
+  if (style.isCode) {
+    div.setAttribute("class", "font-mono");
+  }
   div.setAttribute("style",
     `left: ${NOTE_PADDING_PX}px; ` +
     `top: ${NOTE_PADDING_PX - LINE_HEIGHT_PX/4}px; ` +
@@ -84,17 +87,21 @@ export interface InfuTextStyle {
   fontSize: number,
   lineHeightMultiplier: number,
   isBold: boolean,
+  isCode: boolean,
 }
 
 export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
   if (flags & NoteFlags.Heading3) {
-    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true };
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: true, isCode: false };
   }
   if (flags & NoteFlags.Heading2) {
-    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true };
+    return { fontSize: 32, lineHeightMultiplier: 1.5, isBold: true, isCode: false };
   }
   if (flags & NoteFlags.Heading1) {
-    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true };
+    return { fontSize: 48, lineHeightMultiplier: 2.0, isBold: true, isCode: false };
   }
-  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false };
+  if (flags & NoteFlags.Code) {
+    return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: true }
+  }
+  return { fontSize: 16, lineHeightMultiplier: 1.0, isBold: false, isCode: false };
 }

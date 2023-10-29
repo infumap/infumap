@@ -127,7 +127,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)};`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-          <div style={`position: absolute; ` +
+          <div class={`${infuTextStyle().isCode ? ' font-mono' : ''}`}
+               style={`position: absolute; ` +
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
                       `width: ${naturalWidthPx()}px; ` +
@@ -194,6 +195,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     ? boundsPx().w - oneBlockWidthPx() * 0.15 - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
 
+  const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
+
+  const copyMouseDownHandler = (ev: MouseEvent) => { ev.stopPropagation(); }
+  const copyMouseUpHandler = (ev: MouseEvent) => { ev.stopPropagation(); }
   const copyClickHandler = () => {
     if (noteItem().url == "") {
       navigator.clipboard.writeText(noteItem().title);
@@ -241,16 +246,27 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       <Switch>
         <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
           <a href={""}
-             class={`text-blue-800`}
-             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+             class={`text-blue-800 ${noteItem().flags & NoteFlags.Code ? 'font-mono' : ''}`}
+             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
+                    `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
              onClick={aHrefClick}
              onMouseDown={aHrefMouseDown}
              onMouseUp={aHrefMouseUp}>
-             {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+            {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
           </a>
         </Match>
         <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-          <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+          <Switch>
+            <Match when={noteItem().flags & NoteFlags.Code}>
+              <span class="font-mono">{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+            </Match>
+            <Match when={noteItem().flags & NoteFlags.Heading3}>
+              <span style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+            </Match>
+            <Match when={true}>
+              <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+            </Match>
+          </Switch>
         </Match>
       </Switch>
     </div>;
@@ -261,6 +277,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
            style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
+          onmousedown={copyMouseDownHandler}
+          onmouseup={copyMouseUpHandler}
           onclick={copyClickHandler}>
         <i class={`fas fa-copy cursor-pointer`} />
       </div>

@@ -107,14 +107,14 @@ export const TextEditOverlay: Component = () => {
       return ({
         x: compositeVeBoundsPx.x + 87,
         y: compositeVeBoundsPx.y - 42,
-        w: 340,
+        w: 365,
         h: 35
       });
     } else {
       return ({
         x: noteVeBoundsPx().x - 5,
         y: noteVeBoundsPx().y - 42,
-        w: isInTable() ? 390 : 360,
+        w: isInTable() ? 310 : 385,
         h: 35
       });
     }
@@ -220,6 +220,7 @@ export const TextEditOverlay: Component = () => {
   const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); };
   const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); };
   const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; arrange(desktopStore); };
 
   const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); arrange(desktopStore); };
   const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); };
@@ -459,10 +460,15 @@ export const TextEditOverlay: Component = () => {
             <div class="p-[4px]">
               <Show when={userStore.getUserMaybe() != null}>
                 <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-                <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-                <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+                <Show when={!isInTable()}>
+                  <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+                  <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+                </Show>
                 <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-                <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+                <Show when={!isInTable()}>
+                  <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+                </Show>
+                <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
                 <div class="inline-block ml-[12px]"></div>
                 <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
                 <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
@@ -473,7 +479,9 @@ export const TextEditOverlay: Component = () => {
                 <Show when={isInTable()}>
                   <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
                 </Show>
-                <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+                <Show when={!isInTable()}>
+                  <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+                </Show>
               </Show>
               <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
               <Show when={userStore.getUserMaybe() != null}>
@@ -503,6 +511,7 @@ export const TextEditOverlay: Component = () => {
                 <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
                 <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
                 <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+                <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
                 <div class="inline-block ml-[12px]"></div>
                 <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
                 <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
@@ -526,7 +535,7 @@ export const TextEditOverlay: Component = () => {
       <div class={`absolute rounded border`}
            style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
         <textarea ref={textElement}
-          class="rounded overflow-hidden resize-none whitespace-pre-wrap"
+          class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''}`}
           style={`position: absolute; ` +
                  `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +

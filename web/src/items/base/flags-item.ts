@@ -40,6 +40,7 @@ export enum NoteFlags {
   AlignRight =     0x040,
   AlignJustify =   0x080,
   HideBorder =     0x100,
+  Code       =     0x200,
 };
 
 export enum CompositeFlags {

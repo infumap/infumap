@@ -250,7 +250,8 @@ export const NoteFns = {
       !(noteItem.flags & NoteFlags.Heading1) &&
       !(noteItem.flags & NoteFlags.Heading2) &&
       !(noteItem.flags & NoteFlags.Heading3) &&
-      !(noteItem.flags & NoteFlags.Bullet1)
+      !(noteItem.flags & NoteFlags.Bullet1) &&
+      !(noteItem.flags & NoteFlags.Code)
     );
   },
 
@@ -267,6 +268,7 @@ export const NoteFns = {
     noteItem.flags &= ~NoteFlags.Heading2;
     noteItem.flags &= ~NoteFlags.Heading3;
     noteItem.flags &= ~NoteFlags.Bullet1;
+    noteItem.flags &= ~NoteFlags.Code;
   },
 
   clearAlignmentFlags: (noteItem: NoteItem): void => {

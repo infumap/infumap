@@ -31,7 +31,6 @@ import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvid
 import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement, VisualElementFlags, VeFns, Veid } from '../layout/visual-element';
-import { getHitInfo } from '../mouse/hit';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
