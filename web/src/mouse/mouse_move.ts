@@ -155,6 +155,7 @@ function changeMouseActionStateMaybe(
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
       MouseActionState.get().activeElement = MouseActionState.get().activeCompositeElementMaybe!;
+      MouseActionState.get().startActiveElementParent = VeFns.parentPath(MouseActionState.get().activeCompositeElementMaybe!);
       activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
       activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
     }
