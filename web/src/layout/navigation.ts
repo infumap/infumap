@@ -58,11 +58,11 @@ export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: 
   let desktopEl = window.document.getElementById("desktop")!;
 
   const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
-  const topLevelBoundsPx = topLevelVisualElement.boundsPx;
+  const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = desktopStore.desktopBoundsPx();
 
   const scrollXPx = desktopStore.getPageScrollXProp(desktopStore.currentPage()!) * (topLevelBoundsPx.w - desktopSizePx.w);
-  const scrollYPx = desktopStore.getPageScrollYProp(desktopStore.currentPage()!) * (topLevelBoundsPx.h - desktopSizePx.h)
+  const scrollYPx = desktopStore.getPageScrollYProp(desktopStore.currentPage()!) * (topLevelBoundsPx.h - desktopSizePx.h);
 
   if (desktopEl) {
     desktopEl.scrollTop = scrollYPx;

@@ -339,8 +339,10 @@ export const VeFns = {
     return 0;
   },
 
-  veBoundsRelativeToPagePx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
+  veBoundsRelativeToDestkopPx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
+    assert(ve.parentPath != null, "veBoundsRelativeToTopLevelPagePx: not expecting top level page.");
+
     let r = getBoundingBoxTopLeft(ve.boundsPx);
 
     // handle case of attachment in a table.
@@ -359,7 +361,7 @@ export const VeFns = {
       }
     }
 
-    ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
+    ve = VesCache.get(ve.parentPath!)!.get();
     while (ve != null) {
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.childAreaBoundsPx ? ve.childAreaBoundsPx : ve.boundsPx));
       if (isTable(ve.displayItem)) {
@@ -382,15 +384,16 @@ export const VeFns = {
       }
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }
+
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
   },
 
-  desktopPxToPagePx: (desktopStore: DesktopStoreContextModel, desktopPosPx: Vector): Vector => {
+  desktopPxToTopLevelPagePx: (desktopStore: DesktopStoreContextModel, desktopPosPx: Vector): Vector => {
     const ve = desktopStore.topLevelVisualElement();
     const adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
     return ({
       x: desktopPosPx.x,
-      y: desktopPosPx.y - adj
+      y: desktopPosPx.y + adj
     });
   },
 

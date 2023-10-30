@@ -185,10 +185,18 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
-  const pagePx = VeFns.desktopPxToPagePx(desktopStore, desktopPx);
+  const pagePx = VeFns.desktopPxToTopLevelPagePx(desktopStore, desktopPx);
 
   const moveToPage = asPageItem(moveToVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToPagePx(desktopStore, moveToVe);
+  let moveToPageAbsoluteBoundsPx;
+  if (moveToVe.parentPath == null) {
+    // moveToVe is top level page is a special case - the only one where it's appropropriate
+    // for dimensions to be that of clientAreaBounds not boundsPx.
+    moveToPageAbsoluteBoundsPx = moveToVe.childAreaBoundsPx!;
+  } else {
+    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, moveToVe);
+  }
+
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
     x: Math.round((pagePx.x - moveToPageAbsoluteBoundsPx.x) / moveToPageAbsoluteBoundsPx.w * moveToPageInnerSizeBl.w * 2.0) / 2.0,
@@ -202,7 +210,11 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     : { x: 0, y: 0 };
   const startPosBl = vectorSubtract(mousePointBl, clickOffsetInActiveItemBl);
   const newItemPosGr = { x: startPosBl.x * GRID_SIZE, y: startPosBl.y * GRID_SIZE };
-  MouseActionState.get().startPx = pagePx;
+  if (moveToVe.parentPath == null) {
+    MouseActionState.get().startPx = desktopPx;
+  } else {
+    MouseActionState.get().startPx = pagePx;
+  }
   MouseActionState.get().startPosBl = startPosBl;
   const moveToPath = VeFns.veToPath(moveToVe);
 
@@ -258,15 +270,20 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
 
   const moveToPage = asPageItem(tableParentVe.displayItem);
-  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToPagePx(desktopStore, tableParentVe);
+  let moveToPageAbsoluteBoundsPx;
+  if (tableParentVe.parentPath == null) {
+    moveToPageAbsoluteBoundsPx = tableParentVe.childAreaBoundsPx!;
+  } else {
+    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, tableParentVe);
+  }
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
   const itemPosInPagePx = vectorAdd(tablePosInPagePx, itemPosInTablePx);
   const tableParentPage = asPageItem(tableParentVe.displayItem);
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVe!.boundsPx.w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe!.boundsPx.h * PageFns.calcInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / tableParentVe!.childAreaBoundsPx!.w * tableParentPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / tableParentVe!.childAreaBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,

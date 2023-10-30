@@ -114,29 +114,29 @@ export function mouseLeftDownHandler(
   const startHeightBl = null;
   const startPx = desktopPosPx;
   const activeItem = VeFns.canonicalItem(hitInfo.overElementVes.get());
-  let boundsOnDesktopPx = VeFns.veBoundsRelativeToPagePx(desktopStore, hitInfo.overElementVes.get());
+  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
-      x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w) / boundsOnDesktopPx.w,
-      y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnDesktopPx.h };
+      x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w) / boundsOnTopLevelPagePx.w,
+      y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnTopLevelPagePx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const activeCompositeItem = VeFns.canonicalItem(hitInfo.overContainerVe!);
-      const compositeBoundsOnDesktopPx = VeFns.veBoundsRelativeToPagePx(desktopStore, hitInfo.overContainerVe!);
+      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, hitInfo.overContainerVe!);
       onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnDesktopPx.w,
-        y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnDesktopPx.h };
+        x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,
+        y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnTopLevelPagePx.h };
     } else {
       onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsOnDesktopPx.w,
-        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsOnDesktopPx.h };
+        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsOnTopLevelPagePx.w,
+        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsOnTopLevelPagePx.h };
     }
   }
 
   let clickOffsetProp = {
-    x: (startPx.x - boundsOnDesktopPx.x) / boundsOnDesktopPx.w,
-    y: (startPx.y - boundsOnDesktopPx.y) / boundsOnDesktopPx.h
+    x: (startPx.x - boundsOnTopLevelPagePx.x) / boundsOnTopLevelPagePx.w,
+    y: (startPx.y - boundsOnTopLevelPagePx.y) / boundsOnTopLevelPagePx.h
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);

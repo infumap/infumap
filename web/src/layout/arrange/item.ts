@@ -230,12 +230,19 @@ const arrangePageWithChildren = (
       } else {
         scrollProp = desktopStore.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       }
+
+      const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
+      const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
+      const desktopSizePx = desktopStore.desktopBoundsPx();
+      const pageScrollProp = desktopStore.getPageScrollYProp(desktopStore.currentPage()!);
+      const pageScrollPx = pageScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
+
       const yOffsetPx = scrollProp * (boundsPx.h - outerBoundsPx.h);
       const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
       const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
       const cellBoundsPx = {
         x: mouseDestkopPosPx.x - outerBoundsPx.x,
-        y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx,
+        y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx + pageScrollPx,
         w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
       };

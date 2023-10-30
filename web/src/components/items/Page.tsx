@@ -474,6 +474,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     );
   }
 
+
   const renderAsFullOrRoot = () => {
     const shadowColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.3)}; `;
 
@@ -530,8 +531,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const rootScrollHandler = (_ev: Event) => {
       if (!rootDiv) { return; }
 
-      const pageBoundsPx = props.visualElement.boundsPx;
-      const desktopSizePx = desktopStore.desktopBoundsPx();
+      const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
+      const desktopSizePx = props.visualElement.boundsPx;
 
       if (desktopSizePx.w < pageBoundsPx.w) {
         const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
@@ -550,8 +551,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div ref={rootDiv}
           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
           style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                 `top: 0px; width: ${desktopStore.desktopBoundsPx().w}px; height: ${desktopStore.desktopBoundsPx().h}px; ` +
-                 `overflow-y: ${desktopStore.desktopBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` +
+                 `top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                 `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` +
                  `${VeFns.zIndexStyle(props.visualElement)}`}
           onscroll={rootScrollHandler}>
         <div class="absolute"

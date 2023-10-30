@@ -267,7 +267,7 @@ export const TableFns = {
       w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
       h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
     };
-    const tableBoundsPx = VeFns.veBoundsRelativeToPagePx(desktopStore, tableVe);
+    const tableBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, tableVe);
 
     // col
     const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;

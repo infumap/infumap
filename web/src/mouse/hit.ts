@@ -47,12 +47,14 @@ export function getHitInfo(
     ignoreAttachments: boolean): HitInfo {
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
-  const topLevelBoundsPx = topLevelVisualElement.boundsPx;
-  const desktopSizePx = desktopStore.desktopBoundsPx();
+  const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
+  const desktopSizePx = topLevelVisualElement.boundsPx;
+  const topXScroll = desktopStore.getPageScrollXProp(VeFns.veidFromVe(topLevelVisualElement));
+  const topYScroll = desktopStore.getPageScrollYProp(VeFns.veidFromVe(topLevelVisualElement));
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
-      x: desktopStore.getPageScrollXProp(VeFns.veidFromVe(topLevelVisualElement)) * (topLevelBoundsPx.w - desktopSizePx.w),
-      y: desktopStore.getPageScrollYProp(VeFns.veidFromVe(topLevelVisualElement)) * (topLevelBoundsPx.h - desktopSizePx.h)
+      x: topXScroll * (topLevelBoundsPx.w - desktopSizePx.w),
+      y: topYScroll * (topLevelBoundsPx.h - desktopSizePx.h)
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.

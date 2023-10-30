@@ -32,7 +32,7 @@ export const UrlOverlay: Component<{urlOverlayVisible: BooleanSignal}> = (props:
   const desktopStore = useDesktopStore();
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
-  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToPagePx(desktopStore, noteVisualElement());
+  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(desktopStore, noteVisualElement());
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const toolboxBoundsPx = () => {
