@@ -88,7 +88,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: boundsPx,
+    boundsPx: desktopStore.desktopBoundsPx(),
     childAreaBoundsPx: boundsPx,
   };
 

@@ -32,12 +32,12 @@ export const arrange_document = (desktopStore: DesktopStoreContextModel): void =
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
-  const headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
+  const _headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: pageBoundsPx,
+    boundsPx: desktopStore.desktopBoundsPx(),
     childAreaBoundsPx: pageBoundsPx,
   };
 
