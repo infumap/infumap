@@ -207,6 +207,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       translucentDiv.scrollTop =
         desktopStore.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+      translucentDiv.scrollLeft =
+        desktopStore.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
+        (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
 
     setTimeout(() => {
@@ -274,7 +277,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: #ffffff; ` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                  `overflow-x: hidden;` +
+                  `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={translucentScrollHandler}>
         <div class="absolute"
@@ -377,6 +380,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       popupDiv.scrollTop =
         desktopStore.getPageScrollYProp(VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+      popupDiv.scrollLeft =
+        desktopStore.getPageScrollXProp(VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath)) *
+        (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
 
     setTimeout(() => {
@@ -450,7 +456,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
            style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
                   `top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: #f8f8f8; border-color: ${borderColorVal()}` +
-                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` + 
+                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={popupScrollHandler}>
         <div class="absolute"
@@ -518,27 +525,27 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-          style={`width: ${boundsPx().w + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                 `height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                 `background-color: #ffffff;` +
-                 `${VeFns.zIndexStyle(props.visualElement)}`}>
+           style={`width: ${boundsPx().w + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                  `height: ${boundsPx().h}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `background-color: #ffffff;` +
+                  `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
-            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
-            style={`overflow-y: auto; overflow-x: hidden; ` +
-                   `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
-                   `height: ${boundsPx().h}px; ` +
-                   `background-color: #ffffff;` +
-                   `${VeFns.zIndexStyle(props.visualElement)}`}>
+             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
+             style={`overflow-y: auto; ` +
+                    `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
+                    `height: ${boundsPx().h}px; ` +
+                    `background-color: #ffffff;` +
+                    `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
-              style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+               style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
             <div class="absolute overflow-hidden border-b border-slate-700"
-                style={`margin-left: ${marginPx*listViewScale()}px; ` +
-                       `margin-right: ${marginPx*listViewScale()}px; ` +
-                       `color: ${titleOnPageColor()}; ` +
-                       `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
-                       `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
-                       `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
-                       `pointer-events: none;`}>
+                 style={`margin-left: ${marginPx*listViewScale()}px; ` +
+                        `margin-right: ${marginPx*listViewScale()}px; ` +
+                        `color: ${titleOnPageColor()}; ` +
+                        `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
+                        `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
+                        `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
+                        `pointer-events: none;`}>
               {pageItem().title}
             </div>
             <For each={lineVes()}>{childVe =>
@@ -575,14 +582,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
            style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
                   `top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` +
+                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
           onscroll={rootScrollHandler}>
         <div class="absolute"
-            style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; ` +
-                   `top: ${0}px; ` +
-                   `width: ${childAreaBoundsPx().w}px; ` +
-                   `height: ${childAreaBoundsPx().h}px;`}>
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${childAreaBoundsPx().w}px; ` +
+                    `height: ${childAreaBoundsPx().h}px;`}>
           <For each={props.visualElement.children}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>

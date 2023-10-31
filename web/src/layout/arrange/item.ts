@@ -222,27 +222,33 @@ const arrangePageWithChildren = (
     }
 
     if (movingItemInThisPage) {
-      let scrollProp;
+      let scrollPropY;
+      let scrollPropX;
       if (isPagePopup) {
         const popupSpec = desktopStore.currentPopupSpec();
         assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
-        scrollProp = desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
+        scrollPropY = desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
+        scrollPropX = desktopStore.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
       } else {
-        scrollProp = desktopStore.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+        scrollPropY = desktopStore.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+        scrollPropX = desktopStore.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       }
 
       const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
       const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
       const desktopSizePx = desktopStore.desktopBoundsPx();
-      const pageScrollProp = desktopStore.getPageScrollYProp(desktopStore.currentPage()!);
-      const pageScrollPx = pageScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
+      const pageYScrollProp = desktopStore.getPageScrollYProp(desktopStore.currentPage()!);
+      const pageYScrollPx = pageYScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
+      const pageXScrollProp = desktopStore.getPageScrollXProp(desktopStore.currentPage()!);
+      const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
 
-      const yOffsetPx = scrollProp * (boundsPx.h - outerBoundsPx.h);
+      const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
+      const xOffsetPx = scrollPropX * (boundsPx.w - outerBoundsPx.w);
       const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
       const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
       const cellBoundsPx = {
-        x: mouseDestkopPosPx.x - outerBoundsPx.x,
-        y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx + pageScrollPx,
+        x: mouseDestkopPosPx.x - outerBoundsPx.x + xOffsetPx + pageXScrollPx,
+        y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx + pageYScrollPx,
         w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
       };

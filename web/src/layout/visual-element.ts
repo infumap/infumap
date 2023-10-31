@@ -370,17 +370,21 @@ export const VeFns = {
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
         r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
       } else if (isPage(ve.displayItem)) {
-        let adj = 0.0;
+        let adjY = 0.0;
+        let adjX = 0.0;
         if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = desktopStore.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
-          adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
         } else {
           if (ve.flags & VisualElementFlags.ShowChildren) {
-            adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
+            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
+            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromVe(ve));
           }
         }
-        r.y -= adj;
+        r.x -= adjX;
+        r.y -= adjY;
       }
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }
@@ -390,10 +394,11 @@ export const VeFns = {
 
   desktopPxToTopLevelPagePx: (desktopStore: DesktopStoreContextModel, desktopPosPx: Vector): Vector => {
     const ve = desktopStore.topLevelVisualElement();
-    const adj = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
+    const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
+    const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromVe(ve));
     return ({
-      x: desktopPosPx.x,
-      y: desktopPosPx.y + adj
+      x: desktopPosPx.x + adjX,
+      y: desktopPosPx.y + adjY
     });
   },
 
