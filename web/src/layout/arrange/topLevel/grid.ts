@@ -20,7 +20,7 @@ import { GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX } from "../../../const
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
-import { CursorEventState, MouseAction, MouseActionState } from "../../../mouse/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";

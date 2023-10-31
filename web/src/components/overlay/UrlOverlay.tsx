@@ -24,7 +24,7 @@ import { BooleanSignal } from "../../util/signals";
 import { isInside } from "../../util/geometry";
 import { asNoteItem } from "../../items/note-item";
 import { arrange } from "../../layout/arrange";
-import { CursorEventState } from "../../mouse/state";
+import { CursorEventState } from "../../input/state";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 
 

@@ -18,7 +18,7 @@
 
 import { Accessor, Component, For, Match, Setter, Show, Switch, createSignal, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { CursorEventState } from "../../mouse/state";
+import { CursorEventState } from "../../input/state";
 import { SearchResult, server } from "../../server";
 import { ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";

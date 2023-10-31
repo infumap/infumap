@@ -17,7 +17,7 @@
 */
 
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
-import { TouchOrMouseEvent } from "../mouse/state";
+import { TouchOrMouseEvent } from "../input/state";
 
 
 export interface BoundingBox {

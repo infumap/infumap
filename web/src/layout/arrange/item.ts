@@ -43,7 +43,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { CursorEventState, MouseAction, MouseActionState } from "../../mouse/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 
 
 const PAGE_TITLE_UID = newUid();

@@ -19,7 +19,7 @@
 import { ExpressionToken, ExpressionTokenType, tokenize } from "../../eval/tokenize";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
-import { mouseMove_handleNoButtonDown } from "../../mouse/mouse_move";
+import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
 import { panic, getPanickedMessage } from "../../util/lang";

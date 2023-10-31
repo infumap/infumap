@@ -30,8 +30,8 @@ import { getTextStyleForNote } from "../../layout/text";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { isComposite } from "../../items/composite-item";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { ClickState } from "../../mouse/state";
-import { MOUSE_LEFT } from "../../mouse/mouse_down";
+import { ClickState } from "../../input/state";
+import { MOUSE_LEFT } from "../../input/mouse_down";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

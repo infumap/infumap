@@ -34,14 +34,14 @@ import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { CursorEventState } from "../../mouse/state";
+import { CursorEventState } from "../../input/state";
 import { FindDirection, findClosest } from "../../layout/find";
 import { getTextStyleForNote, measureLineCount } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns, asTableItem } from "../../items/table-item";
-import { MOUSE_RIGHT } from "../../mouse/mouse_down";
+import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { assert, panic } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 

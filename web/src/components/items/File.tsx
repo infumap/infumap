@@ -25,8 +25,8 @@ import { ItemFns} from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { MOUSE_LEFT } from "../../mouse/mouse_down";
-import { ClickState } from "../../mouse/state";
+import { MOUSE_LEFT } from "../../input/mouse_down";
+import { ClickState } from "../../input/state";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {

@@ -27,7 +27,7 @@ import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { itemState } from "./store/ItemState";
 import { arrange } from "./layout/arrange";
-import { getHitInfo } from "./mouse/hit";
+import { getHitInfo } from "./input/hit";
 
 
 export async function handleUpload(

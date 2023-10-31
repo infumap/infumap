@@ -17,32 +17,28 @@
 */
 
 import { Component, Show, onCleanup, onMount } from "solid-js";
-import { PopupType, useDesktopStore } from "../store/DesktopStoreProvider";
+import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
 import { ContextMenu } from "./overlay/ContextMenu";
 import { useUserStore } from "../store/UserStoreProvider";
-import { mouseMoveHandler, mouseMove_handleNoButtonDown } from "../mouse/mouse_move";
+import { mouseMoveHandler } from "../input/mouse_move";
 import { handleUpload } from "../upload";
 import { HitboxFlags } from "../layout/hitbox";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { EditDialog, initialEditDialogBounds } from "./overlay/edit/EditDialog";
+import { asPageItem, isPage } from "../items/page-item";
+import { EditDialog } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
-import { VeFns } from "../layout/visual-element";
-import { getHitInfo } from "../mouse/hit";
-import { panic } from "../util/lang";
-import { findClosest, findDirectionFromKeyCode } from "../layout/find";
-import { itemState } from "../store/ItemState";
-import { switchToPage } from "../layout/navigation";
+import { getHitInfo } from "../input/hit";
 import { TextEditOverlay } from "./overlay/TextEditOverlay";
-import { mouseUpHandler } from "../mouse/mouse_up";
-import { MOUSE_RIGHT, mouseDownHandler } from "../mouse/mouse_down";
-import { mouseDoubleClickHandler } from "../mouse/mouse_doubleClick";
-import { CursorEventState } from "../mouse/state";
+import { mouseUpHandler } from "../input/mouse_up";
+import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
+import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
+import { CursorEventState } from "../input/state";
 import { arrange } from "../layout/arrange";
 import { SearchOverlay } from "./overlay/SearchOverlay";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
+import { keyHandler } from "../input/key";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -51,96 +47,8 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   let desktopDiv: HTMLDivElement | undefined;
 
-  const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
   const keyListener = (ev: KeyboardEvent) => {
-    if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null || desktopStore.textEditOverlayInfo() != null) {
-      return;
-    }
-
-    if (!recognizedKeys.find(a => a == ev.code)) {
-      return;
-    }
-
-    const hitInfo = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
-
-    if (ev.code == "Slash") {
-      ev.preventDefault();
-      desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLastestDesktopPx(), hitInfo });
-      mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
-    }
-
-    else if (ev.code == "Backslash") {
-      ev.preventDefault();
-      desktopStore.setEditDialogInfo({
-        desktopBoundsPx: initialEditDialogBounds(desktopStore),
-        item: (() => {
-          const overVe = hitInfo.overElementVes.get();
-          if (overVe.linkItemMaybe != null) {
-            const poppedUp = desktopStore.currentPopupSpec();
-            if (poppedUp && overVe.displayItem.id == VeFns.veidFromPath(poppedUp!.vePath).itemId) {
-              return overVe.displayItem;
-            }
-            const selected = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
-            if (selected && overVe.displayItem.id == VeFns.veidFromPath(selected).itemId) {
-              return overVe.displayItem;
-            }
-            return overVe.linkItemMaybe!;
-          }
-          return overVe.displayItem;
-        })()
-      });
-      mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
-    }
-
-    else if (ev.code == "Escape") {
-      ev.preventDefault();
-      if (desktopStore.currentPopupSpec()) {
-        desktopStore.popAllPopups();
-        arrange(desktopStore);
-      }
-    }
-
-    else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
-      ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-      const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-      if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
-        if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
-          const selectedItem = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
-          const direction = findDirectionFromKeyCode(ev.code);
-          const closest = findClosest(selectedItem, direction, true)!;
-          if (closest != null) {
-            desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, closest);
-            arrange(desktopStore);
-          }
-        }
-      } else {
-        if (desktopStore.currentPopupSpec() == null) {
-          return;
-        }
-        const direction = findDirectionFromKeyCode(ev.code);
-        const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction, false)!;
-        if (closest != null) {
-          const closestVeid = VeFns.veidFromPath(closest);
-          const closestItem = itemState.get(closestVeid.itemId);
-          desktopStore.replacePopup({
-            type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
-            vePath: closest
-          });
-          arrange(desktopStore);
-        }
-      }
-    }
-
-    else if (ev.code == "Enter") {
-      const spec = desktopStore.currentPopupSpec();
-      if (spec && spec.type == PopupType.Page) {
-        switchToPage(desktopStore, userStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true, false);
-      }
-    }
-
-    else {
-      panic(`Unexpected key code: ${ev.code}`);
-    }
+    keyHandler(desktopStore, userStore, ev);
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
