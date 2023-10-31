@@ -92,6 +92,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     desktopStore.setEditUserSettingsInfo(null);
     desktopStore.popPage();
     arrange(desktopStore);
+    setTopLevelPageScrollPositions(desktopStore);
   };
 
   const contextMenuListener = (ev: Event) => {
