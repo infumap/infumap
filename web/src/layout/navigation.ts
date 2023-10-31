@@ -53,21 +53,10 @@ export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: 
   } else {
     desktopStore.pushPage(pageVeid);
   }
+
   arrange(desktopStore);
 
-  let desktopEl = window.document.getElementById("desktop")!;
-
-  const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
-  const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
-  const desktopSizePx = desktopStore.desktopBoundsPx();
-
-  const scrollXPx = desktopStore.getPageScrollXProp(desktopStore.currentPage()!) * (topLevelBoundsPx.w - desktopSizePx.w);
-  const scrollYPx = desktopStore.getPageScrollYProp(desktopStore.currentPage()!) * (topLevelBoundsPx.h - desktopSizePx.h);
-
-  if (desktopEl) {
-    desktopEl.scrollTop = scrollYPx;
-    desktopEl.scrollLeft = scrollXPx;
-  }
+  setPageScrollPositions(desktopStore);
 
   if (updateHistory) {
     updateHref(desktopStore, userStore);
@@ -90,6 +79,7 @@ export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: 
   if (changePages) {
     updateHref(desktopStore, userStore);
     arrange(desktopStore);
+    setPageScrollPositions(desktopStore);
     return true;
   }
 
@@ -126,4 +116,22 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
   }
 
   panic(`navigateUp: could not find page after ${MAX_LEVELS} levels.`);
+}
+
+
+function setPageScrollPositions(desktopStore: DesktopStoreContextModel) {
+  let rootPageDiv = window.document.getElementById("rootPageDiv")!;
+  let veid = desktopStore.currentPage()!;
+
+  const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
+  const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
+  const desktopSizePx = desktopStore.desktopBoundsPx();
+
+  const scrollXPx = desktopStore.getPageScrollXProp(veid) * (topLevelBoundsPx.w - desktopSizePx.w);
+  const scrollYPx = desktopStore.getPageScrollYProp(veid) * (topLevelBoundsPx.h - desktopSizePx.h);
+
+  if (rootPageDiv) {
+    rootPageDiv.scrollTop = scrollYPx;
+    rootPageDiv.scrollLeft = scrollXPx;
+  }
 }

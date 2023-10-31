@@ -37,19 +37,35 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
 
+  let rootDiv: HTMLDivElement | undefined;
+
   onMount(() => {
-    if (props.visualElement.flags & VisualElementFlags.Popup) {
-      // If the popup is from clicking on a link item, the veid of the popup visual element will not reflect
-      // that item since the link id will be the constant one used for popups. Therefore, get the veid directly
-      // from the desktop store.
-      const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+    let veid;
+    let div;
 
-      const scrollXPx = desktopStore.getPageScrollXProp(popupVeid) * (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
-      const scrollYPx = desktopStore.getPageScrollYProp(popupVeid) * (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
-
-      popupDiv!.scrollTop = scrollYPx;
-      popupDiv!.scrollLeft = scrollXPx;
+    if (props.visualElement.parentPath == null) {
+      // the top level page visual element signal is always recycled, which means this component
+      // is never re-mounted. For that reason, initial scroll positions of the top level page
+      // are set in the switchToPage method in navigation.ts.
+      return;
+    } else if (props.visualElement.flags & VisualElementFlags.Popup) {
+      veid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+      div = popupDiv;
+    } else {
+      veid = VeFns.veidFromVe(props.visualElement);
+      div = translucentDiv;
     }
+
+    if (!div) { return; }
+
+    const scrollXProp = desktopStore.getPageScrollXProp(veid);
+    const scrollXPx = scrollXProp * (childAreaBoundsPx().w - boundsPx().w);
+
+    const scrollYProp = desktopStore.getPageScrollYProp(veid);
+    const scrollYPx = scrollYProp * (childAreaBoundsPx().h - boundsPx().h);
+
+    div.scrollTop = scrollYPx;
+    div.scrollLeft = scrollXPx;
   });
 
   const pageItem = () => asPageItem(props.visualElement.displayItem);
@@ -103,6 +119,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const widthPx = () => LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale() - marginPx * 2;
 
   const titleOnPageColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
+
+
+  // ## Opaque
 
   const renderAsOpaque = () => {
     const opaqueTitleInBoxScale = createMemo((): number => calcTitleInBoxScale("xs"));
@@ -175,6 +194,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
 
+  // ## Translucent
+
   let translucentDiv: HTMLDivElement | undefined;
   let updatingTranslucentScrollTop = false;
   createEffect(() => {
@@ -192,7 +213,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       updatingTranslucentScrollTop = false;
     }, 0);
   });
-
 
   const renderAsTranslucent = () => {
     const translucentTitleInBoxScale = createMemo((): number => calcTitleInBoxScale("lg"));
@@ -343,6 +363,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
 
+  // ## Popup
+
   let popupDiv: HTMLDivElement | undefined;
   let updatingPopupScrollTop = false;
   createEffect(() => {
@@ -371,7 +393,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const pageBoundsPx = props.visualElement.boundsPx;
       const childAreaBoundsPx_ = childAreaBoundsPx();
-
       const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
 
       if (childAreaBoundsPx_.h > pageBoundsPx.h) {
@@ -475,6 +496,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
 
+  // ## Full or Root
+
   const renderAsFullOrRoot = () => {
     const shadowColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.3)}; `;
 
@@ -533,27 +556,27 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
       const desktopSizePx = props.visualElement.boundsPx;
+      const currentPageVeid = desktopStore.currentPage()!;
 
       if (desktopSizePx.w < pageBoundsPx.w) {
         const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
-        desktopStore.setPageScrollXProp(desktopStore.currentPage()!, scrollXProp);
+        desktopStore.setPageScrollXProp(currentPageVeid, scrollXProp);
       }
 
       if (desktopSizePx.h < pageBoundsPx.h) {
         const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
-        desktopStore.setPageScrollYProp(desktopStore.currentPage()!, scrollYProp);
+        desktopStore.setPageScrollYProp(currentPageVeid, scrollYProp);
       }
     }
 
-    let rootDiv: HTMLDivElement | undefined;
-
     const renderPage = () =>
       <div ref={rootDiv}
-          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
-          style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                 `top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                 `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` +
-                 `${VeFns.zIndexStyle(props.visualElement)}`}
+           id={'rootPageDiv'}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+           style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                  `top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; overflow-x: hidden;` +
+                  `${VeFns.zIndexStyle(props.visualElement)}`}
           onscroll={rootScrollHandler}>
         <div class="absolute"
             style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; ` +
