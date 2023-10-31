@@ -39,6 +39,7 @@ import { SearchOverlay } from "./overlay/SearchOverlay";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { keyHandler } from "../input/key";
+import { setTopLevelPageScrollPositions } from "../layout/navigation";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -82,6 +83,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   const windowResizeListener = () => {
     desktopStore.resetDesktopSizePx();
     arrange(desktopStore);
+    setTopLevelPageScrollPositions(desktopStore);
   };
 
   const windowPopStateListener = () => {

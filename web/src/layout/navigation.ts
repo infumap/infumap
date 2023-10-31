@@ -56,7 +56,7 @@ export function switchToPage(desktopStore: DesktopStoreContextModel, userStore: 
 
   arrange(desktopStore);
 
-  setPageScrollPositions(desktopStore);
+  setTopLevelPageScrollPositions(desktopStore);
 
   if (updateHistory) {
     updateHref(desktopStore, userStore);
@@ -79,7 +79,7 @@ export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: 
   if (changePages) {
     updateHref(desktopStore, userStore);
     arrange(desktopStore);
-    setPageScrollPositions(desktopStore);
+    setTopLevelPageScrollPositions(desktopStore);
     return true;
   }
 
@@ -119,7 +119,7 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
 }
 
 
-function setPageScrollPositions(desktopStore: DesktopStoreContextModel) {
+export function setTopLevelPageScrollPositions(desktopStore: DesktopStoreContextModel) {
   let rootPageDiv = window.document.getElementById("rootPageDiv")!;
   let veid = desktopStore.currentPage()!;
 
