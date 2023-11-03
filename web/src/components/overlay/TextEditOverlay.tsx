@@ -180,7 +180,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   onCleanup(() => {
-    if (!deleted && userStore.getUserMaybe() != null) {
+    if (!deleted && userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == userStore.getUser().userId) {
       server.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
         server.updateItem(compositeItemOnInitializeMaybe);
@@ -477,7 +477,7 @@ export const TextEditOverlay: Component = () => {
     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
          style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
       <div class="p-[4px]">
-        <Show when={userStore.getUserMaybe() != null}>
+        <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
           <Show when={!isInTable()}>
             <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
@@ -503,7 +503,7 @@ export const TextEditOverlay: Component = () => {
           </Show>
         </Show>
         <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-        <Show when={userStore.getUserMaybe() != null}>
+        <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
@@ -516,7 +516,7 @@ export const TextEditOverlay: Component = () => {
         <div class="p-[4px]">
           <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
           <InfuIconButton icon={'info-circle'} highlighted={false} clickHandler={compositeInfoButtonHandler} />
-          <Show when={userStore.getUserMaybe() != null}>
+          <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
             <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
           </Show>
         </div>
@@ -524,7 +524,7 @@ export const TextEditOverlay: Component = () => {
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
           style={`left: ${toolboxBoundsPx().x}px; top: ${toolboxBoundsPx().y}px; width: ${toolboxBoundsPx().w}px; height: ${toolboxBoundsPx().h}px`}>
         <div class="p-[4px]">
-          <Show when={userStore.getUserMaybe() != null}>
+          <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
             <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
             <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
             <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
@@ -543,7 +543,7 @@ export const TextEditOverlay: Component = () => {
             </Show>
           </Show>
           <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-          <Show when={userStore.getUserMaybe() != null}>
+          <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
             <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
           </Show>
         </div>
@@ -566,7 +566,7 @@ export const TextEditOverlay: Component = () => {
                        `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
                        `${style().isBold ? ' font-weight: bold; ' : ""}`}
                 value={noteItem().title}
-                disabled={userStore.getUserMaybe() == null}
+                disabled={userStore.getUserMaybe() == null || userStore.getUser().userId == noteItem().ownerId}
                 onMouseDown={textAreaMouseDownHandler}
                 onInput={textAreaOnInputHandler} />
     </div>;
