@@ -313,11 +313,15 @@ export const TextEditOverlay: Component = () => {
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
     if (userStore.getUserMaybe() == null) { return; }
     if (noteItem().title != "") { return; }
+
+    // maybe delete note item.
     const ve = noteVisualElement();
-    const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (!isComposite(parentVe.displayItem)) { return; }
+    let compositeVe = VesCache.get(ve.parentPath!)!.get();
+    if (!isComposite(compositeVe.displayItem)) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
     if (closest == null) { return; }
+
+    // definitely delete note item.
     ev.preventDefault();
     desktopStore.setTextEditOverlayInfo({ noteItemPath: closest });
     const canonicalId = VeFns.canonicalItem(ve).id;
@@ -325,6 +329,31 @@ export const TextEditOverlay: Component = () => {
     itemState.delete(canonicalId);
     await server.deleteItem(canonicalId);
     arrange(desktopStore);
+
+    justCreatedCompositeItemMaybe = null;
+    justCreatedNoteItemMaybe = null;
+
+    // maybe delete composite item and move note to parent.
+    compositeVe = VesCache.get(ve.parentPath!)!.get();
+    assert(isComposite(compositeVe.displayItem), "parentVe is not a composite.");
+    const compositeItem = asCompositeItem(compositeVe.displayItem);
+    if (compositeItem.computed_children.length > 1) { return; }
+
+    // definitely delete composite item and move note to parent.
+    assert(compositeItem.computed_children.length == 1, "composite has other than one child.");
+    const keepNoteId = compositeItem.computed_children[0];
+    const keepNote = itemState.get(keepNoteId)!;
+    const canonicalCompositeItem = VeFns.canonicalItem(compositeVe);
+    const compositePageId = canonicalCompositeItem.parentId;
+    desktopStore.setTextEditOverlayInfo(null);
+    setTimeout(() => {
+      itemState.moveToNewParent(keepNote, compositePageId, canonicalCompositeItem.relationshipToParent, canonicalCompositeItem.ordering);
+      server.updateItem(keepNote);
+      itemState.delete(compositeVe.displayItem.id);
+      server.deleteItem(compositeVe.displayItem.id);
+      arrange(desktopStore);
+      desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!) });
+    }, 0);
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
