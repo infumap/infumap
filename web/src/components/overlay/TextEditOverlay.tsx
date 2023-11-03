@@ -182,7 +182,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   onCleanup(() => {
-    if (!deleted && userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
+    if (!deleted && userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == userStore.getUser().userId) {
       server.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
         server.updateItem(compositeItemOnInitializeMaybe);
@@ -207,7 +207,7 @@ export const TextEditOverlay: Component = () => {
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
+      if (userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == userStore.getUser().userId) {
         server.updateItem(noteVisualElement().displayItem);
         desktopStore.setTextEditOverlayInfo(null);
       }
@@ -315,7 +315,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
-    if (userStore.getUserMaybe() == null || noteItem().ownerId != userStore.getUser().userId) { return; }
+    if (userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != userStore.getUser().userId) { return; }
     if (noteItem().title != "") { return; }
 
     // maybe delete note item.
@@ -361,7 +361,7 @@ export const TextEditOverlay: Component = () => {
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
-    if (userStore.getUserMaybe() == null || noteItem().ownerId != userStore.getUser().userId) { return; }
+    if (userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != userStore.getUser().userId) { return; }
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -570,7 +570,7 @@ export const TextEditOverlay: Component = () => {
                        `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
                        `${style().isBold ? ' font-weight: bold; ' : ""}`}
                 value={noteItem().title}
-                disabled={userStore.getUserMaybe() == null || userStore.getUser().userId == noteItem().ownerId}
+                disabled={userStore.getUserMaybe() == null || userStore.getUser().userId != noteItem().ownerId}
                 onMouseDown={textAreaMouseDownHandler}
                 onInput={textAreaOnInputHandler} />
     </div>;
