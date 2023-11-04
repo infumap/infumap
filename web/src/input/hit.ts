@@ -47,10 +47,11 @@ export function getHitInfo(
     ignoreAttachments: boolean): HitInfo {
 
   const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
+  const topLevelVeid = desktopStore.currentPage()!;
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = topLevelVisualElement.boundsPx;
-  const topXScroll = desktopStore.getPageScrollXProp(VeFns.veidFromVe(topLevelVisualElement));
-  const topYScroll = desktopStore.getPageScrollYProp(VeFns.veidFromVe(topLevelVisualElement));
+  const topXScroll = desktopStore.getPageScrollXProp(topLevelVeid);
+  const topYScroll = desktopStore.getPageScrollYProp(topLevelVeid);
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
       x: topXScroll * (topLevelBoundsPx.w - desktopSizePx.w),
