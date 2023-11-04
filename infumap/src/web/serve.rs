@@ -44,7 +44,7 @@ pub async fn http_serve(
     image_cache: Arc<std::sync::Mutex<ImageCache>>,
     config: Arc<Config>,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
-  debug!("Serving: {}", req.uri().path());
+  debug!("Serving: {} ({})", req.uri().path(), req.method());
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
@@ -76,7 +76,13 @@ pub fn full_body<T: Into<Bytes>>(data: T) -> BoxBody<Bytes, hyper::Error> {
 
 pub fn json_response<T>(v: &T) -> Response<BoxBody<Bytes, hyper::Error>> where T: Serialize {
   let result_str = serde_json::to_string(&v).unwrap();
-  match Response::builder().header(hyper::header::CONTENT_TYPE, "text/javascript").body(full_body(result_str)) {
+  match Response::builder()
+      .header(hyper::header::CONTENT_TYPE, "text/javascript")
+      .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+      .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+      .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+      .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+      .body(full_body(result_str)) {
     Ok(r) => r,
     Err(_) => {
       Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(empty_body()).unwrap()
