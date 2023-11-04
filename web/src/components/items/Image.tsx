@@ -46,6 +46,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const imageAspect = () => imageItem().imageSizePx.w / imageItem().imageSizePx.h;
   const isDetailed = () => { return (props.visualElement.flags & VisualElementFlags.Detailed) }
   const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
+  const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   const imgSrc = () => { return "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true); }
   // const imgUrl = () => {
   //   if (!props.visualElement.isDetailed) {
@@ -80,11 +81,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   let isDetailed_OnLoad = isDetailed();
   let imgSrcOnLoad = imgSrc();
+  let imgOriginOnLoad = imgOrigin();
 
   onMount(() => {
     if (isDetailed_OnLoad) {
       const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
-      getImage(imgSrcOnLoad, isHighPriority)
+      console.log(imgSrcOnLoad, imgOriginOnLoad);
+      getImage(imgSrcOnLoad, imgOriginOnLoad, isHighPriority)
         .then((objectUrl) => {
           imgElement!.src = objectUrl;
         });

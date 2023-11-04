@@ -43,6 +43,7 @@ export const PasswordFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, text: string, ordering: Uint8Array): PasswordItem => {
     if (parentId == EMPTY_UID) { panic("PasswordFns.create: parentId is empty."); }
     return {
+      origin: null,
       itemType: ItemType.Password,
       ownerId,
       id: newUid(),
@@ -61,9 +62,10 @@ export const PasswordFns = {
     };
   },
 
-  fromObject: (o: any): PasswordItem => {
+  fromObject: (o: any, origin: string | null): PasswordItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

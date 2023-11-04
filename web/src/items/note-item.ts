@@ -46,6 +46,7 @@ export const NoteFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): NoteItem => {
     if (parentId == EMPTY_UID) { panic("NoteFns.create: parent is empty."); }
     return {
+      origin: null,
       itemType: ItemType.Note,
       ownerId,
       id: newUid(),
@@ -67,10 +68,11 @@ export const NoteFns = {
     };
   },
 
-  fromObject: (o: any): NoteItem => {
+  fromObject: (o: any, origin: string | null): NoteItem => {
     // TODO (LOW): dynamic type check of o.
     // TODO (LOW): check flags field.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

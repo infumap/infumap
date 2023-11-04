@@ -18,7 +18,7 @@
 
 import { GRID_SIZE } from "./constants";
 import { server } from "./server";
-import { PageItem, PageFns, ArrangeAlgorithm } from "./items/page-item";
+import { PageItem, ArrangeAlgorithm } from "./items/page-item";
 import { DesktopStoreContextModel } from "./store/DesktopStoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
@@ -80,7 +80,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
-      itemState.add(ItemFns.fromObject(returnedItem));
+      itemState.add(ItemFns.fromObject(returnedItem, null));
       arrange(desktopStore);
 
     } else {
@@ -98,7 +98,7 @@ export async function handleUpload(
 
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
-      itemState.add(ItemFns.fromObject(returnedItem));
+      itemState.add(ItemFns.fromObject(returnedItem, null));
       arrange(desktopStore);
     }
   }

@@ -44,9 +44,10 @@ export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizabl
 
 
 export const ImageFns = {
-  fromObject:(o: any): ImageItem => {
+  fromObject:(o: any, origin: string | null): ImageItem => {
     // TODO (LOW): dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

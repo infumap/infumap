@@ -41,9 +41,10 @@ export interface FileMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export const FileFns = {
-  fromObject: (o: any): FileItem => {
+  fromObject: (o: any, origin: string | null): FileItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

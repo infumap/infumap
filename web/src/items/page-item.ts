@@ -79,6 +79,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 export const PageFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem => {
     return ({
+      origin: null,
       itemType: ItemType.Page,
       ownerId,
       id: newUid(),
@@ -115,9 +116,10 @@ export const PageFns = {
     });
   },
 
-  fromObject: (o: any): PageItem => {
+  fromObject: (o: any, origin: string | null): PageItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

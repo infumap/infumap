@@ -17,7 +17,7 @@
 use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
-use hyper::{Request, Response, StatusCode};
+use hyper::{Request, Response};
 use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
@@ -45,7 +45,7 @@ use crate::util::infu::InfuResult;
 use crate::util::json;
 use crate::util::ordering::new_ordering_at_end;
 use crate::util::uid::{is_empty_uid, new_uid, EMPTY_UID, is_uid, Uid};
-use crate::web::serve::{json_response, incoming_json, empty_body};
+use crate::web::serve::{json_response, incoming_json, cors_response};
 use crate::web::session::get_and_validate_session;
 
 use super::WebApiJsonSerializable;
@@ -840,14 +840,4 @@ fn search_recursive(db: &mut MutexGuard<'_, Db>, search_text: &str, item_id: Uid
   current_path.pop();
 
   Ok(())
-}
-
-pub fn cors_response() -> Response<BoxBody<Bytes, hyper::Error>> {
-  Response::builder()
-    .status(StatusCode::NO_CONTENT)
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
-    .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
-    .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
-    .body(empty_body()).unwrap()
 }

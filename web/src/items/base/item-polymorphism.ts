@@ -145,17 +145,17 @@ export const ItemFns = {
     panic(`Unknown item type: ${item.itemType}`);
   },
 
-  fromObject: (o: any): Item => {
-    if (isPage(o)) { return PageFns.fromObject(o); }
-    if (isTable(o)) { return TableFns.fromObject(o); }
-    if (isComposite(o)) { return CompositeFns.fromObject(o); }
-    if (isNote(o)) { return NoteFns.fromObject(o); }
-    if (isImage(o)) { return ImageFns.fromObject(o); }
-    if (isFile(o)) { return FileFns.fromObject(o); }
-    if (isPassword(o)) { return PasswordFns.fromObject(o); }
-    if (isRating(o)) { return RatingFns.fromObject(o); }
-    if (isLink(o)) { return LinkFns.fromObject(o); }
-    if (isPlaceholder(o)) { return PlaceholderFns.fromObject(o); }
+  fromObject: (o: any, origin: string | null): Item => {
+    if (isPage(o)) { return PageFns.fromObject(o, origin); }
+    if (isTable(o)) { return TableFns.fromObject(o, origin); }
+    if (isComposite(o)) { return CompositeFns.fromObject(o, origin); }
+    if (isNote(o)) { return NoteFns.fromObject(o, origin); }
+    if (isImage(o)) { return ImageFns.fromObject(o, origin); }
+    if (isFile(o)) { return FileFns.fromObject(o, origin); }
+    if (isPassword(o)) { return PasswordFns.fromObject(o, origin); }
+    if (isRating(o)) { return RatingFns.fromObject(o, origin); }
+    if (isLink(o)) { return LinkFns.fromObject(o, origin); }
+    if (isPlaceholder(o)) { return PlaceholderFns.fromObject(o, origin); }
     panic(`Unknown item type: ${o.itemType}`);
   },
 

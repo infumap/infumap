@@ -43,6 +43,7 @@ export const RatingFns = {
   create: (ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem => {
     if (parentId == EMPTY_UID) { panic("RatingFns.create: parent is empty."); }
     return {
+      origin: null,
       itemType: ItemType.Rating,
       ownerId,
       id: newUid(),
@@ -57,9 +58,10 @@ export const RatingFns = {
     };
   },
 
-  fromObject: (o: any): RatingItem => {
+  fromObject: (o: any, origin: string | null): RatingItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

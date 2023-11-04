@@ -47,6 +47,7 @@ export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSi
 export const CompositeFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): CompositeItem => {
     return ({
+      origin: null,
       itemType: ItemType.Composite,
       ownerId,
       id: newUid(),
@@ -69,9 +70,10 @@ export const CompositeFns = {
     });
   },
 
-  fromObject: (o: any): CompositeItem => {
+  fromObject: (o: any, origin: string | null): CompositeItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

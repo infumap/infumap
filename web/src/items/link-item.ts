@@ -62,6 +62,7 @@ export const LinkFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array, linkTo: Uid): LinkItem => {
     if (parentId == EMPTY_UID) { panic("LinkFns.create: parent is empty."); }
     return {
+      origin: null,
       itemType: ItemType.Link,
       ownerId,
       id: newUid(),
@@ -84,9 +85,10 @@ export const LinkFns = {
     };
   },
 
-  fromObject: (o: any): LinkItem => {
+  fromObject: (o: any, origin: string | null): LinkItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

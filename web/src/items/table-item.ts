@@ -53,6 +53,7 @@ export const TableFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TableItem => {
     if (parentId == EMPTY_UID) { panic("TableFns.create: parent is empty."); }
     return {
+      origin: null,
       itemType: ItemType.Table,
       ownerId,
       id: newUid(),
@@ -82,11 +83,12 @@ export const TableFns = {
       childrenLoaded: false,
     };
   },
-  
-  fromObject: (o: any): TableItem => {
+
+  fromObject: (o: any, origin: string | null): TableItem => {
     // TODO (LOW): dynamic type check of o.
     // TODO (LOW): check flags field.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,
@@ -112,7 +114,7 @@ export const TableFns = {
       childrenLoaded: false,
     });
   },
-  
+
   toObject: (t: TableItem): object => {
     return ({
       itemType: t.itemType,
@@ -135,11 +137,11 @@ export const TableFns = {
       orderChildrenBy: t.orderChildrenBy,
     });
   },
-  
+
   calcSpatialDimensionsBl: (table: TableMeasurable): Dimensions => {
     return { w: table.spatialWidthGr / GRID_SIZE, h: table.spatialHeightGr / GRID_SIZE };
   },
-  
+
   calcGeometry_Spatial: (table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
     const tableSizeBl: Dimensions = TableFns.calcSpatialDimensionsBl(table);
     const boundsPx: BoundingBox = {

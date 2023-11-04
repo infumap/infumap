@@ -38,14 +38,21 @@ export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextMod
   }
   childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
 
-  server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
+  const container = itemState.get(containerVeid.itemId)!;
+  const origin = container.origin;
+
+  const fetchPromise = origin == null
+    ? server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
+    : remote.fetchItems(origin, `${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY);
+
+  fetchPromise
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children);
+          itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
           PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
           Object.keys(result.attachments).forEach(id => {
-            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
           });
           asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
           try {
@@ -75,9 +82,9 @@ export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemState.setItemFromServerObject(result.item);
+          itemState.setItemFromServerObject(result.item, null);
           Object.keys(result.attachments).forEach(id => {
-            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
           });
           try {
             arrange(desktopStore);
@@ -105,10 +112,10 @@ export const initiateLoadItemFromRemoteMaybe = (desktopStore: DesktopStoreContex
     .then(result => {
       if (result != null) {
         batch(() => {
-          itemState.setItemFromServerObject(result.item);
-          asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item).id;
+          itemState.setItemFromServerObject(result.item, baseUrl);
+          asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
           Object.keys(result.attachments).forEach(id => {
-            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
           });
           try {
             arrange(desktopStore);
@@ -121,6 +128,6 @@ export const initiateLoadItemFromRemoteMaybe = (desktopStore: DesktopStoreContex
       }
     })
     .catch((e: any) => {
-      console.error(`Error occurred feching item '${itemId}': ${e.message}.`);
+      console.error(`Error occurred feching item '${itemId}' from '${baseUrl}': ${e.message}.`);
     });
 }

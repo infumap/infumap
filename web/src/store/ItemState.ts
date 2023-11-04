@@ -86,8 +86,8 @@ export const itemState = {
     items.delete(id);
   },
 
-  setItemFromServerObject: (itemObject: object): void => {
-    let item = ItemFns.fromObject(itemObject);
+  setItemFromServerObject: (itemObject: object, origin: string | null): void => {
+    let item = ItemFns.fromObject(itemObject, origin);
     items.set(item.id, item);
   },
 
@@ -121,8 +121,8 @@ export const itemState = {
    * @param parentId The id of the parent to set child items of.
    * @param childItems The child items.
    */
-  setChildItemsFromServerObjects: (parentId: Uid, childItemObjects: Array<object>): void => {
-    let childItems = childItemObjects.map(cio => ItemFns.fromObject(cio));
+  setChildItemsFromServerObjects: (parentId: Uid, childItemObjects: Array<object>, origin: string | null): void => {
+    let childItems = childItemObjects.map(cio => ItemFns.fromObject(cio, origin));
     childItems.forEach(childItem => {
       if (!items.has(childItem.id)) {
         // item may have already been loaded (including children, and will be flagged as such).
@@ -148,8 +148,8 @@ export const itemState = {
     itemState.sortChildren(parentId);
   },
 
-  setAttachmentItemsFromServerObjects: (parentId: Uid, attachmentItemObject: Array<object>): void => {
-    let attachmentItems = attachmentItemObject.map(aio => ItemFns.fromObject(aio));
+  setAttachmentItemsFromServerObjects: (parentId: Uid, attachmentItemObject: Array<object>, origin: string | null): void => {
+    let attachmentItems = attachmentItemObject.map(aio => ItemFns.fromObject(aio, origin));
     if (!isAttachmentsItem(itemState.get(parentId)!)) {
       throw new Error(`Cannot attach ${attachmentItems.length} items to parent '${parentId}' because it has type '${itemState.get(parentId)!.itemType}' which does not allow attachments.`);
     }

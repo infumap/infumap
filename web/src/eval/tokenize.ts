@@ -17,7 +17,6 @@
 */
 
 import { FindDirection, findDirectionFromLetterPrefix } from "../layout/find";
-import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
 
 

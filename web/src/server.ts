@@ -175,7 +175,7 @@ export async function post(host: string | null, path: string, json: any) {
   const body = JSON.stringify(json);
   const url = host == null
     ? path
-    : host + path;
+    : new URL(path, host).href;
   const fetchResult = await fetch(url, {
     method: 'POST',
     headers: {

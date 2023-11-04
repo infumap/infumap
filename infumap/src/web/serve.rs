@@ -126,3 +126,13 @@ pub async fn incoming_json<T>(request: Request<hyper::body::Incoming>) -> InfuRe
     )?
   )?)
 }
+
+pub fn cors_response() -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder()
+    .status(StatusCode::NO_CONTENT)
+    .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+    .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+    .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+    .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+    .body(empty_body()).unwrap()
+}

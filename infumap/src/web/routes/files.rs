@@ -35,7 +35,7 @@ use crate::storage::cache::{ImageSize, ImageCacheKey};
 use crate::storage::object;
 use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
 use crate::util::infu::InfuResult;
-use crate::web::serve::{full_body, internal_server_error_response, not_found_response};
+use crate::web::serve::{full_body, internal_server_error_response, not_found_response, cors_response};
 use crate::web::session::get_and_validate_session;
 
 use super::command::authorize_item;
@@ -67,6 +67,11 @@ pub async fn serve_files_route(
     object_store: Arc<object::ObjectStore>,
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     req: &Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+
+  if req.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request, assuming CORS query.");
+    return cors_response();
+  }
 
   let session_user_id_maybe = match get_and_validate_session(&req, &db).await {
     Some(s) => Some(s.user_id),
@@ -148,6 +153,10 @@ async fn get_cached_resized_img(
               return Ok(Response::builder()
                 .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
                 .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+                .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+                .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+                .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
                 .body(full_body(data)).unwrap());
             } else {
               // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
@@ -193,6 +202,10 @@ async fn get_cached_resized_img(
           return Ok(Response::builder()
             .header(hyper::header::CONTENT_TYPE, "image/jpeg")
             .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+            .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+            .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+            .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
             .body(full_body(data)).unwrap());
         },
         None => {
@@ -212,6 +225,10 @@ async fn get_cached_resized_img(
     return Ok(Response::builder()
       .header(hyper::header::CONTENT_TYPE, original_mime_type_string)
       .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+      .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+      .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+      .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+      .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
       .body(full_body(original_file_bytes)).unwrap());
   }
 
@@ -249,6 +266,10 @@ async fn get_cached_resized_img(
       Ok(Response::builder()
         .header(hyper::header::CONTENT_TYPE, "image/jpeg")
         .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+        .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+        .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+        .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
         .body(full_body(data)).unwrap())
     },
 
@@ -288,6 +309,10 @@ async fn get_file(
   Ok(Response::builder()
     .header(hyper::header::CONTENT_TYPE, mime_type_string)
     .header(hyper::header::CACHE_CONTROL, calc_cache_control(browser_cache_max_age_seconds))
+    .header(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+    .header(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, "POST")
+    .header(hyper::header::ACCESS_CONTROL_MAX_AGE, "86400")
+    .header(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
     .body(full_body(data)).unwrap())
 }
 

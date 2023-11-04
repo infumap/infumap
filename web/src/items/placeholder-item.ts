@@ -33,6 +33,7 @@ export const PlaceholderFns = {
     if (relationshipToParent != RelationshipToParent.Attachment) { panic("PlaceholderFns.create: relationshipToParent is not Attachment."); }
     if (parentId == EMPTY_UID) { panic("PlaceholderFns.create: parent is empty."); }
     return {
+      origin: null,
       itemType: ItemType.Placeholder,
       ownerId,
       id: newUid(),
@@ -44,9 +45,10 @@ export const PlaceholderFns = {
     };
   },
 
-  fromObject: (o: any): PlaceholderItem => {
+  fromObject: (o: any, origin: string | null): PlaceholderItem => {
     // TODO: dynamic type check of o.
     return ({
+      origin,
       itemType: o.itemType,
       ownerId: o.ownerId,
       id: o.id,

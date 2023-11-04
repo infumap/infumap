@@ -42,6 +42,7 @@ export interface ItemTypeMixin {
 export interface Measurable extends ItemTypeMixin { }
 
 export interface Item extends ItemTypeMixin {
+  origin: string | null,
   ownerId: Uid,
   id: Uid,
   parentId: Uid,
@@ -52,6 +53,7 @@ export interface Item extends ItemTypeMixin {
 }
 
 export const EMPTY_ITEM = () => ({
+  origin: null,
   itemType: ItemType.None,
   ownerId: EMPTY_UID,
   id: EMPTY_UID,

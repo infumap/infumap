@@ -56,7 +56,11 @@ export function getVePropertiesForItem(desktopStore: DesktopStoreContextModel, i
   } else {
     if (linkItemMaybe.linkTo != EMPTY_UID) {
       if (linkItemMaybe.linkToBaseUrl == "") {
-        initiateLoadItemMaybe(desktopStore, linkItemMaybe.linkTo);
+        if (linkItemMaybe.origin == null) {
+          initiateLoadItemMaybe(desktopStore, linkItemMaybe.linkTo);
+        } else {
+          initiateLoadItemFromRemoteMaybe(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.origin, linkItemMaybe.id);
+        }
       } else {
         initiateLoadItemFromRemoteMaybe(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
       }
