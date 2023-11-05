@@ -37,6 +37,7 @@ import { measureLineCount } from '../layout/text';
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
   url: string,
+  format: string,
 }
 
 export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin { }
@@ -57,13 +58,14 @@ export const NoteFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       spatialWidthGr: 10.0 * GRID_SIZE,
-  
+
       flags: NoteFlags.None,
-  
+
       url: "",
-  
+      format: "",
+
       computed_attachments: [],
     };
   },
@@ -83,13 +85,14 @@ export const NoteFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
-  
+
       flags: o.flags,
-  
+
       url: o.url,
-  
+      format: o.format,
+
       computed_attachments: [],
     });
   },
@@ -106,12 +109,13 @@ export const NoteFns = {
       ordering: Array.from(n.ordering),
       title: n.title,
       spatialPositionGr: n.spatialPositionGr,
-  
+
       spatialWidthGr: n.spatialWidthGr,
-  
+
       flags: n.flags,
-  
+
       url: n.url,
+      format: n.format,
     });
   },
 

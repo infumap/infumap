@@ -56,10 +56,12 @@ export const TextEditOverlay: Component = () => {
   const userStore = useUserStore();
 
   let textElement: HTMLTextAreaElement | undefined;
+  let formatTextElement: HTMLInputElement | undefined;
 
   const urlOverlayVisible = createBooleanSignal(false);
   const infoOverlayVisible = createBooleanSignal(false);
   const compositeInfoOverlayVisible = createBooleanSignal(false);
+  const formatOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.noteItemPath)!.get();
   const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(desktopStore, noteVisualElement());
@@ -108,7 +110,7 @@ export const TextEditOverlay: Component = () => {
       const result = {
         x: compositeVeBoundsPx.x + 87,
         y: compositeVeBoundsPx.y - 42,
-        w: 365,
+        w: 410,
         h: 35
       };
       if (compositeVeMaybe.linkItemMaybe != null) {
@@ -119,7 +121,7 @@ export const TextEditOverlay: Component = () => {
       const result = {
         x: noteVeBoundsPx().x - 5,
         y: noteVeBoundsPx().y - 42,
-        w: isInTable() ? 310 : 385,
+        w: isInTable() ? 355 : 430,
         h: 35
       };
       if (noteVisualElement().linkItemMaybe != null) {
@@ -174,7 +176,15 @@ export const TextEditOverlay: Component = () => {
     const desktopPx = CursorEventState.getLastestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) ||
         isInside(desktopPx, toolboxBoundsPx()) ||
+        isInside(desktopPx, formatBoxBoundsPx()) ||
         (compositeVisualElementMaybe() != null && isInside(desktopPx, compositeToolboxBoundsPx()))) { return; }
+
+    if (formatOverlayVisible.get()) {
+      formatOverlayVisible.set(false);
+      arrange(desktopStore);
+      return;
+    }
+
     if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
       server.updateItem(noteVisualElement().displayItem);
     }
@@ -204,6 +214,10 @@ export const TextEditOverlay: Component = () => {
   });
 
   const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
+
+  const formatHandler = () => {
+    formatOverlayVisible.set(!formatOverlayVisible.get());
+  }
 
   const infoButtonHandler = () => {
     infoOverlayVisible.set(!infoOverlayVisible.get());
@@ -246,6 +260,7 @@ export const TextEditOverlay: Component = () => {
     if (compositeItemMaybe() != null) {
       console.log("TODO: delete composite");
       // TODO (HIGH)
+
     } else {
       const noteParentVe = VesCache.get(noteVisualElement().parentPath!);
       if (noteParentVe!.get().flags & VisualElementFlags.InsideTable) {
@@ -474,6 +489,14 @@ export const TextEditOverlay: Component = () => {
     return tbBoundsPx;
   }
 
+  const formatBoxBoundsPx = (): BoundingBox => {
+    const tbBoundsPx = toolboxBoundsPx();
+    tbBoundsPx.x += 0;
+    tbBoundsPx.y -= 38;
+    tbBoundsPx.h = 35;
+    return tbBoundsPx;
+  }
+
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
   }
@@ -483,6 +506,11 @@ export const TextEditOverlay: Component = () => {
       return (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true;
     }
     return (noteItem().flags & NoteFlags.HideBorder) ? false : true;
+  }
+
+  const handleFormatChange = () => {
+    noteItemOnInitialize.format = formatTextElement!.value;
+    arrange(desktopStore);
   }
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(noteItem().id); }
@@ -519,6 +547,7 @@ export const TextEditOverlay: Component = () => {
           <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
           <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
           <div class="inline-block ml-[12px]"></div>
+          <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
           <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
           <Show when={isInTable()}>
             <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
@@ -562,6 +591,7 @@ export const TextEditOverlay: Component = () => {
             <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
             <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
             <div class="inline-block ml-[12px]"></div>
+            <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
             <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
             <Show when={isInTable()}>
               <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
@@ -641,6 +671,20 @@ export const TextEditOverlay: Component = () => {
       </div>
     </Show>;
 
+  const renderFormatInfoOverlayMaybe = () =>
+    <Show when={formatOverlayVisible.get()}>
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+           style={`left: ${formatBoxBoundsPx().x}px; top: ${formatBoxBoundsPx().y}px; width: ${formatBoxBoundsPx().w}px; height: ${formatBoxBoundsPx().h}px`}>
+        <span class="text-sm ml-1 mr-2">Number Format:</span>
+        <input ref={formatTextElement}
+               class="border border-slate-300 rounded w-[305px] pl-1"
+               autocomplete="on"
+               value={noteItem().format}
+               type="text"
+               onChange={handleFormatChange} />
+      </div>
+    </Show>;
+
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -657,6 +701,7 @@ export const TextEditOverlay: Component = () => {
       {renderUrlOverlyMaybe()}
       {renderCompositeInfoOverlayMaybe()}
       {renderItemInfoOverlayMaybe()}
+      {renderFormatInfoOverlayMaybe()}
     </div>
   );
 }

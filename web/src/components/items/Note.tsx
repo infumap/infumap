@@ -32,6 +32,7 @@ import { isComposite } from "../../items/composite-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
+import { isNumeric } from "../../util/math";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -143,11 +144,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 onClick={aHrefClick}
                 onMouseDown={aHrefMouseDown}
                 onMouseUp={aHrefMouseUp}>
-                {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+                {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
             </a>
           </Match>
           <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-            <span>{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}</span>
+            <span>{formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}</span>
           </Match>
         </Switch>
       </div>
@@ -262,13 +263,13 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
              onClick={aHrefClick}
              onMouseDown={aHrefMouseDown}
              onMouseUp={aHrefMouseUp}>
-            {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+            {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
           </a>
         </Match>
         <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
           <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
                 style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-            {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title}
+            {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
           </span>
         </Match>
       </Switch>
@@ -295,4 +296,16 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {renderCopyIconMaybe()}
     </>
   );
+}
+
+
+// TODO (HIGH): something not naive.
+function formatMaybe(text: string, format: string): string {
+  if (format == "") { return text; }
+  if (!isNumeric(text)) { return text; }
+  if (format == "0.0") { return parseFloat(text).toFixed(1); }
+  if (format == "0.00") { return parseFloat(text).toFixed(2); }
+  if (format == "0.000") { return parseFloat(text).toFixed(3); }
+  if (format == "0.0000") { return parseFloat(text).toFixed(4); }
+  return text;
 }

@@ -129,9 +129,8 @@ impl<T> KVStore<T> where T: JsonLogSerializable<T> {
   }
 
   pub async fn update(&mut self, updated: T) -> InfuResult<()> {
-    let update_record = T::create_json_update(
-      self.map.get(updated.get_id()).ok_or(format!("Entry with id {} does not exist.",
-      updated.get_id()))?, &updated)?;
+    let old = self.map.get(updated.get_id()).ok_or(format!("Entry with id {} does not exist.", updated.get_id()))?;
+    let update_record = T::create_json_update(old, &updated)?;
     let file = OpenOptions::new().append(true).open(&self.log_path).await?;
     let mut writer = BufWriter::new(file);
     writer.write_all(serde_json::to_string(&update_record)?.as_bytes()).await?;
