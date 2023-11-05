@@ -16,17 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
-import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { Measurable, ItemTypeMixin, Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
-import { PositionalItem, PositionalMixin, asPositionalItem, isPositionalItem } from "./base/positional-item";
-import { asXSizableItem, isXSizableItem, XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
-import { asYSizableItem, isYSizableItem, YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
+import { PositionalMixin, asPositionalItem, isPositionalItem } from "./base/positional-item";
+import { asXSizableItem, isXSizableItem, XSizableMixin } from "./base/x-sizeable-item";
+import { asYSizableItem, isYSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { itemState } from "../store/ItemState";
 

@@ -23,7 +23,7 @@ import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-
 import { isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
-import { navigateBack, navigateUp, switchToPage, updateHref } from "../layout/navigation";
+import { navigateBack, navigateUp, switchToPage } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";

@@ -21,7 +21,7 @@ import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
-import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
+import { AttachmentsItem, asAttachmentsItem, calcGeometryOfAttachmentItemImpl, isAttachmentsItem } from "./base/attachments-item";
 import { ContainerItem } from "./base/container-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
@@ -35,6 +35,10 @@ import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
+import { itemState } from "../store/ItemState";
+import { PlaceholderFns } from "./placeholder-item";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { server } from "../server";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -300,6 +304,33 @@ export const TableFns = {
       : 0;
 
     return { insertRow, attachmentPos };
+  },
+
+  insertEmptyColAt(tableId: Uid, colPos: number) {
+    const tableItem = asTableItem(itemState.get(tableId)!);
+    for (let i=0; i<tableItem.computed_children.length; ++i) {
+      const child = itemState.get(tableItem.computed_children[i])!;
+      if (!isAttachmentsItem(child)) { continue; }
+      const attachments = asAttachmentsItem(child).computed_attachments;
+      if (colPos >= attachments.length) { continue; }
+      const ordering = itemState.newOrderingAtAttachmentsPosition(child.id, colPos);
+      const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
+      itemState.add(placeholderItem);
+      server.addItem(placeholderItem, null);
+    }
+  },
+
+  removeColItemsAt(tableId: Uid, colPos: number) {
+    const tableItem = asTableItem(itemState.get(tableId)!);
+    for (let i=0; i<tableItem.computed_children.length; ++i) {
+      const child = itemState.get(tableItem.computed_children[i])!;
+      if (!isAttachmentsItem(child)) { continue; }
+      const attachments = asAttachmentsItem(child).computed_attachments;
+      if (colPos >= attachments.length) { continue; }
+      const attachmentId = attachments[colPos];
+      itemState.delete(attachmentId);
+      server.deleteItem(attachmentId);
+    }
   },
 
 };

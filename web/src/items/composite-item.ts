@@ -29,7 +29,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin } from './base/flags-item';
 import { VisualElement } from '../layout/visual-element';
 import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';

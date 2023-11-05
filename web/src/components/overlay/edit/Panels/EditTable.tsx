@@ -19,7 +19,7 @@
 import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../../../server";
 import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
-import { asTableItem, TableItem } from "../../../../items/table-item";
+import { asTableItem, TableFns, TableItem } from "../../../../items/table-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { NumberSignal, createNumberSignal } from "../../../../util/signals";
@@ -67,6 +67,17 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
     arrange(desktopStore);
   }
 
+  const newCol = () => {
+    TableFns.insertEmptyColAt(table().id, colCountSignal.get()-1);
+    arrange(desktopStore);
+  }
+
+  const removeCol = () => {
+    if (colCountSignal.get() == 1) { return; }
+    TableFns.removeColItemsAt(table().id, colCountSignal.get()-2);
+    arrange(desktopStore);
+  }
+
   const changeOrderChildrenBy = async () => {
     const orderByTitle = checkElement_ord?.checked;
     if (orderByTitle) {
@@ -98,8 +109,10 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
     <div>
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleInput} focus={true} /></div>
       <div>
-        <InfuButton text="add col" onClick={addCol} />
-        <InfuButton text="delete col" onClick={deleteCol} />
+        <InfuButton text="show another col" onClick={addCol} />
+        <InfuButton text="hide last col" onClick={deleteCol} />
+        <InfuButton text="new empty col here" onClick={newCol} />
+        <InfuButton text="remove last col" onClick={removeCol} />
         <div>num cols: {colCountSignal!.get()}</div>
       </div>
       <div>
