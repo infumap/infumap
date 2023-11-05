@@ -86,7 +86,6 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   onMount(() => {
     if (isDetailed_OnLoad) {
       const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
-      console.log(imgSrcOnLoad, imgOriginOnLoad);
       getImage(imgSrcOnLoad, imgOriginOnLoad, isHighPriority)
         .then((objectUrl) => {
           imgElement!.src = objectUrl;

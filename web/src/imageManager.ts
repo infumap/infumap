@@ -109,7 +109,7 @@ function serveWaiting() {
     const url = task.baseUrlMaybe == null
       ? task.path
       : new URL(task.path, task.baseUrlMaybe).href;
-    const promise = fetch(task.path)
+    const promise = fetch(url)
       .then((resp) => {
         if (!resp.ok || resp.status != 200) {
           throw new Error(`Image fetch request failed: ${resp.status}`);
