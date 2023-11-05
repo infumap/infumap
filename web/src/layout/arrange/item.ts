@@ -614,6 +614,14 @@ const arrangeTable = (
         };
         const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
         const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+
+        if (isNote(tableChildAttachmentVeSpec.displayItem)) {
+          const noteItem = asNoteItem(tableChildAttachmentVeSpec.displayItem);
+          if (NoteFns.isExpression(noteItem)) {
+            VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVeSignal.get()));
+          }
+        }
+
         tableItemVeAttachments.push(tableChildAttachmentVeSignal);
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
@@ -621,6 +629,14 @@ const arrangeTable = (
       tableChildVeSpec.attachments = tableItemVeAttachments;
     }
     const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+
+    if (isNote(tableChildVeSpec.displayItem)) {
+      const noteItem = asNoteItem(tableChildVeSpec.displayItem);
+      if (NoteFns.isExpression(noteItem)) {
+        VesCache.markEvaluationRequired(VeFns.veToPath(tableItemVisualElementSignal.get()));
+      }
+    }
+
     tableVeChildren.push(tableItemVisualElementSignal);
   };
 
