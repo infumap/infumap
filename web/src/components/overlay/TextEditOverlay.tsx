@@ -44,6 +44,7 @@ import { TableFns, asTableItem } from "../../items/table-item";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { assert, panic } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
+import { PlaceholderFns } from "../../items/placeholder-item";
 
 
 // TODO (LOW): don't create items on the server until it is certain that they are needed.
@@ -246,9 +247,18 @@ export const TextEditOverlay: Component = () => {
       console.log("TODO: delete composite");
       // TODO (HIGH)
     } else {
-      deleted = true;
+      const noteParentVe = VesCache.get(noteVisualElement().parentPath!);
+      if (noteParentVe!.get().flags & VisualElementFlags.InsideTable) {
+        // must be an attachment item in a table.
+        const placeholder = PlaceholderFns.create(noteParentVe!.get().displayItem.ownerId, noteParentVe!.get().displayItem.id, RelationshipToParent.Attachment, noteItem().ordering);
+        itemState.add(placeholder);
+        server.addItem(placeholder, null);
+      }
+
       server.deleteItem(noteItem().id); // throws on failure.
       itemState.delete(noteItem().id);
+
+      deleted = true;
       desktopStore.setTextEditOverlayInfo(null);
       arrange(desktopStore);
     }
