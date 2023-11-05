@@ -46,7 +46,7 @@ import { assert, panic } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 
 
-// TODO (MEDIUM): don't create items on the server until it is certain that they are needed.
+// TODO (LOW): don't create items on the server until it is certain that they are needed.
 let justCreatedNoteItemMaybe: NoteItem | null = null;
 let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
@@ -104,19 +104,27 @@ export const TextEditOverlay: Component = () => {
     if (compositeItemMaybe() != null) {
       const compositeVeMaybe = compositeVisualElementMaybe()!;
       const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVeMaybe);
-      return ({
+      const result = {
         x: compositeVeBoundsPx.x + 87,
         y: compositeVeBoundsPx.y - 42,
         w: 365,
         h: 35
-      });
+      };
+      if (compositeVeMaybe.linkItemMaybe != null) {
+        result.w -= 45; // don't display trash.
+      }
+      return result;
     } else {
-      return ({
+      const result = {
         x: noteVeBoundsPx().x - 5,
         y: noteVeBoundsPx().y - 42,
         w: isInTable() ? 310 : 385,
         h: 35
-      });
+      };
+      if (noteVisualElement().linkItemMaybe != null) {
+        result.w -= 45; // don't display trash.
+      }
+      return result;
     }
   };
 
@@ -348,10 +356,12 @@ export const TextEditOverlay: Component = () => {
     const keepNoteId = compositeItem.computed_children[0];
     const keepNote = itemState.get(keepNoteId)!;
     const canonicalCompositeItem = VeFns.canonicalItem(compositeVe);
+    const posGr = asPositionalItem(canonicalCompositeItem).spatialPositionGr;
     const compositePageId = canonicalCompositeItem.parentId;
     desktopStore.setTextEditOverlayInfo(null);
     setTimeout(() => {
       itemState.moveToNewParent(keepNote, compositePageId, canonicalCompositeItem.relationshipToParent, canonicalCompositeItem.ordering);
+      asPositionalItem(keepNote).spatialPositionGr = posGr;
       server.updateItem(keepNote);
       itemState.delete(compositeVe.displayItem.id);
       server.deleteItem(compositeVe.displayItem.id);
@@ -365,7 +375,8 @@ export const TextEditOverlay: Component = () => {
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (ve.flags & VisualElementFlags.InsideTable) {
+
+    if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement().linkItemMaybe != null) {
       server.updateItem(ve.displayItem);
       desktopStore.setTextEditOverlayInfo(null);
       arrange(desktopStore);
@@ -507,7 +518,7 @@ export const TextEditOverlay: Component = () => {
           </Show>
         </Show>
         <InfuIconButton icon={`info-circle-${infoCount()}`} highlighted={false} clickHandler={infoButtonHandler} />
-        <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
