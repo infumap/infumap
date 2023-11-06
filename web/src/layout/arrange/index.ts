@@ -16,21 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ExpressionToken, ExpressionTokenType, tokenize } from "../../eval/tokenize";
-import { asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
 import { itemState } from "../../store/ItemState";
 import { panic, getPanickedMessage } from "../../util/lang";
-import { findClosest } from "../find";
 import { initiateLoadChildItemsMaybe } from "../load";
-import { VesCache } from "../ves-cache";
-import { VisualElementPath } from "../visual-element";
 import { arrange_document } from "./topLevel/document";
 import { arrange_grid } from "./topLevel/grid";
 import { arrange_list } from "./topLevel/list";
 import { arrange_spatialStretch } from "./topLevel/spatial";
+import { evaluate } from "../../eval/evaluate";
 
 
 /**
@@ -84,45 +80,4 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   // TODO (LOW): this is not necessarily true. but it'd be a pain to pass this into every arrange call.
   const hasUser = true;
   mouseMove_handleNoButtonDown(desktopStore, hasUser);
-}
-
-function evaluate() {
-  for (let path of VesCache.getEvaluationRequired()) {
-    const ves = VesCache.get(path)!;
-    const ve = ves.get();
-    const noteItem = asNoteItem(ve.displayItem);
-    const equation = noteItem.title;
-    const tokens = tokenize(equation);
-    if (tokens == null) { continue; }
-    const leftValue = evaluateCell(path, tokens[0]);
-    const rightValue = evaluateCell(path, tokens[2]);
-    let result = 0;
-    if (tokens[1].operator == "-") { result = leftValue - rightValue; }
-    if (tokens[1].operator == "+") { result = leftValue + rightValue; }
-    if (tokens[1].operator == "*") { result = leftValue * rightValue; }
-    if (tokens[1].operator == "/") { result = leftValue / rightValue; }
-    ve.evaluatedTitle = result.toString();
-    ves.set(ve);
-  }
-}
-
-function evaluateCell(path: VisualElementPath, token: ExpressionToken): number {
-  if (token.tokenType == ExpressionTokenType.RelativeReference) {
-    for (let i=0; i<token.referenceFindOffset!; ++i) {
-      const pathMaybe = findClosest(path, token.referenceFindDirection!, true);
-      if (pathMaybe == null) { return 0; }
-      path = pathMaybe;
-    }
-    const ve = VesCache.get(path)!.get();
-    if (!isNote(ve.displayItem)) { return 0; }
-    return parseFloat(asNoteItem(ve.displayItem).title);
-  } else if (token.tokenType == ExpressionTokenType.AbsoluteReference) {
-    const vesMaybe = VesCache.get(token.reference!);
-    if (vesMaybe == null) { return 0; }
-    const ve = vesMaybe.get();
-    if (!isNote(ve.displayItem)) { return 0; }
-    return parseFloat(asNoteItem(ve.displayItem).title);
-  } else {
-    panic("evaluateCell: unknown token type.");
-  }
 }

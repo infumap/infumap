@@ -20,9 +20,6 @@ import { FindDirection, findDirectionFromLetterPrefix } from "../layout/find";
 import { EMPTY_UID } from "../util/uid";
 
 
-// TODO (LOW): write the expression evaluation in Rust. This is just a first trivial version.
-
-
 export enum ExpressionTokenType {
   AbsoluteReference,
   RelativeReference,
