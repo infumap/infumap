@@ -523,6 +523,10 @@ async fn handle_add_item(
     }
   }
 
+  if item_type == ItemType::Note.as_str() && !item_map.contains_key("format") {
+    item_map.insert("format".to_owned(), Value::String("".to_owned()));
+  }
+
   if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
     item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
   }
