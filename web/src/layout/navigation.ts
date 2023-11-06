@@ -87,9 +87,14 @@ export function navigateBack(desktopStore: DesktopStoreContextModel, userStore: 
 }
 
 
+let navigateUpInProgress = false;
 export async function navigateUp(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
   const currentPageVeid = desktopStore.currentPage();
   if (currentPageVeid == null) { return; }
+
+  if (navigateUpInProgress) { return; }
+  navigateUpInProgress = true;
+
   const currentPage = itemState.get(currentPageVeid.itemId)!;
 
   const MAX_LEVELS = 8;
@@ -98,6 +103,7 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
   while (cnt++ < MAX_LEVELS) {
     if (parentId == EMPTY_UID) {
       // already at top.
+      navigateUpInProgress = false;
       return;
     }
 
@@ -105,6 +111,7 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel, userSto
     if (parentPageMaybe != null) {
       if (isPage(parentPageMaybe)) {
         switchToPage(desktopStore, userStore, { itemId: parentId, linkIdMaybe: null }, true, true);
+        navigateUpInProgress = false;
         return;
       } else {
         parentId = parentPageMaybe!.parentId;
