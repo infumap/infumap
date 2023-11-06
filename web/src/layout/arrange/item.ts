@@ -176,29 +176,13 @@ const arrangePageWithChildren = (
       parentPath,
     };
 
-    function arrangePageTitle(): VisualElementSignal {
-      const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(displayItem_pageWithChildren);
-
-      const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(displayItem_pageWithChildren.id), displayItem_pageWithChildren.id!);
-      li.id = PAGE_TITLE_UID;
-      li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
-      li.spatialPositionGr = { x: 0, y: 0 };
-
+    if (isPagePopup || isRoot) {
+      // TODO (HIGH): hitboxes.
       const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
-      const pageTitleElementSpec: VisualElementSpec = {
-        displayItem: displayItem_pageWithChildren,
-        linkItemMaybe: li,
-        flags: VisualElementFlags.PageTitle,
-        boundsPx: geometry.boundsPx,
-        hitboxes: geometry.hitboxes,
-        parentPath,
-      };
-
-      const pageTitlePath = VeFns.addVeidToPath({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: PAGE_TITLE_UID }, parentPath);
-      return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
+      pageWithChildrenVisualElementSpec.titleBoundsPx = geometry.boundsPx;
     }
 
-    const children = isPagePopup || isRoot ? [arrangePageTitle()] : [];
+    const children = [];
     let idx = 0;
     for (let i=0; i<pageItem.computed_children.length; ++i) {
       const item = itemState.get(pageItem.computed_children[i])!;
@@ -280,29 +264,13 @@ const arrangePageWithChildren = (
 
     const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-    function arrangePageTitle(): VisualElementSignal {
-      const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(displayItem_pageWithChildren);
-
-      const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(displayItem_pageWithChildren.id), displayItem_pageWithChildren.id!);
-      li.id = PAGE_TITLE_UID;
-      li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
-      li.spatialPositionGr = { x: 0, y: 0 };
-
+    if (isPagePopup || isRoot) {
+      // TODO (HIGH): hitboxes.
       const geometry = PageFns.calcGeometry_SpatialPageTitle(displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
-      const pageTitleElementSpec: VisualElementSpec = {
-        displayItem: displayItem_pageWithChildren,
-        linkItemMaybe: li,
-        flags: VisualElementFlags.PageTitle,
-        boundsPx: geometry.boundsPx,
-        hitboxes: geometry.hitboxes,
-        parentPath,
-      };
-
-      const pageTitlePath = VeFns.addVeidToPath({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: PAGE_TITLE_UID }, parentPath);
-      return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
+      pageWithChildrenVisualElementSpec.titleBoundsPx = geometry.boundsPx;
     }
 
-    const children = isPagePopup || isRoot ? [arrangePageTitle()] : [];
+    const children = [];
     for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
       const childId = displayItem_pageWithChildren.computed_children[i];
       const childItem = itemState.get(childId)!;

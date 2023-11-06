@@ -58,15 +58,15 @@ export const Main: Component = () => {
         await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
       const pageObject = result.item as any;
       const pageId = pageObject.id;
-      itemState.setItemFromServerObject(pageObject);
+      itemState.setItemFromServerObject(pageObject, null);
       if (result.attachments[pageId]) {
-        itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId]);
+        itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId], null);
       }
       childrenLoadInitiatedOrComplete[pageId] = true;
-      itemState.setChildItemsFromServerObjects(pageId, result.children);
+      itemState.setChildItemsFromServerObjects(pageId, result.children, null);
       PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, { itemId: pageId, linkIdMaybe: null });
       Object.keys(result.attachments).forEach(id => {
-        itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id]);
+        itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
       });
 
       switchToPage(desktopStore, userStore, { itemId: pageId, linkIdMaybe: null }, false, false);

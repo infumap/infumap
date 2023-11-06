@@ -92,32 +92,12 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     childAreaBoundsPx: boundsPx,
   };
 
-  function arrangePageTitle(): VisualElementSignal {
-    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(currentPage);
-
-    const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(currentPage.id), currentPage.id!);
-    li.id = PAGE_TITLE_UID;
-    li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
-    li.spatialPositionGr = { x: 0, y: 0 };
-
-    const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, currentPage, boundsPx);
-
-    const pageTitleElementSpec: VisualElementSpec = {
-      displayItem: currentPage,
-      linkItemMaybe: li,
-      flags: VisualElementFlags.PageTitle,
-      boundsPx: geometry.boundsPx,
-      hitboxes: geometry.hitboxes,
-      parentPath: currentPath,
-    };
-
-    const pageTitlePath = VeFns.addVeidToPath({ itemId: currentPage.id, linkIdMaybe: PAGE_TITLE_UID }, currentPath);
-    return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
-  }
+  // TODO (HIGH): add related hitboxes.
+  // Do this here rather than in the component, as the hitboxes need to be in the visual element tree for mouse interaction.
+  const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, currentPage, boundsPx);
+  topLevelVisualElementSpec.titleBoundsPx = geometry.boundsPx;
 
   const children = [];
-
-  children.push(arrangePageTitle());
 
   let idx = 0;
   for (let i=0; i<currentPage.computed_children.length; ++i) {

@@ -20,7 +20,22 @@ import { BoundingBox } from "../util/geometry";
 import { Hitbox } from "./hitbox";
 
 
+/**
+ * Specifies the basic geometry of an item.
+ *
+ * Used to generate visual elements.
+ */
 export interface ItemGeometry {
-  boundsPx: BoundingBox,   // relative to containing render area.
-  hitboxes: Array<Hitbox>, // higher index => takes precedence.
+
+  /**
+   * The pixel bounds of the item, relative to the container that contains it.
+   */
+  boundsPx: BoundingBox,
+
+  /**
+   * Hitboxes.
+   * Higher index => higher precedence.
+   * Hitbox boundsPx are relative to this item's boundsPx.
+   */
+  hitboxes: Array<Hitbox>,
 }

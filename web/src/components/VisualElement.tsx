@@ -46,7 +46,6 @@ import { isPassword } from "../items/password-item";
 import { Password, PasswordLineItem } from "./items/Password";
 import { Composite_Desktop, Composite_LineItem } from "./items/Composite";
 import { isComposite } from "../items/composite-item";
-import { PageTitle_Desktop } from "./items/PageTitle";
 
 
 export interface VisualElementProps {
@@ -58,8 +57,7 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
     <Switch fallback={<div>VisualElementOnDesktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
       {/* TODO (LOW): get rid of PageTitle element, incorporate in Page. */}
-      <Match when={isPage(props.visualElement.displayItem) && !(props.visualElement.flags & VisualElementFlags.PageTitle)}><Page_Desktop {...props} /></Match>
-      <Match when={isPage(props.visualElement.displayItem) && (props.visualElement.flags & VisualElementFlags.PageTitle)}><PageTitle_Desktop {...props} /></Match>
+      <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
       <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
       <Match when={isNote(props.visualElement.displayItem)}><Note_Desktop {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>

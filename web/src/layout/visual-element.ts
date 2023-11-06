@@ -72,9 +72,8 @@ export enum VisualElementFlags {
   ShowChildren         = 0x0080, // Children are visible and an item dragged over the container is positioned according to the mouse position (visual element is also always a page).
   Fixed                = 0x0100, // positioning is fixed, not absolute.
   InsideComposite      = 0x0200, // The visual element is inside a composite item.
-  PageTitle            = 0x0400, // Is a page title element, not a page.
-  ZAbove               = 0x0800, // Render above everything else (except moving).
-  Moving               = 0x1000, // Render the visual element partially transparent and on top of everything else.
+  ZAbove               = 0x0400, // Render above everything else (except moving).
+  Moving               = 0x0800, // Render the visual element partially transparent and on top of everything else.
 }
 
 function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {
@@ -89,7 +88,6 @@ function visualElementFlagsToString(visualElementFlags: VisualElementFlags): str
   if (visualElementFlags & VisualElementFlags.ShowChildren) { result += "ShowChildren "; }
   if (visualElementFlags & VisualElementFlags.Fixed) { result += "Fixed "; }
   if (visualElementFlags & VisualElementFlags.InsideComposite) { result += "InsideComposite "; }
-  if (visualElementFlags & VisualElementFlags.PageTitle) { result += "PageTitle "; }
   if (visualElementFlags & VisualElementFlags.ZAbove) { result += "ZAbove "; }
   if (visualElementFlags & VisualElementFlags.Moving) { result += "Moving "; }
   return result;
@@ -97,7 +95,7 @@ function visualElementFlagsToString(visualElementFlags: VisualElementFlags): str
 
 
 /**
- * Describes a visual element to be rendered.
+ * Specifies a visual element, corresponding to a rendered item in the visual tree.
  */
 export interface VisualElement {
   /**
@@ -116,14 +114,31 @@ export interface VisualElement {
    */
   flags: VisualElementFlags,
 
-  // If set, the element is currently being resized, and these were the original bounds.
+  /**
+   * If set, the element is currently being resized, and these were the original bounds.
+   */
   resizingFromBoundsPx: BoundingBox | null,
 
-  // boundsPx and childAreaBoundsPx are relative to containing visual element's childAreaBoundsPx.
+  /**
+   * The bounds of the visual element, relative to the containing visual element's childAreaBoundsPx.
+   */
   boundsPx: BoundingBox,
+
+  /**
+   * The bounds of the part of the visual element that contains child visual elements.
+   * This may be larger than boundsPx, if the area scrolls.
+   */
   childAreaBoundsPx: BoundingBox | null,
 
-  oneBlockWidthPx: number | null,  // Set for line items only.
+  /**
+   * The bounds of the title element (page items only).
+   */
+  titleBoundsPx: BoundingBox | null,
+
+  /**
+   * Size of a 1x1 bl block in pixels. Set for line items only.
+   */
+  oneBlockWidthPx: number | null,
 
   row: number | null,  // Set only if inside table. the actual row number - i.e. not necessarily the visible row number.
   col: number | null,  // Set only if inside table.
@@ -155,7 +170,7 @@ export interface VisualElement {
 
 
 /**
- * Used when there is no top level visual element. This makes typing much easier to deal with
+ * Sentinal value used when there is no top level visual element. This makes typing much easier to deal with
  * than using VisualElement | null
  */
 export const NONE_VISUAL_ELEMENT: VisualElement = {
@@ -166,6 +181,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   oneBlockWidthPx: null,
+  titleBoundsPx: null,
   col: null,
   row: null,
   hitboxes: [],
@@ -187,6 +203,9 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 };
 
 
+/**
+ * Specification for a visual element to be created.
+ */
 export interface VisualElementSpec {
   displayItem: Item,
   displayItemFingerprint?: string,
@@ -195,6 +214,7 @@ export interface VisualElementSpec {
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   oneBlockWidthPx?: number,
+  titleBoundsPx?: BoundingBox,
   col?: number,
   row?: number,
   hitboxes?: Array<Hitbox>,
@@ -205,6 +225,10 @@ export interface VisualElementSpec {
 
 
 export const VeFns = {
+
+  /**
+   * Create a visual element from the provided spec.
+   */
   create: (override: VisualElementSpec): VisualElement => {
     let result: VisualElement = {
       displayItem: EMPTY_ITEM(),
@@ -214,6 +238,7 @@ export const VeFns = {
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
       oneBlockWidthPx: null,
+      titleBoundsPx: null,
       col: null,
       row: null,
       hitboxes: [],
@@ -221,25 +246,26 @@ export const VeFns = {
       attachments: [],
       parentPath: null,
       evaluatedTitle: null,
-  
+
       displayItemFingerprint: "",
-  
+
       mouseIsOver: createBooleanSignal(false),
       mouseIsOverOpenPopup: createBooleanSignal(false),
-  
+
       movingItemIsOver: createBooleanSignal(false),
       movingItemIsOverAttach: createBooleanSignal(false),
       movingItemIsOverAttachComposite: createBooleanSignal(false),
       moveOverRowNumber: createNumberSignal(-1),
       moveOverColAttachmentNumber: createNumberSignal(-1),
     };
-  
+
     result.displayItem = override.displayItem;
-  
+
     if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
     if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+    if (typeof(override.titleBoundsPx) != 'undefined') { result.titleBoundsPx = override.titleBoundsPx; }
     if (typeof(override.oneBlockWidthPx) != 'undefined') { result.oneBlockWidthPx = override.oneBlockWidthPx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }
@@ -248,13 +274,13 @@ export const VeFns = {
     if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
     if (typeof(override.children) != 'undefined') { result.children = override.children; }
     if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
-  
+
     if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
       console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
       console.trace();
     }
     // TODO (LOW): some additional sanity checking here would help catch arrange bugs.
-  
+
     return result;
   },
 

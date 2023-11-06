@@ -66,29 +66,12 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
     childAreaBoundsPx: pageBoundsPx,
   };
 
-  function arrangePageTitle(): VisualElementSignal {
-    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(pageItem);
+  // TODO (HIGH): add related hitboxes.
+  // Do this here rather than in the component, as the hitboxes need to be in the visual element tree for mouse interaction.
+  const geometry = PageFns.calcGeometry_SpatialPageTitle(pageItem, pageBoundsPx);
+  visualElementSpec.titleBoundsPx = geometry.boundsPx;
 
-    const li = LinkFns.create(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(pageItem.id), pageItem.id!);
-    li.id = PAGE_TITLE_UID;
-    li.spatialWidthGr = pageTitleDimensionsBl.w * GRID_SIZE;
-    li.spatialPositionGr = { x: 0, y: 0 };
-
-    const geometry = PageFns.calcGeometry_SpatialPageTitle(pageItem, pageBoundsPx);
-    const pageTitleElementSpec: VisualElementSpec = {
-      displayItem: pageItem,
-      linkItemMaybe: li,
-      flags: VisualElementFlags.PageTitle,
-      boundsPx: geometry.boundsPx,
-      hitboxes: geometry.hitboxes,
-      parentPath: currentPath,
-    };
-
-    const pageTitlePath = VeFns.addVeidToPath({ itemId: pageItem.id, linkIdMaybe: PAGE_TITLE_UID }, currentPath);
-    return VesCache.createOrRecycleVisualElementSignal(pageTitleElementSpec, pageTitlePath);
-  }
-
-  const children = [arrangePageTitle()];
+  const children = [];
   for (let i=0; i<pageItem.computed_children.length; ++i) {
     const childId = pageItem.computed_children[i];
     children.push(arrangeItem_Spatial(
