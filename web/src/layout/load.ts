@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { batch } from "solid-js";
 import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, remote, server } from "../server";
 import { Uid } from "../util/uid";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
@@ -48,19 +47,17 @@ export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextMod
   fetchPromise
     .then(result => {
       if (result != null) {
-        batch(() => {
-          itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
-          PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
-          Object.keys(result.attachments).forEach(id => {
-            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
-          });
-          asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
-          try {
-            arrange(desktopStore);
-          } catch (e: any) {
-            throw new Error(`arrange failed ${e}`);
-          };
+        itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
+        PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
+        Object.keys(result.attachments).forEach(id => {
+          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
         });
+        asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
+        try {
+          arrange(desktopStore);
+        } catch (e: any) {
+          throw new Error(`Arrange failed: ${e}`);
+        };
       } else {
         console.error(`No items were fetched for '${containerVeid.itemId}'.`);
       }
@@ -81,17 +78,15 @@ export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id
   return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
-        batch(() => {
-          itemState.setItemFromServerObject(result.item, null);
-          Object.keys(result.attachments).forEach(id => {
-            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
-          });
-          try {
-            arrange(desktopStore);
-          } catch (e: any) {
-            throw new Error(`arrange failed ${e}`);
-          };
+        itemState.setItemFromServerObject(result.item, null);
+        Object.keys(result.attachments).forEach(id => {
+          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
         });
+        try {
+          arrange(desktopStore);
+        } catch (e: any) {
+          throw new Error(`Arrange failed after load item: ${e}`);
+        };
       } else {
         console.error(`Empty result fetching '${id}'.`);
       }
@@ -111,20 +106,18 @@ export const initiateLoadItemFromRemoteMaybe = (desktopStore: DesktopStoreContex
   remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (result != null) {
-        batch(() => {
-          itemState.setItemFromServerObject(result.item, baseUrl);
-          asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
-          Object.keys(result.attachments).forEach(id => {
-            itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
-          });
-          try {
-            arrange(desktopStore);
-          } catch (e: any) {
-            throw new Error(`arrange failed ${e}`);
-          };
+        itemState.setItemFromServerObject(result.item, baseUrl);
+        asLinkItem(itemState.get(resolveId)!).linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
+        Object.keys(result.attachments).forEach(id => {
+          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
         });
+        try {
+          arrange(desktopStore);
+        } catch (e: any) {
+          throw new Error(`Arrange after remote fetch failed: ${e}`);
+        };
       } else {
-        console.error(`Empty result fetching '${itemId}'.`);
+        console.error(`Empty result fetching '${itemId}' from ${baseUrl}.`);
       }
     })
     .catch((e: any) => {
