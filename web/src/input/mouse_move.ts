@@ -148,6 +148,17 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.Resizing;
     }
 
+  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ColResize) > 0) {
+    MouseActionState.get().startPosBl = null;
+    MouseActionState.get().startHeightBl = null;
+    const colNum = MouseActionState.get().hitMeta!.resizeColNumber!;
+    if (activeVisualElement.linkItemMaybe != null) {
+      MouseActionState.get().startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
+    } else {
+      MouseActionState.get().startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+    }
+    MouseActionState.get().action = MouseAction.ResizingColumn;
+
   } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
              ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
     if (!(MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) &&
@@ -170,17 +181,6 @@ function changeMouseActionStateMaybe(
     } else {
       moving_initiate(desktopStore, activeItem, activeVisualElement, desktopPosPx);
     }
-
-  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ColResize) > 0) {
-    MouseActionState.get().startPosBl = null;
-    MouseActionState.get().startHeightBl = null;
-    const colNum = MouseActionState.get().hitMeta!.resizeColNumber!;
-    if (activeVisualElement.linkItemMaybe != null) {
-      MouseActionState.get().startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
-    } else {
-      MouseActionState.get().startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
-    }
-    MouseActionState.get().action = MouseAction.ResizingColumn;
   }
 }
 
