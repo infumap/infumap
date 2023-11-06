@@ -38,7 +38,7 @@ import { itemState } from "../store/ItemState";
 import { Vector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
-import { CursorEventState, MouseAction, MouseActionState } from "./state";
+import { ClickState, CursorEventState, MouseAction, MouseActionState } from "./state";
 
 
 export function moving_initiate(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
@@ -278,8 +278,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   }
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
-  const tablePosInPagePx = getBoundingBoxTopLeft(tableVe.childAreaBoundsPx!);
-  const itemPosInPagePx = vectorAdd(tablePosInPagePx, itemPosInTablePx);
+  const itemPosInPagePx = CursorEventState.getLastestDesktopPx();
   const tableParentPage = asPageItem(tableParentVe.displayItem);
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / tableParentVe!.childAreaBoundsPx!.w * tableParentPage.innerSpatialWidthGr,
