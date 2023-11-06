@@ -33,6 +33,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { VisualElementSignal } from "../../../util/signals";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
+import { HitboxFlags, HitboxFns } from "../../hitbox";
 
 
 const PAGE_TITLE_UID = newUid();
@@ -70,6 +71,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   // Do this here rather than in the component, as the hitboxes need to be in the visual element tree for mouse interaction.
   const geometry = PageFns.calcGeometry_SpatialPageTitle(pageItem, pageBoundsPx);
   visualElementSpec.titleBoundsPx = geometry.boundsPx;
+  visualElementSpec.hitboxes = [ HitboxFns.create(HitboxFlags.Settings, geometry.boundsPx) ];
 
   const children = [];
   for (let i=0; i<pageItem.computed_children.length; ++i) {

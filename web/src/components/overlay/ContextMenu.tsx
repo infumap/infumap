@@ -208,7 +208,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
 
     if (type == "note") {
-      desktopStore.setTextEditOverlayInfo({ noteItemPath: newItemPath });
+      desktopStore.setTextEditOverlayInfo({ itemPath: newItemPath });
     } else if (type == "rating") {
       // noop.
     } else {

@@ -48,6 +48,9 @@ export interface DesktopStoreContextModel {
   textEditOverlayInfo: Accessor<EditOverlayInfo | null>,
   setTextEditOverlayInfo: Setter<EditOverlayInfo | null>,
 
+  pageSettingsOverlayInfo: Accessor<EditOverlayInfo | null>,
+  setPageSettingsOverlayInfo: Setter<EditOverlayInfo | null>,
+
   searchOverlayVisible: Accessor<boolean>,
   setSearchOverlayVisible: Setter<boolean>,
 
@@ -86,7 +89,7 @@ export interface DesktopStoreContextModel {
 }
 
 export interface EditOverlayInfo {
-  noteItemPath: VisualElementPath
+  itemPath: VisualElementPath
 }
 
 export interface ContextMenuInfo {
@@ -135,6 +138,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const [editUserSettingsInfo, setEditUserSettingsInfo] = createSignal<EditUserSettingsInfo | null>(null, { equals: false });
   const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
   const [textEditOverlayInfo, setTextEditOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
+  const [pageSettingsOverlayInfo, setPageSettingsOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
   const [searchOverlayVisible, setSearchOverlayVisible] = createSignal<boolean>(false, { equals: false });
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
@@ -328,6 +332,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     editUserSettingsInfo, setEditUserSettingsInfo,
     contextMenuInfo, setContextMenuInfo,
     textEditOverlayInfo, setTextEditOverlayInfo,
+    pageSettingsOverlayInfo, setPageSettingsOverlayInfo,
     searchOverlayVisible, setSearchOverlayVisible,
     getTableScrollYPos, setTableScrollYPos,
     getSelectedListPageItem, setSelectedListPageItem,

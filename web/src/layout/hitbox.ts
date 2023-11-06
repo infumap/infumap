@@ -31,6 +31,7 @@ export enum HitboxFlags {
   AttachComposite = 0x0080,
   Anchor =          0x0100,
   Expand =          0x0200,
+  Settings =        0x0400,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -45,6 +46,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.AttachComposite) { result += "AttachComposite "; }
   if (flags & HitboxFlags.Anchor) { result += "Anchor "; }
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
+  if (flags & HitboxFlags.Settings) { result += "Settings "; }
   return result;
 }
 

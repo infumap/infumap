@@ -226,7 +226,7 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    desktopStore.setTextEditOverlayInfo({ noteItemPath: VeFns.veToPath(visualElement) });
+    desktopStore.setTextEditOverlayInfo({ itemPath: VeFns.veToPath(visualElement) });
   },
 
   cloneMeasurableFields: (note: NoteMeasurable): NoteMeasurable => {
