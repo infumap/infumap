@@ -30,7 +30,6 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
 import { BoundingBox, isInside } from "../../util/geometry";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
-import { UrlOverlay } from "./UrlOverlay";
 import { itemState } from "../../store/ItemState";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
@@ -57,6 +56,7 @@ export const TextEditOverlay: Component = () => {
 
   let textElement: HTMLTextAreaElement | undefined;
   let formatTextElement: HTMLInputElement | undefined;
+  let urlTextElement: HTMLInputElement | undefined;
 
   const urlOverlayVisible = createBooleanSignal(false);
   const infoOverlayVisible = createBooleanSignal(false);
@@ -177,10 +177,17 @@ export const TextEditOverlay: Component = () => {
     if (isInside(desktopPx, noteVeBoundsPx()) ||
         isInside(desktopPx, toolboxBoundsPx()) ||
         isInside(desktopPx, formatBoxBoundsPx()) ||
+        isInside(desktopPx, urlBoxBoundsPx()) ||
         (compositeVisualElementMaybe() != null && isInside(desktopPx, compositeToolboxBoundsPx()))) { return; }
 
     if (formatOverlayVisible.get()) {
       formatOverlayVisible.set(false);
+      arrange(desktopStore);
+      return;
+    }
+
+    if (urlOverlayVisible.get()) {
+      urlOverlayVisible.set(false);
       arrange(desktopStore);
       return;
     }
@@ -497,6 +504,14 @@ export const TextEditOverlay: Component = () => {
     return tbBoundsPx;
   }
 
+  const urlBoxBoundsPx = (): BoundingBox => {
+    const tbBoundsPx = toolboxBoundsPx();
+    tbBoundsPx.x += 0;
+    tbBoundsPx.y -= 38;
+    tbBoundsPx.h = 35;
+    return tbBoundsPx;
+  }
+
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
   }
@@ -512,6 +527,11 @@ export const TextEditOverlay: Component = () => {
     noteItemOnInitialize.format = formatTextElement!.value;
     arrange(desktopStore);
   }
+
+  const handleUrlChange = () => {
+    noteItem().url = urlTextElement!.value;
+    arrange(desktopStore);
+  };
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(noteItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteItem().id); }
@@ -628,7 +648,18 @@ export const TextEditOverlay: Component = () => {
 
   const renderUrlOverlyMaybe = () =>
     <Show when={urlOverlayVisible.get()}>
-      <UrlOverlay urlOverlayVisible={urlOverlayVisible} />
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+            style={`left: ${urlBoxBoundsPx().x}px; top: ${urlBoxBoundsPx().y}px; width: ${urlBoxBoundsPx().w}px; height: ${urlBoxBoundsPx().h}px`}>
+        <div class="p-[4px]">
+          <span class="text-sm ml-1 mr-2">Link:</span>
+          <input ref={urlTextElement}
+            class="border border-slate-300 rounded w-[305px] pl-1"
+            autocomplete="on"
+            value={noteItem().url}
+            type="text"
+            onChange={handleUrlChange} />
+        </div>
+      </div>
     </Show>;
 
   const renderCompositeInfoOverlayMaybe = () =>
