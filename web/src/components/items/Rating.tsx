@@ -33,6 +33,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const scale = () => Math.min(heightScale(), widthScale());
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
 
+  // TODO (LOW): perhaps different rendering for non-detailed element, or no rendering at all.
   return (
     <div class={`absolute`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -45,7 +46,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
            style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; ` +
                   `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
                   `text-align: center; vertical-align: bottom;`} />
-      <Show when={props.visualElement.linkItemMaybe != null}>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.flags & VisualElementFlags.Detailed)}>
         <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
       </Show>
     </div>
