@@ -51,14 +51,14 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
     w: desktopBoundsPx.w * 0.8,
     h: desktopBoundsPx.h * 0.8,
   };
-  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, true, PageFns.popupPositioningHasChanged(currentPage));
+  let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, true, PageFns.popupPositioningHasChanged(currentPage));
 
   const item = itemState.get(popupLinkToImageId)!;
 
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(desktopStore, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true);
+      ves = arrangeItem(desktopStore, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false);
       let newV = ves.get();
       newV.flags |= (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(newV);

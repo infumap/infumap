@@ -224,9 +224,9 @@ export const PageFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const popupClickBoundsPx = parentIsPopup
-    ? cloneBoundingBox(innerBoundsPx)!
-    : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-        w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+      ? cloneBoundingBox(innerBoundsPx)!
+      : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+          w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
     if (!isPopup) {
       return ({
         boundsPx,
@@ -343,7 +343,7 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
@@ -359,9 +359,10 @@ export const PageFns = {
         return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
       }
 
-      const popupClickBoundsPx =
-        { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-          w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+      const popupClickBoundsPx = parentIsPopup
+        ? cloneBoundingBox(innerBoundsPx)!
+        : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+            w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
       const hitboxes = [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),

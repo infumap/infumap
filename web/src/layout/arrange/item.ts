@@ -183,6 +183,8 @@ const arrangePageWithChildren = (
       pageWithChildrenVisualElementSpec.titleBoundsPx = geometry.boundsPx;
     }
 
+    const parentIsPopup = isPagePopup;
+
     const children = [];
     let idx = 0;
     for (let i=0; i<pageItem.computed_children.length; ++i) {
@@ -200,7 +202,7 @@ const arrangePageWithChildren = (
         h: cellHPx - marginPx * 2.0
       };
 
-      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false);
+      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false);
       const renderChildrenAsFull = isPagePopup || isRoot;
       const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false);
       children.push(ves);
@@ -239,7 +241,7 @@ const arrangePageWithChildren = (
       };
       cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, false, false);
+      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false);
       const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false);
       children.push(ves);
     }
@@ -680,7 +682,7 @@ export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, 
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable, false, false);
+  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable, false, false, false);
 
   const result = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true);
   return result;
