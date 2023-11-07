@@ -24,7 +24,7 @@ import { panic } from "../util/lang";
 import { ExpressionToken, ExpressionTokenType, tokenize } from "./tokenize";
 
 
-export function evaluateVisualElements() {
+export function evaluateExpressions() {
   for (let path of VesCache.getEvaluationRequired()) {
     const ves = VesCache.get(path)!;
     const ve = ves.get();
