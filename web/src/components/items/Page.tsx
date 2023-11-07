@@ -166,11 +166,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
         <div class={'absolute rounded-sm'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                    'background-color: #ffffff22;'} />
+                    'background-color: #ffffff33;'} />
         <Show when={hasPopupClickBoundsPx()}>
           <div class={'absolute rounded-sm'}
                style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                      'background-color: #ffffff44;'} />
+                      'background-color: #ffffff55;'} />
         </Show>
       </Show>;
 
@@ -178,7 +178,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.movingItemIsOver.get()}>
         <div class={'absolute rounded-sm'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                    'background-color: #ffffff22;'} />
+                    'background-color: #ffffff33;'} />
       </Show>;
 
     const renderMovingOverAttachMaybe = () =>
@@ -332,11 +332,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
         <div class={`absolute rounded-sm pointer-events-none`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                    `background-color: #ffffff22;`} />
+                    `background-color: #ffffff33;`} />
         <Show when={hasPopupClickBoundsPx()}>
           <div class={`absolute rounded-sm pointer-events-none`}
                style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                      `background-color: #ffffff44;`} />
+                      `background-color: #ffffff55;`} />
         </Show>
       </Show>;
 
@@ -344,7 +344,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.movingItemIsOver.get()}>
         <div class={`absolute rounded-sm pointer-events-none`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                    `background-color: #ffffff22;`} />
+                    `background-color: #ffffff33;`} />
       </Show>;
 
     const renderMovingOverAttachMaybe = () =>
