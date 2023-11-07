@@ -41,6 +41,7 @@ import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/te
 import { NoteFlags } from './base/flags-item';
 import { server } from '../server';
 import { ItemFns } from './base/item-polymorphism';
+import { isTable } from './table-item';
 
 
 export const ArrangeAlgorithm = {
@@ -437,14 +438,30 @@ export const PageFns = {
   },
 
   handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
-    const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
+    const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+
+    // line item in list page.
+    const parentItem = parentVe.displayItem;
     if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
-    } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      desktopStore.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
-    } else {
-      desktopStore.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+      arrange(desktopStore);
+      return;
     }
+
+    // inside a popup.
+    let insidePopup = parentVe.flags & VisualElementFlags.Popup ? true : false;
+    if (isTable(parentVe.displayItem)) {
+      const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
+      if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
+    }
+    if (insidePopup) {
+      desktopStore.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+      arrange(desktopStore);
+      return;
+    }
+
+    // not inside popup.
+    desktopStore.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
     arrange(desktopStore);
   },
 
