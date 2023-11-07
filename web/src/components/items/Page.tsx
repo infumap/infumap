@@ -707,11 +707,12 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 
-  const renderHighlightsMaybe = () =>
-    <Switch>
+  const renderHighlightsMaybe = () => {
+    const openPopupBoundsPx = () => props.visualElement.hitboxes.filter(hb => hb.type == HitboxFlags.OpenPopup)[0].boundsPx;
+    return <Switch>
       <Match when={props.visualElement.mouseIsOverOpenPopup.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${oneBlockWidthPx()-4}px; height: ${boundsPx().h-4}px;`} />
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
       </Match>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
@@ -723,6 +724,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
                     `background-color: #dddddd88;`} />
       </Match>
     </Switch>;
+  }
 
   const renderThumbnail = () =>
     <div class="absolute border border-slate-700 rounded-sm shadow-sm"
