@@ -215,7 +215,9 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Spatial: (page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (
+      page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
+      parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
     const boundsPx = {
       x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
       y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
@@ -294,7 +296,7 @@ export const PageFns = {
     return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry => {
+  calcGeometry_ListItem: (_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean): ItemGeometry => {
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -307,18 +309,15 @@ export const PageFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
-    const popupClickAreaBoundsPx = {
-      x: 0.0,
-      y: 0.0,
-      w: blockSizePx.w,
-      h: blockSizePx.h
-    };
     const clickAreaBoundsPx = {
       x: blockSizePx.w,
       y: 0.0,
       w: blockSizePx.w * (widthBl - 1),
       h: blockSizePx.h
     };
+    const popupClickAreaBoundsPx = parentIsPopup
+      ? { x: 0.0, y: 0.0, w: boundsPx.w, h: boundsPx.h }
+      : { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     return ({
       boundsPx,
       hitboxes: [

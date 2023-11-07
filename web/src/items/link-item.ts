@@ -209,7 +209,7 @@ export const LinkFns = {
     return ItemFns.calcGeometry_Attachment(measurableMaybe!, parentBoundsPx, parentInnerSizeBl, index, isSelected);
   },
 
-  calcGeometry_ListItem: (link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry => {
+  calcGeometry_ListItem: (link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean): ItemGeometry => {
     function noLinkTo() {
       const boundsPx = {
         x: blockSizePx.w * col,
@@ -228,7 +228,7 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl);
+    return ItemFns.calcGeometry_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl, parentIsPopup);
   },
 
   calcGeometry_Cell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {

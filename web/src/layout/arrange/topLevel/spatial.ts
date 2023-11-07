@@ -148,5 +148,5 @@ const arrangeItem_Spatial = (
     emitHitboxes,
     isPopup,
     PageFns.popupPositioningHasChanged(parentPage));
-  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, isRoot, false);
+  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, isRoot, false, false);
 }
