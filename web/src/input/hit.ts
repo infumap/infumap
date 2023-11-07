@@ -313,7 +313,7 @@ function finalize(hitboxType: HitboxFlags, containerHitboxType: HitboxFlags, roo
   }
 
   if (isTable(overVe.displayItem)) {
-    assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a table visual element that is not inside a table is not a page.");
+    // assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a table visual element that is not inside a table is not a page.");
     assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, "a page containing a table is not marked as having children visible.");
     return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: VesCache.get(overVe.parentPath!)!.get() };
   }

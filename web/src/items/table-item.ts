@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
@@ -39,6 +39,7 @@ import { itemState } from "../store/ItemState";
 import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
+import { ItemFns } from "./base/item-polymorphism";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -183,7 +184,35 @@ export const TableFns = {
   },
 
   calcGeometry_InComposite: (measurable: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
-    panic("TableFns.calcGeometry_InComposite: not implemented.");
+    let cloned = TableFns.asTableMeasurable(ItemFns.cloneMeasurableFields(measurable));
+    cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+    const sizeBl = TableFns.calcSpatialDimensionsBl(cloned);
+    const boundsPx = {
+      x: 0,
+      y: topPx,
+      w: compositeWidthBl * blockSizePx.w,
+      h: sizeBl.h * blockSizePx.h
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const moveBoundsPx = {
+      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+    };
+    return {
+      boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+        HitboxFns.create(HitboxFlags.AttachComposite, {
+          x: innerBoundsPx.w / 4,
+          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w / 2,
+          h: ATTACH_AREA_SIZE_PX,
+        }),
+      ]
+    };
   },
 
   calcGeometry_Attachment: (table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {

@@ -450,6 +450,7 @@ const arrangeComposite = (
     const childItem = itemState.get(childId)!;
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
+    if (isTable(displayItem_childItem)) { continue; }
 
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,

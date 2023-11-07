@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -30,6 +30,7 @@ import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { arrange } from '../layout/arrange';
+import { ItemFns } from './base/item-polymorphism';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -113,8 +114,33 @@ export const RatingFns = {
     }
   },
 
-  calcGeometry_InComposite: (_measurable: RatingMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
-    panic("RatingFns.calcGeometry_InComposite: not implemented.");
+  calcGeometry_InComposite: (_measurable: RatingMeasurable, blockSizePx: Dimensions, _compositeWidthBl: number, topPx: number): ItemGeometry => {
+    const boundsPx = {
+      x: 0,
+      y: topPx,
+      w: blockSizePx.w,
+      h: blockSizePx.h
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const moveBoundsPx = {
+      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+    };
+    return {
+      boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+        HitboxFns.create(HitboxFlags.AttachComposite, {
+          x: innerBoundsPx.w / 4,
+          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w / 2,
+          h: ATTACH_AREA_SIZE_PX,
+        }),
+      ]
+    };
   },
 
   calcGeometry_Attachment: (rating: RatingMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
