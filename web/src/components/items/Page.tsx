@@ -17,7 +17,7 @@
 */
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, MAIN_TOOLBAR_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
@@ -31,6 +31,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { useUserStore } from "../../store/UserStoreProvider";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -315,15 +316,17 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </div>
       </div>;
 
-    const renderBoxTitle = () =>
-      <div class="absolute flex items-center justify-center pointer-events-none"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none"
-             style={`transform: scale(${translucentTitleInBoxScale()}); transform-origin: center center;`}>
-          {pageItem().title}
+    const renderBoxTitleMaybe = () =>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageMainItem)}>
+        <div class="absolute flex items-center justify-center pointer-events-none"
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none"
+              style={`transform: scale(${translucentTitleInBoxScale()}); transform-origin: center center;`}>
+            {pageItem().title}
+          </div>
         </div>
-      </div>;
+      </Show>;
 
     const renderHoverOverMaybe = () =>
       <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
@@ -359,7 +362,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderIsLinkMaybe = () =>
-      <Show when={props.visualElement.linkItemMaybe != null}>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
       </Show>;
 
@@ -386,7 +389,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           }</For>
           {renderIsLinkMaybe()}
         </div>
-        {renderBoxTitle()}
+        {renderBoxTitleMaybe()}
       </>
     );
   }

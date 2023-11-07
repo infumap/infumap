@@ -69,11 +69,12 @@ export enum VisualElementFlags {
   Root                 = 0x0010, // Render as a root level page (popup, list page, top level page).
   InsideTable          = 0x0020, // The visual element is inside a table.
   Attachment           = 0x0040, // The visual element is an attachment.
-  ShowChildren         = 0x0080, // Children are visible and an item dragged over the container is positioned according to the mouse position (visual element is also always a page).
+  ShowChildren         = 0x0080, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
   Fixed                = 0x0100, // positioning is fixed, not absolute.
   InsideComposite      = 0x0200, // The visual element is inside a composite item.
   ZAbove               = 0x0400, // Render above everything else (except moving).
   Moving               = 0x0800, // Render the visual element partially transparent and on top of everything else.
+  ListPageMainItem     = 0x1000, // Is the representation of the selected item in a list page.
 }
 
 function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {

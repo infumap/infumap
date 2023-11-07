@@ -27,6 +27,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -107,7 +108,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
-        <Show when={props.visualElement.linkItemMaybe != null}>
+        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>

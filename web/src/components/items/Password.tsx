@@ -24,6 +24,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -104,7 +105,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
-        <Show when={props.visualElement.linkItemMaybe != null}>
+        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>

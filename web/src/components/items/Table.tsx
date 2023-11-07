@@ -26,6 +26,7 @@ import { panic } from "../../util/lang";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const HEADER_HEIGHT_BL = 1.0;
@@ -137,7 +138,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={props.visualElement.attachments}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
-        <Show when={props.visualElement.linkItemMaybe != null}>
+        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
         </Show>
       </div>

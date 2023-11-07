@@ -29,7 +29,7 @@ import { Rating_Desktop } from "./items/Rating";
 import { Table_Desktop } from "./items/Table";
 import { Image_Desktop } from "./items/Image";
 import { File } from "./items/File";
-import { VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { VisualElement } from "../layout/visual-element";
 import { Placeholder_Desktop } from "./items/Placeholder";
 import { FileLineItem } from "./items/File";
 import { Image_LineItem } from "./items/Image";
