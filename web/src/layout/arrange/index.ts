@@ -26,7 +26,7 @@ import { arrange_document } from "./topLevel/document";
 import { arrange_grid } from "./topLevel/grid";
 import { arrange_list } from "./topLevel/list";
 import { arrange_spatialStretch } from "./topLevel/spatial";
-import { evaluate } from "../../eval/evaluate";
+import { evaluateVisualElements } from "../../eval/evaluate";
 
 
 /**
@@ -75,7 +75,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
       panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm}.`);
   }
 
-  evaluate();
+  evaluateVisualElements();
 
   // TODO (LOW): this is not necessarily true. but it'd be a pain to pass this into every arrange call.
   const hasUser = true;

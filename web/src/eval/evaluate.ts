@@ -24,7 +24,7 @@ import { panic } from "../util/lang";
 import { ExpressionToken, ExpressionTokenType, tokenize } from "./tokenize";
 
 
-export function evaluate() {
+export function evaluateVisualElements() {
   for (let path of VesCache.getEvaluationRequired()) {
     const ves = VesCache.get(path)!;
     const ve = ves.get();
@@ -32,8 +32,8 @@ export function evaluate() {
     const equation = noteItem.title;
     const tokens = tokenize(equation);
     if (tokens == null) { continue; }
-    const leftValue = evaluateCell(path, tokens[0]);
-    const rightValue = evaluateCell(path, tokens[2]);
+    const leftValue = evaluateVe(path, tokens[0]);
+    const rightValue = evaluateVe(path, tokens[2]);
     let result = 0;
     if (tokens[1].operator == "-") { result = leftValue - rightValue; }
     if (tokens[1].operator == "+") { result = leftValue + rightValue; }
@@ -44,7 +44,7 @@ export function evaluate() {
   }
 }
 
-function evaluateCell(path: VisualElementPath, token: ExpressionToken): number {
+function evaluateVe(path: VisualElementPath, token: ExpressionToken): number {
   if (token.tokenType == ExpressionTokenType.RelativeReference) {
     for (let i=0; i<token.referenceFindOffset!; ++i) {
       const pathMaybe = findClosest(path, token.referenceFindDirection!, true);

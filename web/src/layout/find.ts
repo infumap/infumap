@@ -37,7 +37,7 @@ export function findDirectionFromLetterPrefix(prefix: string): FindDirection {
   if (prefix == "R") { return FindDirection.Right; }
   if (prefix == "U") { return FindDirection.Up; }
   if (prefix == "D") { return FindDirection.Down; }
-  panic(`Unexpected direction letter: ${prefix}.`);
+  throw new Error(`Unexpected direction letter: ${prefix}.`);
 }
 
 export function findDirectionFromKeyCode(code: string): FindDirection {
