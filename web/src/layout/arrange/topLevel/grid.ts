@@ -126,7 +126,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   if (movingItem) {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-    const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
+    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
     const cellBoundsPx = {
       x: mouseDestkopPosPx.x,
       y: mouseDestkopPosPx.y,

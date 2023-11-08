@@ -51,7 +51,7 @@ export const SearchOverlay: Component = () => {
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLastestDesktopPx(), boxBoundsPx())) { return; }
+    if (isInside(CursorEventState.getLatestDesktopPx(), boxBoundsPx())) { return; }
     if (overResultsDiv) { return; }
     desktopStore.setSearchOverlayVisible(false);
   };

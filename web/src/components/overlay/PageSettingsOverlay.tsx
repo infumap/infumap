@@ -33,7 +33,7 @@ export const PageSettingsOverlay: Component = () => {
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    const desktopPx = CursorEventState.getLastestDesktopPx();
+    const desktopPx = CursorEventState.getLatestDesktopPx();
     // if (isInside(desktopPx, noteVeBoundsPx()) ||
     //     isInside(desktopPx, toolboxBoundsPx()) ||
     //     isInside(desktopPx, formatBoxBoundsPx()) ||

@@ -48,7 +48,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
 
   const hasUser = userStore.getUserMaybe() != null;
 
-  const currentMouseDesktopPx = CursorEventState.getLastestDesktopPx();
+  const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx();
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.

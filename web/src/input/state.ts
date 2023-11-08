@@ -159,7 +159,9 @@ export const CursorEventState = {
 
   get: (): TouchOrMouseEvent => lastMoveEvent,
 
-  getLastestDesktopPx: (): Vector => desktopPxFromMouseEvent(lastMoveEvent),
+  getLatestClientPx: (): Vector => ({ x: lastMoveEvent.clientX, y: lastMoveEvent.clientY }),
+
+  getLatestDesktopPx: (): Vector => desktopPxFromMouseEvent(lastMoveEvent),
 }
 
 

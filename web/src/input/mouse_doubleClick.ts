@@ -34,8 +34,8 @@ export function mouseDoubleClickHandler(
   if (desktopStore.textEditOverlayInfo() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
-  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
+  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
 
-  desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLastestDesktopPx(), hitInfo });
+  desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
   mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
 }

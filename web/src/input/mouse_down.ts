@@ -65,7 +65,7 @@ export function mouseLeftDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {
 
-  const desktopPosPx = CursorEventState.getLastestDesktopPx();
+  const desktopPosPx = CursorEventState.getLatestDesktopPx();
 
   if (desktopStore.contextMenuInfo() != null) {
     DoubleClickState.preventDoubleClick();

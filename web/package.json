@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@solidjs/router": "^0.8.3",
-    "solid-js": "^1.8.3"
+    "@types/textarea-caret": "^3.0.3",
+    "solid-js": "^1.8.3",
+    "textarea-caret": "^3.1.0"
   }
 }

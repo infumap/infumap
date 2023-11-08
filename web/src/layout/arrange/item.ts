@@ -232,7 +232,7 @@ const arrangePageWithChildren = (
       const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
       const xOffsetPx = scrollPropX * (boundsPx.w - outerBoundsPx.w);
       const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-      const mouseDestkopPosPx = CursorEventState.getLastestDesktopPx();
+      const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
       const cellBoundsPx = {
         x: mouseDestkopPosPx.x - outerBoundsPx.x + xOffsetPx + pageXScrollPx,
         y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx + pageYScrollPx,

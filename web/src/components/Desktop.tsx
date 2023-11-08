@@ -106,7 +106,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
+      let hi = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
       if (hi.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
@@ -116,7 +116,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         console.log("must upload on page.");
         return;
       }
-      await handleUpload(desktopStore, ev.dataTransfer, CursorEventState.getLastestDesktopPx(), asPageItem(item));
+      await handleUpload(desktopStore, ev.dataTransfer, CursorEventState.getLatestDesktopPx(), asPageItem(item));
     }
   };
 

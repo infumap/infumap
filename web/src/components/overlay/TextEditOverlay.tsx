@@ -28,7 +28,7 @@ import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } f
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { createBooleanSignal } from "../../util/signals";
-import { BoundingBox, isInside } from "../../util/geometry";
+import { BoundingBox, Vector, isInside, vectorSubtract } from "../../util/geometry";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { itemState } from "../../store/ItemState";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
@@ -44,7 +44,7 @@ import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { assert, panic } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 import { PlaceholderFns } from "../../items/placeholder-item";
-
+import getCaretCoordinates from 'textarea-caret';
 
 // TODO (LOW): don't create items on the server until it is certain that they are needed.
 let justCreatedNoteItemMaybe: NoteItem | null = null;
@@ -173,7 +173,7 @@ export const TextEditOverlay: Component = () => {
     justCreatedCompositeItemMaybe = null;
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    const desktopPx = CursorEventState.getLastestDesktopPx();
+    const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx()) ||
         isInside(desktopPx, toolboxBoundsPx()) ||
         isInside(desktopPx, formatBoxBoundsPx()) ||
@@ -217,7 +217,24 @@ export const TextEditOverlay: Component = () => {
   });
 
   onMount(() => {
-    textElement?.focus();
+    const mouseClientPosPx = CursorEventState.getLatestClientPx();
+    const r = textElement!.getBoundingClientRect();
+    const teTopLeftPx: Vector = { x: r.x, y: r.y };
+    const posInTb = vectorSubtract(mouseClientPosPx, teTopLeftPx);
+    let closestDist = 10000000.0;
+    let closestIdx = 1;
+    for (let i=1; i<=textElement!.value.length; ++i) {
+      const coords = getCaretCoordinates(textElement!, i);
+      if (posInTb.y < coords.top || posInTb.y > coords.top + coords.height) { continue; }
+      const distX = (coords.left - posInTb.x) * (coords.left - posInTb.x);
+      if (distX < closestDist) {
+        closestDist = distX;
+        closestIdx = i;
+      }
+    }
+    textElement!.selectionStart = closestIdx;
+    textElement!.selectionEnd = closestIdx;
+    textElement!.focus();
   });
 
   const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }

@@ -42,11 +42,11 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: Us
     return;
   }
 
-  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLastestDesktopPx(), [], false);
+  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
 
   if (ev.code == "Slash") {
     ev.preventDefault();
-    desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLastestDesktopPx(), hitInfo });
+    desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
     mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
   }
 
