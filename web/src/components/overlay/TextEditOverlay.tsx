@@ -359,7 +359,9 @@ export const TextEditOverlay: Component = () => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return; }
-    if (textElement!.selectionEnd != noteItem().title.length) { return; }
+    const endCaretCoords = getCaretCoordinates(textElement!, textElement!.value.length);
+    const caretCoords = getCaretCoordinates(textElement!, textElement!.selectionStart);
+    if (caretCoords.top < endCaretCoords.top) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
     if (closest == null) { return; }
     desktopStore.setTextEditOverlayInfo({ itemPath: closest });
@@ -369,7 +371,9 @@ export const TextEditOverlay: Component = () => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return; }
-    if (textElement!.selectionStart != 0) { return; }
+    const startCaretCoords = getCaretCoordinates(textElement!, 0);
+    const caretCoords = getCaretCoordinates(textElement!, textElement!.selectionStart);
+    if (caretCoords.top > startCaretCoords.top) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
     if (closest == null) { return; }
     desktopStore.setTextEditOverlayInfo({ itemPath: closest });
