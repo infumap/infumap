@@ -40,7 +40,7 @@ import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns, asTableItem } from "../../items/table-item";
-import { MOUSE_RIGHT } from "../../input/mouse_down";
+import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_down";
 import { assert, panic } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 import { PlaceholderFns } from "../../items/placeholder-item";
@@ -196,6 +196,10 @@ export const TextEditOverlay: Component = () => {
       server.updateItem(noteVisualElement().displayItem);
     }
     desktopStore.setTextEditOverlayInfo(null);
+
+    if (ev.button == MOUSE_LEFT) {
+      mouseDownHandler(desktopStore, userStore, MOUSE_LEFT);
+    }
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
