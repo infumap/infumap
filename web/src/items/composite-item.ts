@@ -57,13 +57,13 @@ export const CompositeFns = {
       lastModifiedDate: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       spatialWidthGr: 4.0 * GRID_SIZE,
-  
+
       flags: CompositeFlags.None,
 
       orderChildrenBy: "",
-  
+
       computed_children: [],
       computed_attachments: [],
       childrenLoaded: false,
@@ -83,16 +83,16 @@ export const CompositeFns = {
       lastModifiedDate: o.lastModifiedDate,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
-  
+
       flags: o.flags,
 
       orderChildrenBy: o.orderChildrenBy,
-  
+
       computed_children: [],
       computed_attachments: [],
-  
+
       childrenLoaded: false,
     });
   },
@@ -108,9 +108,9 @@ export const CompositeFns = {
       lastModifiedDate: p.lastModifiedDate,
       ordering: Array.from(p.ordering),
       spatialPositionGr: p.spatialPositionGr,
-  
+
       spatialWidthGr: p.spatialWidthGr,
-  
+
       flags: p.flags,
 
       orderChildrenBy: p.orderChildrenBy,

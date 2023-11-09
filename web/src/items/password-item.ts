@@ -53,11 +53,11 @@ export const PasswordFns = {
       lastModifiedDate: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       spatialWidthGr: 10.0 * GRID_SIZE,
-  
+
       text,
-  
+
       computed_attachments: [],
     };
   },
@@ -75,11 +75,11 @@ export const PasswordFns = {
       lastModifiedDate: o.lastModifiedDate,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
-  
+
       text: o.text,
-  
+
       computed_attachments: [],
     });
   },
@@ -95,9 +95,9 @@ export const PasswordFns = {
       lastModifiedDate: p.lastModifiedDate,
       ordering: Array.from(p.ordering),
       spatialPositionGr: p.spatialPositionGr,
-  
+
       spatialWidthGr: p.spatialWidthGr,
-  
+
       text: p.text,
     });
   },

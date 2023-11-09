@@ -25,9 +25,18 @@ import './index.css';
 import { DesktopStoreProvider } from './store/DesktopStoreProvider';
 import { GeneralStoreProvider } from './store/GeneralStoreProvider';
 import { UserStoreProvider } from './store/UserStoreProvider';
+import { Lexer } from './expression/lexer';
+import { TokenType } from './expression/token';
 
 // import { testOrdering } from './util/ordering';
 // testOrdering();
+
+Lexer.init("8*(3-4.1)+$L2-($6eecce77f4884696917a4b8ce0aadf41)");
+while (true) {
+  const next = Lexer.next();
+  if (next.type == TokenType.EOF) { break; }
+  console.log(next);
+}
 
 render(() => (
   <DesktopStoreProvider>

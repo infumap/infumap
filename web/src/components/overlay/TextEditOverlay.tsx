@@ -46,6 +46,7 @@ import { asContainerItem } from "../../items/base/container-item";
 import { PlaceholderFns } from "../../items/placeholder-item";
 import getCaretCoordinates from 'textarea-caret';
 
+
 // TODO (LOW): don't create items on the server until it is certain that they are needed.
 let justCreatedNoteItemMaybe: NoteItem | null = null;
 let justCreatedCompositeItemMaybe: CompositeItem | null = null;

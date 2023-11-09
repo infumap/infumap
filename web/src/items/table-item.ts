@@ -69,22 +69,22 @@ export const TableFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       spatialWidthGr: 8.0 * GRID_SIZE,
       spatialHeightGr: 6.0 * GRID_SIZE,
-  
+
       tableColumns: [{
         name: "Title",
         widthGr: 8 * GRID_SIZE,
       }],
-  
+
       flags: TableFlags.None,
-  
+
       orderChildrenBy: "",
-  
+
       computed_children: [],
       computed_attachments: [],
-  
+
       childrenLoaded: false,
     };
   },
@@ -104,18 +104,18 @@ export const TableFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
       spatialHeightGr: o.spatialHeightGr,
-  
+
       tableColumns: o.tableColumns,
       flags: o.flags,
-  
+
       orderChildrenBy: o.orderChildrenBy,
-  
+
       computed_children: [],
       computed_attachments: [],
-  
+
       childrenLoaded: false,
     });
   },
@@ -132,13 +132,13 @@ export const TableFns = {
       ordering: Array.from(t.ordering),
       title: t.title,
       spatialPositionGr: t.spatialPositionGr,
-  
+
       spatialWidthGr: t.spatialWidthGr,
       spatialHeightGr: t.spatialHeightGr,
-  
+
       tableColumns: t.tableColumns,
       flags: t.flags,
-  
+
       orderChildrenBy: t.orderChildrenBy,
     });
   },

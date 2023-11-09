@@ -58,16 +58,16 @@ export const ImageFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
-  
+
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
       fileSizeBytes: o.fileSizeBytes,
-  
+
       thumbnail: o.thumbnail,
       imageSizePx: o.imageSizePx,
-  
+
       computed_attachments: [],
     });
   },
@@ -84,13 +84,13 @@ export const ImageFns = {
       ordering: Array.from(i.ordering),
       title: i.title,
       spatialPositionGr: i.spatialPositionGr,
-  
+
       spatialWidthGr: i.spatialWidthGr,
-  
+
       originalCreationDate: i.originalCreationDate,
       mimeType: i.mimeType,
       fileSizeBytes: i.fileSizeBytes,
-  
+
       thumbnail: i.thumbnail,
       imageSizePx: i.imageSizePx,
     });

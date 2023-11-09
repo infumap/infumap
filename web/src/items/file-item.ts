@@ -55,13 +55,13 @@ export const FileFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
-  
+
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
       fileSizeBytes: o.fileSizeBytes,
-  
+
       computed_attachments: [],
     });
   },
@@ -78,9 +78,9 @@ export const FileFns = {
       ordering: Array.from(f.ordering),
       title: f.title,
       spatialPositionGr: f.spatialPositionGr,
-  
+
       spatialWidthGr: f.spatialWidthGr,
-  
+
       originalCreationDate: f.originalCreationDate,
       mimeType: f.mimeType,
       fileSizeBytes: f.fileSizeBytes,

@@ -91,9 +91,9 @@ export const PageFns = {
       ordering,
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       spatialWidthGr: 4.0 * GRID_SIZE,
-  
+
       innerSpatialWidthGr: 60.0 * GRID_SIZE,
       naturalAspect: 2.0,
       backgroundColorIndex: 0,
@@ -102,15 +102,15 @@ export const PageFns = {
       popupAlignmentPoint: "center",
       popupWidthGr: 10.0 * GRID_SIZE,
       gridNumberOfColumns: 6,
-  
+
       orderChildrenBy: "title[ASC]",
-  
+
       permissionFlags: PermissionFlags.None,
-  
+
       computed_children: [],
       computed_attachments: [],
       childrenLoaded: false,
-    
+
       pendingPopupPositionGr: null,
       pendingPopupWidthGr: null,
       pendingPopupAlignmentPoint: null,
@@ -131,9 +131,9 @@ export const PageFns = {
       ordering: new Uint8Array(o.ordering),
       title: o.title,
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
-  
+
       innerSpatialWidthGr: o.innerSpatialWidthGr,
       naturalAspect: o.naturalAspect,
       backgroundColorIndex: o.backgroundColorIndex,
@@ -142,16 +142,16 @@ export const PageFns = {
       popupAlignmentPoint: o.popupAlignmentPoint,
       popupWidthGr: o.popupWidthGr,
       gridNumberOfColumns: o.gridNumberOfColumns,
-  
+
       orderChildrenBy: o.orderChildrenBy,
-  
+
       permissionFlags: o.permissionFlags,
-  
+
       computed_children: [],
       computed_attachments: [],
-  
+
       childrenLoaded: false,
-  
+
       pendingPopupPositionGr: null,
       pendingPopupWidthGr: null,
       pendingPopupAlignmentPoint: null,
@@ -170,9 +170,9 @@ export const PageFns = {
       ordering: Array.from(p.ordering),
       title: p.title,
       spatialPositionGr: p.spatialPositionGr,
-  
+
       spatialWidthGr: p.spatialWidthGr,
-  
+
       innerSpatialWidthGr: p.innerSpatialWidthGr,
       naturalAspect: p.naturalAspect,
       backgroundColorIndex: p.backgroundColorIndex,
@@ -181,9 +181,9 @@ export const PageFns = {
       popupAlignmentPoint: p.popupAlignmentPoint,
       popupWidthGr: p.popupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
-  
+
       orderChildrenBy: p.orderChildrenBy,
-  
+
       permissionFlags: p.permissionFlags,
     });
   },

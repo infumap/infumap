@@ -72,15 +72,15 @@ export const LinkFns = {
       lastModifiedDate: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       // possibly unused, depending on linked to type.
       spatialWidthGr: 4.0 * GRID_SIZE,
       spatialHeightGr: 4.0 * GRID_SIZE,
-  
+
       linkTo,
       linkToResolvedId: linkTo,
       linkToBaseUrl: "",
-  
+
       computed_attachments: [],
     };
   },
@@ -98,14 +98,14 @@ export const LinkFns = {
       lastModifiedDate: o.lastModifiedDate,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-  
+
       spatialWidthGr: o.spatialWidthGr,
       spatialHeightGr: o.spatialHeightGr,
-  
+
       linkTo: o.linkTo,
       linkToResolvedId: null,
       linkToBaseUrl: o.linkToBaseUrl,
-  
+
       computed_attachments: [],
     });
   },
@@ -121,10 +121,10 @@ export const LinkFns = {
       lastModifiedDate: l.lastModifiedDate,
       ordering: Array.from(l.ordering),
       spatialPositionGr: l.spatialPositionGr,
-  
+
       spatialWidthGr: l.spatialWidthGr,
       spatialHeightGr: l.spatialHeightGr,
-  
+
       linkTo: l.linkTo,
       linkToBaseUrl: l.linkToBaseUrl,
     });

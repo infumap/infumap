@@ -54,7 +54,7 @@ export const RatingFns = {
       lastModifiedDate: currentUnixTimeSeconds(),
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
-  
+
       rating,
     };
   },
@@ -72,7 +72,7 @@ export const RatingFns = {
       lastModifiedDate: o.lastModifiedDate,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
-  
+
       rating: o.rating,
     });
   },
@@ -88,7 +88,7 @@ export const RatingFns = {
       lastModifiedDate: r.lastModifiedDate,
       ordering: Array.from(r.ordering),
       spatialPositionGr: r.spatialPositionGr,
-  
+
       rating: r.rating,
     });
   },
