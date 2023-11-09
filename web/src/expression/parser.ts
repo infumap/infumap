@@ -45,10 +45,12 @@ export let Parser = {
       const token = Lexer.next();
       tokens.push(token);
       if (token.type == TokenType.EOF) { break; }
+      if (tokens.length > 1000) {
+        console.debug("Expression too long. Tokens: ", tokens);
+        throw new Error("Expression too long.");
+      }
     }
-    tokens = tokens;
     current = 0;
-    console.log(tokens);
     return expression();
   }
 }
@@ -100,7 +102,7 @@ function primary(): Expression {
   if (match([TokenType.LeftParenthesis])) {
     let expr = expression();
     consume(TokenType.RightParenthesis, "Expect ')' after expression.");
-    return { type: ExpressionType.Grouping, expr };
+    return { type: ExpressionType.Grouping, expression: expr };
   }
   throw new Error("unexpected token");
 }

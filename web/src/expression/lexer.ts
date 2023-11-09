@@ -92,12 +92,13 @@ function readReference(): Token {
 function readNumber(): Token {
   position -= 1;
   const startPos = position;
-  let haveDecimal = text[position] == '.';
+  let haveDecimal = false;
   while (position < text.length && isNumber(text[position]) || (text[position] == '.') && !haveDecimal) {
     if (text[position] == '.') { haveDecimal = true; }
     position += 1;
   }
-  return { type: TokenType.Number, literal: text.substring(startPos, position), position: startPos }; 
+  const literal = text.substring(startPos, position);
+  return { type: TokenType.Number, literal, position: startPos };
 }
 
 function isWhiteSpace(charStr: string): boolean {

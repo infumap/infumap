@@ -25,13 +25,9 @@ import './index.css';
 import { DesktopStoreProvider } from './store/DesktopStoreProvider';
 import { GeneralStoreProvider } from './store/GeneralStoreProvider';
 import { UserStoreProvider } from './store/UserStoreProvider';
-import { Parser } from './expression/parser';
 
 // import { testOrdering } from './util/ordering';
 // testOrdering();
-
-console.log(Parser.parse("8*(3-4.1)+$L2-($6eecce77f4884696917a4b8ce0aadf41)"));
-
 
 render(() => (
   <DesktopStoreProvider>

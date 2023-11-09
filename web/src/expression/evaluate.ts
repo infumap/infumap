@@ -20,8 +20,10 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { findClosest } from "../layout/find";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementPath } from "../layout/visual-element";
-import { panic } from "../util/lang";
-import { ExpressionToken, ExpressionTokenType, tokenize } from "./tokenize";
+import { itemState } from "../store/ItemState";
+import { AbsoluteReferenceExpression, BinaryExpression, Expression, ExpressionType, GroupingExpression, RelativeReferenceExpression, UnaryExpression, ValueExpression } from "./ast";
+import { Parser } from "./parser";
+import { TokenType } from "./token";
 
 
 export function evaluateExpressions() {
@@ -30,37 +32,68 @@ export function evaluateExpressions() {
     const ve = ves.get();
     const noteItem = asNoteItem(ve.displayItem);
     const equation = noteItem.title;
-    const tokens = tokenize(equation);
-    if (tokens == null) { continue; }
-    const leftValue = evaluateVe(path, tokens[0]);
-    const rightValue = evaluateVe(path, tokens[2]);
-    let result = 0;
-    if (tokens[1].operator == "-") { result = leftValue - rightValue; }
-    if (tokens[1].operator == "+") { result = leftValue + rightValue; }
-    if (tokens[1].operator == "*") { result = leftValue * rightValue; }
-    if (tokens[1].operator == "/") { result = leftValue / rightValue; }
-    ve.evaluatedTitle = result.toString();
+    ve.evaluatedTitle = evaluateExpression(path, equation).toString();
     ves.set(ve);
   }
 }
 
-function evaluateVe(path: VisualElementPath, token: ExpressionToken): number {
-  if (token.tokenType == ExpressionTokenType.RelativeReference) {
-    for (let i=0; i<token.referenceFindOffset!; ++i) {
-      const pathMaybe = findClosest(path, token.referenceFindDirection!, true);
+interface Context {
+  path: string,
+}
+
+function evaluateExpression(path: VisualElementPath, text: string): string {
+  try {
+    const expr = Parser.parse(text.substring(1));
+    const context = { path };
+    const r = evaluate(expr, context);
+    return "" + r;
+  } catch (e: any) {
+    console.debug(e);
+    return text;
+  }
+}
+
+function evaluate(expr: Expression, context: Context): number {
+  const exprType = (expr as any).type;
+  if (exprType == ExpressionType.Binary) {
+    const e = expr as BinaryExpression;
+    if (e.operator == TokenType.Minus) { return evaluate(e.left, context) - evaluate(e.right, context); }
+    if (e.operator == TokenType.Plus) { return evaluate(e.left, context) + evaluate(e.right, context); }
+    if (e.operator == TokenType.Divide) { return evaluate(e.left, context) / evaluate(e.right, context); }
+    if (e.operator == TokenType.Multiply) { return evaluate(e.left, context) * evaluate(e.right, context); }
+    throw new Error("unexpected operator: " + e.operator);
+  }
+  if (exprType == ExpressionType.Unary) {
+    const e = expr as UnaryExpression;
+    if (e.operator == TokenType.Minus) { return -evaluate(e.operand, context); }
+    throw new Error("unexpected operand: " + e.operator);
+  }
+  if (exprType == ExpressionType.Value) {
+    const e = expr as ValueExpression;
+    return e.value;
+  }
+  if (exprType == ExpressionType.Grouping) {
+    const e = expr as GroupingExpression;
+    return evaluate(e.expression, context);
+  }
+  if (exprType == ExpressionType.AbsoluteReference) {
+    const e = expr as AbsoluteReferenceExpression;
+    const item = itemState.get(e.uid)!;
+    if (item == null) { throw new Error("item doesn't exist"); }
+    if (!isNote(item)) { throw new Error("referenced item is not note."); }
+    return parseFloat(asNoteItem(item).title);
+  }
+  if (exprType == ExpressionType.RelativeReference) {
+    const e = expr as RelativeReferenceExpression;
+    let path = context.path;
+    for (let i=0; i<e.findOffset; ++i) {
+      const pathMaybe = findClosest(path, e.findDirection, true);
       if (pathMaybe == null) { return 0; }
       path = pathMaybe;
     }
     const ve = VesCache.get(path)!.get();
     if (!isNote(ve.displayItem)) { return 0; }
     return parseFloat(asNoteItem(ve.displayItem).title);
-  } else if (token.tokenType == ExpressionTokenType.AbsoluteReference) {
-    const vesMaybe = VesCache.get(token.reference!);
-    if (vesMaybe == null) { return 0; }
-    const ve = vesMaybe.get();
-    if (!isNote(ve.displayItem)) { return 0; }
-    return parseFloat(asNoteItem(ve.displayItem).title);
-  } else {
-    panic("evaluateCell: unknown token type.");
   }
-}
+  throw new Error("unexpected expression type: " + exprType);
+};

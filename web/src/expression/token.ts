@@ -18,6 +18,7 @@
 
 
 export enum TokenType {
+  TooBig = 'TOO_BIG',
   Illegal = 'ILLEGAL',
   EOF = 'EOF',
 
