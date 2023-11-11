@@ -92,45 +92,45 @@ export const TextEditOverlay: Component = () => {
   };
   const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
-  const compositeToolboxBoundsPx = () => {
-    const compositeVe = compositeVisualElementMaybe()!;
-    if (compositeVe == null) { panic("compositeToolboxBoundsPx: compositeVe is null"); }
-    const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVe);
-    return ({
-      x: compositeVeBoundsPx.x - 5,
-      y: compositeVeBoundsPx.y - 42,
-      w: 90,
-      h: 35
-    });
-  }
+  // const compositeToolboxBoundsPx = () => {
+  //   const compositeVe = compositeVisualElementMaybe()!;
+  //   if (compositeVe == null) { panic("compositeToolboxBoundsPx: compositeVe is null"); }
+  //   const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVe);
+  //   return ({
+  //     x: compositeVeBoundsPx.x - 5,
+  //     y: compositeVeBoundsPx.y - 42,
+  //     w: 90,
+  //     h: 35
+  //   });
+  // }
 
-  const toolboxBoundsPx = () => {
-    if (compositeItemMaybe() != null) {
-      const compositeVeMaybe = compositeVisualElementMaybe()!;
-      const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVeMaybe);
-      const result = {
-        x: compositeVeBoundsPx.x + 87,
-        y: compositeVeBoundsPx.y - 42,
-        w: 410,
-        h: 35
-      };
-      if (compositeVeMaybe.linkItemMaybe != null) {
-        result.w -= 45; // don't display trash.
-      }
-      return result;
-    } else {
-      const result = {
-        x: noteVeBoundsPx().x - 5,
-        y: noteVeBoundsPx().y - 42,
-        w: isInTable() ? 355 : 430,
-        h: 35
-      };
-      if (noteVisualElement().linkItemMaybe != null) {
-        result.w -= 45; // don't display trash.
-      }
-      return result;
-    }
-  };
+  // const toolboxBoundsPx = () => {
+  //   if (compositeItemMaybe() != null) {
+  //     const compositeVeMaybe = compositeVisualElementMaybe()!;
+  //     const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVeMaybe);
+  //     const result = {
+  //       x: compositeVeBoundsPx.x + 87,
+  //       y: compositeVeBoundsPx.y - 42,
+  //       w: 410,
+  //       h: 35
+  //     };
+  //     if (compositeVeMaybe.linkItemMaybe != null) {
+  //       result.w -= 45; // don't display trash.
+  //     }
+  //     return result;
+  //   } else {
+  //     const result = {
+  //       x: noteVeBoundsPx().x - 5,
+  //       y: noteVeBoundsPx().y - 42,
+  //       w: isInTable() ? 355 : 430,
+  //       h: 35
+  //     };
+  //     if (noteVisualElement().linkItemMaybe != null) {
+  //       result.w -= 45; // don't display trash.
+  //     }
+  //     return result;
+  //   }
+  // };
 
   const sizeBl = () => {
     const noteVe = noteVisualElement()!;
@@ -175,11 +175,12 @@ export const TextEditOverlay: Component = () => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLatestDesktopPx();
-    if (isInside(desktopPx, noteVeBoundsPx()) ||
-        isInside(desktopPx, toolboxBoundsPx()) ||
-        isInside(desktopPx, formatBoxBoundsPx()) ||
-        isInside(desktopPx, urlBoxBoundsPx()) ||
-        (compositeVisualElementMaybe() != null && isInside(desktopPx, compositeToolboxBoundsPx()))) { return; }
+    if (isInside(desktopPx, noteVeBoundsPx()))
+        // isInside(desktopPx, toolboxBoundsPx()) ||
+        //isInside(desktopPx, formatBoxBoundsPx()) ||
+        // isInside(desktopPx, urlBoxBoundsPx()))
+        // (compositeVisualElementMaybe() != null && isInside(desktopPx, compositeToolboxBoundsPx())))
+        { return; }
 
     if (formatOverlayVisible.get()) {
       formatOverlayVisible.set(false);
@@ -502,30 +503,30 @@ export const TextEditOverlay: Component = () => {
     return count;
   }
 
-  const infoBoxBoundsPx = (): BoundingBox => {
-    const tbBoundsPx = toolboxBoundsPx();
-    tbBoundsPx.x += 5;
-    tbBoundsPx.y += 5;
-    tbBoundsPx.h = infoCount() * 35;
-    tbBoundsPx.w += 35;
-    return tbBoundsPx;
-  }
+  // const infoBoxBoundsPx = (): BoundingBox => {
+  //   const tbBoundsPx = toolboxBoundsPx();
+  //   tbBoundsPx.x += 5;
+  //   tbBoundsPx.y += 5;
+  //   tbBoundsPx.h = infoCount() * 35;
+  //   tbBoundsPx.w += 35;
+  //   return tbBoundsPx;
+  // }
 
-  const formatBoxBoundsPx = (): BoundingBox => {
-    const tbBoundsPx = toolboxBoundsPx();
-    tbBoundsPx.x += 0;
-    tbBoundsPx.y -= 38;
-    tbBoundsPx.h = 35;
-    return tbBoundsPx;
-  }
+  // const formatBoxBoundsPx = (): BoundingBox => {
+  //   const tbBoundsPx = toolboxBoundsPx();
+  //   tbBoundsPx.x += 0;
+  //   tbBoundsPx.y -= 38;
+  //   tbBoundsPx.h = 35;
+  //   return tbBoundsPx;
+  // }
 
-  const urlBoxBoundsPx = (): BoundingBox => {
-    const tbBoundsPx = toolboxBoundsPx();
-    tbBoundsPx.x += 0;
-    tbBoundsPx.y -= 38;
-    tbBoundsPx.h = 35;
-    return tbBoundsPx;
-  }
+  // const urlBoxBoundsPx = (): BoundingBox => {
+  //   const tbBoundsPx = toolboxBoundsPx();
+  //   tbBoundsPx.x += 0;
+  //   tbBoundsPx.y -= 38;
+  //   tbBoundsPx.h = 35;
+  //   return tbBoundsPx;
+  // }
 
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
@@ -656,7 +657,7 @@ export const TextEditOverlay: Component = () => {
   return (
     <div id="textEntryOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
-         style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
+         style={`background-color: #00000000; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}

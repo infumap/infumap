@@ -195,7 +195,7 @@ export const Toolbar_TextEdit: Component = () => {
     </>;
 
   return (
-    <div>
+    <div class="inline-block">
       <Switch>
         <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
         <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>

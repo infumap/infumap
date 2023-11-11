@@ -101,7 +101,7 @@ export const Main: Component = () => {
       <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != ItemType.None}>
         <Desktop visualElement={desktopStore.topLevelVisualElement()} />
       </Show>
-      <Toolbar_Left />
+      {/* <Toolbar_Left /> */}
       <Toolbar_Top />
     </div>
   );
