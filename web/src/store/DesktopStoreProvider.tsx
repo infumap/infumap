@@ -22,7 +22,7 @@ import { panic } from "../util/lang";
 import { Item } from "../items/base/item";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
-import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
+import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath } from "../layout/visual-element";
 import { createNumberSignal, createVisualElementPathSignal, NumberSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
@@ -224,7 +224,10 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
-    return { w: rootElement.clientWidth - MAIN_TOOLBAR_WIDTH_PX, h: rootElement.clientHeight };
+    return {
+      w: rootElement.clientWidth - LEFT_TOOLBAR_WIDTH_PX,
+      h: rootElement.clientHeight - TOP_TOOLBAR_HEIGHT_PX,
+    };
   }
 
   const resetDesktopSizePx = () => {

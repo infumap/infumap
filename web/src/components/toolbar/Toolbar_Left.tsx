@@ -19,7 +19,7 @@
 import imgUrl from '../../assets/circle.png'
 
 import { Component, Show } from "solid-js";
-import { MAIN_TOOLBAR_WIDTH_PX, ROOT_USERNAME } from "../../constants";
+import { LEFT_TOOLBAR_WIDTH_PX, ROOT_USERNAME } from "../../constants";
 import { asPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Colors } from "../../style";
@@ -31,7 +31,7 @@ import { useNavigate } from '@solidjs/router';
 import { initialEditUserSettingsBounds } from '../overlay/UserSettings';
 
 
-export const Toolbar: Component = () => {
+export const Toolbar_Left: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
   const navigate = useNavigate();
@@ -69,7 +69,7 @@ export const Toolbar: Component = () => {
           style={`background-image: linear-gradient(270deg, ` +
                  `${hexToRGBA(Colors[bgColIdx()], 0.786)}, ` +
                  `${hexToRGBA(Colors[bgColIdx()], 0.864)}); ` +
-                 `width: ${MAIN_TOOLBAR_WIDTH_PX}px`}>
+                 `width: ${LEFT_TOOLBAR_WIDTH_PX}px`}>
         <a href="/"><img src={imgUrl} class="w-[28px] mt-[12px] ml-[6px]" /></a>
         <Show when={userStore.getUserMaybe()}>
           <div class="ml-[11px] mt-[12px]">

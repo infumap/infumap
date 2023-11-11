@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { MAIN_TOOLBAR_WIDTH_PX } from "../constants";
+import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { TouchOrMouseEvent } from "../input/state";
 
 
@@ -127,7 +127,10 @@ function clientPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
 }
 
 export function desktopPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
-  return vectorSubtract(clientPxFromMouseEvent(ev), { x: MAIN_TOOLBAR_WIDTH_PX, y: 0 });
+  return vectorSubtract(
+    clientPxFromMouseEvent(ev),
+    { x: LEFT_TOOLBAR_WIDTH_PX, y: TOP_TOOLBAR_HEIGHT_PX }
+  );
 }
 
 export function vectorSubtract(a: Vector, b: Vector): Vector {

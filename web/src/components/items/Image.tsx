@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Match, Show, Switch, onCleanup, onMount } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -104,16 +104,16 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                   `text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
-            style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                   `top: ${boundsPx().y-10}px; ` +
+            style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                   `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                    `width: ${boundsPx().w+20}px; ` +
                    `height: ${boundsPx().h+20}px; ` +
                    `background-color: #303030d0;` +
                    `${VeFns.zIndexStyle(props.visualElement)}`} />
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                   `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
-            style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                   `top: ${quantizedBoundsPx().y}px; ` +
+            style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                    `width: ${quantizedBoundsPx().w}px; ` +
                    `height: ${quantizedBoundsPx().h}px;` +
                    `${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -130,8 +130,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const tooSmallFallback = (): JSX.Element =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
                 `border border-slate-700 overflow-hidden pointer-events-none`}
-          style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                 `top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
+          style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                 `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                 `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
 
   const notDetailedFallback = (): JSX.Element =>
     <img class="max-w-none absolute pointer-events-none"
@@ -145,11 +146,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderTitleMaybe = (): JSX.Element =>
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
-            style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                  `top: ${boundsPx().y + boundsPx().h - 50}px; ` +
-                  `width: ${boundsPx().w}px; ` +
-                  `height: ${50}px;` +
-                  `${VeFns.zIndexStyle(props.visualElement)}`}>
+            style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                   `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                   `width: ${boundsPx().w}px; ` +
+                   `height: ${50}px;` +
+                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
           {imageItem().title}
         </div>
@@ -159,8 +160,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderAttachmentsAndDetailMaybe = (): JSX.Element =>
     <Show when={isDetailed()}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
-          style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                `top: ${quantizedBoundsPx().y}px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
+          style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
                 `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <For each={props.visualElement.attachments}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
@@ -177,8 +179,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       {renderPopupBaseMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
                   `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
-           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? MAIN_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                  `top: ${quantizedBoundsPx().y}px; ` +
+           style={`left: ${quantizedBoundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${quantizedBoundsPx().w}px; ` +
                   `height: ${quantizedBoundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>

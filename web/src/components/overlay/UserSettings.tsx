@@ -19,7 +19,7 @@
 import { Component } from "solid-js";
 import { DesktopStoreContextModel, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
-import { MAIN_TOOLBAR_WIDTH_PX } from "../../constants";
+import { LEFT_TOOLBAR_WIDTH_PX } from "../../constants";
 import { logout } from "../Main";
 import { InfuButton } from "../library/InfuButton";
 import { useUserStore } from "../../store/UserStoreProvider";
@@ -31,7 +31,7 @@ export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 500 };
 
 export function initialEditUserSettingsBounds(desktopStore: DesktopStoreContextModel) {
   let posPx = {
-    x: (desktopStore.desktopBoundsPx().w) / 2.0 + MAIN_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
+    x: (desktopStore.desktopBoundsPx().w) / 2.0 + LEFT_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
     y: 120.0
   };
   return boundingBoxFromPosSize(posPx, { ...editUserSettingsSizePx }); 

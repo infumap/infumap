@@ -483,7 +483,7 @@ async fn handle_add_item(
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
   let item_map_maybe = iterator.next().ok_or("Add item request has no item data.")??;
   let mut item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?.clone();
-  
+
   let item_type = String::from(
     item_map.get("itemType").ok_or("Item type was not specified.")?.as_str().ok_or("'itemType' field is not a string.")?);
 
