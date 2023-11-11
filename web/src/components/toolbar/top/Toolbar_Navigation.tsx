@@ -21,6 +21,8 @@ import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 import { useUserStore } from "../../../store/UserStoreProvider";
 import { navigateBack, navigateUp, switchToPage } from '../../../layout/navigation';
 import { ROOT_USERNAME } from '../../../constants';
+import { InfuIconButton } from "../../library/InfuIconButton";
+
 
 export const Toolbar_Navigation: Component = () => {
   const desktopStore = useDesktopStore();
@@ -47,21 +49,13 @@ export const Toolbar_Navigation: Component = () => {
   const handleSearchClick = () => { desktopStore.setSearchOverlayVisible(!desktopStore.searchOverlayVisible()); };
 
   return (
-    <div class="inline-block">
+    <div class="inline-block p-[4px] flex-grow-0">
       <Show when={userStore.getUserMaybe()}>
-        <div class="inline-block">
-          <i class="fa fa-home cursor-pointer" onclick={handleHome} />
-        </div>
+        <InfuIconButton icon="home" highlighted={false} clickHandler={handleHome} />        
       </Show>
-      <div class="inline-block">
-        <i class="fa fa-search cursor-pointer" onclick={handleSearchClick} />
-      </div>
-      <div class="inline-block">
-        <i class="fa fa-arrow-circle-up cursor-pointer" onclick={handleUp} />
-      </div>
-      <div class="inline-block">
-        <i class="fa fa-arrow-circle-left cursor-pointer" onclick={handleBack} />
-      </div>
+      <InfuIconButton icon="search" highlighted={false} clickHandler={handleSearchClick} />
+      <InfuIconButton icon="arrow-circle-up" highlighted={false} clickHandler={handleUp} />
+      <InfuIconButton icon="arrow-circle-left" highlighted={false} clickHandler={handleBack} />
     </div>
   )
 }

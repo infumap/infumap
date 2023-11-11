@@ -31,6 +31,9 @@ import { itemState } from "../../../store/ItemState";
 import { asPageItem } from "../../../items/page-item";
 import { hexToRGBA } from "../../../util/color";
 import { Colors } from "../../../style";
+import { Toolbar_TextInfo } from './Toolbar_TextInfo';
+import { InfuIconButton } from '../../library/InfuIconButton';
+
 
 export const Toolbar_Top: Component = () => {
   const desktopStore = useDesktopStore();
@@ -38,6 +41,7 @@ export const Toolbar_Top: Component = () => {
   const navigate = useNavigate();
 
   const handleLogin = () => navigate("/login");
+
   const showUserSettings = () => { desktopStore.setEditUserSettingsInfo({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) }); }
 
   const currentPageMaybe = () => {
@@ -57,26 +61,34 @@ export const Toolbar_Top: Component = () => {
          style={`background-color: #f9fbfd; ` +
                 `left: ${LEFT_TOOLBAR_WIDTH_PX}px; ` +
                 `height: ${TOP_TOOLBAR_HEIGHT_PX}px; ${LEFT_TOOLBAR_WIDTH_PX}px; `}>
-      <div class="fixed right-0 top-0" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; `}>
-        <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
-        <span class="font-bold" style={`font-size: 22px; color: ${fullTitleColor()}`}>{title()}</span>
-        <div class="float-right">
+
+      <div class="fixed top-0" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; right: ${10}px;`}>
+        <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
+        <div class="inline-block pl-1"></div>
+        <div class="font-bold p-[4px] inline-block" style={`font-size: 22px; color: ${fullTitleColor()}`}>
+          {title()}
+        </div>
+        <div class="float-right p-[8px]">
           <Show when={!userStore.getUserMaybe()}>
-            <i class="fa fa-sign-in cursor-pointer" onclick={handleLogin} />
+            <InfuIconButton icon="sign-in" highlighted={false} clickHandler={handleLogin} />
           </Show>
           <Show when={userStore.getUserMaybe()}>
-            <i class="fa fa-user cursor-pointer" onclick={showUserSettings!} />
+            <InfuIconButton icon="user" highlighted={false} clickHandler={showUserSettings} />
           </Show>
         </div>
       </div>
 
-      <div class="fixed right-0 top-[35px]" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; background-color: #edf2fa;`}>
-        <Toolbar_Navigation />
-        <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-          <Show when={desktopStore.textEditOverlayInfo() != null}>
-            <Toolbar_TextEdit />
+      <div class="fixed right-[10px] top-[42px] rounded-lg" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; background-color: #edf2fa;`}>
+        <div class="flex flex-row flex-nowrap">
+          <Toolbar_Navigation />
+          <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+            <Show when={desktopStore.textEditOverlayInfo() != null}>
+              <Toolbar_TextEdit />
+              <div class="inline-block" style="flex-grow: 1"></div>
+              <Toolbar_TextInfo />
+            </Show>
           </Show>
-        </Show>
+        </div>
       </div>
 
     </div>

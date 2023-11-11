@@ -496,47 +496,8 @@ export const TextEditOverlay: Component = () => {
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
-  const infoCount = (): number => {
-    let count = 1;
-    const ve = noteVisualElement();
-    if (ve.linkItemMaybe != null) { count += 1; }
-    return count;
-  }
-
-  // const infoBoxBoundsPx = (): BoundingBox => {
-  //   const tbBoundsPx = toolboxBoundsPx();
-  //   tbBoundsPx.x += 5;
-  //   tbBoundsPx.y += 5;
-  //   tbBoundsPx.h = infoCount() * 35;
-  //   tbBoundsPx.w += 35;
-  //   return tbBoundsPx;
-  // }
-
-  // const formatBoxBoundsPx = (): BoundingBox => {
-  //   const tbBoundsPx = toolboxBoundsPx();
-  //   tbBoundsPx.x += 0;
-  //   tbBoundsPx.y -= 38;
-  //   tbBoundsPx.h = 35;
-  //   return tbBoundsPx;
-  // }
-
-  // const urlBoxBoundsPx = (): BoundingBox => {
-  //   const tbBoundsPx = toolboxBoundsPx();
-  //   tbBoundsPx.x += 0;
-  //   tbBoundsPx.y -= 38;
-  //   tbBoundsPx.h = 35;
-  //   return tbBoundsPx;
-  // }
-
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
-  }
-
-  const borderVisible = (): boolean => {
-    if (compositeItemMaybe() != null) {
-      return (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true;
-    }
-    return (noteItem().flags & NoteFlags.HideBorder) ? false : true;
   }
 
   const handleFormatChange = () => {
@@ -551,10 +512,6 @@ export const TextEditOverlay: Component = () => {
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(noteItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteItem().id); }
-  const copyLinkIdClickHandler = (): void => { navigator.clipboard.writeText(noteVisualElement().linkItemMaybe!.id); }
-  const linkLinkIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteVisualElement().linkItemMaybe!.id); }
-  const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
-  const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
 
   // determined by trial and error to be the minimum amount needed to be added
   // to a textarea to prevent it from scrolling, given the same text layout as

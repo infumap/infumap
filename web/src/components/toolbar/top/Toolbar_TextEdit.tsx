@@ -40,17 +40,17 @@ export const Toolbar_TextEdit: Component = () => {
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 
-  const compositeVisualElementMaybe = () => {
-    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
-    if (!isComposite(parentVe.displayItem)) { return null; }
-    return parentVe;
-  };
-  const compositeItemMaybe = () => {
-    const compositeVeMaybe = compositeVisualElementMaybe();
-    if (compositeVeMaybe == null) { return null; }
-    return asCompositeItem(compositeVeMaybe.displayItem);
-  };
-  const compositeItemOnInitializeMaybe = compositeItemMaybe();
+    const compositeVisualElementMaybe = () => {
+      const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+      if (!isComposite(parentVe.displayItem)) { return null; }
+      return parentVe;
+    };
+    const compositeItemMaybe = () => {
+      const compositeVeMaybe = compositeVisualElementMaybe();
+      if (compositeVeMaybe == null) { return null; }
+      return asCompositeItem(compositeVeMaybe.displayItem);
+    };
+    const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
@@ -128,7 +128,7 @@ export const Toolbar_TextEdit: Component = () => {
 
 
   const renderSingleNoteToolbox = () =>
-    <div class="p-[4px]">
+    <div class="inline-block">
       <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
         <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
         <Show when={!isInTable()}>
@@ -162,13 +162,13 @@ export const Toolbar_TextEdit: Component = () => {
 
   const renderCompositeToolbox = () =>
     <>
-      <div class="p-[4px] inline-block">
+      <div class="inline-block">
         <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
-      <div class="p-[4px] inline-block">
+      <div class="inline-block">
         <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
           <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
@@ -195,7 +195,7 @@ export const Toolbar_TextEdit: Component = () => {
     </>;
 
   return (
-    <div class="inline-block">
+    <div class="inline-block p-[4px] flex-grow-0">
       <Switch>
         <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
         <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>
