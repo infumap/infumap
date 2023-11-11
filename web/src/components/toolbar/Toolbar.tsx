@@ -19,7 +19,7 @@
 import imgUrl from '../../assets/circle.png'
 
 import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { Toolbar_TextEdit } from "./Toolbar_TextEdit";
@@ -35,6 +35,7 @@ import { Toolbar_TextInfo } from './Toolbar_TextInfo';
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_PageInfo } from './Toolbar_PageInfo';
+import { VesCache } from '../../layout/ves-cache';
 
 
 export const Toolbar: Component = () => {
@@ -51,12 +52,32 @@ export const Toolbar: Component = () => {
     return asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
   }
 
+  const subPageMaybe = () => {
+    if (desktopStore.currentPopupSpec() == null) { return null; }
+    if (desktopStore.currentPopupSpec()!.type != PopupType.Page) { return null; }
+    const veMaybe = VesCache.get(desktopStore.currentPopupSpec()!.vePath);
+    if (veMaybe == null) { return null;}
+    const pageItem = asPageItem(veMaybe!.get().displayItem);
+    return pageItem;
+  }
+
   const title = () => {
     if (currentPageMaybe() == null) { return ""; }
     return currentPageMaybe()!.title;
   }
 
-  const fullTitleColor = () => `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `;
+  const subTitleMaybe = () => {
+    const pageMaybe = subPageMaybe();
+    if (pageMaybe == null) { return null; }
+    return pageMaybe.title;
+  }
+
+  const mainTitleColor = () => `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `;
+
+  const subTitleColor = () => {
+    const pageMaybe = subPageMaybe();
+    return `${hexToRGBA(Colors[pageMaybe == null ? 0 : pageMaybe!.backgroundColorIndex], 1.0)}; `;
+  };
 
   return (
     <div class="fixed right-0 top-0"
@@ -67,9 +88,14 @@ export const Toolbar: Component = () => {
       <div class="fixed top-0" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; right: ${10}px;`}>
         <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
         <div class="inline-block pl-1"></div>
-        <div class="font-bold p-[4px] inline-block" style={`font-size: 22px; color: ${fullTitleColor()}`}>
+        <div class="font-bold p-[4px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
           {title()}
         </div>
+        <Show when={subTitleMaybe() != null}>
+          <div class="font-bold p-[4px] inline-block" style={`font-size: 16px; color: ${subTitleColor()}`}>
+            {subTitleMaybe()}
+          </div>
+        </Show>
         <div class="float-right p-[8px]">
           <Show when={!userStore.getUserMaybe()}>
             <InfuIconButton icon="sign-in" highlighted={false} clickHandler={handleLogin} />

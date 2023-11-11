@@ -16,18 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX } from "../../../constants";
+import { GRID_PAGE_CELL_ASPECT, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
-import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
-import { VisualElementSignal } from "../../../util/signals";
 import { newUid } from "../../../util/uid";
-import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { arrangeItem } from "../item";
@@ -59,8 +56,6 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   const pageBoundsPx = desktopStore.desktopBoundsPx();
 
-  const headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
-
   const numCols = currentPage.gridNumberOfColumns;
 
   // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
@@ -78,7 +73,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const cellWPx = pageBoundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
   const marginPx = cellWPx * 0.01;
-  const pageHeightPx = numRows * cellHPx + headingMarginPx;
+  const pageHeightPx = numRows * cellHPx;
   const boundsPx = (() => {
     const result = cloneBoundingBox(pageBoundsPx)!;
     result.h = pageHeightPx;
@@ -110,7 +105,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     idx += 1;
     const cellBoundsPx = {
       x: col * cellWPx + marginPx,
-      y: row * cellHPx + marginPx + headingMarginPx,
+      y: row * cellHPx + marginPx,
       w: cellWPx - marginPx * 2.0,
       h: cellHPx - marginPx * 2.0
     };

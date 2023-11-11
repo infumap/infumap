@@ -138,8 +138,6 @@ const arrangePageWithChildren = (
 
     const scale = geometry.boundsPx.w / desktopStore.desktopBoundsPx().w;
 
-    const headingMarginPx = isPagePopup || isRoot ? LINE_HEIGHT_PX * (PageFns.pageTitleStyle().lineHeightMultiplier) * scale : 0;
-
     const pageItem = asPageItem(displayItem_pageWithChildren);
     const numCols = pageItem.gridNumberOfColumns;
 
@@ -158,7 +156,7 @@ const arrangePageWithChildren = (
     const cellWPx = geometry.boundsPx.w / numCols;
     const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
     const marginPx = cellWPx * 0.01;
-    const pageHeightPx = numRows * cellHPx + headingMarginPx;
+    const pageHeightPx = numRows * cellHPx;
     const boundsPx = (() => {
       const result = cloneBoundingBox(geometry.boundsPx)!;
       result.h = pageHeightPx;
@@ -197,7 +195,7 @@ const arrangePageWithChildren = (
       idx += 1;
       const cellBoundsPx = {
         x: col * cellWPx + marginPx,
-        y: row * cellHPx + marginPx + headingMarginPx,
+        y: row * cellHPx + marginPx,
         w: cellWPx - marginPx * 2.0,
         h: cellHPx - marginPx * 2.0
       };
@@ -350,7 +348,7 @@ const arrangePageWithChildren = (
       const widthBl = LIST_PAGE_LIST_WIDTH_BL;
       const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
-      const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx + 1, 0, widthBl, parentIsPopup);
+      const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup);
 
       const listItemVeSpec: VisualElementSpec = {
         displayItem,

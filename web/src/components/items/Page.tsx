@@ -17,7 +17,7 @@
 */
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LEFT_TOOLBAR_WIDTH_PX, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
@@ -121,31 +121,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const widthPx = () => LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale() - marginPx * 2;
 
   const titleOnPageColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
-
-
-  // used for root / popup / full.
-  const renderPageTitle = () => {
-    const fullTitleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
-    const sizeBl = () => PageFns.calcTitleSpatialDimensionsBl(pageItem());
-    const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX;
-    const widthScale = () => titleBoundsPx()!.w / naturalWidthPx();
-    const textBlockScale = () => widthScale();
-
-    return (
-      <Show when={titleBoundsPx() != null}>
-        <div class="absolute pointer-events-none"
-            style={`width: ${titleBoundsPx()!.w}px; height: ${titleBoundsPx()!.h}px; left: ${titleBoundsPx()!.x}px; top: ${titleBoundsPx()!.y}px;`}>
-          <div class="inline-block whitespace-nowrap"
-              style={`color: ${fullTitleColor()}; ` +
-                      `font-size: ${PageFns.pageTitleStyle().fontSize}px; ` +
-                      `${PageFns.pageTitleStyle().isBold ? "font-weight: bold;" : ""} ` +
-                      `transform: scale(${textBlockScale()}); transform-origin: top left;`}>
-            {pageItem().title}
-          </div>
-        </div>
-      </Show>
-    );
-  }
 
 
   // ## Opaque
@@ -273,16 +248,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute"
                style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
                       `height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
-            <div class="absolute overflow-hidden border-b border-slate-700"
-                 style={`margin-left: ${marginPx*listViewScale()}px; ` +
-                        `margin-right: ${marginPx*listViewScale()}px; ` +
-                        `color: ${titleOnPageColor()}; ` +
-                        `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
-                        `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
-                        `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
-                        `pointer-events: none;`}>
-              {pageItem().title}
-            </div>
             <For each={lineVes()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>
@@ -461,16 +426,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
                style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
-            <div class="absolute overflow-hidden border-b border-slate-700"
-                 style={`margin-left: ${marginPx*listViewScale()}px; ` +
-                      `margin-right: ${marginPx*listViewScale()}px; ` +
-                      `color: ${titleOnPageColor()}; ` +
-                      `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
-                      `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
-                      `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
-                      `pointer-events: none;`}>
-              {pageItem().title}
-            </div>
             <For each={lineVes()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>
@@ -497,7 +452,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `top: ${0}px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
                     `height: ${childAreaBoundsPx().h}px;`}>
-          {renderPageTitle()}
           <For each={props.visualElement.children}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
@@ -571,16 +525,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
                style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
-            <div class="absolute overflow-hidden border-b border-slate-700"
-                 style={`margin-left: ${marginPx*listViewScale()}px; ` +
-                        `margin-right: ${marginPx*listViewScale()}px; ` +
-                        `color: ${titleOnPageColor()}; ` +
-                        `font-size: ${PageFns.pageTitleStyle_List().fontSize * listViewScale()}px; ` +
-                        `${PageFns.pageTitleStyle_List().isBold ? "font-weight: bold;" : ""} ` +
-                        `width: ${widthPx()}px; height: ${LINE_HEIGHT_PX*listViewScale()}px; left: 0px; top: 0px; ` +
-                        `pointer-events: none;`}>
-              {pageItem().title}
-            </div>
             <For each={lineVes()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>

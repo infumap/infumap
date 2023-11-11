@@ -52,7 +52,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
 
     const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
-    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx+1, 0, widthBl, false);
+    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false);
 
     const listItemVeSpec: VisualElementSpec = {
       displayItem,

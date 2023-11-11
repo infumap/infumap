@@ -16,17 +16,23 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { Component } from "solid-js";
+import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
+import { VesCache } from "../../layout/ves-cache";
 
 
 export const Toolbar_PageInfo: Component = () => {
   const desktopStore = useDesktopStore();
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-
+  const pageItem = () => {
+    if (desktopStore.currentPopupSpec() != null && desktopStore.currentPopupSpec()!.type == PopupType.Page) {
+      const ve = VesCache.get(desktopStore.currentPopupSpec()!.vePath)!.get();
+      return asPageItem(ve.displayItem);
+    }
+    return asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+  }
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(pageItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + pageItem().id); }
