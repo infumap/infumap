@@ -17,22 +17,23 @@
 */
 
 import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
-import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
-import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { NONE_VISUAL_ELEMENT } from "../../../layout/visual-element";
+import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../../constants";
+import { Toolbar_TextEdit } from "./Toolbar_TextEdit";
 
 export const Toolbar_Top: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   return (
     <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-      <div class="fixed right-0 top-0 border-r border-gray-800 text-gray-100"
+      <div class="fixed right-0 top-0 border-r border-gray-800"
           style={`background-color: #0dd; ` +
                  `left: ${LEFT_TOOLBAR_WIDTH_PX}px; ` +
-                 `height: ${TOP_TOOLBAR_HEIGHT_PX}px; `}>
-
+                        `height: ${TOP_TOOLBAR_HEIGHT_PX}px; `}>
+        <Show when={desktopStore.textEditOverlayInfo() != null}>
+          <Toolbar_TextEdit />
+        </Show>
       </div>
     </Show>
   );

@@ -31,7 +31,7 @@ import { panic } from "../util/lang";
 import { Toolbar_Left } from "./toolbar/Toolbar_Left";
 import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
-import { Toolbar_Top } from "./toolbar/Toolbar_Top";
+import { Toolbar_Top } from "./toolbar/top/Toolbar_Top";
 
 
 export let logout: (() => Promise<void>) | null = null;
