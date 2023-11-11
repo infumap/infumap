@@ -33,6 +33,8 @@ import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
 import { Toolbar_TextInfo } from './Toolbar_TextInfo';
 import { InfuIconButton } from '../library/InfuIconButton';
+import { Toolbar_Page } from './Toolbar_Page';
+import { Toolbar_PageInfo } from './Toolbar_PageInfo';
 
 
 export const Toolbar: Component = () => {
@@ -86,6 +88,11 @@ export const Toolbar: Component = () => {
               <Toolbar_TextEdit />
               <div class="inline-block" style="flex-grow: 1"></div>
               <Toolbar_TextInfo />
+            </Show>
+            <Show when={desktopStore.textEditOverlayInfo() == null}>
+              <Toolbar_Page />
+              <div class="inline-block" style="flex-grow: 1"></div>
+              <Toolbar_PageInfo />
             </Show>
           </Show>
         </div>

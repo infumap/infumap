@@ -30,7 +30,7 @@ const ColorButton: Component<{ col: number, onClick: (col: number) => void }> = 
   const clickHandler = (_ev: MouseEvent) => { props.onClick(props.col); }
   return (
     <div onClick={clickHandler}
-         class="border rounded w-[29px] h-[28px] inline-block text-center cursor-pointer ml-[5px] text-[18px]"
+         class="border rounded w-[19px] h-[18px] inline-block text-center cursor-pointer ml-[5px] text-[18px]"
          style={`background-color: ${Colors[props.col]};`}></div>
   );
 }
@@ -47,7 +47,7 @@ export const InfuColorSelector: Component<{ item: Item }> = (props: {item: Item 
   }
 
   return (
-    <div>
+    <div class="inline-block">
       <ColorButton col={0} onClick={handleClick} />
       <ColorButton col={1} onClick={handleClick} />
       <ColorButton col={2} onClick={handleClick} />

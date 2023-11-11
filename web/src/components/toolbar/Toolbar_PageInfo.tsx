@@ -16,28 +16,31 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { InfuColorSelector } from "../library/InfuColorSelector";
 
 
-export const Toolbar_Page: Component = () => {
+export const Toolbar_PageInfo: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   const pageItem = () => asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
 
-  const handleChangeAlgorithm = () => {};
+
+  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(pageItem().id); }
+  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + pageItem().id); }
+
+  const renderPageInfoOverlay = () =>
+    <div class="inline-block text-slate-800 text-sm p-[6px]">
+      <span class="font-mono text-slate-400">{`I: ${pageItem()!.id}`}</span>
+      <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
+      <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
+    </div>;
 
   return (
-    <div class="inline-block p-[4px] flex-grow-0">
-      <span>{pageItem().arrangeAlgorithm}</span>
-      <InfuIconButton icon="refresh" highlighted={false} clickHandler={handleChangeAlgorithm} />
-      <InfuColorSelector item={pageItem()} />
-    </div>
+    <>
+      {renderPageInfoOverlay()}
+    </>
   );
 }
