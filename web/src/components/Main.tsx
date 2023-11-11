@@ -30,7 +30,7 @@ import { switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
-import { Toolbar_Top } from "./toolbar/top/Toolbar_Top";
+import { Toolbar } from "./toolbar/Toolbar";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -100,7 +100,7 @@ export const Main: Component = () => {
       <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != ItemType.None}>
         <Desktop visualElement={desktopStore.topLevelVisualElement()} />
       </Show>
-      <Toolbar_Top />
+      <Toolbar />
     </div>
   );
 }

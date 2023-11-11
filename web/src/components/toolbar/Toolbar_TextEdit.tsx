@@ -17,19 +17,19 @@
 */
 
 import { Component, Match, Show, Switch } from "solid-js";
-import { InfuIconButton } from "../../library/InfuIconButton";
-import { useUserStore } from "../../../store/UserStoreProvider";
-import { NoteFns, asNoteItem } from "../../../items/note-item";
-import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
-import { VesCache } from "../../../layout/ves-cache";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
-import { arrange } from "../../../layout/arrange";
-import { asCompositeItem, isComposite } from "../../../items/composite-item";
-import { PlaceholderFns } from "../../../items/placeholder-item";
-import { RelationshipToParent } from "../../../layout/relationship-to-parent";
-import { itemState } from "../../../store/ItemState";
-import { server } from "../../../server";
+import { InfuIconButton } from "../library/InfuIconButton";
+import { useUserStore } from "../../store/UserStoreProvider";
+import { NoteFns, asNoteItem } from "../../items/note-item";
+import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
+import { VesCache } from "../../layout/ves-cache";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { arrange } from "../../layout/arrange";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { PlaceholderFns } from "../../items/placeholder-item";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { itemState } from "../../store/ItemState";
+import { server } from "../../server";
 
 
 export const Toolbar_TextEdit: Component = () => {

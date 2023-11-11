@@ -17,10 +17,10 @@
 */
 
 import { Component, Show } from "solid-js";
-import { asNoteItem } from "../../../items/note-item";
-import { VesCache } from "../../../layout/ves-cache";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { asCompositeItem, isComposite } from "../../../items/composite-item";
+import { asNoteItem } from "../../items/note-item";
+import { VesCache } from "../../layout/ves-cache";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
 
 
 export const Toolbar_TextInfo: Component = () => {

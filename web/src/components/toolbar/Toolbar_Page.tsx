@@ -27,6 +27,7 @@ export const Toolbar_Page: Component = () => {
 
   return (
     <div class="inline-block">
+      hello
     </div>
   );
 }

@@ -17,11 +17,11 @@
 */
 
 import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { useUserStore } from "../../../store/UserStoreProvider";
-import { navigateBack, navigateUp, switchToPage } from '../../../layout/navigation';
-import { ROOT_USERNAME } from '../../../constants';
-import { InfuIconButton } from "../../library/InfuIconButton";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useUserStore } from "../../store/UserStoreProvider";
+import { navigateBack, navigateUp, switchToPage } from '../../layout/navigation';
+import { ROOT_USERNAME } from '../../constants';
+import { InfuIconButton } from "../library/InfuIconButton";
 
 
 export const Toolbar_Navigation: Component = () => {

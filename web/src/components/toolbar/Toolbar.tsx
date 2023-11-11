@@ -16,26 +16,26 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import imgUrl from '../../../assets/circle.png'
+import imgUrl from '../../assets/circle.png'
 
 import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
-import { NONE_VISUAL_ELEMENT } from "../../../layout/visual-element";
-import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../../constants";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
+import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { Toolbar_TextEdit } from "./Toolbar_TextEdit";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
-import { useUserStore } from "../../../store/UserStoreProvider"
-import { initialEditUserSettingsBounds } from "../../overlay/UserSettings";
+import { useUserStore } from "../../store/UserStoreProvider"
+import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
 import { useNavigate } from "@solidjs/router";
-import { itemState } from "../../../store/ItemState";
-import { asPageItem } from "../../../items/page-item";
-import { hexToRGBA } from "../../../util/color";
-import { Colors } from "../../../style";
+import { itemState } from "../../store/ItemState";
+import { asPageItem } from "../../items/page-item";
+import { hexToRGBA } from "../../util/color";
+import { Colors } from "../../style";
 import { Toolbar_TextInfo } from './Toolbar_TextInfo';
-import { InfuIconButton } from '../../library/InfuIconButton';
+import { InfuIconButton } from '../library/InfuIconButton';
 
 
-export const Toolbar_Top: Component = () => {
+export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
   const navigate = useNavigate();
