@@ -32,7 +32,7 @@ import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
 import { Toolbar_NoteEditUrl } from "./toolbar/Toolbar_NoteEditUrl";
-import { Toolbar_NoteEditFormat } from "./toolbar/Toolbar_NOteEditFormat";
+import { Toolbar_NoteEditFormat } from "./toolbar/Toolbar_NoteEditFormat";
 
 
 export let logout: (() => Promise<void>) | null = null;

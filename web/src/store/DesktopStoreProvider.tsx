@@ -83,8 +83,7 @@ export interface DesktopStoreContextModel {
 }
 
 export interface OverlayCoordinates {
-  xPx: number,
-  yPx: number,
+  topLeftPx: Vector
 }
 
 export interface EditOverlayInfo {

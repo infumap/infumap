@@ -20,18 +20,25 @@ import { Component } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
+import { arrange } from "../../layout/arrange";
+import { VeFns } from "../../layout/visual-element";
+import { itemState } from "../../store/ItemState";
+import { asNoteItem } from "../../items/note-item";
+import { isInside } from "../../util/geometry";
 
 
 export const Toolbar_NoteEditUrl: Component = () => {
   const desktopStore = useDesktopStore();
 
+  let urlTextElement: HTMLInputElement | undefined;
+
+  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.textEditOverlayInfo.get()!.itemPath).itemId)!);
+
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
+    if (isInside(CursorEventState.getLatestClientPx(), urlBoxBoundsPx())) { return; }
     desktopStore.noteUrlOverlayInfoMaybe.set(null);
-    // if (isInside(CursorEventState.getLatestDesktopPx(), boxBoundsPx())) { return; }
-    // if (overResultsDiv) { return; }
-    // desktopStore.setSearchOverlayVisible(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -43,6 +50,17 @@ export const Toolbar_NoteEditUrl: Component = () => {
     ev.stopPropagation();
   };
 
+  const handleUrlChange = () => {
+    noteItem().url = urlTextElement!.value;
+    arrange(desktopStore);
+  };
+
+  const urlBoxBoundsPx = () => ({
+    x: desktopStore.noteUrlOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: desktopStore.noteUrlOverlayInfoMaybe.get()!.topLeftPx.y,
+    w: 500, h: 40
+  });
+
   return (
     <div id="urlOverlay"
          class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
@@ -50,6 +68,18 @@ export const Toolbar_NoteEditUrl: Component = () => {
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
+      <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+           style={`left: ${urlBoxBoundsPx().x}px; top: ${urlBoxBoundsPx().y}px; width: ${urlBoxBoundsPx().w}px; height: ${urlBoxBoundsPx().h}px`}>
+        <div class="p-[4px]">
+          <span class="text-sm ml-1 mr-2">Link URL:</span>
+          <input ref={urlTextElement}
+                 class="border border-slate-300 rounded w-[305px] pl-1"
+                 autocomplete="on"
+                 value={noteItem().url}
+                 type="text"
+                 onChange={handleUrlChange} />
+        </div>
+      </div>
     </div>
   );
 }

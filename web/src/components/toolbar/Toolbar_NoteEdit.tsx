@@ -35,9 +35,10 @@ export const Toolbar_NoteEdit: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
 
+  let beforeFormatElement : HTMLDivElement | undefined;
+
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
-  const noteItemOnInitialize = noteItem();
 
   const compositeVisualElementMaybe = () => {
     const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
@@ -49,7 +50,6 @@ export const Toolbar_NoteEdit: Component = () => {
     if (compositeVeMaybe == null) { return null; }
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
-  const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
@@ -67,9 +67,9 @@ export const Toolbar_NoteEdit: Component = () => {
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
 
-  const urlButtonHandler = () => { desktopStore.noteUrlOverlayInfoMaybe.set({ xPx: 0, yPx: 0 }); }
+  const urlButtonHandler = () => { desktopStore.noteUrlOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
 
-  const formatHandler = () => { desktopStore.noteFormatOverlayInfoMaybe.set({ xPx: 0, yPx: 0 }); }
+  const formatHandler = () => { desktopStore.noteFormatOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -129,7 +129,6 @@ export const Toolbar_NoteEdit: Component = () => {
     }
   };
 
-
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
       <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
@@ -148,7 +147,7 @@ export const Toolbar_NoteEdit: Component = () => {
         <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
         <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-        <div class="inline-block ml-[12px]"></div>
+        <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
         <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
         <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
         <Show when={isInTable()}>
@@ -184,7 +183,7 @@ export const Toolbar_NoteEdit: Component = () => {
           <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
           <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
           <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-          <div class="inline-block ml-[12px]"></div>
+          <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
           <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
           <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
           <Show when={isInTable()}>
@@ -208,61 +207,3 @@ export const Toolbar_NoteEdit: Component = () => {
     </>
   );
 }
-
-
-// on mouse down:
-// if (formatOverlayVisible.get()) {
-//   formatOverlayVisible.set(false);
-//   arrange(desktopStore);
-//   return;
-// }
-
-// if (urlOverlayVisible.get()) {
-//   urlOverlayVisible.set(false);
-//   arrange(desktopStore);
-//   return;
-// }
-
-
-// let formatTextElement: HTMLInputElement | undefined;
-// let urlTextElement: HTMLInputElement | undefined;
-
-// const handleFormatChange = () => {
-//   noteItemOnInitialize.format = formatTextElement!.value;
-//   arrange(desktopStore);
-// }
-
-// const handleUrlChange = () => {
-//   noteItem().url = urlTextElement!.value;
-//   arrange(desktopStore);
-// };
-
-  // const renderUrlOverlyMaybe = () =>
-  //   <Show when={urlOverlayVisible.get()}>
-  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-  //           style={`left: ${urlBoxBoundsPx().x}px; top: ${urlBoxBoundsPx().y}px; width: ${urlBoxBoundsPx().w}px; height: ${urlBoxBoundsPx().h}px`}>
-  //       <div class="p-[4px]">
-  //         <span class="text-sm ml-1 mr-2">Link:</span>
-  //         <input ref={urlTextElement}
-  //           class="border border-slate-300 rounded w-[305px] pl-1"
-  //           autocomplete="on"
-  //           value={noteItem().url}
-  //           type="text"
-  //           onChange={handleUrlChange} />
-  //       </div>
-  //     </div>
-  //   </Show>;
-
-  // const renderFormatInfoOverlayMaybe = () =>
-  //   <Show when={formatOverlayVisible.get()}>
-  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-  //          style={`left: ${formatBoxBoundsPx().x}px; top: ${formatBoxBoundsPx().y}px; width: ${formatBoxBoundsPx().w}px; height: ${formatBoxBoundsPx().h}px`}>
-  //       <span class="text-sm ml-1 mr-2">Number Format:</span>
-  //       <input ref={formatTextElement}
-  //              class="border border-slate-300 rounded w-[305px] pl-1"
-  //              autocomplete="on"
-  //              value={noteItem().format}
-  //              type="text"
-  //              onChange={handleFormatChange} />
-  //     </div>
-  //   </Show>;
