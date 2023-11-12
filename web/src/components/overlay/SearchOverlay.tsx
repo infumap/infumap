@@ -38,7 +38,7 @@ export const SearchOverlay: Component = () => {
   const boxBoundsPx = () => {
     return ({
       x: 10,
-      y: 55,
+      y: 10,
       w: 405,
       h: 64
     });

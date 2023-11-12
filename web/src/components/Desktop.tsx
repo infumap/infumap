@@ -29,7 +29,7 @@ import { EditDialog } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { getHitInfo } from "../input/hit";
-import { TextEditOverlay } from "./overlay/TextEditOverlay";
+import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { mouseUpHandler } from "../input/mouse_up";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
@@ -167,7 +167,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         <ContextMenu />
       </Show>
       <Show when={desktopStore.textEditOverlayInfo() != null}>
-        <TextEditOverlay />
+        <NoteEditOverlay />
       </Show>
       <Show when={desktopStore.pageSettingsOverlayInfo() != null}>
         <PageSettingsOverlay />

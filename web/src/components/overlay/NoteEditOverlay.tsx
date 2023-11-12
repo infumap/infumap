@@ -16,20 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch, onCleanup, onMount } from "solid-js";
+import { Component, onCleanup, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server } from "../../server";
-import { InfuIconButton } from "../library/InfuIconButton";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { createBooleanSignal } from "../../util/signals";
-import { BoundingBox, Vector, isInside, vectorSubtract } from "../../util/geometry";
-import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
+import { Vector, isInside, vectorSubtract } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
@@ -41,9 +38,8 @@ import { asPositionalItem } from "../../items/base/positional-item";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns, asTableItem } from "../../items/table-item";
 import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_down";
-import { assert, panic } from "../../util/lang";
+import { assert } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
-import { PlaceholderFns } from "../../items/placeholder-item";
 import getCaretCoordinates from 'textarea-caret';
 
 
@@ -51,18 +47,11 @@ import getCaretCoordinates from 'textarea-caret';
 let justCreatedNoteItemMaybe: NoteItem | null = null;
 let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
-export const TextEditOverlay: Component = () => {
+export const NoteEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
 
   let textElement: HTMLTextAreaElement | undefined;
-  let formatTextElement: HTMLInputElement | undefined;
-  let urlTextElement: HTMLInputElement | undefined;
-
-  const urlOverlayVisible = createBooleanSignal(false);
-  const infoOverlayVisible = createBooleanSignal(false);
-  const compositeInfoOverlayVisible = createBooleanSignal(false);
-  const formatOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.itemPath)!.get();
   const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(desktopStore, noteVisualElement());
@@ -91,46 +80,6 @@ export const TextEditOverlay: Component = () => {
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
   const compositeItemOnInitializeMaybe = compositeItemMaybe();
-
-  // const compositeToolboxBoundsPx = () => {
-  //   const compositeVe = compositeVisualElementMaybe()!;
-  //   if (compositeVe == null) { panic("compositeToolboxBoundsPx: compositeVe is null"); }
-  //   const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVe);
-  //   return ({
-  //     x: compositeVeBoundsPx.x - 5,
-  //     y: compositeVeBoundsPx.y - 42,
-  //     w: 90,
-  //     h: 35
-  //   });
-  // }
-
-  // const toolboxBoundsPx = () => {
-  //   if (compositeItemMaybe() != null) {
-  //     const compositeVeMaybe = compositeVisualElementMaybe()!;
-  //     const compositeVeBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, compositeVeMaybe);
-  //     const result = {
-  //       x: compositeVeBoundsPx.x + 87,
-  //       y: compositeVeBoundsPx.y - 42,
-  //       w: 410,
-  //       h: 35
-  //     };
-  //     if (compositeVeMaybe.linkItemMaybe != null) {
-  //       result.w -= 45; // don't display trash.
-  //     }
-  //     return result;
-  //   } else {
-  //     const result = {
-  //       x: noteVeBoundsPx().x - 5,
-  //       y: noteVeBoundsPx().y - 42,
-  //       w: isInTable() ? 355 : 430,
-  //       h: 35
-  //     };
-  //     if (noteVisualElement().linkItemMaybe != null) {
-  //       result.w -= 45; // don't display trash.
-  //     }
-  //     return result;
-  //   }
-  // };
 
   const sizeBl = () => {
     const noteVe = noteVisualElement()!;
@@ -175,24 +124,7 @@ export const TextEditOverlay: Component = () => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLatestDesktopPx();
-    if (isInside(desktopPx, noteVeBoundsPx()))
-        // isInside(desktopPx, toolboxBoundsPx()) ||
-        //isInside(desktopPx, formatBoxBoundsPx()) ||
-        // isInside(desktopPx, urlBoxBoundsPx()))
-        // (compositeVisualElementMaybe() != null && isInside(desktopPx, compositeToolboxBoundsPx())))
-        { return; }
-
-    if (formatOverlayVisible.get()) {
-      formatOverlayVisible.set(false);
-      arrange(desktopStore);
-      return;
-    }
-
-    if (urlOverlayVisible.get()) {
-      urlOverlayVisible.set(false);
-      arrange(desktopStore);
-      return;
-    }
+    if (isInside(desktopPx, noteVeBoundsPx())) { return; }
 
     if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
       server.updateItem(noteVisualElement().displayItem);
@@ -244,20 +176,6 @@ export const TextEditOverlay: Component = () => {
     textElement!.focus();
   });
 
-  const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
-
-  const formatHandler = () => {
-    formatOverlayVisible.set(!formatOverlayVisible.get());
-  }
-
-  const infoButtonHandler = () => {
-    infoOverlayVisible.set(!infoOverlayVisible.get());
-  }
-
-  const compositeInfoButtonHandler = () => {
-    compositeInfoOverlayVisible.set(!infoOverlayVisible.get());
-  }
-
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
@@ -275,55 +193,6 @@ export const TextEditOverlay: Component = () => {
 
 
   let deleted = false;
-
-  const deleteButtonHandler = async (): Promise<void> => {
-    if (compositeItemMaybe() != null) {
-      console.log("TODO: delete composite");
-      // TODO (HIGH)
-
-    } else {
-      const noteParentVe = VesCache.get(noteVisualElement().parentPath!);
-      if (noteParentVe!.get().flags & VisualElementFlags.InsideTable) {
-        // must be an attachment item in a table.
-        const placeholder = PlaceholderFns.create(noteParentVe!.get().displayItem.ownerId, noteParentVe!.get().displayItem.id, RelationshipToParent.Attachment, noteItem().ordering);
-        itemState.add(placeholder);
-        server.addItem(placeholder, null);
-      }
-
-      server.deleteItem(noteItem().id); // throws on failure.
-      itemState.delete(noteItem().id);
-
-      deleted = true;
-      desktopStore.setTextEditOverlayInfo(null);
-      arrange(desktopStore);
-    }
-  };
-
-  const copyButtonHandler = (): void => {
-    if (noteItem().flags & NoteFlags.ShowCopyIcon) {
-      noteItem().flags &= ~NoteFlags.ShowCopyIcon;
-    } else {
-      noteItem().flags |= NoteFlags.ShowCopyIcon;
-    }
-    arrange(desktopStore);
-  };
-
-  const borderButtonHandler = (): void => {
-    if (compositeItemMaybe() != null) {
-      if (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) {
-        compositeItemMaybe()!.flags &= ~CompositeFlags.HideBorder;
-      } else {
-        compositeItemMaybe()!.flags |= CompositeFlags.HideBorder;
-      }
-    } else {
-      if (noteItem().flags & NoteFlags.HideBorder) {
-        noteItem().flags &= ~NoteFlags.HideBorder;
-      } else {
-        noteItem().flags |= NoteFlags.HideBorder;
-      }
-    }
-    arrange(desktopStore);
-  };
 
   const keyDownListener = (ev: KeyboardEvent): void => {
     if (ev.code == "Enter") {
@@ -497,120 +366,11 @@ export const TextEditOverlay: Component = () => {
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
-  const isInTable = (): boolean => {
-    return VeFns.isInTable(noteVisualElement());
-  }
-
-  const handleFormatChange = () => {
-    noteItemOnInitialize.format = formatTextElement!.value;
-    arrange(desktopStore);
-  }
-
-  const handleUrlChange = () => {
-    noteItem().url = urlTextElement!.value;
-    arrange(desktopStore);
-  };
-
-  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(noteItem().id); }
-  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteItem().id); }
-
   // determined by trial and error to be the minimum amount needed to be added
   // to a textarea to prevent it from scrolling, given the same text layout as
   // the rendered item. TODO (LOW): this could probably be avoided with some
   // more careful reasoning.
   const HACK_ADJUST_TEXTAREA_HEIGHT = 2.5;
-
-
-  const renderTextArea = () =>
-    <div class={`absolute rounded border`}
-         style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
-      <textarea ref={textElement}
-                class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
-                style={`position: absolute; ` +
-                       `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
-                       `width: ${naturalWidthPx()}px; ` +
-                       `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
-                       `font-size: ${style().fontSize}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
-                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
-                       `${style().isBold ? ' font-weight: bold; ' : ""}`}
-                value={noteItem().title}
-                disabled={userStore.getUserMaybe() == null || userStore.getUser().userId != noteItem().ownerId}
-                onMouseDown={textAreaMouseDownHandler}
-                onInput={textAreaOnInputHandler} />
-    </div>;
-
-  // const renderUrlOverlyMaybe = () =>
-  //   <Show when={urlOverlayVisible.get()}>
-  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-  //           style={`left: ${urlBoxBoundsPx().x}px; top: ${urlBoxBoundsPx().y}px; width: ${urlBoxBoundsPx().w}px; height: ${urlBoxBoundsPx().h}px`}>
-  //       <div class="p-[4px]">
-  //         <span class="text-sm ml-1 mr-2">Link:</span>
-  //         <input ref={urlTextElement}
-  //           class="border border-slate-300 rounded w-[305px] pl-1"
-  //           autocomplete="on"
-  //           value={noteItem().url}
-  //           type="text"
-  //           onChange={handleUrlChange} />
-  //       </div>
-  //     </div>
-  //   </Show>;
-
-  // const renderCompositeInfoOverlayMaybe = () =>
-  //   <Show when={compositeInfoOverlayVisible.get()}>
-  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-  //          style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
-  //       <div class="pl-[8px] pr-[8px] pt-[8px]">
-  //         <div class="text-slate-800 text-sm">
-  //           <div class="text-slate-400 w-[85px] inline-block">Composite</div>
-  //           <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
-  //           <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
-  //           <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
-  //         </div>
-  //       </div>
-  //     </div>
-  //   </Show>;
-
-  // const renderItemInfoOverlayMaybe = () =>
-  //   <Show when={infoOverlayVisible.get()}>
-  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-  //          style={`left: ${infoBoxBoundsPx().x}px; top: ${infoBoxBoundsPx().y}px; width: ${infoBoxBoundsPx().w}px; height: ${infoBoxBoundsPx().h}px`}>
-  //       <Show when={noteVisualElement().linkItemMaybe != null}>
-  //         <div class="pl-[8px] pr-[8px] pt-[8px]">
-  //           <div class="text-slate-800 text-sm">
-  //             <div class="text-slate-400 w-[85px] inline-block">Link</div>
-  //             <span class="font-mono text-slate-400">{`${noteVisualElement()!.linkItemMaybe!.id}`}</span>
-  //             <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyLinkIdClickHandler} />
-  //             <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkLinkIdClickHandler} />
-  //           </div>
-  //         </div>
-  //       </Show>
-  //       <div class="p-[8px]">
-  //         <div class="text-slate-800 text-sm">
-  //           <div class="text-slate-400 w-[85px] inline-block">Item</div>
-  //           <span class="font-mono text-slate-400">{`${noteItem().id}`}</span>
-  //           <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
-  //           <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
-  //         </div>
-  //       </div>
-  //     </div>
-  //   </Show>;
-
-  // const renderFormatInfoOverlayMaybe = () =>
-  //   <Show when={formatOverlayVisible.get()}>
-  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-  //          style={`left: ${formatBoxBoundsPx().x}px; top: ${formatBoxBoundsPx().y}px; width: ${formatBoxBoundsPx().w}px; height: ${formatBoxBoundsPx().h}px`}>
-  //       <span class="text-sm ml-1 mr-2">Number Format:</span>
-  //       <input ref={formatTextElement}
-  //              class="border border-slate-300 rounded w-[305px] pl-1"
-  //              autocomplete="on"
-  //              value={noteItem().format}
-  //              type="text"
-  //              onChange={handleFormatChange} />
-  //     </div>
-  //   </Show>;
 
   return (
     <div id="textEntryOverlay"
@@ -620,11 +380,25 @@ export const TextEditOverlay: Component = () => {
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}
          onKeyDown={keyDownListener}>
-      {renderTextArea()}
-      {/* {renderUrlOverlyMaybe()}
-      {renderCompositeInfoOverlayMaybe()}
-      {renderItemInfoOverlayMaybe()}
-      {renderFormatInfoOverlayMaybe()} */}
+      <div class={`absolute rounded border`}
+           style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
+        <textarea ref={textElement}
+                  class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
+                  style={`position: absolute; ` +
+                         `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                         `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
+                         `width: ${naturalWidthPx()}px; ` +
+                         `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
+                         `font-size: ${style().fontSize}px; ` +
+                         `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
+                         `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                         `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
+                         `${style().isBold ? ' font-weight: bold; ' : ""}`}
+                  value={noteItem().title}
+                  disabled={userStore.getUserMaybe() == null || userStore.getUser().userId != noteItem().ownerId}
+                  onMouseDown={textAreaMouseDownHandler}
+                  onInput={textAreaOnInputHandler} />
+      </div>
     </div>
   );
 }

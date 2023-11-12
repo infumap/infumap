@@ -30,27 +30,31 @@ import { PlaceholderFns } from "../../items/placeholder-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
+import { createBooleanSignal } from "../../util/signals";
 
 
-export const Toolbar_TextEdit: Component = () => {
+export const Toolbar_NoteEdit: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
+
+  const urlOverlayVisible = createBooleanSignal(false);
+  const formatOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 
-    const compositeVisualElementMaybe = () => {
-      const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
-      if (!isComposite(parentVe.displayItem)) { return null; }
-      return parentVe;
-    };
-    const compositeItemMaybe = () => {
-      const compositeVeMaybe = compositeVisualElementMaybe();
-      if (compositeVeMaybe == null) { return null; }
-      return asCompositeItem(compositeVeMaybe.displayItem);
-    };
-    const compositeItemOnInitializeMaybe = compositeItemMaybe();
+  const compositeVisualElementMaybe = () => {
+    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return null; }
+    return parentVe;
+  };
+  const compositeItemMaybe = () => {
+    const compositeVeMaybe = compositeVisualElementMaybe();
+    if (compositeVeMaybe == null) { return null; }
+    return asCompositeItem(compositeVeMaybe.displayItem);
+  };
+  const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
   const isInTable = (): boolean => {
     return VeFns.isInTable(noteVisualElement());
@@ -67,6 +71,10 @@ export const Toolbar_TextEdit: Component = () => {
   const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); };
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
+
+  const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
+
+  const formatHandler = () => { formatOverlayVisible.set(!formatOverlayVisible.get()); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -146,8 +154,8 @@ export const Toolbar_TextEdit: Component = () => {
         <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
         <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
         <div class="inline-block ml-[12px]"></div>
-        {/* <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
-        <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} /> */}
+        <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
+        <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
         <Show when={isInTable()}>
           <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
@@ -182,8 +190,8 @@ export const Toolbar_TextEdit: Component = () => {
           <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
           <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
           <div class="inline-block ml-[12px]"></div>
-          {/* <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
-          <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} /> */}
+          <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
+          <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
           <Show when={isInTable()}>
             <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
@@ -203,3 +211,32 @@ export const Toolbar_TextEdit: Component = () => {
     </div>
   );
 }
+
+
+// on mouse down:
+// if (formatOverlayVisible.get()) {
+//   formatOverlayVisible.set(false);
+//   arrange(desktopStore);
+//   return;
+// }
+
+// if (urlOverlayVisible.get()) {
+//   urlOverlayVisible.set(false);
+//   arrange(desktopStore);
+//   return;
+// }
+
+
+// let formatTextElement: HTMLInputElement | undefined;
+// let urlTextElement: HTMLInputElement | undefined;
+
+// const handleFormatChange = () => {
+//   noteItemOnInitialize.format = formatTextElement!.value;
+//   arrange(desktopStore);
+// }
+
+// const handleUrlChange = () => {
+//   noteItem().url = urlTextElement!.value;
+//   arrange(desktopStore);
+// };
+
