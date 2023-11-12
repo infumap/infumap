@@ -2,7 +2,7 @@
 
 A safe, secure and accessible home for all of your information.
 
-Docs are very much a work in progress!
+Work in progress!
 
 - [CLI](cli.md)
 - [Configuration](configuration.md)

@@ -2,7 +2,7 @@
 
 The computer desktop reimagined.
 
-A safe, secure home for all of your information.
+Infumap provides a powerful collection of graphical building blocks for creating, organizing, and working with all types of information.
 
 **Status:** Now useful in a very basic way, if you know what you're doing ([docs](/docs) are a work-in-progress), and if you avoid the quirks and bugs. No release yet.
 
