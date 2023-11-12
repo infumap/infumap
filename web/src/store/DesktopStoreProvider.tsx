@@ -53,7 +53,7 @@ export interface DesktopStoreContextModel {
 
   clear: () => void,
 
-  getInputFocus: () => Veid | null,
+  getToolbarFocus: () => Veid | null,
 
   itemIsMoving: InfuSignal<boolean>,
 
@@ -323,7 +323,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setBreadcrumbs([{ pageVeid: pageVeid, popupBreadcrumbs: [] }]);
   };
 
-  const getInputFocus = () => {
+  const getToolbarFocus = (): Veid => {
     if (textEditOverlayInfo.get() != null) {
       return VeFns.veidFromPath(textEditOverlayInfo.get()!.itemPath);
     }
@@ -332,7 +332,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
         return VeFns.veidFromPath(currentPopupSpec()!.vePath);
       }
     }
-    return null;
+    return currentPage()!;
   };
 
 
@@ -359,7 +359,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
     clear,
 
-    getInputFocus,
+    getToolbarFocus,
 
     currentVisiblePassword,
 

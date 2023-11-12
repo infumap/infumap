@@ -169,7 +169,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-            (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+            (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -257,7 +257,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -320,7 +320,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -392,7 +392,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),

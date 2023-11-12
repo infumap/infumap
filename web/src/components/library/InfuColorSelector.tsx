@@ -21,19 +21,10 @@ import { server } from "../../server";
 import { Item } from "../../items/base/item";
 import { asPageItem } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { Colors } from "../../style";
 import { itemState } from "../../store/ItemState";
 import { arrange } from "../../layout/arrange";
+import { InfuColorButton } from "./InfuColorButton";
 
-
-const ColorButton: Component<{ col: number, onClick: (col: number) => void }> = (props: { col: number, onClick: (col: number) => void }) => {
-  const clickHandler = (_ev: MouseEvent) => { props.onClick(props.col); }
-  return (
-    <div onClick={clickHandler}
-         class="border rounded w-[19px] h-[18px] inline-block text-center cursor-pointer ml-[5px] text-[18px]"
-         style={`background-color: ${Colors[props.col]};`}></div>
-  );
-}
 
 export const InfuColorSelector: Component<{ item: Item }> = (props: {item: Item }) => {
   let desktopStore = useDesktopStore();
@@ -48,14 +39,14 @@ export const InfuColorSelector: Component<{ item: Item }> = (props: {item: Item 
 
   return (
     <div class="inline-block">
-      <ColorButton col={0} onClick={handleClick} />
-      <ColorButton col={1} onClick={handleClick} />
-      <ColorButton col={2} onClick={handleClick} />
-      <ColorButton col={3} onClick={handleClick} />
-      <ColorButton col={4} onClick={handleClick} />
-      <ColorButton col={5} onClick={handleClick} />
-      <ColorButton col={6} onClick={handleClick} />
-      <ColorButton col={7} onClick={handleClick} />
+      <InfuColorButton col={0} onClick={handleClick} />
+      <InfuColorButton col={1} onClick={handleClick} />
+      <InfuColorButton col={2} onClick={handleClick} />
+      <InfuColorButton col={3} onClick={handleClick} />
+      <InfuColorButton col={4} onClick={handleClick} />
+      <InfuColorButton col={5} onClick={handleClick} />
+      <InfuColorButton col={6} onClick={handleClick} />
+      <InfuColorButton col={7} onClick={handleClick} />
     </div>
   );
 }

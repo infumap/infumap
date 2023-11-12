@@ -17,23 +17,15 @@
 */
 
 import { Component } from "solid-js";
-import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
-import { VeFns } from "../../layout/visual-element";
 
 
 export const Toolbar_Page_Info: Component = () => {
   const desktopStore = useDesktopStore();
 
-  const pageItem = () => {
-    if (desktopStore.currentPopupSpec() != null && desktopStore.currentPopupSpec()!.type == PopupType.Page) {
-      const veid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
-      // TODO (MEDIUM): handle link case. don't allow edits in this case.
-      return asPageItem(itemState.get(veid.itemId)!);
-    }
-    return asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  }
+  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(pageItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + pageItem().id); }

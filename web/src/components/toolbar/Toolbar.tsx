@@ -18,7 +18,7 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, Show } from "solid-js";
+import { Component, Show, createEffect } from "solid-js";
 import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
@@ -36,6 +36,8 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Page_Info } from './Toolbar_Page_Info';
 import { VesCache } from '../../layout/ves-cache';
+import { createBooleanSignal } from '../../util/signals';
+import { panic } from '../../util/lang';
 
 
 export const Toolbar: Component = () => {
@@ -72,9 +74,17 @@ export const Toolbar: Component = () => {
     return pageMaybe.title;
   }
 
-  const mainTitleColor = () => `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `;
+  const mainTitleColor = () => {
+    // item state is not solid-js signals.
+    // as a bit of a hack, change in color is signalled by re-setting this instead.
+    desktopStore.pageColorOverlayInfoMaybe.get();
+    return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
+  };
 
   const subTitleColor = () => {
+    // item state is not solid-js signals.
+    // as a bit of a hack, change in color is signalled by re-setting this instead.
+    desktopStore.pageColorOverlayInfoMaybe.get();
     const pageMaybe = subPageMaybe();
     return `${hexToRGBA(Colors[pageMaybe == null ? 0 : pageMaybe!.backgroundColorIndex], 1.0)}; `;
   };

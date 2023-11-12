@@ -20,15 +20,16 @@ import { Component } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
-import { VeFns } from "../../layout/visual-element";
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
-import { arrange } from "../../layout/arrange";
 import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { InfuColorButton } from "../library/InfuColorButton";
 
 
 export const Toolbar_Page_Color: Component = () => {
   const desktopStore = useDesktopStore();
+
+  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
 
   // let formatTextElement: HTMLInputElement | undefined;
 
@@ -38,7 +39,7 @@ export const Toolbar_Page_Color: Component = () => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) { return; }
-    desktopStore.noteFormatOverlayInfoMaybe.set(null);
+    desktopStore.pageColorOverlayInfoMaybe.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -56,10 +57,17 @@ export const Toolbar_Page_Color: Component = () => {
   // };
 
   const colorBoxBoundsPx = () => ({
-    x: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: desktopStore.pageColorOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: desktopStore.pageColorOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 100, h: 100
   });
+
+  const handleClick = (col: number) => {
+    pageItem().backgroundColorIndex = col;
+    desktopStore.pageColorOverlayInfoMaybe.set(desktopStore.pageColorOverlayInfoMaybe.get());
+    // arrange(desktopStore);
+    // server.updateItem(itemState.get(itemId)!);
+  }
 
   return (
     <div id="formatOverlay"
@@ -70,7 +78,14 @@ export const Toolbar_Page_Color: Component = () => {
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
            style={`left: ${colorBoxBoundsPx().x}px; top: ${colorBoxBoundsPx().y}px; width: ${colorBoxBoundsPx().w}px; height: ${colorBoxBoundsPx().h}px`}>
-        
+        <InfuColorButton col={0} onClick={handleClick} />
+        <InfuColorButton col={1} onClick={handleClick} />
+        <InfuColorButton col={2} onClick={handleClick} />
+        <InfuColorButton col={3} onClick={handleClick} />
+        <InfuColorButton col={4} onClick={handleClick} />
+        <InfuColorButton col={5} onClick={handleClick} />
+        <InfuColorButton col={6} onClick={handleClick} />
+        <InfuColorButton col={7} onClick={handleClick} />
       </div>
     </div>
   );
