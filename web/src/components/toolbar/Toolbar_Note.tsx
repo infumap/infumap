@@ -31,7 +31,7 @@ import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
 
-export const Toolbar_NoteEdit: Component = () => {
+export const Toolbar_Note: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
 

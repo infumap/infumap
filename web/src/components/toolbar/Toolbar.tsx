@@ -22,7 +22,7 @@ import { Component, Show } from "solid-js";
 import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
-import { Toolbar_NoteEdit } from "./Toolbar_NoteEdit";
+import { Toolbar_Note } from "./Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { useUserStore } from "../../store/UserStoreProvider"
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
@@ -31,10 +31,10 @@ import { itemState } from "../../store/ItemState";
 import { asPageItem } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
-import { Toolbar_NoteInfo } from './Toolbar_NoteInfo';
+import { Toolbar_Note_Info } from './Toolbar_Note_Info';
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
-import { Toolbar_PageInfo } from './Toolbar_PageInfo';
+import { Toolbar_Page_Info } from './Toolbar_Page_Info';
 import { VesCache } from '../../layout/ves-cache';
 
 
@@ -111,14 +111,14 @@ export const Toolbar: Component = () => {
           <Toolbar_Navigation />
           <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
             <Show when={desktopStore.textEditOverlayInfo.get() != null}>
-              <Toolbar_NoteEdit />
+              <Toolbar_Note />
               <div class="inline-block" style="flex-grow: 1"></div>
-              <Toolbar_NoteInfo />
+              <Toolbar_Note_Info />
             </Show>
             <Show when={desktopStore.textEditOverlayInfo.get() == null}>
               <Toolbar_Page />
               <div class="inline-block" style="flex-grow: 1"></div>
-              <Toolbar_PageInfo />
+              <Toolbar_Page_Info />
             </Show>
           </Show>
         </div>

@@ -32,6 +32,7 @@ export interface DesktopStoreContextModel {
   // global overlays.
   noteUrlOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   noteFormatOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  pageColorOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   isPanicked: InfuSignal<boolean>,
 
   desktopBoundsPx: () => BoundingBox,
@@ -129,7 +130,7 @@ const DesktopStoreContext = createContext<DesktopStoreContextModel>();
 
 
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
-  const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
+  const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
 
   const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
@@ -229,11 +230,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   }
 
   const resetDesktopSizePx = () => {
-    setDesktopSizePx(currentDesktopSize());
+    desktopSizePx.set(currentDesktopSize());
   }
 
   const desktopBoundsPx = () => {
-    const dimensionsPx = desktopSizePx();
+    const dimensionsPx = desktopSizePx.get();
     return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }
   }
 
@@ -340,6 +341,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
+
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,
     getTableScrollYPos, setTableScrollYPos,
@@ -376,6 +378,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
     noteUrlOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     noteFormatOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+    pageColorOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
   };
 
   return (

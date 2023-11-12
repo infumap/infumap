@@ -18,26 +18,26 @@
 
 import { Component } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
-import { CursorEventState } from "../../input/state";
-import { asNoteItem } from "../../items/note-item";
+import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { VeFns } from "../../layout/visual-element";
-import { arrange } from "../../layout/arrange";
+import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
+import { arrange } from "../../layout/arrange";
+import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 
 
-export const Toolbar_NoteEditFormat: Component = () => {
+export const Toolbar_Page_Color: Component = () => {
   const desktopStore = useDesktopStore();
 
-  let formatTextElement: HTMLInputElement | undefined;
+  // let formatTextElement: HTMLInputElement | undefined;
 
-  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.textEditOverlayInfo.get()!.itemPath).itemId)!);
+  // const pageItem = () => asPageItem(itemState.get(VeFns.veidFromPath(desktopStore.textEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestClientPx(), formatBoxBoundsPx())) { return; }
+    if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) { return; }
     desktopStore.noteFormatOverlayInfoMaybe.set(null);
   };
 
@@ -50,15 +50,15 @@ export const Toolbar_NoteEditFormat: Component = () => {
     ev.stopPropagation();
   };
 
-  const handleFormatChange = () => {
-    noteItem().format = formatTextElement!.value;
-    arrange(desktopStore);
-  };
+  // const handleFormatChange = () => {
+  //   // pageItem().color = formatTextElement!.value;
+  //   arrange(desktopStore);
+  // };
 
-  const formatBoxBoundsPx = () => ({
+  const colorBoxBoundsPx = () => ({
     x: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
     y: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
-    w: 500, h: 40
+    w: 100, h: 100
   });
 
   return (
@@ -69,16 +69,8 @@ export const Toolbar_NoteEditFormat: Component = () => {
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${formatBoxBoundsPx().x}px; top: ${formatBoxBoundsPx().y}px; width: ${formatBoxBoundsPx().w}px; height: ${formatBoxBoundsPx().h}px`}>
-        <div class="p-[4px]">
-          <span class="text-sm ml-1 mr-2">Format:</span>
-          <input ref={formatTextElement}
-                 class="border border-slate-300 rounded w-[305px] pl-1"
-                 autocomplete="on"
-                 value={noteItem().format}
-                 type="text"
-                 onChange={handleFormatChange} />
-        </div>
+           style={`left: ${colorBoxBoundsPx().x}px; top: ${colorBoxBoundsPx().y}px; width: ${colorBoxBoundsPx().w}px; height: ${colorBoxBoundsPx().h}px`}>
+        
       </div>
     </div>
   );

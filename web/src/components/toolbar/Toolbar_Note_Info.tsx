@@ -23,7 +23,7 @@ import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 
 
-export const Toolbar_NoteInfo: Component = () => {
+export const Toolbar_Note_Info: Component = () => {
   const desktopStore = useDesktopStore();
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo.get()!.itemPath)!.get();

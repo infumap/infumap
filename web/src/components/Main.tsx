@@ -31,8 +31,9 @@ import { panic } from "../util/lang";
 import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
-import { Toolbar_NoteEditUrl } from "./toolbar/Toolbar_NoteEditUrl";
-import { Toolbar_NoteEditFormat } from "./toolbar/Toolbar_NoteEditFormat";
+import { Toolbar_Note_Url } from "./toolbar/Toolbar_Note_Url";
+import { Toolbar_Note_Format } from "./toolbar/Toolbar_Note_Format";
+import { Toolbar_Page_Color } from "./toolbar/Toolbar_Page_Color";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -106,10 +107,13 @@ export const Main: Component = () => {
 
       {/* global overlays */}
       <Show when={desktopStore.noteUrlOverlayInfoMaybe.get() != null}>
-        <Toolbar_NoteEditUrl />
+        <Toolbar_Note_Url />
       </Show>
       <Show when={desktopStore.noteFormatOverlayInfoMaybe.get() != null}>
-        <Toolbar_NoteEditFormat />
+        <Toolbar_Note_Format />
+      </Show>
+      <Show when={desktopStore.pageColorOverlayInfoMaybe.get() != null}>
+        <Toolbar_Page_Color />
       </Show>
 
     </div>

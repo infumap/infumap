@@ -23,7 +23,7 @@ import { itemState } from "../../store/ItemState";
 import { VeFns } from "../../layout/visual-element";
 
 
-export const Toolbar_PageInfo: Component = () => {
+export const Toolbar_Page_Info: Component = () => {
   const desktopStore = useDesktopStore();
 
   const pageItem = () => {

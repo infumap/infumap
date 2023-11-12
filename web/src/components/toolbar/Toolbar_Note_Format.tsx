@@ -18,27 +18,27 @@
 
 import { Component } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
-import { arrange } from "../../layout/arrange";
-import { VeFns } from "../../layout/visual-element";
-import { itemState } from "../../store/ItemState";
 import { asNoteItem } from "../../items/note-item";
+import { itemState } from "../../store/ItemState";
+import { VeFns } from "../../layout/visual-element";
+import { arrange } from "../../layout/arrange";
 import { isInside } from "../../util/geometry";
 
 
-export const Toolbar_NoteEditUrl: Component = () => {
+export const Toolbar_Note_Format: Component = () => {
   const desktopStore = useDesktopStore();
 
-  let urlTextElement: HTMLInputElement | undefined;
+  let formatTextElement: HTMLInputElement | undefined;
 
   const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.textEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestClientPx(), urlBoxBoundsPx())) { return; }
-    desktopStore.noteUrlOverlayInfoMaybe.set(null);
+    if (isInside(CursorEventState.getLatestClientPx(), formatBoxBoundsPx())) { return; }
+    desktopStore.noteFormatOverlayInfoMaybe.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -50,34 +50,34 @@ export const Toolbar_NoteEditUrl: Component = () => {
     ev.stopPropagation();
   };
 
-  const handleUrlChange = () => {
-    noteItem().url = urlTextElement!.value;
+  const handleFormatChange = () => {
+    noteItem().format = formatTextElement!.value;
     arrange(desktopStore);
   };
 
-  const urlBoxBoundsPx = () => ({
-    x: desktopStore.noteUrlOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.noteUrlOverlayInfoMaybe.get()!.topLeftPx.y,
+  const formatBoxBoundsPx = () => ({
+    x: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 500, h: 40
   });
 
   return (
-    <div id="urlOverlay"
-         class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
-         style={`background-color: #00000010; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
+    <div id="formatOverlay"
+         class="fixed left-0 top-0 bottom-0 right-0 select-none outline-none"
+         style={`background-color: #00000010; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${urlBoxBoundsPx().x}px; top: ${urlBoxBoundsPx().y}px; width: ${urlBoxBoundsPx().w}px; height: ${urlBoxBoundsPx().h}px`}>
+           style={`left: ${formatBoxBoundsPx().x}px; top: ${formatBoxBoundsPx().y}px; width: ${formatBoxBoundsPx().w}px; height: ${formatBoxBoundsPx().h}px`}>
         <div class="p-[4px]">
-          <span class="text-sm ml-1 mr-2">Link URL:</span>
-          <input ref={urlTextElement}
+          <span class="text-sm ml-1 mr-2">Format:</span>
+          <input ref={formatTextElement}
                  class="border border-slate-300 rounded w-[305px] pl-1"
                  autocomplete="on"
-                 value={noteItem().url}
+                 value={noteItem().format}
                  type="text"
-                 onChange={handleUrlChange} />
+                 onChange={handleFormatChange} />
         </div>
       </div>
     </div>
