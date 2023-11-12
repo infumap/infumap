@@ -86,3 +86,14 @@ export function createVisualElementPathSignal(v: VisualElementPath): VisualEleme
   let [visualElementPathAccessor, visualElementPathSetter] = createSignal<VisualElementPath>(v, { equals: false });
   return { get: visualElementPathAccessor, set: visualElementPathSetter };
 }
+
+
+export interface UserSignal<T> {
+  get: Accessor<T>,
+  set: Setter<T>,
+}
+
+export function createUserSignal<T>(v: T): UserSignal<T> {
+  let [a, s] = createSignal<T>(v, { equals: false });
+  return ({ get: a, set: s });
+}

@@ -24,7 +24,7 @@ import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
-import { createNumberSignal, createVisualElementPathSignal, NumberSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
+import { BooleanSignal, createBooleanSignal, createNumberSignal, createUserSignal, createVisualElementPathSignal, NumberSignal, UserSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
 
 
@@ -88,6 +88,14 @@ export interface DesktopStoreContextModel {
   getPanicked: () => boolean,
 
   getInputFocus: () => Veid | null,
+
+  noteUrlOverlayInfoMaybe: UserSignal<OverlayCoordinates | null>,
+  noteFormatOverlayInfoMaybe: UserSignal<OverlayCoordinates | null>,
+}
+
+export interface OverlayCoordinates {
+  xPx: number,
+  yPx: number,
 }
 
 export interface EditOverlayInfo {
@@ -373,6 +381,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     getPanicked,
 
     getInputFocus,
+
+    noteUrlOverlayInfoMaybe: createUserSignal<OverlayCoordinates | null>(null),
+    noteFormatOverlayInfoMaybe: createUserSignal<OverlayCoordinates | null>(null),
   };
 
   return (

@@ -157,6 +157,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
       <Page_Desktop visualElement={props.visualElement} />
 
+      {/* desktop overlays */}
       <Show when={desktopStore.editDialogInfo() != null}>
         <EditDialog />
       </Show>

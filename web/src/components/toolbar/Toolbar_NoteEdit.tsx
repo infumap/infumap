@@ -30,15 +30,10 @@ import { PlaceholderFns } from "../../items/placeholder-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
-import { createBooleanSignal } from "../../util/signals";
-
 
 export const Toolbar_NoteEdit: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
-
-  const urlOverlayVisible = createBooleanSignal(false);
-  const formatOverlayVisible = createBooleanSignal(false);
 
   const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
@@ -72,9 +67,9 @@ export const Toolbar_NoteEdit: Component = () => {
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
 
-  const urlButtonHandler = () => { urlOverlayVisible.set(!urlOverlayVisible.get()); }
+  const urlButtonHandler = () => { desktopStore.noteUrlOverlayInfoMaybe.set({ xPx: 0, yPx: 0 }); }
 
-  const formatHandler = () => { formatOverlayVisible.set(!formatOverlayVisible.get()); }
+  const formatHandler = () => { desktopStore.noteFormatOverlayInfoMaybe.set({ xPx: 0, yPx: 0 }); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -203,12 +198,14 @@ export const Toolbar_NoteEdit: Component = () => {
     </>;
 
   return (
-    <div class="inline-block p-[4px] flex-grow-0">
-      <Switch>
-        <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
-        <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>
-      </Switch>
-    </div>
+    <>
+      <div class="inline-block p-[4px] flex-grow-0">
+        <Switch>
+          <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
+          <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>
+        </Switch>
+      </div>
+    </>
   );
 }
 
@@ -240,3 +237,32 @@ export const Toolbar_NoteEdit: Component = () => {
 //   arrange(desktopStore);
 // };
 
+  // const renderUrlOverlyMaybe = () =>
+  //   <Show when={urlOverlayVisible.get()}>
+  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+  //           style={`left: ${urlBoxBoundsPx().x}px; top: ${urlBoxBoundsPx().y}px; width: ${urlBoxBoundsPx().w}px; height: ${urlBoxBoundsPx().h}px`}>
+  //       <div class="p-[4px]">
+  //         <span class="text-sm ml-1 mr-2">Link:</span>
+  //         <input ref={urlTextElement}
+  //           class="border border-slate-300 rounded w-[305px] pl-1"
+  //           autocomplete="on"
+  //           value={noteItem().url}
+  //           type="text"
+  //           onChange={handleUrlChange} />
+  //       </div>
+  //     </div>
+  //   </Show>;
+
+  // const renderFormatInfoOverlayMaybe = () =>
+  //   <Show when={formatOverlayVisible.get()}>
+  //     <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+  //          style={`left: ${formatBoxBoundsPx().x}px; top: ${formatBoxBoundsPx().y}px; width: ${formatBoxBoundsPx().w}px; height: ${formatBoxBoundsPx().h}px`}>
+  //       <span class="text-sm ml-1 mr-2">Number Format:</span>
+  //       <input ref={formatTextElement}
+  //              class="border border-slate-300 rounded w-[305px] pl-1"
+  //              autocomplete="on"
+  //              value={noteItem().format}
+  //              type="text"
+  //              onChange={handleFormatChange} />
+  //     </div>
+  //   </Show>;

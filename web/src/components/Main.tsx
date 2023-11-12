@@ -31,6 +31,8 @@ import { panic } from "../util/lang";
 import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
+import { Toolbar_NoteEditUrl } from "./toolbar/Toolbar_NoteEditUrl";
+import { Toolbar_NoteEditFormat } from "./toolbar/Toolbar_NOteEditFormat";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -101,6 +103,15 @@ export const Main: Component = () => {
         <Desktop visualElement={desktopStore.topLevelVisualElement()} />
       </Show>
       <Toolbar />
+
+      {/* global overlays */}
+      <Show when={desktopStore.noteUrlOverlayInfoMaybe.get() != null}>
+        <Toolbar_NoteEditUrl />
+      </Show>
+      <Show when={desktopStore.noteFormatOverlayInfoMaybe.get() != null}>
+        <Toolbar_NoteEditFormat />
+      </Show>
+
     </div>
   );
 }
