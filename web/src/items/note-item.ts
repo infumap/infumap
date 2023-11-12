@@ -33,6 +33,7 @@ import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
+import { arrange } from '../layout/arrange';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -227,6 +228,7 @@ export const NoteFns = {
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
     desktopStore.setTextEditOverlayInfo({ itemPath: VeFns.veToPath(visualElement) });
+    arrange(desktopStore); // input focus changed.
   },
 
   cloneMeasurableFields: (note: NoteMeasurable): NoteMeasurable => {

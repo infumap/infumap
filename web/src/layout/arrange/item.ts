@@ -109,7 +109,8 @@ const arrangePageWithChildren = (
     isRoot: boolean,
     isListPageMainItem: boolean,
     isMoving: boolean): VisualElementSignal => {
-  const pageWithChildrenVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren), parentPath);
+  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+  const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
@@ -168,9 +169,10 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+            (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-            (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+            (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
       childAreaBoundsPx: boundsPx,
       hitboxes,
@@ -255,9 +257,10 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-             (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
       childAreaBoundsPx: geometry.boundsPx,
       hitboxes,
@@ -317,9 +320,10 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-             (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
       childAreaBoundsPx: geometry.boundsPx,
       hitboxes,
@@ -388,9 +392,10 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isPagePopup && desktopStore.getInputFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-             (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
       childAreaBoundsPx: geometry.boundsPx,
       hitboxes,
@@ -431,7 +436,7 @@ const arrangeComposite = (
     linkItemMaybe: linkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed |
            (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+           (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: compositeGeometry.hitboxes,
@@ -517,7 +522,7 @@ const arrangeTable = (
     linkItemMaybe: linkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
            (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+           (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: tableGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: tableGeometry.hitboxes,
@@ -648,7 +653,7 @@ const arrangeItemNoChildren = (
     flags: (renderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
            (isPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (isListPageMainItem ? VisualElementFlags.ListPageMainItem : VisualElementFlags.None),
+           (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,
     parentPath: parentVePath,

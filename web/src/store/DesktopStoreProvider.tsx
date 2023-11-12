@@ -23,7 +23,7 @@ import { Item } from "../items/base/item";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath } from "../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
 import { createNumberSignal, createVisualElementPathSignal, NumberSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
 
@@ -86,6 +86,8 @@ export interface DesktopStoreContextModel {
   clear: () => void,
   setPanicked: (panicked: boolean) => void,
   getPanicked: () => boolean,
+
+  getInputFocus: () => Veid | null,
 }
 
 export interface EditOverlayInfo {
@@ -326,6 +328,19 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setBreadcrumbs([{ pageVeid: pageVeid, popupBreadcrumbs: [] }]);
   };
 
+  const getInputFocus = () => {
+    if (textEditOverlayInfo() != null) {
+      console.log("here");
+      return VeFns.veidFromPath(textEditOverlayInfo()!.itemPath);
+    }
+    if (currentPopupSpec() != null) {
+      if (currentPopupSpec()!.type == PopupType.Page) {
+        return VeFns.veidFromPath(currentPopupSpec()!.vePath);
+      }
+    }
+    return null;
+  };
+
   const value: DesktopStoreContextModel = {
     itemIsMoving, setItemIsMoving,
     desktopBoundsPx, resetDesktopSizePx,
@@ -357,6 +372,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     clear,
     setPanicked,
     getPanicked,
+
+    getInputFocus,
   };
 
   return (

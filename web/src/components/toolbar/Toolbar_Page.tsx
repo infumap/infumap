@@ -18,7 +18,6 @@
 
 import { Component } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { InfuIconButton } from "../library/InfuIconButton";
@@ -27,7 +26,6 @@ import { InfuColorSelector } from "../library/InfuColorSelector";
 
 export const Toolbar_Page: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   const pageItem = () => asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
 

@@ -63,18 +63,19 @@ export const EMPTY_VEID: Veid = {
 export enum VisualElementFlags {
   None                 = 0x0000,
   Selected             = 0x0001, // The item is selected.
-  LineItem             = 0x0002, // Render as a line item (like in a table), not deskop item.
-  Detailed             = 0x0004, // The visual element has detail / can be interacted with.
-  Popup                = 0x0008, // The visual element is a popped up page or image.
-  Root                 = 0x0010, // Render as a root level page (popup, list page, top level page).
-  InsideTable          = 0x0020, // The visual element is inside a table.
-  Attachment           = 0x0040, // The visual element is an attachment.
-  ShowChildren         = 0x0080, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
-  Fixed                = 0x0100, // positioning is fixed, not absolute.
-  InsideComposite      = 0x0200, // The visual element is inside a composite item.
-  ZAbove               = 0x0400, // Render above everything else (except moving).
-  Moving               = 0x0800, // Render the visual element partially transparent and on top of everything else.
-  ListPageMainItem     = 0x1000, // Is the representation of the selected item in a list page.
+  HasToolbarFocus      = 0x0002, // The item has toolbar focus.
+  LineItem             = 0x0004, // Render as a line item (like in a table), not deskop item.
+  Detailed             = 0x0008, // The visual element has detail / can be interacted with.
+  Popup                = 0x0010, // The visual element is a popped up page or image.
+  Root                 = 0x0020, // Render as a root level page (popup, list page, top level page).
+  ListPageRootItem     = 0x0040, // Is the root item in a list page.
+  InsideTable          = 0x0080, // The visual element is inside a table.
+  Attachment           = 0x0100, // The visual element is an attachment.
+  ShowChildren         = 0x0200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
+  Fixed                = 0x0400, // positioning is fixed, not absolute.
+  InsideComposite      = 0x0800, // The visual element is inside a composite item.
+  ZAbove               = 0x1000, // Render above everything else (except moving).
+  Moving               = 0x2000, // Render the visual element partially transparent and on top of everything else.
 }
 
 function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {

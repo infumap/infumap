@@ -20,7 +20,7 @@ import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch 
 import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LEFT_TOOLBAR_WIDTH_PX, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { Colors, linearGradient } from "../../style";
+import { Colors, HighlightColor, linearGradient } from "../../style";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -282,7 +282,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderBoxTitleMaybe = () =>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageMainItem)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRootItem)}>
         <div class="absolute flex items-center justify-center pointer-events-none"
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -385,7 +385,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   });
 
   const renderAsPopup = () => {
-    const borderColorVal = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `;
+    const borderColorVal = () => {
+      if (props.visualElement.flags & VisualElementFlags.HasToolbarFocus) {
+        return HighlightColor;
+      }
+      return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `
+    };
 
     const popupScrollHandler = (_ev: Event) => {
       if (!popupDiv) { return; }
@@ -438,11 +443,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPage = () =>
       <div ref={popupDiv}
-           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-2 rounded-sm`}
            style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
                   `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: #f8f8f8; border-color: ${borderColorVal()}` +
+                  `background-color: #f8f8f8; border-color: ${borderColorVal()}; ` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                   `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}

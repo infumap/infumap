@@ -198,6 +198,7 @@ export const TextEditOverlay: Component = () => {
       server.updateItem(noteVisualElement().displayItem);
     }
     desktopStore.setTextEditOverlayInfo(null);
+    arrange(desktopStore); // input focus changed.
 
     if (ev.button == MOUSE_LEFT) {
       mouseDownHandler(desktopStore, userStore, MOUSE_LEFT);

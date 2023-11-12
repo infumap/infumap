@@ -34,3 +34,6 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
   assert(lightenByAlpha < 0.986, "invalid lightenByAlpha: " + lightenByAlpha);
   return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`
 }
+
+export let HighlightColor = "#0957d0";
+export let HighlightEntryColor = "#a8c7fa";
