@@ -43,7 +43,7 @@ export const PageSettingsOverlay: Component = () => {
     // if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
     //   server.updateItem(noteVisualElement().displayItem);
     // }
-    desktopStore.setTextEditOverlayInfo(null);
+    desktopStore.textEditOverlayInfo.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {

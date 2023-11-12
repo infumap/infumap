@@ -34,7 +34,7 @@ import { CursorEventState } from "./state";
 const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
 
 export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, ev: KeyboardEvent): void {
-  if (desktopStore.editDialogInfo() != null || desktopStore.contextMenuInfo() != null || desktopStore.textEditOverlayInfo() != null) {
+  if (desktopStore.editDialogInfo.get() != null || desktopStore.contextMenuInfo.get() != null || desktopStore.textEditOverlayInfo.get() != null) {
     return;
   }
 
@@ -46,13 +46,13 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: Us
 
   if (ev.code == "Slash") {
     ev.preventDefault();
-    desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+    desktopStore.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
     mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
   }
 
   else if (ev.code == "Backslash") {
     ev.preventDefault();
-    desktopStore.setEditDialogInfo({
+    desktopStore.editDialogInfo.set({
       desktopBoundsPx: initialEditDialogBounds(desktopStore),
       item: (() => {
         const overVe = hitInfo.overElementVes.get();

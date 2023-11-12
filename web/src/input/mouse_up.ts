@@ -46,7 +46,7 @@ export function mouseUpHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {
 
-  desktopStore.setItemIsMoving(false);
+  desktopStore.itemIsMoving.set(false);
 
   DialogMoveState.set(null);
   UserSettingsMoveState.set(null);

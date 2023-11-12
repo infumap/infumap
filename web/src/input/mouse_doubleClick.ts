@@ -30,12 +30,12 @@ export function mouseDoubleClickHandler(
     ev: MouseEvent) {
   if (!DoubleClickState.canDoubleClick()) { return; }
   if (desktopStore.currentPage() == null) { return; }
-  if (desktopStore.contextMenuInfo() != null || desktopStore.editDialogInfo() != null) { return; }
-  if (desktopStore.textEditOverlayInfo() != null) { return; }
+  if (desktopStore.contextMenuInfo.get() != null || desktopStore.editDialogInfo.get() != null) { return; }
+  if (desktopStore.textEditOverlayInfo.get() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
   const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
 
-  desktopStore.setContextMenuInfo({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+  desktopStore.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
   mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
 }

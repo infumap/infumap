@@ -67,13 +67,13 @@ export function mouseLeftDownHandler(
 
   const desktopPosPx = CursorEventState.getLatestDesktopPx();
 
-  if (desktopStore.contextMenuInfo() != null) {
+  if (desktopStore.contextMenuInfo.get() != null) {
     DoubleClickState.preventDoubleClick();
-    desktopStore.setContextMenuInfo(null);
+    desktopStore.contextMenuInfo.set(null);
     return;
   }
 
-  let dialogInfo = desktopStore.editDialogInfo();
+  let dialogInfo = desktopStore.editDialogInfo.get();
   if (dialogInfo != null) {
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
@@ -81,11 +81,11 @@ export function mouseLeftDownHandler(
       return;
     }
 
-    desktopStore.setEditDialogInfo(null);
+    desktopStore.editDialogInfo.set(null);
     return;
   }
 
-  let userSettingsInfo = desktopStore.editUserSettingsInfo();
+  let userSettingsInfo = desktopStore.editUserSettingsInfo.get();
   if (userSettingsInfo != null) {
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, userSettingsInfo!.desktopBoundsPx)) {
@@ -93,7 +93,7 @@ export function mouseLeftDownHandler(
       return;
     }
 
-    desktopStore.setEditUserSettingsInfo(null);
+    desktopStore.editUserSettingsInfo.set(null);
     return;
   }
 
@@ -195,20 +195,20 @@ export async function mouseRightDownHandler(
     desktopStore: DesktopStoreContextModel,
     userStore: UserStoreContextModel) {
 
-  if (desktopStore.contextMenuInfo()) {
-    desktopStore.setContextMenuInfo(null);
+  if (desktopStore.contextMenuInfo.get()) {
+    desktopStore.contextMenuInfo.set(null);
     mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     return;
   }
 
-  if (desktopStore.editDialogInfo() != null) {
-    desktopStore.setEditDialogInfo(null);
+  if (desktopStore.editDialogInfo.get() != null) {
+    desktopStore.editDialogInfo.set(null);
     mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     return;
   }
 
-  if (desktopStore.editUserSettingsInfo() != null) {
-    desktopStore.setEditUserSettingsInfo(null);
+  if (desktopStore.editUserSettingsInfo.get() != null) {
+    desktopStore.editUserSettingsInfo.set(null);
     mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
     return;
   }

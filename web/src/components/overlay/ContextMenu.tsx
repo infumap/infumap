@@ -99,7 +99,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       itemState.add(newItem);
       server.addItem(newItem, null);
 
-      desktopStore.setContextMenuInfo(null);
+      desktopStore.contextMenuInfo.set(null);
       arrange(desktopStore);
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
@@ -123,7 +123,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       server.addItem(newItem, null);
       itemState.add(newItem);
 
-      desktopStore.setContextMenuInfo(null);
+      desktopStore.contextMenuInfo.set(null);
       arrange(desktopStore);
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
@@ -142,7 +142,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
             RelationshipToParent.Child);
           server.addItem(newItem, null);
           itemState.add(newItem);
-          desktopStore.setContextMenuInfo(null);
+          desktopStore.contextMenuInfo.set(null);
           arrange(desktopStore);
           newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
@@ -168,7 +168,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
           server.addItem(newItem, null);
           itemState.add(newItem);
-          desktopStore.setContextMenuInfo(null);
+          desktopStore.contextMenuInfo.set(null);
           arrange(desktopStore);
 
           newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
@@ -195,7 +195,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         server.addItem(newItem, null);
         itemState.add(newItem);
 
-        desktopStore.setContextMenuInfo(null);
+        desktopStore.contextMenuInfo.set(null);
         arrange(desktopStore);
 
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
@@ -208,11 +208,11 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
 
     if (type == "note") {
-      desktopStore.setTextEditOverlayInfo({ itemPath: newItemPath });
+      desktopStore.textEditOverlayInfo.set({ itemPath: newItemPath });
     } else if (type == "rating") {
       // noop.
     } else {
-      desktopStore.setEditDialogInfo({
+      desktopStore.editDialogInfo.set({
         desktopBoundsPx: initialEditDialogBounds(desktopStore),
         item: newItem
       });
@@ -243,8 +243,8 @@ export const ContextMenu: Component = () => {
     }
   }
 
-  const posPx = () => desktopStore.contextMenuInfo()!.posPx;
-  const hitInfo = () => desktopStore.contextMenuInfo()!.hitInfo;
+  const posPx = () => desktopStore.contextMenuInfo.get()!.posPx;
+  const hitInfo = () => desktopStore.contextMenuInfo.get()!.hitInfo;
 
   return (
     <div class="absolute"

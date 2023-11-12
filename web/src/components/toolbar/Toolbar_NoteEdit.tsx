@@ -35,7 +35,7 @@ export const Toolbar_NoteEdit: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
 
-  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 
@@ -124,7 +124,7 @@ export const Toolbar_NoteEdit: Component = () => {
       itemState.delete(noteItem().id);
 
       deleted = true;
-      desktopStore.setTextEditOverlayInfo(null);
+      desktopStore.textEditOverlayInfo.set(null);
       arrange(desktopStore);
     }
   };

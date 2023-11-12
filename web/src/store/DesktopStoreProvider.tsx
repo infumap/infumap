@@ -24,11 +24,16 @@ import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
-import { BooleanSignal, createBooleanSignal, createNumberSignal, createUserSignal, createVisualElementPathSignal, NumberSignal, UserSignal, VisualElementPathSignal, VisualElementSignal } from "../util/signals";
+import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
 
 
 export interface DesktopStoreContextModel {
+  // global overlays.
+  noteUrlOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  noteFormatOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  isPanicked: InfuSignal<boolean>,
+
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
@@ -36,26 +41,22 @@ export interface DesktopStoreContextModel {
   setTopLevelVisualElement: Setter<VisualElement>,
   topLevelVisualElementSignal: () => VisualElementSignal,
 
-  editDialogInfo: Accessor<EditDialogInfo | null>,
-  setEditDialogInfo: Setter<EditDialogInfo | null>,
+  // desktop overlays
+  textEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  searchOverlayVisible: InfuSignal<boolean>,
+  editDialogInfo: InfuSignal<EditDialogInfo | null>,
+  editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
+  contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
+  // TODO (HIGH): don't need this. change to table text edit overlay or something.
+  pageSettingsOverlayInfo: InfuSignal<EditOverlayInfo | null>,
 
-  editUserSettingsInfo: Accessor<EditUserSettingsInfo | null>,
-  setEditUserSettingsInfo: Setter<EditUserSettingsInfo | null>,
+  currentVisiblePassword: InfuSignal<Uid | null>,
 
-  contextMenuInfo: Accessor<ContextMenuInfo | null>,
-  setContextMenuInfo: Setter<ContextMenuInfo | null>,
+  clear: () => void,
 
-  textEditOverlayInfo: Accessor<EditOverlayInfo | null>,
-  setTextEditOverlayInfo: Setter<EditOverlayInfo | null>,
+  getInputFocus: () => Veid | null,
 
-  pageSettingsOverlayInfo: Accessor<EditOverlayInfo | null>,
-  setPageSettingsOverlayInfo: Setter<EditOverlayInfo | null>,
-
-  searchOverlayVisible: Accessor<boolean>,
-  setSearchOverlayVisible: Setter<boolean>,
-
-  itemIsMoving: Accessor<boolean>,
-  setItemIsMoving: Setter<boolean>,
+  itemIsMoving: InfuSignal<boolean>,
 
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
@@ -79,18 +80,6 @@ export interface DesktopStoreContextModel {
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVePath: () => VisualElementPath | null,
   setHistoryToSinglePage: (currentPage: Veid) => void,
-
-  currentVisiblePassword: Accessor<Uid | null>,
-  setCurrentVisiblePassword: Setter<Uid | null>,
-
-  clear: () => void,
-  setPanicked: (panicked: boolean) => void,
-  getPanicked: () => boolean,
-
-  getInputFocus: () => Veid | null,
-
-  noteUrlOverlayInfoMaybe: UserSignal<OverlayCoordinates | null>,
-  noteFormatOverlayInfoMaybe: UserSignal<OverlayCoordinates | null>,
 }
 
 export interface OverlayCoordinates {
@@ -141,26 +130,26 @@ const DesktopStoreContext = createContext<DesktopStoreContextModel>();
 
 
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
-  const [getPanicked, setPanicked] = createSignal<boolean>(false, { equals: false });
-  const [itemIsMoving, setItemIsMoving] = createSignal<boolean>(false, { equals: false });
   const [desktopSizePx, setDesktopSizePx] = createSignal<Dimensions>(currentDesktopSize(), { equals: false });
-  const [editDialogInfo, setEditDialogInfo] = createSignal<EditDialogInfo | null>(null, { equals: false });
-  const [editUserSettingsInfo, setEditUserSettingsInfo] = createSignal<EditUserSettingsInfo | null>(null, { equals: false });
-  const [contextMenuInfo, setContextMenuInfo] = createSignal<ContextMenuInfo | null>(null, { equals: false });
-  const [textEditOverlayInfo, setTextEditOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
-  const [pageSettingsOverlayInfo, setPageSettingsOverlayInfo] = createSignal<EditOverlayInfo | null>(null, { equals: false });
-  const [searchOverlayVisible, setSearchOverlayVisible] = createSignal<boolean>(false, { equals: false });
-  const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
 
+  const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
   const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
 
-  const [currentVisiblePassword, setCurrentVisiblePassword] = createSignal<Uid | null>(null, { equals: false });
+  const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
-  // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly want to keep the number under control on page changes (delete those with value 0).
+  const pageSettingsOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const textEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const searchOverlayVisible = createInfuSignal<boolean>(false);
+  const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
+  const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
+  const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
+
+  // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly
+  // want to keep the number under control on page changes (delete those with value 0).
   const tableScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
-  const selectedItems = new Map<string, VisualElementPathSignal>();
+  const selectedItems = new Map<string, InfuSignal<VisualElementPath>>();
 
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
@@ -218,7 +207,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const getSelectedListPageItem = (veid: Veid): VisualElementPath => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
-      selectedItems.set(key, createVisualElementPathSignal(""));
+      selectedItems.set(key, createInfuSignal<VisualElementPath>(""));
     }
     return selectedItems.get(key)!.get();
   };
@@ -226,7 +215,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const setSelectedListPageItem = (veid: Veid, path: VisualElementPath): void => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
-      selectedItems.set(key, createVisualElementPathSignal(path));
+      selectedItems.set(key, createInfuSignal<VisualElementPath>(path));
       return;
     }
     selectedItems.get(key)!.set(path);
@@ -251,18 +240,19 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
 
   const clear = (): void => {
-    setEditDialogInfo(null);
-    setEditUserSettingsInfo(null);
-    setContextMenuInfo(null);
-    setTextEditOverlayInfo(null);
-    setSearchOverlayVisible(false);
-    setBreadcrumbs([]);
-    setCurrentVisiblePassword(null);
+    pageSettingsOverlayInfo.set(null);
+    editDialogInfo.set(null);
+    editUserSettingsInfo.set(null);
+    contextMenuInfo.set(null);
+    textEditOverlayInfo.set(null);
+    searchOverlayVisible.set(false);
+    currentVisiblePassword.set(null);
     tableScrollPositions.clear();
     pageScrollXPxs.clear();
     pageScrollYPxs.clear();
     selectedItems.clear();
     topLevelVisualElementSignal().set(NONE_VISUAL_ELEMENT);
+    setBreadcrumbs([]);
   };
 
 
@@ -337,8 +327,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   const getInputFocus = () => {
-    if (textEditOverlayInfo() != null) {
-      return VeFns.veidFromPath(textEditOverlayInfo()!.itemPath);
+    if (textEditOverlayInfo.get() != null) {
+      return VeFns.veidFromPath(textEditOverlayInfo.get()!.itemPath);
     }
     if (currentPopupSpec() != null) {
       if (currentPopupSpec()!.type == PopupType.Page) {
@@ -348,22 +338,15 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     return null;
   };
 
+
   const value: DesktopStoreContextModel = {
-    itemIsMoving, setItemIsMoving,
     desktopBoundsPx, resetDesktopSizePx,
     topLevelVisualElement, setTopLevelVisualElement,
     topLevelVisualElementSignal,
-    editDialogInfo, setEditDialogInfo,
-    editUserSettingsInfo, setEditUserSettingsInfo,
-    contextMenuInfo, setContextMenuInfo,
-    textEditOverlayInfo, setTextEditOverlayInfo,
-    pageSettingsOverlayInfo, setPageSettingsOverlayInfo,
-    searchOverlayVisible, setSearchOverlayVisible,
     getTableScrollYPos, setTableScrollYPos,
     getSelectedListPageItem, setSelectedListPageItem,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
-    currentVisiblePassword, setCurrentVisiblePassword,
 
     pushPage,
     popPage,
@@ -377,13 +360,23 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     setHistoryToSinglePage,
 
     clear,
-    setPanicked,
-    getPanicked,
 
     getInputFocus,
 
-    noteUrlOverlayInfoMaybe: createUserSignal<OverlayCoordinates | null>(null),
-    noteFormatOverlayInfoMaybe: createUserSignal<OverlayCoordinates | null>(null),
+    currentVisiblePassword,
+
+    pageSettingsOverlayInfo,
+    searchOverlayVisible,
+    textEditOverlayInfo,
+    editDialogInfo,
+    editUserSettingsInfo,
+    contextMenuInfo,
+
+    itemIsMoving: createInfuSignal<boolean>(false),
+    isPanicked: createInfuSignal<boolean>(false),
+
+    noteUrlOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+    noteFormatOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
   };
 
   return (

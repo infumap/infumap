@@ -17,9 +17,7 @@
 */
 
 import { Accessor, createSignal, Setter } from "solid-js";
-import { Vector } from "./geometry";
-import { Uid } from "./uid";
-import { VisualElement, VisualElementPath } from "../layout/visual-element";
+import { VisualElement } from "../layout/visual-element";
 
 
 export interface NumberSignal {
@@ -44,17 +42,6 @@ export function createBooleanSignal(v: boolean): BooleanSignal {
 }
 
 
-export interface VectorSignal {
-  get: Accessor<Vector>,
-  set: Setter<Vector>,
-}
-
-export function createVectorSignal(v: Vector): VectorSignal {
-  let [vectorAccessor, vectorSetter] = createSignal<Vector>(v, { equals: false });
-  return { get: vectorAccessor, set: vectorSetter };
-}
-
-
 export interface VisualElementSignal {
   get: Accessor<VisualElement>,
   set: Setter<VisualElement>,
@@ -66,34 +53,12 @@ export function createVisualElementSignal(v: VisualElement): VisualElementSignal
 }
 
 
-export interface UidSignal {
-  get: Accessor<Uid>,
-  set: Setter<Uid>,
-}
-
-export function createUidSignal(uid: Uid): UidSignal {
-  let [uidAccessor, uidSetter] = createSignal<Uid>(uid, { equals: false });
-  return { get: uidAccessor, set: uidSetter };
-}
-
-
-export interface VisualElementPathSignal {
-  get: Accessor<VisualElementPath>,
-  set: Setter<VisualElementPath>,
-}
-
-export function createVisualElementPathSignal(v: VisualElementPath): VisualElementPathSignal {
-  let [visualElementPathAccessor, visualElementPathSetter] = createSignal<VisualElementPath>(v, { equals: false });
-  return { get: visualElementPathAccessor, set: visualElementPathSetter };
-}
-
-
-export interface UserSignal<T> {
+export interface InfuSignal<T> {
   get: Accessor<T>,
   set: Setter<T>,
 }
 
-export function createUserSignal<T>(v: T): UserSignal<T> {
+export function createInfuSignal<T>(v: T): InfuSignal<T> {
   let [a, s] = createSignal<T>(v, { equals: false });
   return ({ get: a, set: s });
 }

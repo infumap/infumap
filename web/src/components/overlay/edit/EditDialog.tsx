@@ -40,9 +40,9 @@ export const EditDialog: Component = () => {
 
   let editDialogDiv: HTMLDivElement | undefined;
 
-  const item = () => desktopStore.editDialogInfo()!.item;
-  const posPx = () => getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx);
-  const sizePx = () => getBoundingBoxSize(desktopStore.editDialogInfo()!.desktopBoundsPx);
+  const item = () => desktopStore.editDialogInfo.get()!.item;
+  const posPx = () => getBoundingBoxTopLeft(desktopStore.editDialogInfo.get()!.desktopBoundsPx);
+  const sizePx = () => getBoundingBoxSize(desktopStore.editDialogInfo.get()!.desktopBoundsPx);
 
   return (
     <>

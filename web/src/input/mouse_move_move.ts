@@ -79,7 +79,7 @@ export function moving_initiate(desktopStore: DesktopStoreContextModel, activeIt
       itemState.add(link);
       server.addItem(link, null);
 
-      desktopStore.setItemIsMoving(true);
+      desktopStore.itemIsMoving.set(true);
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElement);
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.get().activeElement = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
@@ -90,7 +90,7 @@ export function moving_initiate(desktopStore: DesktopStoreContextModel, activeIt
     }
   }
 
-  desktopStore.setItemIsMoving(true);
+  desktopStore.itemIsMoving.set(true);
   MouseActionState.get().action = MouseAction.Moving;
 }
 

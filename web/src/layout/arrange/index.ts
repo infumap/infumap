@@ -52,7 +52,7 @@ export const arrange = (desktopStore: DesktopStoreContextModel): void => {
   if (desktopStore.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {
-    desktopStore.setPanicked(true);
+    desktopStore.isPanicked.set(true);
     return;
   }
 

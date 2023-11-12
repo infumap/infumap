@@ -59,12 +59,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     navigator.clipboard.writeText(passwordItem().text);
   }
 
-  const isVisible = () => desktopStore.currentVisiblePassword() == passwordItem().id;
+  const isVisible = () => desktopStore.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
     if (!isVisible()) {
-      desktopStore.setCurrentVisiblePassword(passwordItem().id);
+      desktopStore.currentVisiblePassword.set(passwordItem().id);
     } else {
-      desktopStore.setCurrentVisiblePassword(null);
+      desktopStore.currentVisiblePassword.set(null);
     }
   }
 
@@ -138,12 +138,12 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     navigator.clipboard.writeText(passwordItem().text);
   }
 
-  const isVisible = () => desktopStore.currentVisiblePassword() == passwordItem().id;
+  const isVisible = () => desktopStore.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
     if (!isVisible()) {
-      desktopStore.setCurrentVisiblePassword(passwordItem().id);
+      desktopStore.currentVisiblePassword.set(passwordItem().id);
     } else {
-      desktopStore.setCurrentVisiblePassword(null);
+      desktopStore.currentVisiblePassword.set(null);
     }
   }
 

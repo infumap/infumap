@@ -138,7 +138,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderHoverOverMaybe = () =>
-      <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
+      <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving.get()}>
         <div class={'absolute rounded-sm'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     'background-color: #ffffff33;'} />
@@ -294,7 +294,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderHoverOverMaybe = () =>
-      <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving()}>
+      <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving.get()}>
         <div class={`absolute rounded-sm pointer-events-none`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     `background-color: #ffffff33;`} />

@@ -26,7 +26,7 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 export const Toolbar_NoteInfo: Component = () => {
   const desktopStore = useDesktopStore();
 
-  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
   const noteItemOnInitialize = noteItem();
 

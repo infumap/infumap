@@ -45,7 +45,7 @@ export const Toolbar: Component = () => {
 
   const handleLogin = () => navigate("/login");
 
-  const showUserSettings = () => { desktopStore.setEditUserSettingsInfo({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) }); }
+  const showUserSettings = () => { desktopStore.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) }); }
 
   const currentPageMaybe = () => {
     if (desktopStore.currentPage() == null) { return null; }
@@ -110,12 +110,12 @@ export const Toolbar: Component = () => {
         <div class="flex flex-row flex-nowrap">
           <Toolbar_Navigation />
           <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-            <Show when={desktopStore.textEditOverlayInfo() != null}>
+            <Show when={desktopStore.textEditOverlayInfo.get() != null}>
               <Toolbar_NoteEdit />
               <div class="inline-block" style="flex-grow: 1"></div>
               <Toolbar_NoteInfo />
             </Show>
-            <Show when={desktopStore.textEditOverlayInfo() == null}>
+            <Show when={desktopStore.textEditOverlayInfo.get() == null}>
               <Toolbar_Page />
               <div class="inline-block" style="flex-grow: 1"></div>
               <Toolbar_PageInfo />

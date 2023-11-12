@@ -116,8 +116,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const showMoveOutOfCompositeArea = () =>
     userStore.getUserMaybe() != null &&
     props.visualElement.mouseIsOver.get() &&
-    !desktopStore.itemIsMoving() &&
-    desktopStore.textEditOverlayInfo() == null &&
+    !desktopStore.itemIsMoving.get() &&
+    desktopStore.textEditOverlayInfo.get() == null &&
     isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
 
   const renderShadow = () =>

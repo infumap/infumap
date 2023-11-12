@@ -52,31 +52,31 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userSto
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
-  if (desktopStore.editDialogInfo() != null) {
+  if (desktopStore.editDialogInfo.get() != null) {
     if (DialogMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, DialogMoveState.get()!.lastMousePosPx!);
-      desktopStore.setEditDialogInfo(({
-        item: desktopStore.editDialogInfo()!.item,
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+      desktopStore.editDialogInfo.set(({
+        item: desktopStore.editDialogInfo.get()!.item,
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo.get()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
       }));
       DialogMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(currentMouseDesktopPx, desktopStore.editDialogInfo()!.desktopBoundsPx)) {
+    if (isInside(currentMouseDesktopPx, desktopStore.editDialogInfo.get()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(desktopStore, hasUser);
       return;
     }
   }
-  if (desktopStore.editUserSettingsInfo() != null) {
+  if (desktopStore.editUserSettingsInfo.get() != null) {
     if (UserSettingsMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, UserSettingsMoveState.get()!.lastMousePosPx!);
-      desktopStore.setEditUserSettingsInfo(({
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editUserSettingsInfo()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
+      desktopStore.editUserSettingsInfo.set(({
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
       }));
       UserSettingsMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(currentMouseDesktopPx, desktopStore.editUserSettingsInfo()!.desktopBoundsPx)) {
+    if (isInside(currentMouseDesktopPx, desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(desktopStore, hasUser);
       return;
     }
@@ -173,7 +173,7 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
-      desktopStore.setItemIsMoving(true);
+      desktopStore.itemIsMoving.set(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
       const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
@@ -273,10 +273,10 @@ function mouseAction_movingPopup(deltaPx: Vector, desktopStore: DesktopStoreCont
 
 
 export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextModel, hasUser: boolean) {
-  const dialogInfo = desktopStore.editDialogInfo();
-  const userSettingsInfo = desktopStore.editUserSettingsInfo();
-  const contextMenuInfo = desktopStore.contextMenuInfo();
-  const hasModal = dialogInfo != null || contextMenuInfo != null || userSettingsInfo != null;
+  const dialogInfo = desktopStore.editDialogInfo.get();
+  const userSettingsInfo = desktopStore.editUserSettingsInfo.get();
+  const cmi = desktopStore.contextMenuInfo.get();
+  const hasModal = dialogInfo != null || cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
   const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);

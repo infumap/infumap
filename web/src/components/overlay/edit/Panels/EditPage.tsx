@@ -72,14 +72,14 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
     deleted = true;
     await server.deleteItem(pageId); // throws on failure.
     itemState.delete(pageId);
-    desktopStore.setEditDialogInfo(null);
+    desktopStore.editDialogInfo.set(null);
     arrange(desktopStore);
   }
 
   const setAspectToMatchScreen = async () => {
     asPageItem(itemState.get(pageId)!).naturalAspect = screenAspect();
-    desktopStore.setEditDialogInfo({
-      desktopBoundsPx: desktopStore.editDialogInfo()!.desktopBoundsPx,
+    desktopStore.editDialogInfo.set({
+      desktopBoundsPx: desktopStore.editDialogInfo.get()!.desktopBoundsPx,
       item: itemState.get(pageId)!
     });
     arrange(desktopStore);

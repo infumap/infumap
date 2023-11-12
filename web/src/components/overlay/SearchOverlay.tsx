@@ -53,7 +53,7 @@ export const SearchOverlay: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestDesktopPx(), boxBoundsPx())) { return; }
     if (overResultsDiv) { return; }
-    desktopStore.setSearchOverlayVisible(false);
+    desktopStore.searchOverlayVisible.set(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -83,7 +83,7 @@ export const SearchOverlay: Component = () => {
     if (ev.code == "Enter") {
       if (currentSelectedResult.get() != -1) {
         const selectedPageId = currentSelectedPageId()!;
-        desktopStore.setSearchOverlayVisible(false);
+        desktopStore.searchOverlayVisible.set(false);
         await initiateLoadItemMaybe(desktopStore, selectedPageId);
         switchToPage(desktopStore, userStore, VeFns.veidFromId(selectedPageId), true, false);
       } else {
@@ -155,7 +155,7 @@ export const SearchOverlay: Component = () => {
   const resultClickHandler = (resultPageId: Uid) => {
     return async (_ev: MouseEvent) => {
       await initiateLoadItemMaybe(desktopStore, resultPageId);
-      desktopStore.setSearchOverlayVisible(false);
+      desktopStore.searchOverlayVisible.set(false);
       switchToPage(desktopStore, userStore, VeFns.veidFromId(resultPageId), true, false);
     }
   };
