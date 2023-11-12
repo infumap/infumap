@@ -46,7 +46,7 @@ export function getHitInfo(
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
 
-  const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement();
+  const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement.get();
   const topLevelVeid = desktopStore.currentPage()!;
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = topLevelVisualElement.boundsPx;
@@ -61,7 +61,7 @@ export function getHitInfo(
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
-  let rootVisualElementSignal = desktopStore.topLevelVisualElementSignal();
+  let rootVisualElementSignal = desktopStore.topLevelVisualElement;
   if (topLevelVisualElement.children.length > 0) {
     // The visual element of the popup or selected list item, if there is one, is always the last of the children.
     const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();

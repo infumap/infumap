@@ -421,7 +421,7 @@ export const VeFns = {
   },
 
   desktopPxToTopLevelPagePx: (desktopStore: DesktopStoreContextModel, desktopPosPx: Vector): Vector => {
-    const ve = desktopStore.topLevelVisualElement();
+    const ve = desktopStore.topLevelVisualElement.get();
     const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
     const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromVe(ve));
     return ({
@@ -431,7 +431,7 @@ export const VeFns = {
   },
 
   printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {
-    printRecursive(desktopStore.topLevelVisualElement(), 0, "c");
+    printRecursive(desktopStore.topLevelVisualElement.get(), 0, "c");
   },
 
   visualElementFlagsToString: (visualElementFlags: VisualElementFlags) => {

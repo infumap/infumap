@@ -38,9 +38,7 @@ export interface DesktopStoreContextModel {
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
-  topLevelVisualElement: Accessor<VisualElement>,
-  setTopLevelVisualElement: Setter<VisualElement>,
-  topLevelVisualElementSignal: () => VisualElementSignal,
+  topLevelVisualElement: InfuSignal<VisualElement>,
 
   // desktop overlays
   textEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
@@ -132,8 +130,7 @@ const DesktopStoreContext = createContext<DesktopStoreContextModel>();
 export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
 
-  const [topLevelVisualElement, setTopLevelVisualElement] = createSignal<VisualElement>(NONE_VISUAL_ELEMENT, { equals: false });
-  const topLevelVisualElementSignal = (): VisualElementSignal => { return { get: topLevelVisualElement, set: setTopLevelVisualElement }; }
+  const topLevelVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
@@ -251,7 +248,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     pageScrollXPxs.clear();
     pageScrollYPxs.clear();
     selectedItems.clear();
-    topLevelVisualElementSignal().set(NONE_VISUAL_ELEMENT);
+    topLevelVisualElement.set(NONE_VISUAL_ELEMENT);
     setBreadcrumbs([]);
   };
 
@@ -342,8 +339,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   const value: DesktopStoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
 
-    topLevelVisualElement, setTopLevelVisualElement,
-    topLevelVisualElementSignal,
+    topLevelVisualElement,
+
     getTableScrollYPos, setTableScrollYPos,
     getSelectedListPageItem, setSelectedListPageItem,
     getPageScrollXProp, setPageScrollXProp,

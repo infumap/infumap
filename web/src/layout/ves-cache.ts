@@ -77,7 +77,7 @@ export let VesCache = {
   },
 
   finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, desktopStore: DesktopStoreContextModel): void => {
-    createOrRecycleVisualElementSignalImpl(topLevelVisualElementSpec, topLevelPath, desktopStore.topLevelVisualElementSignal());
+    createOrRecycleVisualElementSignalImpl(topLevelVisualElementSpec, topLevelPath, desktopStore.topLevelVisualElement);
     newCache = new Map<VisualElementPath, VisualElementSignal>();
   },
 

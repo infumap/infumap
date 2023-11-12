@@ -130,7 +130,7 @@ export function setTopLevelPageScrollPositions(desktopStore: DesktopStoreContext
   let rootPageDiv = window.document.getElementById("rootPageDiv")!;
   let veid = desktopStore.currentPage()!;
 
-  const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
+  const topLevelVisualElement = desktopStore.topLevelVisualElement.get();
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = desktopStore.desktopBoundsPx();
 

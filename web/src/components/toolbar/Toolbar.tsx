@@ -109,7 +109,7 @@ export const Toolbar: Component = () => {
       <div class="fixed right-[10px] top-[42px] rounded-lg" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; background-color: #edf2fa;`}>
         <div class="flex flex-row flex-nowrap">
           <Toolbar_Navigation />
-          <Show when={desktopStore.topLevelVisualElement().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+          <Show when={desktopStore.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
             <Show when={desktopStore.textEditOverlayInfo.get() != null}>
               <Toolbar_Note />
               <div class="inline-block" style="flex-grow: 1"></div>

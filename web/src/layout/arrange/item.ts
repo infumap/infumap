@@ -221,7 +221,7 @@ const arrangePageWithChildren = (
         scrollPropX = desktopStore.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       }
 
-      const topLevelVisualElement = desktopStore.topLevelVisualElementSignal().get();
+      const topLevelVisualElement = desktopStore.topLevelVisualElement.get();
       const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
       const desktopSizePx = desktopStore.desktopBoundsPx();
       const pageYScrollProp = desktopStore.getPageScrollYProp(desktopStore.currentPage()!);
