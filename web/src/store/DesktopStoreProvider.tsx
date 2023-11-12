@@ -330,7 +330,6 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const getInputFocus = () => {
     if (textEditOverlayInfo() != null) {
-      console.log("here");
       return VeFns.veidFromPath(textEditOverlayInfo()!.itemPath);
     }
     if (currentPopupSpec() != null) {

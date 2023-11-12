@@ -20,7 +20,7 @@ import { Component } from "solid-js";
 import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
-import { VesCache } from "../../layout/ves-cache";
+import { VeFns } from "../../layout/visual-element";
 
 
 export const Toolbar_PageInfo: Component = () => {
@@ -28,8 +28,9 @@ export const Toolbar_PageInfo: Component = () => {
 
   const pageItem = () => {
     if (desktopStore.currentPopupSpec() != null && desktopStore.currentPopupSpec()!.type == PopupType.Page) {
-      const ve = VesCache.get(desktopStore.currentPopupSpec()!.vePath)!.get();
-      return asPageItem(ve.displayItem);
+      const veid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+      // TODO (MEDIUM): handle link case. don't allow edits in this case.
+      return asPageItem(itemState.get(veid.itemId)!);
     }
     return asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
   }
