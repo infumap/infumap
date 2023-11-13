@@ -189,6 +189,7 @@ export const ItemFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement): void => {
+    console.log(visualElement);
     const item = visualElement.displayItem;
     if (isPage(item)) { panic("handleLinkClick: page"); }
     else if (isTable(item)) { panic("handleLinkClick: table"); }

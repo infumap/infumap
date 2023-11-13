@@ -24,7 +24,7 @@ import { CursorEventState } from "../../input/state";
 
 
 
-export const PageSettingsOverlay: Component = () => {
+export const TableEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
   const userStore = useUserStore();
 
@@ -43,7 +43,7 @@ export const PageSettingsOverlay: Component = () => {
     // if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
     //   server.updateItem(noteVisualElement().displayItem);
     // }
-    desktopStore.textEditOverlayInfo.set(null);
+    desktopStore.tableEditOverlayInfo.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {

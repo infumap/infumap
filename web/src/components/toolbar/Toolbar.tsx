@@ -18,7 +18,7 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, Show } from "solid-js";
+import { Component, Match, Show, Switch } from "solid-js";
 import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
@@ -36,6 +36,8 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Page_Info } from './Toolbar_Page_Info';
 import { VesCache } from '../../layout/ves-cache';
+import { Toolbar_Table } from './Toolbar_Table';
+import { Toolbar_Table_Info } from './Toolbar_Table_Info';
 
 
 export const Toolbar: Component = () => {
@@ -90,16 +92,24 @@ export const Toolbar: Component = () => {
         <div class="flex flex-row flex-nowrap">
           <Toolbar_Navigation />
           <Show when={desktopStore.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-            <Show when={desktopStore.textEditOverlayInfo.get() != null}>
-              <Toolbar_Note />
-              <div class="inline-block" style="flex-grow: 1"></div>
-              <Toolbar_Note_Info />
-            </Show>
-            <Show when={desktopStore.textEditOverlayInfo.get() == null}>
-              <Toolbar_Page />
-              <div class="inline-block" style="flex-grow: 1"></div>
-              <Toolbar_Page_Info />
-            </Show>
+            <Switch>
+              <Match when={desktopStore.noteEditOverlayInfo.get() != null}>
+                <Toolbar_Note />
+                <div class="inline-block" style="flex-grow: 1"></div>
+                <Toolbar_Note_Info />
+              </Match>
+              <Match when={desktopStore.tableEditOverlayInfo.get() != null}>
+                <Toolbar_Table />
+                <div class="inline-block" style="flex-grow: 1"></div>
+                <Toolbar_Table_Info />
+              </Match>
+              {/* default */}
+              <Match when={desktopStore.noteEditOverlayInfo.get() == null}>
+                <Toolbar_Page />
+                <div class="inline-block" style="flex-grow: 1"></div>
+                <Toolbar_Page_Info />
+              </Match>
+            </Switch>
           </Show>
         </div>
       </div>

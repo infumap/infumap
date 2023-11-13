@@ -37,7 +37,7 @@ export const Toolbar_Note: Component = () => {
 
   let beforeFormatElement : HTMLDivElement | undefined;
 
-  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(desktopStore.noteEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const compositeVisualElementMaybe = () => {
@@ -124,7 +124,7 @@ export const Toolbar_Note: Component = () => {
       itemState.delete(noteItem().id);
 
       deleted = true;
-      desktopStore.textEditOverlayInfo.set(null);
+      desktopStore.noteEditOverlayInfo.set(null);
       arrange(desktopStore);
     }
   };

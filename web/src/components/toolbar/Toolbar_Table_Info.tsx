@@ -18,21 +18,21 @@
 
 import { Component } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
+import { asTableItem } from "../../items/table-item";
 
 
-export const Toolbar_Page_Info: Component = () => {
+export const Toolbar_Table_Info: Component = () => {
   const desktopStore = useDesktopStore();
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const tableItem = () => asTableItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
 
-  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(pageItem().id); }
-  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + pageItem().id); }
+  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(tableItem().id); }
+  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + tableItem().id); }
 
   return (
     <div class="inline-block text-slate-800 text-sm p-[6px]">
-      <span class="font-mono text-slate-400">{`I: ${pageItem()!.id}`}</span>
+      <span class="font-mono text-slate-400">{`I: ${tableItem()!.id}`}</span>
       <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
       <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
     </div>

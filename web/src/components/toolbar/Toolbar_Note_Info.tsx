@@ -26,9 +26,8 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 export const Toolbar_Note_Info: Component = () => {
   const desktopStore = useDesktopStore();
 
-  const noteVisualElement = () => VesCache.get(desktopStore.textEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(desktopStore.noteEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
-  const noteItemOnInitialize = noteItem();
 
   const compositeVisualElementMaybe = () => {
     const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
@@ -40,7 +39,6 @@ export const Toolbar_Note_Info: Component = () => {
     if (compositeVeMaybe == null) { return null; }
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
-  const compositeItemOnInitializeMaybe = compositeItemMaybe();
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(noteItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + noteItem().id); }

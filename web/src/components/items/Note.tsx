@@ -117,7 +117,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     userStore.getUserMaybe() != null &&
     props.visualElement.mouseIsOver.get() &&
     !desktopStore.itemIsMoving.get() &&
-    desktopStore.textEditOverlayInfo.get() == null &&
+    desktopStore.noteEditOverlayInfo.get() == null &&
     isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
 
   const renderShadow = () =>

@@ -40,7 +40,7 @@ import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { keyHandler } from "../input/key";
 import { setTopLevelPageScrollPositions } from "../layout/navigation";
-import { PageSettingsOverlay } from "./overlay/PageSettingsOverlay";
+import { TableEditOverlay } from "./overlay/TableEditOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -167,11 +167,11 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       <Show when={desktopStore.contextMenuInfo.get() != null}>
         <ContextMenu />
       </Show>
-      <Show when={desktopStore.textEditOverlayInfo.get() != null}>
+      <Show when={desktopStore.noteEditOverlayInfo.get() != null}>
         <NoteEditOverlay />
       </Show>
-      <Show when={desktopStore.pageSettingsOverlayInfo.get() != null}>
-        <PageSettingsOverlay />
+      <Show when={desktopStore.tableEditOverlayInfo.get() != null}>
+        <TableEditOverlay />
       </Show>
       <Show when={desktopStore.searchOverlayVisible.get()}>
         <SearchOverlay />

@@ -31,7 +31,7 @@ export function mouseDoubleClickHandler(
   if (!DoubleClickState.canDoubleClick()) { return; }
   if (desktopStore.currentPage() == null) { return; }
   if (desktopStore.contextMenuInfo.get() != null || desktopStore.editDialogInfo.get() != null) { return; }
-  if (desktopStore.textEditOverlayInfo.get() != null) { return; }
+  if (desktopStore.noteEditOverlayInfo.get() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
   const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);

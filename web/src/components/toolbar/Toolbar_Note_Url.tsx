@@ -32,7 +32,7 @@ export const Toolbar_Note_Url: Component = () => {
 
   let urlTextElement: HTMLInputElement | undefined;
 
-  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.textEditOverlayInfo.get()!.itemPath).itemId)!);
+  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.noteEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();

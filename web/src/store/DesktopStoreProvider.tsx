@@ -44,13 +44,13 @@ export interface DesktopStoreContextModel {
   topLevelVisualElement: InfuSignal<VisualElement>,
 
   // desktop overlays
-  textEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
   searchOverlayVisible: InfuSignal<boolean>,
   editDialogInfo: InfuSignal<EditDialogInfo | null>,
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
   // TODO (HIGH): don't need this. change to table text edit overlay or something.
-  pageSettingsOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  tableEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
 
   currentVisiblePassword: InfuSignal<Uid | null>,
 
@@ -137,8 +137,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
-  const pageSettingsOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
-  const textEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const tableEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const noteEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
@@ -240,11 +240,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
 
   const clear = (): void => {
-    pageSettingsOverlayInfo.set(null);
+    tableEditOverlayInfo.set(null);
     editDialogInfo.set(null);
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
-    textEditOverlayInfo.set(null);
+    noteEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
     currentVisiblePassword.set(null);
     tableScrollPositions.clear();
@@ -327,8 +327,11 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   const getToolbarFocus = (): Veid => {
-    if (textEditOverlayInfo.get() != null) {
-      return VeFns.veidFromPath(textEditOverlayInfo.get()!.itemPath);
+    if (noteEditOverlayInfo.get() != null) {
+      return VeFns.veidFromPath(noteEditOverlayInfo.get()!.itemPath);
+    }
+    if (tableEditOverlayInfo.get() != null) {
+      return VeFns.veidFromPath(tableEditOverlayInfo.get()!.itemPath);
     }
     if (currentPopupSpec() != null) {
       if (currentPopupSpec()!.type == PopupType.Page) {
@@ -366,9 +369,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
     currentVisiblePassword,
 
-    pageSettingsOverlayInfo,
+    tableEditOverlayInfo,
     searchOverlayVisible,
-    textEditOverlayInfo,
+    noteEditOverlayInfo,
     editDialogInfo,
     editUserSettingsInfo,
     contextMenuInfo,

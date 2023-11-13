@@ -40,6 +40,7 @@ import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
+import { arrange } from "../layout/arrange";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -160,6 +161,11 @@ export const TableFns = {
       w: innerBoundsPx.w / tableSizeBl.w,
       h: innerBoundsPx.h / tableSizeBl.h
     };
+    const titleBoundsPx = {
+      x: 0, y: 0,
+      w: innerBoundsPx.w,
+      h: blockSizePx.h,
+    };
     let accumBl = 0;
     let colResizeHitboxes = [];
     for (let i=0; i<table.tableColumns.length-1; ++i) {
@@ -178,6 +184,7 @@ export const TableFns = {
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
         ...colResizeHitboxes,
+        HitboxFns.create(HitboxFlags.Click, titleBoundsPx),
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ],
     };
@@ -261,7 +268,8 @@ export const TableFns = {
 
   handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    // no other behavior in table case.
+    desktopStore.tableEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
+    arrange(desktopStore); // input focus changed.
   },
 
   cloneMeasurableFields: (table: TableMeasurable): TableMeasurable => {
