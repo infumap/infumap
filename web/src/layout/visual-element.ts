@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, Vector } from "../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, Vector, Dimensions } from "../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
@@ -138,9 +138,9 @@ export interface VisualElement {
   titleBoundsPx: BoundingBox | null,
 
   /**
-   * Size of a 1x1 bl block in pixels. Set for line items only.
+   * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
-  oneBlockWidthPx: number | null,
+  blockSizePx: Dimensions | null,
 
   row: number | null,  // Set only if inside table. the actual row number - i.e. not necessarily the visible row number.
   col: number | null,  // Set only if inside table.
@@ -182,7 +182,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
-  oneBlockWidthPx: null,
+  blockSizePx: null,
   titleBoundsPx: null,
   col: null,
   row: null,
@@ -215,7 +215,7 @@ export interface VisualElementSpec {
   flags?: VisualElementFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
-  oneBlockWidthPx?: number,
+  blockSizePx?: Dimensions,
   titleBoundsPx?: BoundingBox,
   col?: number,
   row?: number,
@@ -239,7 +239,7 @@ export const VeFns = {
       resizingFromBoundsPx: null,
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
-      oneBlockWidthPx: null,
+      blockSizePx: null,
       titleBoundsPx: null,
       col: null,
       row: null,
@@ -268,7 +268,7 @@ export const VeFns = {
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
     if (typeof(override.titleBoundsPx) != 'undefined') { result.titleBoundsPx = override.titleBoundsPx; }
-    if (typeof(override.oneBlockWidthPx) != 'undefined') { result.oneBlockWidthPx = override.oneBlockWidthPx; }
+    if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }
     if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }

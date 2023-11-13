@@ -634,7 +634,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const dimensionsBl = () => ItemFns.calcSpatialDimensionsBl(pageItem());
   const aspect = () => dimensionsBl().w / dimensionsBl().h;
   const thumbBoundsPx = () => {

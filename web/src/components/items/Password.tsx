@@ -126,7 +126,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
-  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().x
     : boundsPx().x + oneBlockWidthPx();

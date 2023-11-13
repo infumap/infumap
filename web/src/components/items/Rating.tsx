@@ -58,7 +58,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
 export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
-  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const boundsPx = () => {
     let result = props.visualElement.boundsPx;
     result.w = oneBlockWidthPx();

@@ -127,7 +127,7 @@ export const NoteEditOverlay: Component = () => {
     if (isInside(desktopPx, noteVeBoundsPx())) { return; }
 
     if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
-      server.updateItem(noteVisualElement().displayItem);
+      server.updateItem(noteItem());
     }
     desktopStore.noteEditOverlayInfo.set(null);
     arrange(desktopStore); // input focus changed.
@@ -180,7 +180,7 @@ export const NoteEditOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
       if (userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == userStore.getUser().userId) {
-        server.updateItem(noteVisualElement().displayItem);
+        server.updateItem(noteItem());
         desktopStore.noteEditOverlayInfo.set(null);
       }
     }

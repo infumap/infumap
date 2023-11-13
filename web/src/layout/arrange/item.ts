@@ -364,7 +364,7 @@ const arrangePageWithChildren = (
         parentPath: pageWithChildrenVePath,
         col: 0,
         row: idx,
-        oneBlockWidthPx: LINE_HEIGHT_PX * scale,
+        blockSizePx,
       };
       const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
       const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
@@ -477,7 +477,7 @@ const arrangeComposite = (
       parentPath: compositeVePath,
       col: 0,
       row: idx,
-      oneBlockWidthPx: blockSizePx.w,
+      blockSizePx,
     };
 
     const attachments = arrangeItemAttachments(desktopStore, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, compositeVePath);
@@ -526,6 +526,7 @@ const arrangeTable = (
     boundsPx: tableGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: tableGeometry.hitboxes,
+    blockSizePx,
     parentPath,
   };
   const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);
@@ -557,7 +558,7 @@ const arrangeTable = (
       parentPath: tableVePath,
       col: 0,
       row: idx,
-      oneBlockWidthPx: blockSizePx.w,
+      blockSizePx,
     };
     const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 
@@ -593,7 +594,7 @@ const arrangeTable = (
           col: i + 1,
           row: idx,
           parentPath: tableChildVePath,
-          oneBlockWidthPx: blockSizePx.w
+          blockSizePx
         };
         const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
         const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);

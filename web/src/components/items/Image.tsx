@@ -219,7 +219,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
 
   const renderHighlightsMaybe = () =>
     <Switch>

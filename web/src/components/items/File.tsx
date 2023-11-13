@@ -131,7 +131,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const fileItem = () => asFileItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => boundsPx().x + oneBlockWidthPx();
   const widthPx = () => boundsPx().w - oneBlockWidthPx();
 

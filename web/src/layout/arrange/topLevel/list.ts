@@ -64,7 +64,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
       parentPath: currentPath,
       col: 0,
       row: idx,
-      oneBlockWidthPx: LINE_HEIGHT_PX,
+      blockSizePx: { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX },
     };
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), currentPath);
     const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);

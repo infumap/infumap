@@ -197,7 +197,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
-  const oneBlockWidthPx = () => props.visualElement.oneBlockWidthPx!;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().x + oneBlockWidthPx() * 0.15
