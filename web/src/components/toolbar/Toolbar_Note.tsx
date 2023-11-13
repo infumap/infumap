@@ -132,66 +132,66 @@ export const Toolbar_Note: Component = () => {
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
       <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
-        <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
+        <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
         <Show when={!isInTable()}>
-          <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-          <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+          <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+          <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
         </Show>
-        <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+        <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
         <Show when={!isInTable()}>
-          <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+          <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
         </Show>
-        <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
+        <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
         <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-        <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-        <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-        <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+        <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
+        <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+        <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+        <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
         <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
-        <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+        <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
+        <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
         <Show when={isInTable()}>
-          <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
         <Show when={!isInTable()}>
-          <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
       <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
-        <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+        <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>;
 
   const renderCompositeToolbox = () =>
     <>
       <div class="inline-block">
-        <InfuIconButton icon="square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+        <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
-          <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+          <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
       <div class="inline-block">
         <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
-          <InfuIconButton icon="font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-          <InfuIconButton icon="header-1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-          <InfuIconButton icon="header-2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-          <InfuIconButton icon="header-3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-          <InfuIconButton icon="list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-          <InfuIconButton icon="code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
+          <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
+          <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
+          <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
+          <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
+          <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
+          <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
           <div class="inline-block ml-[12px]"></div>
-          <InfuIconButton icon="align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-          <InfuIconButton icon="align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-          <InfuIconButton icon="align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-          <InfuIconButton icon="align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+          <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
+          <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
+          <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
+          <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
           <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
-          <InfuIconButton icon={`asterisk`} highlighted={false} clickHandler={formatHandler} />
-          <InfuIconButton icon="link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
+          <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
           <Show when={isInTable()}>
-            <InfuIconButton icon="copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+            <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
         </Show>
         <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == noteItem().ownerId}>
-          <InfuIconButton icon="trash" highlighted={false} clickHandler={deleteButtonHandler} />
+          <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
     </>;

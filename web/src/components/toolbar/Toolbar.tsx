@@ -18,7 +18,7 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, Show, createEffect } from "solid-js";
+import { Component, Show } from "solid-js";
 import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
@@ -36,8 +36,6 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Page_Info } from './Toolbar_Page_Info';
 import { VesCache } from '../../layout/ves-cache';
-import { createBooleanSignal } from '../../util/signals';
-import { panic } from '../../util/lang';
 
 
 export const Toolbar: Component = () => {
@@ -108,10 +106,10 @@ export const Toolbar: Component = () => {
         </Show>
         <div class="float-right p-[8px]">
           <Show when={!userStore.getUserMaybe()}>
-            <InfuIconButton icon="sign-in" highlighted={false} clickHandler={handleLogin} />
+            <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
           </Show>
           <Show when={userStore.getUserMaybe()}>
-            <InfuIconButton icon="user" highlighted={false} clickHandler={showUserSettings} />
+            <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
           </Show>
         </div>
       </div>

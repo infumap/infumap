@@ -27,22 +27,22 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
   onCleanup(() => { outerDivElement?.removeEventListener('click', props.clickHandler); });
 
   const icon = () => {
-    if (props.icon == "header-1") { return "header"; }
-    if (props.icon == "header-2") { return "header"; }
-    if (props.icon == "header-3") { return "header"; }
-    if (props.icon == "info-circle-1") { return "info-circle"; }
-    if (props.icon == "info-circle-2") { return "info-circle"; }
-    if (props.icon == "info-circle-3") { return "info-circle"; }
+    if (props.icon == "fa fa-header-1") { return "fa fa-header"; }
+    if (props.icon == "fa fa-header-2") { return "fa fa-header"; }
+    if (props.icon == "fa fa-header-3") { return "fa fa-header"; }
+    if (props.icon == "fa fa-info-circle-1") { return "fa fa-info-circle"; }
+    if (props.icon == "fa fa-info-circle-2") { return "fa fa-info-circle"; }
+    if (props.icon == "fa fa-info-circle-3") { return "fa fa-info-circle"; }
     return props.icon;
   }
 
   const subscript = () => {
-    if (props.icon == "header-1") { return "1"; }
-    if (props.icon == "header-2") { return "2"; }
-    if (props.icon == "header-3") { return "3"; }
-    if (props.icon == "info-circle-1") { return "1"; }
-    if (props.icon == "info-circle-2") { return "2"; }
-    if (props.icon == "info-circle-3") { return "3"; }
+    if (props.icon == "fa fa-header-1") { return "1"; }
+    if (props.icon == "fa fa-header-2") { return "2"; }
+    if (props.icon == "fa fa-header-3") { return "3"; }
+    if (props.icon == "fa fa-info-circle-1") { return "1"; }
+    if (props.icon == "fa fa-info-circle-2") { return "2"; }
+    if (props.icon == "fa fa-info-circle-3") { return "3"; }
     return null;
   }
 
@@ -55,7 +55,7 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
 
   return (
     <div ref={outerDivElement} class={divClass()}>
-      <i class={`fa fa-${icon()}`} />
+      <i class={`${icon()}`} />
       <Show when={subscript() != null}>
         <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>
       </Show>

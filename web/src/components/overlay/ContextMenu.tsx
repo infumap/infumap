@@ -219,15 +219,19 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
     }
   }
 
+  const noop = () => {}
+
   return (
-    <div class="border rounded w-[250px] h-[55px] bg-slate-50 mb-1">
-      <div class="text-slate-800 text-sm ml-1">Add new item here</div>
-      <InfuIconButton icon="sticky-note" highlighted={false} clickHandler={newNoteInContext} />
-      <InfuIconButton icon="folder" highlighted={false} clickHandler={newPageInContext} />
-      <InfuIconButton icon="table" highlighted={false} clickHandler={newTableInContext} />
-      <InfuIconButton icon="star" highlighted={false} clickHandler={newRatingInContext} />
-      <InfuIconButton icon="link" highlighted={false} clickHandler={newLinkInContext} />
-      <InfuIconButton icon="eye-slash" highlighted={false} clickHandler={newPasswordInContext} />
+    <div class="border rounded w-[100px] h-[205px] bg-slate-50 mb-1">
+      <div class="text-sm pt-[3px]"><InfuIconButton icon="fa fa-sticky-note" highlighted={false} clickHandler={newNoteInContext} /> Note</div>
+      <div class="text-sm"><InfuIconButton icon="fa fa-folder" highlighted={false} clickHandler={newPageInContext} /> Page</div>
+      <div class="text-sm"><InfuIconButton icon="fa fa-table" highlighted={false} clickHandler={newTableInContext} /> Table</div>
+      <div class="text-sm"><InfuIconButton icon="fa fa-star" highlighted={false} clickHandler={newRatingInContext} /> Rating</div>
+      <div class="text-sm"><InfuIconButton icon="fa fa-link" highlighted={false} clickHandler={newLinkInContext} /> Link</div>
+      <div class="text-sm"><InfuIconButton icon="fa fa-eye-slash" highlighted={false} clickHandler={newPasswordInContext} /> Password</div>
+      <div class="text-sm text-slate-500"><i class="fa fa-image w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> Image</div>
+      <div class="text-sm text-slate-500"><i class="fa fa-file w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> File</div>
+      <div class="text-sm text-slate-500"><span class="w-[22px] h-[16px] inline-block text-center ml-[3px] relative">∑</span> Equation</div>
     </div>
   );
 }

@@ -33,6 +33,9 @@ export interface DesktopStoreContextModel {
   noteUrlOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   noteFormatOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   pageColorOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  pageAspectOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  pageWidthOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  pageNumColsOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   isPanicked: InfuSignal<boolean>,
 
   desktopBoundsPx: () => BoundingBox,
@@ -376,6 +379,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     noteUrlOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     noteFormatOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     pageColorOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+    pageAspectOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+    pageWidthOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+    pageNumColsOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
   };
 
   return (

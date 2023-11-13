@@ -51,11 +51,11 @@ export const Toolbar_Navigation: Component = () => {
   return (
     <div class="inline-block p-[4px] flex-grow-0">
       <Show when={userStore.getUserMaybe()}>
-        <InfuIconButton icon="home" highlighted={false} clickHandler={handleHome} />        
+        <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} />        
       </Show>
-      <InfuIconButton icon="search" highlighted={false} clickHandler={handleSearchClick} />
-      <InfuIconButton icon="arrow-circle-up" highlighted={false} clickHandler={handleUp} />
-      <InfuIconButton icon="arrow-circle-left" highlighted={false} clickHandler={handleBack} />
+      <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} />
+      <InfuIconButton icon="fa fa-arrow-circle-up" highlighted={false} clickHandler={handleUp} />
+      <InfuIconButton icon="fa fa-arrow-circle-left" highlighted={false} clickHandler={handleBack} />
     </div>
   )
 }

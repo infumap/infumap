@@ -34,6 +34,9 @@ import { Toolbar } from "./toolbar/Toolbar";
 import { Toolbar_Note_Url } from "./toolbar/Toolbar_Note_Url";
 import { Toolbar_Note_Format } from "./toolbar/Toolbar_Note_Format";
 import { Toolbar_Page_Color } from "./toolbar/Toolbar_Page_Color";
+import { Toolbar_Page_Aspect } from "./toolbar/Toolbar_Page_Aspect";
+import { Toolbar_Page_Width } from "./toolbar/Toolbar_Page_Width";
+import { Toolbar_Page_NumCols } from "./toolbar/Toolbar_Page_NumCols";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -114,6 +117,15 @@ export const Main: Component = () => {
       </Show>
       <Show when={desktopStore.pageColorOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Color />
+      </Show>
+      <Show when={desktopStore.pageAspectOverlayInfoMaybe.get() != null}>
+        <Toolbar_Page_Aspect />
+      </Show>
+      <Show when={desktopStore.pageWidthOverlayInfoMaybe.get() != null}>
+        <Toolbar_Page_Width />
+      </Show>
+      <Show when={desktopStore.pageNumColsOverlayInfoMaybe.get() != null}>
+        <Toolbar_Page_NumCols />
       </Show>
 
     </div>

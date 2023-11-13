@@ -22,21 +22,23 @@ import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
-import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
-import { InfuColorButton } from "../library/InfuColorButton";
+import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { arrange } from "../../layout/arrange";
 import { server } from "../../server";
 
 
-export const Toolbar_Page_Color: Component = () => {
+export const Toolbar_Page_Width: Component = () => {
   const desktopStore = useDesktopStore();
+
+  let widthTextElement: HTMLInputElement | undefined;
 
   const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) { return; }
-    desktopStore.pageColorOverlayInfoMaybe.set(null);
+    if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
+    desktopStore.pageWidthOverlayInfoMaybe.set(null);
     server.updateItem(pageItem());
   };
 
@@ -49,16 +51,16 @@ export const Toolbar_Page_Color: Component = () => {
     ev.stopPropagation();
   };
 
-  const colorBoxBoundsPx = () => ({
-    x: desktopStore.pageColorOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.pageColorOverlayInfoMaybe.get()!.topLeftPx.y,
-    w: 96, h: 56
-  });
+  const handleWidthChange = () => {
+    pageItem().innerSpatialWidthGr = Math.round(parseFloat(widthTextElement!.value)) * GRID_SIZE;
+    arrange(desktopStore);
+  };
 
-  const handleClick = (col: number) => {
-    pageItem().backgroundColorIndex = col;
-    desktopStore.pageColorOverlayInfoMaybe.set(desktopStore.pageColorOverlayInfoMaybe.get());
-  }
+  const entryBoxBoundsPx = () => ({
+    x: desktopStore.pageWidthOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: desktopStore.pageWidthOverlayInfoMaybe.get()!.topLeftPx.y,
+    w: 300, h: 30
+  });
 
   return (
     <div id="formatOverlay"
@@ -68,19 +70,14 @@ export const Toolbar_Page_Color: Component = () => {
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
       <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-           style={`left: ${colorBoxBoundsPx().x}px; top: ${colorBoxBoundsPx().y}px; width: ${colorBoxBoundsPx().w}px; height: ${colorBoxBoundsPx().h}px`}>
-        <div class="pt-[6px] pl-[4px]">
-          <div class="inline-block pl-[2px]"><InfuColorButton col={0} onClick={handleClick} /></div>
-          <div class="inline-block pl-[2px]"><InfuColorButton col={1} onClick={handleClick} /></div>
-          <div class="inline-block pl-[2px]"><InfuColorButton col={2} onClick={handleClick} /></div>
-          <div class="inline-block pl-[2px]"><InfuColorButton col={3} onClick={handleClick} /></div>
-        </div>
-        <div class="pt-0 pl-[4px]">
-          <div class="inline-block pl-[2px]"><InfuColorButton col={4} onClick={handleClick} /></div>
-          <div class="inline-block pl-[2px]"><InfuColorButton col={5} onClick={handleClick} /></div>
-          <div class="inline-block pl-[2px]"><InfuColorButton col={6} onClick={handleClick} /></div>
-          <div class="inline-block pl-[2px]"><InfuColorButton col={7} onClick={handleClick} /></div>
-        </div>
+           style={`left: ${entryBoxBoundsPx().x}px; top: ${entryBoxBoundsPx().y}px; width: ${entryBoxBoundsPx().w}px; height: ${entryBoxBoundsPx().h}px`}>
+        <span class="text-sm ml-1 mr-2">Inner Block Width:</span>
+        <input ref={widthTextElement}
+               class="border border-slate-300 rounded w-[100px] pl-1"
+               autocomplete="on"
+               value={pageItem().innerSpatialWidthGr / GRID_SIZE}
+               type="text"
+               onChange={handleWidthChange} />
       </div>
     </div>
   );
