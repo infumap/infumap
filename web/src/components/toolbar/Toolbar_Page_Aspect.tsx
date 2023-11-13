@@ -39,6 +39,7 @@ export const Toolbar_Page_Aspect: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
     desktopStore.pageAspectOverlayInfoMaybe.set(null);
+    arrange(desktopStore);
     server.updateItem(pageItem());
   };
 

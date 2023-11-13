@@ -39,6 +39,7 @@ export const Toolbar_Page_Width: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
     desktopStore.pageWidthOverlayInfoMaybe.set(null);
+    arrange(desktopStore);
     server.updateItem(pageItem());
   };
 

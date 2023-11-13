@@ -52,24 +52,9 @@ export const Toolbar: Component = () => {
     return asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
   }
 
-  const subPageMaybe = () => {
-    if (desktopStore.currentPopupSpec() == null) { return null; }
-    if (desktopStore.currentPopupSpec()!.type != PopupType.Page) { return null; }
-    const veMaybe = VesCache.get(desktopStore.currentPopupSpec()!.vePath);
-    if (veMaybe == null) { return null;}
-    const pageItem = asPageItem(veMaybe!.get().displayItem);
-    return pageItem;
-  }
-
   const title = () => {
     if (currentPageMaybe() == null) { return ""; }
     return currentPageMaybe()!.title;
-  }
-
-  const subTitleMaybe = () => {
-    const pageMaybe = subPageMaybe();
-    if (pageMaybe == null) { return null; }
-    return pageMaybe.title;
   }
 
   const mainTitleColor = () => {
@@ -77,14 +62,6 @@ export const Toolbar: Component = () => {
     // as a bit of a hack, change in color is signalled by re-setting this instead.
     desktopStore.pageColorOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
-  };
-
-  const subTitleColor = () => {
-    // item state is not solid-js signals.
-    // as a bit of a hack, change in color is signalled by re-setting this instead.
-    desktopStore.pageColorOverlayInfoMaybe.get();
-    const pageMaybe = subPageMaybe();
-    return `${hexToRGBA(Colors[pageMaybe == null ? 0 : pageMaybe!.backgroundColorIndex], 1.0)}; `;
   };
 
   return (
@@ -99,11 +76,6 @@ export const Toolbar: Component = () => {
         <div class="font-bold p-[4px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
           {title()}
         </div>
-        <Show when={subTitleMaybe() != null}>
-          <div class="font-bold p-[4px] inline-block" style={`font-size: 16px; color: ${subTitleColor()}`}>
-            {subTitleMaybe()}
-          </div>
-        </Show>
         <div class="float-right p-[8px]">
           <Show when={!userStore.getUserMaybe()}>
             <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />

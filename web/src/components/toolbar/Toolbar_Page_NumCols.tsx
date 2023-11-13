@@ -39,6 +39,7 @@ export const Toolbar_Page_NumCols: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
     desktopStore.pageNumColsOverlayInfoMaybe.set(null);
+    arrange(desktopStore);
     server.updateItem(pageItem());
   };
 

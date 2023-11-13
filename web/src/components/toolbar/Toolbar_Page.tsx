@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, createEffect } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { InfuIconButton } from "../library/InfuIconButton";
@@ -28,6 +28,10 @@ import { createBooleanSignal } from "../../util/signals";
 import { GRID_SIZE } from "../../constants";
 import { useUserStore } from "../../store/UserStoreProvider";
 import { server } from "../../server";
+import { PermissionFlags } from "../../items/base/permission-flags-item";
+import { VesCache } from "../../layout/ves-cache";
+import { hexToRGBA } from "../../util/color";
+import { Colors } from "../../style";
 
 
 export const Toolbar_Page: Component = () => {
@@ -72,6 +76,16 @@ export const Toolbar_Page: Component = () => {
     panic("unexpected arrange algorithm " + aa);
   }
 
+  const isSortedByTitle = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return pageItem().orderChildrenBy == "title[ASC]";
+  }
+
+  const isPublic= () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return !(!(pageItem().permissionFlags & PermissionFlags.Public));
+  }
+
   const colorNumber = () => {
     desktopStore.pageColorOverlayInfoMaybe.get();
     return pageItem().backgroundColorIndex;
@@ -92,9 +106,30 @@ export const Toolbar_Page: Component = () => {
     return pageItem().gridNumberOfColumns;
   }
 
-  const orderByTitle = () => {};
+  const handleOrderChildrenBy = async () => {
+    const orderByTitle = pageItem().orderChildrenBy;
+    if (orderByTitle == "") {
+      pageItem().orderChildrenBy = "title[ASC]";
+    } else {
+      pageItem().orderChildrenBy = "";
+    }
+    itemState.sortChildren(pageItem().id);
+    arrange(desktopStore);
+    server.updateItem(pageItem());
+    rerenderToolbar();
+  }
 
-  const togglePublic = () => {};
+  const handleChangePermissions = () => {
+    if (pageItem().permissionFlags & PermissionFlags.Public) {
+      pageItem().permissionFlags &= ~PermissionFlags.Public;
+    } else {
+      pageItem().permissionFlags |= PermissionFlags.Public;
+    }
+    arrange(desktopStore);
+    server.updateItem(pageItem());
+    rerenderToolbar();
+  }
+
 
   const deleteButtonHandler = () => {};
 
@@ -118,8 +153,35 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 } });
   };
 
+  const subPageMaybe = () => {
+    if (desktopStore.currentPopupSpec() == null) { return null; }
+    if (desktopStore.currentPopupSpec()!.type != PopupType.Page) { return null; }
+    const veMaybe = VesCache.get(desktopStore.currentPopupSpec()!.vePath);
+    if (veMaybe == null) { return null;}
+    const pageItem = asPageItem(veMaybe!.get().displayItem);
+    return pageItem;
+  }
+
+  const subTitleMaybe = () => {
+    const pageMaybe = subPageMaybe();
+    if (pageMaybe == null) { return null; }
+    return pageMaybe.title;
+  }
+
+  const subTitleColor = () => {
+    // item state is not solid-js signals.
+    // as a bit of a hack, change in color is signalled by re-setting this instead.
+    desktopStore.pageColorOverlayInfoMaybe.get();
+    const pageMaybe = subPageMaybe();
+    return `${hexToRGBA(Colors[pageMaybe == null ? 0 : pageMaybe!.backgroundColorIndex], 1.0)}; `;
+  };
+
+
   return (
     <div class="inline-block p-[4px] flex-grow-0">
+      <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
+        {subTitleMaybe()}
+      </div>
       <div class="inline-block w-[70px] border border-slate-400 text-center rounded-md ml-[10px]" style={`font-size: 13px;`}>
         {arrangeAlgoText()}
       </div>
@@ -137,8 +199,8 @@ export const Toolbar_Page: Component = () => {
       <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>
         <i class="bi-layout-three-columns" /> <span style={`font-size: 13px;`}>{numColsText()}</span>
       </div>
-      <InfuIconButton icon="bi-sort-alpha-down" highlighted={false} clickHandler={orderByTitle} />
-      <InfuIconButton icon="bi-globe-americas" highlighted={false} clickHandler={togglePublic} />
+      <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+      <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == pageItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>

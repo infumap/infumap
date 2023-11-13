@@ -25,6 +25,7 @@ import { isInside } from "../../util/geometry";
 import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { server } from "../../server";
+import { arrange } from "../../layout/arrange";
 
 
 export const Toolbar_Page_Color: Component = () => {
@@ -37,6 +38,7 @@ export const Toolbar_Page_Color: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) { return; }
     desktopStore.pageColorOverlayInfoMaybe.set(null);
+    arrange(desktopStore);
     server.updateItem(pageItem());
   };
 

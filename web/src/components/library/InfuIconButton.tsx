@@ -48,9 +48,9 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
 
   const divClass = () => {
     if (props.highlighted) {
-      return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] bg-slate-200 hover:bg-slate-300 relative";
+      return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] bg-slate-300 hover:bg-slate-400 relative";
     }
-    return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-200 relative";
+    return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-300 relative";
   }
 
   return (
