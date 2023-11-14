@@ -35,6 +35,7 @@ import { asPlaceholderItem, isPlaceholder, PlaceholderFns } from '../placeholder
 import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
 import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
+import { HitboxMeta } from '../../layout/hitbox';
 
 
 // Poor man's polymorphism
@@ -173,10 +174,10 @@ export const ItemFns = {
     panic(`Unknown item type: ${item.itemType}`);
   },
 
-  handleClick: (visualElementSignal: VisualElementSignal, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
+  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
     const item = visualElementSignal.get().displayItem;
     if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), desktopStore, userStore); }
-    else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), desktopStore, userStore); }
+    else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, desktopStore, userStore); }
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), desktopStore); }
@@ -189,7 +190,6 @@ export const ItemFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement): void => {
-    console.log(visualElement);
     const item = visualElement.displayItem;
     if (isPage(item)) { panic("handleLinkClick: page"); }
     else if (isTable(item)) { panic("handleLinkClick: table"); }

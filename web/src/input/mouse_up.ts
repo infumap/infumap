@@ -88,8 +88,8 @@ export function mouseUpHandler(
     case MouseAction.ResizingColumn:
       DoubleClickState.preventDoubleClick();
       const widthGr = activeVisualElement.linkItemMaybe == null
-        ? asTableItem(activeItem).tableColumns[MouseActionState.get().hitMeta!.resizeColNumber!].widthGr
-        : asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get().hitMeta!.resizeColNumber!].widthGr;
+        ? asTableItem(activeItem).tableColumns[MouseActionState.get().hitMeta!.colNum!].widthGr
+        : asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get().hitMeta!.colNum!].widthGr;
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != widthGr) {
         server.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
@@ -110,7 +110,7 @@ export function mouseUpHandler(
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, desktopStore, userStore);
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, desktopStore, userStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
         DoubleClickState.preventDoubleClick();

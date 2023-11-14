@@ -151,7 +151,7 @@ function changeMouseActionStateMaybe(
   } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ColResize) > 0) {
     MouseActionState.get().startPosBl = null;
     MouseActionState.get().startHeightBl = null;
-    const colNum = MouseActionState.get().hitMeta!.resizeColNumber!;
+    const colNum = MouseActionState.get().hitMeta!.colNum!;
     if (activeVisualElement.linkItemMaybe != null) {
       MouseActionState.get().startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
     } else {
@@ -246,9 +246,9 @@ function mouseAction_resizingColumn(deltaPx: Vector, desktopStore: DesktopStoreC
   if (newWidthBl < 1) { newWidthBl = 1.0; }
 
   if (activeVisualElement.linkItemMaybe != null) {
-    asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
+    asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthBl * GRID_SIZE;
   } else {
-    asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.resizeColNumber!].widthGr = newWidthBl * GRID_SIZE;
+    asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthBl * GRID_SIZE;
   }
 
   arrange(desktopStore);

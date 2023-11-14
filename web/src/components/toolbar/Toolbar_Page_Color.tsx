@@ -34,21 +34,29 @@ export const Toolbar_Page_Color: Component = () => {
   const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) { return; }
+    if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) {
+      ev.stopPropagation();
+      return;
+    }
     desktopStore.pageColorOverlayInfoMaybe.set(null);
     arrange(desktopStore);
     server.updateItem(pageItem());
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
+    if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) {
+      ev.stopPropagation();
+      return;
+    }
     CursorEventState.setFromMouseEvent(ev);
-    ev.stopPropagation();
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
+    if (isInside(CursorEventState.getLatestClientPx(), colorBoxBoundsPx())) {
+      ev.stopPropagation();
+      return;
+    }
   };
 
   const colorBoxBoundsPx = () => ({

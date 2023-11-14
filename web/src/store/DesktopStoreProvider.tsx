@@ -45,12 +45,11 @@ export interface DesktopStoreContextModel {
 
   // desktop overlays
   noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  tableEditOverlayInfo: InfuSignal<TableEditOverlayInfo | null>,
   searchOverlayVisible: InfuSignal<boolean>,
   editDialogInfo: InfuSignal<EditDialogInfo | null>,
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
-  // TODO (HIGH): don't need this. change to table text edit overlay or something.
-  tableEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
 
   currentVisiblePassword: InfuSignal<Uid | null>,
 
@@ -90,6 +89,13 @@ export interface OverlayCoordinates {
 
 export interface EditOverlayInfo {
   itemPath: VisualElementPath
+}
+
+export interface TableEditOverlayInfo {
+  itemPath: VisualElementPath,
+  colNum: number | null,
+  startBl: number | null,
+  endBl: number | null,
 }
 
 export interface ContextMenuInfo {
@@ -137,7 +143,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
-  const tableEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const tableEditOverlayInfo = createInfuSignal<TableEditOverlayInfo | null>(null);
   const noteEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);

@@ -57,7 +57,9 @@ export interface Hitbox {
 }
 
 export interface HitboxMeta {
-  resizeColNumber?: number
+  colNum?: number,
+  startBl?: number,
+  endBl?: number,
 }
 
 export const HitboxFns = {
@@ -76,7 +78,15 @@ export const HitboxFns = {
   
   createMeta: (meta: HitboxMeta) => {
     let result: HitboxMeta = {};
-    if (typeof(meta.resizeColNumber) != 'undefined') { result.resizeColNumber = meta.resizeColNumber; }
+    if (typeof(meta.colNum) != 'undefined') {
+      result.colNum = meta.colNum;
+    }
+    if (typeof(meta.startBl) != 'undefined') {
+      result.startBl = meta.startBl;
+    }
+    if (typeof(meta.endBl) != 'undefined') {
+      result.endBl = meta.endBl;
+    }
     return result;
   },
   
@@ -84,7 +94,7 @@ export const HitboxFns = {
     if (a.type != b.type) { return 1; }
     if (a.meta != b.meta) {
       if (a.meta == null || b.meta == null) { return 1; }
-      if (a.meta.resizeColNumber != b.meta.resizeColNumber) { return 1; }
+      if (a.meta.colNum != b.meta.colNum) { return 1; }
     }
     return compareBoundingBox(a.boundsPx, b.boundsPx);
   },

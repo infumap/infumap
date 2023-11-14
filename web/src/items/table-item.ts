@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
-import { HitboxFlags, HitboxFns } from "../layout/hitbox";
+import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
@@ -168,15 +168,36 @@ export const TableFns = {
     };
     let accumBl = 0;
     let colResizeHitboxes = [];
-    for (let i=0; i<table.tableColumns.length-1; ++i) {
+    let colClickHitboxes = [];
+    for (let i=0; i<table.tableColumns.length; ++i) {
+      const startBl = accumBl;
+      const startXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
       accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
-      if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
-      colResizeHitboxes.push(
-        HitboxFns.create(
+      let endXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
+      let endBl = accumBl;
+      if (endXPx > innerBoundsPx.w) {
+        endXPx = innerBoundsPx.w;
+        endBl = table.spatialWidthGr / GRID_SIZE;
+      }
+      if (i == table.tableColumns.length-1) {
+        endXPx = innerBoundsPx.w;
+        endBl = endBl = table.spatialWidthGr / GRID_SIZE;
+      }
+      if (accumBl < table.spatialWidthGr / GRID_SIZE && i < table.tableColumns.length-1) {
+        colResizeHitboxes.push(HitboxFns.create(
           HitboxFlags.ColResize,
-          { x: accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX/2, y: blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h - blockSizePx.h },
-          HitboxFns.createMeta({ resizeColNumber: i })
+          { x: endXPx, y: blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h - blockSizePx.h },
+          HitboxFns.createMeta({ colNum: i })
         ));
+      }
+      if (table.flags & TableFlags.ShowColHeader) {
+        colClickHitboxes.push(HitboxFns.create(
+          HitboxFlags.Click,
+          { x: startXPx, y: blockSizePx.h, w: endXPx - startXPx, h: blockSizePx.h },
+          HitboxFns.createMeta({ colNum: i, startBl, endBl })
+        ));
+      }
+      if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
     }
     return {
       boundsPx,
@@ -184,6 +205,7 @@ export const TableFns = {
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
         ...colResizeHitboxes,
+        ...colClickHitboxes,
         HitboxFns.create(HitboxFlags.Click, titleBoundsPx),
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ],
@@ -266,9 +288,14 @@ export const TableFns = {
     panic("not table measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
+  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    desktopStore.tableEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
+    desktopStore.tableEditOverlayInfo.set({
+      itemPath: VeFns.veToPath(visualElement),
+      colNum: hitboxMeta == null ? null : hitboxMeta.colNum!,
+      startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
+      endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,
+    });
     arrange(desktopStore); // input focus changed.
   },
 

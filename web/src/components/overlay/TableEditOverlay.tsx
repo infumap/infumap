@@ -19,7 +19,7 @@
 import { Component, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { useUserStore } from "../../store/UserStoreProvider";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { GRID_SIZE, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
@@ -28,7 +28,6 @@ import { isInside } from "../../util/geometry";
 import { server } from "../../server";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { arrange } from "../../layout/arrange";
-
 
 
 export const TableEditOverlay: Component = () => {
@@ -42,9 +41,17 @@ export const TableEditOverlay: Component = () => {
   const tableItem = () => asTableItem(tableVisualElement().displayItem);
   const tableItemOnInitialize = tableItem();
   const editBoxBoundsPx = () => {
-    const r = tableVeBoundsPx();
-    r.h = tableVisualElement().blockSizePx!.h;
-    return r;
+    const blockSizePx = tableVisualElement().blockSizePx!;
+    const result = tableVeBoundsPx();
+    result.h = blockSizePx.h;
+    const overlayInfo = desktopStore.tableEditOverlayInfo.get()!;
+    if (overlayInfo.colNum == null) {
+      return result;
+    }
+    result.x += overlayInfo.startBl! * blockSizePx.w;
+    result.w = (overlayInfo.endBl! - overlayInfo.startBl!) * blockSizePx.w;
+    result.y += tableVisualElement().blockSizePx!.h;
+    return result;
   };
 
   onMount(() => {
@@ -85,8 +92,19 @@ export const TableEditOverlay: Component = () => {
     }
   }
 
+  const editingValue = () => {
+    const overlayInfo = desktopStore.tableEditOverlayInfo.get()!;
+    if (overlayInfo.colNum == null) { return tableItem().title }
+    return tableItem().tableColumns[overlayInfo.colNum!].name;
+  }
+
   const inputOnInputHandler = () => {
-    tableItem().title = textElement!.value;
+    const overlayInfo = desktopStore.tableEditOverlayInfo.get()!;
+    if (overlayInfo.colNum == null) {
+      tableItem().title = textElement!.value;
+    } else {
+      return tableItem().tableColumns[overlayInfo.colNum!].name = textElement!.value;
+    }
   }
 
   return (
@@ -104,7 +122,7 @@ export const TableEditOverlay: Component = () => {
                  `top: ${editBoxBoundsPx().y}px; ` +
                  `width: ${editBoxBoundsPx().w}px; ` +
                  `height: ${editBoxBoundsPx().h}px;`}
-          value={tableItem().title}
+          value={editingValue()}
           disabled={userStore.getUserMaybe() == null || userStore.getUser().userId != tableItem().ownerId}
           onMouseDown={inputMouseDownHandler}
           onInput={inputOnInputHandler} />
