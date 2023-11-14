@@ -119,6 +119,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
         y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
       };
+      const naturalAspect = (desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h);
+      asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
 
       server.addItem(newItem, null);
       itemState.add(newItem);
