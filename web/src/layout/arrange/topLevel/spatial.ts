@@ -17,8 +17,8 @@
 */
 
 import { GRID_SIZE } from "../../../constants";
-import { LinkFns, isLink } from "../../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../../items/page-item";
+import { LinkFns } from "../../../items/link-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
 import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { panic } from "../../../util/lang";
@@ -96,7 +96,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
       const li = LinkFns.create(pageItem.ownerId, pageItem.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
       li.id = POPUP_LINK_ID;
       const widthGr = PageFns.getPopupWidthGr(pageItem);
-      const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * GRID_SIZE;
+      const heightGr = Math.round((widthGr / pageItem.naturalAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;
       li.spatialWidthGr = widthGr;
       // assume center positioning.
       li.spatialPositionGr = {

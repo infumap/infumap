@@ -121,6 +121,19 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       };
       const naturalAspect = (desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h);
       asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
+      const parent = itemState.get(newItem.parentId)!;
+      if (isPage(parent)) {
+        const page = asPageItem(newItem);
+        page.popupPositionGr = {
+          x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
+          y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.33 / GRID_SIZE) * GRID_SIZE
+        };
+        const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
+        const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;
+        const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
+        const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
+        asPageItem(newItem).popupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
+      }
 
       server.addItem(newItem, null);
       itemState.add(newItem);
