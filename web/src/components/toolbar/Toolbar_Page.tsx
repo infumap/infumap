@@ -131,7 +131,9 @@ export const Toolbar_Page: Component = () => {
   }
 
 
-  const deleteButtonHandler = () => {};
+  const deleteButtonHandler = () => {
+
+  };
 
   const handleColorClick = () => {
     desktopStore.pageColorOverlayInfoMaybe.set(
@@ -153,35 +155,20 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 } });
   };
 
-  const subPageMaybe = () => {
-    if (desktopStore.currentPopupSpec() == null) { return null; }
-    if (desktopStore.currentPopupSpec()!.type != PopupType.Page) { return null; }
-    const veMaybe = VesCache.get(desktopStore.currentPopupSpec()!.vePath);
-    if (veMaybe == null) { return null;}
-    const pageItem = asPageItem(veMaybe!.get().displayItem);
-    return pageItem;
-  }
-
-  const subTitleMaybe = () => {
-    const pageMaybe = subPageMaybe();
-    if (pageMaybe == null) { return null; }
-    return pageMaybe.title;
-  }
-
   const subTitleColor = () => {
-    // item state is not solid-js signals.
-    // as a bit of a hack, change in color is signalled by re-setting this instead.
+    // item state has no solid-js signals.
+    // as a bit of a hack, change in title/color is signalled by re-setting this instead.
     desktopStore.pageColorOverlayInfoMaybe.get();
-    const pageMaybe = subPageMaybe();
-    return `${hexToRGBA(Colors[pageMaybe == null ? 0 : pageMaybe!.backgroundColorIndex], 1.0)}; `;
+    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
   };
-
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">
-      <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
-        {subTitleMaybe()}
-      </div>
+      <Show when={desktopStore.getToolbarFocus().itemId != desktopStore.currentPage()!.itemId }>
+        <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
+          {pageItem().title}
+        </div>
+      </Show>
       <div class="inline-block w-[70px] border border-slate-400 text-center rounded-md ml-[10px]" style={`font-size: 13px;`}>
         {arrangeAlgoText()}
       </div>

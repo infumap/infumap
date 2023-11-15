@@ -55,7 +55,7 @@ export interface DesktopStoreContextModel {
 
   clear: () => void,
 
-  getToolbarFocus: () => Veid | null,
+  getToolbarFocus: () => Veid,
 
   itemIsMoving: InfuSignal<boolean>,
 
