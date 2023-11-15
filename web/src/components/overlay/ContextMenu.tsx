@@ -120,10 +120,9 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
       };
       const naturalAspect = (desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h);
-      asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
-      const parent = itemState.get(newItem.parentId)!;
-      if (isPage(parent)) {
+      if (isPage(newItem)) {
         const page = asPageItem(newItem);
+        asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
         page.popupPositionGr = {
           x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
           y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
