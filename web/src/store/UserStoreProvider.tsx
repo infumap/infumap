@@ -41,6 +41,8 @@ export type User = {
   username: string,
   userId: Uid,
   homePageId: Uid,
+  trashPageId: Uid,
+  dockPageId: Uid,
   sessionId: Uid
 }
 
@@ -73,7 +75,7 @@ export function UserStoreProvider(props: UserStoreContextProps) {
         return { success: false, err: r.err };
       }
       const cookiePayload = JSON.stringify(
-        { username, userId: r.userId, homePageId: r.homePageId, sessionId: r.sessionId });
+        { username, userId: r.userId, homePageId: r.homePageId, trashPageId: r.trashPageId, dockPageId: r.dockPageId, sessionId: r.sessionId });
       setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
       setSessionDataString(cookiePayload);
       return { success: true, err: null };

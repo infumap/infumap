@@ -75,6 +75,10 @@ pub struct LoginResponse {
   pub user_id: Option<String>,
   #[serde(rename="homePageId")]
   pub home_page_id: Option<String>,
+  #[serde(rename="trashPageId")]
+  pub trash_page_id: Option<String>,
+  #[serde(rename="dockPageId")]
+  pub dock_page_id: Option<String>,
 }
 
 pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -84,7 +88,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     // TODO (LOW): rate limit login requests properly.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
-      success: false, session_id: None, user_id: None, home_page_id: None,
+      success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, dock_page_id: None,
       err: Some(String::from(msg))
     });
   }
@@ -143,6 +147,8 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
         session_id: Some(session.id),
         user_id: Some(user.id),
         home_page_id: Some(user.home_page_id),
+        trash_page_id: Some(user.trash_page_id),
+        dock_page_id: Some(user.dock_page_id),
         err: None
       };
       return json_response(&result);
