@@ -240,7 +240,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   const NATURAL_BLOCK_SIZE_PX: i64 = 24;
   let page_size_px = sanitize_page_size(payload.page_width_px, payload.page_height_px);
   let page_width_bl = page_size_px.w / NATURAL_BLOCK_SIZE_PX;
-  let natural_aspect = (page_size_px.w as f64) / (page_size_px.h as f64);
+  let natural_aspect = ((page_size_px.w as f64) / (page_size_px.h as f64) * 1000.0).round() / 1000.0;
   if payload.username.len() < 3 {
     return json_response(&RegisterResponse { success: false, err: Some(String::from("username must be 3 or more characters")) } )
   }

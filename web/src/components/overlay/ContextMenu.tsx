@@ -126,7 +126,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         const page = asPageItem(newItem);
         page.popupPositionGr = {
           x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
-          y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.33 / GRID_SIZE) * GRID_SIZE
+          y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
         };
         const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
         const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;

@@ -424,6 +424,7 @@ impl Clone for Item {
 
 
 pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
+  let inner_spatial_height_br: i64 = (inner_spatial_width_br as f64 / natural_aspect) as i64;
   Item {
     item_type: ItemType::Page,
     owner_id: String::from(owner_id),
@@ -447,9 +448,9 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     natural_aspect: Some(natural_aspect),
     background_color_index: Some(0),
     arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::SpatialStretch),
-    popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
+    popup_position_gr: Some(Vector { x: inner_spatial_width_br / 2 * GRID_SIZE, y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE }),
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
-    popup_width_gr: Some(10 * GRID_SIZE),
+    popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
     url: None,
     format: None,
