@@ -423,7 +423,7 @@ impl Clone for Item {
 }
 
 
-pub fn default_page(owner_id: &str, title: &str, home_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
+pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_spatial_width_br: i64, natural_aspect: f64) -> Item {
   Item {
     item_type: ItemType::Page,
     owner_id: String::from(owner_id),
@@ -450,7 +450,89 @@ pub fn default_page(owner_id: &str, title: &str, home_page_id: Uid, inner_spatia
     popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(10 * GRID_SIZE),
-    grid_number_of_columns: Some(10),
+    grid_number_of_columns: Some(4),
+    url: None,
+    format: None,
+    table_columns: None,
+    image_size_px: None,
+    thumbnail: None,
+    rating: None,
+    link_to_id: None,
+    link_to_base_url: None,
+    text: None,
+  }
+}
+
+
+pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f64) -> Item {
+  Item {
+    item_type: ItemType::Page,
+    owner_id: String::from(owner_id),
+    id: trash_page_id,
+    parent_id: None,
+    relationship_to_parent: RelationshipToParent::NoParent,
+    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    ordering: vec![128],
+    order_children_by: Some(String::from("")),
+    spatial_position_gr: Some(Vector { x: 0, y: 0 }),
+    spatial_width_gr: Some(60 * GRID_SIZE),
+    spatial_height_gr: None,
+    title: Some("Trash".to_owned()),
+    original_creation_date: None,
+    mime_type: None,
+    file_size_bytes: None,
+    flags: None,
+    permission_flags: Some(0),
+    inner_spatial_width_gr: Some(60 * GRID_SIZE),
+    natural_aspect: Some(natural_aspect),
+    background_color_index: Some(0),
+    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::Grid),
+    popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
+    popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
+    popup_width_gr: Some(10 * GRID_SIZE),
+    grid_number_of_columns: Some(4),
+    url: None,
+    format: None,
+    table_columns: None,
+    image_size_px: None,
+    thumbnail: None,
+    rating: None,
+    link_to_id: None,
+    link_to_base_url: None,
+    text: None,
+  }
+}
+
+
+pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64) -> Item {
+  Item {
+    item_type: ItemType::Page,
+    owner_id: String::from(owner_id),
+    id: dock_page_id,
+    parent_id: None,
+    relationship_to_parent: RelationshipToParent::NoParent,
+    creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+    ordering: vec![128],
+    order_children_by: Some(String::from("")),
+    spatial_position_gr: Some(Vector { x: 0, y: 0 }),
+    spatial_width_gr: Some(60 * GRID_SIZE),
+    spatial_height_gr: None,
+    title: Some("Dock".to_owned()),
+    original_creation_date: None,
+    mime_type: None,
+    file_size_bytes: None,
+    flags: None,
+    permission_flags: Some(0),
+    inner_spatial_width_gr: Some(60 * GRID_SIZE),
+    natural_aspect: Some(natural_aspect),
+    background_color_index: Some(0),
+    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::Grid),
+    popup_position_gr: Some(Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE }),
+    popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
+    popup_width_gr: Some(10 * GRID_SIZE),
+    grid_number_of_columns: Some(1),
     url: None,
     format: None,
     table_columns: None,

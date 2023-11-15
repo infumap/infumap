@@ -28,7 +28,7 @@ use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::default_page;
+use crate::storage::db::item::{default_home_page, default_trash_page, default_dock_page};
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::util::geometry::Dimensions;
@@ -265,6 +265,8 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
 
   let user_id = new_uid();
   let home_page_id = new_uid();
+  let trash_page_id = new_uid();
+  let dock_page_id = new_uid();
   let password_salt = new_uid();
 
   let user = User {
@@ -274,6 +276,8 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     password_salt,
     totp_secret: payload.totp_secret.clone(),
     home_page_id: home_page_id.clone(),
+    trash_page_id: trash_page_id.clone(),
+    dock_page_id: dock_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
     object_encryption_key: generate_key()
@@ -292,9 +296,19 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
       error!("Error creating session store for user '{}': {}", user.id, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let page = default_page(user_id.as_str(), &payload.username, home_page_id, page_width_bl, natural_aspect);
-    if let Err(e) = db.item.add(page).await {
+    let home_page = default_home_page(user_id.as_str(), &payload.username, home_page_id, page_width_bl, natural_aspect);
+    if let Err(e) = db.item.add(home_page).await {
       error!("Error adding default page: {}", e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+    let trash_page = default_trash_page(user_id.as_str(), trash_page_id, natural_aspect);
+    if let Err(e) = db.item.add(trash_page).await {
+      error!("Error adding default trash page: {}", e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+    let dock_page = default_dock_page(user_id.as_str(), dock_page_id, natural_aspect);
+    if let Err(e) = db.item.add(dock_page).await {
+      error!("Error adding default dock page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     info!("Created root user.");

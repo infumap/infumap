@@ -23,7 +23,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::default_page;
+use crate::storage::db::item::{default_home_page, default_trash_page, default_dock_page};
 use crate::web::serve::{json_response, not_found_response, forbidden_response, incoming_json};
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::web::session::get_and_validate_session;
@@ -141,9 +141,19 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
       // TODO (MEDIUM): get and store user specific values when the pending user request is created.
       let page_width_bl = 60;
       let natural_aspect = 2.0;
-      let page = default_page(pending_user.id.as_str(), &pending_user.username, pending_user.home_page_id, page_width_bl, natural_aspect);
-      if let Err(e) = db.item.add(page).await {
+      let home_page = default_home_page(pending_user.id.as_str(), &pending_user.username, pending_user.home_page_id, page_width_bl, natural_aspect);
+      if let Err(e) = db.item.add(home_page).await {
         error!("Error adding default page: {}", e);
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
+      }
+      let trash_page = default_trash_page(pending_user.id.as_str(), pending_user.trash_page_id, natural_aspect);
+      if let Err(e) = db.item.add(trash_page).await {
+        error!("Error adding default trash page: {}", e);
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
+      }
+      let dock_page = default_dock_page(pending_user.id.as_str(), pending_user.dock_page_id, natural_aspect);
+      if let Err(e) = db.item.add(dock_page).await {
+        error!("Error adding default trash page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
       }
     },
