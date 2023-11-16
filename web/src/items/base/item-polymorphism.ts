@@ -19,7 +19,6 @@
 import { BoundingBox, Dimensions } from '../../util/geometry';
 import { panic } from '../../util/lang';
 import { VisualElementSignal } from '../../util/signals';
-import { UserStoreContextModel } from '../../store/UserStoreProvider';
 import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { VisualElement } from '../../layout/visual-element';
@@ -178,10 +177,10 @@ export const ItemFns = {
     panic(`toObject: Unknown or unsupported item type: ${item.itemType}`);
   },
 
-  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
+  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel): void => {
     const item = visualElementSignal.get().displayItem;
-    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), desktopStore, userStore); }
-    else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, desktopStore, userStore); }
+    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), desktopStore); }
+    else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, desktopStore); }
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), desktopStore); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), desktopStore); }
@@ -208,9 +207,9 @@ export const ItemFns = {
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
-  handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
+  handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     const item = visualElement.displayItem;
-    if (isPage(item)) { PageFns.handlePopupClick(visualElement, desktopStore, userStore); }
+    if (isPage(item)) { PageFns.handlePopupClick(visualElement, desktopStore); }
     else if (isTable(item)) { }
     else if (isComposite(item)) { }
     else if (isNote(item)) { }

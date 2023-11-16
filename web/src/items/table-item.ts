@@ -32,7 +32,6 @@ import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
-import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
@@ -288,7 +287,7 @@ export const TableFns = {
     panic("not table measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
+  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
     desktopStore.tableEditOverlayInfo.set({
       itemPath: VeFns.veToPath(visualElement),

@@ -18,7 +18,6 @@
 
 import { useNavigate } from "@solidjs/router";
 import { Component, createSignal, Show } from "solid-js";
-import { useUserStore } from "../store/UserStoreProvider";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
@@ -27,7 +26,6 @@ import { useDesktopStore } from "../store/DesktopStoreProvider";
 
 
 export const Login: Component = () => {
-  const userStore = useUserStore();
   const store = useDesktopStore();
   const navigate = useNavigate();
 
@@ -43,7 +41,7 @@ export const Login: Component = () => {
   }
 
   const handleLoginClick = async () => {
-    const r = await userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
+    const r = await store.userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
     if (r.success) {
       const queryString = window.location.search;
       const urlParams = new URLSearchParams(queryString);

@@ -19,7 +19,6 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import { Component, createSignal, onMount, Show } from "solid-js";
 import { post } from "../server";
-import { useUserStore } from "../store/UserStoreProvider";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
@@ -39,7 +38,6 @@ interface RegisterResponse {
 }
 
 export const SignUp: Component = () => {
-  const userStore = useUserStore();
   const store = useDesktopStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,7 +68,7 @@ export const SignUp: Component = () => {
     });
     if (r.success) {
       if (areSettingUp()) {
-        let r = await userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
+        let r = await store.userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
         if (r.success) {
           store.generalStore.assumeHaveRootUser();
           navigate('/');

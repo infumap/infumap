@@ -29,7 +29,6 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { getTextStyleForNote } from "../../layout/text";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { isComposite } from "../../items/composite-item";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
@@ -38,7 +37,6 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -114,7 +112,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
   const showMoveOutOfCompositeArea = () =>
-    userStore.getUserMaybe() != null &&
+    desktopStore.userStore.getUserMaybe() != null &&
     props.visualElement.mouseIsOver.get() &&
     !desktopStore.itemIsMoving.get() &&
     desktopStore.noteEditOverlayInfo.get() == null &&

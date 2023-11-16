@@ -17,7 +17,6 @@
 */
 
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
-import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
@@ -26,7 +25,6 @@ import { DoubleClickState, CursorEventState } from "./state";
 
 export function mouseDoubleClickHandler(
     desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel,
     ev: MouseEvent) {
   if (!DoubleClickState.canDoubleClick()) { return; }
   if (desktopStore.currentPage() == null) { return; }
@@ -37,5 +35,5 @@ export function mouseDoubleClickHandler(
   const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
 
   desktopStore.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
-  mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
+  mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
 }

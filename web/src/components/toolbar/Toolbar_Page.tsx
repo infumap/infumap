@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, createEffect } from "solid-js";
-import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { InfuIconButton } from "../library/InfuIconButton";
@@ -26,17 +26,14 @@ import { panic } from "../../util/lang";
 import { arrange } from "../../layout/arrange";
 import { createBooleanSignal } from "../../util/signals";
 import { GRID_SIZE } from "../../constants";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { server } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { VesCache } from "../../layout/ves-cache";
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
 
 
 export const Toolbar_Page: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   let divBeforeColroSelect: HTMLInputElement | undefined;
   let widthDiv: HTMLInputElement | undefined;
@@ -188,7 +185,7 @@ export const Toolbar_Page: Component = () => {
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
-      <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == pageItem().ownerId}>
+      <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == pageItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>

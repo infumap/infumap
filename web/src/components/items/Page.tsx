@@ -30,13 +30,11 @@ import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   let rootDiv: HTMLDivElement | undefined;
 
@@ -511,7 +509,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderIsPublicBorder = () =>
-      <Show when={isPublic() && userStore.getUserMaybe() != null}>
+      <Show when={isPublic() && desktopStore.userStore.getUserMaybe() != null}>
         <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
       </Show>;
 

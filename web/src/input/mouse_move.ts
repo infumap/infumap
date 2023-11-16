@@ -34,7 +34,6 @@ import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, DialogMoveState, UserSettingsMoveState } from "./state";
 import { arrange } from "../layout/arrange";
-import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 
@@ -43,10 +42,10 @@ let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 
 
-export function mouseMoveHandler(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel) {
+export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
   if (desktopStore.currentPage() == null) { return; }
 
-  const hasUser = userStore.getUserMaybe() != null;
+  const hasUser = desktopStore.userStore.getUserMaybe() != null;
 
   const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx();
 

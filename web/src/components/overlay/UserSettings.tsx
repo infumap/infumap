@@ -22,7 +22,6 @@ import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } fro
 import { LEFT_TOOLBAR_WIDTH_PX } from "../../constants";
 import { logout } from "../Main";
 import { InfuButton } from "../library/InfuButton";
-import { useUserStore } from "../../store/UserStoreProvider";
 
 
 const DIALOG_WIDTH_PX = 400;
@@ -39,7 +38,6 @@ export function initialEditUserSettingsBounds(desktopStore: DesktopStoreContextM
 
 export const EditUserSettings: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   let editUserSettingsDiv: HTMLDivElement | undefined;
 
@@ -47,7 +45,7 @@ export const EditUserSettings: Component = () => {
   const sizePx = () => getBoundingBoxSize(desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx);
 
   const copyClickHandler = () => {
-    navigator.clipboard.writeText(userStore.getUser().userId);
+    navigator.clipboard.writeText(desktopStore.userStore.getUser().userId);
   }
 
   const logoutHandler = () => {
@@ -65,9 +63,9 @@ export const EditUserSettings: Component = () => {
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
 
         <div class="p-3">
-          <div class="font-bold">Edit User Settings: {userStore.getUser().username}</div>
+          <div class="font-bold">Edit User Settings: {desktopStore.userStore.getUser().username}</div>
           <div class="text-slate-800 text-sm">
-            <span class="font-mono text-slate-400">{`${userStore.getUser().userId}`}</span>
+            <span class="font-mono text-slate-400">{`${desktopStore.userStore.getUser().userId}`}</span>
             <i class={`fa fa-copy text-slate-400 cursor-pointer ml-1`} onclick={copyClickHandler} />
           </div>
           <div style="margin-top: 10px;">

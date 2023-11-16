@@ -35,7 +35,6 @@ import { FindDirection, findClosest } from "../../layout/find";
 import { getTextStyleForNote, measureLineCount } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { TableFns, asTableItem } from "../../items/table-item";
 import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_down";
 import { assert } from "../../util/lang";
@@ -49,7 +48,6 @@ let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
 export const NoteEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   let textElement: HTMLTextAreaElement | undefined;
 
@@ -126,14 +124,14 @@ export const NoteEditOverlay: Component = () => {
     const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx())) { return; }
 
-    if (userStore.getUserMaybe() != null && noteItem().ownerId == userStore.getUser().userId) {
+    if (desktopStore.userStore.getUserMaybe() != null && noteItem().ownerId == desktopStore.userStore.getUser().userId) {
       server.updateItem(noteItem());
     }
     desktopStore.noteEditOverlayInfo.set(null);
     arrange(desktopStore); // input focus changed.
 
     if (ev.button == MOUSE_LEFT) {
-      mouseDownHandler(desktopStore, userStore, MOUSE_LEFT);
+      mouseDownHandler(desktopStore, MOUSE_LEFT);
     }
   };
 
@@ -147,7 +145,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   onCleanup(() => {
-    if (!deleted && userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == userStore.getUser().userId) {
+    if (!deleted && desktopStore.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == desktopStore.userStore.getUser().userId) {
       server.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
         server.updateItem(compositeItemOnInitializeMaybe);
@@ -179,7 +177,7 @@ export const NoteEditOverlay: Component = () => {
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == userStore.getUser().userId) {
+      if (desktopStore.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == desktopStore.userStore.getUser().userId) {
         server.updateItem(noteItem());
         desktopStore.noteEditOverlayInfo.set(null);
       }
@@ -241,7 +239,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
-    if (userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != userStore.getUser().userId) { return; }
+    if (desktopStore.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != desktopStore.userStore.getUser().userId) { return; }
     if (noteItem().title != "") { return; }
 
     // maybe delete note item.
@@ -289,7 +287,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
-    if (userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != userStore.getUser().userId) { return; }
+    if (desktopStore.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != desktopStore.userStore.getUser().userId) { return; }
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -395,7 +393,7 @@ export const NoteEditOverlay: Component = () => {
                          `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
                          `${style().isBold ? ' font-weight: bold; ' : ""}`}
                   value={noteItem().title}
-                  disabled={userStore.getUserMaybe() == null || userStore.getUser().userId != noteItem().ownerId}
+                  disabled={desktopStore.userStore.getUserMaybe() == null || desktopStore.userStore.getUser().userId != noteItem().ownerId}
                   onMouseDown={textAreaMouseDownHandler}
                   onInput={textAreaOnInputHandler} />
       </div>

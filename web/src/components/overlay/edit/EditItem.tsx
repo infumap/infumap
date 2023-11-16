@@ -22,7 +22,6 @@ import { asFileItem, isFile } from "../../../items/file-item";
 import { asImageItem, isImage } from "../../../items/image-item";
 import { asPageItem, isPage } from "../../../items/page-item";
 import { asTableItem, isTable } from "../../../items/table-item";
-import { useUserStore } from "../../../store/UserStoreProvider";
 import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
 import { EditPage } from "./Panels/EditPage";
@@ -33,17 +32,18 @@ import { asPasswordItem, isPassword } from "../../../items/password-item";
 import { EditPassword } from "./Panels/EditPassword";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { EditComposite } from "./Panels/EditComposite";
+import { useDesktopStore } from "../../../store/DesktopStoreProvider";
 
 
 export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {item: Item, linkedTo: boolean}) => {
-  let userStore = useUserStore();
+  let store = useDesktopStore();
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(props.item.id);
   }
 
   const linkClickHandler = () => {
-    navigator.clipboard.writeText(window.location.origin + "/" + userStore.getUser().username + "/" + props.item.id);
+    navigator.clipboard.writeText(window.location.origin + "/" + store.userStore.getUser().username + "/" + props.item.id);
   }
 
   return (

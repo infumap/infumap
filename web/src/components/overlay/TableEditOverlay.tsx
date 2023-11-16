@@ -18,8 +18,7 @@
 
 import { Component, onMount } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
-import { GRID_SIZE, Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
@@ -32,7 +31,6 @@ import { arrange } from "../../layout/arrange";
 
 export const TableEditOverlay: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   let textElement: HTMLInputElement | undefined;
 
@@ -63,7 +61,7 @@ export const TableEditOverlay: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, editBoxBoundsPx())) { return; }
-    if (userStore.getUserMaybe() != null && tableItem().ownerId == userStore.getUser().userId) {
+    if (desktopStore.userStore.getUserMaybe() != null && tableItem().ownerId == desktopStore.userStore.getUser().userId) {
       server.updateItem(tableItem());
     }
     desktopStore.tableEditOverlayInfo.set(null);
@@ -85,7 +83,7 @@ export const TableEditOverlay: Component = () => {
   const inputMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (userStore.getUserMaybe() != null && tableItemOnInitialize.ownerId == userStore.getUser().userId) {
+      if (desktopStore.userStore.getUserMaybe() != null && tableItemOnInitialize.ownerId == desktopStore.userStore.getUser().userId) {
         server.updateItem(tableItem());
         desktopStore.noteEditOverlayInfo.set(null);
       }
@@ -123,7 +121,7 @@ export const TableEditOverlay: Component = () => {
                  `width: ${editBoxBoundsPx().w}px; ` +
                  `height: ${editBoxBoundsPx().h}px;`}
           value={editingValue()}
-          disabled={userStore.getUserMaybe() == null || userStore.getUser().userId != tableItem().ownerId}
+          disabled={desktopStore.userStore.getUserMaybe() == null || desktopStore.userStore.getUser().userId != tableItem().ownerId}
           onMouseDown={inputMouseDownHandler}
           onInput={inputOnInputHandler} />
     </div>

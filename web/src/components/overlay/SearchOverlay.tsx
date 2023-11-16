@@ -23,7 +23,6 @@ import { SearchResult, server } from "../../server";
 import { ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";
 import { switchToPage } from "../../layout/navigation";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
@@ -33,7 +32,6 @@ import { isInside } from "../../util/geometry";
 
 export const SearchOverlay: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   const boxBoundsPx = () => {
     return ({
@@ -85,7 +83,7 @@ export const SearchOverlay: Component = () => {
         const selectedPageId = currentSelectedPageId()!;
         desktopStore.searchOverlayVisible.set(false);
         await initiateLoadItemMaybe(desktopStore, selectedPageId);
-        switchToPage(desktopStore, userStore, VeFns.veidFromId(selectedPageId), true, false);
+        switchToPage(desktopStore, VeFns.veidFromId(selectedPageId), true, false);
       } else {
         await handleSearchClick();
       }
@@ -156,7 +154,7 @@ export const SearchOverlay: Component = () => {
     return async (_ev: MouseEvent) => {
       await initiateLoadItemMaybe(desktopStore, resultPageId);
       desktopStore.searchOverlayVisible.set(false);
-      switchToPage(desktopStore, userStore, VeFns.veidFromId(resultPageId), true, false);
+      switchToPage(desktopStore, VeFns.veidFromId(resultPageId), true, false);
     }
   };
 

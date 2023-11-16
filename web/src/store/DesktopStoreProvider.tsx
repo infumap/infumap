@@ -27,11 +27,45 @@ import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } fr
 import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
 import { post } from "../server";
+import { eraseCookie, getCookie, setCookie } from "../util/cookies";
 
 
+// user store.
+
+const SESSION_COOKIE_NAME = "infusession";
+const EXPIRE_DAYS = 30;
+
+export type LoginResult = {
+  success: boolean,
+  err: string | null
+}
+
+export type LogoutResult = {
+  success: boolean,
+  err: string | null
+}
+
+export type User = {
+  username: string,
+  userId: Uid,
+  homePageId: Uid,
+  trashPageId: Uid,
+  dockPageId: Uid,
+  sessionId: Uid
+}
+
+export interface UserStoreContextModel {
+  login: (username: string, password: string, totpToken: string | null) => Promise<LoginResult>,
+  logout: () => Promise<LogoutResult>,
+  getUserMaybe: () => User | null,
+  getUser: () => User,
+  clear: () => void,
+}
+
+
+// general store
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
-
 
 interface InstallationState {
   hasRootUser: boolean
@@ -51,6 +85,9 @@ export interface GeneralStoreContextModel {
   setPrefer2fa: (prefer2fa: boolean) => void,
 }
 
+
+
+// desktop store.
 
 export interface DesktopStoreContextModel {
   // global overlays.
@@ -107,6 +144,7 @@ export interface DesktopStoreContextModel {
   setHistoryToSinglePage: (currentPage: Veid) => void,
 
   generalStore: GeneralStoreContextModel,
+  userStore: UserStoreContextModel,
 }
 
 export interface OverlayCoordinates {
@@ -418,7 +456,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     pageWidthOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     pageNumColsOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
 
-    generalStore: makeGeneralStore()
+    generalStore: makeGeneralStore(),
+    userStore: makeUserStore(),
   };
 
   return (
@@ -470,4 +509,73 @@ function makeGeneralStore(): GeneralStoreContextModel {
 
 export function useDesktopStore(): DesktopStoreContextModel {
   return useContext(DesktopStoreContext) ?? panic("no desktop context");
+}
+
+function makeUserStore(): UserStoreContextModel {
+  const [sessionDataString, setSessionDataString] = createSignal<string | null>(getCookie(SESSION_COOKIE_NAME), { equals: false });
+
+  const value: UserStoreContextModel = {
+    login: async (username: string, password: string, totpToken: string | null): Promise<LoginResult> => {
+      let r: any = await post(
+        null,
+        '/account/login',
+        totpToken == null ? { username, password } : { username, password, totpToken });
+      if (!r.success) {
+        eraseCookie(SESSION_COOKIE_NAME);
+        setSessionDataString(null);
+        return { success: false, err: r.err };
+      }
+      const cookiePayload = JSON.stringify(
+        { username, userId: r.userId, homePageId: r.homePageId, trashPageId: r.trashPageId, dockPageId: r.dockPageId, sessionId: r.sessionId });
+      setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
+      setSessionDataString(cookiePayload);
+      return { success: true, err: null };
+    },
+
+    logout: async (): Promise<LogoutResult> => {
+      const data = sessionDataString();
+      if (data == null) {
+        return { success: false, err: "not logged in" };
+      };
+      const user: User = JSON.parse(data);
+      let r: any = await post(null, '/account/logout', { "userId": user.userId, "sessionId": user.sessionId });
+      eraseCookie(SESSION_COOKIE_NAME);
+      setSessionDataString(null);
+      if (!r.success) {
+        return { success: false, err: r.err };
+      }
+      return { success: true, err: null };
+    },
+
+    getUserMaybe: (): (User | null) => {
+      const data = sessionDataString();
+      if (data == null) { return null };
+      if (getCookie(SESSION_COOKIE_NAME) == null) {
+        // Session cookie has expired. Update SolidJS state to reflect this.
+        console.log("Session cookie has expired.");
+        setSessionDataString(null);
+        return null;
+      }
+      return JSON.parse(data!);
+    },
+
+    getUser: (): User => {
+      const data = sessionDataString();
+      if (data == null) { panic("no session data string."); };
+      if (getCookie(SESSION_COOKIE_NAME) == null) {
+        // Session cookie has expired. Update SolidJS state to reflect this.
+        console.log("Session cookie has expired.");
+        setSessionDataString(null);
+        panic("session cookie has expired");
+      }
+      return JSON.parse(data!);
+    },
+
+    clear: (): void => {
+      eraseCookie(SESSION_COOKIE_NAME);
+      setSessionDataString(null);
+    }
+  };
+
+  return value;
 }

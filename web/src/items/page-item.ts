@@ -28,7 +28,6 @@ import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
-import { UserStoreContextModel } from '../store/UserStoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement, VisualElementFlags, VeFns, Veid } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
@@ -432,12 +431,12 @@ export const PageFns = {
     panic("not page measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
+  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true, false);
+    switchToPage(desktopStore, VeFns.veidFromVe(visualElement), true, false);
   },
 
-  handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
+  handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     const parentVe = VesCache.get(visualElement.parentPath!)!.get();
 
     // line item in list page.
@@ -465,7 +464,7 @@ export const PageFns = {
     arrange(desktopStore);
   },
 
-  handleAnchorClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, _userStore: UserStoreContextModel): void => {
+  handleAnchorClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
     const popupParentPage = asPageItem(itemState.get(VesCache.get(visualElement.parentPath!)!.get().displayItem.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
       popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
@@ -480,8 +479,8 @@ export const PageFns = {
     arrange(desktopStore);
   },
 
-  handleExpandClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel): void => {
-    switchToPage(desktopStore, userStore, VeFns.veidFromVe(visualElement), true, false);
+  handleExpandClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
+    switchToPage(desktopStore, VeFns.veidFromVe(visualElement), true, false);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

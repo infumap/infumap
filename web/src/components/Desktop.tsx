@@ -20,7 +20,6 @@ import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { ContextMenu } from "./overlay/ContextMenu";
-import { useUserStore } from "../store/UserStoreProvider";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { handleUpload } from "../upload";
 import { HitboxFlags } from "../layout/hitbox";
@@ -44,41 +43,40 @@ import { TableEditOverlay } from "./overlay/TableEditOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const userStore = useUserStore();
   const desktopStore = useDesktopStore();
 
   let desktopDiv: HTMLDivElement | undefined;
 
   const keyListener = (ev: KeyboardEvent) => {
-    keyHandler(desktopStore, userStore, ev);
+    keyHandler(desktopStore, ev);
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDoubleClickHandler(desktopStore, userStore, ev);
+    mouseDoubleClickHandler(desktopStore, ev);
   };
 
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.preventDefault();
-    await mouseDownHandler(desktopStore, userStore, ev.button);
+    await mouseDownHandler(desktopStore, ev.button);
   };
 
   const touchListener = async (ev: TouchEvent) => {
     if (ev.touches.length > 1) {
       CursorEventState.setFromTouchEvent(ev);
       ev.preventDefault();
-      await mouseDownHandler(desktopStore, userStore, MOUSE_RIGHT);
+      await mouseDownHandler(desktopStore, MOUSE_RIGHT);
     }
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
     CursorEventState.setFromMouseEvent(ev);
-    mouseMoveHandler(desktopStore, userStore);
+    mouseMoveHandler(desktopStore);
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseUpHandler(desktopStore, userStore);
+    mouseUpHandler(desktopStore);
   };
 
   const windowResizeListener = () => {

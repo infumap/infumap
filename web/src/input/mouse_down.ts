@@ -29,7 +29,6 @@ import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
-import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
@@ -42,17 +41,16 @@ export const MOUSE_RIGHT = 2;
 
 export async function mouseDownHandler(
     desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel,
     buttonNumber: number) {
 
   if (desktopStore.currentPage() == null) { return; }
 
   switch(buttonNumber) {
     case MOUSE_LEFT:
-      mouseLeftDownHandler(desktopStore, userStore);
+      mouseLeftDownHandler(desktopStore);
       return;
     case MOUSE_RIGHT:
-      await mouseRightDownHandler(desktopStore, userStore);
+      await mouseRightDownHandler(desktopStore);
       return;
     default:
       console.warn("unsupported mouse button: " + buttonNumber);
@@ -61,9 +59,7 @@ export async function mouseDownHandler(
 }
 
 
-export function mouseLeftDownHandler(
-    desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel) {
+export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
 
   const desktopPosPx = CursorEventState.getLatestDesktopPx();
 
@@ -101,7 +97,7 @@ export function mouseLeftDownHandler(
   if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
       DoubleClickState.preventDoubleClick();
-      switchToPage(desktopStore, userStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
+      switchToPage(desktopStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
     } else {
       arrange(desktopStore);
     }
@@ -191,30 +187,28 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 }
 
 
-export async function mouseRightDownHandler(
-    desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel) {
+export async function mouseRightDownHandler(desktopStore: DesktopStoreContextModel) {
 
   if (desktopStore.contextMenuInfo.get()) {
     desktopStore.contextMenuInfo.set(null);
-    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
     return;
   }
 
   if (desktopStore.editDialogInfo.get() != null) {
     desktopStore.editDialogInfo.set(null);
-    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
     return;
   }
 
   if (desktopStore.editUserSettingsInfo.get() != null) {
     desktopStore.editUserSettingsInfo.set(null);
-    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
     return;
   }
 
-  const changedPages = navigateBack(desktopStore, userStore);
+  const changedPages = navigateBack(desktopStore);
   if (!changedPages) {
-    await navigateUp(desktopStore, userStore);
+    await navigateUp(desktopStore);
   }
 }

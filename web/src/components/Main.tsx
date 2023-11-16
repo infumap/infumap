@@ -20,7 +20,6 @@ import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
-import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
@@ -42,7 +41,6 @@ export let logout: (() => Promise<void>) | null = null;
 
 export const Main: Component = () => {
   const params = useParams();
-  const userStore = useUserStore();
   const desktopStore = useDesktopStore();
   const navigate = useNavigate();
 
@@ -73,10 +71,10 @@ export const Main: Component = () => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
       });
 
-      switchToPage(desktopStore, userStore, { itemId: pageId, linkIdMaybe: null }, false, false);
+      switchToPage(desktopStore, { itemId: pageId, linkIdMaybe: null }, false, false);
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
-      userStore.clear();
+      desktopStore.userStore.clear();
       desktopStore.generalStore.clearInstallationState();
       await desktopStore.generalStore.retrieveInstallationState();
       if (logout) {
@@ -90,7 +88,7 @@ export const Main: Component = () => {
     desktopStore.clear();
     itemState.clear();
     VesCache.clear();
-    await userStore.logout();
+    await desktopStore.userStore.logout();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
       if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {

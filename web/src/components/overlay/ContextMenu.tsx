@@ -22,7 +22,6 @@ import { asPageItem, isPage, PageFns } from "../../items/page-item";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { isInside, Vector } from "../../util/geometry";
 import { server } from "../../server";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { asTableItem, isTable, TableFns } from "../../items/table-item";
 import { RatingFns } from "../../items/rating-item";
 import { initialEditDialogBounds } from "./edit/EditDialog";
@@ -50,7 +49,6 @@ type ContexMenuProps = {
 };
 
 export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
-  const userStore = useUserStore();
   const desktopStore = useDesktopStore();
 
   const newPageInContext = () => newItemInContext("page");
@@ -63,17 +61,17 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   function createNewItem(type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
     let newItem = null;
     if (type == "rating") {
-      newItem = RatingFns.create(userStore.getUser().userId, parentId, 3, relationship, ordering)
+      newItem = RatingFns.create(desktopStore.userStore.getUser().userId, parentId, 3, relationship, ordering)
     } else if (type == "table") {
-      newItem = TableFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = TableFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "note") {
-      newItem = NoteFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = NoteFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "page") {
-      newItem = PageFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = PageFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "link")  {
-      newItem = LinkFns.create(userStore.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
+      newItem = LinkFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
     } else if (type == "password")  {
-      newItem = PasswordFns.create(userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = PasswordFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else {
       panic("AddItem.createNewItem: unexpected item type.");
     }

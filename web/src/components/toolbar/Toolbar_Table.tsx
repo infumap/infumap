@@ -18,7 +18,6 @@
 
 import { Component, Show } from "solid-js";
 import { useDesktopStore } from "../../store/DesktopStoreProvider";
-import { useUserStore } from "../../store/UserStoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { createBooleanSignal } from "../../util/signals";
 import { panic } from "../../util/lang";
@@ -31,7 +30,6 @@ import { TableFlags } from "../../items/base/flags-item";
 
 export const Toolbar_Table: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
 
   let alwaysFalseSignal = createBooleanSignal(false);
   const rerenderToolbar = () => { alwaysFalseSignal.set(false); }
@@ -77,7 +75,7 @@ export const Toolbar_Table: Component = () => {
     <div class="inline-block p-[4px] flex-grow-0">
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
-      <Show when={userStore.getUserMaybe() != null && userStore.getUser().userId == tableItem().ownerId}>
+      <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == tableItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>

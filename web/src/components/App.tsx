@@ -17,7 +17,6 @@
 */
 
 import { Component, onMount, Show } from 'solid-js';
-import { useUserStore } from '../store/UserStoreProvider';
 import { SignUp } from './SignUp';
 import { Login } from './Login';
 import { Navigate, Route, Routes } from '@solidjs/router';
@@ -26,11 +25,10 @@ import { useDesktopStore } from '../store/DesktopStoreProvider';
 
 
 const App: Component = () => {
-  const userStore = useUserStore();
   const store = useDesktopStore();
 
   onMount(async () => {
-    const user = userStore.getUserMaybe();
+    const user = store.userStore.getUserMaybe();
     if (user == null) {
       await store.generalStore.retrieveInstallationState();
     } else {

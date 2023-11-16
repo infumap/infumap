@@ -24,7 +24,6 @@ import { switchToPage } from "../layout/navigation";
 import { VeFns } from "../layout/visual-element";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
-import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
@@ -33,7 +32,7 @@ import { CursorEventState } from "./state";
 
 const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
 
-export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: UserStoreContextModel, ev: KeyboardEvent): void {
+export function keyHandler(desktopStore: DesktopStoreContextModel, ev: KeyboardEvent): void {
   if (desktopStore.editDialogInfo.get() != null || desktopStore.contextMenuInfo.get() != null || desktopStore.noteEditOverlayInfo.get() != null) {
     return;
   }
@@ -47,7 +46,7 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: Us
   if (ev.code == "Slash") {
     ev.preventDefault();
     desktopStore.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
-    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
   }
 
   else if (ev.code == "Backslash") {
@@ -70,7 +69,7 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: Us
         return overVe.displayItem;
       })()
     });
-    mouseMove_handleNoButtonDown(desktopStore, userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
   }
 
   else if (ev.code == "Escape") {
@@ -115,7 +114,7 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, userStore: Us
   else if (ev.code == "Enter") {
     const spec = desktopStore.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
-      switchToPage(desktopStore, userStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true, false);
+      switchToPage(desktopStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true, false);
     }
   }
 

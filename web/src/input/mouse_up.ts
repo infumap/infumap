@@ -36,15 +36,11 @@ import { VisualElement, VeFns } from "../layout/visual-element";
 import { server } from "../server";
 import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
 import { itemState } from "../store/ItemState";
-import { UserStoreContextModel } from "../store/UserStoreProvider";
 import { panic } from "../util/lang";
 import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 
 
-
-export function mouseUpHandler(
-    desktopStore: DesktopStoreContextModel,
-    userStore: UserStoreContextModel) {
+export function mouseUpHandler(desktopStore: DesktopStoreContextModel) {
 
   desktopStore.itemIsMoving.set(false);
 
@@ -101,24 +97,24 @@ export function mouseUpHandler(
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handlePopupClick(activeVisualElement, desktopStore, userStore);
+        ItemFns.handlePopupClick(activeVisualElement, desktopStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();
-        handleAttachmentClick(desktopStore, activeVisualElement, userStore);
+        handleAttachmentClick(desktopStore, activeVisualElement);
         arrange(desktopStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, desktopStore, userStore);
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, desktopStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorClick(activeVisualElement, desktopStore, userStore);
+        PageFns.handleAnchorClick(activeVisualElement, desktopStore);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleExpandClick(activeVisualElement, desktopStore, userStore);
+        PageFns.handleExpandClick(activeVisualElement, desktopStore);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         console.debug("no action taken");
@@ -134,7 +130,7 @@ export function mouseUpHandler(
 }
 
 
-function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement, _userStore: UserStoreContextModel) {
+function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement) {
   const veid = VeFns.veidFromVe(visualElement);
   VesCache.remove(veid);
   desktopStore.replacePopup({

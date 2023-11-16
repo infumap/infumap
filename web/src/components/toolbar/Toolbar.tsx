@@ -19,12 +19,11 @@
 import imgUrl from '../../assets/circle.png'
 
 import { Component, Match, Show, Switch } from "solid-js";
-import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useDesktopStore } from "../../store/DesktopStoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { Toolbar_Note } from "./Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
-import { useUserStore } from "../../store/UserStoreProvider"
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
 import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
@@ -35,14 +34,13 @@ import { Toolbar_Note_Info } from './Toolbar_Note_Info';
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Page_Info } from './Toolbar_Page_Info';
-import { VesCache } from '../../layout/ves-cache';
 import { Toolbar_Table } from './Toolbar_Table';
 import { Toolbar_Table_Info } from './Toolbar_Table_Info';
 
 
 export const Toolbar: Component = () => {
   const desktopStore = useDesktopStore();
-  const userStore = useUserStore();
+
   const navigate = useNavigate();
 
   const handleLogin = () => navigate("/login");
@@ -79,10 +77,10 @@ export const Toolbar: Component = () => {
           {title()}
         </div>
         <div class="float-right p-[8px]">
-          <Show when={!userStore.getUserMaybe()}>
+          <Show when={!desktopStore.userStore.getUserMaybe()}>
             <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
           </Show>
-          <Show when={userStore.getUserMaybe()}>
+          <Show when={desktopStore.userStore.getUserMaybe()}>
             <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
           </Show>
         </div>
