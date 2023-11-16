@@ -77,7 +77,6 @@ export const arrange = (store: StoreContextModel): void => {
 
   evaluateExpressions();
 
-  // TODO (LOW): this is not necessarily true. but it'd be a pain to pass this into every arrange call.
-  const hasUser = true;
+  const hasUser = store.user.getUserMaybe() != null;
   mouseMove_handleNoButtonDown(store, hasUser);
 }
