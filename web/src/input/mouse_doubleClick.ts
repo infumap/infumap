@@ -33,5 +33,5 @@ export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent
   const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
 
   store.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
-  mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
+  mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
 }

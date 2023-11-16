@@ -124,7 +124,7 @@ export const NoteEditOverlay: Component = () => {
     const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx())) { return; }
 
-    if (store.userStore.getUserMaybe() != null && noteItem().ownerId == store.userStore.getUser().userId) {
+    if (store.user.getUserMaybe() != null && noteItem().ownerId == store.user.getUser().userId) {
       server.updateItem(noteItem());
     }
     store.noteEditOverlayInfo.set(null);
@@ -145,7 +145,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   onCleanup(() => {
-    if (!deleted && store.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.userStore.getUser().userId) {
+    if (!deleted && store.user.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.user.getUser().userId) {
       server.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
         server.updateItem(compositeItemOnInitializeMaybe);
@@ -177,7 +177,7 @@ export const NoteEditOverlay: Component = () => {
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (store.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.userStore.getUser().userId) {
+      if (store.user.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.user.getUser().userId) {
         server.updateItem(noteItem());
         store.noteEditOverlayInfo.set(null);
       }
@@ -239,7 +239,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
-    if (store.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.userStore.getUser().userId) { return; }
+    if (store.user.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.user.getUser().userId) { return; }
     if (noteItem().title != "") { return; }
 
     // maybe delete note item.
@@ -287,7 +287,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
-    if (store.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.userStore.getUser().userId) { return; }
+    if (store.user.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.user.getUser().userId) { return; }
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -393,7 +393,7 @@ export const NoteEditOverlay: Component = () => {
                          `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
                          `${style().isBold ? ' font-weight: bold; ' : ""}`}
                   value={noteItem().title}
-                  disabled={store.userStore.getUserMaybe() == null || store.userStore.getUser().userId != noteItem().ownerId}
+                  disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != noteItem().ownerId}
                   onMouseDown={textAreaMouseDownHandler}
                   onInput={textAreaOnInputHandler} />
       </div>

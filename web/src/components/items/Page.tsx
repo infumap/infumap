@@ -509,7 +509,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderIsPublicBorder = () =>
-      <Show when={isPublic() && store.userStore.getUserMaybe() != null}>
+      <Show when={isPublic() && store.user.getUserMaybe() != null}>
         <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
       </Show>;
 

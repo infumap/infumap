@@ -61,16 +61,16 @@ export const SignUp: Component = () => {
     const r: RegisterResponse = await post(null, '/account/register', {
       username: username,
       password: password,
-      totpSecret: store.generalStore.prefer2fa() ? totpInfo.secret : null,
-      totpToken: store.generalStore.prefer2fa() ? totpToken : null,
+      totpSecret: store.general.prefer2fa() ? totpInfo.secret : null,
+      totpToken: store.general.prefer2fa() ? totpToken : null,
       pageWidthPx: window.innerWidth,
       pageHeightPx: window.innerHeight,
     });
     if (r.success) {
       if (areSettingUp()) {
-        let r = await store.userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
+        let r = await store.user.login(username, password, store.general.prefer2fa() ? totpToken : null);
         if (r.success) {
-          store.generalStore.assumeHaveRootUser();
+          store.general.assumeHaveRootUser();
           navigate('/');
         } else {
           setError(r.err);
@@ -84,7 +84,7 @@ export const SignUp: Component = () => {
   }
 
   onMount(async () => {
-    if (store.generalStore.installationState()!.hasRootUser) {
+    if (store.general.installationState()!.hasRootUser) {
       navigate("/signup");
     }
     if (areSettingUp()) { username = ROOT_USERNAME; }
@@ -118,11 +118,11 @@ export const SignUp: Component = () => {
         <div>
           <div class="inline-block w-32"></div>
           <input type="checkbox" id="nootp" name="nootp" value="noopt"
-                 checked={store.generalStore.prefer2fa()}
-                 onclick={() => store.generalStore.setPrefer2fa(!store.generalStore.prefer2fa())} />
+                 checked={store.general.prefer2fa()}
+                 onclick={() => store.general.setPrefer2fa(!store.general.prefer2fa())} />
           <div class="ml-2 mb-3 inline-block"><label for="nootp">Setup 2FA</label></div>
         </div>
-        <Show when={store.generalStore.prefer2fa()}>
+        <Show when={store.general.prefer2fa()}>
           <div class="mb-3">
             <div class="inline-block w-32">6 Digit Token</div>
             <InfuTextInput onInput={(v) => { totpToken = v; }} />
@@ -138,7 +138,7 @@ export const SignUp: Component = () => {
             <div class="text-red-700">{error()}</div>
           </div>
         </Show>
-        <Show when={store.generalStore.prefer2fa()}>
+        <Show when={store.general.prefer2fa()}>
           <div class="mt-6">
             <Show when={totp() != null}>
               <div class="absolute">Authenticator setup:</div>

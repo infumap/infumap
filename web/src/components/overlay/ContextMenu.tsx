@@ -61,17 +61,17 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   function createNewItem(type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
     let newItem = null;
     if (type == "rating") {
-      newItem = RatingFns.create(store.userStore.getUser().userId, parentId, 3, relationship, ordering)
+      newItem = RatingFns.create(store.user.getUser().userId, parentId, 3, relationship, ordering)
     } else if (type == "table") {
-      newItem = TableFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "note") {
-      newItem = NoteFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "page") {
-      newItem = PageFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "link")  {
-      newItem = LinkFns.create(store.userStore.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
+      newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
     } else if (type == "password")  {
-      newItem = PasswordFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
     } else {
       panic("AddItem.createNewItem: unexpected item type.");
     }

@@ -43,7 +43,7 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
   }
 
   const linkClickHandler = () => {
-    navigator.clipboard.writeText(window.location.origin + "/" + store.userStore.getUser().username + "/" + props.item.id);
+    navigator.clipboard.writeText(window.location.origin + "/" + store.user.getUser().username + "/" + props.item.id);
   }
 
   return (

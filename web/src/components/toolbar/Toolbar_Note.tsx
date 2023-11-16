@@ -129,7 +129,7 @@ export const Toolbar_Note: Component = () => {
 
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
-      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
+      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
         <Show when={!isInTable()}>
           <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
@@ -155,7 +155,7 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
-      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
+      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>;
@@ -164,12 +164,12 @@ export const Toolbar_Note: Component = () => {
     <>
       <div class="inline-block">
         <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-        <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
       <div class="inline-block">
-        <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
           <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
           <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
@@ -188,7 +188,7 @@ export const Toolbar_Note: Component = () => {
             <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
         </Show>
-        <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>

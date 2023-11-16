@@ -143,8 +143,8 @@ export interface StoreContextModel {
   currentPopupSpecVePath: () => VisualElementPath | null,
   setHistoryToSinglePage: (currentPage: Veid) => void,
 
-  generalStore: GeneralStoreContextModel,
-  userStore: UserStoreContextModel,
+  general: GeneralStoreContextModel,
+  user: UserStoreContextModel,
 }
 
 export interface OverlayCoordinates {
@@ -456,8 +456,8 @@ export function StoreProvider(props: StoreContextProps) {
     pageWidthOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     pageNumColsOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
 
-    generalStore: makeGeneralStore(),
-    userStore: makeUserStore(),
+    general: makeGeneralStore(),
+    user: makeUserStore(),
   };
 
   return (

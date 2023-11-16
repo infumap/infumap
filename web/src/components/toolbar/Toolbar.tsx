@@ -77,10 +77,10 @@ export const Toolbar: Component = () => {
           {title()}
         </div>
         <div class="float-right p-[8px]">
-          <Show when={!store.userStore.getUserMaybe()}>
+          <Show when={!store.user.getUserMaybe()}>
             <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
           </Show>
-          <Show when={store.userStore.getUserMaybe()}>
+          <Show when={store.user.getUserMaybe()}>
             <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
           </Show>
         </div>

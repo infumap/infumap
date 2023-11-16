@@ -45,7 +45,7 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 export function mouseMoveHandler(store: StoreContextModel) {
   if (store.currentPage() == null) { return; }
 
-  const hasUser = store.userStore.getUserMaybe() != null;
+  const hasUser = store.user.getUserMaybe() != null;
 
   const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx();
 

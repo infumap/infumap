@@ -45,7 +45,7 @@ export const Main: Component = () => {
   const navigate = useNavigate();
 
   onMount(async () => {
-    if (!store.generalStore.installationState()!.hasRootUser) {
+    if (!store.general.installationState()!.hasRootUser) {
       navigate('/setup');
     }
 
@@ -74,9 +74,9 @@ export const Main: Component = () => {
       switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
-      store.userStore.clear();
-      store.generalStore.clearInstallationState();
-      await store.generalStore.retrieveInstallationState();
+      store.user.clear();
+      store.general.clearInstallationState();
+      await store.general.retrieveInstallationState();
       if (logout) {
         await logout();
       }
@@ -88,7 +88,7 @@ export const Main: Component = () => {
     store.clear();
     itemState.clear();
     VesCache.clear();
-    await store.userStore.logout();
+    await store.user.logout();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
       if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {

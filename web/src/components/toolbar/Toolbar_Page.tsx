@@ -185,7 +185,7 @@ export const Toolbar_Page: Component = () => {
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
-      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == pageItem().ownerId}>
+      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == pageItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>

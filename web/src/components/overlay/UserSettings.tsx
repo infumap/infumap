@@ -45,7 +45,7 @@ export const EditUserSettings: Component = () => {
   const sizePx = () => getBoundingBoxSize(store.editUserSettingsInfo.get()!.desktopBoundsPx);
 
   const copyClickHandler = () => {
-    navigator.clipboard.writeText(store.userStore.getUser().userId);
+    navigator.clipboard.writeText(store.user.getUser().userId);
   }
 
   const logoutHandler = () => {
@@ -63,9 +63,9 @@ export const EditUserSettings: Component = () => {
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
 
         <div class="p-3">
-          <div class="font-bold">Edit User Settings: {store.userStore.getUser().username}</div>
+          <div class="font-bold">Edit User Settings: {store.user.getUser().username}</div>
           <div class="text-slate-800 text-sm">
-            <span class="font-mono text-slate-400">{`${store.userStore.getUser().userId}`}</span>
+            <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
             <i class={`fa fa-copy text-slate-400 cursor-pointer ml-1`} onclick={copyClickHandler} />
           </div>
           <div style="margin-top: 10px;">

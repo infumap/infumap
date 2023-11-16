@@ -28,11 +28,11 @@ const App: Component = () => {
   const store = useStore();
 
   onMount(async () => {
-    const user = store.userStore.getUserMaybe();
+    const user = store.user.getUserMaybe();
     if (user == null) {
-      await store.generalStore.retrieveInstallationState();
+      await store.general.retrieveInstallationState();
     } else {
-      store.generalStore.assumeHaveRootUser();
+      store.general.assumeHaveRootUser();
     }
   });
 
@@ -40,28 +40,28 @@ const App: Component = () => {
   const fallback2 = () => <Navigate href="/setup" />;
 
   const LoginPath: Component = () =>
-    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
-      <Show when={store.generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
+    <Show when={store.general.installationState() != null} fallback={fallback()}>
+      <Show when={store.general.installationState()?.hasRootUser} fallback={fallback2()}>
         <Login />
       </Show>
     </Show>;
 
   const SignUpPath: Component = () =>
-    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
-      <Show when={store.generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
+    <Show when={store.general.installationState() != null} fallback={fallback()}>
+      <Show when={store.general.installationState()?.hasRootUser} fallback={fallback2()}>
         <SignUp />
       </Show>
     </Show>;
 
   const MainPath: Component = () =>
-    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
-      <Show when={store.generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
+    <Show when={store.general.installationState() != null} fallback={fallback()}>
+      <Show when={store.general.installationState()?.hasRootUser} fallback={fallback2()}>
         <Main />
       </Show>
     </Show>;
 
   const SetupPath: Component = () =>
-    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
+    <Show when={store.general.installationState() != null} fallback={fallback()}>
       <SignUp />
     </Show>;
 

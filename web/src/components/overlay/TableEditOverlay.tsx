@@ -61,7 +61,7 @@ export const TableEditOverlay: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, editBoxBoundsPx())) { return; }
-    if (store.userStore.getUserMaybe() != null && tableItem().ownerId == store.userStore.getUser().userId) {
+    if (store.user.getUserMaybe() != null && tableItem().ownerId == store.user.getUser().userId) {
       server.updateItem(tableItem());
     }
     store.tableEditOverlayInfo.set(null);
@@ -83,7 +83,7 @@ export const TableEditOverlay: Component = () => {
   const inputMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (store.userStore.getUserMaybe() != null && tableItemOnInitialize.ownerId == store.userStore.getUser().userId) {
+      if (store.user.getUserMaybe() != null && tableItemOnInitialize.ownerId == store.user.getUser().userId) {
         server.updateItem(tableItem());
         store.noteEditOverlayInfo.set(null);
       }
@@ -121,7 +121,7 @@ export const TableEditOverlay: Component = () => {
                  `width: ${editBoxBoundsPx().w}px; ` +
                  `height: ${editBoxBoundsPx().h}px;`}
           value={editingValue()}
-          disabled={store.userStore.getUserMaybe() == null || store.userStore.getUser().userId != tableItem().ownerId}
+          disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != tableItem().ownerId}
           onMouseDown={inputMouseDownHandler}
           onInput={inputOnInputHandler} />
     </div>

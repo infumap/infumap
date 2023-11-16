@@ -75,7 +75,7 @@ export const Toolbar_Table: Component = () => {
     <div class="inline-block p-[4px] flex-grow-0">
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
-      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == tableItem().ownerId}>
+      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == tableItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>

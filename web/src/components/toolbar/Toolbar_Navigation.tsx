@@ -27,11 +27,11 @@ export const Toolbar_Navigation: Component = () => {
   const store = useStore();
 
   const handleHome = () => {
-    const userMaybe = store.userStore.getUserMaybe();
+    const userMaybe = store.user.getUserMaybe();
     if (!userMaybe) {
       window.history.pushState(null, "", "/");
     } else {
-      switchToPage(store, { itemId: store.userStore.getUser().homePageId, linkIdMaybe: null }, false, false);
+      switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false);
       if (userMaybe.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
       } else {
@@ -48,7 +48,7 @@ export const Toolbar_Navigation: Component = () => {
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">
-      <Show when={store.userStore.getUserMaybe()}>
+      <Show when={store.user.getUserMaybe()}>
         <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} />        
       </Show>
       <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} />

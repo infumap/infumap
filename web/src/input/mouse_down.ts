@@ -188,19 +188,19 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (store.contextMenuInfo.get()) {
     store.contextMenuInfo.set(null);
-    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }
 
   if (store.editDialogInfo.get() != null) {
     store.editDialogInfo.set(null);
-    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }
 
   if (store.editUserSettingsInfo.get() != null) {
     store.editUserSettingsInfo.set(null);
-    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }
 

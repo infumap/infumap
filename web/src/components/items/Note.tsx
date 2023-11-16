@@ -112,7 +112,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
   const showMoveOutOfCompositeArea = () =>
-    store.userStore.getUserMaybe() != null &&
+    store.user.getUserMaybe() != null &&
     props.visualElement.mouseIsOver.get() &&
     !store.itemIsMoving.get() &&
     store.noteEditOverlayInfo.get() == null &&

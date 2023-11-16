@@ -46,7 +46,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (ev.code == "Slash") {
     ev.preventDefault();
     store.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
-    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
   }
 
   else if (ev.code == "Backslash") {
@@ -69,7 +69,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         return overVe.displayItem;
       })()
     });
-    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
   }
 
   else if (ev.code == "Escape") {

@@ -28,7 +28,7 @@ import { Veid } from "./visual-element";
 
 
 export function updateHref(store: StoreContextModel) {
-  const userMaybe = store.userStore.getUserMaybe();
+  const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
     window.history.pushState(null, "", `/${store.currentPage()!.itemId}`);
   } else {
