@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, createSignal, JSX } from "solid-js";
+import { createSignal, JSX } from "solid-js";
 import { createContext, useContext } from "solid-js";
 import { panic } from "../util/lang";
 import { Item } from "../items/base/item";
@@ -26,68 +26,9 @@ import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
 import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
-import { post } from "../server";
-import { eraseCookie, getCookie, setCookie } from "../util/cookies";
+import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
+import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
 
-
-// user store.
-
-const SESSION_COOKIE_NAME = "infusession";
-const EXPIRE_DAYS = 30;
-
-export type LoginResult = {
-  success: boolean,
-  err: string | null
-}
-
-export type LogoutResult = {
-  success: boolean,
-  err: string | null
-}
-
-export type User = {
-  username: string,
-  userId: Uid,
-  homePageId: Uid,
-  trashPageId: Uid,
-  dockPageId: Uid,
-  sessionId: Uid
-}
-
-export interface UserStoreContextModel {
-  login: (username: string, password: string, totpToken: string | null) => Promise<LoginResult>,
-  logout: () => Promise<LogoutResult>,
-  getUserMaybe: () => User | null,
-  getUser: () => User,
-  clear: () => void,
-}
-
-
-// general store
-
-const LOCALSTORAGE_KEY_NAME = "infudata";
-
-interface InstallationState {
-  hasRootUser: boolean
-}
-
-interface LocalStorageData {
-  prefer2fa: boolean
-}
-
-export interface GeneralStoreContextModel {
-  installationState: Accessor<InstallationState | null>,
-  retrieveInstallationState: () => Promise<void>,
-  clearInstallationState: () => void,
-  assumeHaveRootUser: () => void,
-
-  prefer2fa: () => boolean,
-  setPrefer2fa: (prefer2fa: boolean) => void,
-}
-
-
-
-// desktop store.
 
 export interface StoreContextModel {
   // global overlays.
@@ -467,115 +408,7 @@ export function StoreProvider(props: StoreContextProps) {
   );
 }
 
-function makeGeneralStore(): GeneralStoreContextModel {
-  const [localStorageDataString, setLacalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
-
-  const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
-
-  const retrieveInstallationState = async () => {
-    try {
-      setInstallationState(await post(null, "/admin/installation-state", {}));
-    } catch (e) {
-      console.log("An error occurred retrieving installation state. " + e);
-      setInstallationState(null);
-    }
-  }
-  const clearInstallationState = () => { setInstallationState(null); }
-  const assumeInstallationStateHaveRootUser = () => { setInstallationState({ hasRootUser: true }); }
-
-  const prefer2fa = () => {
-    const lcds = localStorageDataString();
-    let lcd: LocalStorageData | null = lcds == null ? null : JSON.parse(lcds);
-    if (lcd == null) { return false; }
-    return lcd.prefer2fa;
-  }
-  const setPrefer2fa = (prefer2fa: boolean) => {
-    let lcds = localStorageDataString();
-    let r = { prefer2fa };
-    if (lcds != null) {
-      r = JSON.parse(lcds);
-      r.prefer2fa = prefer2fa;
-    }
-    lcds = JSON.stringify(r);
-    window.localStorage.setItem(LOCALSTORAGE_KEY_NAME, lcds);
-    setLacalStorageDataString(lcds);
-  }
-
-  return {
-    installationState, retrieveInstallationState, clearInstallationState, assumeHaveRootUser: assumeInstallationStateHaveRootUser,
-    prefer2fa, setPrefer2fa,
-  };
-}
 
 export function useStore(): StoreContextModel {
   return useContext(StoreContext) ?? panic("no store context");
-}
-
-function makeUserStore(): UserStoreContextModel {
-  const [sessionDataString, setSessionDataString] = createSignal<string | null>(getCookie(SESSION_COOKIE_NAME), { equals: false });
-
-  const value: UserStoreContextModel = {
-    login: async (username: string, password: string, totpToken: string | null): Promise<LoginResult> => {
-      let r: any = await post(
-        null,
-        '/account/login',
-        totpToken == null ? { username, password } : { username, password, totpToken });
-      if (!r.success) {
-        eraseCookie(SESSION_COOKIE_NAME);
-        setSessionDataString(null);
-        return { success: false, err: r.err };
-      }
-      const cookiePayload = JSON.stringify(
-        { username, userId: r.userId, homePageId: r.homePageId, trashPageId: r.trashPageId, dockPageId: r.dockPageId, sessionId: r.sessionId });
-      setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
-      setSessionDataString(cookiePayload);
-      return { success: true, err: null };
-    },
-
-    logout: async (): Promise<LogoutResult> => {
-      const data = sessionDataString();
-      if (data == null) {
-        return { success: false, err: "not logged in" };
-      };
-      const user: User = JSON.parse(data);
-      let r: any = await post(null, '/account/logout', { "userId": user.userId, "sessionId": user.sessionId });
-      eraseCookie(SESSION_COOKIE_NAME);
-      setSessionDataString(null);
-      if (!r.success) {
-        return { success: false, err: r.err };
-      }
-      return { success: true, err: null };
-    },
-
-    getUserMaybe: (): (User | null) => {
-      const data = sessionDataString();
-      if (data == null) { return null };
-      if (getCookie(SESSION_COOKIE_NAME) == null) {
-        // Session cookie has expired. Update SolidJS state to reflect this.
-        console.log("Session cookie has expired.");
-        setSessionDataString(null);
-        return null;
-      }
-      return JSON.parse(data!);
-    },
-
-    getUser: (): User => {
-      const data = sessionDataString();
-      if (data == null) { panic("no session data string."); };
-      if (getCookie(SESSION_COOKIE_NAME) == null) {
-        // Session cookie has expired. Update SolidJS state to reflect this.
-        console.log("Session cookie has expired.");
-        setSessionDataString(null);
-        panic("session cookie has expired");
-      }
-      return JSON.parse(data!);
-    },
-
-    clear: (): void => {
-      eraseCookie(SESSION_COOKIE_NAME);
-      setSessionDataString(null);
-    }
-  };
-
-  return value;
 }
