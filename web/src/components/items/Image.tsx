@@ -23,8 +23,9 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
-import { PopupType, useStore } from "../../store/StoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
+import { PopupType } from "../../store/StoreProvider_History";
 
 
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -71,7 +72,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
-  const isMainPoppedUp = () => VeFns.veToPath(props.visualElement) == store.currentPopupSpecVePath() && store.currentPopupSpec()!.type != PopupType.Attachment;
+  const isMainPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath() && store.history.currentPopupSpec()!.type != PopupType.Attachment;
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no

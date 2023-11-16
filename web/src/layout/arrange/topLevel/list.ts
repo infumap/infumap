@@ -31,10 +31,10 @@ import { getVePropertiesForItem } from "../util";
 export const arrange_list = (store: StoreContextModel) => {
   VesCache.initFullArrange();
 
-  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(store.currentPage()!));
+  const selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(store.history.currentPage()!));
   const topLevelPageBoundsPx  = store.desktopBoundsPx();
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,

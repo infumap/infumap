@@ -40,7 +40,7 @@ export const MOUSE_RIGHT = 2;
 
 
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number) {
-  if (store.currentPage() == null) { return; }
+  if (store.history.currentPage() == null) { return; }
 
   switch(buttonNumber) {
     case MOUSE_LEFT:

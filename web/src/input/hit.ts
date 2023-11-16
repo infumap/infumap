@@ -47,7 +47,7 @@ export function getHitInfo(
     ignoreAttachments: boolean): HitInfo {
 
   const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
-  const topLevelVeid = store.currentPage()!;
+  const topLevelVeid = store.history.currentPage()!;
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = topLevelVisualElement.boundsPx;
   const topXScroll = store.getPageScrollXProp(topLevelVeid);
@@ -71,7 +71,7 @@ export function getHitInfo(
         isInside(popupPosRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
-      const popupVeid = VeFns.veidFromPath(store.currentPopupSpec()!.vePath);
+      const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       const scrollYPx = isPage(rootVisualElement.displayItem)
         ? store.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
         : 0;

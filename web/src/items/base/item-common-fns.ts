@@ -34,7 +34,7 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
     if (parentVeid.linkIdMaybe == POPUP_LINK_ID) {
-      store.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(store.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
+      store.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
     } else {
       store.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
     }

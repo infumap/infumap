@@ -49,16 +49,16 @@ import { evaluateExpressions } from "../../expression/evaluate";
  *    approach is more ad-hoc / less "automated", the code is simpler to work on due to this.
  */
 export const arrange = (store: StoreContextModel): void => {
-  if (store.currentPage() == null) { return; }
+  if (store.history.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {
     store.isPanicked.set(true);
     return;
   }
 
-  initiateLoadChildItemsMaybe(store, store.currentPage()!);
+  initiateLoadChildItemsMaybe(store, store.history.currentPage()!);
 
-  switch (asPageItem(itemState.get(store.currentPage()!.itemId)!).arrangeAlgorithm) {
+  switch (asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm) {
     case ArrangeAlgorithm.Grid:
       arrange_grid(store);
       break;
@@ -72,7 +72,7 @@ export const arrange = (store: StoreContextModel): void => {
       arrange_document(store);
       break;
     default:
-      panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(store.currentPage()!.itemId)!).arrangeAlgorithm}.`);
+      panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm}.`);
   }
 
   evaluateExpressions();

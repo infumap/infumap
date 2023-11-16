@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
-import { StoreContextModel, PopupType } from "../../../store/StoreProvider";
+import { StoreContextModel } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { panic } from "../../../util/lang";
 import { newOrdering } from "../../../util/ordering";
@@ -33,11 +33,12 @@ import { VisualElementSignal } from "../../../util/signals";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
+import { PopupType } from "../../../store/StoreProvider_History";
 
 
 export const arrange_spatialStretch = (store: StoreContextModel) => {
 
-  const pageItem = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  const pageItem = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const desktopAspect = store.desktopBoundsPx().w / store.desktopBoundsPx().h;
   const pageAspect = pageItem.naturalAspect;
   const pageBoundsPx = (() => {
@@ -85,7 +86,7 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     ));
   }
 
-  const currentPopupSpec = store.currentPopupSpec();
+  const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {
     if (currentPopupSpec.type == PopupType.Page) {
       // Position of page popup in spatial pages is user defined.

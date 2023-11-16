@@ -34,10 +34,11 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VeFns } from "../layout/visual-element";
 import { server } from "../server";
-import { StoreContextModel, PopupType } from "../store/StoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
+import { PopupType } from "../store/StoreProvider_History";
 
 
 export function mouseUpHandler(store: StoreContextModel) {
@@ -133,7 +134,7 @@ export function mouseUpHandler(store: StoreContextModel) {
 function handleAttachmentClick(store: StoreContextModel, visualElement: VisualElement) {
   const veid = VeFns.veidFromVe(visualElement);
   VesCache.remove(veid);
-  store.replacePopup({
+  store.history.replacePopup({
     type: PopupType.Attachment,
     vePath: VeFns.veToPath(visualElement)
   })

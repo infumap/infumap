@@ -43,7 +43,7 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 
 
 export function mouseMoveHandler(store: StoreContextModel) {
-  if (store.currentPage() == null) { return; }
+  if (store.history.currentPage() == null) { return; }
 
   const hasUser = store.user.getUserMaybe() != null;
 
@@ -295,14 +295,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     }
   }
 
-  if ((overElementVes!.get().displayItem.id != store.currentPage()!.itemId) &&
+  if ((overElementVes!.get().displayItem.id != store.history.currentPage()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
 
-  if ((overElementVes!.get().displayItem.id != store.currentPage()!.itemId) &&
+  if ((overElementVes!.get().displayItem.id != store.history.currentPage()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {

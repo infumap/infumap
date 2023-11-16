@@ -30,11 +30,11 @@ import { Veid } from "./visual-element";
 export function updateHref(store: StoreContextModel) {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
-    window.history.pushState(null, "", `/${store.currentPage()!.itemId}`);
+    window.history.pushState(null, "", `/${store.history.currentPage()!.itemId}`);
   } else {
     const user = userMaybe;
-    if (store.currentPage()!.itemId != user.homePageId) {
-      window.history.pushState(null, "", `/${store.currentPage()!.itemId}`);
+    if (store.history.currentPage()!.itemId != user.homePageId) {
+      window.history.pushState(null, "", `/${store.history.currentPage()!.itemId}`);
     } else {
       if (user.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
@@ -48,9 +48,9 @@ export function updateHref(store: StoreContextModel) {
 
 export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean) {
   if (clearHistory) {
-    store.setHistoryToSinglePage(pageVeid);
+    store.history.setHistoryToSinglePage(pageVeid);
   } else {
-    store.pushPage(pageVeid);
+    store.history.pushPage(pageVeid);
   }
 
   arrange(store);
@@ -64,9 +64,9 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 
 
 export function navigateBack(store: StoreContextModel): boolean {
-  if (store.currentPopupSpec() != null) {
-    store.popPopup();
-    const page = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  if (store.history.currentPopupSpec() != null) {
+    store.history.popPopup();
+    const page = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
@@ -74,7 +74,7 @@ export function navigateBack(store: StoreContextModel): boolean {
     return true;
   }
 
-  const changePages = store.popPage();
+  const changePages = store.history.popPage();
   if (changePages) {
     updateHref(store);
     arrange(store);
@@ -88,7 +88,7 @@ export function navigateBack(store: StoreContextModel): boolean {
 
 let navigateUpInProgress = false;
 export async function navigateUp(store: StoreContextModel) {
-  const currentPageVeid = store.currentPage();
+  const currentPageVeid = store.history.currentPage();
   if (currentPageVeid == null) { return; }
 
   if (navigateUpInProgress) { return; }
@@ -127,7 +127,7 @@ export async function navigateUp(store: StoreContextModel) {
 
 export function setTopLevelPageScrollPositions(store: StoreContextModel) {
   let rootPageDiv = window.document.getElementById("rootPageDiv")!;
-  let veid = store.currentPage()!;
+  let veid = store.history.currentPage()!;
 
   const topLevelVisualElement = store.topLevelVisualElement.get();
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;

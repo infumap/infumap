@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { createSignal, JSX } from "solid-js";
+import { JSX } from "solid-js";
 import { createContext, useContext } from "solid-js";
 import { panic } from "../util/lang";
 import { Item } from "../items/base/item";
@@ -28,7 +28,7 @@ import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal } from "
 import { HitInfo } from "../input/hit";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
 import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
-
+import { makeHistoryStore, HistoryStoreContextModel, PopupType } from "./StoreProvider_History";
 
 export interface StoreContextModel {
   // global overlays.
@@ -73,17 +73,7 @@ export interface StoreContextModel {
   getPageScrollYProp: (veid: Veid) => number,
   setPageScrollYProp: (veid: Veid, path: number) => void,
 
-  pushPage: (veid: Veid) => void,
-  popPage: () => boolean,
-  currentPage: () => Veid | null,
-  pushPopup: (popupSpec: PopupSpec) => void,
-  replacePopup: (popupSpec: PopupSpec) => void,
-  popPopup: () => void,
-  popAllPopups: () => void,
-  currentPopupSpec: () => PopupSpec | null,
-  currentPopupSpecVePath: () => VisualElementPath | null,
-  setHistoryToSinglePage: (currentPage: Veid) => void,
-
+  history: HistoryStoreContextModel,
   general: GeneralStoreContextModel,
   user: UserStoreContextModel,
 }
@@ -117,21 +107,6 @@ export interface EditUserSettingsInfo {
   desktopBoundsPx: BoundingBox,
 }
 
-export enum PopupType {
-  Page,
-  Attachment,
-  Image
-}
-
-export interface PopupSpec {
-  type: PopupType,
-  vePath: VisualElementPath
-};
-
-interface PageBreadcrumb {
-  pageVeid: Veid,
-  popupBreadcrumbs: Array<PopupSpec>,
-}
 
 
 export interface StoreContextProps {
@@ -162,7 +137,7 @@ export function StoreProvider(props: StoreContextProps) {
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, InfuSignal<VisualElementPath>>();
 
-  const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
+
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -250,6 +225,8 @@ export function StoreProvider(props: StoreContextProps) {
   }
 
 
+  const history = makeHistoryStore();
+
   const clear = (): void => {
     tableEditOverlayInfo.set(null);
     editDialogInfo.set(null);
@@ -263,79 +240,9 @@ export function StoreProvider(props: StoreContextProps) {
     pageScrollYPxs.clear();
     selectedItems.clear();
     topLevelVisualElement.set(NONE_VISUAL_ELEMENT);
-    setBreadcrumbs([]);
+    history.clear();
   };
 
-
-  const pushPage = (veid: Veid): void => {
-    breadcrumbs().push({ pageVeid: veid, popupBreadcrumbs: [] });
-    setBreadcrumbs(breadcrumbs());
-  };
-
-  const popPage = (): boolean => {
-    if (breadcrumbs().length <= 1) {
-      return false;
-    }
-    breadcrumbs().pop();
-    setBreadcrumbs(breadcrumbs());
-    return true;
-  };
-
-  const currentPage = (): Veid | null => {
-    if (breadcrumbs().length == 0) {
-      return null;
-    }
-    return breadcrumbs()[breadcrumbs().length-1].pageVeid;
-  };
-
-
-  const pushPopup = (popupSpec: PopupSpec): void => {
-    if (breadcrumbs().length == 0) { panic("pushPopup: no breadcrumbs."); }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.push(popupSpec);
-    setBreadcrumbs(breadcrumbs());
-  };
-
-  const replacePopup = (popupSpec: PopupSpec): void => {
-    if (breadcrumbs().length == 0) { panic("replacePopup: no breadcrumbs."); }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [popupSpec];
-    setBreadcrumbs(breadcrumbs());
-  };
-
-  const popPopup = (): void => {
-    if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
-      return;
-    }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.pop();
-    setBreadcrumbs(breadcrumbs());
-  };
-
-  const popAllPopups = (): void => {
-    if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [];
-    setBreadcrumbs(breadcrumbs());
-  };
-
-  const currentPopupSpec = (): PopupSpec | null => {
-    if (breadcrumbs().length == 0) { return null; }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
-      return null;
-    }
-    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
-    return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
-  };
-
-  const currentPopupSpecVePath = (): VisualElementPath | null => {
-    if (breadcrumbs().length == 0) { return null; }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) { return null; }
-    const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
-    const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
-    return currentSpec.vePath;
-  };
-
-  const setHistoryToSinglePage = (pageVeid: Veid): void => {
-    setBreadcrumbs([{ pageVeid: pageVeid, popupBreadcrumbs: [] }]);
-  };
 
   const getToolbarFocus = (): Veid => {
     if (noteEditOverlayInfo.get() != null) {
@@ -344,12 +251,12 @@ export function StoreProvider(props: StoreContextProps) {
     if (tableEditOverlayInfo.get() != null) {
       return VeFns.veidFromPath(tableEditOverlayInfo.get()!.itemPath);
     }
-    if (currentPopupSpec() != null) {
-      if (currentPopupSpec()!.type == PopupType.Page) {
-        return VeFns.veidFromPath(currentPopupSpec()!.vePath);
+    if (history.currentPopupSpec() != null) {
+      if (history.currentPopupSpec()!.type == PopupType.Page) {
+        return VeFns.veidFromPath(history.currentPopupSpec()!.vePath);
       }
     }
-    return currentPage()!;
+    return history.currentPage()!;
   };
 
 
@@ -362,17 +269,6 @@ export function StoreProvider(props: StoreContextProps) {
     getSelectedListPageItem, setSelectedListPageItem,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
-
-    pushPage,
-    popPage,
-    currentPage,
-    pushPopup,
-    replacePopup,
-    popPopup,
-    popAllPopups,
-    currentPopupSpec,
-    currentPopupSpecVePath,
-    setHistoryToSinglePage,
 
     clear,
 
@@ -397,6 +293,7 @@ export function StoreProvider(props: StoreContextProps) {
     pageWidthOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     pageNumColsOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
 
+    history,
     general: makeGeneralStore(),
     user: makeUserStore(),
   };

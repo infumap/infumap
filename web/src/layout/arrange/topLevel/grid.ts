@@ -20,7 +20,7 @@ import { GRID_PAGE_CELL_ASPECT, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
-import { StoreContextModel, PopupType } from "../../../store/StoreProvider";
+import { StoreContextModel } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
@@ -28,12 +28,13 @@ import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { arrangeItem } from "../item";
 import { arrangeCellPopup } from "../popup";
+import { PopupType } from "../../../store/StoreProvider_History";
 
 
 export const arrange_grid = (store: StoreContextModel): void => {
   VesCache.initFullArrange();
 
-  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
   let movingItem = null;
@@ -132,7 +133,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
     children.push(ves);
   }
 
-  const currentPopupSpec = store.currentPopupSpec();
+  const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {
     if (currentPopupSpec.type == PopupType.Page) {
       children.push(arrangeCellPopup(store));

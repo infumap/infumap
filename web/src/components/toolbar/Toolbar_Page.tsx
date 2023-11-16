@@ -161,7 +161,7 @@ export const Toolbar_Page: Component = () => {
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">
-      <Show when={store.getToolbarFocus().itemId != store.currentPage()!.itemId }>
+      <Show when={store.getToolbarFocus().itemId != store.history.currentPage()!.itemId }>
         <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
           {pageItem().title}
         </div>

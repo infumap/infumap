@@ -27,7 +27,7 @@ import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
-import { StoreContextModel, PopupType } from '../store/StoreProvider';
+import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement, VisualElementFlags, VeFns, Veid } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
@@ -41,6 +41,7 @@ import { NoteFlags } from './base/flags-item';
 import { server } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
+import { PopupType } from '../store/StoreProvider_History';
 
 
 export const ArrangeAlgorithm = {
@@ -454,13 +455,13 @@ export const PageFns = {
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
-      store.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
       arrange(store);
       return;
     }
 
     // not inside popup.
-    store.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+    store.history.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
     arrange(store);
   },
 

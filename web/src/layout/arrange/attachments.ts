@@ -20,13 +20,14 @@ import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachmen
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
-import { StoreContextModel, PopupType } from "../../store/StoreProvider";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
+import { PopupType } from "../../store/StoreProvider_History";
 
 
 export function arrangeItemAttachments(
@@ -54,7 +55,7 @@ export function arrangeItemAttachments(
     };
     const attachmentVePath = VeFns.addVeidToPath(attachmentVeid, parentItemVePath);
 
-    const popupSpec = store.currentPopupSpec();
+    const popupSpec = store.history.currentPopupSpec();
     let isSelected = false;
     if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
       if (attachmentVePath == popupSpec.vePath) {

@@ -27,7 +27,7 @@ import { VisualElementFlags, VisualElementSpec } from "../../visual-element";
 export const arrange_document = (store: StoreContextModel): void => {
   VesCache.initFullArrange();
 
-  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
   const pageBoundsPx = store.desktopBoundsPx();

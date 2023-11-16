@@ -48,7 +48,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       // are set in the switchToPage method in navigation.ts.
       return;
     } else if (props.visualElement.flags & VisualElementFlags.Popup) {
-      veid = VeFns.veidFromPath(store.currentPopupSpec()!.vePath);
+      veid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       div = popupDiv;
     } else {
       veid = VeFns.veidFromVe(props.visualElement);
@@ -93,7 +93,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.currentPopupSpecVePath();
+  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath();
   const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
 
   const lineVes = () => props.visualElement.children.filter(c => c.get().flags & VisualElementFlags.LineItem);
@@ -368,12 +368,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     updatingPopupScrollTop = true;
 
-    if (popupDiv && store.currentPopupSpec()) {
+    if (popupDiv && store.history.currentPopupSpec()) {
       popupDiv.scrollTop =
-        store.getPageScrollYProp(VeFns.veidFromPath(store.currentPopupSpec()!.vePath)) *
+        store.getPageScrollYProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
       popupDiv.scrollLeft =
-        store.getPageScrollXProp(VeFns.veidFromPath(store.currentPopupSpec()!.vePath)) *
+        store.getPageScrollXProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
         (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
 
@@ -396,7 +396,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const pageBoundsPx = props.visualElement.boundsPx;
       const childAreaBoundsPx_ = childAreaBoundsPx();
-      const popupVeid = VeFns.veidFromPath(store.currentPopupSpec()!.vePath);
+      const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
 
       if (childAreaBoundsPx_.h > pageBoundsPx.h) {
         const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - pageBoundsPx.h);
@@ -543,7 +543,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
       const desktopSizePx = props.visualElement.boundsPx;
-      const currentPageVeid = store.currentPage()!;
+      const currentPageVeid = store.history.currentPage()!;
 
       if (desktopSizePx.w < pageBoundsPx.w) {
         const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
@@ -654,7 +654,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return result;
   };
 
-  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.currentPopupSpecVePath();
+  const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath();
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
 

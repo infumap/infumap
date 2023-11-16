@@ -18,7 +18,7 @@
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
-import { StoreContextModel, PopupType } from "../../store/StoreProvider";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -44,6 +44,7 @@ import { newOrdering } from "../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { PopupType } from "../../store/StoreProvider_History";
 
 
 export const arrangeItem = (
@@ -82,7 +83,7 @@ export const arrangeItem = (
       store, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);
   }
 
-  if (isTable(displayItem) && (item.parentId == store.currentPage()!.itemId || renderChildrenAsFull)) {
+  if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || renderChildrenAsFull)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeTable(
       store, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, parentIsPopup, isMoving);
@@ -212,7 +213,7 @@ const arrangePageWithChildren = (
       let scrollPropY;
       let scrollPropX;
       if (isPagePopup) {
-        const popupSpec = store.currentPopupSpec();
+        const popupSpec = store.history.currentPopupSpec();
         assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
         scrollPropY = store.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
         scrollPropX = store.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
@@ -224,9 +225,9 @@ const arrangePageWithChildren = (
       const topLevelVisualElement = store.topLevelVisualElement.get();
       const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
       const desktopSizePx = store.desktopBoundsPx();
-      const pageYScrollProp = store.getPageScrollYProp(store.currentPage()!);
+      const pageYScrollProp = store.getPageScrollYProp(store.history.currentPage()!);
       const pageYScrollPx = pageYScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
-      const pageXScrollProp = store.getPageScrollXProp(store.currentPage()!);
+      const pageXScrollProp = store.getPageScrollXProp(store.history.currentPage()!);
       const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
 
       const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
@@ -332,7 +333,7 @@ const arrangePageWithChildren = (
 
     let selectedVeid = EMPTY_VEID;
     if (isPagePopup) {
-      const poppedUp = store.currentPopupSpec()!;
+      const poppedUp = store.history.currentPopupSpec()!;
       const poppedUpPath = poppedUp.vePath;
       const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
       selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(poppedUpVeid));

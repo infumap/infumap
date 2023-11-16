@@ -35,9 +35,9 @@ import { arrangeItemAttachments } from "./attachments";
 export const POPUP_LINK_ID = newUid();
 
 export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
-  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), "");
-  const currentPopupSpec = store.currentPopupSpec()!;
+  const currentPopupSpec = store.history.currentPopupSpec()!;
 
   const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);

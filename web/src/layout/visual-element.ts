@@ -21,7 +21,7 @@ import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
 import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
-import { StoreContextModel, PopupType } from "../store/StoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { assert, panic } from "../util/lang";
 import { asTableItem, isTable } from "../items/table-item";
@@ -30,6 +30,7 @@ import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
 import { isPage } from "../items/page-item";
+import { PopupType } from "../store/StoreProvider_History";
 
 
 /**
@@ -401,7 +402,7 @@ export const VeFns = {
         let adjY = 0.0;
         let adjX = 0.0;
         if (ve.flags & VisualElementFlags.Popup) {
-          const popupSpec = store.currentPopupSpec()!;
+          const popupSpec = store.history.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
           adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
