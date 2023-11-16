@@ -31,7 +31,9 @@ export const ItemType = {
   Image: "image",
   Rating: "rating",
   Link: "link",
-  Placeholder: "placeholder"
+  Placeholder: "placeholder",
+  Dock: "dock",
+  Trash: "trash",
 };
 
 

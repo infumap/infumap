@@ -27,16 +27,14 @@ import { RelationshipToParent } from "../../relationship-to-parent";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../../visual-element";
 import { POPUP_LINK_ID, arrangeCellPopup } from "../popup";
-import { newUid } from "../../../util/uid";
 import { Item } from "../../../items/base/item";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { VisualElementSignal } from "../../../util/signals";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
+import { UserStoreContextModel } from "../../../store/UserStoreProvider";
 
-
-const PAGE_TITLE_UID = newUid();
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
 

@@ -31,8 +31,6 @@ import { arrangeItem } from "../item";
 import { arrangeCellPopup } from "../popup";
 
 
-const PAGE_TITLE_UID = newUid();
-
 export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   VesCache.initFullArrange();
 
