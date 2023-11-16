@@ -23,7 +23,6 @@ import App from './components/App';
 import "tailwindcss/tailwind.css";
 import './index.css';
 import { DesktopStoreProvider } from './store/DesktopStoreProvider';
-import { GeneralStoreProvider } from './store/GeneralStoreProvider';
 import { UserStoreProvider } from './store/UserStoreProvider';
 
 // import { testOrdering } from './util/ordering';
@@ -32,11 +31,9 @@ import { UserStoreProvider } from './store/UserStoreProvider';
 render(() => (
   <DesktopStoreProvider>
     <UserStoreProvider>
-      <GeneralStoreProvider>
-        <Router>
-          <App />
-        </Router>
-      </GeneralStoreProvider>
+      <Router>
+        <App />
+      </Router>
     </UserStoreProvider>
   </DesktopStoreProvider>
 ), document.getElementById("rootDiv") as HTMLElement);

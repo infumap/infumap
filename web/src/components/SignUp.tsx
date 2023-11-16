@@ -19,12 +19,12 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import { Component, createSignal, onMount, Show } from "solid-js";
 import { post } from "../server";
-import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
+import { useDesktopStore } from "../store/DesktopStoreProvider";
 
 
 interface Totp {
@@ -40,7 +40,7 @@ interface RegisterResponse {
 
 export const SignUp: Component = () => {
   const userStore = useUserStore();
-  const generalStore = useGeneralStore();
+  const store = useDesktopStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -63,16 +63,16 @@ export const SignUp: Component = () => {
     const r: RegisterResponse = await post(null, '/account/register', {
       username: username,
       password: password,
-      totpSecret: generalStore.prefer2fa() ? totpInfo.secret : null,
-      totpToken: generalStore.prefer2fa() ? totpToken : null,
+      totpSecret: store.generalStore.prefer2fa() ? totpInfo.secret : null,
+      totpToken: store.generalStore.prefer2fa() ? totpToken : null,
       pageWidthPx: window.innerWidth,
       pageHeightPx: window.innerHeight,
     });
     if (r.success) {
       if (areSettingUp()) {
-        let r = await userStore.login(username, password, generalStore.prefer2fa() ? totpToken : null);
+        let r = await userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
         if (r.success) {
-          generalStore.assumeHaveRootUser();
+          store.generalStore.assumeHaveRootUser();
           navigate('/');
         } else {
           setError(r.err);
@@ -86,7 +86,7 @@ export const SignUp: Component = () => {
   }
 
   onMount(async () => {
-    if (generalStore.installationState()!.hasRootUser) {
+    if (store.generalStore.installationState()!.hasRootUser) {
       navigate("/signup");
     }
     if (areSettingUp()) { username = ROOT_USERNAME; }
@@ -120,11 +120,11 @@ export const SignUp: Component = () => {
         <div>
           <div class="inline-block w-32"></div>
           <input type="checkbox" id="nootp" name="nootp" value="noopt"
-                 checked={generalStore.prefer2fa()}
-                 onclick={() => generalStore.setPrefer2fa(!generalStore.prefer2fa())} />
+                 checked={store.generalStore.prefer2fa()}
+                 onclick={() => store.generalStore.setPrefer2fa(!store.generalStore.prefer2fa())} />
           <div class="ml-2 mb-3 inline-block"><label for="nootp">Setup 2FA</label></div>
         </div>
-        <Show when={generalStore.prefer2fa()}>
+        <Show when={store.generalStore.prefer2fa()}>
           <div class="mb-3">
             <div class="inline-block w-32">6 Digit Token</div>
             <InfuTextInput onInput={(v) => { totpToken = v; }} />
@@ -140,7 +140,7 @@ export const SignUp: Component = () => {
             <div class="text-red-700">{error()}</div>
           </div>
         </Show>
-        <Show when={generalStore.prefer2fa()}>
+        <Show when={store.generalStore.prefer2fa()}>
           <div class="mt-6">
             <Show when={totp() != null}>
               <div class="absolute">Authenticator setup:</div>

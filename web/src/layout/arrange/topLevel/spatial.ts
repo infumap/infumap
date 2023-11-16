@@ -33,7 +33,6 @@ import { VisualElementSignal } from "../../../util/signals";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
-import { UserStoreContextModel } from "../../../store/UserStoreProvider";
 
 
 export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {

@@ -20,7 +20,6 @@ import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { useDesktopStore } from "../store/DesktopStoreProvider";
-import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
@@ -45,11 +44,10 @@ export const Main: Component = () => {
   const params = useParams();
   const userStore = useUserStore();
   const desktopStore = useDesktopStore();
-  const generalStore = useGeneralStore();
   const navigate = useNavigate();
 
   onMount(async () => {
-    if (!generalStore.installationState()!.hasRootUser) {
+    if (!desktopStore.generalStore.installationState()!.hasRootUser) {
       navigate('/setup');
     }
 
@@ -79,8 +77,8 @@ export const Main: Component = () => {
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       userStore.clear();
-      generalStore.clearInstallationState();
-      await generalStore.retrieveInstallationState();
+      desktopStore.generalStore.clearInstallationState();
+      await desktopStore.generalStore.retrieveInstallationState();
       if (logout) {
         await logout();
       }

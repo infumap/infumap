@@ -26,6 +26,30 @@ import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
 import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal, VisualElementSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
+import { post } from "../server";
+
+
+
+const LOCALSTORAGE_KEY_NAME = "infudata";
+
+
+interface InstallationState {
+  hasRootUser: boolean
+}
+
+interface LocalStorageData {
+  prefer2fa: boolean
+}
+
+export interface GeneralStoreContextModel {
+  installationState: Accessor<InstallationState | null>,
+  retrieveInstallationState: () => Promise<void>,
+  clearInstallationState: () => void,
+  assumeHaveRootUser: () => void,
+
+  prefer2fa: () => boolean,
+  setPrefer2fa: (prefer2fa: boolean) => void,
+}
 
 
 export interface DesktopStoreContextModel {
@@ -81,6 +105,8 @@ export interface DesktopStoreContextModel {
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVePath: () => VisualElementPath | null,
   setHistoryToSinglePage: (currentPage: Veid) => void,
+
+  generalStore: GeneralStoreContextModel,
 }
 
 export interface OverlayCoordinates {
@@ -391,6 +417,8 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
     pageAspectOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     pageWidthOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
     pageNumColsOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+
+    generalStore: makeGeneralStore()
   };
 
   return (
@@ -400,6 +428,45 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   );
 }
 
+function makeGeneralStore(): GeneralStoreContextModel {
+  const [localStorageDataString, setLacalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
+
+  const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
+
+  const retrieveInstallationState = async () => {
+    try {
+      setInstallationState(await post(null, "/admin/installation-state", {}));
+    } catch (e) {
+      console.log("An error occurred retrieving installation state. " + e);
+      setInstallationState(null);
+    }
+  }
+  const clearInstallationState = () => { setInstallationState(null); }
+  const assumeInstallationStateHaveRootUser = () => { setInstallationState({ hasRootUser: true }); }
+
+  const prefer2fa = () => {
+    const lcds = localStorageDataString();
+    let lcd: LocalStorageData | null = lcds == null ? null : JSON.parse(lcds);
+    if (lcd == null) { return false; }
+    return lcd.prefer2fa;
+  }
+  const setPrefer2fa = (prefer2fa: boolean) => {
+    let lcds = localStorageDataString();
+    let r = { prefer2fa };
+    if (lcds != null) {
+      r = JSON.parse(lcds);
+      r.prefer2fa = prefer2fa;
+    }
+    lcds = JSON.stringify(r);
+    window.localStorage.setItem(LOCALSTORAGE_KEY_NAME, lcds);
+    setLacalStorageDataString(lcds);
+  }
+
+  return {
+    installationState, retrieveInstallationState, clearInstallationState, assumeHaveRootUser: assumeInstallationStateHaveRootUser,
+    prefer2fa, setPrefer2fa,
+  };
+}
 
 export function useDesktopStore(): DesktopStoreContextModel {
   return useContext(DesktopStoreContext) ?? panic("no desktop context");

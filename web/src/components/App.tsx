@@ -17,24 +17,24 @@
 */
 
 import { Component, onMount, Show } from 'solid-js';
-import { useGeneralStore } from '../store/GeneralStoreProvider';
 import { useUserStore } from '../store/UserStoreProvider';
 import { SignUp } from './SignUp';
 import { Login } from './Login';
 import { Navigate, Route, Routes } from '@solidjs/router';
 import { Main } from './Main';
+import { useDesktopStore } from '../store/DesktopStoreProvider';
 
 
 const App: Component = () => {
   const userStore = useUserStore();
-  const generalStore = useGeneralStore();
+  const store = useDesktopStore();
 
   onMount(async () => {
     const user = userStore.getUserMaybe();
     if (user == null) {
-      await generalStore.retrieveInstallationState();
+      await store.generalStore.retrieveInstallationState();
     } else {
-      generalStore.assumeHaveRootUser();
+      store.generalStore.assumeHaveRootUser();
     }
   });
 
@@ -42,28 +42,28 @@ const App: Component = () => {
   const fallback2 = () => <Navigate href="/setup" />;
 
   const LoginPath: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback()}>
-      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
+    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
+      <Show when={store.generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <Login />
       </Show>
     </Show>;
 
   const SignUpPath: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback()}>
-      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
+    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
+      <Show when={store.generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <SignUp />
       </Show>
     </Show>;
 
   const MainPath: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback()}>
-      <Show when={generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
+    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
+      <Show when={store.generalStore.installationState()?.hasRootUser} fallback={fallback2()}>
         <Main />
       </Show>
     </Show>;
 
   const SetupPath: Component = () =>
-    <Show when={generalStore.installationState() != null} fallback={fallback()}>
+    <Show when={store.generalStore.installationState() != null} fallback={fallback()}>
       <SignUp />
     </Show>;
 

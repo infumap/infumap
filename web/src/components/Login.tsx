@@ -18,17 +18,17 @@
 
 import { useNavigate } from "@solidjs/router";
 import { Component, createSignal, Show } from "solid-js";
-import { useGeneralStore } from "../store/GeneralStoreProvider";
 import { useUserStore } from "../store/UserStoreProvider";
 import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
+import { useDesktopStore } from "../store/DesktopStoreProvider";
 
 
 export const Login: Component = () => {
   const userStore = useUserStore();
-  const generalStore = useGeneralStore();
+  const store = useDesktopStore();
   const navigate = useNavigate();
 
   let username: string = "";
@@ -38,12 +38,12 @@ export const Login: Component = () => {
   const [error, setError] = createSignal<string | null>(null, { equals: false });
 
   const toggle2fa = () => {
-    generalStore.setPrefer2fa(!generalStore.prefer2fa());
+    store.generalStore.setPrefer2fa(!store.generalStore.prefer2fa());
     setError(null);
   }
 
   const handleLoginClick = async () => {
-    const r = await userStore.login(username, password, generalStore.prefer2fa() ? totpToken : null);
+    const r = await userStore.login(username, password, store.generalStore.prefer2fa() ? totpToken : null);
     if (r.success) {
       const queryString = window.location.search;
       const urlParams = new URLSearchParams(queryString);
@@ -82,10 +82,10 @@ export const Login: Component = () => {
         </div>
         <div>
           <div class="inline-block w-32"></div>
-          <input class="rounded-sm" type="checkbox" id="nootp" name="nootp" value="noopt" checked={generalStore.prefer2fa()} onclick={toggle2fa} />
+          <input class="rounded-sm" type="checkbox" id="nootp" name="nootp" value="noopt" checked={store.generalStore.prefer2fa()} onclick={toggle2fa} />
           <div class="ml-2 mb-3 inline-block"><label for="nootp">Use 2FA</label></div>
         </div>
-        <Show when={generalStore.prefer2fa()}>
+        <Show when={store.generalStore.prefer2fa()}>
           <div class="mb-3">
             <div class="inline-block w-32">6 Digit Token</div>
             <InfuTextInput onInput={(v) => { totpToken = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
