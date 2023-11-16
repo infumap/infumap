@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
 import { arrange } from "../../layout/arrange";
@@ -28,17 +28,17 @@ import { isInside } from "../../util/geometry";
 
 
 export const Toolbar_Note_Url: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let urlTextElement: HTMLInputElement | undefined;
 
-  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.noteEditOverlayInfo.get()!.itemPath).itemId)!);
+  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(store.noteEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), urlBoxBoundsPx())) { return; }
-    desktopStore.noteUrlOverlayInfoMaybe.set(null);
+    store.noteUrlOverlayInfoMaybe.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -52,12 +52,12 @@ export const Toolbar_Note_Url: Component = () => {
 
   const handleUrlChange = () => {
     noteItem().url = urlTextElement!.value;
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const urlBoxBoundsPx = () => ({
-    x: desktopStore.noteUrlOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.noteUrlOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.noteUrlOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.noteUrlOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 500, h: 40
   });
 

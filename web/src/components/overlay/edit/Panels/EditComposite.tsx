@@ -18,7 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { CompositeItem } from "../../../../items/composite-item";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { InfuButton } from "../../../library/InfuButton";
 import { server } from "../../../../server";
 import { itemState } from "../../../../store/ItemState";
@@ -26,7 +26,7 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditComposite: Component<{compositeItem: CompositeItem, linkedTo: boolean}> = (props: { compositeItem: CompositeItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const compositeId = props.compositeItem.id;
   let deleted = false;
@@ -35,8 +35,8 @@ export const EditComposite: Component<{compositeItem: CompositeItem, linkedTo: b
     deleted = true;
     await server.deleteItem(compositeId); // throws on failure.
     itemState.delete(compositeId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   return (

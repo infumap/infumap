@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { DesktopStoreContextModel, useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { StoreContextModel, useStore } from "../../../store/StoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../../util/geometry";
 import { EditItem } from "./EditItem";
 import { LEFT_TOOLBAR_WIDTH_PX } from "../../../constants";
@@ -27,22 +27,22 @@ const DIALOG_WIDTH_PX = 400;
 
 export const editDialogSizePx = { w: DIALOG_WIDTH_PX, h: 500 };
 
-export function initialEditDialogBounds(desktopStore: DesktopStoreContextModel) {
+export function initialEditDialogBounds(store: StoreContextModel) {
   let posPx = {
-    x: (desktopStore.desktopBoundsPx().w) / 2.0 + LEFT_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
+    x: (store.desktopBoundsPx().w) / 2.0 + LEFT_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
     y: 120.0
   };
   return boundingBoxFromPosSize(posPx, { ...editDialogSizePx }); 
 }
 
 export const EditDialog: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let editDialogDiv: HTMLDivElement | undefined;
 
-  const item = () => desktopStore.editDialogInfo.get()!.item;
-  const posPx = () => getBoundingBoxTopLeft(desktopStore.editDialogInfo.get()!.desktopBoundsPx);
-  const sizePx = () => getBoundingBoxSize(desktopStore.editDialogInfo.get()!.desktopBoundsPx);
+  const item = () => store.editDialogInfo.get()!.item;
+  const posPx = () => getBoundingBoxTopLeft(store.editDialogInfo.get()!.desktopBoundsPx);
+  const sizePx = () => getBoundingBoxSize(store.editDialogInfo.get()!.desktopBoundsPx);
 
   return (
     <>

@@ -17,7 +17,7 @@
 */
 
 import { Component, onMount } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
 import { VesCache } from "../../layout/ves-cache";
@@ -30,19 +30,19 @@ import { arrange } from "../../layout/arrange";
 
 
 export const TableEditOverlay: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let textElement: HTMLInputElement | undefined;
 
-  const tableVisualElement = () => VesCache.get(desktopStore.tableEditOverlayInfo.get()!.itemPath)!.get();
-  const tableVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(desktopStore, tableVisualElement());
+  const tableVisualElement = () => VesCache.get(store.tableEditOverlayInfo.get()!.itemPath)!.get();
+  const tableVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(store, tableVisualElement());
   const tableItem = () => asTableItem(tableVisualElement().displayItem);
   const tableItemOnInitialize = tableItem();
   const editBoxBoundsPx = () => {
     const blockSizePx = tableVisualElement().blockSizePx!;
     const result = tableVeBoundsPx();
     result.h = blockSizePx.h;
-    const overlayInfo = desktopStore.tableEditOverlayInfo.get()!;
+    const overlayInfo = store.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) {
       return result;
     }
@@ -61,11 +61,11 @@ export const TableEditOverlay: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, editBoxBoundsPx())) { return; }
-    if (desktopStore.userStore.getUserMaybe() != null && tableItem().ownerId == desktopStore.userStore.getUser().userId) {
+    if (store.userStore.getUserMaybe() != null && tableItem().ownerId == store.userStore.getUser().userId) {
       server.updateItem(tableItem());
     }
-    desktopStore.tableEditOverlayInfo.set(null);
-    arrange(desktopStore);
+    store.tableEditOverlayInfo.set(null);
+    arrange(store);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -83,21 +83,21 @@ export const TableEditOverlay: Component = () => {
   const inputMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (desktopStore.userStore.getUserMaybe() != null && tableItemOnInitialize.ownerId == desktopStore.userStore.getUser().userId) {
+      if (store.userStore.getUserMaybe() != null && tableItemOnInitialize.ownerId == store.userStore.getUser().userId) {
         server.updateItem(tableItem());
-        desktopStore.noteEditOverlayInfo.set(null);
+        store.noteEditOverlayInfo.set(null);
       }
     }
   }
 
   const editingValue = () => {
-    const overlayInfo = desktopStore.tableEditOverlayInfo.get()!;
+    const overlayInfo = store.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) { return tableItem().title }
     return tableItem().tableColumns[overlayInfo.colNum!].name;
   }
 
   const inputOnInputHandler = () => {
-    const overlayInfo = desktopStore.tableEditOverlayInfo.get()!;
+    const overlayInfo = store.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) {
       tableItem().title = textElement!.value;
     } else {
@@ -121,7 +121,7 @@ export const TableEditOverlay: Component = () => {
                  `width: ${editBoxBoundsPx().w}px; ` +
                  `height: ${editBoxBoundsPx().h}px;`}
           value={editingValue()}
-          disabled={desktopStore.userStore.getUserMaybe() == null || desktopStore.userStore.getUser().userId != tableItem().ownerId}
+          disabled={store.userStore.getUserMaybe() == null || store.userStore.getUser().userId != tableItem().ownerId}
           onMouseDown={inputMouseDownHandler}
           onInput={inputOnInputHandler} />
     </div>

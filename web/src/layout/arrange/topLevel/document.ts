@@ -18,28 +18,28 @@
 
 import { LINE_HEIGHT_PX } from "../../../constants";
 import { PageFns, asPageItem } from "../../../items/page-item";
-import { DesktopStoreContextModel } from "../../../store/DesktopStoreProvider";
+import { StoreContextModel } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { VesCache } from "../../ves-cache";
 import { VisualElementFlags, VisualElementSpec } from "../../visual-element";
 
 
-export const arrange_document = (desktopStore: DesktopStoreContextModel): void => {
+export const arrange_document = (store: StoreContextModel): void => {
   VesCache.initFullArrange();
 
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const pageBoundsPx = desktopStore.desktopBoundsPx();
+  const pageBoundsPx = store.desktopBoundsPx();
 
   const _headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: desktopStore.desktopBoundsPx(),
+    boundsPx: store.desktopBoundsPx(),
     childAreaBoundsPx: pageBoundsPx,
   };
 
-  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
+  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, store);
 }

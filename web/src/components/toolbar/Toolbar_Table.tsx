@@ -17,7 +17,7 @@
 */
 
 import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { createBooleanSignal } from "../../util/signals";
 import { panic } from "../../util/lang";
@@ -29,12 +29,12 @@ import { TableFlags } from "../../items/base/flags-item";
 
 
 export const Toolbar_Table: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let alwaysFalseSignal = createBooleanSignal(false);
   const rerenderToolbar = () => { alwaysFalseSignal.set(false); }
 
-  const tableItem = () => asTableItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const tableItem = () => asTableItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const isSortedByTitle = () => {
     if (alwaysFalseSignal.get()) { panic("unexpected state"); }
@@ -49,7 +49,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().orderChildrenBy = "";
     }
     itemState.sortChildren(tableItem().id);
-    arrange(desktopStore);
+    arrange(store);
     server.updateItem(tableItem());
     rerenderToolbar();
   }
@@ -68,14 +68,14 @@ export const Toolbar_Table: Component = () => {
       tableItem().flags |= TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableItem().id);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
-      <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == tableItem().ownerId}>
+      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == tableItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>

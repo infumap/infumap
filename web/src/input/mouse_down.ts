@@ -27,7 +27,7 @@ import { navigateBack, navigateUp, switchToPage } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
@@ -39,18 +39,15 @@ export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
 
 
-export async function mouseDownHandler(
-    desktopStore: DesktopStoreContextModel,
-    buttonNumber: number) {
-
-  if (desktopStore.currentPage() == null) { return; }
+export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number) {
+  if (store.currentPage() == null) { return; }
 
   switch(buttonNumber) {
     case MOUSE_LEFT:
-      mouseLeftDownHandler(desktopStore);
+      mouseLeftDownHandler(store);
       return;
     case MOUSE_RIGHT:
-      await mouseRightDownHandler(desktopStore);
+      await mouseRightDownHandler(store);
       return;
     default:
       console.warn("unsupported mouse button: " + buttonNumber);
@@ -59,17 +56,17 @@ export async function mouseDownHandler(
 }
 
 
-export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
+export function mouseLeftDownHandler(store: StoreContextModel) {
 
   const desktopPosPx = CursorEventState.getLatestDesktopPx();
 
-  if (desktopStore.contextMenuInfo.get() != null) {
+  if (store.contextMenuInfo.get() != null) {
     DoubleClickState.preventDoubleClick();
-    desktopStore.contextMenuInfo.set(null);
+    store.contextMenuInfo.set(null);
     return;
   }
 
-  let dialogInfo = desktopStore.editDialogInfo.get();
+  let dialogInfo = store.editDialogInfo.get();
   if (dialogInfo != null) {
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
@@ -77,11 +74,11 @@ export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
       return;
     }
 
-    desktopStore.editDialogInfo.set(null);
+    store.editDialogInfo.set(null);
     return;
   }
 
-  let userSettingsInfo = desktopStore.editUserSettingsInfo.get();
+  let userSettingsInfo = store.editUserSettingsInfo.get();
   if (userSettingsInfo != null) {
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, userSettingsInfo!.desktopBoundsPx)) {
@@ -89,17 +86,17 @@ export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
       return;
     }
 
-    desktopStore.editUserSettingsInfo.set(null);
+    store.editUserSettingsInfo.set(null);
     return;
   }
 
-  const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
+  const hitInfo = getHitInfo(store, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
       DoubleClickState.preventDoubleClick();
-      switchToPage(desktopStore, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
+      switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
     } else {
-      arrange(desktopStore);
+      arrange(store);
     }
     MouseActionState.set(null);
     return;
@@ -110,7 +107,7 @@ export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
   const startHeightBl = null;
   const startPx = desktopPosPx;
   const activeItem = VeFns.canonicalItem(hitInfo.overElementVes.get());
-  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, hitInfo.overElementVes.get());
+  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
@@ -119,7 +116,7 @@ export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const activeCompositeItem = VeFns.canonicalItem(hitInfo.overContainerVe!);
-      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, hitInfo.overContainerVe!);
+      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overContainerVe!);
       onePxSizeBl = {
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,
         y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnTopLevelPagePx.h };
@@ -145,7 +142,7 @@ export function mouseLeftDownHandler(desktopStore: DesktopStoreContextModel) {
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,
     moveOver_scaleDefiningElement: VeFns.veToPath(
-      getHitInfo(desktopStore, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false).overPositionableVe!),
+      getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false).overPositionableVe!),
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,
     action: MouseAction.Ambiguous,
@@ -187,28 +184,28 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 }
 
 
-export async function mouseRightDownHandler(desktopStore: DesktopStoreContextModel) {
+export async function mouseRightDownHandler(store: StoreContextModel) {
 
-  if (desktopStore.contextMenuInfo.get()) {
-    desktopStore.contextMenuInfo.set(null);
-    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
+  if (store.contextMenuInfo.get()) {
+    store.contextMenuInfo.set(null);
+    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
     return;
   }
 
-  if (desktopStore.editDialogInfo.get() != null) {
-    desktopStore.editDialogInfo.set(null);
-    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
+  if (store.editDialogInfo.get() != null) {
+    store.editDialogInfo.set(null);
+    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
     return;
   }
 
-  if (desktopStore.editUserSettingsInfo.get() != null) {
-    desktopStore.editUserSettingsInfo.set(null);
-    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
+  if (store.editUserSettingsInfo.get() != null) {
+    store.editUserSettingsInfo.set(null);
+    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
     return;
   }
 
-  const changedPages = navigateBack(desktopStore);
+  const changedPages = navigateBack(store);
   if (!changedPages) {
-    await navigateUp(desktopStore);
+    await navigateUp(store);
   }
 }

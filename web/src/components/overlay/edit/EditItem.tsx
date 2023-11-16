@@ -32,11 +32,11 @@ import { asPasswordItem, isPassword } from "../../../items/password-item";
 import { EditPassword } from "./Panels/EditPassword";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { EditComposite } from "./Panels/EditComposite";
-import { useDesktopStore } from "../../../store/DesktopStoreProvider";
+import { useStore } from "../../../store/StoreProvider";
 
 
 export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {item: Item, linkedTo: boolean}) => {
-  let store = useDesktopStore();
+  let store = useStore();
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(props.item.id);

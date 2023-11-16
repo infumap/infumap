@@ -34,15 +34,15 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VeFns } from "../layout/visual-element";
 import { server } from "../server";
-import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 
 
-export function mouseUpHandler(desktopStore: DesktopStoreContextModel) {
+export function mouseUpHandler(store: StoreContextModel) {
 
-  desktopStore.itemIsMoving.set(false);
+  store.itemIsMoving.set(false);
 
   DialogMoveState.set(null);
   UserSettingsMoveState.set(null);
@@ -56,7 +56,7 @@ export function mouseUpHandler(desktopStore: DesktopStoreContextModel) {
   switch (MouseActionState.get().action) {
     case MouseAction.Moving:
       DoubleClickState.preventDoubleClick();
-      mouseUpHandler_moving(desktopStore, activeItem);
+      mouseUpHandler_moving(store, activeItem);
       break;
 
     case MouseAction.MovingPopup: {
@@ -97,24 +97,24 @@ export function mouseUpHandler(desktopStore: DesktopStoreContextModel) {
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handlePopupClick(activeVisualElement, desktopStore);
+        ItemFns.handlePopupClick(activeVisualElement, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();
-        handleAttachmentClick(desktopStore, activeVisualElement);
-        arrange(desktopStore);
+        handleAttachmentClick(store, activeVisualElement);
+        arrange(store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, desktopStore);
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleAnchorClick(activeVisualElement, desktopStore);
+        PageFns.handleAnchorClick(activeVisualElement, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleExpandClick(activeVisualElement, desktopStore);
+        PageFns.handleExpandClick(activeVisualElement, store);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         console.debug("no action taken");
@@ -130,19 +130,17 @@ export function mouseUpHandler(desktopStore: DesktopStoreContextModel) {
 }
 
 
-function handleAttachmentClick(desktopStore: DesktopStoreContextModel, visualElement: VisualElement) {
+function handleAttachmentClick(store: StoreContextModel, visualElement: VisualElement) {
   const veid = VeFns.veidFromVe(visualElement);
   VesCache.remove(veid);
-  desktopStore.replacePopup({
+  store.replacePopup({
     type: PopupType.Attachment,
     vePath: VeFns.veToPath(visualElement)
   })
 }
 
 
-function mouseUpHandler_moving(
-    desktopStore: DesktopStoreContextModel,
-    activeItem: PositionalItem) {
+function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalItem) {
 
   if (MouseActionState.get().moveOver_containerElement != null) {
     VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get()
@@ -150,24 +148,24 @@ function mouseUpHandler_moving(
   }
 
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
-    mouseUpHandler_moving_hitboxAttachTo(desktopStore, activeItem);
+    mouseUpHandler_moving_hitboxAttachTo(store, activeItem);
     return;
   }
 
   if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
-    mouseUpHandler_moving_hitboxAttachToComposite(desktopStore, activeItem);
+    mouseUpHandler_moving_hitboxAttachToComposite(store, activeItem);
     return;
   }
 
   const overContainerVe = VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get();
 
   if (isTable(overContainerVe.displayItem)) {
-    mouseUpHandler_moving_toTable(desktopStore, activeItem, overContainerVe);
+    mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;
   }
 
   if (overContainerVe.displayItem.id != activeItem.parentId) {
-    mouseUpHandler_moving_toOpaquePage(desktopStore, activeItem, overContainerVe);
+    mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
     return;
   }
 
@@ -179,11 +177,11 @@ function mouseUpHandler_moving(
 
   finalizeMouseUp();
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContextModel, activeItem: PositionalItem) {
   const prevParentId = activeItem.parentId;
 
   const attachToVisualElement = VesCache.get(MouseActionState.get()!.moveOver_attachCompositeHitboxElement!)!.get();
@@ -259,11 +257,11 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(desktopStore: Deskt
 
   finalizeMouseUp();
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem) {
+function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeItem: PositionalItem) {
   const attachToVisualElement = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
   if (asAttachmentsItem(attachToVisualElement.displayItem).id == activeItem.id) {
     // TODO (MEDIUM): More rigorous recursive check. also server side.
@@ -278,11 +276,11 @@ function mouseUpHandler_moving_hitboxAttachTo(desktopStore: DesktopStoreContextM
   server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   if (isTable(overContainerVe.displayItem)) { panic("mouseUpHandler_moving_toOpaquePage: over container is a table."); }
 
   const moveOverContainerId = overContainerVe.displayItem.id;
@@ -297,11 +295,11 @@ function mouseUpHandler_moving_toOpaquePage(desktopStore: DesktopStoreContextMod
   server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const moveOverContainerId = overContainerVe.displayItem.id;
   if (moveOverContainerId == activeItem.id) {
     // TODO (HIGH): more rigorous check of entire hierarchy.
@@ -310,7 +308,7 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   }
 
   if (overContainerVe.moveOverColAttachmentNumber.get() >= 0) {
-    mouseUpHandler_moving_toTable_attachmentCell(desktopStore, activeItem, overContainerVe);
+    mouseUpHandler_moving_toTable_attachmentCell(store, activeItem, overContainerVe);
     return;
   }
 
@@ -319,14 +317,14 @@ function mouseUpHandler_moving_toTable(desktopStore: DesktopStoreContextModel, a
   server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
+function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const tableItem = asTableItem(overContainerVe.displayItem);
   let rowNumber = overContainerVe.moveOverRowNumber.get();
-  const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
+  const yScrollPos = store.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];
@@ -363,7 +361,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(desktopStore: DesktopStore
   server.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(desktopStore);
+  arrange(store);
 }
 
 

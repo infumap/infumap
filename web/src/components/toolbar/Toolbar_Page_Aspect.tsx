@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { CursorEventState } from "../../input/state";
@@ -28,18 +28,18 @@ import { server } from "../../server";
 
 
 export const Toolbar_Page_Aspect: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let aspectTextElement: HTMLInputElement | undefined;
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
-    desktopStore.pageAspectOverlayInfoMaybe.set(null);
-    arrange(desktopStore);
+    store.pageAspectOverlayInfoMaybe.set(null);
+    arrange(store);
     server.updateItem(pageItem());
   };
 
@@ -54,12 +54,12 @@ export const Toolbar_Page_Aspect: Component = () => {
 
   const handleAspectChange = () => {
     pageItem().naturalAspect = parseFloat(aspectTextElement!.value);
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const entryBoxBoundsPx = () => ({
-    x: desktopStore.pageAspectOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.pageAspectOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.pageAspectOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.pageAspectOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 300, h: 30
   });
 

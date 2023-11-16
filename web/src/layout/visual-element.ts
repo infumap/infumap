@@ -21,7 +21,7 @@ import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
 import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
-import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../store/StoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { assert, panic } from "../util/lang";
 import { asTableItem, isTable } from "../items/table-item";
@@ -367,7 +367,7 @@ export const VeFns = {
     return 0;
   },
 
-  veBoundsRelativeToDestkopPx: (desktopStore: DesktopStoreContextModel, visualElement: VisualElement): BoundingBox => {
+  veBoundsRelativeToDestkopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
     assert(ve.parentPath != null, "veBoundsRelativeToTopLevelPagePx: not expecting top level page.");
 
@@ -382,7 +382,7 @@ export const VeFns = {
         const tableItem = asTableItem(veParentParent.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
-        r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
+        r.y -= blockHeightPx * store.getTableScrollYPos(VeFns.veidFromVe(ve));
         // skip the item that is a child of the table - the attachment ve is relative to the table.
         // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
         ve = VesCache.get(ve.parentPath!)!.get();
@@ -396,19 +396,19 @@ export const VeFns = {
         const tableItem = asTableItem(ve.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
-        r.y -= blockHeightPx * desktopStore.getTableScrollYPos(VeFns.veidFromVe(ve));
+        r.y -= blockHeightPx * store.getTableScrollYPos(VeFns.veidFromVe(ve));
       } else if (isPage(ve.displayItem)) {
         let adjY = 0.0;
         let adjX = 0.0;
         if (ve.flags & VisualElementFlags.Popup) {
-          const popupSpec = desktopStore.currentPopupSpec()!;
+          const popupSpec = store.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
-          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
-          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
         } else {
           if (ve.flags & VisualElementFlags.ShowChildren) {
-            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
-            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromVe(ve));
+            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromVe(ve));
+            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromVe(ve));
           }
         }
         r.x -= adjX;
@@ -420,18 +420,18 @@ export const VeFns = {
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
   },
 
-  desktopPxToTopLevelPagePx: (desktopStore: DesktopStoreContextModel, desktopPosPx: Vector): Vector => {
-    const ve = desktopStore.topLevelVisualElement.get();
-    const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * desktopStore.getPageScrollYProp(VeFns.veidFromVe(ve));
-    const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * desktopStore.getPageScrollXProp(VeFns.veidFromVe(ve));
+  desktopPxToTopLevelPagePx: (store: StoreContextModel, desktopPosPx: Vector): Vector => {
+    const ve = store.topLevelVisualElement.get();
+    const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromVe(ve));
+    const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromVe(ve));
     return ({
       x: desktopPosPx.x + adjX,
       y: desktopPosPx.y + adjY
     });
   },
 
-  printCurrentVisualElementTree: (desktopStore: DesktopStoreContextModel) => {
-    printRecursive(desktopStore.topLevelVisualElement.get(), 0, "c");
+  printCurrentVisualElementTree: (store: StoreContextModel) => {
+    printRecursive(store.topLevelVisualElement.get(), 0, "c");
   },
 
   visualElementFlagsToString: (visualElementFlags: VisualElementFlags) => {

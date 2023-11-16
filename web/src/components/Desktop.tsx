@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, onCleanup, onMount } from "solid-js";
-import { useDesktopStore } from "../store/DesktopStoreProvider";
+import { useStore } from "../store/StoreProvider";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { ContextMenu } from "./overlay/ContextMenu";
 import { mouseMoveHandler } from "../input/mouse_move";
@@ -43,55 +43,55 @@ import { TableEditOverlay } from "./overlay/TableEditOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let desktopDiv: HTMLDivElement | undefined;
 
   const keyListener = (ev: KeyboardEvent) => {
-    keyHandler(desktopStore, ev);
+    keyHandler(store, ev);
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseDoubleClickHandler(desktopStore, ev);
+    mouseDoubleClickHandler(store, ev);
   };
 
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.preventDefault();
-    await mouseDownHandler(desktopStore, ev.button);
+    await mouseDownHandler(store, ev.button);
   };
 
   const touchListener = async (ev: TouchEvent) => {
     if (ev.touches.length > 1) {
       CursorEventState.setFromTouchEvent(ev);
       ev.preventDefault();
-      await mouseDownHandler(desktopStore, MOUSE_RIGHT);
+      await mouseDownHandler(store, MOUSE_RIGHT);
     }
   }
 
   const mouseMoveListener = (ev: MouseEvent) => {
     CursorEventState.setFromMouseEvent(ev);
-    mouseMoveHandler(desktopStore);
+    mouseMoveHandler(store);
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
     ev.preventDefault();
-    mouseUpHandler(desktopStore);
+    mouseUpHandler(store);
   };
 
   const windowResizeListener = () => {
-    desktopStore.resetDesktopSizePx();
-    arrange(desktopStore);
-    setTopLevelPageScrollPositions(desktopStore);
+    store.resetDesktopSizePx();
+    arrange(store);
+    setTopLevelPageScrollPositions(store);
   };
 
   const windowPopStateListener = () => {
-    desktopStore.contextMenuInfo.set(null);
-    desktopStore.editDialogInfo.set(null);
-    desktopStore.editUserSettingsInfo.set(null);
-    desktopStore.popPage();
-    arrange(desktopStore);
-    setTopLevelPageScrollPositions(desktopStore);
+    store.contextMenuInfo.set(null);
+    store.editDialogInfo.set(null);
+    store.editUserSettingsInfo.set(null);
+    store.popPage();
+    arrange(store);
+    setTopLevelPageScrollPositions(store);
   };
 
   const contextMenuListener = (ev: Event) => {
@@ -104,7 +104,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
+      let hi = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
       if (hi.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
@@ -114,7 +114,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         console.log("must upload on page.");
         return;
       }
-      await handleUpload(desktopStore, ev.dataTransfer, CursorEventState.getLatestDesktopPx(), asPageItem(item));
+      await handleUpload(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(), asPageItem(item));
     }
   };
 
@@ -156,25 +156,25 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       <Page_Desktop visualElement={props.visualElement} />
 
       {/* desktop overlays */}
-      <Show when={desktopStore.editDialogInfo.get() != null}>
+      <Show when={store.editDialogInfo.get() != null}>
         <EditDialog />
       </Show>
-      <Show when={desktopStore.editUserSettingsInfo.get() != null}>
+      <Show when={store.editUserSettingsInfo.get() != null}>
         <EditUserSettings />
       </Show>
-      <Show when={desktopStore.contextMenuInfo.get() != null}>
+      <Show when={store.contextMenuInfo.get() != null}>
         <ContextMenu />
       </Show>
-      <Show when={desktopStore.noteEditOverlayInfo.get() != null}>
+      <Show when={store.noteEditOverlayInfo.get() != null}>
         <NoteEditOverlay />
       </Show>
-      <Show when={desktopStore.tableEditOverlayInfo.get() != null}>
+      <Show when={store.tableEditOverlayInfo.get() != null}>
         <TableEditOverlay />
       </Show>
-      <Show when={desktopStore.searchOverlayVisible.get()}>
+      <Show when={store.searchOverlayVisible.get()}>
         <SearchOverlay />
       </Show>
-      <Show when={desktopStore.isPanicked.get()}>
+      <Show when={store.isPanicked.get()}>
         <Panic />
       </Show>
 

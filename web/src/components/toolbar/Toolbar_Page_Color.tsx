@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { CursorEventState } from "../../input/state";
@@ -29,9 +29,9 @@ import { arrange } from "../../layout/arrange";
 
 
 export const Toolbar_Page_Color: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     CursorEventState.setFromMouseEvent(ev);
@@ -39,8 +39,8 @@ export const Toolbar_Page_Color: Component = () => {
       ev.stopPropagation();
       return;
     }
-    desktopStore.pageColorOverlayInfoMaybe.set(null);
-    arrange(desktopStore);
+    store.pageColorOverlayInfoMaybe.set(null);
+    arrange(store);
     server.updateItem(pageItem());
   };
 
@@ -60,14 +60,14 @@ export const Toolbar_Page_Color: Component = () => {
   };
 
   const colorBoxBoundsPx = () => ({
-    x: desktopStore.pageColorOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.pageColorOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.pageColorOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.pageColorOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 96, h: 56
   });
 
   const handleClick = (col: number) => {
     pageItem().backgroundColorIndex = col;
-    desktopStore.pageColorOverlayInfoMaybe.set(desktopStore.pageColorOverlayInfoMaybe.get());
+    store.pageColorOverlayInfoMaybe.set(store.pageColorOverlayInfoMaybe.get());
   }
 
   return (

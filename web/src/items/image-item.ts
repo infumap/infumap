@@ -28,7 +28,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
-import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../store/StoreProvider";
 import { VesCache } from "../layout/ves-cache";
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { arrange } from "../layout/arrange";
@@ -168,16 +168,16 @@ export const ImageFns = {
     });
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (visualElement.flags & VisualElementFlags.Popup) {
       window.open('/files/' + visualElement.displayItem.id, '_blank');
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      desktopStore.pushPopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
-      arrange(desktopStore);
+      store.pushPopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
+      arrange(store);
     } else {
-      desktopStore.replacePopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
-      arrange(desktopStore);
+      store.replacePopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
+      arrange(store);
     }
   },
 

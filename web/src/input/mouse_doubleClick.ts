@@ -16,24 +16,22 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { getHitInfo } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState } from "./state";
 
 
-export function mouseDoubleClickHandler(
-    desktopStore: DesktopStoreContextModel,
-    ev: MouseEvent) {
+export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent) {
   if (!DoubleClickState.canDoubleClick()) { return; }
-  if (desktopStore.currentPage() == null) { return; }
-  if (desktopStore.contextMenuInfo.get() != null || desktopStore.editDialogInfo.get() != null) { return; }
-  if (desktopStore.noteEditOverlayInfo.get() != null) { return; }
+  if (store.currentPage() == null) { return; }
+  if (store.contextMenuInfo.get() != null || store.editDialogInfo.get() != null) { return; }
+  if (store.noteEditOverlayInfo.get() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
-  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
+  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
 
-  desktopStore.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
-  mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
+  store.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+  mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
 }

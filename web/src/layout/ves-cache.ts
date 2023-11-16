@@ -17,7 +17,7 @@
 */
 
 import { ItemFns } from "../items/base/item-polymorphism";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { compareBoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
@@ -76,8 +76,8 @@ export let VesCache = {
     evaluationRequired = new Set<VisualElementPath>();
   },
 
-  finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, desktopStore: DesktopStoreContextModel): void => {
-    createOrRecycleVisualElementSignalImpl(topLevelVisualElementSpec, topLevelPath, desktopStore.topLevelVisualElement);
+  finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, store: StoreContextModel): void => {
+    createOrRecycleVisualElementSignalImpl(topLevelVisualElementSpec, topLevelPath, store.topLevelVisualElement);
     newCache = new Map<VisualElementPath, VisualElementSignal>();
   },
 

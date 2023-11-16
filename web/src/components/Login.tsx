@@ -22,11 +22,11 @@ import { InfuButton } from "./library/InfuButton";
 import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
-import { useDesktopStore } from "../store/DesktopStoreProvider";
+import { useStore } from "../store/StoreProvider";
 
 
 export const Login: Component = () => {
-  const store = useDesktopStore();
+  const store = useStore();
   const navigate = useNavigate();
 
   let username: string = "";

@@ -20,20 +20,20 @@ import { Component } from "solid-js";
 import { server } from "../../server";
 import { Item } from "../../items/base/item";
 import { asPageItem } from "../../items/page-item";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { arrange } from "../../layout/arrange";
 import { InfuColorButton } from "./InfuColorButton";
 
 
 export const InfuColorSelector: Component<{ item: Item }> = (props: {item: Item }) => {
-  let desktopStore = useDesktopStore();
+  let store = useStore();
 
   let itemId = props.item.id;
 
   const handleClick = (col: number) => {
     asPageItem(itemState.get(props.item.id)!).backgroundColorIndex = col;
-    arrange(desktopStore);
+    arrange(store);
     server.updateItem(itemState.get(itemId)!);
   }
 

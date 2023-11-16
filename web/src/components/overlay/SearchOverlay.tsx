@@ -17,7 +17,7 @@
 */
 
 import { Accessor, Component, For, Match, Setter, Show, Switch, createSignal, onMount } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { CursorEventState } from "../../input/state";
 import { SearchResult, server } from "../../server";
 import { ItemType } from "../../items/base/item";
@@ -31,7 +31,7 @@ import { isInside } from "../../util/geometry";
 
 
 export const SearchOverlay: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const boxBoundsPx = () => {
     return ({
@@ -51,7 +51,7 @@ export const SearchOverlay: Component = () => {
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestDesktopPx(), boxBoundsPx())) { return; }
     if (overResultsDiv) { return; }
-    desktopStore.searchOverlayVisible.set(false);
+    store.searchOverlayVisible.set(false);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -70,7 +70,7 @@ export const SearchOverlay: Component = () => {
   let searchedFor = null;
 
   const handleSearchClick = async () => {
-    const pageIdMaybe = isGlobalSearchSignal.get() ? null : desktopStore.currentPage()!.itemId;
+    const pageIdMaybe = isGlobalSearchSignal.get() ? null : store.currentPage()!.itemId;
     const result = await server.search(pageIdMaybe, textElement!.value);
     searchedFor = textElement!.value;
     resultsSignal.set(result);
@@ -81,9 +81,9 @@ export const SearchOverlay: Component = () => {
     if (ev.code == "Enter") {
       if (currentSelectedResult.get() != -1) {
         const selectedPageId = currentSelectedPageId()!;
-        desktopStore.searchOverlayVisible.set(false);
-        await initiateLoadItemMaybe(desktopStore, selectedPageId);
-        switchToPage(desktopStore, VeFns.veidFromId(selectedPageId), true, false);
+        store.searchOverlayVisible.set(false);
+        await initiateLoadItemMaybe(store, selectedPageId);
+        switchToPage(store, VeFns.veidFromId(selectedPageId), true, false);
       } else {
         await handleSearchClick();
       }
@@ -152,9 +152,9 @@ export const SearchOverlay: Component = () => {
 
   const resultClickHandler = (resultPageId: Uid) => {
     return async (_ev: MouseEvent) => {
-      await initiateLoadItemMaybe(desktopStore, resultPageId);
-      desktopStore.searchOverlayVisible.set(false);
-      switchToPage(desktopStore, VeFns.veidFromId(resultPageId), true, false);
+      await initiateLoadItemMaybe(store, resultPageId);
+      store.searchOverlayVisible.set(false);
+      switchToPage(store, VeFns.veidFromId(resultPageId), true, false);
     }
   };
 

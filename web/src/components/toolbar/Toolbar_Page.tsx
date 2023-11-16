@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, createEffect } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { InfuIconButton } from "../library/InfuIconButton";
@@ -33,7 +33,7 @@ import { Colors } from "../../style";
 
 
 export const Toolbar_Page: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let divBeforeColroSelect: HTMLInputElement | undefined;
   let widthDiv: HTMLInputElement | undefined;
@@ -43,7 +43,7 @@ export const Toolbar_Page: Component = () => {
   let alwaysFalseSignal = createBooleanSignal(false);
   const rerenderToolbar = () => { alwaysFalseSignal.set(false); }
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const handleChangeAlgorithm = () => {
     let newAA;
@@ -53,7 +53,7 @@ export const Toolbar_Page: Component = () => {
     else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) { newAA = ArrangeAlgorithm.SpatialStretch; }
     else { panic("unexpected arrange algorithm " + pageItem().arrangeAlgorithm); }
     pageItem().arrangeAlgorithm = newAA;
-    arrange(desktopStore);
+    arrange(store);
     rerenderToolbar();
     server.updateItem(pageItem());
   };
@@ -84,22 +84,22 @@ export const Toolbar_Page: Component = () => {
   }
 
   const colorNumber = () => {
-    desktopStore.pageColorOverlayInfoMaybe.get();
+    store.pageColorOverlayInfoMaybe.get();
     return pageItem().backgroundColorIndex;
   }
 
   const widthText = () => {
-    desktopStore.pageWidthOverlayInfoMaybe.get();
+    store.pageWidthOverlayInfoMaybe.get();
     return pageItem().innerSpatialWidthGr / GRID_SIZE;
   }
 
   const aspectText = () => {
-    desktopStore.pageAspectOverlayInfoMaybe.get();
+    store.pageAspectOverlayInfoMaybe.get();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
   const numColsText = () => {
-    desktopStore.pageNumColsOverlayInfoMaybe.get();
+    store.pageNumColsOverlayInfoMaybe.get();
     return pageItem().gridNumberOfColumns;
   }
 
@@ -111,7 +111,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().orderChildrenBy = "";
     }
     itemState.sortChildren(pageItem().id);
-    arrange(desktopStore);
+    arrange(store);
     server.updateItem(pageItem());
     rerenderToolbar();
   }
@@ -122,7 +122,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
-    arrange(desktopStore);
+    arrange(store);
     server.updateItem(pageItem());
     rerenderToolbar();
   }
@@ -133,35 +133,35 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleColorClick = () => {
-    desktopStore.pageColorOverlayInfoMaybe.set(
+    store.pageColorOverlayInfoMaybe.set(
       { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x, y: divBeforeColroSelect!.getBoundingClientRect().y + 16 } });
   };
 
   const handleAspectClick = () => {
-    desktopStore.pageAspectOverlayInfoMaybe.set(
+    store.pageAspectOverlayInfoMaybe.set(
       { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
   };
 
   const handleWidthClick = () => {
-    desktopStore.pageWidthOverlayInfoMaybe.set(
+    store.pageWidthOverlayInfoMaybe.set(
       { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
   };
 
   const handleNumColsClick = () => {
-    desktopStore.pageNumColsOverlayInfoMaybe.set(
+    store.pageNumColsOverlayInfoMaybe.set(
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 } });
   };
 
   const subTitleColor = () => {
     // item state has no solid-js signals.
     // as a bit of a hack, change in title/color is signalled by re-setting this instead.
-    desktopStore.pageColorOverlayInfoMaybe.get();
+    store.pageColorOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
   };
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">
-      <Show when={desktopStore.getToolbarFocus().itemId != desktopStore.currentPage()!.itemId }>
+      <Show when={store.getToolbarFocus().itemId != store.currentPage()!.itemId }>
         <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
           {pageItem().title}
         </div>
@@ -185,7 +185,7 @@ export const Toolbar_Page: Component = () => {
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
-      <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == pageItem().ownerId}>
+      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == pageItem().ownerId}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>

@@ -24,7 +24,7 @@ import { Item, ItemType, ItemTypeMixin } from './base/item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
-import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { StoreContextModel } from '../store/StoreProvider';
 import { server } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
@@ -180,13 +180,13 @@ export const RatingFns = {
     });
   },
 
-  handleClick: (desktopStore: DesktopStoreContextModel, visualElementSignal: VisualElementSignal): void => {
+  handleClick: (store: StoreContextModel, visualElementSignal: VisualElementSignal): void => {
     const visualElement = visualElementSignal.get();
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const item = asRatingItem(visualElementSignal.get().displayItem);
     item.rating += 1;
     if (item.rating == 6) { item.rating = 0; }
-    arrange(desktopStore); // TODO (LOW): only need to rearrange the element.
+    arrange(store); // TODO (LOW): only need to rearrange the element.
   
     function clickTimerHandler() {
       server.updateItem(item);

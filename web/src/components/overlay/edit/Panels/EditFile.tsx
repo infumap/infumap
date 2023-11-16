@@ -18,7 +18,7 @@
 
 import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../../../server";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { asFileItem, FileItem } from "../../../../items/file-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
@@ -27,23 +27,23 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (props: { fileItem: FileItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const fileId = props.fileItem.id;
   let deleted = false;
 
   const handleTextInput = (v: string) => {
     asFileItem(itemState.get(fileId)!).title = v;
-    // rearrangeVisualElementsWithItemId(desktopStore, fileId); TODO (MEDIUM): use VesCache for this now.
-    arrange(desktopStore);
+    // rearrangeVisualElementsWithItemId(store, fileId); TODO (MEDIUM): use VesCache for this now.
+    arrange(store);
   };
 
   const deleteFile = async () => {
     deleted = true;
     await server.deleteItem(fileId); // throws on failure.
     itemState.delete(fileId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   onCleanup(() => {

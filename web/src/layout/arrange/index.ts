@@ -18,7 +18,7 @@
 
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
-import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { panic, getPanickedMessage } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -48,36 +48,36 @@ import { evaluateExpressions } from "../../expression/evaluate";
  *    you need to be very congisant of functional dependencies, what is being captured etc. Even though the direct
  *    approach is more ad-hoc / less "automated", the code is simpler to work on due to this.
  */
-export const arrange = (desktopStore: DesktopStoreContextModel): void => {
-  if (desktopStore.currentPage() == null) { return; }
+export const arrange = (store: StoreContextModel): void => {
+  if (store.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {
-    desktopStore.isPanicked.set(true);
+    store.isPanicked.set(true);
     return;
   }
 
-  initiateLoadChildItemsMaybe(desktopStore, desktopStore.currentPage()!);
+  initiateLoadChildItemsMaybe(store, store.currentPage()!);
 
-  switch (asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm) {
+  switch (asPageItem(itemState.get(store.currentPage()!.itemId)!).arrangeAlgorithm) {
     case ArrangeAlgorithm.Grid:
-      arrange_grid(desktopStore);
+      arrange_grid(store);
       break;
     case ArrangeAlgorithm.SpatialStretch:
-      arrange_spatialStretch(desktopStore);
+      arrange_spatialStretch(store);
       break;
     case ArrangeAlgorithm.List:
-      arrange_list(desktopStore);
+      arrange_list(store);
       break;
     case ArrangeAlgorithm.Document:
-      arrange_document(desktopStore);
+      arrange_document(store);
       break;
     default:
-      panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!).arrangeAlgorithm}.`);
+      panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(store.currentPage()!.itemId)!).arrangeAlgorithm}.`);
   }
 
   evaluateExpressions();
 
   // TODO (LOW): this is not necessarily true. but it'd be a pain to pass this into every arrange call.
   const hasUser = true;
-  mouseMove_handleNoButtonDown(desktopStore, hasUser);
+  mouseMove_handleNoButtonDown(store, hasUser);
 }

@@ -22,15 +22,15 @@ import { Router } from "@solidjs/router";
 import App from './components/App';
 import "tailwindcss/tailwind.css";
 import './index.css';
-import { DesktopStoreProvider } from './store/DesktopStoreProvider';
+import { StoreProvider } from './store/StoreProvider';
 
 // import { testOrdering } from './util/ordering';
 // testOrdering();
 
 render(() => (
-  <DesktopStoreProvider>
+  <StoreProvider>
     <Router>
       <App />
     </Router>
-  </DesktopStoreProvider>
+  </StoreProvider>
 ), document.getElementById("rootDiv") as HTMLElement);

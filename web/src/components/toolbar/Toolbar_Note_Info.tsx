@@ -19,14 +19,14 @@
 import { Component, Show } from "solid-js";
 import { asNoteItem } from "../../items/note-item";
 import { VesCache } from "../../layout/ves-cache";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 
 
 export const Toolbar_Note_Info: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
-  const noteVisualElement = () => VesCache.get(desktopStore.noteEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(store.noteEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const compositeVisualElementMaybe = () => {

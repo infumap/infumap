@@ -23,12 +23,12 @@ import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
-import { PopupType, useDesktopStore } from "../../store/DesktopStoreProvider";
+import { PopupType, useStore } from "../../store/StoreProvider";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let imgElement: HTMLImageElement | undefined;
 
@@ -71,7 +71,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
-  const isMainPoppedUp = () => VeFns.veToPath(props.visualElement) == desktopStore.currentPopupSpecVePath() && desktopStore.currentPopupSpec()!.type != PopupType.Attachment;
+  const isMainPoppedUp = () => VeFns.veToPath(props.visualElement) == store.currentPopupSpecVePath() && store.currentPopupSpec()!.type != PopupType.Attachment;
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no
@@ -201,7 +201,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
-          <Show when={props.visualElement.mouseIsOver.get() && !desktopStore.itemIsMoving.get()}>
+          <Show when={props.visualElement.mouseIsOver.get() && !store.itemIsMoving.get()}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #ffffff33; ${VeFns.zIndexStyle(props.visualElement)}`} />

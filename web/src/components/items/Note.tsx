@@ -27,7 +27,7 @@ import { NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { getTextStyleForNote } from "../../layout/text";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
@@ -36,7 +36,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -112,10 +112,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
   const showMoveOutOfCompositeArea = () =>
-    desktopStore.userStore.getUserMaybe() != null &&
+    store.userStore.getUserMaybe() != null &&
     props.visualElement.mouseIsOver.get() &&
-    !desktopStore.itemIsMoving.get() &&
-    desktopStore.noteEditOverlayInfo.get() == null &&
+    !store.itemIsMoving.get() &&
+    store.noteEditOverlayInfo.get() == null &&
     isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
 
   const renderShadow = () =>

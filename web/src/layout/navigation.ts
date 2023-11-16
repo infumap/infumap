@@ -18,7 +18,7 @@
 
 import { ROOT_USERNAME } from "../constants";
 import { asPageItem, isPage } from "../items/page-item";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
@@ -27,14 +27,14 @@ import { initiateLoadItemMaybe } from "./load";
 import { Veid } from "./visual-element";
 
 
-export function updateHref(desktopStore: DesktopStoreContextModel) {
-  const userMaybe = desktopStore.userStore.getUserMaybe();
+export function updateHref(store: StoreContextModel) {
+  const userMaybe = store.userStore.getUserMaybe();
   if (!userMaybe) {
-    window.history.pushState(null, "", `/${desktopStore.currentPage()!.itemId}`);
+    window.history.pushState(null, "", `/${store.currentPage()!.itemId}`);
   } else {
     const user = userMaybe;
-    if (desktopStore.currentPage()!.itemId != user.homePageId) {
-      window.history.pushState(null, "", `/${desktopStore.currentPage()!.itemId}`);
+    if (store.currentPage()!.itemId != user.homePageId) {
+      window.history.pushState(null, "", `/${store.currentPage()!.itemId}`);
     } else {
       if (user.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
@@ -46,39 +46,39 @@ export function updateHref(desktopStore: DesktopStoreContextModel) {
 }
 
 
-export function switchToPage(desktopStore: DesktopStoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean) {
+export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean) {
   if (clearHistory) {
-    desktopStore.setHistoryToSinglePage(pageVeid);
+    store.setHistoryToSinglePage(pageVeid);
   } else {
-    desktopStore.pushPage(pageVeid);
+    store.pushPage(pageVeid);
   }
 
-  arrange(desktopStore);
+  arrange(store);
 
-  setTopLevelPageScrollPositions(desktopStore);
+  setTopLevelPageScrollPositions(store);
 
   if (updateHistory) {
-    updateHref(desktopStore);
+    updateHref(store);
   }
 }
 
 
-export function navigateBack(desktopStore: DesktopStoreContextModel): boolean {
-  if (desktopStore.currentPopupSpec() != null) {
-    desktopStore.popPopup();
-    const page = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+export function navigateBack(store: StoreContextModel): boolean {
+  if (store.currentPopupSpec() != null) {
+    store.popPopup();
+    const page = asPageItem(itemState.get(store.currentPage()!.itemId)!);
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
-    arrange(desktopStore);
+    arrange(store);
     return true;
   }
 
-  const changePages = desktopStore.popPage();
+  const changePages = store.popPage();
   if (changePages) {
-    updateHref(desktopStore);
-    arrange(desktopStore);
-    setTopLevelPageScrollPositions(desktopStore);
+    updateHref(store);
+    arrange(store);
+    setTopLevelPageScrollPositions(store);
     return true;
   }
 
@@ -87,8 +87,8 @@ export function navigateBack(desktopStore: DesktopStoreContextModel): boolean {
 
 
 let navigateUpInProgress = false;
-export async function navigateUp(desktopStore: DesktopStoreContextModel) {
-  const currentPageVeid = desktopStore.currentPage();
+export async function navigateUp(store: StoreContextModel) {
+  const currentPageVeid = store.currentPage();
   if (currentPageVeid == null) { return; }
 
   if (navigateUpInProgress) { return; }
@@ -109,7 +109,7 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel) {
     const parentPageMaybe = itemState.get(parentId);
     if (parentPageMaybe != null) {
       if (isPage(parentPageMaybe)) {
-        switchToPage(desktopStore, { itemId: parentId, linkIdMaybe: null }, true, true);
+        switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true);
         navigateUpInProgress = false;
         return;
       } else {
@@ -118,23 +118,23 @@ export async function navigateUp(desktopStore: DesktopStoreContextModel) {
       }
     }
 
-    await initiateLoadItemMaybe(desktopStore, parentId);
+    await initiateLoadItemMaybe(store, parentId);
   }
 
   panic(`navigateUp: could not find page after ${MAX_LEVELS} levels.`);
 }
 
 
-export function setTopLevelPageScrollPositions(desktopStore: DesktopStoreContextModel) {
+export function setTopLevelPageScrollPositions(store: StoreContextModel) {
   let rootPageDiv = window.document.getElementById("rootPageDiv")!;
-  let veid = desktopStore.currentPage()!;
+  let veid = store.currentPage()!;
 
-  const topLevelVisualElement = desktopStore.topLevelVisualElement.get();
+  const topLevelVisualElement = store.topLevelVisualElement.get();
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
-  const desktopSizePx = desktopStore.desktopBoundsPx();
+  const desktopSizePx = store.desktopBoundsPx();
 
-  const scrollXPx = desktopStore.getPageScrollXProp(veid) * (topLevelBoundsPx.w - desktopSizePx.w);
-  const scrollYPx = desktopStore.getPageScrollYProp(veid) * (topLevelBoundsPx.h - desktopSizePx.h);
+  const scrollXPx = store.getPageScrollXProp(veid) * (topLevelBoundsPx.w - desktopSizePx.w);
+  const scrollYPx = store.getPageScrollYProp(veid) * (topLevelBoundsPx.h - desktopSizePx.h);
 
   if (rootPageDiv) {
     rootPageDiv.scrollTop = scrollYPx;

@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
 import { asNoteItem } from "../../items/note-item";
@@ -28,17 +28,17 @@ import { isInside } from "../../util/geometry";
 
 
 export const Toolbar_Note_Format: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let formatTextElement: HTMLInputElement | undefined;
 
-  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(desktopStore.noteEditOverlayInfo.get()!.itemPath).itemId)!);
+  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(store.noteEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), formatBoxBoundsPx())) { return; }
-    desktopStore.noteFormatOverlayInfoMaybe.set(null);
+    store.noteFormatOverlayInfoMaybe.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -52,12 +52,12 @@ export const Toolbar_Note_Format: Component = () => {
 
   const handleFormatChange = () => {
     noteItem().format = formatTextElement!.value;
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const formatBoxBoundsPx = () => ({
-    x: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 500, h: 40
   });
 

@@ -29,7 +29,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { FlagsMixin, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
-import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
@@ -225,10 +225,10 @@ export const NoteFns = {
     window.open(asNoteItem(visualElement.displayItem).url, '_blank');
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    desktopStore.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
-    arrange(desktopStore); // input focus changed.
+  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    store.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
+    arrange(store); // input focus changed.
   },
 
   cloneMeasurableFields: (note: NoteMeasurable): NoteMeasurable => {

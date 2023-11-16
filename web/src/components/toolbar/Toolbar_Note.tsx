@@ -21,7 +21,7 @@ import { InfuIconButton } from "../library/InfuIconButton";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
@@ -31,11 +31,11 @@ import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
 
 export const Toolbar_Note: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let beforeFormatElement : HTMLDivElement | undefined;
 
-  const noteVisualElement = () => VesCache.get(desktopStore.noteEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(store.noteEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const compositeVisualElementMaybe = () => {
@@ -53,21 +53,21 @@ export const Toolbar_Note: Component = () => {
     return VeFns.isInTable(noteVisualElement());
   }
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); arrange(desktopStore); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; arrange(desktopStore); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; arrange(desktopStore); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; arrange(desktopStore); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; arrange(desktopStore); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; arrange(desktopStore); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); arrange(store); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; arrange(store); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; arrange(store); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; arrange(store); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; arrange(store); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; arrange(store); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); arrange(desktopStore); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(desktopStore); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(desktopStore); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(desktopStore); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); arrange(store); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(store); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(store); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(store); };
 
-  const urlButtonHandler = () => { desktopStore.noteUrlOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
+  const urlButtonHandler = () => { store.noteUrlOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
 
-  const formatHandler = () => { desktopStore.noteFormatOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
+  const formatHandler = () => { store.noteFormatOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -82,7 +82,7 @@ export const Toolbar_Note: Component = () => {
     } else {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const borderButtonHandler = (): void => {
@@ -99,7 +99,7 @@ export const Toolbar_Note: Component = () => {
         noteItem().flags |= NoteFlags.HideBorder;
       }
     }
-    arrange(desktopStore);
+    arrange(store);
   };
 
   let deleted = false;
@@ -122,14 +122,14 @@ export const Toolbar_Note: Component = () => {
       itemState.delete(noteItem().id);
 
       deleted = true;
-      desktopStore.noteEditOverlayInfo.set(null);
-      arrange(desktopStore);
+      store.noteEditOverlayInfo.set(null);
+      arrange(store);
     }
   };
 
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
-      <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == noteItem().ownerId}>
+      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
         <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
         <Show when={!isInTable()}>
           <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
@@ -155,7 +155,7 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
-      <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
+      <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
         <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
       </Show>
     </div>;
@@ -164,12 +164,12 @@ export const Toolbar_Note: Component = () => {
     <>
       <div class="inline-block">
         <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-        <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
       <div class="inline-block">
-        <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
           <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
           <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
@@ -188,7 +188,7 @@ export const Toolbar_Note: Component = () => {
             <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
         </Show>
-        <Show when={desktopStore.userStore.getUserMaybe() != null && desktopStore.userStore.getUser().userId == noteItem().ownerId}>
+        <Show when={store.userStore.getUserMaybe() != null && store.userStore.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>

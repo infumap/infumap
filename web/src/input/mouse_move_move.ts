@@ -33,30 +33,30 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { server } from "../server";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { Vector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
-import { ClickState, CursorEventState, MouseAction, MouseActionState } from "./state";
+import { CursorEventState, MouseAction, MouseActionState } from "./state";
 
 
-export function moving_initiate(desktopStore: DesktopStoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
+export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   const shouldCreateLink = CursorEventState.get().shiftDown;
   const parentItem = itemState.get(activeItem.parentId)!;
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
-    moving_activeItemOutOfTable(desktopStore, shouldCreateLink);
-    arrange(desktopStore);
+    moving_activeItemOutOfTable(store, shouldCreateLink);
+    arrange(store);
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-    const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-    moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
-    arrange(desktopStore);
+    const hitInfo = getHitInfo(store, desktopPosPx, [], false);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
+    arrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = getHitInfo(desktopStore, desktopPosPx, [], false);
-    moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
-    arrange(desktopStore);
+    const hitInfo = getHitInfo(store, desktopPosPx, [], false);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
+    arrange(store);
   }
   else {
     MouseActionState.get().startPosBl = {
@@ -79,23 +79,23 @@ export function moving_initiate(desktopStore: DesktopStoreContextModel, activeIt
       itemState.add(link);
       server.addItem(link, null);
 
-      desktopStore.itemIsMoving.set(true);
+      store.itemIsMoving.set(true);
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElement);
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.get().activeElement = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
-      arrange(desktopStore);
+      arrange(store);
     }
   }
 
-  desktopStore.itemIsMoving.set(true);
+  store.itemIsMoving.set(true);
   MouseActionState.get().action = MouseAction.Moving;
 }
 
 
-export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, desktopStore: DesktopStoreContextModel) {
+export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -104,7 +104,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, deskto
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
     for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
   }
-  const hitInfo = getHitInfo(desktopStore, desktopPosPx, ignoreIds, false);
+  const hitInfo = getHitInfo(store, desktopPosPx, ignoreIds, false);
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
@@ -139,13 +139,13 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, deskto
   }
 
   if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
-    moving_activeItemToPage(desktopStore, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
-    arrange(desktopStore);
+    moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
+    arrange(store);
     return;
   }
 
   if (isTable(hitInfo.overContainerVe!.displayItem)) {
-    moving_handleOverTable(desktopStore, hitInfo.overContainerVe!, desktopPosPx);
+    moving_handleOverTable(store, hitInfo.overContainerVe!, desktopPosPx);
   }
 
   const deltaBl = {
@@ -163,12 +163,12 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, deskto
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
-  const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(desktopStore, overContainerVe, desktopPx);
+function moving_handleOverTable(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
+  const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overContainerVe, desktopPx);
   overContainerVe.moveOverRowNumber.set(insertRow);
 
   const tableItem = asTableItem(overContainerVe.displayItem);
@@ -181,11 +181,11 @@ function moving_handleOverTable(desktopStore: DesktopStoreContextModel, overCont
 }
 
 
-function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
+function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
-  const pagePx = VeFns.desktopPxToTopLevelPagePx(desktopStore, desktopPx);
+  const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
 
   const moveToPage = asPageItem(moveToVe.displayItem);
   let moveToPageAbsoluteBoundsPx;
@@ -194,7 +194,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     // for dimensions to be that of clientAreaBounds not boundsPx.
     moveToPageAbsoluteBoundsPx = moveToVe.childAreaBoundsPx!;
   } else {
-    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, moveToVe);
+    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToVe);
   }
 
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
@@ -224,7 +224,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
     link.spatialPositionGr = newItemPosGr;
     itemState.add(link);
     server.addItem(link, null);
-    arrange(desktopStore); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
+    arrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic("moving_activeItemToPage: could not find element."); }
     MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
@@ -257,7 +257,7 @@ function moving_activeItemToPage(desktopStore: DesktopStoreContextModel, moveToV
 }
 
 
-function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, shouldCreateLink: boolean) {
+function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
@@ -265,7 +265,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
+  itemPosInTablePx.y -= store.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
 
@@ -274,7 +274,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
   if (tableParentVe.parentPath == null) {
     moveToPageAbsoluteBoundsPx = tableParentVe.childAreaBoundsPx!;
   } else {
-    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, tableParentVe);
+    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableParentVe);
   }
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
@@ -295,7 +295,7 @@ function moving_activeItemOutOfTable(desktopStore: DesktopStoreContextModel, sho
     link.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.add(link);
     server.addItem(link, null);
-    arrange(desktopStore); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
+    arrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic("moving_activeItemOutOfTable: could not find element."); }
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };

@@ -20,7 +20,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachmen
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
-import { DesktopStoreContextModel, PopupType } from "../../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
@@ -30,7 +30,7 @@ import { getVePropertiesForItem } from "./util";
 
 
 export function arrangeItemAttachments(
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentDisplayItem: Item,
     parentLinkItemMaybe: LinkItem | null,
     parentItemBoundsPx: BoundingBox,
@@ -47,14 +47,14 @@ export function arrangeItemAttachments(
   for (let i=0; i<attachmentsItem.computed_attachments.length; ++i) {
     const attachmentId = attachmentsItem.computed_attachments[i];
     const attachmentItem = itemState.get(attachmentId)!;
-    const { displayItem: attachmentDisplayItem, linkItemMaybe: attachmentLinkItemMaybe } = getVePropertiesForItem(desktopStore, attachmentItem);
+    const { displayItem: attachmentDisplayItem, linkItemMaybe: attachmentLinkItemMaybe } = getVePropertiesForItem(store, attachmentItem);
     const attachmentVeid: Veid = {
       itemId: attachmentDisplayItem.id,
       linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null
     };
     const attachmentVePath = VeFns.addVeidToPath(attachmentVeid, parentItemVePath);
 
-    const popupSpec = desktopStore.currentPopupSpec();
+    const popupSpec = store.currentPopupSpec();
     let isSelected = false;
     if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
       if (attachmentVePath == popupSpec.vePath) {

@@ -22,7 +22,7 @@ import { arrange } from "../layout/arrange";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
 import { VeFns } from "../layout/visual-element";
-import { DesktopStoreContextModel, PopupType } from "../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
@@ -32,8 +32,8 @@ import { CursorEventState } from "./state";
 
 const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
 
-export function keyHandler(desktopStore: DesktopStoreContextModel, ev: KeyboardEvent): void {
-  if (desktopStore.editDialogInfo.get() != null || desktopStore.contextMenuInfo.get() != null || desktopStore.noteEditOverlayInfo.get() != null) {
+export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+  if (store.editDialogInfo.get() != null || store.contextMenuInfo.get() != null || store.noteEditOverlayInfo.get() != null) {
     return;
   }
 
@@ -41,26 +41,26 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, ev: KeyboardE
     return;
   }
 
-  const hitInfo = getHitInfo(desktopStore, CursorEventState.getLatestDesktopPx(), [], false);
+  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
 
   if (ev.code == "Slash") {
     ev.preventDefault();
-    desktopStore.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
-    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
+    store.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
   }
 
   else if (ev.code == "Backslash") {
     ev.preventDefault();
-    desktopStore.editDialogInfo.set({
-      desktopBoundsPx: initialEditDialogBounds(desktopStore),
+    store.editDialogInfo.set({
+      desktopBoundsPx: initialEditDialogBounds(store),
       item: (() => {
         const overVe = hitInfo.overElementVes.get();
         if (overVe.linkItemMaybe != null) {
-          const poppedUp = desktopStore.currentPopupSpec();
+          const poppedUp = store.currentPopupSpec();
           if (poppedUp && overVe.displayItem.id == VeFns.veidFromPath(poppedUp!.vePath).itemId) {
             return overVe.displayItem;
           }
-          const selected = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
+          const selected = store.getSelectedListPageItem(store.currentPage()!);
           if (selected && overVe.displayItem.id == VeFns.veidFromPath(selected).itemId) {
             return overVe.displayItem;
           }
@@ -69,52 +69,52 @@ export function keyHandler(desktopStore: DesktopStoreContextModel, ev: KeyboardE
         return overVe.displayItem;
       })()
     });
-    mouseMove_handleNoButtonDown(desktopStore, desktopStore.userStore.getUserMaybe() != null);
+    mouseMove_handleNoButtonDown(store, store.userStore.getUserMaybe() != null);
   }
 
   else if (ev.code == "Escape") {
     ev.preventDefault();
-    if (desktopStore.currentPopupSpec()) {
-      desktopStore.popAllPopups();
-      arrange(desktopStore);
+    if (store.currentPopupSpec()) {
+      store.popAllPopups();
+      arrange(store);
     }
   }
 
   else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
     ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-    const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+    const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
     if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
       if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
-        const selectedItem = desktopStore.getSelectedListPageItem(desktopStore.currentPage()!);
+        const selectedItem = store.getSelectedListPageItem(store.currentPage()!);
         const direction = findDirectionFromKeyCode(ev.code);
         const closest = findClosest(selectedItem, direction, true)!;
         if (closest != null) {
-          desktopStore.setSelectedListPageItem(desktopStore.currentPage()!, closest);
-          arrange(desktopStore);
+          store.setSelectedListPageItem(store.currentPage()!, closest);
+          arrange(store);
         }
       }
     } else {
-      if (desktopStore.currentPopupSpec() == null) {
+      if (store.currentPopupSpec() == null) {
         return;
       }
       const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(desktopStore.currentPopupSpec()!.vePath, direction, false)!;
+      const closest = findClosest(store.currentPopupSpec()!.vePath, direction, false)!;
       if (closest != null) {
         const closestVeid = VeFns.veidFromPath(closest);
         const closestItem = itemState.get(closestVeid.itemId);
-        desktopStore.replacePopup({
+        store.replacePopup({
           type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
           vePath: closest
         });
-        arrange(desktopStore);
+        arrange(store);
       }
     }
   }
 
   else if (ev.code == "Enter") {
-    const spec = desktopStore.currentPopupSpec();
+    const spec = store.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
-      switchToPage(desktopStore, VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath), true, false);
+      switchToPage(store, VeFns.veidFromPath(store.currentPopupSpec()!.vePath), true, false);
     }
   }
 

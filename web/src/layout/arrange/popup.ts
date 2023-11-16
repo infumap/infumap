@@ -20,7 +20,7 @@ import { batch } from "solid-js";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
-import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
@@ -34,17 +34,17 @@ import { arrangeItemAttachments } from "./attachments";
 
 export const POPUP_LINK_ID = newUid();
 
-export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): VisualElementSignal {
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
+  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
   const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), "");
-  const currentPopupSpec = desktopStore.currentPopupSpec()!;
+  const currentPopupSpec = store.currentPopupSpec()!;
 
   const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
   li.id = POPUP_LINK_ID;
   li.spatialWidthGr = 1000;
   li.spatialPositionGr = { x: 0, y: 0, };
-  const desktopBoundsPx = desktopStore.desktopBoundsPx();
+  const desktopBoundsPx = store.desktopBoundsPx();
   const cellBoundsPx = {
     x: desktopBoundsPx.w * 0.1,
     y: desktopBoundsPx.h * 0.07,
@@ -58,7 +58,7 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(desktopStore, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
+      ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
       let newV = ves.get();
       newV.flags |= (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(newV);
@@ -77,7 +77,7 @@ export function arrangeCellPopup(desktopStore: DesktopStoreContextModel): Visual
     };
 
     const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(item, li), currentPath);
-    itemVisualElement.attachments = arrangeItemAttachments(desktopStore, item, li, geometry.boundsPx, itemPath);
+    itemVisualElement.attachments = arrangeItemAttachments(store, item, li, geometry.boundsPx, itemPath);
     return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
   }
 }

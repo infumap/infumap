@@ -18,7 +18,7 @@
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
-import { DesktopStoreContextModel, PopupType } from "../../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -47,7 +47,7 @@ import { CursorEventState, MouseAction, MouseActionState } from "../../input/sta
 
 
 export const arrangeItem = (
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentPath: VisualElementPath,
     parentArrangeAlgorithm: string,
     item: Item,
@@ -59,7 +59,7 @@ export const arrangeItem = (
     parentIsPopup: boolean): VisualElementSignal => {
   if (isPopup && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
 
-  const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(desktopStore, item);
+  const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(store, item);
   const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
 
   let isMoving = false;
@@ -77,30 +77,30 @@ export const arrangeItem = (
             (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
           : // However, this test does.
             itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL))) {
-    initiateLoadChildItemsMaybe(desktopStore, itemVeid);
+    initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
-      desktopStore, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);
+      store, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);
   }
 
-  if (isTable(displayItem) && (item.parentId == desktopStore.currentPage()!.itemId || renderChildrenAsFull)) {
-    initiateLoadChildItemsMaybe(desktopStore, itemVeid);
+  if (isTable(displayItem) && (item.parentId == store.currentPage()!.itemId || renderChildrenAsFull)) {
+    initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeTable(
-      desktopStore, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, parentIsPopup, isMoving);
+      store, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, parentIsPopup, isMoving);
   }
 
   if (isComposite(displayItem)) {
-    initiateLoadChildItemsMaybe(desktopStore, itemVeid);
+    initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeComposite(
-      desktopStore, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, isMoving);
+      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, isMoving);
   }
 
   const renderAsOutline = !renderChildrenAsFull;
-  return arrangeItemNoChildren(desktopStore, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, isListPageMainItem, isMoving, renderAsOutline);
+  return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, isListPageMainItem, isMoving, renderAsOutline);
 }
 
 
 const arrangePageWithChildren = (
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentPath: VisualElementPath,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
@@ -137,7 +137,7 @@ const arrangePageWithChildren = (
       }
     }
 
-    const scale = geometry.boundsPx.w / desktopStore.desktopBoundsPx().w;
+    const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
 
     const pageItem = asPageItem(displayItem_pageWithChildren);
     const numCols = pageItem.gridNumberOfColumns;
@@ -169,7 +169,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-            (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+            (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -181,7 +181,7 @@ const arrangePageWithChildren = (
 
     if (isPagePopup || isRoot) {
       // TODO (HIGH): hitboxes.
-      const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
+      const geometry = PageFns.calcGeometry_GridPageTitle(store, displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
       pageWithChildrenVisualElementSpec.titleBoundsPx = geometry.boundsPx;
     }
 
@@ -204,7 +204,7 @@ const arrangePageWithChildren = (
 
       let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false);
       const renderChildrenAsFull = isPagePopup || isRoot;
-      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
+      const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
       children.push(ves);
     }
 
@@ -212,21 +212,21 @@ const arrangePageWithChildren = (
       let scrollPropY;
       let scrollPropX;
       if (isPagePopup) {
-        const popupSpec = desktopStore.currentPopupSpec();
+        const popupSpec = store.currentPopupSpec();
         assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
-        scrollPropY = desktopStore.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
-        scrollPropX = desktopStore.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
+        scrollPropY = store.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
+        scrollPropX = store.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
       } else {
-        scrollPropY = desktopStore.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-        scrollPropX = desktopStore.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+        scrollPropY = store.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+        scrollPropX = store.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       }
 
-      const topLevelVisualElement = desktopStore.topLevelVisualElement.get();
+      const topLevelVisualElement = store.topLevelVisualElement.get();
       const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
-      const desktopSizePx = desktopStore.desktopBoundsPx();
-      const pageYScrollProp = desktopStore.getPageScrollYProp(desktopStore.currentPage()!);
+      const desktopSizePx = store.desktopBoundsPx();
+      const pageYScrollProp = store.getPageScrollYProp(store.currentPage()!);
       const pageYScrollPx = pageYScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
-      const pageXScrollProp = desktopStore.getPageScrollXProp(desktopStore.currentPage()!);
+      const pageXScrollProp = store.getPageScrollXProp(store.currentPage()!);
       const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
 
       const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
@@ -242,7 +242,7 @@ const arrangePageWithChildren = (
       cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
       const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false);
-      const ves = arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
+      const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
       children.push(ves);
     }
 
@@ -257,7 +257,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -292,9 +292,9 @@ const arrangePageWithChildren = (
           emitHitboxes,
           childItemIsPopup,
           hasPendingChanges);
-        children.push(arrangeItem(desktopStore, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false, false, parentIsPopup));
+        children.push(arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false, false, parentIsPopup));
       } else {
-        const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
+        const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
         const itemGeometry = ItemFns.calcGeometry_Spatial(
           childItem,
@@ -304,7 +304,7 @@ const arrangePageWithChildren = (
           emitHitboxes,
           childItemIsPopup,
           hasPendingChanges);
-        children.push(arrangeItemNoChildren(desktopStore, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, false, isMoving, true));
+        children.push(arrangeItemNoChildren(store, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, false, isMoving, true));
       }
     }
     pageWithChildrenVisualElementSpec.children = children;
@@ -313,14 +313,14 @@ const arrangePageWithChildren = (
   // *** LIST VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.List) {
 
-    const scale = outerBoundsPx.w / desktopStore.desktopBoundsPx().w;
+    const scale = outerBoundsPx.w / store.desktopBoundsPx().w;
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -332,22 +332,22 @@ const arrangePageWithChildren = (
 
     let selectedVeid = EMPTY_VEID;
     if (isPagePopup) {
-      const poppedUp = desktopStore.currentPopupSpec()!;
+      const poppedUp = store.currentPopupSpec()!;
       const poppedUpPath = poppedUp.vePath;
       const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
-      selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem(poppedUpVeid));
+      selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(poppedUpVeid));
     } else if (isRoot) {
       // TODO (MEDIUM): list pages in list pages.
       console.log("not implemented");
     } else {
       const listPageVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-      selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem(listPageVeid)!);
+      selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(listPageVeid)!);
     }
 
     let listVeChildren: Array<VisualElementSignal> = [];
     for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
       const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
-      const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
       const widthBl = LIST_PAGE_LIST_WIDTH_BL;
       const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
@@ -380,7 +380,7 @@ const arrangePageWithChildren = (
         h: outerBoundsPx.h - (2 * LINE_HEIGHT_PX) * scale
       };
       pageWithChildrenVisualElementSpec.children.push(
-        arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
+        arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
     }
 
 
@@ -392,7 +392,7 @@ const arrangePageWithChildren = (
       linkItemMaybe: linkItemMaybe_pageWithChildren,
       flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
              (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && desktopStore.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
              (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
@@ -408,7 +408,7 @@ const arrangePageWithChildren = (
     panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
   }
 
-  const attachments = arrangeItemAttachments(desktopStore, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
+  const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
   pageWithChildrenVisualElementSpec.attachments = attachments;
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
@@ -417,7 +417,7 @@ const arrangePageWithChildren = (
 
 
 const arrangeComposite = (
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentPath: VisualElementPath,
     displayItem_Composite: CompositeItem,
     linkItemMaybe_Composite: LinkItem | null,
@@ -452,7 +452,7 @@ const arrangeComposite = (
     const childId = displayItem_Composite.computed_children[idx];
     const childItem = itemState.get(childId)!;
 
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
     if (isTable(displayItem_childItem)) { continue; }
 
     const geometry = ItemFns.calcGeometry_InComposite(
@@ -480,7 +480,7 @@ const arrangeComposite = (
       blockSizePx,
     };
 
-    const attachments = arrangeItemAttachments(desktopStore, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, compositeVePath);
+    const attachments = arrangeItemAttachments(store, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, compositeVePath);
     compositeChildVeSpec.attachments = attachments;
 
     const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
@@ -496,7 +496,7 @@ const arrangeComposite = (
 
 
 const arrangeTable = (
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentPath: VisualElementPath,
     displayItem_Table: TableItem,
     linkItemMaybe_Table: LinkItem | null,
@@ -535,12 +535,12 @@ const arrangeTable = (
   for (let idx=0; idx<displayItem_Table.computed_children.length; ++idx) {
     const childId = displayItem_Table.computed_children[idx];
     const childItem = itemState.get(childId)!;
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(desktopStore, childItem);
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
     const childVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
 
     if (isComposite(displayItem_childItem)) {
 
-      initiateLoadChildItemsMaybe(desktopStore, childVeid);
+      initiateLoadChildItemsMaybe(store, childVeid);
     }
 
     let widthBl = displayItem_Table.tableColumns.length == 1
@@ -576,11 +576,11 @@ const arrangeTable = (
 
         const attachmentId = attachmentsItem.computed_attachments[i];
         const attachmentItem = itemState.get(attachmentId)!;
-        const { displayItem: displayItem_attachment, linkItemMaybe: linkItemMaybe_attachment } = getVePropertiesForItem(desktopStore, attachmentItem);
+        const { displayItem: displayItem_attachment, linkItemMaybe: linkItemMaybe_attachment } = getVePropertiesForItem(store, attachmentItem);
         const attachment_veid = VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment);
 
         if (isComposite(displayItem_attachment)) {
-          initiateLoadChildItemsMaybe(desktopStore, attachment_veid);
+          initiateLoadChildItemsMaybe(store, attachment_veid);
         }
 
         const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, parentIsPopup);
@@ -626,7 +626,7 @@ const arrangeTable = (
 
   tableVisualElementSpec.children = tableVeChildren;
 
-  const attachments = arrangeItemAttachments(desktopStore, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
+  const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachments = attachments;
 
   const tableVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
@@ -636,7 +636,7 @@ const arrangeTable = (
 
 
 const arrangeItemNoChildren = (
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentVePath: VisualElementPath,
     displayItem: Item,
     linkItemMaybe: LinkItem | null,
@@ -662,7 +662,7 @@ const arrangeItemNoChildren = (
 
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
-  itemVisualElement.attachments = arrangeItemAttachments(desktopStore, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
+  itemVisualElement.attachments = arrangeItemAttachments(store, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
   const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 
@@ -679,7 +679,7 @@ const arrangeItemNoChildren = (
 
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
-export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, expandable: boolean, isRoot: boolean): VisualElementSignal {
+export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, expandable: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
 
   let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
@@ -690,6 +690,6 @@ export function arrangeSelectedListItem(desktopStore: DesktopStoreContextModel, 
 
   const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable, false, false, false);
 
-  const result = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
+  const result = arrangeItem(store, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
   return result;
 }

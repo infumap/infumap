@@ -18,7 +18,7 @@
 
 import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../../../server";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { LinkItem, asLinkItem } from "../../../../items/link-item";
@@ -30,7 +30,7 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (props: { linkItem: LinkItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const linkId = props.linkItem.id;
   const linkToItem = (): Item | null => {
@@ -49,7 +49,7 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     if (!deleted) {
       asLinkItem(itemState.get(linkId)!).linkToResolvedId = null;
       asLinkItem(itemState.get(linkId)!).linkTo = v;
-      arrange(desktopStore);
+      arrange(store);
     }
   };
 
@@ -57,7 +57,7 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     if (!deleted) {
       asLinkItem(itemState.get(linkId)!).linkToResolvedId = null;
       asLinkItem(itemState.get(linkId)!).linkToBaseUrl = v;
-      arrange(desktopStore);
+      arrange(store);
     }
   };
 
@@ -65,8 +65,8 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     deleted = true;
     await server.deleteItem(linkId); // throws on failure.
     itemState.delete(linkId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   onCleanup(() => {

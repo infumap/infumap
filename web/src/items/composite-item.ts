@@ -32,7 +32,7 @@ import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin } from './base/flags-item';
 import { VisualElement } from '../layout/visual-element';
-import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { StoreContextModel } from '../store/StoreProvider';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -219,8 +219,8 @@ export const CompositeFns = {
     });
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
   },
 
   debugSummary: (_compositeItem: CompositeItem) => {

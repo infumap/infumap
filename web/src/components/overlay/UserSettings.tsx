@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { DesktopStoreContextModel, useDesktopStore } from "../../store/DesktopStoreProvider";
+import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX } from "../../constants";
 import { logout } from "../Main";
@@ -28,28 +28,28 @@ const DIALOG_WIDTH_PX = 400;
 
 export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 500 };
 
-export function initialEditUserSettingsBounds(desktopStore: DesktopStoreContextModel) {
+export function initialEditUserSettingsBounds(store: StoreContextModel) {
   let posPx = {
-    x: (desktopStore.desktopBoundsPx().w) / 2.0 + LEFT_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
+    x: (store.desktopBoundsPx().w) / 2.0 + LEFT_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
     y: 120.0
   };
   return boundingBoxFromPosSize(posPx, { ...editUserSettingsSizePx }); 
 }
 
 export const EditUserSettings: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let editUserSettingsDiv: HTMLDivElement | undefined;
 
-  const posPx = () => getBoundingBoxTopLeft(desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx);
-  const sizePx = () => getBoundingBoxSize(desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx);
+  const posPx = () => getBoundingBoxTopLeft(store.editUserSettingsInfo.get()!.desktopBoundsPx);
+  const sizePx = () => getBoundingBoxSize(store.editUserSettingsInfo.get()!.desktopBoundsPx);
 
   const copyClickHandler = () => {
-    navigator.clipboard.writeText(desktopStore.userStore.getUser().userId);
+    navigator.clipboard.writeText(store.userStore.getUser().userId);
   }
 
   const logoutHandler = () => {
-    desktopStore.editUserSettingsInfo.set(null);
+    store.editUserSettingsInfo.set(null);
     logout!();
   }
 
@@ -63,9 +63,9 @@ export const EditUserSettings: Component = () => {
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
 
         <div class="p-3">
-          <div class="font-bold">Edit User Settings: {desktopStore.userStore.getUser().username}</div>
+          <div class="font-bold">Edit User Settings: {store.userStore.getUser().username}</div>
           <div class="text-slate-800 text-sm">
-            <span class="font-mono text-slate-400">{`${desktopStore.userStore.getUser().userId}`}</span>
+            <span class="font-mono text-slate-400">{`${store.userStore.getUser().userId}`}</span>
             <i class={`fa fa-copy text-slate-400 cursor-pointer ml-1`} onclick={copyClickHandler} />
           </div>
           <div style="margin-top: 10px;">

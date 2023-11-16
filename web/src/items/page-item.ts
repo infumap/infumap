@@ -27,7 +27,7 @@ import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
-import { DesktopStoreContextModel, PopupType } from '../store/DesktopStoreProvider';
+import { StoreContextModel, PopupType } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement, VisualElementFlags, VeFns, Veid } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
@@ -408,10 +408,10 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_GridPageTitle: (desktopStore: DesktopStoreContextModel, page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_GridPageTitle: (store: StoreContextModel, page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
     const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(page);
 
-    const scale = pageBoundsPx.w / desktopStore.desktopBoundsPx().w;
+    const scale = pageBoundsPx.w / store.desktopBoundsPx().w;
 
     const pageTitleBoundsPx = {
       x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale) / 2.0,
@@ -431,19 +431,19 @@ export const PageFns = {
     panic("not page measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    switchToPage(desktopStore, VeFns.veidFromVe(visualElement), true, false);
+  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    switchToPage(store, VeFns.veidFromVe(visualElement), true, false);
   },
 
-  handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVe = VesCache.get(visualElement.parentPath!)!.get();
 
     // line item in list page.
     const parentItem = parentVe.displayItem;
     if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      desktopStore.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
-      arrange(desktopStore);
+      store.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
+      arrange(store);
       return;
     }
 
@@ -454,17 +454,17 @@ export const PageFns = {
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
-      desktopStore.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
-      arrange(desktopStore);
+      store.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+      arrange(store);
       return;
     }
 
     // not inside popup.
-    desktopStore.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
-    arrange(desktopStore);
+    store.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+    arrange(store);
   },
 
-  handleAnchorClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
+  handleAnchorClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const popupParentPage = asPageItem(itemState.get(VesCache.get(visualElement.parentPath!)!.get().displayItem.id)!);
     if (popupParentPage.pendingPopupPositionGr != null) {
       popupParentPage.popupPositionGr = popupParentPage.pendingPopupPositionGr!;
@@ -476,11 +476,11 @@ export const PageFns = {
       popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
     }
     server.updateItem(popupParentPage);
-    arrange(desktopStore);
+    arrange(store);
   },
 
-  handleExpandClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    switchToPage(desktopStore, VeFns.veidFromVe(visualElement), true, false);
+  handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    switchToPage(store, VeFns.veidFromVe(visualElement), true, false);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {
@@ -535,8 +535,8 @@ export const PageFns = {
     return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm;
   },
 
-  setDefaultListPageSelectedItemMaybe: (desktopStore: DesktopStoreContextModel, itemVeid: Veid): void => {
-    if (desktopStore.getSelectedListPageItem(itemVeid) != "") { return; }
+  setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {
+    if (store.getSelectedListPageItem(itemVeid) != "") { return; }
     const item = itemState.get(itemVeid.itemId)!;
     if (isPage(item)) {
       const page = asPageItem(item);
@@ -545,7 +545,7 @@ export const PageFns = {
           const firstItemId = page.computed_children[0];
           const veid = VeFns.veidFromId(firstItemId);
           const path = VeFns.addVeidToPath(veid, page.id);
-          desktopStore.setSelectedListPageItem(itemVeid, path);
+          store.setSelectedListPageItem(itemVeid, path);
         }
       }
     }

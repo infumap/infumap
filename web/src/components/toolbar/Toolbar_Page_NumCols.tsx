@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { CursorEventState } from "../../input/state";
@@ -28,18 +28,18 @@ import { server } from "../../server";
 
 
 export const Toolbar_Page_NumCols: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let numColsTextElement: HTMLInputElement | undefined;
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
-    desktopStore.pageNumColsOverlayInfoMaybe.set(null);
-    arrange(desktopStore);
+    store.pageNumColsOverlayInfoMaybe.set(null);
+    arrange(store);
     server.updateItem(pageItem());
   };
 
@@ -54,12 +54,12 @@ export const Toolbar_Page_NumCols: Component = () => {
 
   const handleNumColsChange = () => {
     pageItem().gridNumberOfColumns = Math.round(parseFloat(numColsTextElement!.value));
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const entryBoxBoundsPx = () => ({
-    x: desktopStore.pageNumColsOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: desktopStore.pageNumColsOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.pageNumColsOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.pageNumColsOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 300, h: 30
   });
 

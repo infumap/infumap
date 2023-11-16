@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../../../constants";
 import { LinkFns } from "../../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem } from "../../../items/page-item";
-import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { panic } from "../../../util/lang";
 import { newOrdering } from "../../../util/ordering";
@@ -35,13 +35,13 @@ import { arrangeItem } from "../item";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
 
 
-export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) => {
+export const arrange_spatialStretch = (store: StoreContextModel) => {
 
-  const pageItem = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
-  const desktopAspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
+  const pageItem = asPageItem(itemState.get(store.currentPage()!.itemId)!);
+  const desktopAspect = store.desktopBoundsPx().w / store.desktopBoundsPx().h;
   const pageAspect = pageItem.naturalAspect;
   const pageBoundsPx = (() => {
-    let result = desktopStore.desktopBoundsPx();
+    let result = store.desktopBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / desktopAspect > 1.3) {
       // page to scroll horizontally.
@@ -60,7 +60,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: desktopStore.desktopBoundsPx(),
+    boundsPx: store.desktopBoundsPx(),
     childAreaBoundsPx: pageBoundsPx,
   };
 
@@ -74,7 +74,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
   for (let i=0; i<pageItem.computed_children.length; ++i) {
     const childId = pageItem.computed_children[i];
     children.push(arrangeItem_Spatial(
-      desktopStore,
+      store,
       currentPath,
       itemState.get(childId)!,
       pageItem, // parent item
@@ -85,7 +85,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
     ));
   }
 
-  const currentPopupSpec = desktopStore.currentPopupSpec();
+  const currentPopupSpec = store.currentPopupSpec();
   if (currentPopupSpec != null) {
     if (currentPopupSpec.type == PopupType.Page) {
       // Position of page popup in spatial pages is user defined.
@@ -102,7 +102,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
       };
       children.push(
         arrangeItem_Spatial(
-          desktopStore,
+          store,
           currentPath,
           li,
           pageItem, // parent item
@@ -114,7 +114,7 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
     } else if (currentPopupSpec.type == PopupType.Attachment) {
       // Ves are created inline.
     } else if (currentPopupSpec.type == PopupType.Image) {
-      children.push(arrangeCellPopup(desktopStore));
+      children.push(arrangeCellPopup(store));
     } else {
       panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
     }
@@ -122,12 +122,12 @@ export const arrange_spatialStretch = (desktopStore: DesktopStoreContextModel) =
 
   visualElementSpec.children = children;
 
-  VesCache.finalizeFullArrange(visualElementSpec, currentPath, desktopStore);
+  VesCache.finalizeFullArrange(visualElementSpec, currentPath, store);
 }
 
 
 const arrangeItem_Spatial = (
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     parentPath: VisualElementPath,
     item: Item,
     parentPage: PageItem,
@@ -145,5 +145,5 @@ const arrangeItem_Spatial = (
     emitHitboxes,
     isPopup,
     PageFns.popupPositioningHasChanged(parentPage));
-  return arrangeItem(desktopStore, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, isRoot, false, false);
+  return arrangeItem(store, parentPath, ArrangeAlgorithm.SpatialStretch, item, itemGeometry, renderChildrenAsFull, isPopup, isRoot, false, false);
 }

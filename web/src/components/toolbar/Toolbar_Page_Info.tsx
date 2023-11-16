@@ -17,15 +17,15 @@
 */
 
 import { Component } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 
 
 export const Toolbar_Page_Info: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
-  const pageItem = () => asPageItem(itemState.get(desktopStore.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(pageItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + pageItem().id); }

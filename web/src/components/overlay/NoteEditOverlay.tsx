@@ -17,7 +17,7 @@
 */
 
 import { Component, onCleanup, onMount } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server } from "../../server";
@@ -47,12 +47,12 @@ let justCreatedNoteItemMaybe: NoteItem | null = null;
 let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
 export const NoteEditOverlay: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let textElement: HTMLTextAreaElement | undefined;
 
-  const noteVisualElement = () => VesCache.get(desktopStore.noteEditOverlayInfo.get()!.itemPath)!.get();
-  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(desktopStore, noteVisualElement());
+  const noteVisualElement = () => VesCache.get(store.noteEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(store, noteVisualElement());
   const editBoxBoundsPx = () => {
     if (noteVisualElement()!.flags & VisualElementFlags.InsideTable) {
       const sBl = sizeBl();
@@ -124,14 +124,14 @@ export const NoteEditOverlay: Component = () => {
     const desktopPx = CursorEventState.getLatestDesktopPx();
     if (isInside(desktopPx, noteVeBoundsPx())) { return; }
 
-    if (desktopStore.userStore.getUserMaybe() != null && noteItem().ownerId == desktopStore.userStore.getUser().userId) {
+    if (store.userStore.getUserMaybe() != null && noteItem().ownerId == store.userStore.getUser().userId) {
       server.updateItem(noteItem());
     }
-    desktopStore.noteEditOverlayInfo.set(null);
-    arrange(desktopStore); // input focus changed.
+    store.noteEditOverlayInfo.set(null);
+    arrange(store); // input focus changed.
 
     if (ev.button == MOUSE_LEFT) {
-      mouseDownHandler(desktopStore, MOUSE_LEFT);
+      mouseDownHandler(store, MOUSE_LEFT);
     }
   };
 
@@ -145,7 +145,7 @@ export const NoteEditOverlay: Component = () => {
   };
 
   onCleanup(() => {
-    if (!deleted && desktopStore.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == desktopStore.userStore.getUser().userId) {
+    if (!deleted && store.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.userStore.getUser().userId) {
       server.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
         server.updateItem(compositeItemOnInitializeMaybe);
@@ -177,16 +177,16 @@ export const NoteEditOverlay: Component = () => {
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
-      if (desktopStore.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == desktopStore.userStore.getUser().userId) {
+      if (store.userStore.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.userStore.getUser().userId) {
         server.updateItem(noteItem());
-        desktopStore.noteEditOverlayInfo.set(null);
+        store.noteEditOverlayInfo.set(null);
       }
     }
   };
 
   const textAreaOnInputHandler = () => {
     noteItem().title = textElement!.value;
-    arrange(desktopStore);
+    arrange(store);
   };
 
 
@@ -223,7 +223,7 @@ export const NoteEditOverlay: Component = () => {
     if (caretCoords.top < endCaretCoords.top) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
     if (closest == null) { return; }
-    desktopStore.noteEditOverlayInfo.set({ itemPath: closest });
+    store.noteEditOverlayInfo.set({ itemPath: closest });
   };
 
   const keyDown_Up = (): void => {
@@ -235,11 +235,11 @@ export const NoteEditOverlay: Component = () => {
     if (caretCoords.top > startCaretCoords.top) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
     if (closest == null) { return; }
-    desktopStore.noteEditOverlayInfo.set({ itemPath: closest });
+    store.noteEditOverlayInfo.set({ itemPath: closest });
   };
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
-    if (desktopStore.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != desktopStore.userStore.getUser().userId) { return; }
+    if (store.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.userStore.getUser().userId) { return; }
     if (noteItem().title != "") { return; }
 
     // maybe delete note item.
@@ -251,12 +251,12 @@ export const NoteEditOverlay: Component = () => {
 
     // definitely delete note item.
     ev.preventDefault();
-    desktopStore.noteEditOverlayInfo.set({ itemPath: closest });
+    store.noteEditOverlayInfo.set({ itemPath: closest });
     const canonicalId = VeFns.canonicalItem(ve).id;
     deleted = true;
     itemState.delete(canonicalId);
     await server.deleteItem(canonicalId);
-    arrange(desktopStore);
+    arrange(store);
 
     justCreatedCompositeItemMaybe = null;
     justCreatedNoteItemMaybe = null;
@@ -274,28 +274,28 @@ export const NoteEditOverlay: Component = () => {
     const canonicalCompositeItem = VeFns.canonicalItem(compositeVe);
     const posGr = asPositionalItem(canonicalCompositeItem).spatialPositionGr;
     const compositePageId = canonicalCompositeItem.parentId;
-    desktopStore.noteEditOverlayInfo.set(null);
+    store.noteEditOverlayInfo.set(null);
     setTimeout(() => {
       itemState.moveToNewParent(keepNote, compositePageId, canonicalCompositeItem.relationshipToParent, canonicalCompositeItem.ordering);
       asPositionalItem(keepNote).spatialPositionGr = posGr;
       server.updateItem(keepNote);
       itemState.delete(compositeVe.displayItem.id);
       server.deleteItem(compositeVe.displayItem.id);
-      arrange(desktopStore);
-      desktopStore.noteEditOverlayInfo.set({ itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!) });
+      arrange(store);
+      store.noteEditOverlayInfo.set({ itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!) });
     }, 0);
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
-    if (desktopStore.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != desktopStore.userStore.getUser().userId) { return; }
+    if (store.userStore.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.userStore.getUser().userId) { return; }
     ev.preventDefault();
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
 
     if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement().linkItemMaybe != null) {
       server.updateItem(ve.displayItem);
-      desktopStore.noteEditOverlayInfo.set(null);
-      arrange(desktopStore);
+      store.noteEditOverlayInfo.set(null);
+      arrange(store);
 
     } else if (isComposite(parentVe.displayItem)) {
 
@@ -313,8 +313,8 @@ export const NoteEditOverlay: Component = () => {
         } else if (asContainerItem(parentVe.displayItem).computed_children.length == 1) {
           console.log("TODO (HIGH): delete composite.");
         }
-        desktopStore.noteEditOverlayInfo.set(null);
-        arrange(desktopStore);
+        store.noteEditOverlayInfo.set(null);
+        arrange(store);
         justCreatedCompositeItemMaybe = null;
         justCreatedNoteItemMaybe = null;
         return;
@@ -330,9 +330,9 @@ export const NoteEditOverlay: Component = () => {
       if (parent.computed_children[parent.computed_children.length-1] == note.id) {
         justCreatedNoteItemMaybe = note;
       }
-      arrange(desktopStore);
+      arrange(store);
       const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
-      desktopStore.noteEditOverlayInfo.set({ itemPath });
+      store.noteEditOverlayInfo.set({ itemPath });
 
     } else {
       assert(justCreatedNoteItemMaybe == null, "not expecting note to have been just created");
@@ -355,10 +355,10 @@ export const NoteEditOverlay: Component = () => {
       server.addItem(note, null);
       justCreatedNoteItemMaybe = note;
 
-      desktopStore.noteEditOverlayInfo.set(null);
-      arrange(desktopStore);
+      store.noteEditOverlayInfo.set(null);
+      arrange(store);
       const newVes = VesCache.findSingle(VeFns.veidFromItems(note, null));
-      desktopStore.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(newVes.get()) });
+      store.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(newVes.get()) });
     }
   };
 
@@ -393,7 +393,7 @@ export const NoteEditOverlay: Component = () => {
                          `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
                          `${style().isBold ? ' font-weight: bold; ' : ""}`}
                   value={noteItem().title}
-                  disabled={desktopStore.userStore.getUserMaybe() == null || desktopStore.userStore.getUser().userId != noteItem().ownerId}
+                  disabled={store.userStore.getUserMaybe() == null || store.userStore.getUser().userId != noteItem().ownerId}
                   onMouseDown={textAreaMouseDownHandler}
                   onInput={textAreaOnInputHandler} />
       </div>

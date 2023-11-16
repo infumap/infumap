@@ -22,7 +22,7 @@ import { isTable } from "../items/table-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
@@ -41,17 +41,17 @@ export interface HitInfo {
 
 
 export function getHitInfo(
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     posOnDesktopPx: Vector,
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
 
-  const topLevelVisualElement: VisualElement = desktopStore.topLevelVisualElement.get();
-  const topLevelVeid = desktopStore.currentPage()!;
+  const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
+  const topLevelVeid = store.currentPage()!;
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = topLevelVisualElement.boundsPx;
-  const topXScroll = desktopStore.getPageScrollXProp(topLevelVeid);
-  const topYScroll = desktopStore.getPageScrollYProp(topLevelVeid);
+  const topXScroll = store.getPageScrollXProp(topLevelVeid);
+  const topYScroll = store.getPageScrollYProp(topLevelVeid);
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
       x: topXScroll * (topLevelBoundsPx.w - desktopSizePx.w),
@@ -61,7 +61,7 @@ export function getHitInfo(
   // Root is either the top level page, or popup if mouse is over the popup, or selected page.
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
-  let rootVisualElementSignal = desktopStore.topLevelVisualElement;
+  let rootVisualElementSignal = store.topLevelVisualElement;
   if (topLevelVisualElement.children.length > 0) {
     // The visual element of the popup or selected list item, if there is one, is always the last of the children.
     const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
@@ -71,12 +71,12 @@ export function getHitInfo(
         isInside(popupPosRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
       rootVisualElement = rootVisualElementSignal.get();
-      const popupVeid = VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath);
+      const popupVeid = VeFns.veidFromPath(store.currentPopupSpec()!.vePath);
       const scrollYPx = isPage(rootVisualElement.displayItem)
-        ? desktopStore.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
+        ? store.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
         : 0;
       const scrollXPx = isPage(rootVisualElement.displayItem)
-        ? desktopStore.getPageScrollXProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.w - rootVisualElement.boundsPx.w)
+        ? store.getPageScrollXProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.w - rootVisualElement.boundsPx.w)
         : 0;
       posRelativeToRootVisualElementPx = vectorSubtract(popupPosRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
       let hitboxType = HitboxFlags.None;
@@ -131,7 +131,7 @@ export function getHitInfo(
           }
         }
         if (!ignoreItems.find(a => a == attachmentVisualElement.displayItem.id)) {
-          const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
+          const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true);
           return {
             hitboxType,
             compositeHitboxTypeMaybe: HitboxFlags.None,
@@ -182,7 +182,7 @@ export function getHitInfo(
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x,
-            y: tableVisualElement.childAreaBoundsPx!.y - desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
+            y: tableVisualElement.childAreaBoundsPx!.y - store.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxFlags.None;
@@ -211,7 +211,7 @@ export function getHitInfo(
                 }
               }
               if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-                const noAttachmentResult = getHitInfo(desktopStore, posOnDesktopPx, ignoreItems, true);
+                const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true);
                 return {
                   hitboxType,
                   compositeHitboxTypeMaybe: HitboxFlags.None,

@@ -19,7 +19,7 @@
 import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { asPageItem } from "../../../items/page-item";
-import { DesktopStoreContextModel } from "../../../store/DesktopStoreProvider";
+import { StoreContextModel } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { VisualElementSignal } from "../../../util/signals";
 import { VesCache } from "../../ves-cache";
@@ -28,14 +28,14 @@ import { arrangeSelectedListItem } from "../item";
 import { getVePropertiesForItem } from "../util";
 
 
-export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
+export const arrange_list = (store: StoreContextModel) => {
   VesCache.initFullArrange();
 
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const selectedVeid = VeFns.veidFromPath(desktopStore.getSelectedListPageItem(desktopStore.currentPage()!));
-  const topLevelPageBoundsPx  = desktopStore.desktopBoundsPx();
+  const selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(store.currentPage()!));
+  const topLevelPageBoundsPx  = store.desktopBoundsPx();
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
@@ -48,7 +48,7 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
   let listVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childItem = itemState.get(currentPage.computed_children[idx])!;
-    const { displayItem, linkItemMaybe } = getVePropertiesForItem(desktopStore, childItem);
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
     const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
@@ -76,12 +76,12 @@ export const arrange_list = (desktopStore: DesktopStoreContextModel) => {
     const boundsPx = {
       x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX,
       y: LINE_HEIGHT_PX,
-      w: desktopStore.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL + 2) * LINE_HEIGHT_PX),
-      h: desktopStore.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
+      w: store.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL + 2) * LINE_HEIGHT_PX),
+      h: store.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
     topLevelVisualElementSpec.children.push(
-      arrangeSelectedListItem(desktopStore, selectedVeid, boundsPx, currentPath, true, true));
+      arrangeSelectedListItem(store, selectedVeid, boundsPx, currentPath, true, true));
   }
 
-  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
+  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, store);
 }

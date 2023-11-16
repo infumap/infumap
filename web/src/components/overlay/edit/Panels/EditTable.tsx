@@ -18,7 +18,7 @@
 
 import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../../../server";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { asTableItem, TableFns, TableItem } from "../../../../items/table-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
@@ -29,7 +29,7 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (props: { tableItem: TableItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   let checkElement_ord: HTMLInputElement | undefined;
   let checkElement_header: HTMLInputElement | undefined;
@@ -42,40 +42,40 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
 
   const handleTitleInput = (v: string) => {
     asTableItem(itemState.get(tableId)!).title = v;
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const deleteTable = async () => {
     deleted = true;
     await server.deleteItem(tableId); // throws on failure.
     itemState.delete(tableId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   const addCol = () => {
     if (table().tableColumns.length > 9) { return; }
     table().tableColumns.push({ name: `col ${table().tableColumns.length}`, widthGr: 120 });
     colCountSignal.set(colCountSignal.get() + 1);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   const deleteCol = () => {
     if (table().tableColumns.length == 1) { return; }
     table().tableColumns.pop();
     colCountSignal.set(colCountSignal.get() - 1);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   const newCol = () => {
     TableFns.insertEmptyColAt(table().id, colCountSignal.get()-1);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   const removeCol = () => {
     if (colCountSignal.get() == 1) { return; }
     TableFns.removeColItemsAt(table().id, colCountSignal.get()-2);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   const changeOrderChildrenBy = async () => {
@@ -86,7 +86,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
       asTableItem(itemState.get(tableId)!).orderChildrenBy = "";
     }
     itemState.sortChildren(tableId);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   const changeShowHeader = async () => {
@@ -96,7 +96,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
       asTableItem(itemState.get(tableId)!).flags &= ~TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableId);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   onCleanup(() => {

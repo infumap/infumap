@@ -27,7 +27,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement } from '../layout/visual-element';
-import { DesktopStoreContextModel } from '../store/DesktopStoreProvider';
+import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 
@@ -217,8 +217,8 @@ export const PasswordFns = {
     return passwordItem.text;
   },
 
-  handleClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
+  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
   }
 };
 

@@ -18,7 +18,7 @@
 
 import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../../../server";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { asPasswordItem, PasswordItem } from "../../../../items/password-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
@@ -27,22 +27,22 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditPassword: Component<{passwordItem: PasswordItem, linkedTo: boolean}> = (props: { passwordItem: PasswordItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const passwordId = props.passwordItem.id;
   let deleted = false;
 
   const handleTextInput = (v: string) => {
     asPasswordItem(itemState.get(passwordId)!).text = v;
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const deletePassword = async () => {
     deleted = true;
     await server.deleteItem(passwordId); // throws on failure.
     itemState.delete(passwordId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   onCleanup(() => {

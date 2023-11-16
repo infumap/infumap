@@ -18,7 +18,7 @@
 
 import { GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, remote, server } from "../server";
 import { Uid } from "../util/uid";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem } from "../items/base/container-item";
 import { asLinkItem } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -30,9 +30,9 @@ import { Veid } from "./visual-element";
 
 export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextModel, containerVeid: Veid) => {
+export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid) => {
   if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
-    PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
+    PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
     return;
   }
   childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
@@ -48,13 +48,13 @@ export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextMod
     .then(result => {
       if (result != null) {
         itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
-        PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, containerVeid);
+        PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
         });
         asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
         try {
-          arrange(desktopStore);
+          arrange(store);
         } catch (e: any) {
           throw new Error(`Arrange failed: ${e}`);
         };
@@ -70,7 +70,7 @@ export const initiateLoadChildItemsMaybe = (desktopStore: DesktopStoreContextMod
 
 let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id: string): Promise<void> => {
+export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Promise<void> => {
   if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(); }
   if (itemState.get(id) != null) { return Promise.resolve(); }
   itemLoadInitiatedOrComplete[id] = true;
@@ -83,7 +83,7 @@ export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
         });
         try {
-          arrange(desktopStore);
+          arrange(store);
         } catch (e: any) {
           throw new Error(`Arrange failed after load item: ${e}`);
         };
@@ -99,7 +99,7 @@ export const initiateLoadItemMaybe = (desktopStore: DesktopStoreContextModel, id
 
 let itemLoadFromRemoteInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
-export const initiateLoadItemFromRemoteMaybe = (desktopStore: DesktopStoreContextModel, itemId: string, baseUrl: string, resolveId: string) => {
+export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId: string, baseUrl: string, resolveId: string) => {
   if (itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; }
   itemLoadFromRemoteInitiatedOrComplete[itemId] = true;
 
@@ -112,7 +112,7 @@ export const initiateLoadItemFromRemoteMaybe = (desktopStore: DesktopStoreContex
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
         });
         try {
-          arrange(desktopStore);
+          arrange(store);
         } catch (e: any) {
           throw new Error(`Arrange after remote fetch failed: ${e}`);
         };

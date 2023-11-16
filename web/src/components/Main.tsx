@@ -19,7 +19,7 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { Component, onMount, Show } from "solid-js";
 import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
-import { useDesktopStore } from "../store/DesktopStoreProvider";
+import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
@@ -41,11 +41,11 @@ export let logout: (() => Promise<void>) | null = null;
 
 export const Main: Component = () => {
   const params = useParams();
-  const desktopStore = useDesktopStore();
+  const store = useStore();
   const navigate = useNavigate();
 
   onMount(async () => {
-    if (!desktopStore.generalStore.installationState()!.hasRootUser) {
+    if (!store.generalStore.installationState()!.hasRootUser) {
       navigate('/setup');
     }
 
@@ -66,17 +66,17 @@ export const Main: Component = () => {
       }
       childrenLoadInitiatedOrComplete[pageId] = true;
       itemState.setChildItemsFromServerObjects(pageId, result.children, null);
-      PageFns.setDefaultListPageSelectedItemMaybe(desktopStore, { itemId: pageId, linkIdMaybe: null });
+      PageFns.setDefaultListPageSelectedItemMaybe(store, { itemId: pageId, linkIdMaybe: null });
       Object.keys(result.attachments).forEach(id => {
         itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
       });
 
-      switchToPage(desktopStore, { itemId: pageId, linkIdMaybe: null }, false, false);
+      switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
     } catch (e: any) {
       console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
-      desktopStore.userStore.clear();
-      desktopStore.generalStore.clearInstallationState();
-      await desktopStore.generalStore.retrieveInstallationState();
+      store.userStore.clear();
+      store.generalStore.clearInstallationState();
+      await store.generalStore.retrieveInstallationState();
       if (logout) {
         await logout();
       }
@@ -85,10 +85,10 @@ export const Main: Component = () => {
   });
 
   logout = async () => {
-    desktopStore.clear();
+    store.clear();
     itemState.clear();
     VesCache.clear();
-    await desktopStore.userStore.logout();
+    await store.userStore.logout();
     navigate('/login');
     for (let key in childrenLoadInitiatedOrComplete) {
       if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {
@@ -99,28 +99,28 @@ export const Main: Component = () => {
 
   return (
     <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
-      <Show when={desktopStore.topLevelVisualElement.get().displayItem.itemType != ItemType.None}>
-        <Desktop visualElement={desktopStore.topLevelVisualElement.get()} />
+      <Show when={store.topLevelVisualElement.get().displayItem.itemType != ItemType.None}>
+        <Desktop visualElement={store.topLevelVisualElement.get()} />
       </Show>
       <Toolbar />
 
       {/* global overlays */}
-      <Show when={desktopStore.noteUrlOverlayInfoMaybe.get() != null}>
+      <Show when={store.noteUrlOverlayInfoMaybe.get() != null}>
         <Toolbar_Note_Url />
       </Show>
-      <Show when={desktopStore.noteFormatOverlayInfoMaybe.get() != null}>
+      <Show when={store.noteFormatOverlayInfoMaybe.get() != null}>
         <Toolbar_Note_Format />
       </Show>
-      <Show when={desktopStore.pageColorOverlayInfoMaybe.get() != null}>
+      <Show when={store.pageColorOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Color />
       </Show>
-      <Show when={desktopStore.pageAspectOverlayInfoMaybe.get() != null}>
+      <Show when={store.pageAspectOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Aspect />
       </Show>
-      <Show when={desktopStore.pageWidthOverlayInfoMaybe.get() != null}>
+      <Show when={store.pageWidthOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Width />
       </Show>
-      <Show when={desktopStore.pageNumColsOverlayInfoMaybe.get() != null}>
+      <Show when={store.pageNumColsOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_NumCols />
       </Show>
 

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, createSignal, JSX, Setter } from "solid-js";
+import { Accessor, createSignal, JSX } from "solid-js";
 import { createContext, useContext } from "solid-js";
 import { panic } from "../util/lang";
 import { Item } from "../items/base/item";
@@ -24,7 +24,7 @@ import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions, Vector } from "../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
-import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal, VisualElementSignal } from "../util/signals";
+import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal } from "../util/signals";
 import { HitInfo } from "../input/hit";
 import { post } from "../server";
 import { eraseCookie, getCookie, setCookie } from "../util/cookies";
@@ -89,7 +89,7 @@ export interface GeneralStoreContextModel {
 
 // desktop store.
 
-export interface DesktopStoreContextModel {
+export interface StoreContextModel {
   // global overlays.
   noteUrlOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   noteFormatOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
@@ -193,14 +193,14 @@ interface PageBreadcrumb {
 }
 
 
-export interface DesktopStoreContextProps {
+export interface StoreContextProps {
   children: JSX.Element
 }
 
-const DesktopStoreContext = createContext<DesktopStoreContextModel>();
+const StoreContext = createContext<StoreContextModel>();
 
 
-export function DesktopStoreProvider(props: DesktopStoreContextProps) {
+export function StoreProvider(props: StoreContextProps) {
   const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
 
   const topLevelVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
@@ -412,7 +412,7 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
 
-  const value: DesktopStoreContextModel = {
+  const value: StoreContextModel = {
     desktopBoundsPx, resetDesktopSizePx,
 
     topLevelVisualElement,
@@ -461,9 +461,9 @@ export function DesktopStoreProvider(props: DesktopStoreContextProps) {
   };
 
   return (
-    <DesktopStoreContext.Provider value={value}>
+    <StoreContext.Provider value={value}>
       {props.children}
-    </DesktopStoreContext.Provider>
+    </StoreContext.Provider>
   );
 }
 
@@ -507,8 +507,8 @@ function makeGeneralStore(): GeneralStoreContextModel {
   };
 }
 
-export function useDesktopStore(): DesktopStoreContextModel {
-  return useContext(DesktopStoreContext) ?? panic("no desktop context");
+export function useStore(): StoreContextModel {
+  return useContext(StoreContext) ?? panic("no store context");
 }
 
 function makeUserStore(): UserStoreContextModel {

@@ -21,11 +21,11 @@ import { SignUp } from './SignUp';
 import { Login } from './Login';
 import { Navigate, Route, Routes } from '@solidjs/router';
 import { Main } from './Main';
-import { useDesktopStore } from '../store/DesktopStoreProvider';
+import { useStore } from '../store/StoreProvider';
 
 
 const App: Component = () => {
-  const store = useDesktopStore();
+  const store = useStore();
 
   onMount(async () => {
     const user = store.userStore.getUserMaybe();

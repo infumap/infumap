@@ -22,13 +22,13 @@ import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -59,12 +59,12 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     navigator.clipboard.writeText(passwordItem().text);
   }
 
-  const isVisible = () => desktopStore.currentVisiblePassword.get() == passwordItem().id;
+  const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
     if (!isVisible()) {
-      desktopStore.currentVisiblePassword.set(passwordItem().id);
+      store.currentVisiblePassword.set(passwordItem().id);
     } else {
-      desktopStore.currentVisiblePassword.set(null);
+      store.currentVisiblePassword.set(null);
     }
   }
 
@@ -120,7 +120,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
 
 export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -138,12 +138,12 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     navigator.clipboard.writeText(passwordItem().text);
   }
 
-  const isVisible = () => desktopStore.currentVisiblePassword.get() == passwordItem().id;
+  const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
     if (!isVisible()) {
-      desktopStore.currentVisiblePassword.set(passwordItem().id);
+      store.currentVisiblePassword.set(passwordItem().id);
     } else {
-      desktopStore.currentVisiblePassword.set(null);
+      store.currentVisiblePassword.set(null);
     }
   }
 

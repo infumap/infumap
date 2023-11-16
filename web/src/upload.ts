@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "./constants";
 import { server } from "./server";
 import { PageItem, ArrangeAlgorithm } from "./items/page-item";
-import { DesktopStoreContextModel } from "./store/DesktopStoreProvider";
+import { StoreContextModel } from "./store/StoreProvider";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
 import { newUid } from "./util/uid";
@@ -31,7 +31,7 @@ import { getHitInfo } from "./input/hit";
 
 
 export async function handleUpload(
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     dataTransfer: DataTransfer,
     desktopPx: Vector,
     parent: PageItem) {
@@ -50,7 +50,7 @@ export async function handleUpload(
 
   let posPx = { x: 0.0, y: 0.0 };
   if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const hbi = getHitInfo(desktopStore, desktopPx, [], false);
+    const hbi = getHitInfo(store, desktopPx, [], false);
     const propX = (desktopPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
     const propY = (desktopPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
     posPx = {
@@ -81,7 +81,7 @@ export async function handleUpload(
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
       itemState.add(ItemFns.fromObject(returnedItem, null));
-      arrange(desktopStore);
+      arrange(store);
 
     } else {
       let fileItem: object = {
@@ -99,7 +99,7 @@ export async function handleUpload(
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
       itemState.add(ItemFns.fromObject(returnedItem, null));
-      arrange(desktopStore);
+      arrange(store);
     }
   }
 }

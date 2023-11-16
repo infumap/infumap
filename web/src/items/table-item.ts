@@ -31,7 +31,7 @@ import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement } from "../layout/visual-element";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
@@ -287,15 +287,15 @@ export const TableFns = {
     panic("not table measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, desktopStore)) { return; }
-    desktopStore.tableEditOverlayInfo.set({
+  handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    store.tableEditOverlayInfo.set({
       itemPath: VeFns.veToPath(visualElement),
       colNum: hitboxMeta == null ? null : hitboxMeta.colNum!,
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
       endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,
     });
-    arrange(desktopStore); // input focus changed.
+    arrange(store); // input focus changed.
   },
 
   cloneMeasurableFields: (table: TableMeasurable): TableMeasurable => {
@@ -330,13 +330,13 @@ export const TableFns = {
     return tableItem.tableColumns[index].widthGr / GRID_SIZE;
   },
 
-  tableModifiableColRow(desktopStore: DesktopStoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number} {
+  tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number} {
     const tableItem = asTableItem(tableVe.displayItem);
     const tableDimensionsBl: Dimensions = {
       w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
       h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
     };
-    const tableBoundsPx = VeFns.veBoundsRelativeToDestkopPx(desktopStore, tableVe);
+    const tableBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableVe);
 
     // col
     const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
@@ -359,7 +359,7 @@ export const TableFns = {
     // row
     const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
     const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
-    const yScrollPos = desktopStore.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+    const yScrollPos = store.getTableScrollYPos(VeFns.veidFromVe(tableVe));
     let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
     if (insertRow < yScrollPos) { insertRow = yScrollPos; }
     insertRow -= insertRow > tableItem.computed_children.length

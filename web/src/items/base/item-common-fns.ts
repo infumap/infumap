@@ -23,22 +23,22 @@ import { HitboxFns, HitboxFlags } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
-import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../page-item";
 import { Measurable } from "./item";
 
 
-export function handleListPageLineItemClickMaybe(visualElement: VisualElement, desktopStore: DesktopStoreContextModel): boolean {
+export function handleListPageLineItemClickMaybe(visualElement: VisualElement, store: StoreContextModel): boolean {
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
     if (parentVeid.linkIdMaybe == POPUP_LINK_ID) {
-      desktopStore.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(desktopStore.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
+      store.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(store.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
     } else {
-      desktopStore.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+      store.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
     }
-    arrange(desktopStore);
+    arrange(store);
     return true;
   }
   return false;

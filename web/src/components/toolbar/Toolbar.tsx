@@ -19,7 +19,7 @@
 import imgUrl from '../../assets/circle.png'
 
 import { Component, Match, Show, Switch } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { Toolbar_Note } from "./Toolbar_Note";
@@ -39,17 +39,17 @@ import { Toolbar_Table_Info } from './Toolbar_Table_Info';
 
 
 export const Toolbar: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const navigate = useNavigate();
 
   const handleLogin = () => navigate("/login");
 
-  const showUserSettings = () => { desktopStore.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(desktopStore) }); }
+  const showUserSettings = () => { store.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
 
   const currentPageMaybe = () => {
-    if (desktopStore.currentPage() == null) { return null; }
-    return asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+    if (store.currentPage() == null) { return null; }
+    return asPageItem(itemState.get(store.currentPage()!.itemId)!);
   }
 
   const title = () => {
@@ -60,7 +60,7 @@ export const Toolbar: Component = () => {
   const mainTitleColor = () => {
     // item state is not solid-js signals.
     // as a bit of a hack, change in color is signalled by re-setting this instead.
-    desktopStore.pageColorOverlayInfoMaybe.get();
+    store.pageColorOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
   };
 
@@ -77,10 +77,10 @@ export const Toolbar: Component = () => {
           {title()}
         </div>
         <div class="float-right p-[8px]">
-          <Show when={!desktopStore.userStore.getUserMaybe()}>
+          <Show when={!store.userStore.getUserMaybe()}>
             <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
           </Show>
-          <Show when={desktopStore.userStore.getUserMaybe()}>
+          <Show when={store.userStore.getUserMaybe()}>
             <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
           </Show>
         </div>
@@ -89,20 +89,20 @@ export const Toolbar: Component = () => {
       <div class="fixed right-[10px] top-[42px] rounded-lg" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; background-color: #edf2fa;`}>
         <div class="flex flex-row flex-nowrap">
           <Toolbar_Navigation />
-          <Show when={desktopStore.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+          <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
             <Switch>
-              <Match when={desktopStore.noteEditOverlayInfo.get() != null}>
+              <Match when={store.noteEditOverlayInfo.get() != null}>
                 <Toolbar_Note />
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Note_Info />
               </Match>
-              <Match when={desktopStore.tableEditOverlayInfo.get() != null}>
+              <Match when={store.tableEditOverlayInfo.get() != null}>
                 <Toolbar_Table />
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Table_Info />
               </Match>
               {/* default */}
-              <Match when={desktopStore.noteEditOverlayInfo.get() == null}>
+              <Match when={store.noteEditOverlayInfo.get() == null}>
                 <Toolbar_Page />
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Page_Info />

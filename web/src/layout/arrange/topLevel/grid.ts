@@ -20,21 +20,20 @@ import { GRID_PAGE_CELL_ASPECT, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
-import { DesktopStoreContextModel, PopupType } from "../../../store/DesktopStoreProvider";
+import { StoreContextModel, PopupType } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";
 import { cloneBoundingBox } from "../../../util/geometry";
 import { panic } from "../../../util/lang";
-import { newUid } from "../../../util/uid";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { arrangeItem } from "../item";
 import { arrangeCellPopup } from "../popup";
 
 
-export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
+export const arrange_grid = (store: StoreContextModel): void => {
   VesCache.initFullArrange();
 
-  const currentPage = asPageItem(itemState.get(desktopStore.currentPage()!.itemId)!);
+  const currentPage = asPageItem(itemState.get(store.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
   let movingItem = null;
@@ -52,7 +51,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     }
   }
 
-  const pageBoundsPx = desktopStore.desktopBoundsPx();
+  const pageBoundsPx = store.desktopBoundsPx();
 
   const numCols = currentPage.gridNumberOfColumns;
 
@@ -81,13 +80,13 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: desktopStore.desktopBoundsPx(),
+    boundsPx: store.desktopBoundsPx(),
     childAreaBoundsPx: boundsPx,
   };
 
   // TODO (HIGH): add related hitboxes.
   // Do this here rather than in the component, as the hitboxes need to be in the visual element tree for mouse interaction.
-  const geometry = PageFns.calcGeometry_GridPageTitle(desktopStore, currentPage, boundsPx);
+  const geometry = PageFns.calcGeometry_GridPageTitle(store, currentPage, boundsPx);
   topLevelVisualElementSpec.titleBoundsPx = geometry.boundsPx;
 
   const children = [];
@@ -112,7 +111,7 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
       // TODO (placeholder).
     } else {
       const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false);
-      const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false, false, false);
+      const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false, false, false);
       children.push(ves);
     }
   }
@@ -129,18 +128,18 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
     cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
     const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false, false, false, false);
-    const ves = arrangeItem(desktopStore, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false, false, false);
+    const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false, false, false);
     children.push(ves);
   }
 
-  const currentPopupSpec = desktopStore.currentPopupSpec();
+  const currentPopupSpec = store.currentPopupSpec();
   if (currentPopupSpec != null) {
     if (currentPopupSpec.type == PopupType.Page) {
-      children.push(arrangeCellPopup(desktopStore));
+      children.push(arrangeCellPopup(store));
     } else if (currentPopupSpec.type == PopupType.Attachment) {
       // Ves are created inline.
     } else if (currentPopupSpec.type == PopupType.Image) {
-      children.push(arrangeCellPopup(desktopStore));
+      children.push(arrangeCellPopup(store));
     } else {
       panic(`arrange_grid: unknown popup type: ${currentPopupSpec.type}.`);
     }
@@ -148,5 +147,5 @@ export const arrange_grid = (desktopStore: DesktopStoreContextModel): void => {
 
   topLevelVisualElementSpec.children = children;
 
-  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, desktopStore);
+  VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, store);
 }

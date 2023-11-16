@@ -19,7 +19,7 @@
 import { BoundingBox, Dimensions } from '../../util/geometry';
 import { panic } from '../../util/lang';
 import { VisualElementSignal } from '../../util/signals';
-import { DesktopStoreContextModel } from '../../store/DesktopStoreProvider';
+import { StoreContextModel } from '../../store/StoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { VisualElement } from '../../layout/visual-element';
 import { asFileItem, isFile, FileFns } from '../file-item';
@@ -177,16 +177,16 @@ export const ItemFns = {
     panic(`toObject: Unknown or unsupported item type: ${item.itemType}`);
   },
 
-  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, desktopStore: DesktopStoreContextModel): void => {
+  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
     const item = visualElementSignal.get().displayItem;
-    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), desktopStore); }
-    else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, desktopStore); }
-    else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), desktopStore); }
-    else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), desktopStore); }
-    else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), desktopStore); }
-    else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), desktopStore); }
-    else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), desktopStore); }
-    else if (isRating(item)) { RatingFns.handleClick(desktopStore, visualElementSignal); }
+    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), store); }
+    else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, store); }
+    else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }
+    else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store); }
+    else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), store); }
+    else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store); }
+    else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store); }
+    else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal); }
     else if (isLink(item)) { }
     else if (isPlaceholder(item)) { panic("handleClick: placeholder."); }
     else { panic(`Unknown item type: ${item.itemType}`); }
@@ -207,9 +207,9 @@ export const ItemFns = {
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
-  handlePopupClick: (visualElement: VisualElement, desktopStore: DesktopStoreContextModel): void => {
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const item = visualElement.displayItem;
-    if (isPage(item)) { PageFns.handlePopupClick(visualElement, desktopStore); }
+    if (isPage(item)) { PageFns.handlePopupClick(visualElement, store); }
     else if (isTable(item)) { }
     else if (isComposite(item)) { }
     else if (isNote(item)) { }

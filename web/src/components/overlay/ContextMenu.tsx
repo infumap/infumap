@@ -19,7 +19,7 @@
 import { Component } from "solid-js";
 import { NoteFns } from "../../items/note-item";
 import { asPageItem, isPage, PageFns } from "../../items/page-item";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { isInside, Vector } from "../../util/geometry";
 import { server } from "../../server";
 import { asTableItem, isTable, TableFns } from "../../items/table-item";
@@ -49,7 +49,7 @@ type ContexMenuProps = {
 };
 
 export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const newPageInContext = () => newItemInContext("page");
   const newNoteInContext = () => newItemInContext("note");
@@ -61,17 +61,17 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   function createNewItem(type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
     let newItem = null;
     if (type == "rating") {
-      newItem = RatingFns.create(desktopStore.userStore.getUser().userId, parentId, 3, relationship, ordering)
+      newItem = RatingFns.create(store.userStore.getUser().userId, parentId, 3, relationship, ordering)
     } else if (type == "table") {
-      newItem = TableFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = TableFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "note") {
-      newItem = NoteFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = NoteFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "page") {
-      newItem = PageFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = PageFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else if (type == "link")  {
-      newItem = LinkFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
+      newItem = LinkFns.create(store.userStore.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
     } else if (type == "password")  {
-      newItem = PasswordFns.create(desktopStore.userStore.getUser().userId, parentId, relationship, "", ordering);
+      newItem = PasswordFns.create(store.userStore.getUser().userId, parentId, relationship, "", ordering);
     } else {
       panic("AddItem.createNewItem: unexpected item type.");
     }
@@ -97,8 +97,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       itemState.add(newItem);
       server.addItem(newItem, null);
 
-      desktopStore.contextMenuInfo.set(null);
-      arrange(desktopStore);
+      store.contextMenuInfo.set(null);
+      arrange(store);
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
     }
@@ -117,7 +117,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
         y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
       };
-      const naturalAspect = (desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h);
+      const naturalAspect = (store.desktopBoundsPx().w / store.desktopBoundsPx().h);
       if (isPage(newItem)) {
         const page = asPageItem(newItem);
         asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
@@ -135,15 +135,15 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       server.addItem(newItem, null);
       itemState.add(newItem);
 
-      desktopStore.contextMenuInfo.set(null);
-      arrange(desktopStore);
+      store.contextMenuInfo.set(null);
+      arrange(store);
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
     }
 
     else if (isTable(overElementVe.displayItem)) {
       if (isInside(props.desktopPosPx, overElementVe.childAreaBoundsPx!)) {
-        const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(desktopStore, overElementVe, props.desktopPosPx);
+        const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, props.desktopPosPx);
         const tableItem = asTableItem(overElementVe.displayItem);
 
         if (attachmentPos == -1 || insertRow >= tableItem.computed_children.length) {
@@ -154,8 +154,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
             RelationshipToParent.Child);
           server.addItem(newItem, null);
           itemState.add(newItem);
-          desktopStore.contextMenuInfo.set(null);
-          arrange(desktopStore);
+          store.contextMenuInfo.set(null);
+          arrange(store);
           newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
         } else {
@@ -180,8 +180,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
           server.addItem(newItem, null);
           itemState.add(newItem);
-          desktopStore.contextMenuInfo.set(null);
-          arrange(desktopStore);
+          store.contextMenuInfo.set(null);
+          arrange(store);
 
           newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
         }
@@ -207,8 +207,8 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         server.addItem(newItem, null);
         itemState.add(newItem);
 
-        desktopStore.contextMenuInfo.set(null);
-        arrange(desktopStore);
+        store.contextMenuInfo.set(null);
+        arrange(store);
 
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
       }
@@ -220,12 +220,12 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
 
     if (type == "note") {
-      desktopStore.noteEditOverlayInfo.set({ itemPath: newItemPath });
+      store.noteEditOverlayInfo.set({ itemPath: newItemPath });
     } else if (type == "rating") {
       // noop.
     } else {
-      desktopStore.editDialogInfo.set({
-        desktopBoundsPx: initialEditDialogBounds(desktopStore),
+      store.editDialogInfo.set({
+        desktopBoundsPx: initialEditDialogBounds(store),
         item: newItem
       });
     }
@@ -250,7 +250,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
 
 export const ContextMenu: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   // Prevent mouse down events bubbling up, which would trigger the handler that hides the context menu.
   let mouseDownListener = (ev: MouseEvent) => {
@@ -259,8 +259,8 @@ export const ContextMenu: Component = () => {
     }
   }
 
-  const posPx = () => desktopStore.contextMenuInfo.get()!.posPx;
-  const hitInfo = () => desktopStore.contextMenuInfo.get()!.hitInfo;
+  const posPx = () => store.contextMenuInfo.get()!.posPx;
+  const hitInfo = () => store.contextMenuInfo.get()!.hitInfo;
 
   return (
     <div class="absolute"

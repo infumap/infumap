@@ -17,21 +17,21 @@
 */
 
 import { Component, Show } from "solid-js";
-import { useDesktopStore } from "../../store/DesktopStoreProvider";
+import { useStore } from "../../store/StoreProvider";
 import { navigateBack, navigateUp, switchToPage } from '../../layout/navigation';
 import { ROOT_USERNAME } from '../../constants';
 import { InfuIconButton } from "../library/InfuIconButton";
 
 
 export const Toolbar_Navigation: Component = () => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const handleHome = () => {
-    const userMaybe = desktopStore.userStore.getUserMaybe();
+    const userMaybe = store.userStore.getUserMaybe();
     if (!userMaybe) {
       window.history.pushState(null, "", "/");
     } else {
-      switchToPage(desktopStore, { itemId: desktopStore.userStore.getUser().homePageId, linkIdMaybe: null }, false, false);
+      switchToPage(store, { itemId: store.userStore.getUser().homePageId, linkIdMaybe: null }, false, false);
       if (userMaybe.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
       } else {
@@ -40,15 +40,15 @@ export const Toolbar_Navigation: Component = () => {
     }
   };
 
-  const handleBack = () => navigateBack(desktopStore);
+  const handleBack = () => navigateBack(store);
 
-  const handleUp = () => navigateUp(desktopStore);
+  const handleUp = () => navigateUp(store);
 
-  const handleSearchClick = () => { desktopStore.searchOverlayVisible.set(!desktopStore.searchOverlayVisible.get()); };
+  const handleSearchClick = () => { store.searchOverlayVisible.set(!store.searchOverlayVisible.get()); };
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">
-      <Show when={desktopStore.userStore.getUserMaybe()}>
+      <Show when={store.userStore.getUserMaybe()}>
         <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} />        
       </Show>
       <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} />

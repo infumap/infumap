@@ -22,7 +22,7 @@ import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-it
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, PageFns } from "../items/page-item";
 import { asTableItem } from "../items/table-item";
-import { DesktopStoreContextModel } from "../store/DesktopStoreProvider";
+import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
@@ -42,71 +42,71 @@ let lastMouseOverVes: VisualElementSignal | null = null;
 let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 
 
-export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
-  if (desktopStore.currentPage() == null) { return; }
+export function mouseMoveHandler(store: StoreContextModel) {
+  if (store.currentPage() == null) { return; }
 
-  const hasUser = desktopStore.userStore.getUserMaybe() != null;
+  const hasUser = store.userStore.getUserMaybe() != null;
 
   const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx();
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
-  if (desktopStore.editDialogInfo.get() != null) {
+  if (store.editDialogInfo.get() != null) {
     if (DialogMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, DialogMoveState.get()!.lastMousePosPx!);
-      desktopStore.editDialogInfo.set(({
-        item: desktopStore.editDialogInfo.get()!.item,
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editDialogInfo.get()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+      store.editDialogInfo.set(({
+        item: store.editDialogInfo.get()!.item,
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.editDialogInfo.get()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
       }));
       DialogMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(currentMouseDesktopPx, desktopStore.editDialogInfo.get()!.desktopBoundsPx)) {
-      mouseMove_handleNoButtonDown(desktopStore, hasUser);
+    if (isInside(currentMouseDesktopPx, store.editDialogInfo.get()!.desktopBoundsPx)) {
+      mouseMove_handleNoButtonDown(store, hasUser);
       return;
     }
   }
-  if (desktopStore.editUserSettingsInfo.get() != null) {
+  if (store.editUserSettingsInfo.get() != null) {
     if (UserSettingsMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, UserSettingsMoveState.get()!.lastMousePosPx!);
-      desktopStore.editUserSettingsInfo.set(({
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
+      store.editUserSettingsInfo.set(({
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.editUserSettingsInfo.get()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
       }));
       UserSettingsMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(currentMouseDesktopPx, desktopStore.editUserSettingsInfo.get()!.desktopBoundsPx)) {
-      mouseMove_handleNoButtonDown(desktopStore, hasUser);
+    if (isInside(currentMouseDesktopPx, store.editUserSettingsInfo.get()!.desktopBoundsPx)) {
+      mouseMove_handleNoButtonDown(store, hasUser);
       return;
     }
   }
 
   if (MouseActionState.empty()) {
-    mouseMove_handleNoButtonDown(desktopStore, hasUser);
+    mouseMove_handleNoButtonDown(store, hasUser);
     return;
   }
 
   let deltaPx = vectorSubtract(currentMouseDesktopPx, MouseActionState.get().startPx!);
 
-  changeMouseActionStateMaybe(deltaPx, desktopStore, currentMouseDesktopPx, hasUser);
+  changeMouseActionStateMaybe(deltaPx, store, currentMouseDesktopPx, hasUser);
 
   switch (MouseActionState.get().action) {
     case MouseAction.Ambiguous:
       return;
     case MouseAction.Resizing:
-      mouseAction_resizing(deltaPx, desktopStore);
+      mouseAction_resizing(deltaPx, store);
       return;
     case MouseAction.ResizingPopup:
-      mouseAction_resizingPopup(deltaPx, desktopStore);
+      mouseAction_resizingPopup(deltaPx, store);
       return;
     case MouseAction.ResizingColumn:
-      mouseAction_resizingColumn(deltaPx, desktopStore);
+      mouseAction_resizingColumn(deltaPx, store);
       return;
     case MouseAction.MovingPopup:
-      mouseAction_movingPopup(deltaPx, desktopStore);
+      mouseAction_movingPopup(deltaPx, store);
       return;
     case MouseAction.Moving:
-      mouseAction_moving(deltaPx, currentMouseDesktopPx, desktopStore);
+      mouseAction_moving(deltaPx, currentMouseDesktopPx, store);
       return;
     default:
       panic("unknown mouse action.");
@@ -116,7 +116,7 @@ export function mouseMoveHandler(desktopStore: DesktopStoreContextModel) {
 
 function changeMouseActionStateMaybe(
     deltaPx: Vector,
-    desktopStore: DesktopStoreContextModel,
+    store: StoreContextModel,
     desktopPosPx: Vector,
     hasUser: boolean) {
   if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
@@ -172,19 +172,19 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
-      desktopStore.itemIsMoving.set(true);
+      store.itemIsMoving.set(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
       const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));
       MouseActionState.get().startPosBl = { x: popupPositionGr.x / GRID_SIZE, y: popupPositionGr.y / GRID_SIZE };
     } else {
-      moving_initiate(desktopStore, activeItem, activeVisualElement, desktopPosPx);
+      moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   }
 }
 
 
-function mouseAction_resizing(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
+function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -210,11 +210,11 @@ function mouseAction_resizing(deltaPx: Vector, desktopStore: DesktopStoreContext
     }
   }
 
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseAction_resizingPopup(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
+function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   const deltaBl = {
     x: deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0, // * 2.0 because it's centered, so mouse distance -> half the desired increase in width.
     y: deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0
@@ -227,11 +227,11 @@ function mouseAction_resizingPopup(deltaPx: Vector, desktopStore: DesktopStoreCo
   const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
   asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthBl * GRID_SIZE;
 
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseAction_resizingColumn(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
+function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -250,11 +250,11 @@ function mouseAction_resizingColumn(deltaPx: Vector, desktopStore: DesktopStoreC
     asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthBl * GRID_SIZE;
   }
 
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
-function mouseAction_movingPopup(deltaPx: Vector, desktopStore: DesktopStoreContextModel) {
+function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   const deltaBl = {
     x: Math.round(deltaPx.x * MouseActionState.get().onePxSizeBl.x * 2.0)/2.0,
     y: Math.round(deltaPx.y * MouseActionState.get().onePxSizeBl.y * 2.0)/2.0
@@ -266,19 +266,19 @@ function mouseAction_movingPopup(deltaPx: Vector, desktopStore: DesktopStoreCont
   const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
   asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
 
-  arrange(desktopStore);
+  arrange(store);
 }
 
 
 
-export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextModel, hasUser: boolean) {
-  const dialogInfo = desktopStore.editDialogInfo.get();
-  const userSettingsInfo = desktopStore.editUserSettingsInfo.get();
-  const cmi = desktopStore.contextMenuInfo.get();
+export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
+  const dialogInfo = store.editDialogInfo.get();
+  const userSettingsInfo = store.editUserSettingsInfo.get();
+  const cmi = store.contextMenuInfo.get();
   const hasModal = dialogInfo != null || cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
-  const hitInfo = getHitInfo(desktopStore, desktopPxFromMouseEvent(ev), [], false);
+  const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
 
   if (overElementVes != lastMouseOverVes || hasModal) {
@@ -295,14 +295,14 @@ export function mouseMove_handleNoButtonDown(desktopStore: DesktopStoreContextMo
     }
   }
 
-  if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
+  if ((overElementVes!.get().displayItem.id != store.currentPage()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
 
-  if ((overElementVes!.get().displayItem.id != desktopStore.currentPage()!.itemId) &&
+  if ((overElementVes!.get().displayItem.id != store.currentPage()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {

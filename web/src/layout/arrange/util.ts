@@ -19,7 +19,7 @@
 import { Item } from "../../items/base/item";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { DesktopStoreContextModel } from "../../store/DesktopStoreProvider";
+import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { EMPTY_UID } from "../../util/uid";
 import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe } from "../load";
@@ -35,7 +35,7 @@ export interface VePropertiesForItem {
 /**
  * Given an item, calculate the visual element display item (what is visually depicted), linkItemMaybe and spatialWidthGr.
  */
-export function getVePropertiesForItem(desktopStore: DesktopStoreContextModel, item: Item): VePropertiesForItem {
+export function getVePropertiesForItem(store: StoreContextModel, item: Item): VePropertiesForItem {
   let displayItem = item;
   let linkItemMaybe: LinkItem | null = null;
   let spatialWidthGr = isXSizableItem(displayItem)
@@ -57,12 +57,12 @@ export function getVePropertiesForItem(desktopStore: DesktopStoreContextModel, i
     if (linkItemMaybe.linkTo != EMPTY_UID) {
       if (linkItemMaybe.linkToBaseUrl == "") {
         if (linkItemMaybe.origin == null) {
-          initiateLoadItemMaybe(desktopStore, linkItemMaybe.linkTo);
+          initiateLoadItemMaybe(store, linkItemMaybe.linkTo);
         } else {
-          initiateLoadItemFromRemoteMaybe(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.origin, linkItemMaybe.id);
+          initiateLoadItemFromRemoteMaybe(store, linkItemMaybe.linkTo, linkItemMaybe.origin, linkItemMaybe.id);
         }
       } else {
-        initiateLoadItemFromRemoteMaybe(desktopStore, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
+        initiateLoadItemFromRemoteMaybe(store, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
       }
     }
   }

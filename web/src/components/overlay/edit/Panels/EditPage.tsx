@@ -20,7 +20,7 @@ import { Component, Show, onCleanup } from "solid-js";
 import { GRID_SIZE } from "../../../../constants";
 import { server } from "../../../../server";
 import { ArrangeAlgorithm, asPageItem, PageItem } from "../../../../items/page-item";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { InfuColorSelector } from "../../../library/InfuColorSelector";
@@ -31,11 +31,11 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (props: { pageItem: PageItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
   let checkElement_public: HTMLInputElement | undefined;
 
   const screenAspect = (): number => {
-    let aspect = desktopStore.desktopBoundsPx().w / desktopStore.desktopBoundsPx().h;
+    let aspect = store.desktopBoundsPx().w / store.desktopBoundsPx().h;
     return Math.round(aspect * 1000.0) / 1000.0;
   }
 
@@ -45,44 +45,44 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
   const handleBlockWidthChange = (v: string) => {
     if (!deleted) {
       asPageItem(itemState.get(pageId)!).innerSpatialWidthGr = parseInt(v) * GRID_SIZE;
-      arrange(desktopStore);
+      arrange(store);
     }
   };
 
   const handleNaturalAspectChange = async (v: string) => {
     if (!deleted) {
       asPageItem(itemState.get(pageId)!).naturalAspect = parseFloat(v);
-      arrange(desktopStore);
+      arrange(store);
     }
   };
 
   const handleGridNumberOfColumnsChange = (v: string) => {
     if (!deleted) {
       asPageItem(itemState.get(pageId)!).gridNumberOfColumns = parseInt(v);
-      arrange(desktopStore);
+      arrange(store);
     }
   }
 
   const handleTitleInput = (v: string) => {
     asPageItem(itemState.get(pageId)!).title = v;
-    arrange(desktopStore);
+    arrange(store);
   };
 
   const deletePage = async () => {
     deleted = true;
     await server.deleteItem(pageId); // throws on failure.
     itemState.delete(pageId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   const setAspectToMatchScreen = async () => {
     asPageItem(itemState.get(pageId)!).naturalAspect = screenAspect();
-    desktopStore.editDialogInfo.set({
-      desktopBoundsPx: desktopStore.editDialogInfo.get()!.desktopBoundsPx,
+    store.editDialogInfo.set({
+      desktopBoundsPx: store.editDialogInfo.get()!.desktopBoundsPx,
       item: itemState.get(pageId)!
     });
-    arrange(desktopStore);
+    arrange(store);
   }
 
   let checkElement_spatial_stretch: HTMLInputElement | undefined;
@@ -105,7 +105,7 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
       panic(`changeArrangeAlgo: Unexpected arrange algo: ${changeArrangeAlgo}`);
     }
     asPageItem(itemState.get(pageId)!).arrangeAlgorithm = t;
-    arrange(desktopStore);
+    arrange(store);
   }
 
   const changeOrderChildrenBy = async () => {
@@ -116,7 +116,7 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
       asPageItem(itemState.get(pageId)!).orderChildrenBy = "";
     }
     itemState.sortChildren(pageId);
-    arrange(desktopStore);
+    arrange(store);
   }
 
   onCleanup(() => {
@@ -131,7 +131,7 @@ export const EditPage: Component<{pageItem: PageItem, linkedTo: boolean}> = (pro
     } else {
       asPageItem(itemState.get(pageId)!).permissionFlags &= ~PermissionFlags.Public;
     }
-    arrange(desktopStore);
+    arrange(store);
   }
 
   return (

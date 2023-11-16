@@ -18,7 +18,7 @@
 
 import { Component, Show, onCleanup } from "solid-js";
 import { server } from "../../../../server";
-import { useDesktopStore } from "../../../../store/DesktopStoreProvider";
+import { useStore } from "../../../../store/StoreProvider";
 import { asImageItem, ImageItem } from "../../../../items/image-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
@@ -27,23 +27,23 @@ import { arrange } from "../../../../layout/arrange";
 
 
 export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: { imageItem: ImageItem, linkedTo: boolean }) => {
-  const desktopStore = useDesktopStore();
+  const store = useStore();
 
   const imageId = props.imageItem.id;
   let deleted = false;
 
   const handleTitleChange = (v: string) => {
     asImageItem(itemState.get(imageId)!).title = v;
-    // rearrangeVisualElementsWithItemId(desktopStore, imageId); TODO (MEDIUM): use VesCache for this now.
-    arrange(desktopStore);
+    // rearrangeVisualElementsWithItemId(store, imageId); TODO (MEDIUM): use VesCache for this now.
+    arrange(store);
   };
 
   const deleteImage = async () => {
     deleted = true;
     await server.deleteItem(imageId); // throws on failure.
     itemState.delete(imageId);
-    desktopStore.editDialogInfo.set(null);
-    arrange(desktopStore);
+    store.editDialogInfo.set(null);
+    arrange(store);
   }
 
   onCleanup(() => {
