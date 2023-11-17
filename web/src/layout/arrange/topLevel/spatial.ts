@@ -34,6 +34,7 @@ import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
 import { PopupType } from "../../../store/StoreProvider_History";
+import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../load";
 
 
 export const arrange_spatialStretch = (store: StoreContextModel) => {
@@ -118,6 +119,36 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
       children.push(arrangeCellPopup(store));
     } else {
       panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
+    }
+  }
+
+  if (store.user.getUserMaybe() != null) {
+    if (itemState.get(store.user.getUser().dockPageId) == null) {
+      initiateLoadItemMaybe(store, store.user.getUser().dockPageId);
+    } else {
+      initiateLoadChildItemsMaybe(store, { itemId: store.user.getUser().dockPageId, linkIdMaybe: null });
+      const dockPage = asPageItem(itemState.get(store.user.getUser().dockPageId)!);
+      const dim = ItemFns.calcSpatialDimensionsBl(dockPage);
+      const dockBoundsPx = {
+        x: store.desktopBoundsPx().w - 80,
+        y: store.desktopBoundsPx().h / 3,
+        w: 80,
+        h: 50,
+      }
+      const dockVisualElementSpec = {
+        displayItem: dockPage,
+        linkItemMaybe: null,
+        flags: VisualElementFlags.IsDock,
+        boundsPx: dockBoundsPx,
+        childAreaBoundsPx: dockBoundsPx,
+        hitboxes : [],
+      };
+
+      const dockPath = VeFns.addVeidToPath( {itemId: dockPage.id, linkIdMaybe: null},  currentPath);
+      children.push(VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath));
+
+      // child items aren't shown.
+      initiateLoadItemMaybe(store, store.user.getUser().trashPageId);
     }
   }
 

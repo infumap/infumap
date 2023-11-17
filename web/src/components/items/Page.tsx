@@ -600,6 +600,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   return (
     <Switch>
+      <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
+        {/* <div>dock!</div> */}
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.isTrash}>
+        {/* <div>trash!</div> */}
+      </Match>
       <Match when={(props.visualElement.parentPath == null || (props.visualElement.flags & VisualElementFlags.Root)) &&
                    !(props.visualElement.flags & VisualElementFlags.Popup)}>
         {renderAsFullOrRoot()}

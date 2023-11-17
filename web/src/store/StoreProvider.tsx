@@ -30,6 +30,7 @@ import { makeHistoryStore, HistoryStoreContextModel, PopupType } from "./StorePr
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
 
+
 export interface StoreContextModel {
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
