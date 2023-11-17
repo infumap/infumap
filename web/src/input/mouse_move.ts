@@ -172,7 +172,7 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
-      store.itemIsMoving.set(true);
+      store.anItemIsMoving.set(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
       const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
       const popupPositionGr = PageFns.getPopupPositionGr(asPageItem(activeRoot));

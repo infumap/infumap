@@ -215,19 +215,19 @@ const arrangePageWithChildren = (
       if (isPagePopup) {
         const popupSpec = store.history.currentPopupSpec();
         assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
-        scrollPropY = store.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
-        scrollPropX = store.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
+        scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
+        scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
       } else {
-        scrollPropY = store.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-        scrollPropX = store.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+        scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+        scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       }
 
       const topLevelVisualElement = store.topLevelVisualElement.get();
       const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
       const desktopSizePx = store.desktopBoundsPx();
-      const pageYScrollProp = store.getPageScrollYProp(store.history.currentPage()!);
+      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPage()!);
       const pageYScrollPx = pageYScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
-      const pageXScrollProp = store.getPageScrollXProp(store.history.currentPage()!);
+      const pageXScrollProp = store.perItem.getPageScrollXProp(store.history.currentPage()!);
       const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
 
       const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
@@ -336,13 +336,13 @@ const arrangePageWithChildren = (
       const poppedUp = store.history.currentPopupSpec()!;
       const poppedUpPath = poppedUp.vePath;
       const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
-      selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(poppedUpVeid));
+      selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(poppedUpVeid));
     } else if (isRoot) {
       // TODO (MEDIUM): list pages in list pages.
       console.log("not implemented");
     } else {
       const listPageVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-      selectedVeid = VeFns.veidFromPath(store.getSelectedListPageItem(listPageVeid)!);
+      selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(listPageVeid)!);
     }
 
     let listVeChildren: Array<VisualElementSignal> = [];

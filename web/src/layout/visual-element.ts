@@ -383,7 +383,7 @@ export const VeFns = {
         const tableItem = asTableItem(veParentParent.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
-        r.y -= blockHeightPx * store.getTableScrollYPos(VeFns.veidFromVe(ve));
+        r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
         // skip the item that is a child of the table - the attachment ve is relative to the table.
         // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
         ve = VesCache.get(ve.parentPath!)!.get();
@@ -397,19 +397,19 @@ export const VeFns = {
         const tableItem = asTableItem(ve.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
-        r.y -= blockHeightPx * store.getTableScrollYPos(VeFns.veidFromVe(ve));
+        r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
       } else if (isPage(ve.displayItem)) {
         let adjY = 0.0;
         let adjX = 0.0;
         if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = store.history.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
-          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
-          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
         } else {
           if (ve.flags & VisualElementFlags.ShowChildren) {
-            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromVe(ve));
-            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromVe(ve));
+            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromVe(ve));
+            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromVe(ve));
           }
         }
         r.x -= adjX;
@@ -423,8 +423,8 @@ export const VeFns = {
 
   desktopPxToTopLevelPagePx: (store: StoreContextModel, desktopPosPx: Vector): Vector => {
     const ve = store.topLevelVisualElement.get();
-    const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.getPageScrollYProp(VeFns.veidFromVe(ve));
-    const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.getPageScrollXProp(VeFns.veidFromVe(ve));
+    const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromVe(ve));
+    const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromVe(ve));
     return ({
       x: desktopPosPx.x + adjX,
       y: desktopPosPx.y + adjY

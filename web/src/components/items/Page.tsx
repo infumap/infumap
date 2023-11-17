@@ -57,10 +57,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     if (!div) { return; }
 
-    const scrollXProp = store.getPageScrollXProp(veid);
+    const scrollXProp = store.perItem.getPageScrollXProp(veid);
     const scrollXPx = scrollXProp * (childAreaBoundsPx().w - boundsPx().w);
 
-    const scrollYProp = store.getPageScrollYProp(veid);
+    const scrollYProp = store.perItem.getPageScrollYProp(veid);
     const scrollYPx = scrollYProp * (childAreaBoundsPx().h - boundsPx().h);
 
     div.scrollTop = scrollYPx;
@@ -136,7 +136,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderHoverOverMaybe = () =>
-      <Show when={props.visualElement.mouseIsOver.get() && !store.itemIsMoving.get()}>
+      <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
         <div class={'absolute rounded-sm'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     'background-color: #ffffff33;'} />
@@ -205,10 +205,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     updatingTranslucentScrollTop = true;
     if (translucentDiv) {
       translucentDiv.scrollTop =
-        store.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
+        store.perItem.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
       translucentDiv.scrollLeft =
-        store.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
+        store.perItem.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
         (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
 
@@ -230,7 +230,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       if (childAreaBounds.h > pageBoundsPx.h) {
         const scrollYProp = translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);
-        store.setPageScrollYProp(pageVeid, scrollYProp);
+        store.perItem.setPageScrollYProp(pageVeid, scrollYProp);
       }
     };
 
@@ -292,7 +292,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderHoverOverMaybe = () =>
-      <Show when={props.visualElement.mouseIsOver.get() && !store.itemIsMoving.get()}>
+      <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
         <div class={`absolute rounded-sm pointer-events-none`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     `background-color: #ffffff33;`} />
@@ -370,10 +370,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     if (popupDiv && store.history.currentPopupSpec()) {
       popupDiv.scrollTop =
-        store.getPageScrollYProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
+        store.perItem.getPageScrollYProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
         (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
       popupDiv.scrollLeft =
-        store.getPageScrollXProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
+        store.perItem.getPageScrollXProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
         (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
 
@@ -400,7 +400,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       if (childAreaBoundsPx_.h > pageBoundsPx.h) {
         const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - pageBoundsPx.h);
-        store.setPageScrollYProp(popupVeid, scrollYProp);
+        store.perItem.setPageScrollYProp(popupVeid, scrollYProp);
       }
     };
 
@@ -547,12 +547,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       if (desktopSizePx.w < pageBoundsPx.w) {
         const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
-        store.setPageScrollXProp(currentPageVeid, scrollXProp);
+        store.perItem.setPageScrollXProp(currentPageVeid, scrollXProp);
       }
 
       if (desktopSizePx.h < pageBoundsPx.h) {
         const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
-        store.setPageScrollYProp(currentPageVeid, scrollYProp);
+        store.perItem.setPageScrollYProp(currentPageVeid, scrollYProp);
       }
     }
 

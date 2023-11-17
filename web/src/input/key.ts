@@ -61,7 +61,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           if (poppedUp && overVe.displayItem.id == VeFns.veidFromPath(poppedUp!.vePath).itemId) {
             return overVe.displayItem;
           }
-          const selected = store.getSelectedListPageItem(store.history.currentPage()!);
+          const selected = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
           if (selected && overVe.displayItem.id == VeFns.veidFromPath(selected).itemId) {
             return overVe.displayItem;
           }
@@ -86,11 +86,11 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
     if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
       if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
-        const selectedItem = store.getSelectedListPageItem(store.history.currentPage()!);
+        const selectedItem = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
         const direction = findDirectionFromKeyCode(ev.code);
         const closest = findClosest(selectedItem, direction, true)!;
         if (closest != null) {
-          store.setSelectedListPageItem(store.history.currentPage()!, closest);
+          store.perItem.setSelectedListPageItem(store.history.currentPage()!, closest);
           arrange(store);
         }
       }

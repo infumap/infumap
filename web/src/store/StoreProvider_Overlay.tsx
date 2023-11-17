@@ -54,15 +54,15 @@ export interface EditUserSettingsInfo {
 
 
 export interface OverlayStoreContextModel {
-    // desktop overlays
-    noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
-    tableEditOverlayInfo: InfuSignal<TableEditOverlayInfo | null>,
-    searchOverlayVisible: InfuSignal<boolean>,
-    editDialogInfo: InfuSignal<EditDialogInfo | null>,
-    editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
-    contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
+  // desktop overlays
+  noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  tableEditOverlayInfo: InfuSignal<TableEditOverlayInfo | null>,
+  searchOverlayVisible: InfuSignal<boolean>,
+  editDialogInfo: InfuSignal<EditDialogInfo | null>,
+  editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
+  contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
 
-      // global overlays.
+  // global overlays
   noteUrlOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   noteFormatOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   pageColorOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
@@ -73,6 +73,7 @@ export interface OverlayStoreContextModel {
 
   clear: () => void,
 }
+
 
 export function makeOverlayStore(): OverlayStoreContextModel {
   const tableEditOverlayInfo = createInfuSignal<TableEditOverlayInfo | null>(null);

@@ -79,7 +79,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       itemState.add(link);
       server.addItem(link, null);
 
-      store.itemIsMoving.set(true);
+      store.anItemIsMoving.set(true);
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElement);
       const newLinkVeid = VeFns.veidFromId(link.id);
       MouseActionState.get().activeElement = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
@@ -90,7 +90,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     }
   }
 
-  store.itemIsMoving.set(true);
+  store.anItemIsMoving.set(true);
   MouseActionState.get().action = MouseAction.Moving;
 }
 
@@ -265,7 +265,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   const tableItem = asTableItem(tableVisualElement.displayItem);
   const tableBlockHeightPx = tableVisualElement.boundsPx.h / (tableItem.spatialHeightGr / GRID_SIZE);
   let itemPosInTablePx = getBoundingBoxTopLeft(activeVisualElement.boundsPx);
-  itemPosInTablePx.y -= store.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
+  itemPosInTablePx.y -= store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx;
   const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
 

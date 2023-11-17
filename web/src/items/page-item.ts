@@ -443,7 +443,7 @@ export const PageFns = {
     // line item in list page.
     const parentItem = parentVe.displayItem;
     if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      store.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
+      store.perItem.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
       arrange(store);
       return;
     }
@@ -537,7 +537,7 @@ export const PageFns = {
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {
-    if (store.getSelectedListPageItem(itemVeid) != "") { return; }
+    if (store.perItem.getSelectedListPageItem(itemVeid) != "") { return; }
     const item = itemState.get(itemVeid.itemId)!;
     if (isPage(item)) {
       const page = asPageItem(item);
@@ -546,7 +546,7 @@ export const PageFns = {
           const firstItemId = page.computed_children[0];
           const veid = VeFns.veidFromId(firstItemId);
           const path = VeFns.addVeidToPath(veid, page.id);
-          store.setSelectedListPageItem(itemVeid, path);
+          store.perItem.setSelectedListPageItem(itemVeid, path);
         }
       }
     }

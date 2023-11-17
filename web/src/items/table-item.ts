@@ -359,7 +359,7 @@ export const TableFns = {
     // row
     const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
     const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
-    const yScrollPos = store.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+    const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
     let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
     if (insertRow < yScrollPos) { insertRow = yScrollPos; }
     insertRow -= insertRow > tableItem.computed_children.length

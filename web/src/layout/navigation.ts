@@ -133,8 +133,8 @@ export function setTopLevelPageScrollPositions(store: StoreContextModel) {
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = store.desktopBoundsPx();
 
-  const scrollXPx = store.getPageScrollXProp(veid) * (topLevelBoundsPx.w - desktopSizePx.w);
-  const scrollYPx = store.getPageScrollYProp(veid) * (topLevelBoundsPx.h - desktopSizePx.h);
+  const scrollXPx = store.perItem.getPageScrollXProp(veid) * (topLevelBoundsPx.w - desktopSizePx.w);
+  const scrollYPx = store.perItem.getPageScrollYProp(veid) * (topLevelBoundsPx.h - desktopSizePx.h);
 
   if (rootPageDiv) {
     rootPageDiv.scrollTop = scrollYPx;

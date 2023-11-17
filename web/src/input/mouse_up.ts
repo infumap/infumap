@@ -43,7 +43,7 @@ import { PopupType } from "../store/StoreProvider_History";
 
 export function mouseUpHandler(store: StoreContextModel) {
 
-  store.itemIsMoving.set(false);
+  store.anItemIsMoving.set(false);
 
   DialogMoveState.set(null);
   UserSettingsMoveState.set(null);
@@ -325,7 +325,7 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
 function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const tableItem = asTableItem(overContainerVe.displayItem);
   let rowNumber = overContainerVe.moveOverRowNumber.get();
-  const yScrollPos = store.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
+  const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
   const childId = tableItem.computed_children[rowNumber];

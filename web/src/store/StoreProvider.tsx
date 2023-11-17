@@ -22,15 +22,15 @@ import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions } from "../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VisualElementPath, VeFns } from "../layout/visual-element";
-import { createNumberSignal, createInfuSignal, NumberSignal, InfuSignal } from "../util/signals";
+import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VeFns } from "../layout/visual-element";
+import { createInfuSignal, InfuSignal } from "../util/signals";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
 import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
 import { makeHistoryStore, HistoryStoreContextModel, PopupType } from "./StoreProvider_History";
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
+import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
 
 export interface StoreContextModel {
-
   desktopBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
@@ -42,20 +42,9 @@ export interface StoreContextModel {
 
   getToolbarFocus: () => Veid,
 
-  itemIsMoving: InfuSignal<boolean>,
+  anItemIsMoving: InfuSignal<boolean>,
 
-  getSelectedListPageItem: (veid: Veid) => VisualElementPath,
-  setSelectedListPageItem: (veid: Veid, path: VisualElementPath) => void,
-
-  getTableScrollYPos: (veid: Veid) => number,
-  setTableScrollYPos: (veid: Veid, pos: number) => void,
-
-  getPageScrollXProp: (veid: Veid) => number,
-  setPageScrollXProp: (veid: Veid, path: number) => void,
-
-  getPageScrollYProp: (veid: Veid) => number,
-  setPageScrollYProp: (veid: Veid, path: number) => void,
-
+  perItem: PerItemStoreContextModel,
   overlay: OverlayStoreContextModel,
   history: HistoryStoreContextModel,
   general: GeneralStoreContextModel,
@@ -78,83 +67,6 @@ export function StoreProvider(props: StoreContextProps) {
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
 
-  // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly
-  // want to keep the number under control on page changes (delete those with value 0).
-  const tableScrollPositions = new Map<string, NumberSignal>();
-  const pageScrollXPxs = new Map<string, NumberSignal>();
-  const pageScrollYPxs = new Map<string, NumberSignal>();
-
-  const selectedItems = new Map<string, InfuSignal<VisualElementPath>>();
-
-
-  const getTableScrollYPos = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!tableScrollPositions.get(key)) {
-      tableScrollPositions.set(key, createNumberSignal(0.0));
-    }
-    return tableScrollPositions.get(key)!.get();
-  };
-
-  const setTableScrollYPos = (veid: Veid, pos: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!tableScrollPositions.get(key)) {
-      tableScrollPositions.set(key, createNumberSignal(pos));
-      return;
-    }
-    tableScrollPositions.get(key)!.set(pos);
-  };
-
-  const getPageScrollXProp = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!pageScrollXPxs.get(key)) {
-      pageScrollXPxs.set(key, createNumberSignal(0.0));
-    }
-    return pageScrollXPxs.get(key)!.get();
-  };
-
-  const setPageScrollXProp = (veid: Veid, px: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!pageScrollXPxs.get(key)) {
-      pageScrollXPxs.set(key, createNumberSignal(px));
-      return;
-    }
-    pageScrollXPxs.get(key)!.set(px);
-  };
-
-  const getPageScrollYProp = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!pageScrollYPxs.get(key)) {
-      pageScrollYPxs.set(key, createNumberSignal(0.0));
-    }
-    return pageScrollYPxs.get(key)!.get();
-  };
-
-  const setPageScrollYProp = (veid: Veid, px: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!pageScrollYPxs.get(key)) {
-      pageScrollYPxs.set(key, createNumberSignal(px));
-      return;
-    }
-    pageScrollYPxs.get(key)!.set(px);
-  };
-
-  const getSelectedListPageItem = (veid: Veid): VisualElementPath => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!selectedItems.get(key)) {
-      selectedItems.set(key, createInfuSignal<VisualElementPath>(""));
-    }
-    return selectedItems.get(key)!.get();
-  };
-
-  const setSelectedListPageItem = (veid: Veid, path: VisualElementPath): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
-    if (!selectedItems.get(key)) {
-      selectedItems.set(key, createInfuSignal<VisualElementPath>(path));
-      return;
-    }
-    selectedItems.get(key)!.set(path);
-  };
-
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
     return {
@@ -173,18 +85,16 @@ export function StoreProvider(props: StoreContextProps) {
   }
 
 
+  const perItem = makePerItemStore();
   const overlay = makeOverlayStore();
   const history = makeHistoryStore();
 
   const clear = (): void => {
     currentVisiblePassword.set(null);
-    tableScrollPositions.clear();
-    pageScrollXPxs.clear();
-    pageScrollYPxs.clear();
-    selectedItems.clear();
     topLevelVisualElement.set(NONE_VISUAL_ELEMENT);
     history.clear();
     overlay.clear();
+    perItem.clear();
   };
 
 
@@ -209,19 +119,15 @@ export function StoreProvider(props: StoreContextProps) {
 
     topLevelVisualElement,
 
-    getTableScrollYPos, setTableScrollYPos,
-    getSelectedListPageItem, setSelectedListPageItem,
-    getPageScrollXProp, setPageScrollXProp,
-    getPageScrollYProp, setPageScrollYProp,
-
     clear,
 
     getToolbarFocus,
 
     currentVisiblePassword,
 
-    itemIsMoving: createInfuSignal<boolean>(false),
+    anItemIsMoving: createInfuSignal<boolean>(false),
 
+    perItem,
     overlay,
     history,
     general: makeGeneralStore(),

@@ -202,7 +202,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
-          <Show when={props.visualElement.mouseIsOver.get() && !store.itemIsMoving.get()}>
+          <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #ffffff33; ${VeFns.zIndexStyle(props.visualElement)}`} />

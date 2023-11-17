@@ -50,8 +50,8 @@ export function getHitInfo(
   const topLevelVeid = store.history.currentPage()!;
   const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
   const desktopSizePx = topLevelVisualElement.boundsPx;
-  const topXScroll = store.getPageScrollXProp(topLevelVeid);
-  const topYScroll = store.getPageScrollYProp(topLevelVeid);
+  const topXScroll = store.perItem.getPageScrollXProp(topLevelVeid);
+  const topYScroll = store.perItem.getPageScrollYProp(topLevelVeid);
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
       x: topXScroll * (topLevelBoundsPx.w - desktopSizePx.w),
@@ -73,10 +73,10 @@ export function getHitInfo(
       rootVisualElement = rootVisualElementSignal.get();
       const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       const scrollYPx = isPage(rootVisualElement.displayItem)
-        ? store.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
+        ? store.perItem.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
         : 0;
       const scrollXPx = isPage(rootVisualElement.displayItem)
-        ? store.getPageScrollXProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.w - rootVisualElement.boundsPx.w)
+        ? store.perItem.getPageScrollXProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.w - rootVisualElement.boundsPx.w)
         : 0;
       posRelativeToRootVisualElementPx = vectorSubtract(popupPosRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
       let hitboxType = HitboxFlags.None;
@@ -182,7 +182,7 @@ export function getHitInfo(
         const posRelativeToTableChildAreaPx = vectorSubtract(
           posRelativeToRootVisualElementPx,
           { x: tableVisualElement.childAreaBoundsPx!.x,
-            y: tableVisualElement.childAreaBoundsPx!.y - store.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
+            y: tableVisualElement.childAreaBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
         );
         if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
           let hitboxType = HitboxFlags.None;
