@@ -38,7 +38,7 @@ export const Toolbar_Page_Width: Component = () => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
-    store.pageWidthOverlayInfoMaybe.set(null);
+    store.overlay.pageWidthOverlayInfoMaybe.set(null);
     arrange(store);
     server.updateItem(pageItem());
   };
@@ -58,8 +58,8 @@ export const Toolbar_Page_Width: Component = () => {
   };
 
   const entryBoxBoundsPx = () => ({
-    x: store.pageWidthOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: store.pageWidthOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.overlay.pageWidthOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.overlay.pageWidthOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 300, h: 30
   });
 

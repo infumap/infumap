@@ -39,7 +39,7 @@ export const Toolbar_Page_Color: Component = () => {
       ev.stopPropagation();
       return;
     }
-    store.pageColorOverlayInfoMaybe.set(null);
+    store.overlay.pageColorOverlayInfoMaybe.set(null);
     arrange(store);
     server.updateItem(pageItem());
   };
@@ -60,14 +60,14 @@ export const Toolbar_Page_Color: Component = () => {
   };
 
   const colorBoxBoundsPx = () => ({
-    x: store.pageColorOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: store.pageColorOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.overlay.pageColorOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.overlay.pageColorOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 96, h: 56
   });
 
   const handleClick = (col: number) => {
     pageItem().backgroundColorIndex = col;
-    store.pageColorOverlayInfoMaybe.set(store.pageColorOverlayInfoMaybe.get());
+    store.overlay.pageColorOverlayInfoMaybe.set(store.overlay.pageColorOverlayInfoMaybe.get());
   }
 
   return (

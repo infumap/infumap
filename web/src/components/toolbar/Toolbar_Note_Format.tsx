@@ -32,13 +32,13 @@ export const Toolbar_Note_Format: Component = () => {
 
   let formatTextElement: HTMLInputElement | undefined;
 
-  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(store.noteEditOverlayInfo.get()!.itemPath).itemId)!);
+  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(store.overlay.noteEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), formatBoxBoundsPx())) { return; }
-    store.noteFormatOverlayInfoMaybe.set(null);
+    store.overlay.noteFormatOverlayInfoMaybe.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -56,8 +56,8 @@ export const Toolbar_Note_Format: Component = () => {
   };
 
   const formatBoxBoundsPx = () => ({
-    x: store.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: store.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.overlay.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.overlay.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 500, h: 40
   });
 

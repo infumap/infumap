@@ -42,7 +42,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
     deleted = true;
     await server.deleteItem(imageId); // throws on failure.
     itemState.delete(imageId);
-    store.editDialogInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
     arrange(store);
   }
 

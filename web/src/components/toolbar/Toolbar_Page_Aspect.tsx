@@ -38,7 +38,7 @@ export const Toolbar_Page_Aspect: Component = () => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), entryBoxBoundsPx())) { return; }
-    store.pageAspectOverlayInfoMaybe.set(null);
+    store.overlay.pageAspectOverlayInfoMaybe.set(null);
     arrange(store);
     server.updateItem(pageItem());
   };
@@ -58,8 +58,8 @@ export const Toolbar_Page_Aspect: Component = () => {
   };
 
   const entryBoxBoundsPx = () => ({
-    x: store.pageAspectOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: store.pageAspectOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.overlay.pageAspectOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.overlay.pageAspectOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 300, h: 30
   });
 

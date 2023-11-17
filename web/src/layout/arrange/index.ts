@@ -52,7 +52,7 @@ export const arrange = (store: StoreContextModel): void => {
   if (store.history.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {
-    store.isPanicked.set(true);
+    store.overlay.isPanicked.set(true);
     return;
   }
 

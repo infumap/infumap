@@ -84,22 +84,22 @@ export const Toolbar_Page: Component = () => {
   }
 
   const colorNumber = () => {
-    store.pageColorOverlayInfoMaybe.get();
+    store.overlay.pageColorOverlayInfoMaybe.get();
     return pageItem().backgroundColorIndex;
   }
 
   const widthText = () => {
-    store.pageWidthOverlayInfoMaybe.get();
+    store.overlay.pageWidthOverlayInfoMaybe.get();
     return pageItem().innerSpatialWidthGr / GRID_SIZE;
   }
 
   const aspectText = () => {
-    store.pageAspectOverlayInfoMaybe.get();
+    store.overlay.pageAspectOverlayInfoMaybe.get();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
   const numColsText = () => {
-    store.pageNumColsOverlayInfoMaybe.get();
+    store.overlay.pageNumColsOverlayInfoMaybe.get();
     return pageItem().gridNumberOfColumns;
   }
 
@@ -133,29 +133,29 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleColorClick = () => {
-    store.pageColorOverlayInfoMaybe.set(
+    store.overlay.pageColorOverlayInfoMaybe.set(
       { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x, y: divBeforeColroSelect!.getBoundingClientRect().y + 16 } });
   };
 
   const handleAspectClick = () => {
-    store.pageAspectOverlayInfoMaybe.set(
+    store.overlay.pageAspectOverlayInfoMaybe.set(
       { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
   };
 
   const handleWidthClick = () => {
-    store.pageWidthOverlayInfoMaybe.set(
+    store.overlay.pageWidthOverlayInfoMaybe.set(
       { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
   };
 
   const handleNumColsClick = () => {
-    store.pageNumColsOverlayInfoMaybe.set(
+    store.overlay.pageNumColsOverlayInfoMaybe.set(
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 } });
   };
 
   const subTitleColor = () => {
     // item state has no solid-js signals.
     // as a bit of a hack, change in title/color is signalled by re-setting this instead.
-    store.pageColorOverlayInfoMaybe.get();
+    store.overlay.pageColorOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
   };
 

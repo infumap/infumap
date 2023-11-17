@@ -60,13 +60,13 @@ export function mouseLeftDownHandler(store: StoreContextModel) {
 
   const desktopPosPx = CursorEventState.getLatestDesktopPx();
 
-  if (store.contextMenuInfo.get() != null) {
+  if (store.overlay.contextMenuInfo.get() != null) {
     DoubleClickState.preventDoubleClick();
-    store.contextMenuInfo.set(null);
+    store.overlay.contextMenuInfo.set(null);
     return;
   }
 
-  let dialogInfo = store.editDialogInfo.get();
+  let dialogInfo = store.overlay.editDialogInfo.get();
   if (dialogInfo != null) {
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
@@ -74,11 +74,11 @@ export function mouseLeftDownHandler(store: StoreContextModel) {
       return;
     }
 
-    store.editDialogInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
     return;
   }
 
-  let userSettingsInfo = store.editUserSettingsInfo.get();
+  let userSettingsInfo = store.overlay.editUserSettingsInfo.get();
   if (userSettingsInfo != null) {
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, userSettingsInfo!.desktopBoundsPx)) {
@@ -86,7 +86,7 @@ export function mouseLeftDownHandler(store: StoreContextModel) {
       return;
     }
 
-    store.editUserSettingsInfo.set(null);
+    store.overlay.editUserSettingsInfo.set(null);
     return;
   }
 
@@ -186,20 +186,20 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
 
-  if (store.contextMenuInfo.get()) {
-    store.contextMenuInfo.set(null);
+  if (store.overlay.contextMenuInfo.get()) {
+    store.overlay.contextMenuInfo.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }
 
-  if (store.editDialogInfo.get() != null) {
-    store.editDialogInfo.set(null);
+  if (store.overlay.editDialogInfo.get() != null) {
+    store.overlay.editDialogInfo.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }
 
-  if (store.editUserSettingsInfo.get() != null) {
-    store.editUserSettingsInfo.set(null);
+  if (store.overlay.editUserSettingsInfo.get() != null) {
+    store.overlay.editUserSettingsInfo.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }

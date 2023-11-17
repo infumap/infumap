@@ -41,7 +41,7 @@ export const EditPassword: Component<{passwordItem: PasswordItem, linkedTo: bool
     deleted = true;
     await server.deleteItem(passwordId); // throws on failure.
     itemState.delete(passwordId);
-    store.editDialogInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
     arrange(store);
   }
 

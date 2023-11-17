@@ -26,12 +26,12 @@ import { DoubleClickState, CursorEventState } from "./state";
 export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent) {
   if (!DoubleClickState.canDoubleClick()) { return; }
   if (store.history.currentPage() == null) { return; }
-  if (store.contextMenuInfo.get() != null || store.editDialogInfo.get() != null) { return; }
-  if (store.noteEditOverlayInfo.get() != null) { return; }
+  if (store.overlay.contextMenuInfo.get() != null || store.overlay.editDialogInfo.get() != null) { return; }
+  if (store.overlay.noteEditOverlayInfo.get() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
   const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
 
-  store.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+  store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
   mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
 }

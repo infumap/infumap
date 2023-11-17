@@ -227,7 +227,7 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
+    store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
     arrange(store); // input focus changed.
   },
 

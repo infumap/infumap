@@ -41,15 +41,15 @@ export const EditUserSettings: Component = () => {
 
   let editUserSettingsDiv: HTMLDivElement | undefined;
 
-  const posPx = () => getBoundingBoxTopLeft(store.editUserSettingsInfo.get()!.desktopBoundsPx);
-  const sizePx = () => getBoundingBoxSize(store.editUserSettingsInfo.get()!.desktopBoundsPx);
+  const posPx = () => getBoundingBoxTopLeft(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
+  const sizePx = () => getBoundingBoxSize(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(store.user.getUser().userId);
   }
 
   const logoutHandler = () => {
-    store.editUserSettingsInfo.set(null);
+    store.overlay.editUserSettingsInfo.set(null);
     logout!();
   }
 

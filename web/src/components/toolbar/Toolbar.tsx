@@ -45,7 +45,7 @@ export const Toolbar: Component = () => {
 
   const handleLogin = () => navigate("/login");
 
-  const showUserSettings = () => { store.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
+  const showUserSettings = () => { store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
 
   const currentPageMaybe = () => {
     if (store.history.currentPage() == null) { return null; }
@@ -60,7 +60,7 @@ export const Toolbar: Component = () => {
   const mainTitleColor = () => {
     // item state is not solid-js signals.
     // as a bit of a hack, change in color is signalled by re-setting this instead.
-    store.pageColorOverlayInfoMaybe.get();
+    store.overlay.pageColorOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
   };
 
@@ -91,18 +91,18 @@ export const Toolbar: Component = () => {
           <Toolbar_Navigation />
           <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
             <Switch>
-              <Match when={store.noteEditOverlayInfo.get() != null}>
+              <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
                 <Toolbar_Note />
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Note_Info />
               </Match>
-              <Match when={store.tableEditOverlayInfo.get() != null}>
+              <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
                 <Toolbar_Table />
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Table_Info />
               </Match>
               {/* default */}
-              <Match when={store.noteEditOverlayInfo.get() == null}>
+              <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
                 <Toolbar_Page />
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Page_Info />

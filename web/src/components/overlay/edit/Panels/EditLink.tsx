@@ -65,7 +65,7 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     deleted = true;
     await server.deleteItem(linkId); // throws on failure.
     itemState.delete(linkId);
-    store.editDialogInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
     arrange(store);
   }
 

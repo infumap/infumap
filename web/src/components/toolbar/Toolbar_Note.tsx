@@ -35,7 +35,7 @@ export const Toolbar_Note: Component = () => {
 
   let beforeFormatElement : HTMLDivElement | undefined;
 
-  const noteVisualElement = () => VesCache.get(store.noteEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const compositeVisualElementMaybe = () => {
@@ -65,9 +65,9 @@ export const Toolbar_Note: Component = () => {
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(store); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(store); };
 
-  const urlButtonHandler = () => { store.noteUrlOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
+  const urlButtonHandler = () => { store.overlay.noteUrlOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
 
-  const formatHandler = () => { store.noteFormatOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
+  const formatHandler = () => { store.overlay.noteFormatOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -122,7 +122,7 @@ export const Toolbar_Note: Component = () => {
       itemState.delete(noteItem().id);
 
       deleted = true;
-      store.noteEditOverlayInfo.set(null);
+      store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
     }
   };

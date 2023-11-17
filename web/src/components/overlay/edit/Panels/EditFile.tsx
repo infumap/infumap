@@ -42,7 +42,7 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
     deleted = true;
     await server.deleteItem(fileId); // throws on failure.
     itemState.delete(fileId);
-    store.editDialogInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
     arrange(store);
   }
 

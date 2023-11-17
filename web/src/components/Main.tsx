@@ -105,22 +105,22 @@ export const Main: Component = () => {
       <Toolbar />
 
       {/* global overlays */}
-      <Show when={store.noteUrlOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.noteUrlOverlayInfoMaybe.get() != null}>
         <Toolbar_Note_Url />
       </Show>
-      <Show when={store.noteFormatOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.noteFormatOverlayInfoMaybe.get() != null}>
         <Toolbar_Note_Format />
       </Show>
-      <Show when={store.pageColorOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.pageColorOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Color />
       </Show>
-      <Show when={store.pageAspectOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.pageAspectOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Aspect />
       </Show>
-      <Show when={store.pageWidthOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.pageWidthOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_Width />
       </Show>
-      <Show when={store.pageNumColsOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.pageNumColsOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_NumCols />
       </Show>
 

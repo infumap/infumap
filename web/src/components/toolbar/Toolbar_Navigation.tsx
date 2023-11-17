@@ -44,7 +44,7 @@ export const Toolbar_Navigation: Component = () => {
 
   const handleUp = () => navigateUp(store);
 
-  const handleSearchClick = () => { store.searchOverlayVisible.set(!store.searchOverlayVisible.get()); };
+  const handleSearchClick = () => { store.overlay.searchOverlayVisible.set(!store.overlay.searchOverlayVisible.get()); };
 
   return (
     <div class="inline-block p-[4px] flex-grow-0">

@@ -86,9 +86,9 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   };
 
   const windowPopStateListener = () => {
-    store.contextMenuInfo.set(null);
-    store.editDialogInfo.set(null);
-    store.editUserSettingsInfo.set(null);
+    store.overlay.contextMenuInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
+    store.overlay.editUserSettingsInfo.set(null);
     store.history.popPage();
     arrange(store);
     setTopLevelPageScrollPositions(store);
@@ -156,25 +156,25 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       <Page_Desktop visualElement={props.visualElement} />
 
       {/* desktop overlays */}
-      <Show when={store.editDialogInfo.get() != null}>
+      <Show when={store.overlay.editDialogInfo.get() != null}>
         <EditDialog />
       </Show>
-      <Show when={store.editUserSettingsInfo.get() != null}>
+      <Show when={store.overlay.editUserSettingsInfo.get() != null}>
         <EditUserSettings />
       </Show>
-      <Show when={store.contextMenuInfo.get() != null}>
+      <Show when={store.overlay.contextMenuInfo.get() != null}>
         <ContextMenu />
       </Show>
-      <Show when={store.noteEditOverlayInfo.get() != null}>
+      <Show when={store.overlay.noteEditOverlayInfo.get() != null}>
         <NoteEditOverlay />
       </Show>
-      <Show when={store.tableEditOverlayInfo.get() != null}>
+      <Show when={store.overlay.tableEditOverlayInfo.get() != null}>
         <TableEditOverlay />
       </Show>
-      <Show when={store.searchOverlayVisible.get()}>
+      <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
       </Show>
-      <Show when={store.isPanicked.get()}>
+      <Show when={store.overlay.isPanicked.get()}>
         <Panic />
       </Show>
 

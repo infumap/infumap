@@ -34,7 +34,7 @@ export const TableEditOverlay: Component = () => {
 
   let textElement: HTMLInputElement | undefined;
 
-  const tableVisualElement = () => VesCache.get(store.tableEditOverlayInfo.get()!.itemPath)!.get();
+  const tableVisualElement = () => VesCache.get(store.overlay.tableEditOverlayInfo.get()!.itemPath)!.get();
   const tableVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(store, tableVisualElement());
   const tableItem = () => asTableItem(tableVisualElement().displayItem);
   const tableItemOnInitialize = tableItem();
@@ -42,7 +42,7 @@ export const TableEditOverlay: Component = () => {
     const blockSizePx = tableVisualElement().blockSizePx!;
     const result = tableVeBoundsPx();
     result.h = blockSizePx.h;
-    const overlayInfo = store.tableEditOverlayInfo.get()!;
+    const overlayInfo = store.overlay.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) {
       return result;
     }
@@ -64,7 +64,7 @@ export const TableEditOverlay: Component = () => {
     if (store.user.getUserMaybe() != null && tableItem().ownerId == store.user.getUser().userId) {
       server.updateItem(tableItem());
     }
-    store.tableEditOverlayInfo.set(null);
+    store.overlay.tableEditOverlayInfo.set(null);
     arrange(store);
   };
 
@@ -85,19 +85,19 @@ export const TableEditOverlay: Component = () => {
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && tableItemOnInitialize.ownerId == store.user.getUser().userId) {
         server.updateItem(tableItem());
-        store.noteEditOverlayInfo.set(null);
+        store.overlay.noteEditOverlayInfo.set(null);
       }
     }
   }
 
   const editingValue = () => {
-    const overlayInfo = store.tableEditOverlayInfo.get()!;
+    const overlayInfo = store.overlay.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) { return tableItem().title }
     return tableItem().tableColumns[overlayInfo.colNum!].name;
   }
 
   const inputOnInputHandler = () => {
-    const overlayInfo = store.tableEditOverlayInfo.get()!;
+    const overlayInfo = store.overlay.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) {
       tableItem().title = textElement!.value;
     } else {

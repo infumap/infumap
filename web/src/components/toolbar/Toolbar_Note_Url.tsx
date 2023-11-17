@@ -32,13 +32,13 @@ export const Toolbar_Note_Url: Component = () => {
 
   let urlTextElement: HTMLInputElement | undefined;
 
-  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(store.noteEditOverlayInfo.get()!.itemPath).itemId)!);
+  const noteItem = () => asNoteItem(itemState.get(VeFns.veidFromPath(store.overlay.noteEditOverlayInfo.get()!.itemPath).itemId)!);
 
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
     if (isInside(CursorEventState.getLatestClientPx(), urlBoxBoundsPx())) { return; }
-    store.noteUrlOverlayInfoMaybe.set(null);
+    store.overlay.noteUrlOverlayInfoMaybe.set(null);
   };
 
   const mouseMoveListener = (ev: MouseEvent) => {
@@ -56,8 +56,8 @@ export const Toolbar_Note_Url: Component = () => {
   };
 
   const urlBoxBoundsPx = () => ({
-    x: store.noteUrlOverlayInfoMaybe.get()!.topLeftPx.x,
-    y: store.noteUrlOverlayInfoMaybe.get()!.topLeftPx.y,
+    x: store.overlay.noteUrlOverlayInfoMaybe.get()!.topLeftPx.x,
+    y: store.overlay.noteUrlOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 500, h: 40
   });
 

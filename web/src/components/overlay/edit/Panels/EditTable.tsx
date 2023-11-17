@@ -49,7 +49,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
     deleted = true;
     await server.deleteItem(tableId); // throws on failure.
     itemState.delete(tableId);
-    store.editDialogInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
     arrange(store);
   }
 

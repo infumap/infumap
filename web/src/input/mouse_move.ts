@@ -51,31 +51,31 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
-  if (store.editDialogInfo.get() != null) {
+  if (store.overlay.editDialogInfo.get() != null) {
     if (DialogMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, DialogMoveState.get()!.lastMousePosPx!);
-      store.editDialogInfo.set(({
-        item: store.editDialogInfo.get()!.item,
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.editDialogInfo.get()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
+      store.overlay.editDialogInfo.set(({
+        item: store.overlay.editDialogInfo.get()!.item,
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.overlay.editDialogInfo.get()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
       }));
       DialogMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(currentMouseDesktopPx, store.editDialogInfo.get()!.desktopBoundsPx)) {
+    if (isInside(currentMouseDesktopPx, store.overlay.editDialogInfo.get()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(store, hasUser);
       return;
     }
   }
-  if (store.editUserSettingsInfo.get() != null) {
+  if (store.overlay.editUserSettingsInfo.get() != null) {
     if (UserSettingsMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, UserSettingsMoveState.get()!.lastMousePosPx!);
-      store.editUserSettingsInfo.set(({
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.editUserSettingsInfo.get()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
+      store.overlay.editUserSettingsInfo.set(({
+        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx), changePx), { ...editUserSettingsSizePx })
       }));
       UserSettingsMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
       return;
     }
-    if (isInside(currentMouseDesktopPx, store.editUserSettingsInfo.get()!.desktopBoundsPx)) {
+    if (isInside(currentMouseDesktopPx, store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx)) {
       mouseMove_handleNoButtonDown(store, hasUser);
       return;
     }
@@ -272,9 +272,9 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
-  const dialogInfo = store.editDialogInfo.get();
-  const userSettingsInfo = store.editUserSettingsInfo.get();
-  const cmi = store.contextMenuInfo.get();
+  const dialogInfo = store.overlay.editDialogInfo.get();
+  const userSettingsInfo = store.overlay.editUserSettingsInfo.get();
+  const cmi = store.overlay.contextMenuInfo.get();
   const hasModal = dialogInfo != null || cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();

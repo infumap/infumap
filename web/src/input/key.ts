@@ -34,7 +34,7 @@ import { PopupType } from "../store/StoreProvider_History";
 const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
-  if (store.editDialogInfo.get() != null || store.contextMenuInfo.get() != null || store.noteEditOverlayInfo.get() != null) {
+  if (store.overlay.editDialogInfo.get() != null || store.overlay.contextMenuInfo.get() != null || store.overlay.noteEditOverlayInfo.get() != null) {
     return;
   }
 
@@ -46,13 +46,13 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
   if (ev.code == "Slash") {
     ev.preventDefault();
-    store.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+    store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
   }
 
   else if (ev.code == "Backslash") {
     ev.preventDefault();
-    store.editDialogInfo.set({
+    store.overlay.editDialogInfo.set({
       desktopBoundsPx: initialEditDialogBounds(store),
       item: (() => {
         const overVe = hitInfo.overElementVes.get();
