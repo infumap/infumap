@@ -114,11 +114,26 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const listViewScale = () => props.visualElement.boundsPx.w / store.desktopBoundsPx().w;
-  const marginPx = 4;
-  const widthPx = () => LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale() - marginPx * 2;
 
-  const titleOnPageColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
+  const renderAsDock = () => {
+    return (
+      <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                 `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
+                 `font-size: 32px;`}>
+        <i class="bi-briefcase-fill" />
+      </div>);
+  }
 
+  const renderAsTrash = () => {
+    return (
+      <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
+                  `font-size: 32px;`}>
+        <i class="fa fa-trash" />
+      </div>);
+  }
 
   // ## Opaque
 
@@ -595,14 +610,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </div>
       </>
     );
-  }
-
-  const renderAsDock = () => {
-    return renderAsTranslucent();
-  }
-
-  const renderAsTrash = () => {
-    return renderAsOpaque();
   }
 
   return (

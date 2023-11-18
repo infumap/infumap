@@ -42,9 +42,9 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     const dockPage = asPageItem(itemState.get(store.user.getUser().dockPageId)!);
     const dim = ItemFns.calcSpatialDimensionsBl(dockPage);
     const dockBoundsPx = {
-      x: store.desktopBoundsPx().w - 80,
+      x: store.desktopBoundsPx().w - 53,
       y: store.desktopBoundsPx().h / 3,
-      w: 80,
+      w: 50,
       h: 50,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
@@ -55,6 +55,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       boundsPx: dockBoundsPx,
       childAreaBoundsPx: dockBoundsPx,
       hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
       ],
       parentPath: parentPath,
@@ -68,9 +69,9 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     } else {
       const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
       const trashBoundsPx = {
-        x: store.desktopBoundsPx().w - 80,
-        y: store.desktopBoundsPx().h / 3 + 60,
-        w: 80,
+        x: store.desktopBoundsPx().w - 53,
+        y: store.desktopBoundsPx().h / 3 + 55,
+        w: 50,
         h: 50,
       }
       const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -81,6 +82,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         boundsPx: trashBoundsPx,
         childAreaBoundsPx: trashBoundsPx,
         hitboxes: [
+          HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
           HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
         ],
         parentPath: parentPath,

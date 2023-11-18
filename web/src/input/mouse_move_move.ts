@@ -108,7 +108,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
-    MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(hitInfo.overContainerVe!)) {
+      MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(hitInfo.overContainerVe!)) {
     if (MouseActionState.get().moveOver_containerElement != null) {
       VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get().movingItemIsOver.set(false);
     }
