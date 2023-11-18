@@ -29,6 +29,7 @@ import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-eleme
 import { arrangeItem } from "../item";
 import { arrangeCellPopup } from "../popup";
 import { PopupType } from "../../../store/StoreProvider_History";
+import { renderDockMaybe } from ".";
 
 
 export const arrange_grid = (store: StoreContextModel): void => {
@@ -132,6 +133,8 @@ export const arrange_grid = (store: StoreContextModel): void => {
     const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false, false, false);
     children.push(ves);
   }
+
+  renderDockMaybe(store, currentPath, children);
 
   const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {

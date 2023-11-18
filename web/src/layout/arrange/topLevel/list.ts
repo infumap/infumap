@@ -26,6 +26,7 @@ import { VesCache } from "../../ves-cache";
 import { EMPTY_VEID, VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { arrangeSelectedListItem } from "../item";
 import { getVePropertiesForItem } from "../util";
+import { renderDockMaybe } from ".";
 
 
 export const arrange_list = (store: StoreContextModel) => {
@@ -82,6 +83,10 @@ export const arrange_list = (store: StoreContextModel) => {
     topLevelVisualElementSpec.children.push(
       arrangeSelectedListItem(store, selectedVeid, boundsPx, currentPath, true, true));
   }
+
+  renderDockMaybe(store, currentPath, topLevelVisualElementSpec.children);
+
+  // TODO (HIGH): render popup here.
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, store);
 }

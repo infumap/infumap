@@ -88,6 +88,8 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     ));
   }
 
+  renderDockMaybe(store, currentPath, children);
+
   const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {
     if (currentPopupSpec.type == PopupType.Page) {
@@ -122,8 +124,6 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
       panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
     }
   }
-
-  renderDockMaybe(store, currentPath, children);
 
   visualElementSpec.children = children;
 
