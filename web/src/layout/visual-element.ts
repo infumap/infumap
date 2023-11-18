@@ -136,11 +136,6 @@ export interface VisualElement {
   childAreaBoundsPx: BoundingBox | null,
 
   /**
-   * The bounds of the title element (page items only).
-   */
-  titleBoundsPx: BoundingBox | null,
-
-  /**
    * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
   blockSizePx: Dimensions | null,
@@ -186,7 +181,6 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   blockSizePx: null,
-  titleBoundsPx: null,
   col: null,
   row: null,
   hitboxes: [],
@@ -219,7 +213,6 @@ export interface VisualElementSpec {
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   blockSizePx?: Dimensions,
-  titleBoundsPx?: BoundingBox,
   col?: number,
   row?: number,
   hitboxes?: Array<Hitbox>,
@@ -243,7 +236,6 @@ export const VeFns = {
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
       blockSizePx: null,
-      titleBoundsPx: null,
       col: null,
       row: null,
       hitboxes: [],
@@ -270,7 +262,6 @@ export const VeFns = {
     if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
-    if (typeof(override.titleBoundsPx) != 'undefined') { result.titleBoundsPx = override.titleBoundsPx; }
     if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }

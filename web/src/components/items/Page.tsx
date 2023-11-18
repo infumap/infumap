@@ -81,7 +81,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return r;
   }
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
-  const titleBoundsPx = () => props.visualElement.titleBoundsPx;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.Click || hb.type == HitboxFlags.OpenAttachment)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup)!.boundsPx;
   const hasPopupClickBoundsPx = (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup) != undefined;
@@ -280,7 +279,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderBoxTitleMaybe = () =>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRootItem)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRootItem) && !(props.visualElement.flags & VisualElementFlags.IsDock)}>
         <div class="absolute flex items-center justify-center pointer-events-none"
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -599,7 +598,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const renderAsDock = () => {
-    return renderAsOpaque();
+    return renderAsTranslucent();
   }
 
   const renderAsTrash = () => {

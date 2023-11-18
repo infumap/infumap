@@ -389,44 +389,6 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_SpatialPageTitle: (page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
-    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(page);
-
-    const blockWidthPx = pageBoundsPx.w / (page.innerSpatialWidthGr / GRID_SIZE);
-    const scale = blockWidthPx / LINE_HEIGHT_PX;
-
-    const pageTitleBoundsPx = {
-      // TODO: quantize to block boundary.
-      x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale) / 2.0,
-      y: 0,
-      w: pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale,
-      h: pageTitleDimensionsBl.h * LINE_HEIGHT_PX * scale,
-    }
-
-    return ({
-      boundsPx: pageTitleBoundsPx,
-      hitboxes: [],
-    });
-  },
-
-  calcGeometry_GridPageTitle: (store: StoreContextModel, page: PageItem, pageBoundsPx: BoundingBox): ItemGeometry => {
-    const pageTitleDimensionsBl = PageFns.calcTitleSpatialDimensionsBl(page);
-
-    const scale = pageBoundsPx.w / store.desktopBoundsPx().w;
-
-    const pageTitleBoundsPx = {
-      x: pageBoundsPx.w / 2.0 - (pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale) / 2.0,
-      y: 0,
-      w: pageTitleDimensionsBl.w * LINE_HEIGHT_PX * scale,
-      h: pageTitleDimensionsBl.h * LINE_HEIGHT_PX * scale,
-    }
-
-    return ({
-      boundsPx: pageTitleBoundsPx,
-      hitboxes: [],
-    });
-  },
-
   asPageMeasurable: (item: ItemTypeMixin): PageMeasurable => {
     if (item.itemType == ItemType.Page) { return item as PageMeasurable; }
     panic("not page measurable.");

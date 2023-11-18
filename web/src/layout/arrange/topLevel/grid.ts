@@ -86,11 +86,6 @@ export const arrange_grid = (store: StoreContextModel): void => {
     childAreaBoundsPx: boundsPx,
   };
 
-  // TODO (HIGH): add related hitboxes.
-  // Do this here rather than in the component, as the hitboxes need to be in the visual element tree for mouse interaction.
-  const geometry = PageFns.calcGeometry_GridPageTitle(store, currentPage, boundsPx);
-  topLevelVisualElementSpec.titleBoundsPx = geometry.boundsPx;
-
   const children = [];
 
   let idx = 0;

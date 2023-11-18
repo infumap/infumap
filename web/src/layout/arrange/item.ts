@@ -180,12 +180,6 @@ const arrangePageWithChildren = (
       parentPath,
     };
 
-    if (isPagePopup || isRoot) {
-      // TODO (HIGH): hitboxes.
-      const geometry = PageFns.calcGeometry_GridPageTitle(store, displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
-      pageWithChildrenVisualElementSpec.titleBoundsPx = geometry.boundsPx;
-    }
-
     const children = [];
     let idx = 0;
     for (let i=0; i<pageItem.computed_children.length; ++i) {
@@ -269,12 +263,6 @@ const arrangePageWithChildren = (
     };
 
     const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
-
-    if (isPagePopup || isRoot) {
-      // TODO (HIGH): hitboxes.
-      const geometry = PageFns.calcGeometry_SpatialPageTitle(displayItem_pageWithChildren, pageWithChildrenVisualElementSpec.childAreaBoundsPx!);
-      pageWithChildrenVisualElementSpec.titleBoundsPx = geometry.boundsPx;
-    }
 
     const children = [];
     for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {

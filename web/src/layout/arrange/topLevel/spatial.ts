@@ -67,12 +67,6 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     childAreaBoundsPx: pageBoundsPx,
   };
 
-  // TODO (HIGH): add related hitboxes.
-  // Do this here rather than in the component, as the hitboxes need to be in the visual element tree for mouse interaction.
-  const geometry = PageFns.calcGeometry_SpatialPageTitle(pageItem, pageBoundsPx);
-  visualElementSpec.titleBoundsPx = geometry.boundsPx;
-  visualElementSpec.hitboxes = [ HitboxFns.create(HitboxFlags.Settings, geometry.boundsPx) ];
-
   const children = [];
   for (let i=0; i<pageItem.computed_children.length; ++i) {
     const childId = pageItem.computed_children[i];
