@@ -35,7 +35,7 @@ import { arrangeItem } from "../item";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
 import { PopupType } from "../../../store/StoreProvider_History";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../load";
-import { renderDockMaybe } from ".";
+import { renderBriefcaseMaybe } from ".";
 
 
 export const arrange_spatialStretch = (store: StoreContextModel) => {
@@ -82,7 +82,7 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     ));
   }
 
-  renderDockMaybe(store, currentPath, children);
+  renderBriefcaseMaybe(store, currentPath, children);
 
   const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {

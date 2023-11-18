@@ -490,7 +490,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
     natural_aspect: Some(natural_aspect),
     background_color_index: Some(0),
-    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::Grid),
+    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::SpatialStretch),
     popup_position_gr: Some(Vector { x: inner_spatial_width_br / 2 * GRID_SIZE, y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE }),
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
@@ -508,13 +508,13 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
 }
 
 
-pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64) -> Item {
+pub fn default_briefcase_page(owner_id: &str, briefcase_page_id: Uid, natural_aspect: f64) -> Item {
   let inner_spatial_width_br: i64 = 60;
   let inner_spatial_height_br: i64 = (inner_spatial_width_br as f64 / natural_aspect) as i64;
   Item {
     item_type: ItemType::Page,
     owner_id: String::from(owner_id),
-    id: dock_page_id,
+    id: briefcase_page_id,
     parent_id: None,
     relationship_to_parent: RelationshipToParent::NoParent,
     creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
@@ -524,7 +524,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     spatial_position_gr: Some(Vector { x: 0, y: 0 }),
     spatial_width_gr: Some(60 * GRID_SIZE),
     spatial_height_gr: None,
-    title: Some("Dock".to_owned()),
+    title: Some("Briefcase".to_owned()),
     original_creation_date: None,
     mime_type: None,
     file_size_bytes: None,
@@ -533,7 +533,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
     natural_aspect: Some(natural_aspect),
     background_color_index: Some(0),
-    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::Grid),
+    arrange_algorithm: Some(crate::storage::db::item::ArrangeAlgorithm::SpatialStretch),
     popup_position_gr: Some(Vector { x: inner_spatial_width_br / 2 * GRID_SIZE, y: ((inner_spatial_height_br as f64 * 0.4) as i64) * GRID_SIZE }),
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),

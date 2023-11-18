@@ -115,7 +115,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const listViewScale = () => props.visualElement.boundsPx.w / store.desktopBoundsPx().w;
 
-  const renderAsDock = () => {
+  const renderAsBriefcase = () => {
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -294,7 +294,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderBoxTitleMaybe = () =>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRootItem) && !(props.visualElement.flags & VisualElementFlags.IsDock)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRootItem)}>
         <div class="absolute flex items-center justify-center pointer-events-none"
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -614,8 +614,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   return (
     <Switch>
-      <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
-        {renderAsDock()}
+      <Match when={props.visualElement.flags & VisualElementFlags.IsBriefcase}>
+        {renderAsBriefcase()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
         {renderAsTrash()}

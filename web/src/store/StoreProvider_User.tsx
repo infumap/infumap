@@ -41,7 +41,7 @@ export type User = {
   userId: Uid,
   homePageId: Uid,
   trashPageId: Uid,
-  dockPageId: Uid,
+  briefcasePageId: Uid,
   sessionId: Uid
 }
 
@@ -69,7 +69,7 @@ export function makeUserStore(): UserStoreContextModel {
         return { success: false, err: r.err };
       }
       const cookiePayload = JSON.stringify(
-        { username, userId: r.userId, homePageId: r.homePageId, trashPageId: r.trashPageId, dockPageId: r.dockPageId, sessionId: r.sessionId });
+        { username, userId: r.userId, homePageId: r.homePageId, trashPageId: r.trashPageId, briefcasePageId: r.briefcasePageId, sessionId: r.sessionId });
       setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
       setSessionDataString(cookiePayload);
       return { success: true, err: null };

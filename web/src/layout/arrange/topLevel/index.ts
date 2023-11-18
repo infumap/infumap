@@ -28,32 +28,32 @@ import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath } from "../../visual-element";
 
 
-export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath, children: Array<VisualElementSignal>) => {
+export const renderBriefcaseMaybe = (store: StoreContextModel, parentPath: VisualElementPath, children: Array<VisualElementSignal>) => {
 
   if (store.user.getUserMaybe() == null) {
     return;
   }
 
-  if (itemState.get(store.user.getUser().dockPageId) == null) {
-    initiateLoadItemMaybe(store, store.user.getUser().dockPageId);
+  if (itemState.get(store.user.getUser().briefcasePageId) == null) {
+    initiateLoadItemMaybe(store, store.user.getUser().briefcasePageId);
   } else {
-    initiateLoadChildItemsMaybe(store, { itemId: store.user.getUser().dockPageId, linkIdMaybe: null });
+    initiateLoadChildItemsMaybe(store, { itemId: store.user.getUser().briefcasePageId, linkIdMaybe: null });
 
-    const dockPage = asPageItem(itemState.get(store.user.getUser().dockPageId)!);
-    const dim = ItemFns.calcSpatialDimensionsBl(dockPage);
-    const dockBoundsPx = {
+    const briefcasePage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
+    const dim = ItemFns.calcSpatialDimensionsBl(briefcasePage);
+    const briefcaseBoundsPx = {
       x: store.desktopBoundsPx().w - 53,
       y: store.desktopBoundsPx().h / 3,
       w: 50,
       h: 50,
     }
-    const innerBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
-    const dockVisualElementSpec = {
-      displayItem: dockPage,
+    const innerBoundsPx = zeroBoundingBoxTopLeft(briefcaseBoundsPx);
+    const briefcaseVisualElementSpec = {
+      displayItem: briefcasePage,
       linkItemMaybe: null,
-      flags: VisualElementFlags.IsDock,
-      boundsPx: dockBoundsPx,
-      childAreaBoundsPx: dockBoundsPx,
+      flags: VisualElementFlags.IsBriefcase,
+      boundsPx: briefcaseBoundsPx,
+      childAreaBoundsPx: briefcaseBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
@@ -61,8 +61,8 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       parentPath: parentPath,
     };
 
-    const dockPath = VeFns.addVeidToPath( {itemId: dockPage.id, linkIdMaybe: null},  parentPath);
-    children.push(VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath));
+    const briefcasePath = VeFns.addVeidToPath( {itemId: briefcasePage.id, linkIdMaybe: null},  parentPath);
+    children.push(VesCache.createOrRecycleVisualElementSignal(briefcaseVisualElementSpec, briefcasePath));
 
     if (itemState.get(store.user.getUser().trashPageId) == null) {
       initiateLoadItemMaybe(store, store.user.getUser().trashPageId);

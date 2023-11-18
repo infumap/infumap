@@ -23,7 +23,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{default_home_page, default_trash_page, default_dock_page};
+use crate::storage::db::item::{default_home_page, default_trash_page, default_briefcase_page};
 use crate::web::serve::{json_response, not_found_response, forbidden_response, incoming_json};
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::web::session::get_and_validate_session;
@@ -151,8 +151,8 @@ pub async fn approve_pending(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Inco
         error!("Error adding default trash page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
       }
-      let dock_page = default_dock_page(pending_user.id.as_str(), pending_user.dock_page_id, natural_aspect);
-      if let Err(e) = db.item.add(dock_page).await {
+      let briefcase_page = default_briefcase_page(pending_user.id.as_str(), pending_user.briefcase_page_id, natural_aspect);
+      if let Err(e) = db.item.add(briefcase_page).await {
         error!("Error adding default trash page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) } );
       }
