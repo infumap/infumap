@@ -108,6 +108,12 @@ export function cloneVector(vector: Vector | null): Vector | null {
   };
 }
 
+export function compareVector(a: Vector, b: Vector): number {
+  if (a.x != b.x) { return 1; }
+  if (a.y != b.y) { return 1; }
+  return 0;
+}
+
 export interface Dimensions {
   w: number;
   h: number;

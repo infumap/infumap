@@ -18,7 +18,7 @@
 
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
-import { compareBoundingBox } from "../util/geometry";
+import { compareBoundingBox, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { HitboxFns } from "./hitbox";
@@ -247,6 +247,14 @@ function createOrRecycleVisualElementSignalImpl (
             if (debug) { console.debug("visual element property changed: ", newProps[i]); }
             dirty = true;
             break;
+          }
+        } else if (newProps[i] == "blockSizePx") {
+          if (compareVector(oldVal, newVal) != 0) {
+            if (debug) { console.debug("visual element property changed: ", newProps[i]); }
+            dirty = true;
+            break;
+          } else {
+            if (debug) { console.debug("blockSizePx didn't change."); }
           }
         } else if (newProps[i] == "hitboxes") {
           if (HitboxFns.ArrayCompare(oldVal, newVal) != 0) {
