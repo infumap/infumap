@@ -78,7 +78,7 @@ export enum VisualElementFlags {
   ZAbove               = 0x1000, // Render above everything else (except moving).
   Moving               = 0x2000, // Render the visual element partially transparent and on top of everything else.
   IsDock               = 0x4000, // render the page as the dock.
-  isTrash              = 0x8000, // render the page as the trash icon.
+  IsTrash              = 0x8000, // render the page as the trash icon.
 }
 
 function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {
