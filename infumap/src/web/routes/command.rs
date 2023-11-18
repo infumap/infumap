@@ -337,7 +337,8 @@ async fn handle_get_items(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
     session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
-  let request: GetItemsRequest = serde_json::from_str(json_data)?;
+
+  let request: GetItemsRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let parts = request.id.split('/').collect::<Vec<&str>>();
   if parts.len() != 1 {
@@ -432,7 +433,7 @@ async fn handle_get_attachments(
     session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let db = db.lock().await;
 
-  let request: GetAttachmentsRequest = serde_json::from_str(json_data)?;
+  let request: GetAttachmentsRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   // TODO (MEDIUM): support sessionless get.
   let session = match session_maybe {
@@ -710,7 +711,7 @@ async fn handle_delete_item<'a>(
     session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
-  let request: DeleteItemRequest = serde_json::from_str(json_data)?;
+  let request: DeleteItemRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let session = match session_maybe {
     Some(session) => session,
@@ -779,7 +780,7 @@ async fn handle_search(
     Some(s) => s
   };
 
-  let request: SearchRequest = serde_json::from_str(json_data)?;
+  let request: SearchRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
   let mut db = db.lock().await;
 
