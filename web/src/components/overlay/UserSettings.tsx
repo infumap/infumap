@@ -106,6 +106,11 @@ export const EditUserSettings: Component = () => {
     errorSignal.set(r.err);
   }
 
+  const handleCancelAddTotp = (ev: MouseEvent) => {
+    ev.preventDefault();
+    addTotpVisibleSignal.set(false);
+  }
+
   return (
     <>
       <div class="fixed text-xl font-bold z-10 rounded-md p-8 blur-md"
@@ -147,7 +152,7 @@ export const EditUserSettings: Component = () => {
               </Show>
               <div>6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
               <a class="ml-3" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
-
+              <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
             </Match>
 
           </Switch>
