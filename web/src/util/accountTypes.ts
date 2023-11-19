@@ -16,9 +16,41 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { Uid } from "./uid"
+
 
 export interface Totp {
   qr: string,
   url: string,
   secret: string
+}
+
+export interface UpdateTotpResponse {
+  success: boolean,
+  err: string | null
+}
+
+export interface RegisterResponse {
+  success: boolean,
+  err: string | null
+}
+
+export type LoginResult = {
+  success: boolean,
+  err: string | null
+}
+
+export type LogoutResult = {
+  success: boolean,
+  err: string | null
+}
+
+export type User = {
+  username: string,
+  userId: Uid,
+  homePageId: Uid,
+  trashPageId: Uid,
+  briefcasePageId: Uid,
+  sessionId: Uid,
+  hasTotp: boolean,
 }

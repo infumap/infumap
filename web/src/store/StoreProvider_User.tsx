@@ -17,34 +17,14 @@
 */
 
 import { createSignal } from "solid-js";
-import { Uid } from "../util/uid";
 import { eraseCookie, getCookie, setCookie } from "../util/cookies";
 import { post } from "../server";
 import { panic } from "../util/lang";
+import { LoginResult, LogoutResult, User } from "../util/accountTypes";
 
 
 const SESSION_COOKIE_NAME = "infusession";
 const EXPIRE_DAYS = 30;
-
-export type LoginResult = {
-  success: boolean,
-  err: string | null
-}
-
-export type LogoutResult = {
-  success: boolean,
-  err: string | null
-}
-
-export type User = {
-  username: string,
-  userId: Uid,
-  homePageId: Uid,
-  trashPageId: Uid,
-  briefcasePageId: Uid,
-  sessionId: Uid,
-  hasTotp: boolean,
-}
 
 export interface UserStoreContextModel {
   login: (username: string, password: string, totpToken: string | null) => Promise<LoginResult>,
@@ -52,6 +32,7 @@ export interface UserStoreContextModel {
   getUserMaybe: () => User | null,
   getUser: () => User,
   clear: () => void,
+  updateHasTotp: (hasTotp: boolean) => void
 }
 
 
@@ -69,8 +50,15 @@ export function makeUserStore(): UserStoreContextModel {
         setSessionDataString(null);
         return { success: false, err: r.err };
       }
-      const cookiePayload = JSON.stringify(
-        { username, userId: r.userId, homePageId: r.homePageId, trashPageId: r.trashPageId, briefcasePageId: r.briefcasePageId, sessionId: r.sessionId });
+      const cookiePayload = JSON.stringify({
+        username,
+        userId: r.userId,
+        homePageId: r.homePageId,
+        trashPageId: r.trashPageId,
+        briefcasePageId: r.briefcasePageId,
+        sessionId: r.sessionId,
+        hasTotp: r.hasTotp,
+      });
       setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
       setSessionDataString(cookiePayload);
       return { success: true, err: null };
@@ -113,6 +101,14 @@ export function makeUserStore(): UserStoreContextModel {
         panic("session cookie has expired");
       }
       return JSON.parse(data!);
+    },
+
+    updateHasTotp: (hasTotp: boolean) => {
+      const user = JSON.parse(sessionDataString()!);
+      user.hasTotp = hasTotp;
+      const cookiePayload = JSON.stringify(user);
+      setSessionDataString(cookiePayload);
+      setCookie(SESSION_COOKIE_NAME, cookiePayload, EXPIRE_DAYS);
     },
 
     clear: (): void => {

@@ -25,13 +25,8 @@ import { InfuButton } from "../library/InfuButton";
 import { createInfuSignal } from "../../util/signals";
 import { InfuTextInput } from "../library/InfuTextInput";
 import { post } from "../../server";
-import { Totp } from "../../util/totp";
+import { Totp, UpdateTotpResponse } from "../../util/accountTypes";
 
-
-interface UpdateTotpResponse {
-  success: boolean,
-  err: string | null
-}
 
 const DIALOG_WIDTH_PX = 400;
 
@@ -63,8 +58,8 @@ export const EditUserSettings: Component = () => {
     });
   });
 
-  const changePasswordVisibleSignal = createInfuSignal<boolean>(false);
   const addTotpVisibleSignal = createInfuSignal<boolean>(false);
+  const errorSignal = createInfuSignal<String | null>("");
 
   const posPx = () => getBoundingBoxTopLeft(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
   const sizePx = () => getBoundingBoxSize(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
@@ -78,9 +73,23 @@ export const EditUserSettings: Component = () => {
     logout!();
   }
 
-  const handleTotpEnableDisable = (ev: MouseEvent) => {
+  const handleShowCreateTotp = (ev: MouseEvent) => {
     ev.preventDefault();
-    addTotpVisibleSignal.set(!addTotpVisibleSignal.get());
+    addTotpVisibleSignal.set(true);
+    errorSignal.set(null);
+  }
+
+  const handleRemoveTotp = async (ev: MouseEvent) => {
+    ev.preventDefault();
+    const r: UpdateTotpResponse = await post(null, '/account/update-totp', {
+      userId: store.user.getUser().userId,
+      totpSecret: null,
+      totpToken: null,
+    });
+    if (r.success) {
+      store.user.updateHasTotp(false);
+    }
+    errorSignal.set(r.err);
   }
 
   const handleAddTotp = async (ev: MouseEvent) => {
@@ -90,7 +99,11 @@ export const EditUserSettings: Component = () => {
       totpSecret: totpSignal.get()?.secret,
       totpToken,
     });
-    console.log(r);
+    if (r.success) {
+      store.user.updateHasTotp(true);
+    }
+    addTotpVisibleSignal.set(false);
+    errorSignal.set(r.err);
   }
 
   return (
@@ -114,7 +127,11 @@ export const EditUserSettings: Component = () => {
             <Match when={!addTotpVisibleSignal.get()}>
               <div>
                 2FA: {store.user.getUser().hasTotp ? "ON" : "OFF"}
-                <a class="ml-3" style="color: #00a;" href="" onClick={handleTotpEnableDisable}>{store.user.getUser().hasTotp ? "remove" : "add"}</a>
+                <Show when={store.user.getUser().hasTotp} fallback={
+                  <a class="ml-3" style="color: #00a;" href="" onClick={handleShowCreateTotp}>add</a>
+                }>
+                  <a class="ml-3" style="color: #00a;" href="" onClick={handleRemoveTotp}>remove</a>
+                </Show>
               </div>
             </Match>
 
@@ -134,6 +151,12 @@ export const EditUserSettings: Component = () => {
             </Match>
 
           </Switch>
+
+          <Show when={errorSignal.get() != null}>
+            <div>
+              {"" + errorSignal.get()!}
+            </div>
+          </Show>
 
           <div style="margin-top: 10px;">
             <InfuButton text="logout" onClick={logoutHandler} />

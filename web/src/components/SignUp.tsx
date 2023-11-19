@@ -24,13 +24,8 @@ import { InfuLink } from "./library/InfuLink";
 import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
-import { Totp } from "../util/totp";
+import { RegisterResponse, Totp } from "../util/accountTypes";
 
-
-interface RegisterResponse {
-  success: boolean,
-  err: string | null
-}
 
 export const SignUp: Component = () => {
   const store = useStore();

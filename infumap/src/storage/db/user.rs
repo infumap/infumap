@@ -149,6 +149,10 @@ impl JsonLogSerializable<User> for User {
       if match &old.totp_secret { Some(o) => o != new_totp_secret, None => { true } } {
         result.insert(String::from("totpSecret"), Value::String(new_totp_secret.clone()));
       }
+    } else {
+      if old.totp_secret.is_some() {
+        result.insert(String::from("totpSecret"), Value::Null);
+      }
     }
     if old.home_page_id != new.home_page_id {
       result.insert(String::from("homePageId"), Value::String(new.home_page_id.to_string()));
