@@ -42,7 +42,8 @@ export type User = {
   homePageId: Uid,
   trashPageId: Uid,
   briefcasePageId: Uid,
-  sessionId: Uid
+  sessionId: Uid,
+  hasTotp: boolean,
 }
 
 export interface UserStoreContextModel {

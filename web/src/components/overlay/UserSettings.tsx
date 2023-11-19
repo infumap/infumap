@@ -16,13 +16,22 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Match, Show, Switch, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { LEFT_TOOLBAR_WIDTH_PX } from "../../constants";
 import { logout } from "../Main";
 import { InfuButton } from "../library/InfuButton";
+import { createInfuSignal } from "../../util/signals";
+import { InfuTextInput } from "../library/InfuTextInput";
+import { post } from "../../server";
+import { Totp } from "../../util/totp";
 
+
+interface UpdateTotpResponse {
+  success: boolean,
+  err: string | null
+}
 
 const DIALOG_WIDTH_PX = 400;
 
@@ -41,6 +50,22 @@ export const EditUserSettings: Component = () => {
 
   let editUserSettingsDiv: HTMLDivElement | undefined;
 
+  const totpSignal = createInfuSignal<Totp | null>(null);
+
+  let totpToken: string = "";
+
+  onMount(async () => {
+    const json: any = await post(null, "/account/create-totp", {});
+    totpSignal.set({
+      qr: json.qr,
+      url: json.url,
+      secret: json.secret
+    });
+  });
+
+  const changePasswordVisibleSignal = createInfuSignal<boolean>(false);
+  const addTotpVisibleSignal = createInfuSignal<boolean>(false);
+
   const posPx = () => getBoundingBoxTopLeft(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
   const sizePx = () => getBoundingBoxSize(store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx);
 
@@ -53,6 +78,21 @@ export const EditUserSettings: Component = () => {
     logout!();
   }
 
+  const handleTotpEnableDisable = (ev: MouseEvent) => {
+    ev.preventDefault();
+    addTotpVisibleSignal.set(!addTotpVisibleSignal.get());
+  }
+
+  const handleAddTotp = async (ev: MouseEvent) => {
+    ev.preventDefault();
+    const r: UpdateTotpResponse = await post(null, '/account/update-totp', {
+      userId: store.user.getUser().userId,
+      totpSecret: totpSignal.get()?.secret,
+      totpToken,
+    });
+    console.log(r);
+  }
+
   return (
     <>
       <div class="fixed text-xl font-bold z-10 rounded-md p-8 blur-md"
@@ -61,13 +101,40 @@ export const EditUserSettings: Component = () => {
       <div ref={editUserSettingsDiv}
            class="fixed bg-white z-20 rounded-md border border-slate-700"
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
-
         <div class="p-3">
-          <div class="font-bold">Edit User Settings: {store.user.getUser().username}</div>
+          <div class="font-bold text-lg">User Settings</div>
+          <div class="font-bold">{store.user.getUser().username}</div>
           <div class="text-slate-800 text-sm">
             <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
             <i class={`fa fa-copy text-slate-400 cursor-pointer ml-1`} onclick={copyClickHandler} />
           </div>
+
+          <Switch>
+
+            <Match when={!addTotpVisibleSignal.get()}>
+              <div>
+                2FA: {store.user.getUser().hasTotp ? "ON" : "OFF"}
+                <a class="ml-3" style="color: #00a;" href="" onClick={handleTotpEnableDisable}>{store.user.getUser().hasTotp ? "remove" : "add"}</a>
+              </div>
+            </Match>
+
+            <Match when={addTotpVisibleSignal.get()}>
+
+              <Show when={totpSignal.get() != null}>
+                <div class="absolute">Authenticator setup:</div>
+                <img style="padding-top: 10px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
+                <div class="text-sm w-full text-center" style="margin-top: -20px;">
+                  {totpSignal.get()!.secret}
+                  <i class="ml-1 fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }} />
+                </div>
+              </Show>
+              <div>6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
+              <a class="ml-3" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
+
+            </Match>
+
+          </Switch>
+
           <div style="margin-top: 10px;">
             <InfuButton text="logout" onClick={logoutHandler} />
           </div>

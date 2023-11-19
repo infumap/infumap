@@ -50,7 +50,8 @@ pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::
     (&Method::POST, "/account/login") => login(db, req).await,
     (&Method::POST, "/account/logout") => logout(db, req).await,
     (&Method::POST, "/account/register") => register(db, req).await,
-    (&Method::POST, "/account/totp") => totp(),
+    (&Method::POST, "/account/create-totp") => create_totp(),
+    (&Method::POST, "/account/update-totp") => update_totp(db, req).await,
     (&Method::POST, "/account/validate-session") => validate(db, req).await,
     _ => not_found_response()
   }
@@ -59,10 +60,10 @@ pub async fn serve_account_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoginRequest {
-    pub username: String,
-    pub password: String,
-    #[serde(rename="totpToken")]
-    pub totp_token: Option<String>,
+  pub username: String,
+  pub password: String,
+  #[serde(rename="totpToken")]
+  pub totp_token: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -79,6 +80,8 @@ pub struct LoginResponse {
   pub trash_page_id: Option<String>,
   #[serde(rename="briefcasePageId")]
   pub briefcase_page_id: Option<String>,
+  #[serde(rename="hasTotp")]
+  pub has_totp: bool,
 }
 
 pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -88,7 +91,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     // TODO (LOW): rate limit login requests properly.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
-      success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, briefcase_page_id: None,
+      success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, briefcase_page_id: None, has_totp: false,
       err: Some(String::from(msg))
     });
   }
@@ -149,6 +152,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
         home_page_id: Some(user.home_page_id),
         trash_page_id: Some(user.trash_page_id),
         briefcase_page_id: Some(user.briefcase_page_id),
+        has_totp: user.totp_secret.is_some(),
         err: None
       };
       return json_response(&result);
@@ -200,16 +204,16 @@ pub async fn logout(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) ->
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
-    username: String,
-    password: String,
-    #[serde(rename="totpSecret")]
-    totp_secret: Option<String>,
-    #[serde(rename="totpToken")]
-    totp_token: Option<String>,
-    #[serde(rename="pageWidthPx")]
-    page_width_px: i64,
-    #[serde(rename="pageHeightPx")]
-    page_height_px: i64,
+  username: String,
+  password: String,
+  #[serde(rename="totpSecret")]
+  totp_secret: Option<String>,
+  #[serde(rename="totpToken")]
+  totp_token: Option<String>,
+  #[serde(rename="pageWidthPx")]
+  page_width_px: i64,
+  #[serde(rename="pageHeightPx")]
+  page_height_px: i64,
 }
 
 #[derive(Serialize)]
@@ -329,6 +333,73 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   json_response(&RegisterResponse { success: true, err: None })
 }
 
+#[derive(Deserialize)]
+pub struct UpdateTotpRequest {
+  #[serde(rename="userId")]
+  user_id: String,
+  #[serde(rename="totpSecret")]
+  totp_secret: Option<String>,
+  #[serde(rename="totpToken")]
+  totp_token: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct UpdateTotpResponse {
+  success: bool,
+  err: Option<String>
+}
+
+pub async fn update_totp(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut db = db.lock().await;
+
+  let payload: UpdateTotpRequest = match incoming_json(req).await {
+    Ok(p) => p,
+    Err(e) => {
+      error!("Could not parse update totp request: {}", e);
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+    }
+  };
+
+  let mut user = match db.user.get(&payload.user_id).ok_or(()) {
+    Err(_) => {
+      error!("User {} does not exist updating totp.", payload.user_id);
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+    },
+    Ok(u) => u
+  }.clone();
+
+  if let Some(totp_secret) = &payload.totp_secret {
+    if let Some(totp_token) = &payload.totp_token {
+      match validate_totp(totp_secret, totp_token) {
+        Err(e) => {
+          error!("Error occurred validating TOTP token (update): {}", e);
+          return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) } );
+        },
+        Ok(v) => {
+          if !v { return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("incorrect OTP")) } ); }
+        }
+      }
+      user.totp_secret = Some(totp_secret.clone());
+    } else {
+      error!("If totp secret is set, token must also be set.");
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+    }
+  } else {
+    if payload.totp_token.is_some() {
+      error!("If totp secret is not set, token must also be not set.");
+      return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("application error")) } );
+    }
+    user.totp_secret = None;
+  }
+
+  if let Err(e) = db.user.update(&user).await {
+    error!("User {}: failed to update totp: {}", payload.user_id, e);
+    return json_response(&UpdateTotpResponse { success: false, err: Some(String::from("server error")) } );
+  };
+
+  json_response(&UpdateTotpResponse { success: true, err: None })
+}
+
 fn validate_totp(totp_secret: &str, totp_token: &str) -> InfuResult<bool> {
   let totp = TOTP::new(
     TOTP_ALGORITHM, TOTP_NUM_DIGETS, TOTP_SKEW, TOTP_STEP,
@@ -374,7 +445,7 @@ pub struct TotpResponse {
   pub secret: Option<String>
 }
 
-pub fn totp() -> Response<BoxBody<Bytes, hyper::Error>> {
+pub fn create_totp() -> Response<BoxBody<Bytes, hyper::Error>> {
   // A 160 bit secret is recommended by https://www.rfc-editor.org/rfc/rfc4226.
   // Construct this from the non-deterministic parts of two new v4 uuids (we require a dependency on Uuid elsewhere anyway).
   // xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx

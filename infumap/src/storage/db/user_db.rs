@@ -16,7 +16,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use log::warn;
+use log::{warn, debug};
 use tokio::fs::File;
 use tokio::io::{BufReader, AsyncReadExt};
 
@@ -24,7 +24,7 @@ use crate::util::fs::expand_tilde;
 use crate::util::infu::InfuResult;
 use crate::util::uid::{Uid, is_uid};
 use super::user::User;
-use super::kv_store::KVStore;
+use super::kv_store::{KVStore, JsonLogSerializable};
 
 pub const CURRENT_USER_LOG_VERSION: i64 = 4;
 
@@ -150,6 +150,27 @@ impl UserDb {
         store.get(uid)
       }
     }
+  }
+
+  pub async fn update(&mut self, user: &User) -> InfuResult<()> {
+    let old_user = self.get(&user.id)
+      .ok_or(format!("Request was made to update user with id '{}', but such a user does not exist.", user.id))?.clone();
+
+    let update_json_map = User::create_json_update(&old_user, user)?;
+    if update_json_map.len() == 2 {
+      // "__recordType" and "id" and nothing else.
+      debug!("Request was made to update user '{}', but nothing has changed.", user.id);
+      return Ok(());
+    }
+
+    if update_json_map.len() != 3 || !update_json_map.contains_key("totpSecret") {
+      warn!("Currently, only updating user totp secret is supported.");
+      return Err("Currently, only updating user totp secret is supported.".into());
+    }
+
+    let store = self.store_by_id.get_mut(&user.id).ok_or("unknown user")?;
+
+    store.update(user.clone()).await
   }
 
   pub fn all_user_ids(&self) -> Vec<String> {

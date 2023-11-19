@@ -137,6 +137,8 @@ impl JsonLogSerializable<User> for User {
     }
     let mut result: Map<String, Value> = Map::new();
     result.insert(String::from("__recordType"), Value::String("update".to_string()));
+    result.insert(String::from("id"), Value::String(new.id.clone()));
+
     if old.password_hash != new.password_hash {
       result.insert(String::from("passwordHash"), Value::String(new.password_hash.to_string()));
     }
