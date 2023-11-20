@@ -83,6 +83,28 @@ export const Toolbar_Page: Component = () => {
     return !(!(pageItem().permissionFlags & PermissionFlags.Public));
   }
 
+  const showOrderByButton = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List || pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
+  }
+
+  const showGridColsButton = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
+  }
+
+  const showEmptyTrash = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    if (store.user.getUserMaybe() == null) { return false; }
+    return (pageItem().id == store.user.getUser().trashPageId);
+  }
+
+  const showMakePublicButton = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    if (store.user.getUserMaybe() == null) { return false; }
+    return (pageItem().id != store.user.getUser().trashPageId && pageItem().id != store.user.getUser().briefcasePageId);
+  }
+
   const colorNumber = () => {
     store.overlay.pageColorOverlayInfoMaybe.get();
     return pageItem().backgroundColorIndex;
@@ -127,8 +149,7 @@ export const Toolbar_Page: Component = () => {
     rerenderToolbar();
   }
 
-
-  const deleteButtonHandler = () => {
+  const emptyTrashHandler = () => {
 
   };
 
@@ -180,13 +201,23 @@ export const Toolbar_Page: Component = () => {
       <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleAspectClick}>
         <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{aspectText()}</span>
       </div>
-      <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>
-        <i class="bi-layout-three-columns" /> <span style={`font-size: 13px;`}>{numColsText()}</span>
-      </div>
-      <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
-      <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
-      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == pageItem().ownerId}>
-        <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
+      <Show when={showGridColsButton()}>
+        <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>
+          <i class="bi-layout-three-columns" /> <span style={`font-size: 13px;`}>{numColsText()}</span>
+        </div>
+      </Show>
+      <Show when={showOrderByButton()}>
+        <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+      </Show>
+      <Show when={showMakePublicButton()}>
+        <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
+      </Show>
+      <Show when={showEmptyTrash()}>
+        <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={emptyTrashHandler}>
+          empty trash
+        </div>
       </Show>
     </div>
   );
