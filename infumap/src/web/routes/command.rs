@@ -31,6 +31,7 @@ use std::str;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use async_recursion::async_recursion;
 
 use crate::storage::db::Db;
 use crate::storage::db::item::{Item, RelationshipToParent, ItemType, is_positionable_type, is_page_item, PermissionFlags, is_table_item, is_flags_item_type, is_permission_flags_item_type, is_composite_item};
@@ -111,9 +112,10 @@ pub async fn serve_command_route(
     "get-items" => handle_get_items(db, &request.json_data, &session_maybe).await,
     "get-attachments" => handle_get_attachments(db, &request.json_data, &session_maybe).await,
     "add-item" => handle_add_item(db, object_store.clone(), &request.json_data, &request.base64_data, &session_maybe).await,
-    "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await,
-    "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await,
+    "update-item" => handle_update_item(db, &request.json_data, &session_maybe).await.map(|_| None),
+    "delete-item" => handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await.map(|_| None),
     "search" => handle_search(db, &request.json_data, &session_maybe).await,
+    "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {
         warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
@@ -671,7 +673,7 @@ async fn handle_add_item(
 async fn handle_update_item(
     db: &Arc<tokio::sync::Mutex<Db>>,
     json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+    session_maybe: &Option<Session>) -> InfuResult<()> {
   let mut db = db.lock().await;
 
   let session = match session_maybe {
@@ -693,7 +695,7 @@ async fn handle_update_item(
 
   debug!("Executed 'update-item' command for item '{}'.", item.id);
 
-  Ok(None)
+  Ok(())
 }
 
 
@@ -708,7 +710,7 @@ async fn handle_delete_item<'a>(
     object_store: Arc<object::ObjectStore>,
     image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
     json_data: &str,
-    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+    session_maybe: &Option<Session>) -> InfuResult<()> {
   let mut db = db.lock().await;
 
   let request: DeleteItemRequest = serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
@@ -732,21 +734,96 @@ async fn handle_delete_item<'a>(
     return Err(format!("Cannot delete item '{}' because it has one or more associated attachments: {:?}", request.id, attachment_ids).into());
   }
 
-  let item = db.item.remove(&request.id).await?;
-  debug!("Deleted item '{}' from database.", request.id);
+  let item = db.item.get(&request.id)?;
 
-  if is_data_item_type(item.item_type) {
-    object::delete(object_store.clone(), &session.user_id, &request.id).await?;
-    debug!("Deleted item '{}' from object store.", request.id);
-  }
   if is_image_item(&item) {
     let num_removed = storage_cache::delete_all(image_cache, &session.user_id, &request.id).await?;
     debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, request.id);
   }
 
-  Ok(None)
+  if is_data_item_type(item.item_type) {
+    object::delete(object_store.clone(), &session.user_id, &request.id).await?;
+    debug!("Deleted item '{}' from object store.", request.id);
+  }
+
+  let _item = db.item.remove(&request.id).await?;
+  debug!("Deleted item '{}' from database.", request.id);
+
+  Ok(())
 }
 
+async fn handle_empty_trash<'a>(
+    db: &Arc<tokio::sync::Mutex<Db>>,
+    object_store: Arc<object::ObjectStore>,
+    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+    session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
+  let mut db = db.lock().await;
+
+  let session = match session_maybe {
+    Some(session) => session,
+    None => { return Err(format!("A session is required to empty trash.").into()); }
+  };
+
+  let trash_page_id;
+  {
+    let user = db.user.get(&session.user_id).ok_or(format!("user not found").as_str())?;
+    trash_page_id = user.trash_page_id.clone();
+  }
+
+  let mut count = 0;
+  let mut img_cache_count = 0;
+  let mut object_count = 0;
+  delete_recursive(&mut db, object_store, image_cache, &session.user_id, trash_page_id, false, &mut count, &mut img_cache_count, &mut object_count).await?;
+
+  let mut result = serde_json::Map::new();
+  result.insert("itemCount".to_owned(), Value::Number(count.into()));
+  result.insert("imageCacheCount".to_owned(), Value::Number(img_cache_count.into()));
+  result.insert("objectCount".to_owned(), Value::Number(object_count.into()));
+
+  Ok(Some(serde_json::to_string(&result)?))
+}
+
+#[async_recursion]
+async fn delete_recursive(
+    db: &mut MutexGuard<'_, Db>,
+    object_store: Arc<object::ObjectStore>,
+    image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+    user_id: &Uid,
+    item_id: Uid,
+    delete_item: bool,
+    count: &mut u64,
+    img_cache_count: &mut u64,
+    object_count: &mut u64) -> InfuResult<()> {
+  for attachment_id in db.item.get_attachment_ids(&item_id)? {
+    delete_recursive(db, object_store.clone(), image_cache.clone(), user_id, attachment_id, true, count, img_cache_count, object_count).await?;
+  }
+  for child_id in db.item.get_children_ids(&item_id)? {
+    delete_recursive(db, object_store.clone(), image_cache.clone(), user_id, child_id, true, count, img_cache_count, object_count).await?;
+  }
+
+  if delete_item {
+    let item = db.item.get(&item_id)?.clone();
+
+    if is_image_item(&item) {
+      let num_removed = storage_cache::delete_all(image_cache, &user_id, &item.id).await?;
+      debug!("Deleted all {} entries related to item '{}' from image cache.", num_removed, item.id);
+      *img_cache_count = *img_cache_count + num_removed as u64;
+    }
+
+    if is_data_item_type(item.item_type) {
+      object::delete(object_store.clone(), &user_id, &item.id).await?;
+      debug!("Deleted item '{}' from object store.", item.id);
+      *object_count = *object_count + 1;
+    }
+
+    let _item = db.item.remove(&item_id).await?;
+    debug!("Deleted item '{}' from database.", item_id);
+
+    *count = *count + 1;
+  }
+
+  Ok(())
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct SearchRequest {

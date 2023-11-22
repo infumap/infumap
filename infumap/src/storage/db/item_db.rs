@@ -177,7 +177,7 @@ impl ItemDb {
       .ok_or(format!("Item store is not loaded for user '{}'.", owner_id))?;
     let item = store.remove(id).await?;
     if item.relationship_to_parent == RelationshipToParent::NoParent {
-      return Err(format!("Cannot remove item '{}' because it is the root page for user '{}'.", id, owner_id).into());
+      return Err(format!("Cannot remove item '{}' because it is a root page for user '{}'.", id, owner_id).into());
     }
     if let Some(children) = self.children_of.get(id) {
       if children.len() > 0 {

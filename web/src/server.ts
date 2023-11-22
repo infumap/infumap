@@ -38,6 +38,12 @@ export interface SearchPathElement {
   id: Uid,
 }
 
+export interface EmptyTrashResult {
+  itemCount: number,
+  imageCacheCount: number,
+  objectCount: number,
+}
+
 export const GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY = "children-and-their-attachments-only";
 export const GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS = "item-attachments-children-and-their-attachments";
 export const GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY = "item-and-attachments-only";
@@ -128,6 +134,10 @@ export const server = {
 
   search: async (pageIdMaybe: Uid | null, text: String): Promise<Array<SearchResult>> => {
     return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true);
+  },
+
+  emptyTrash: async (): Promise<EmptyTrashResult> => {
+    return constructCommandPromise(null, "empty-trash", { }, null, true);
   }
 }
 
