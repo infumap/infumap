@@ -26,6 +26,7 @@ import { HitboxFlags, HitboxFns } from "../../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../load";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath } from "../../visual-element";
+// import { arrangeItem } from "../item";
 
 
 export const renderBriefcaseMaybe = (store: StoreContextModel, parentPath: VisualElementPath, children: Array<VisualElementSignal>) => {
@@ -40,7 +41,21 @@ export const renderBriefcaseMaybe = (store: StoreContextModel, parentPath: Visua
     initiateLoadChildItemsMaybe(store, { itemId: store.user.getUser().briefcasePageId, linkIdMaybe: null });
 
     const briefcasePage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
-    const dim = ItemFns.calcSpatialDimensionsBl(briefcasePage);
+
+    // const currentPath =
+    let yCurrentPx = 0;
+    for (let i=0; i<briefcasePage.computed_children.length; ++i) {
+      const childId = briefcasePage.computed_children[i];
+      const childItem = itemState.get(childId)!;
+      const cellBoundsPx = { x: 0, y: 0, w: 50, h: 50 };
+      const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false);
+      geometry.boundsPx.y = 2 + yCurrentPx;
+      yCurrentPx += geometry.boundsPx.h;
+
+      // const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, childItem, geometry, true, false, false, false, false);
+      // children.push(ves);
+    }
+
     const briefcaseBoundsPx = {
       x: store.desktopBoundsPx().w - 53,
       y: store.desktopBoundsPx().h / 3,

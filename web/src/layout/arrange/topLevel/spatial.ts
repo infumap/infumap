@@ -32,9 +32,7 @@ import { BoundingBox, zeroBoundingBoxTopLeft } from "../../../util/geometry";
 import { VisualElementSignal } from "../../../util/signals";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
-import { HitboxFlags, HitboxFns } from "../../hitbox";
 import { PopupType } from "../../../store/StoreProvider_History";
-import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../load";
 import { renderBriefcaseMaybe } from ".";
 
 

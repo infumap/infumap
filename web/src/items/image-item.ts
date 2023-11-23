@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { panic } from "../util/lang";
@@ -33,6 +33,7 @@ import { VesCache } from "../layout/ves-cache";
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { arrange } from "../layout/arrange";
 import { PopupType } from "../store/StoreProvider_History";
+import { ItemFns } from "./base/item-polymorphism";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -128,7 +129,35 @@ export const ImageFns = {
   },
 
   calcGeometry_InComposite: (measurable: ImageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
-    panic("calcGeometry_InComposite: (image). not implemented.");
+    let cloned = ImageFns.asImageMeasurable(ItemFns.cloneMeasurableFields(measurable));
+    cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+    const sizeBl = ImageFns.calcSpatialDimensionsBl(cloned);
+    const boundsPx = {
+      x: 0,
+      y: topPx,
+      w: compositeWidthBl * blockSizePx.w,
+      h: sizeBl.h * blockSizePx.h
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const moveBoundsPx = {
+      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+    };
+    return {
+      boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+        HitboxFns.create(HitboxFlags.AttachComposite, {
+          x: innerBoundsPx.w / 4,
+          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w / 2,
+          h: ATTACH_AREA_SIZE_PX,
+        }),
+      ]
+    };
   },
 
   calcGeometry_Attachment: (image: ImageMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
