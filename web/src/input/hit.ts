@@ -54,7 +54,7 @@ export function getHitInfo(
       y: store.perItem.getPageScrollYProp(topLevelVeid) * (topLevelVisualElement.childAreaBoundsPx!.h - topLevelVisualElement.boundsPx.h)
     });
 
-  // Root is either the top level page, or popup if mouse is over the popup, or list page type selected page.
+  // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
   const {
     rootVisualElementSignal,
     rootVisualElement,
@@ -130,26 +130,44 @@ export function getHitInfo(
 }
 
 
+interface RootInfo {
+  rootVisualElementSignal: VisualElementSignal,
+  rootVisualElement: VisualElement,
+  posRelativeToRootVisualElementPx: Vector,
+  hitMaybe: HitInfo | null
+}
+
 function determineRoot(
     store: StoreContextModel,
     topLevelVisualElement: VisualElement,
+    // this may be scrolled, so not be the same as posOnDesktopPx.
     posRelativeToTopLevelVisualElementPx: Vector,
-    posOnDesktopPx: Vector): { rootVisualElementSignal: VisualElementSignal, rootVisualElement: VisualElement, posRelativeToRootVisualElementPx: Vector, hitMaybe: HitInfo | null } {
+    // does not incorporate page scroll.
+    posOnDesktopPx: Vector): RootInfo {
 
   let rootVisualElement = topLevelVisualElement;
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = store.topLevelVisualElement;
 
-  if (topLevelVisualElement.children.length == 0) { return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null }; }
+  if (topLevelVisualElement.children.length == 0) {
+    return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
+  }
+
+  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
+  if (dockRootMaybe != null) { return dockRootMaybe!; }
 
   // The visual element of the popup or selected list item, if there is one, is always the last of the children.
-  const newRootVeMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1].get();
+  const newRootVesMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1];
+  const newRootVeMaybe = newRootVesMaybe.get();
+
   const popupPosRelativeToTopLevelVisualElementPx = (newRootVeMaybe.flags & VisualElementFlags.Popup) && (newRootVeMaybe.flags & VisualElementFlags.Fixed)
-    ? posOnDesktopPx : posRelativeToRootVisualElementPx;
+    ? posOnDesktopPx
+    : posRelativeToRootVisualElementPx;
+
   if ((newRootVeMaybe.flags & VisualElementFlags.Popup) &&
       isInside(popupPosRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
-    rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
-    rootVisualElement = rootVisualElementSignal.get();
+    rootVisualElementSignal = newRootVesMaybe;
+    rootVisualElement = newRootVeMaybe;
     const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
     const scrollYPx = isPage(rootVisualElement.displayItem)
       ? store.perItem.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
@@ -171,8 +189,9 @@ function determineRoot(
       popupPosRelativeToTopLevelVisualElementPx,
       { x: rootVisualElement.childAreaBoundsPx!.x - scrollXPx,
         y: rootVisualElement.childAreaBoundsPx!.y - scrollYPx });
+
   } else if ((newRootVeMaybe.flags & VisualElementFlags.Root) &&
-      isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
+             isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
     rootVisualElementSignal = topLevelVisualElement.children[rootVisualElement.children.length-1];
     rootVisualElement = rootVisualElementSignal.get();
     posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
@@ -190,6 +209,31 @@ function determineRoot(
   return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
 }
 
+function determineIfDockRoot(
+  topLevelVisualElement: VisualElement,
+  posOnDesktopPx: Vector
+): RootInfo | null {
+  let dockVes = null;
+  if (topLevelVisualElement.children.length == 0) {
+    return null;
+  }
+  if (topLevelVisualElement.children.length > 0 &&
+      topLevelVisualElement.children[topLevelVisualElement.children.length-1].get().flags & VisualElementFlags.IsDock) {
+    dockVes = topLevelVisualElement.children[topLevelVisualElement.children.length-1];
+  } else if (topLevelVisualElement.children.length > 1 &&
+             topLevelVisualElement.children[topLevelVisualElement.children.length-2].get().flags & VisualElementFlags.IsDock) {
+    dockVes = topLevelVisualElement.children[topLevelVisualElement.children.length-2];
+  }
+  if (dockVes == null) { return null; }
+
+  const dockVe = dockVes.get();
+
+  if (!isInside(posOnDesktopPx, dockVe.boundsPx)) { return null; }
+
+  const posRelativeToRootVisualElementPx = vectorSubtract(posOnDesktopPx, { x: dockVe.childAreaBoundsPx!.x, y: dockVe.childAreaBoundsPx!.y });
+
+  return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: null };
+}
 
 function handleInsideTableMaybe(
     store: StoreContextModel,

@@ -115,13 +115,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const listViewScale = () => props.visualElement.boundsPx.w / store.desktopBoundsPx().w;
 
-  const renderAsBriefcase = () => {
+  const renderAsDock = () => {
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
                  `font-size: 32px;`}>
-        <i class="bi-briefcase-fill" />
+        <For each={props.visualElement.children}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
       </div>);
   }
 
@@ -614,8 +616,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   return (
     <Switch>
-      <Match when={props.visualElement.flags & VisualElementFlags.IsBriefcase}>
-        {renderAsBriefcase()}
+      <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
+        {renderAsDock()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
         {renderAsTrash()}

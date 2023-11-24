@@ -72,7 +72,7 @@ export const arrange = (store: StoreContextModel): void => {
       arrange_document(store);
       break;
     default:
-      panic(`arrange: unknown arrange type: ${asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm}.`);
+      panic(`arrange: unexpected arrange type: ${asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm}.`);
   }
 
   evaluateExpressions();

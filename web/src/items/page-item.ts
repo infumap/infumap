@@ -49,6 +49,7 @@ export const ArrangeAlgorithm = {
   Grid: "grid",
   List: "list",
   Document: "document",
+  Dock: "dock",
 };
 
 export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {

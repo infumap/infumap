@@ -17,7 +17,7 @@
 */
 
 import { ItemFns } from "../../../items/base/item-polymorphism";
-import { asPageItem } from "../../../items/page-item";
+import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { itemState } from "../../../store/ItemState";
 import { StoreContextModel } from "../../../store/StoreProvider";
 import { zeroBoundingBoxTopLeft } from "../../../util/geometry";
@@ -26,10 +26,10 @@ import { HitboxFlags, HitboxFns } from "../../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../load";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath } from "../../visual-element";
-// import { arrangeItem } from "../item";
+import { arrangeItem } from "../item";
 
 
-export const renderBriefcaseMaybe = (store: StoreContextModel, parentPath: VisualElementPath, children: Array<VisualElementSignal>) => {
+export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath, pageChildren: Array<VisualElementSignal>) => {
 
   if (store.user.getUserMaybe() == null) {
     return;
@@ -38,54 +38,55 @@ export const renderBriefcaseMaybe = (store: StoreContextModel, parentPath: Visua
   if (itemState.get(store.user.getUser().briefcasePageId) == null) {
     initiateLoadItemMaybe(store, store.user.getUser().briefcasePageId);
   } else {
-    initiateLoadChildItemsMaybe(store, { itemId: store.user.getUser().briefcasePageId, linkIdMaybe: null });
+    const dockPageId = store.user.getUser().briefcasePageId;
+    initiateLoadChildItemsMaybe(store, { itemId: dockPageId, linkIdMaybe: null });
 
-    const briefcasePage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
+    const dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
 
-    // const currentPath =
+    const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
+
     let yCurrentPx = 0;
-    for (let i=0; i<briefcasePage.computed_children.length; ++i) {
-      const childId = briefcasePage.computed_children[i];
+    const dockChildren = [];
+    for (let i=0; i<dockPage.computed_children.length; ++i) {
+      const childId = dockPage.computed_children[i];
       const childItem = itemState.get(childId)!;
       const cellBoundsPx = { x: 0, y: 0, w: 50, h: 50 };
       const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false);
       geometry.boundsPx.y = 2 + yCurrentPx;
-      yCurrentPx += geometry.boundsPx.h;
+      yCurrentPx += geometry.boundsPx.h + 3;
 
-      // const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, childItem, geometry, true, false, false, false, false);
-      // children.push(ves);
+      const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
+      dockChildren.push(ves);
     }
 
-    const briefcaseBoundsPx = {
+    const dockBoundsPx = {
       x: store.desktopBoundsPx().w - 53,
       y: store.desktopBoundsPx().h / 3,
       w: 50,
-      h: 50,
+      h: 130,
     }
-    const innerBoundsPx = zeroBoundingBoxTopLeft(briefcaseBoundsPx);
-    const briefcaseVisualElementSpec = {
-      displayItem: briefcasePage,
+    const innerBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
+    const dockVisualElementSpec = {
+      displayItem: dockPage,
       linkItemMaybe: null,
-      flags: VisualElementFlags.IsBriefcase,
-      boundsPx: briefcaseBoundsPx,
-      childAreaBoundsPx: briefcaseBoundsPx,
+      flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
+      boundsPx: dockBoundsPx,
+      childAreaBoundsPx: dockBoundsPx,
       hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
+        // HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        // HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
       ],
-      parentPath: parentPath,
+      parentPath,
+      children: dockChildren,
     };
-
-    const briefcasePath = VeFns.addVeidToPath( {itemId: briefcasePage.id, linkIdMaybe: null},  parentPath);
-    children.push(VesCache.createOrRecycleVisualElementSignal(briefcaseVisualElementSpec, briefcasePath));
 
     if (itemState.get(store.user.getUser().trashPageId) == null) {
       initiateLoadItemMaybe(store, store.user.getUser().trashPageId);
     } else {
       const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
       const trashBoundsPx = {
-        x: store.desktopBoundsPx().w - 53,
-        y: store.desktopBoundsPx().h / 3 + 55,
+        x: 0,
+        y: yCurrentPx,
         w: 50,
         h: 50,
       }
@@ -100,11 +101,13 @@ export const renderBriefcaseMaybe = (store: StoreContextModel, parentPath: Visua
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
           HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
         ],
-        parentPath: parentPath,
+        parentPath: dockPath,
       };
 
       const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  parentPath);
-      children.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
+      dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
     }
+
+    pageChildren.push(VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath));
   }
 }

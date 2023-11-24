@@ -33,7 +33,7 @@ import { VisualElementSignal } from "../../../util/signals";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { arrangeItem } from "../item";
 import { PopupType } from "../../../store/StoreProvider_History";
-import { renderBriefcaseMaybe } from ".";
+import { renderDockMaybe } from ".";
 
 
 export const arrange_spatialStretch = (store: StoreContextModel) => {
@@ -80,7 +80,7 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     ));
   }
 
-  renderBriefcaseMaybe(store, currentPath, children);
+  renderDockMaybe(store, currentPath, children);
 
   const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {
