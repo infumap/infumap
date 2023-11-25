@@ -56,24 +56,64 @@ export const Main: Component = () => {
     else { panic("Main.onMount: unexpected params."); }
 
     try {
-      const result: ItemsAndTheirAttachments =
-        await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
+      let result: ItemsAndTheirAttachments
+      try {
+        result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
+      } catch (e: any) {
+        console.error(`fetchItems failed ${id}`, e);
+        throw e;
+      }
+
       const pageObject = result.item as any;
       const pageId = pageObject.id;
-      itemState.setItemFromServerObject(pageObject, null);
-      if (result.attachments[pageId]) {
-        itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId], null);
+      try {
+        itemState.setItemFromServerObject(pageObject, null);
+      } catch (e: any) {
+        console.error(`setItemFromServerObject failed ${id}`, e);
+        throw e;
       }
+
+      try {
+        if (result.attachments[pageId]) {
+          itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId], null);
+        }
+      } catch (e: any) {
+        console.error(`setAttachmentItemsFromServerObjects (1) failed ${id}`, e);
+        throw e;
+      }
+
       childrenLoadInitiatedOrComplete[pageId] = true;
-      itemState.setChildItemsFromServerObjects(pageId, result.children, null);
-      PageFns.setDefaultListPageSelectedItemMaybe(store, { itemId: pageId, linkIdMaybe: null });
+
+      try {
+        itemState.setChildItemsFromServerObjects(pageId, result.children, null);
+      } catch (e: any) {
+        console.error(`setChildItemsFromServerObjects failed ${id}`, e);
+        throw e;
+      }
+
+      try {
+        PageFns.setDefaultListPageSelectedItemMaybe(store, { itemId: pageId, linkIdMaybe: null });
+      } catch (e: any) {
+        console.error("setDefaultListPageSelectedItemMaybe failed", e);
+      }
+
       Object.keys(result.attachments).forEach(id => {
-        itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
+        try {
+          itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
+        } catch (e: any) {
+          console.error(`setAttachmentItemsFromServerObjects (2) failed ${id}`, e);
+          throw e;
+        }
       });
 
-      switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
+      try {
+        switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
+      } catch (e: any) {
+        console.error("switchToPage failed", e);
+        throw e;
+      }
     } catch (e: any) {
-      console.log(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
+      console.error(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       store.user.clear();
       store.general.clearInstallationState();
       await store.general.retrieveInstallationState();
