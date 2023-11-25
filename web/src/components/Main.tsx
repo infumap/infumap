@@ -94,7 +94,7 @@ export const Main: Component = () => {
       try {
         PageFns.setDefaultListPageSelectedItemMaybe(store, { itemId: pageId, linkIdMaybe: null });
       } catch (e: any) {
-        console.error("setDefaultListPageSelectedItemMaybe failed", e);
+        console.error(`setDefaultListPageSelectedItemMaybe failed ${pageId}`, e);
       }
 
       Object.keys(result.attachments).forEach(id => {
@@ -109,7 +109,7 @@ export const Main: Component = () => {
       try {
         switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
       } catch (e: any) {
-        console.error("switchToPage failed", e);
+        console.error(`switchToPage failed ${pageId}`, e);
         throw e;
       }
     } catch (e: any) {
