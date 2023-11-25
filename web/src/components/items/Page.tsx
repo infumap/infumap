@@ -117,22 +117,31 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderAsDock = () => {
     return (
-      <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                 `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
-                 `font-size: 32px;`}>
+      <div class={`fixed border bg-gray-300 rounded-sm shadow-xl shadow-slate-500 align-middle text-center`}
+           style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w + 20}px; height: ${boundsPx().h}px; ` +
+                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#f9fbfd")}; ` +
+                  `font-size: 16px;`}>
         <For each={props.visualElement.children}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
+        <Show when={props.visualElement.children.length == 0}>
+          <div class="absolute text-slate-500" style={`left: ${boundsPx().w/2-3}px; top: ${boundsPx().h / 2-12}px;`}>
+            <i class="fa fa-chevron-left" />
+          </div>
+        </Show>
       </div>);
   }
 
   const renderAsTrash = () => {
+    const trashFontSizePx = () => {
+      return boundsPx().h * 0.65;
+    }
+
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
-                  `font-size: 32px;`}>
+                  `font-size: ${trashFontSizePx()}px;`}>
         <i class="fa fa-trash" />
       </div>);
   }

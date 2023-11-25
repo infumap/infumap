@@ -232,6 +232,16 @@ function determineIfDockRoot(
 
   const posRelativeToRootVisualElementPx = vectorSubtract(posOnDesktopPx, { x: dockVe.childAreaBoundsPx!.x, y: dockVe.childAreaBoundsPx!.y });
 
+  let hitboxType = HitboxFlags.None;
+  for (let j=dockVe.hitboxes.length-1; j>=0; --j) {
+    if (isInside(posRelativeToRootVisualElementPx, dockVe.hitboxes[j].boundsPx)) {
+      hitboxType |= dockVe.hitboxes[j].type;
+    }
+  }
+  if (hitboxType != HitboxFlags.None) {
+    return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null) };
+  }
+
   return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: null };
 }
 
@@ -260,9 +270,9 @@ function handleInsideTableMaybe(
   // col resize also takes precedence over anything in the child area.
   for (let j=tableVisualElement.hitboxes.length-2; j>=0; j--) {
     const hb = tableVisualElement.hitboxes[j];
-    if (hb.type != HitboxFlags.ColResize) { break; }
+    if (hb.type != HitboxFlags.HorizontalResize) { break; }
     if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-      return finalize(HitboxFlags.ColResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta);
+      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta);
     }
   }
 

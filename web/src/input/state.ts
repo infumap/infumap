@@ -35,6 +35,7 @@ export enum MouseAction {
   Resizing,
   ResizingColumn,
   ResizingPopup,
+  ResizingDock,
 }
 
 
@@ -59,6 +60,7 @@ export interface MouseActionStateType {
   startPosBl: Vector | null,
   startWidthBl: number | null,
   startHeightBl: number | null,
+  startDockWidthPx: number | null,
 
   startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
   startCompositeItem: CompositeItem | null,         // when taking an item out of a composite item.

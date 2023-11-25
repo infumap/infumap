@@ -71,6 +71,9 @@ export interface OverlayStoreContextModel {
   pageNumColsOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   isPanicked: InfuSignal<boolean>,
 
+  // dock
+  dockWidthPx: InfuSignal<number>,
+
   clear: () => void,
 }
 
@@ -82,6 +85,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
+  const dockWidthPx = createInfuSignal<number>(80);
 
   function clear() {
     tableEditOverlayInfo.set(null);
@@ -90,6 +94,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     contextMenuInfo.set(null);
     noteEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
+    dockWidthPx.set(80);
   }
 
   return ({
@@ -99,6 +104,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editDialogInfo,
     editUserSettingsInfo,
     contextMenuInfo,
+
+    dockWidthPx,
 
     isPanicked: createInfuSignal<boolean>(false),
 

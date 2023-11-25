@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
+import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
@@ -108,6 +108,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
     case MouseAction.Moving:
       mouseAction_moving(deltaPx, currentMouseDesktopPx, store);
       return;
+    case MouseAction.ResizingDock:
+      mouseAction_resizingDock(deltaPx, store);
+      return;
     default:
       panic("unknown mouse action.");
   }
@@ -147,16 +150,20 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.Resizing;
     }
 
-  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ColResize) > 0) {
+  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.HorizontalResize) > 0) {
     MouseActionState.get().startPosBl = null;
     MouseActionState.get().startHeightBl = null;
-    const colNum = MouseActionState.get().hitMeta!.colNum!;
-    if (activeVisualElement.linkItemMaybe != null) {
-      MouseActionState.get().startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
+    if (activeVisualElement.flags & VisualElementFlags.IsDock) {
+      MouseActionState.get().action = MouseAction.ResizingDock;
     } else {
-      MouseActionState.get().startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+      const colNum = MouseActionState.get().hitMeta!.colNum!;
+      if (activeVisualElement.linkItemMaybe != null) {
+        MouseActionState.get().startWidthBl = asTableItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE;
+      } else {
+        MouseActionState.get().startWidthBl = asTableItem(activeItem).tableColumns[colNum].widthGr / GRID_SIZE;
+      }
+      MouseActionState.get().action = MouseAction.ResizingColumn;
     }
-    MouseActionState.get().action = MouseAction.ResizingColumn;
 
   } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
              ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
@@ -181,6 +188,16 @@ function changeMouseActionStateMaybe(
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   }
+}
+
+
+function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
+  const startPx = MouseActionState.get().startDockWidthPx!;
+  let newDockWidthPx = startPx - deltaPx.x;
+  if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
+  if (newDockWidthPx > 300) { newDockWidthPx = 300; }
+  store.overlay.dockWidthPx.set(newDockWidthPx);
+  arrange(store);
 }
 
 
@@ -316,7 +333,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   if (hasUser) {
     if (hitInfo.hitboxType & HitboxFlags.Resize) {
       document.body.style.cursor = "nwse-resize";
-    } else if (hitInfo.hitboxType & HitboxFlags.ColResize) {
+    } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {
       document.body.style.cursor = "ew-resize";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move) && (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup)) {
       document.body.style.cursor = "move";

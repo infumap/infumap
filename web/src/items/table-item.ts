@@ -184,7 +184,7 @@ export const TableFns = {
       }
       if (accumBl < table.spatialWidthGr / GRID_SIZE && i < table.tableColumns.length-1) {
         colResizeHitboxes.push(HitboxFns.create(
-          HitboxFlags.ColResize,
+          HitboxFlags.HorizontalResize,
           { x: endXPx, y: blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h - blockSizePx.h },
           HitboxFns.createMeta({ colNum: i })
         ));

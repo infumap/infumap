@@ -71,13 +71,18 @@ export const arrangeItem = (
     }
   }
 
-  if (renderChildrenAsFull &&
-      (isPage(displayItem) &&
-       (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
-          ? // This test does not depend on pixel size, so is invariant over display devices.
-            (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
-          : // However, this test does.
-            itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL))) {
+  const renderWithChildren = (() => {
+    if (!renderChildrenAsFull) { return false; }
+    if (!isPage) { return false; }
+    if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
+    return (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
+      ? // This test does not depend on pixel size, so is invariant over display devices.
+        (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
+      : // However, this test does.
+        itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL);
+  })();
+
+  if (renderWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
       store, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);

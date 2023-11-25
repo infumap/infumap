@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
@@ -50,35 +51,53 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
     }
 
+    const GAP_PX = 6;
+
     let yCurrentPx = 0;
     const dockChildren = [];
     for (let i=0; i<dockPage.computed_children.length; ++i) {
       const childId = dockPage.computed_children[i];
       const childItem = itemState.get(childId)!;
 
-      const cellBoundsPx = { x: 0, y: 0, w: 50, h: 50 };
+      let wPx = store.overlay.dockWidthPx.get() - GAP_PX * 2;
+      if (wPx < 0) { wPx = 0; }
+      const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: store.overlay.dockWidthPx.get() };
       const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false);
 
       if (movingItem != null && childId == movingItem.id) {
         const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
         geometry.boundsPx.y = 0;
       } else {
-        geometry.boundsPx.y = 2 + yCurrentPx;
-        yCurrentPx += geometry.boundsPx.h + 3;
+        geometry.boundsPx.y = GAP_PX + yCurrentPx;
+        yCurrentPx += geometry.boundsPx.h + GAP_PX;
       }
 
-      const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
-      dockChildren.push(ves);
+      if (store.overlay.dockWidthPx.get() > 25) {
+        const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
+        dockChildren.push(ves);
+      }
+    }
+    yCurrentPx += GAP_PX;
+
+    let trashHeightPx = 50;
+    if (store.overlay.dockWidthPx.get() - GAP_PX*2 < trashHeightPx) {
+      trashHeightPx = store.overlay.dockWidthPx.get() - GAP_PX*2;
+      if (trashHeightPx < 0) { trashHeightPx = 0; }
     }
 
+    const dockHeightPx = trashHeightPx + yCurrentPx + GAP_PX;
+    const yProp = dockHeightPx / store.desktopBoundsPx().h;
+    const yProp2 = 0.5 - (0.12 - 0.12 * yProp); // looks more aesthetic if positioned slightly above center.
     const dockBoundsPx = {
-      x: store.desktopBoundsPx().w - 53,
-      y: store.desktopBoundsPx().h / 3,
-      w: 50,
-      h: 130,
+      x: store.desktopBoundsPx().w - (store.overlay.dockWidthPx.get() + 3),
+      y: store.desktopBoundsPx().h * yProp2 - dockHeightPx / 2,
+      w: store.overlay.dockWidthPx.get(),
+      h: dockHeightPx,
     }
 
-    const innerBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
+    const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
+    resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
+
     const dockVisualElementSpec = {
       displayItem: dockPage,
       linkItemMaybe: null,
@@ -86,8 +105,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       boundsPx: dockBoundsPx,
       childAreaBoundsPx: dockBoundsPx,
       hitboxes: [
-        // HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        // HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx),
       ],
       parentPath,
       children: dockChildren,
@@ -98,10 +116,10 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     } else {
       const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
       const trashBoundsPx = {
-        x: 0,
+        x: GAP_PX,
         y: yCurrentPx,
-        w: 50,
-        h: 50,
+        w: store.overlay.dockWidthPx.get() - GAP_PX*2,
+        h: trashHeightPx,
       }
       const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
       const trashVisualElementSpec = {
@@ -117,8 +135,10 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         parentPath: dockPath,
       };
 
-      const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  dockPath);
-      dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
+      if (store.overlay.dockWidthPx.get() > 25) {
+        const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  dockPath);
+        dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
+      }
     }
 
     pageChildren.push(VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath));
