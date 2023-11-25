@@ -43,13 +43,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     const dockPageId = store.user.getUser().briefcasePageId;
     initiateLoadChildItemsMaybe(store, { itemId: dockPageId, linkIdMaybe: null });
 
-    let dockPage;
-    try {
-      dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
-    } catch (e: any) {
-      console.error("dockPage is not a page", store.user.getUser().briefcasePageId, itemState.get(store.user.getUser().briefcasePageId)!);
-      throw e;
-    }
+    const dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
     const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
     let movingItem = null;
@@ -120,13 +114,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     if (itemState.get(store.user.getUser().trashPageId) == null) {
       initiateLoadItemMaybe(store, store.user.getUser().trashPageId);
     } else {
-      let trashPage 
-      try {
-        trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
-      } catch (e: any) {
-        console.error("trashPage is not a page", store.user.getUser().trashPageId, itemState.get(store.user.getUser().trashPageId)!);
-        throw e;
-      }
+      const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
       const trashBoundsPx = {
         x: GAP_PX,
         y: yCurrentPx,

@@ -73,7 +73,7 @@ export const arrangeItem = (
 
   const renderWithChildren = (() => {
     if (!renderChildrenAsFull) { return false; }
-    if (!isPage) { return false; }
+    if (!isPage(displayItem)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
     return (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
       ? // This test does not depend on pixel size, so is invariant over display devices.
