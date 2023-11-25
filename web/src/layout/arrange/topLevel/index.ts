@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../../constants";
+import { RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
@@ -43,7 +43,13 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     const dockPageId = store.user.getUser().briefcasePageId;
     initiateLoadChildItemsMaybe(store, { itemId: dockPageId, linkIdMaybe: null });
 
-    const dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
+    let dockPage;
+    try {
+      dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
+    } catch (e: any) {
+      console.error("dockPage is not a page", store.user.getUser().briefcasePageId, itemState.get(store.user.getUser().briefcasePageId)!);
+      throw e;
+    }
     const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
     let movingItem = null;
@@ -114,7 +120,13 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     if (itemState.get(store.user.getUser().trashPageId) == null) {
       initiateLoadItemMaybe(store, store.user.getUser().trashPageId);
     } else {
-      const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
+      let trashPage 
+      try {
+        trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
+      } catch (e: any) {
+        console.error("trashPage is not a page", store.user.getUser().trashPageId, itemState.get(store.user.getUser().trashPageId)!);
+        throw e;
+      }
       const trashBoundsPx = {
         x: GAP_PX,
         y: yCurrentPx,

@@ -109,7 +109,7 @@ export const Main: Component = () => {
       try {
         switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
       } catch (e: any) {
-        console.error(`switchToPage failed ${pageId}`, e);
+        console.error(`switchToPage ${pageId} failed`, e);
         throw e;
       }
     } catch (e: any) {
