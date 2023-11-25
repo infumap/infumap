@@ -110,7 +110,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (MouseActionState.get().moveOver_containerElement == null ||
       MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(hitInfo.overContainerVe!)) {
     if (MouseActionState.get().moveOver_containerElement != null) {
-      VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get().movingItemIsOver.set(false);
+      const veMaybe = VesCache.get(MouseActionState.get().moveOver_containerElement!);
+      if (veMaybe) {
+        veMaybe!.get().movingItemIsOver.set(false);
+      }
     }
     hitInfo.overContainerVe!.movingItemIsOver.set(true);
     MouseActionState.get().moveOver_containerElement = VeFns.veToPath(hitInfo.overContainerVe!);

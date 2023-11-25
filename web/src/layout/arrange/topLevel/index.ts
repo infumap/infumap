@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { itemState } from "../../../store/ItemState";
@@ -42,18 +43,29 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     initiateLoadChildItemsMaybe(store, { itemId: dockPageId, linkIdMaybe: null });
 
     const dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
-
     const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
+
+    let movingItem = null;
+    if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
+      movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
+    }
 
     let yCurrentPx = 0;
     const dockChildren = [];
     for (let i=0; i<dockPage.computed_children.length; ++i) {
       const childId = dockPage.computed_children[i];
       const childItem = itemState.get(childId)!;
+
       const cellBoundsPx = { x: 0, y: 0, w: 50, h: 50 };
       const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false);
-      geometry.boundsPx.y = 2 + yCurrentPx;
-      yCurrentPx += geometry.boundsPx.h + 3;
+
+      if (movingItem != null && childId == movingItem.id) {
+        const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
+        geometry.boundsPx.y = 0;
+      } else {
+        geometry.boundsPx.y = 2 + yCurrentPx;
+        yCurrentPx += geometry.boundsPx.h + 3;
+      }
 
       const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
       dockChildren.push(ves);
@@ -65,6 +77,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       w: 50,
       h: 130,
     }
+
     const innerBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
     const dockVisualElementSpec = {
       displayItem: dockPage,
@@ -104,7 +117,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         parentPath: dockPath,
       };
 
-      const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  parentPath);
+      const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  dockPath);
       dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
     }
 

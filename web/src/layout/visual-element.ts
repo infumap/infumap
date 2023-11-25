@@ -297,6 +297,17 @@ export const VeFns = {
       : visualElement.displayItem;
   },
 
+  canonicalItemFromPath: (visualElementPath: VisualElementPath): Item | null => {
+    const veid = VeFns.veidFromPath(visualElementPath);
+    let item;
+    if (veid.linkIdMaybe) {
+      item = itemState.get(veid.linkIdMaybe);
+    } else {
+      item = itemState.get(veid.itemId);
+    }
+    return item;
+  },
+
   addVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
     let current = veid.itemId;
     if (veid.linkIdMaybe != null) {

@@ -38,24 +38,14 @@ export const arrange_grid = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  let movingItem = null;
-  let movingItemInThisPage = null;
-  if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
-    if (veid.linkIdMaybe) {
-      movingItemInThisPage = itemState.get(veid.linkIdMaybe);
-    } else {
-      movingItemInThisPage = itemState.get(veid.itemId);
-    }
-    movingItem = movingItemInThisPage;
-    if (movingItemInThisPage!.parentId != currentPage.id) {
-      movingItemInThisPage = null;
-    }
-  }
-
   const pageBoundsPx = store.desktopBoundsPx();
 
   const numCols = currentPage.gridNumberOfColumns;
+
+  let movingItem = null;
+  if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
+    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
+  }
 
   // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
   // change until after the move is complete to avoid a very distruptive jump in y scroll px.
