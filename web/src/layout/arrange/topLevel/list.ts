@@ -36,7 +36,7 @@ export const arrange_list = (store: StoreContextModel) => {
   const currentPath = currentPage.id;
 
   const selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
-  const topLevelPageBoundsPx  = store.desktopBoundsPx();
+  const topLevelPageBoundsPx  = store.desktopMainAreaBoundsPx();
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
@@ -77,8 +77,8 @@ export const arrange_list = (store: StoreContextModel) => {
     const boundsPx = {
       x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX,
       y: LINE_HEIGHT_PX,
-      w: store.desktopBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL + 2) * LINE_HEIGHT_PX),
-      h: store.desktopBoundsPx().h - (2 * LINE_HEIGHT_PX)
+      w: store.desktopMainAreaBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL + 2) * LINE_HEIGHT_PX),
+      h: store.desktopMainAreaBoundsPx().h - (2 * LINE_HEIGHT_PX)
     };
     topLevelVisualElementSpec.children.push(
       arrangeSelectedListItem(store, selectedVeid, boundsPx, currentPath, true, true));

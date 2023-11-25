@@ -38,7 +38,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const pageBoundsPx = store.desktopBoundsPx();
+  const pageBoundsPx = store.desktopMainAreaBoundsPx();
 
   const numCols = currentPage.gridNumberOfColumns;
 
@@ -72,7 +72,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: store.desktopBoundsPx(),
+    boundsPx: store.desktopMainAreaBoundsPx(),
     childAreaBoundsPx: boundsPx,
   };
 

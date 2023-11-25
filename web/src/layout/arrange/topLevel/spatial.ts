@@ -39,10 +39,10 @@ import { renderDockMaybe } from ".";
 export const arrange_spatialStretch = (store: StoreContextModel) => {
 
   const pageItem = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
-  const desktopAspect = store.desktopBoundsPx().w / store.desktopBoundsPx().h;
+  const desktopAspect = store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h;
   const pageAspect = pageItem.naturalAspect;
   const pageBoundsPx = (() => {
-    let result = store.desktopBoundsPx();
+    let result = store.desktopMainAreaBoundsPx();
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / desktopAspect > 1.3) {
       // page to scroll horizontally.
@@ -61,7 +61,7 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: store.desktopBoundsPx(),
+    boundsPx: store.desktopMainAreaBoundsPx(),
     childAreaBoundsPx: pageBoundsPx,
   };
 

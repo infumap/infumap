@@ -33,6 +33,7 @@ import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerI
 
 export interface StoreContextModel {
   desktopBoundsPx: () => BoundingBox,
+  desktopMainAreaBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
   topLevelVisualElement: InfuSignal<VisualElement>,
@@ -85,6 +86,12 @@ export function StoreProvider(props: StoreContextProps) {
     return { x: 0.0, y: 0.0, w: dimensionsPx.w, h: dimensionsPx.h }
   }
 
+  const desktopMainAreaBoundsPx = () => {
+    const result = desktopBoundsPx();
+    result.x = overlay.dockWidthPx.get();
+    result.w = result.w - overlay.dockWidthPx.get();
+    return result;
+  }
 
   const perItem = makePerItemStore();
   const overlay = makeOverlayStore();
@@ -116,7 +123,7 @@ export function StoreProvider(props: StoreContextProps) {
 
 
   const value: StoreContextModel = {
-    desktopBoundsPx, resetDesktopSizePx,
+    desktopBoundsPx, resetDesktopSizePx, desktopMainAreaBoundsPx,
 
     topLevelVisualElement,
 

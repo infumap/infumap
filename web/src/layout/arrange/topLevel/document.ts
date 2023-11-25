@@ -30,14 +30,14 @@ export const arrange_document = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const pageBoundsPx = store.desktopBoundsPx();
+  const pageBoundsPx = store.desktopMainAreaBoundsPx();
 
   const _headingMarginPx = LINE_HEIGHT_PX * PageFns.pageTitleStyle().lineHeightMultiplier;
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: store.desktopBoundsPx(),
+    boundsPx: store.desktopMainAreaBoundsPx(),
     childAreaBoundsPx: pageBoundsPx,
   };
 
