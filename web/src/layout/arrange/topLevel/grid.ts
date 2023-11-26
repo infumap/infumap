@@ -18,7 +18,7 @@
 
 import { GRID_PAGE_CELL_ASPECT, LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
-import { ArrangeAlgorithm, PageFns, asPageItem } from "../../../items/page-item";
+import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
 import { StoreContextModel } from "../../../store/StoreProvider";
 import { itemState } from "../../../store/ItemState";

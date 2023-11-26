@@ -542,7 +542,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`width: ${boundsPx().w + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                  `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: ${boundsPx().y}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
