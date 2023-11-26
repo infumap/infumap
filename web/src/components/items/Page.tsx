@@ -117,16 +117,17 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderAsDock = () => {
     return (
-      <div class={`fixed border bg-gray-300 rounded-sm shadow-xl shadow-slate-500 align-middle text-center`}
+      <div class={`fixed border bg-gray-300 rounded-sm align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#f9fbfd")}; ` +
-                  `font-size: 16px;`}>
+                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#f9fbfd")}; `}>
         <For each={props.visualElement.children}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
         <Show when={props.visualElement.children.length == 0}>
-          <div class="absolute text-slate-500" style={`left: ${boundsPx().w/2-3}px; top: ${boundsPx().h / 2-12}px;`}>
-            <i class="fa fa-chevron-left" />
+          <div class="absolute text-slate-400"
+               style={`left: ${boundsPx().w/2-5}px; top: ${boundsPx().h / 2}px; ` +
+                      `font-size: ${10}px;`}>
+            <i class="fa fa-chevron-right" />
           </div>
         </Show>
       </div>);

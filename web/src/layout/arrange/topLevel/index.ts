@@ -114,7 +114,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
       const trashBoundsPx = {
         x: GAP_PX,
-        y: yCurrentPx,
+        y: store.desktopBoundsPx().h - trashHeightPx - GAP_PX * 2,
         w: store.overlay.dockWidthPx.get() - GAP_PX*2,
         h: trashHeightPx,
       }
