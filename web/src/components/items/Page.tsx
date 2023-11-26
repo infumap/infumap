@@ -113,7 +113,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return scale > 1.0 ? 1.0 : scale;
   }
 
-  const listViewScale = () => props.visualElement.boundsPx.w / store.desktopBoundsPx().w;
+  const listViewScale = () => props.visualElement.boundsPx.w / store.desktopMainAreaBoundsPx().w;
 
   const renderAsDock = () => {
     return (

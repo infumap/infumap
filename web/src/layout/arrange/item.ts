@@ -17,7 +17,7 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
@@ -45,6 +45,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PopupType } from "../../store/StoreProvider_History";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 
 
 export const arrangeItem = (
@@ -368,10 +369,10 @@ const arrangePageWithChildren = (
 
     if (selectedVeid != EMPTY_VEID) {
       const boundsPx = {
-        x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX * scale,
-        y: LINE_HEIGHT_PX * scale,
-        w: outerBoundsPx.w - ((LIST_PAGE_LIST_WIDTH_BL+2) * LINE_HEIGHT_PX) * scale,
-        h: outerBoundsPx.h - (2 * LINE_HEIGHT_PX) * scale
+        x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX * scale,
+        y: 0,
+        w: outerBoundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
+        h: outerBoundsPx.h - LINE_HEIGHT_PX * scale
       };
       pageWithChildrenVisualElementSpec.children.push(
         arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
@@ -673,8 +674,15 @@ const arrangeItemNoChildren = (
 
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
-export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, expandable: boolean, isRoot: boolean): VisualElementSignal {
+export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, isExpandable: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
+
+  const paddedBoundsPx = {
+    x: boundsPx.x + LINE_HEIGHT_PX,
+    y: boundsPx.y + LINE_HEIGHT_PX,
+    w: boundsPx.w - 2 * LINE_HEIGHT_PX,
+    h: boundsPx.h - 2 * LINE_HEIGHT_PX,
+  };
 
   let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
   li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
@@ -682,7 +690,22 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = ItemFns.calcGeometry_InCell(li, boundsPx, expandable, false, false, false);
+  const geometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false);
+  if (isPage(item)) {
+    const page = asPageItem(item);
+    if (page.arrangeAlgorithm == ArrangeAlgorithm.Grid || page.arrangeAlgorithm == ArrangeAlgorithm.List) {
+      geometry.boundsPx = boundsPx;
+      geometry.hitboxes = [];
+      if (isExpandable) {
+        geometry.hitboxes = [
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: boundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
+          HitboxFns.create(HitboxFlags.Expand, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        ];
+      }
+    }
+  }
 
   const result = arrangeItem(store, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
   return result;

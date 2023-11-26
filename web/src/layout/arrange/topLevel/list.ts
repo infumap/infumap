@@ -75,10 +75,10 @@ export const arrange_list = (store: StoreContextModel) => {
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
-      x: (LIST_PAGE_LIST_WIDTH_BL+1) * LINE_HEIGHT_PX,
-      y: LINE_HEIGHT_PX,
-      w: store.desktopMainAreaBoundsPx().w - ((LIST_PAGE_LIST_WIDTH_BL + 2) * LINE_HEIGHT_PX),
-      h: store.desktopMainAreaBoundsPx().h - (2 * LINE_HEIGHT_PX)
+      x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX,
+      y: 0,
+      w: store.desktopMainAreaBoundsPx().w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX),
+      h: store.desktopMainAreaBoundsPx().h
     };
     topLevelVisualElementSpec.children.push(
       arrangeSelectedListItem(store, selectedVeid, boundsPx, currentPath, true, true));
