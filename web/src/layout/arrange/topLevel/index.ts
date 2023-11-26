@@ -85,18 +85,15 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       if (trashHeightPx < 0) { trashHeightPx = 0; }
     }
 
-    const dockHeightPx = trashHeightPx + yCurrentPx + GAP_PX;
-    const yProp = dockHeightPx / store.desktopBoundsPx().h;
-    const yProp2 = 0.5 - (0.12 - 0.12 * yProp); // looks more aesthetic if positioned slightly above center.
     const dockBoundsPx = {
-      x: store.desktopBoundsPx().w - (store.overlay.dockWidthPx.get() + 3),
-      y: store.desktopBoundsPx().h * yProp2 - dockHeightPx / 2,
+      x: 0, y: 0,
       w: store.overlay.dockWidthPx.get(),
-      h: dockHeightPx,
-    }
+      h: store.desktopBoundsPx().h
+    };
 
     const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
     resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
+    resizeBoundsPx.x = store.overlay.dockWidthPx.get() - RESIZE_BOX_SIZE_PX;
 
     const dockVisualElementSpec = {
       displayItem: dockPage,

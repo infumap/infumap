@@ -193,7 +193,7 @@ function changeMouseActionStateMaybe(
 
 function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   const startPx = MouseActionState.get().startDockWidthPx!;
-  let newDockWidthPx = startPx - deltaPx.x;
+  let newDockWidthPx = startPx + deltaPx.x;
   if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
   if (newDockWidthPx > 300) { newDockWidthPx = 300; }
   store.overlay.dockWidthPx.set(newDockWidthPx);

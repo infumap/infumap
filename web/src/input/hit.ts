@@ -23,7 +23,7 @@ import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
+import { Vector, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
@@ -45,6 +45,9 @@ export function getHitInfo(
     posOnDesktopPx: Vector,
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
+
+  const posOnMainDesktopPx = cloneVector(posOnDesktopPx)!;
+  posOnMainDesktopPx.x = posOnMainDesktopPx.x - store.overlay.dockWidthPx.get();
 
   const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
   const topLevelVeid = store.history.currentPage()!;

@@ -118,7 +118,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderAsDock = () => {
     return (
       <div class={`fixed border bg-gray-300 rounded-sm shadow-xl shadow-slate-500 align-middle text-center`}
-           style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w + 20}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#f9fbfd")}; ` +
                   `font-size: 16px;`}>
         <For each={props.visualElement.children}>{childVe =>
@@ -596,7 +596,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
                     `height: ${childAreaBoundsPx().h}px;`}>
-          {/* {renderPageTitle()} */}
           <For each={props.visualElement.children}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
