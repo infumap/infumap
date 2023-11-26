@@ -207,10 +207,12 @@ function determineRoot(
     const newRootVesMaybe = topLevelVisualElement.selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
 
-    if (isInside(posRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
+    if (isInside(posRelativeToRootVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = newRootVesMaybe;
       rootVisualElement = newRootVeMaybe;
-      posRelativeToRootVisualElementPx = vectorSubtract(posRelativeToTopLevelVisualElementPx, { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
+      posRelativeToRootVisualElementPx = vectorSubtract(
+        posRelativeToRootVisualElementPx,
+        { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
       let hitboxType = HitboxFlags.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
