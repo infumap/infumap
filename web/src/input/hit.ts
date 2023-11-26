@@ -46,9 +46,6 @@ export function getHitInfo(
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean): HitInfo {
 
-  const posOnMainDesktopPx = cloneVector(posOnDesktopPx)!;
-  posOnMainDesktopPx.x = posOnMainDesktopPx.x - store.overlay.dockWidthPx.get();
-
   const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
   const topLevelVeid = store.history.currentPage()!;
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
@@ -68,6 +65,8 @@ export function getHitInfo(
   for (let i=rootVisualElement.children.length-1; i>=0; --i) {
     const childVisualElementSignal = rootVisualElement.children[i];
     const childVisualElement = childVisualElementSignal.get();
+
+    if (childVisualElement.flags & VisualElementFlags.IsDock) { continue; }
 
     // attachments take precedence.
     if (!ignoreAttachments) {
@@ -158,6 +157,12 @@ function determineRoot(
 
   const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
   if (dockRootMaybe != null) { return dockRootMaybe!; }
+
+  posOnDesktopPx = cloneVector(posOnDesktopPx)!;
+  posOnDesktopPx.x = posOnDesktopPx.x - store.overlay.dockWidthPx.get();
+
+  posRelativeToRootVisualElementPx = cloneVector(posRelativeToRootVisualElementPx)!;
+  posRelativeToRootVisualElementPx.x = posRelativeToRootVisualElementPx.x - store.overlay.dockWidthPx.get();
 
   // The visual element of the popup or selected list item, if there is one, is always the last of the children.
   const newRootVesMaybe = topLevelVisualElement.children[topLevelVisualElement.children.length-1];
