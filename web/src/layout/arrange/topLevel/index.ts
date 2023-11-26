@@ -31,14 +31,16 @@ import { VeFns, VisualElementFlags, VisualElementPath } from "../../visual-eleme
 import { arrangeItem } from "../item";
 
 
-export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath, pageChildren: Array<VisualElementSignal>) => {
+export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath): VisualElementSignal | null => {
 
   if (store.user.getUserMaybe() == null) {
-    return;
+    return null;
   }
 
   if (itemState.get(store.user.getUser().briefcasePageId) == null) {
     initiateLoadItemMaybe(store, store.user.getUser().briefcasePageId);
+    return null;
+
   } else {
     const dockPageId = store.user.getUser().briefcasePageId;
     initiateLoadChildItemsMaybe(store, { itemId: dockPageId, linkIdMaybe: null });
@@ -105,7 +107,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx),
       ],
       parentPath,
-      children: dockChildren,
+      childrenVes: dockChildren,
     };
 
     if (itemState.get(store.user.getUser().trashPageId) == null) {
@@ -138,6 +140,6 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       }
     }
 
-    pageChildren.push(VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath));
+    return VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath);
   }
 }

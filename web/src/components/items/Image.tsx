@@ -165,7 +165,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                 `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
                 `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
-        <For each={props.visualElement.attachments}>{attachment =>
+        <For each={props.visualElement.attachmentsVes}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>

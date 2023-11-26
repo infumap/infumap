@@ -51,7 +51,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                 `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}`}>
-      <For each={props.visualElement.children}>{childVe =>
+      <For each={props.visualElement.childrenVes}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
       <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>

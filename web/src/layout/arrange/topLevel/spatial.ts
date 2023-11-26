@@ -65,10 +65,10 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     childAreaBoundsPx: pageBoundsPx,
   };
 
-  const children = [];
+  const childrenVes = [];
   for (let i=0; i<pageItem.computed_children.length; ++i) {
     const childId = pageItem.computed_children[i];
-    children.push(arrangeItem_Spatial(
+    childrenVes.push(arrangeItem_Spatial(
       store,
       currentPath,
       itemState.get(childId)!,
@@ -80,7 +80,10 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
     ));
   }
 
-  renderDockMaybe(store, currentPath, children);
+  const dockVesMaybe = renderDockMaybe(store, currentPath);
+  if (dockVesMaybe) {
+    visualElementSpec.dockVes = dockVesMaybe;
+  }
 
   const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {
@@ -97,7 +100,7 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
         x: PageFns.getPopupPositionGr(pageItem).x - widthGr / 2.0,
         y: PageFns.getPopupPositionGr(pageItem).y - heightGr / 2.0
       };
-      children.push(
+      visualElementSpec.popupVes =
         arrangeItem_Spatial(
           store,
           currentPath,
@@ -107,17 +110,17 @@ export const arrange_spatialStretch = (store: StoreContextModel) => {
           true, // render children as full
           false, // parent is popup
           true // is popup
-        ));
+        );
     } else if (currentPopupSpec.type == PopupType.Attachment) {
       // Ves are created inline.
     } else if (currentPopupSpec.type == PopupType.Image) {
-      children.push(arrangeCellPopup(store));
+      visualElementSpec.popupVes = arrangeCellPopup(store);
     } else {
       panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
     }
   }
 
-  visualElementSpec.children = children;
+  visualElementSpec.childrenVes = childrenVes;
 
   VesCache.finalizeFullArrange(visualElementSpec, currentPath, store);
 }

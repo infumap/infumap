@@ -151,7 +151,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Match>
         </Switch>
       </div>
-      <For each={props.visualElement.attachments}>{attachment =>
+      <For each={props.visualElement.attachmentsVes}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>

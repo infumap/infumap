@@ -102,7 +102,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
              onclick={VisibleClickHandler}>
           <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
         </div>
-        <For each={props.visualElement.attachments}>{attachment =>
+        <For each={props.visualElement.attachmentsVes}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>

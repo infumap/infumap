@@ -155,8 +155,11 @@ export interface VisualElement {
    */
   displayItemFingerprint: string,
 
-  children: Array<VisualElementSignal>,
-  attachments: Array<VisualElementSignal>,
+  childrenVes: Array<VisualElementSignal>,
+  attachmentsVes: Array<VisualElementSignal>,
+  popupVes: VisualElementSignal | null,
+  selectedVes: VisualElementSignal | null,
+  dockVes: VisualElementSignal | null,
 
   mouseIsOver: BooleanSignal,
   mouseIsOverOpenPopup: BooleanSignal,
@@ -184,8 +187,13 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   col: null,
   row: null,
   hitboxes: [],
-  children: [],
-  attachments: [],
+
+  childrenVes: [],
+  attachmentsVes: [],
+  popupVes: null,
+  selectedVes: null,
+  dockVes: null,
+
   parentPath: null,
   evaluatedTitle: null,
 
@@ -217,8 +225,11 @@ export interface VisualElementSpec {
   row?: number,
   hitboxes?: Array<Hitbox>,
   parentPath?: VisualElementPath,
-  children?: Array<VisualElementSignal>,
-  attachments?: Array<VisualElementSignal>,
+  childrenVes?: Array<VisualElementSignal>,
+  attachmentsVes?: Array<VisualElementSignal>,
+  popupVes?: VisualElementSignal,
+  selectedVes?: VisualElementSignal,
+  dockVes?: VisualElementSignal,
 }
 
 
@@ -239,8 +250,12 @@ export const VeFns = {
       col: null,
       row: null,
       hitboxes: [],
-      children: [],
-      attachments: [],
+      childrenVes: [],
+      attachmentsVes: [],
+      popupVes: null,
+      selectedVes: null,
+      dockVes: null,
+
       parentPath: null,
       evaluatedTitle: null,
 
@@ -268,8 +283,11 @@ export const VeFns = {
     if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
     if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
     if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
-    if (typeof(override.children) != 'undefined') { result.children = override.children; }
-    if (typeof(override.attachments) != 'undefined') { result.attachments = override.attachments; }
+    if (typeof(override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
+    if (typeof(override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
+    if (typeof(override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
+    if (typeof(override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
+    if (typeof(override.dockVes) != 'undefined') { result.dockVes = override.dockVes; }
 
     if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
       console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
@@ -481,10 +499,10 @@ function printRecursive(visualElement: VisualElement, level: number, relationshi
   let indent = "";
   for (let i=0; i<level; ++i) { indent += "-"; }
   console.log(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
-  for (let i=0; i<visualElement.children.length; ++i) {
-    printRecursive(visualElement.children[i].get(), level + 1, "c");
+  for (let i=0; i<visualElement.childrenVes.length; ++i) {
+    printRecursive(visualElement.childrenVes[i].get(), level + 1, "c");
   }
-  for (let i=0; i<visualElement.attachments.length; ++i) {
-    printRecursive(visualElement.attachments[i].get(), level + 1, "a");
+  for (let i=0; i<visualElement.attachmentsVes.length; ++i) {
+    printRecursive(visualElement.attachmentsVes[i].get(), level + 1, "a");
   }
 }

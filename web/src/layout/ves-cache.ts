@@ -241,7 +241,7 @@ function createOrRecycleVisualElementSignalImpl (
           } else {
             if (debug) { console.debug("boundsPx didn't change."); }
           }
-        } else if (newProps[i] == "children" || newProps[i] == "attachments") {
+        } else if (newProps[i] == "childrenVes" || newProps[i] == "attachmentsVes") {
           // TODO (MEDIUM): better reconciliation.
           if (compareVesArrays(oldVal, newVal) != 0) {
             if (debug) { console.debug("visual element property changed: ", newProps[i]); }

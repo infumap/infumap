@@ -135,7 +135,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />
         </Show>
-        <For each={props.visualElement.attachments}>{attachmentVe =>
+        <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
@@ -232,7 +232,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   });
 
   const drawVisibleItems = () => {
-    const children = props.visualElement.children;
+    const children = props.visualElement.childrenVes;
     const visibleChildrenIds = [];
     const yScrollProp = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
     const firstItemIdx = Math.floor(yScrollProp);
@@ -247,7 +247,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
       return (
         <>
           <VisualElement_LineItem visualElement={child.get()} />
-          <For each={child.get().attachments}>{attachment =>
+          <For each={child.get().attachmentsVes}>{attachment =>
             <VisualElement_LineItem visualElement={attachment.get()} />
           }</For>
         </>

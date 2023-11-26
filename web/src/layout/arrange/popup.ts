@@ -77,7 +77,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     };
 
     const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(item, li), currentPath);
-    itemVisualElement.attachments = arrangeItemAttachments(store, item, li, geometry.boundsPx, itemPath);
+    itemVisualElement.attachmentsVes = arrangeItemAttachments(store, item, li, geometry.boundsPx, itemPath);
     return VesCache.createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
   }
 }

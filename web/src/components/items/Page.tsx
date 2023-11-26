@@ -95,8 +95,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath();
   const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
 
-  const lineVes = () => props.visualElement.children.filter(c => c.get().flags & VisualElementFlags.LineItem);
-  const desktopVes = () => props.visualElement.children.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
+  const lineVes = () => props.visualElement.childrenVes.filter(c => c.get().flags & VisualElementFlags.LineItem);
+  const desktopVes = () => props.visualElement.childrenVes.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
 
   const calcTitleInBoxScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -120,10 +120,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div class={`fixed border bg-gray-300 rounded-sm align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#f9fbfd")}; `}>
-        <For each={props.visualElement.children}>{childVe =>
+        <For each={props.visualElement.childrenVes}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
-        <Show when={props.visualElement.children.length == 0}>
+        <Show when={props.visualElement.childrenVes.length == 0}>
           <div class="absolute text-slate-400"
                style={`left: ${boundsPx().w/2-5}px; top: ${boundsPx().h / 2}px; ` +
                       `font-size: ${10}px;`}>
@@ -210,7 +210,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           {renderMovingOverMaybe()}
           {renderMovingOverAttachMaybe()}
           {renderPopupSelectedOverlayMaybe()}
-          <For each={props.visualElement.attachments}>{attachmentVe =>
+          <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           {renderIsLinkMaybe()}
@@ -299,7 +299,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="absolute"
              style={`left: ${0}px; top: ${0}px; ` +
                     `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-          <For each={props.visualElement.children}>{childVe =>
+          <For each={props.visualElement.childrenVes}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
         </div>
@@ -373,7 +373,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           {renderMovingOverMaybe()}
           {renderMovingOverAttachMaybe()}
           {renderPopupSelectedOverlayMaybe()}
-          <For each={props.visualElement.attachments}>{attachmentVe =>
+          <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           {renderIsLinkMaybe()}
@@ -481,7 +481,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `top: ${0}px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
                     `height: ${childAreaBoundsPx().h}px;`}>
-          <For each={props.visualElement.children}>{childVe =>
+          <For each={props.visualElement.childrenVes}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
         </div>
@@ -559,9 +559,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }</For>
           </div>
         </div>
+        <Show when={props.visualElement.dockVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
+        </Show>
         <For each={desktopVes()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
+        <Show when={props.visualElement.selectedVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+        </Show>
+        <Show when={props.visualElement.popupVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+        </Show>
       </div>;
 
     const rootScrollHandler = (_ev: Event) => {
@@ -597,9 +606,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
                     `height: ${childAreaBoundsPx().h}px;`}>
-          <For each={props.visualElement.children}>{childVe =>
-            <VisualElement_Desktop visualElement={childVe.get()} />
+          <Show when={props.visualElement.dockVes != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
+          </Show>
+          <For each={props.visualElement.childrenVes}>{childVes =>
+            <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
+          <Show when={props.visualElement.popupVes != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+          </Show>
         </div>
       </div>;
 

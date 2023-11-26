@@ -76,7 +76,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
     childAreaBoundsPx: boundsPx,
   };
 
-  const children = [];
+  const childrenVes = [];
 
   let idx = 0;
   for (let i=0; i<currentPage.computed_children.length; ++i) {
@@ -99,7 +99,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
     } else {
       const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false);
       const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false, false, false);
-      children.push(ves);
+      childrenVes.push(ves);
     }
   }
 
@@ -116,25 +116,28 @@ export const arrange_grid = (store: StoreContextModel): void => {
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
     const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false, false, false, false);
     const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false, false, false);
-    children.push(ves);
+    childrenVes.push(ves);
   }
 
-  renderDockMaybe(store, currentPath, children);
+  const dockVesMaybe = renderDockMaybe(store, currentPath);
+  if (dockVesMaybe) {
+    topLevelVisualElementSpec.dockVes = dockVesMaybe;
+  }
 
   const currentPopupSpec = store.history.currentPopupSpec();
   if (currentPopupSpec != null) {
     if (currentPopupSpec.type == PopupType.Page) {
-      children.push(arrangeCellPopup(store));
+      topLevelVisualElementSpec.popupVes = arrangeCellPopup(store);
     } else if (currentPopupSpec.type == PopupType.Attachment) {
       // Ves are created inline.
     } else if (currentPopupSpec.type == PopupType.Image) {
-      children.push(arrangeCellPopup(store));
+      topLevelVisualElementSpec.popupVes = arrangeCellPopup(store);
     } else {
       panic(`arrange_grid: unknown popup type: ${currentPopupSpec.type}.`);
     }
   }
 
-  topLevelVisualElementSpec.children = children;
+  topLevelVisualElementSpec.childrenVes = childrenVes;
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, store);
 }

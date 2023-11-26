@@ -186,7 +186,7 @@ const arrangePageWithChildren = (
       parentPath,
     };
 
-    const children = [];
+    const childrenVes = [];
     let idx = 0;
     for (let i=0; i<pageItem.computed_children.length; ++i) {
       const item = itemState.get(pageItem.computed_children[i])!;
@@ -206,7 +206,7 @@ const arrangePageWithChildren = (
       let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false);
       const renderChildrenAsFull = isPagePopup || isRoot;
       const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
-      children.push(ves);
+      childrenVes.push(ves);
     }
 
     if (movingItemInThisPage) {
@@ -244,10 +244,10 @@ const arrangePageWithChildren = (
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
       const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false);
       const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
-      children.push(ves);
+      childrenVes.push(ves);
     }
 
-    pageWithChildrenVisualElementSpec.children = children;
+    pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
 
   // *** SPATIAL_STRETCH ***
@@ -270,7 +270,7 @@ const arrangePageWithChildren = (
 
     const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
-    const children = [];
+    const childrenVes = [];
     for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
       const childId = displayItem_pageWithChildren.computed_children[i];
       const childItem = itemState.get(childId)!;
@@ -287,7 +287,7 @@ const arrangePageWithChildren = (
           emitHitboxes,
           childItemIsPopup,
           hasPendingChanges);
-        children.push(arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false, false, parentIsPopup));
+        childrenVes.push(arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false, false, parentIsPopup));
       } else {
         const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
@@ -299,10 +299,10 @@ const arrangePageWithChildren = (
           emitHitboxes,
           childItemIsPopup,
           hasPendingChanges);
-        children.push(arrangeItemNoChildren(store, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, false, isMoving, true));
+        childrenVes.push(arrangeItemNoChildren(store, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry, childItemIsPopup, false, isMoving, true));
       }
     }
-    pageWithChildrenVisualElementSpec.children = children;
+    pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
 
   // *** LIST VIEW ***
@@ -365,7 +365,7 @@ const arrangePageWithChildren = (
       const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
       listVeChildren.push(listItemVisualElementSignal);
     }
-    pageWithChildrenVisualElementSpec.children = listVeChildren;
+    pageWithChildrenVisualElementSpec.childrenVes = listVeChildren;
 
     if (selectedVeid != EMPTY_VEID) {
       const boundsPx = {
@@ -374,7 +374,7 @@ const arrangePageWithChildren = (
         w: outerBoundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
         h: outerBoundsPx.h - LINE_HEIGHT_PX * scale
       };
-      pageWithChildrenVisualElementSpec.children.push(
+      pageWithChildrenVisualElementSpec.childrenVes.push(
         arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
     }
 
@@ -404,7 +404,7 @@ const arrangePageWithChildren = (
   }
 
   const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
-  pageWithChildrenVisualElementSpec.attachments = attachments;
+  pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
@@ -476,13 +476,13 @@ const arrangeComposite = (
     };
 
     const attachments = arrangeItemAttachments(store, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, compositeVePath);
-    compositeChildVeSpec.attachments = attachments;
+    compositeChildVeSpec.attachmentsVes = attachments;
 
     const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
     const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
     compositeVeChildren.push(compositeChildVeSignal);
   }
-  compositeVisualElementSpec.children = compositeVeChildren;
+  compositeVisualElementSpec.childrenVes = compositeVeChildren;
 
   const compositeVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath);
 
@@ -605,7 +605,7 @@ const arrangeTable = (
         leftBl += displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
       }
 
-      tableChildVeSpec.attachments = tableItemVeAttachments;
+      tableChildVeSpec.attachmentsVes = tableItemVeAttachments;
     }
     const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
 
@@ -619,10 +619,10 @@ const arrangeTable = (
     tableVeChildren.push(tableItemVisualElementSignal);
   };
 
-  tableVisualElementSpec.children = tableVeChildren;
+  tableVisualElementSpec.childrenVes = tableVeChildren;
 
   const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
-  tableVisualElementSpec.attachments = attachments;
+  tableVisualElementSpec.attachmentsVes = attachments;
 
   const tableVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
 
@@ -657,7 +657,7 @@ const arrangeItemNoChildren = (
 
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
-  itemVisualElement.attachments = arrangeItemAttachments(store, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
+  itemVisualElement.attachmentsVes = arrangeItemAttachments(store, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
   const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 

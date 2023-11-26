@@ -71,7 +71,7 @@ export const arrange_list = (store: StoreContextModel) => {
     const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
   }
-  topLevelVisualElementSpec.children = listVeChildren;
+  topLevelVisualElementSpec.childrenVes = listVeChildren;
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
@@ -80,11 +80,13 @@ export const arrange_list = (store: StoreContextModel) => {
       w: store.desktopMainAreaBoundsPx().w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX),
       h: store.desktopMainAreaBoundsPx().h
     };
-    topLevelVisualElementSpec.children.push(
-      arrangeSelectedListItem(store, selectedVeid, boundsPx, currentPath, true, true));
+    topLevelVisualElementSpec.selectedVes = arrangeSelectedListItem(store, selectedVeid, boundsPx, currentPath, true, true);
   }
 
-  renderDockMaybe(store, currentPath, topLevelVisualElementSpec.children);
+  const dockVesMaybe = renderDockMaybe(store, currentPath);
+  if (dockVesMaybe) {
+    topLevelVisualElementSpec.dockVes = dockVesMaybe;
+  }
 
   // TODO (HIGH): render popup here.
 
