@@ -95,6 +95,9 @@ export function mouseUpHandler(store: StoreContextModel) {
     case MouseAction.ResizingDock:
       break;
 
+    case MouseAction.ResizingListPageColumn:
+      break;
+
     case MouseAction.Ambiguous:
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);

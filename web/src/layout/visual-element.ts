@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, Vector, Dimensions } from "../util/geometry";
+import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, Vector, Dimensions, cloneBoundingBox } from "../util/geometry";
 import { Hitbox } from "./hitbox";
 import { Item, EMPTY_ITEM } from "../items/base/item";
 import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
@@ -392,7 +392,9 @@ export const VeFns = {
 
   veBoundsRelativeToDestkopPx: (store: StoreContextModel, visualElement: VisualElement): BoundingBox => {
     let ve: VisualElement | null = visualElement;
-    assert(ve.parentPath != null, "veBoundsRelativeToTopLevelPagePx: not expecting top level page.");
+    if (ve.parentPath == null) {
+      return cloneBoundingBox(ve.boundsPx)!;
+    }
 
     let r = getBoundingBoxTopLeft(ve.boundsPx);
 

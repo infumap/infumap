@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { asPageItem } from "../../../items/page-item";
 import { StoreContextModel } from "../../../store/StoreProvider";
@@ -27,6 +27,7 @@ import { EMPTY_VEID, VeFns, VisualElementFlags, VisualElementSpec } from "../../
 import { arrangeSelectedListItem } from "../item";
 import { getVePropertiesForItem } from "../util";
 import { renderDockMaybe } from ".";
+import { HitboxFlags, HitboxFns } from "../../hitbox";
 
 
 export const arrange_list = (store: StoreContextModel) => {
@@ -35,13 +36,26 @@ export const arrange_list = (store: StoreContextModel) => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
+  const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
+
   const selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
   const topLevelPageBoundsPx  = store.desktopMainAreaBoundsPx();
+
+  let resizeBoundsPx = {
+    x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
+    y: 0,
+    w: RESIZE_BOX_SIZE_PX,
+    h: store.desktopMainAreaBoundsPx().h
+  }
+
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: topLevelPageBoundsPx,
     childAreaBoundsPx: topLevelPageBoundsPx,
+    hitboxes: [
+      HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx),
+    ]
   };
 
   const widthBl = LIST_PAGE_LIST_WIDTH_BL;
@@ -50,8 +64,6 @@ export const arrange_list = (store: StoreContextModel) => {
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childItem = itemState.get(currentPage.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-
-    const blockSizePx = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
     const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false);
 
@@ -65,7 +77,7 @@ export const arrange_list = (store: StoreContextModel) => {
       parentPath: currentPath,
       col: 0,
       row: idx,
-      blockSizePx: { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX },
+      blockSizePx,
     };
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), currentPath);
     const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);

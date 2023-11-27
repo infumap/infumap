@@ -18,11 +18,15 @@
 
 import { Veid, VisualElementPath } from "../layout/visual-element";
 import { InfuSignal, NumberSignal, createInfuSignal, createNumberSignal } from "../util/signals";
+import { Uid } from "../util/uid";
 
 
 export interface PerItemStoreContextModel {
   getSelectedListPageItem: (veid: Veid) => VisualElementPath,
   setSelectedListPageItem: (veid: Veid, path: VisualElementPath) => void,
+
+  getListPageColWidth: (itemId: Uid) => number,
+  setListPageColWidth: (itemId: Uid, width: number) => void,
 
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
@@ -43,6 +47,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, InfuSignal<VisualElementPath>>();
+  const listPageColWidths = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
@@ -112,6 +117,23 @@ export function makePerItemStore(): PerItemStoreContextModel {
     selectedItems.get(key)!.set(path);
   };
 
+  const getListPageColWidth = (itemId: Uid): number => {
+    const key = itemId;
+    if (!listPageColWidths.get(key)) {
+      listPageColWidths.set(key, createNumberSignal(0));
+    }
+    return listPageColWidths.get(key)!.get();
+  };
+
+  const setListPageColWidth = (itemId: Uid, col: number): void => {
+    const key = itemId;
+    if (!listPageColWidths.get(key)) {
+      listPageColWidths.set(key, createNumberSignal(col));
+      return;
+    }
+    listPageColWidths.get(key)!.set(col);
+  };
+
   function clear() {
     tableScrollPositions.clear();
     pageScrollXPxs.clear();
@@ -120,6 +142,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   }
 
   return ({
+    getListPageColWidth, setListPageColWidth,
     getSelectedListPageItem, setSelectedListPageItem,
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,

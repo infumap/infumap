@@ -62,6 +62,16 @@ export function getHitInfo(
     hitMaybe } = determineRoot(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx);
   if (hitMaybe) { return hitMaybe!; } // if a root hitbox was hit.
 
+  let hitboxType = HitboxFlags.None;
+  for (let i=0; i<rootVisualElement.hitboxes.length; ++i) {
+    if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[i].boundsPx)) {
+      hitboxType |= rootVisualElement.hitboxes[i].type;
+    }
+  }
+  if (hitboxType != HitboxFlags.None) {
+    return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null);
+  }
+
   for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
     const childVisualElementSignal = rootVisualElement.childrenVes[i];
     const childVisualElement = childVisualElementSignal.get();
@@ -219,6 +229,7 @@ function determineRoot(
           hitboxType |= rootVisualElement.hitboxes[j].type;
         }
       }
+
       if (hitboxType != HitboxFlags.None) {
         return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null) };
       }
@@ -228,10 +239,8 @@ function determineRoot(
   return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
 }
 
-function determineIfDockRoot(
-  topLevelVisualElement: VisualElement,
-  posOnDesktopPx: Vector
-): RootInfo | null {
+function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
+
   if (topLevelVisualElement.dockVes == null) {
     return null;
   }

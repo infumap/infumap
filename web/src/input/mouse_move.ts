@@ -20,7 +20,7 @@ import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, RESIZE_BOX_SIZE_PX } from "../const
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asPageItem, PageFns } from "../items/page-item";
+import { asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem } from "../items/table-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize } from "../util/geometry";
@@ -111,6 +111,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
     case MouseAction.ResizingDock:
       mouseAction_resizingDock(deltaPx, store);
       return;
+    case MouseAction.ResizingListPageColumn:
+      mouseAction_resizingListPageColumn(deltaPx, store);
+      return;
     default:
       panic("unknown mouse action.");
   }
@@ -155,6 +158,9 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
       MouseActionState.get().action = MouseAction.ResizingDock;
+    } else if (isPage(activeVisualElement.displayItem)) {
+      MouseActionState.get().startWidthBl = store.perItem.getListPageColWidth(activeVisualElement.displayItem.id);
+      MouseActionState.get().action = MouseAction.ResizingListPageColumn;
     } else {
       const colNum = MouseActionState.get().hitMeta!.colNum!;
       if (activeVisualElement.linkItemMaybe != null) {
@@ -188,6 +194,17 @@ function changeMouseActionStateMaybe(
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   }
+}
+
+
+function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContextModel) {
+  const startBl = MouseActionState.get().startWidthBl!;
+  // let newDockWidthPx = startPx + deltaPx.x;
+  // if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
+  // if (newDockWidthPx > 300) { newDockWidthPx = 300; }
+  // store.overlay.dockWidthPx.set(newDockWidthPx);
+  // arrange(store);
+  console.log("TODO: mouseAction_resizingListPageColumn");
 }
 
 
