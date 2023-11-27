@@ -28,7 +28,7 @@ use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{default_home_page, default_trash_page, default_briefcase_page};
+use crate::storage::db::item::{default_home_page, default_trash_page, default_dock_page};
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::util::geometry::Dimensions;
@@ -78,8 +78,8 @@ pub struct LoginResponse {
   pub home_page_id: Option<String>,
   #[serde(rename="trashPageId")]
   pub trash_page_id: Option<String>,
-  #[serde(rename="briefcasePageId")]
-  pub briefcase_page_id: Option<String>,
+  #[serde(rename="dockPageId")]
+  pub dock_page_id: Option<String>,
   #[serde(rename="hasTotp")]
   pub has_totp: bool,
 }
@@ -91,7 +91,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
     // TODO (LOW): rate limit login requests properly.
     sleep(Duration::from_millis(250)).await;
     return json_response(&LoginResponse {
-      success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, briefcase_page_id: None, has_totp: false,
+      success: false, session_id: None, user_id: None, home_page_id: None, trash_page_id: None, dock_page_id: None, has_totp: false,
       err: Some(String::from(msg))
     });
   }
@@ -151,7 +151,7 @@ pub async fn login(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
         user_id: Some(user.id),
         home_page_id: Some(user.home_page_id),
         trash_page_id: Some(user.trash_page_id),
-        briefcase_page_id: Some(user.briefcase_page_id),
+        dock_page_id: Some(user.dock_page_id),
         has_totp: user.totp_secret.is_some(),
         err: None
       };
@@ -276,7 +276,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
   let user_id = new_uid();
   let home_page_id = new_uid();
   let trash_page_id = new_uid();
-  let briefcase_page_id = new_uid();
+  let dock_page_id = new_uid();
   let password_salt = new_uid();
 
   let user = User {
@@ -287,7 +287,7 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
     totp_secret: payload.totp_secret.clone(),
     home_page_id: home_page_id.clone(),
     trash_page_id: trash_page_id.clone(),
-    briefcase_page_id: briefcase_page_id.clone(),
+    dock_page_id: dock_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
     object_encryption_key: generate_key()
@@ -316,9 +316,9 @@ pub async fn register(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) 
       error!("Error adding default trash page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let briefcase_page = default_briefcase_page(user_id.as_str(), briefcase_page_id, natural_aspect);
-    if let Err(e) = db.item.add(briefcase_page).await {
-      error!("Error adding default briefcase page: {}", e);
+    let dock_page = default_dock_page(user_id.as_str(), dock_page_id, natural_aspect);
+    if let Err(e) = db.item.add(dock_page).await {
+      error!("Error adding default dock page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     info!("Created root user.");

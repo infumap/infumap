@@ -55,7 +55,7 @@ export function makeUserStore(): UserStoreContextModel {
         userId: r.userId,
         homePageId: r.homePageId,
         trashPageId: r.trashPageId,
-        briefcasePageId: r.briefcasePageId,
+        dockPageId: r.dockPageId,
         sessionId: r.sessionId,
         hasTotp: r.hasTotp,
       });

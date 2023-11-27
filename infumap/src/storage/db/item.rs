@@ -508,13 +508,13 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
 }
 
 
-pub fn default_briefcase_page(owner_id: &str, briefcase_page_id: Uid, natural_aspect: f64) -> Item {
+pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64) -> Item {
   let inner_spatial_width_br: i64 = 60;
   let inner_spatial_height_br: i64 = (inner_spatial_width_br as f64 / natural_aspect) as i64;
   Item {
     item_type: ItemType::Page,
     owner_id: String::from(owner_id),
-    id: briefcase_page_id,
+    id: dock_page_id,
     parent_id: None,
     relationship_to_parent: RelationshipToParent::NoParent,
     creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,

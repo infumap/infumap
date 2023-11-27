@@ -37,15 +37,15 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     return null;
   }
 
-  if (itemState.get(store.user.getUser().briefcasePageId) == null) {
-    initiateLoadItemMaybe(store, store.user.getUser().briefcasePageId);
+  if (itemState.get(store.user.getUser().dockPageId) == null) {
+    initiateLoadItemMaybe(store, store.user.getUser().dockPageId);
     return null;
 
   } else {
-    const dockPageId = store.user.getUser().briefcasePageId;
+    const dockPageId = store.user.getUser().dockPageId;
     initiateLoadChildItemsMaybe(store, { itemId: dockPageId, linkIdMaybe: null });
 
-    const dockPage = asPageItem(itemState.get(store.user.getUser().briefcasePageId)!);
+    const dockPage = asPageItem(itemState.get(store.user.getUser().dockPageId)!);
     const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
     let movingItem = null;

@@ -50,7 +50,7 @@ export type User = {
   userId: Uid,
   homePageId: Uid,
   trashPageId: Uid,
-  briefcasePageId: Uid,
+  dockPageId: Uid,
   sessionId: Uid,
   hasTotp: boolean,
 }

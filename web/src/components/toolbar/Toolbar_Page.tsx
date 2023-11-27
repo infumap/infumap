@@ -102,7 +102,7 @@ export const Toolbar_Page: Component = () => {
   const showMakePublicButton = () => {
     if (alwaysFalseSignal.get()) { panic("unexpected state"); }
     if (store.user.getUserMaybe() == null) { return false; }
-    return (pageItem().id != store.user.getUser().trashPageId && pageItem().id != store.user.getUser().briefcasePageId);
+    return (pageItem().id != store.user.getUser().trashPageId && pageItem().id != store.user.getUser().dockPageId);
   }
 
   const colorNumber = () => {
