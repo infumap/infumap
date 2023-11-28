@@ -65,7 +65,7 @@ export const Toolbar: Component = () => {
   };
 
   return (
-    <div class="fixed right-0 top-0"
+    <div class="fixed right-0 top-0 border-b border-slate-300"
          style={`background-color: #f9fbfd; ` +
                 `left: ${LEFT_TOOLBAR_WIDTH_PX}px; ` +
                 `height: ${TOP_TOOLBAR_HEIGHT_PX}px; ${LEFT_TOOLBAR_WIDTH_PX}px; `}>

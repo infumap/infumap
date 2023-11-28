@@ -53,7 +53,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
     }
 
-    const GAP_PX = 6;
+    const GAP_PX = 8;
 
     let yCurrentPx = 0;
     const dockChildren = [];

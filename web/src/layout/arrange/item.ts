@@ -692,18 +692,15 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
 
   const geometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false);
   if (isPage(item)) {
-    const page = asPageItem(item);
-    if (page.arrangeAlgorithm == ArrangeAlgorithm.Grid || page.arrangeAlgorithm == ArrangeAlgorithm.List) {
-      geometry.boundsPx = boundsPx;
-      geometry.hitboxes = [];
-      if (isExpandable) {
-        geometry.hitboxes = [
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: boundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
-          HitboxFns.create(HitboxFlags.Expand, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-        ];
-      }
+    geometry.boundsPx = boundsPx;
+    geometry.hitboxes = [];
+    if (isExpandable) {
+      geometry.hitboxes = [
+        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
+        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: boundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
+        HitboxFns.create(HitboxFlags.Expand, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      ];
     }
   }
 

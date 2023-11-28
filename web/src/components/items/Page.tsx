@@ -117,9 +117,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderAsDock = () => {
     return (
-      <div class={`fixed border bg-gray-300 rounded-sm align-middle text-center`}
+      <div class={`fixed border-r border-slate-300 rounded-sm align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#f9fbfd")}; `}>
+                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; `}>
         <For each={props.visualElement.childrenVes}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
@@ -139,7 +139,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
 
     return (
-      <div class={`absolute border border-slate-700 rounded-sm shadow-lg align-middle text-center`}
+      <div class={`absolute rounded-sm shadow-lg align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
                   `font-size: ${trashFontSizePx()}px;`}>
@@ -522,17 +522,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   // ## Full or Root
 
   const renderAsFullOrRoot = () => {
-    const shadowColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.3)}; `;
-
-    const renderShadowMaybe = () =>
-      <Show when={props.visualElement.flags & VisualElementFlags.Root}>
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-             style={`left: ${boundsPx().x-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
-                    `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
-                    `width: ${boundsPx().w+20}px; ` +
-                    `height: ${boundsPx().h+20}px; ` +
-                    `background-color: ${shadowColor()};`} />
-      </Show>;
 
     const renderIsPublicBorder = () =>
       <Show when={isPublic() && store.user.getUserMaybe() != null}>
@@ -546,7 +535,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
-             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
+             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
              style={`overflow-y: auto; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
                     `height: ${boundsPx().h}px; ` +
@@ -594,7 +583,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderPage = () =>
       <div ref={rootDiv}
            id={'rootPageDiv'}
-           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border rounded-sm`}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
                   `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -620,8 +609,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     return (
       <>
-        {renderShadowMaybe()}
-        <div class={`absolute bg-gray-300 ${(props.visualElement.flags & VisualElementFlags.Root) ? "border border-slate-700" : ""}`}
+        <div class={`absolute`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: #ffffff;`}>
           <Switch>
