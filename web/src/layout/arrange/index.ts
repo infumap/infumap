@@ -27,6 +27,7 @@ import { arrange_grid } from "./topLevel/grid";
 import { arrange_list } from "./topLevel/list";
 import { arrange_spatialStretch } from "./topLevel/spatial";
 import { evaluateExpressions } from "../../expression/evaluate";
+import { arrange_justified } from "./topLevel/justified";
 
 
 /**
@@ -59,11 +60,14 @@ export const arrange = (store: StoreContextModel): void => {
   initiateLoadChildItemsMaybe(store, store.history.currentPage()!);
 
   switch (asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm) {
+    case ArrangeAlgorithm.SpatialStretch:
+      arrange_spatialStretch(store);
+      break;
     case ArrangeAlgorithm.Grid:
       arrange_grid(store);
       break;
-    case ArrangeAlgorithm.SpatialStretch:
-      arrange_spatialStretch(store);
+    case ArrangeAlgorithm.Justified:
+      arrange_justified(store);
       break;
     case ArrangeAlgorithm.List:
       arrange_list(store);

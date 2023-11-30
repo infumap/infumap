@@ -311,5 +311,7 @@ export function isLink(item: ItemTypeMixin | null): boolean {
 
 export function asLinkItem(item: ItemTypeMixin): LinkItem {
   if (item.itemType == ItemType.Link) { return item as LinkItem; }
-  panic("not link item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a link.`);
 }

@@ -47,6 +47,7 @@ import { PopupType } from '../store/StoreProvider_History';
 export const ArrangeAlgorithm = {
   SpatialStretch: "spatial-stretch",
   Grid: "grid",
+  Justified: "justified",
   List: "list",
   Document: "document",
   Dock: "dock",
@@ -530,5 +531,7 @@ export function isPage(item: ItemTypeMixin | null): boolean {
 
 export function asPageItem(item: ItemTypeMixin): PageItem {
   if (item.itemType == ItemType.Page) { return item as PageItem; }
-  panic("not page item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a page.`);
 }

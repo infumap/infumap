@@ -226,5 +226,7 @@ export function isFile(item: ItemTypeMixin | null): boolean {
 
 export function asFileItem(item: ItemTypeMixin): FileItem {
   if (item.itemType == ItemType.File) { return item as FileItem; }
-  panic("not file item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a file.`);
 }

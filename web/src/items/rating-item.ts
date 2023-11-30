@@ -229,5 +229,7 @@ export function isRating(item: ItemTypeMixin | null): boolean {
 
 export function asRatingItem(item: ItemTypeMixin): RatingItem {
   if (item.itemType == ItemType.Rating) { return item as RatingItem; }
-  panic("not rating item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a rating.`);
 }

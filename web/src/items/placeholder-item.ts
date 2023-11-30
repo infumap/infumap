@@ -135,5 +135,7 @@ export function isPlaceholder(item: ItemTypeMixin | null): boolean {
 
 export function asPlaceholderItem(item: ItemTypeMixin): PlaceholderItem {
   if (item.itemType == ItemType.Placeholder) { return item as PlaceholderItem; }
-  panic("not placeholder item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a placeholder.`);
 }

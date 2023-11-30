@@ -48,7 +48,8 @@ export const Toolbar_Page: Component = () => {
   const handleChangeAlgorithm = () => {
     let newAA;
     if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) { newAA = ArrangeAlgorithm.Grid; }
-    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) { newAA = ArrangeAlgorithm.List; }
+    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) { newAA = ArrangeAlgorithm.Justified; }
+    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) { newAA = ArrangeAlgorithm.List; }
     else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) { newAA = ArrangeAlgorithm.Document; }
     else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) { newAA = ArrangeAlgorithm.SpatialStretch; }
     else { panic("unexpected arrange algorithm " + pageItem().arrangeAlgorithm); }
@@ -70,6 +71,7 @@ export const Toolbar_Page: Component = () => {
     if (aa == ArrangeAlgorithm.Document) { return "document"; }
     if (aa == ArrangeAlgorithm.Grid) { return "grid"; }
     if (aa == ArrangeAlgorithm.List) { return "list"; }
+    if (aa == ArrangeAlgorithm.Justified) { return "justified"; }
     panic("unexpected arrange algorithm " + aa);
   }
 

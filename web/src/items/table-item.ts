@@ -406,5 +406,7 @@ export function isTable(item: Item | ItemTypeMixin): boolean {
 
 export function asTableItem(item: ItemTypeMixin): TableItem {
   if (item.itemType == ItemType.Table) { return item as TableItem; }
-  panic("not table item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a table.`);
 }

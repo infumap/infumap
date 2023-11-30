@@ -230,5 +230,7 @@ export function isPassword(item: ItemTypeMixin | null): boolean {
 
 export function asPasswordItem(item: ItemTypeMixin): PasswordItem {
   if (item.itemType == ItemType.Password) { return item as PasswordItem; }
-  panic("not password item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a password.`);
 }

@@ -237,5 +237,7 @@ export function isImage(item: ItemTypeMixin | null): boolean {
 
 export function asImageItem(item: ItemTypeMixin): ImageItem {
   if (item.itemType == ItemType.Image) { return item as ImageItem; }
-  panic("not image item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not an image.`);
 }

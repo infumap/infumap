@@ -294,5 +294,7 @@ export function isNote(item: ItemTypeMixin | null): boolean {
 
 export function asNoteItem(item: ItemTypeMixin): NoteItem {
   if (item.itemType == ItemType.Note) { return item as NoteItem; }
-  panic("not note item.");
+  const item_any: any = item;
+  const id = item_any["id"] ? item_any["id"] : "[unknown]";
+  panic(`item (id: ${id}) is a '${item.itemType}', not a note.`);
 }
