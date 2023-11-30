@@ -58,6 +58,7 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   backgroundColorIndex: number;
   arrangeAlgorithm: string;
   gridNumberOfColumns: number;
+  docWidthBl: number;
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
@@ -74,6 +75,7 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   id: Uid;
   childrenLoaded: boolean;
   gridNumberOfColumns: number;
+  docWidthBl: number,
   computed_children: Array<Uid>;
 }
 
@@ -103,6 +105,7 @@ export const PageFns = {
       popupAlignmentPoint: "center",
       popupWidthGr: 10.0 * GRID_SIZE,
       gridNumberOfColumns: 6,
+      docWidthBl: 36,
 
       orderChildrenBy: "title[ASC]",
 
@@ -143,6 +146,7 @@ export const PageFns = {
       popupAlignmentPoint: o.popupAlignmentPoint,
       popupWidthGr: o.popupWidthGr,
       gridNumberOfColumns: o.gridNumberOfColumns,
+      docWidthBl: o.docWidthBl,
 
       orderChildrenBy: o.orderChildrenBy,
 
@@ -182,6 +186,7 @@ export const PageFns = {
       popupAlignmentPoint: p.popupAlignmentPoint,
       popupWidthGr: p.popupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
+      docWidthBl: p.docWidthBl,
 
       orderChildrenBy: p.orderChildrenBy,
 
@@ -457,6 +462,7 @@ export const PageFns = {
       innerSpatialWidthGr: page.innerSpatialWidthGr,
       arrangeAlgorithm: page.arrangeAlgorithm,
       gridNumberOfColumns: page.gridNumberOfColumns,
+      docWidthBl: page.docWidthBl,
       childrenLoaded: page.childrenLoaded,
       computed_children: page.computed_children,
     });

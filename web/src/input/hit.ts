@@ -427,7 +427,6 @@ function finalize(hitboxType: HitboxFlags, containerHitboxType: HitboxFlags, roo
   }
 
   if (isTable(overVe.displayItem)) {
-    // assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a table visual element that is not inside a table is not a page.");
     assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, "a page containing a table is not marked as having children visible.");
     return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: VesCache.get(overVe.parentPath!)!.get() };
   }
@@ -436,12 +435,11 @@ function finalize(hitboxType: HitboxFlags, containerHitboxType: HitboxFlags, roo
     return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe };
   }
 
-  if (overVe.flags & VisualElementFlags.InsideComposite) {
-    assert(isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem), "a visual element marked as inside a composite, is not in fact inside a composite.");
+  if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
     const parentCompositeVe = VesCache.get(overVe.parentPath!)!.get();
     const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
     assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
-    assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing table is not marked as having children visible.");
+    assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing composite is not marked as having children visible.");
     return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentCompositeVe, overPositionableVe: compositeParentPageVe };
   }
 

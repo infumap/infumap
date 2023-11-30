@@ -23,7 +23,7 @@ import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server } from "../../server";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { Vector, isInside, vectorSubtract } from "../../util/geometry";
@@ -40,6 +40,7 @@ import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_dow
 import { assert } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 import getCaretCoordinates from 'textarea-caret';
+import { asPageItem, isPage } from "../../items/page-item";
 
 
 // TODO (LOW): don't create items on the server until it is certain that they are needed.
@@ -96,9 +97,14 @@ export const NoteEditOverlay: Component = () => {
       return ({ w: widthBl, h: lineCount });
     }
 
-    if (noteVe.flags & VisualElementFlags.InsideComposite) {
+    if (noteVe.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(noteVisualElement().displayItem));
-      cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(VesCache.get(noteVisualElement().parentPath!)!.get())).spatialWidthGr;
+      const canonicalItem = VeFns.canonicalItem(VesCache.get(noteVisualElement().parentPath!)!.get());
+      if (isPage(canonicalItem)) {
+        cloned.spatialWidthGr = asPageItem(canonicalItem).docWidthBl * GRID_SIZE;
+      } else {
+        cloned.spatialWidthGr = asXSizableItem(canonicalItem).spatialWidthGr;
+      }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
 

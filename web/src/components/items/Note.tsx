@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -33,6 +33,7 @@ import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
+import { asPageItem, isPage } from "../../items/page-item";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -41,11 +42,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => {
-    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+    if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       const parentVe = VesCache.find(parentVeid)[0].get();
-      cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(parentVe)).spatialWidthGr;
+      const canonicalItem = VeFns.canonicalItem(parentVe);
+      if (isPage(canonicalItem)) {
+        cloned.spatialWidthGr = asPageItem(canonicalItem).docWidthBl * GRID_SIZE;
+      } else {
+        cloned.spatialWidthGr = asXSizableItem(canonicalItem).spatialWidthGr;
+      }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {
@@ -86,7 +92,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
 
   const outerClass = (shadow: boolean) => {
-    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+    if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm bg-white';
     } else {
       if ((noteItem().flags & NoteFlags.HideBorder)) {

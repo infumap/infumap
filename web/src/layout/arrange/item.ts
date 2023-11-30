@@ -461,7 +461,7 @@ const arrangeComposite = (
     const compositeChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
       linkItemMaybe: linkItemMaybe_childItem,
-      flags: VisualElementFlags.InsideComposite | VisualElementFlags.Detailed,
+      flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
       boundsPx: {
         x: geometry.boundsPx.x,
         y: geometry.boundsPx.y,

@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
-import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns} from "../../items/base/item-polymorphism";
@@ -28,6 +28,7 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
+import { asPageItem, isPage } from "../../items/page-item";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -50,9 +51,15 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     }
   };
   const sizeBl = () => {
-    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+    if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
-      cloned.spatialWidthGr = asXSizableItem(VeFns.canonicalItem(VesCache.get(props.visualElement.parentPath!)!.get())).spatialWidthGr;
+      const parentVe = VesCache.get(props.visualElement.parentPath!)!.get();
+      const canonicalItem = VeFns.canonicalItem(parentVe);
+      if (isPage(canonicalItem)) {
+        cloned.spatialWidthGr = asPageItem(canonicalItem).docWidthBl * GRID_SIZE;
+      } else {
+        cloned.spatialWidthGr = asXSizableItem(canonicalItem).spatialWidthGr;
+      }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
     if (props.visualElement.linkItemMaybe != null) {
@@ -77,7 +84,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
 
   const outerClass = () => {
-    if (props.visualElement.flags & VisualElementFlags.InsideComposite) {
+    if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm bg-white';
     } else {
       return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';

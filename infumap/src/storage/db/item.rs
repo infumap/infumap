@@ -285,7 +285,7 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 36] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 37] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -294,7 +294,7 @@ const ALL_JSON_FIELDS: [&'static str; 36] = ["__recordType",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "linkTo", "linkToBaseUrl", "gridNumberOfColumns", "orderChildrenBy",
-  "text", "flags", "permissionFlags", "format"];
+  "text", "flags", "permissionFlags", "format", "docWidthBl"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -353,6 +353,7 @@ pub struct Item {
   pub popup_alignment_point: Option<AlignmentPoint>,
   pub popup_width_gr: Option<i64>,
   pub grid_number_of_columns: Option<i64>,
+  pub doc_width_bl: Option<i64>,
 
   // note
   pub url: Option<String>,
@@ -409,6 +410,7 @@ impl Clone for Item {
       popup_alignment_point: self.popup_alignment_point.clone(),
       popup_width_gr: self.popup_width_gr.clone(),
       grid_number_of_columns: self.grid_number_of_columns.clone(),
+      doc_width_bl: self.doc_width_bl.clone(),
       url: self.url.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
@@ -452,6 +454,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
+    doc_width_bl: Some(36),
     url: None,
     format: None,
     table_columns: None,
@@ -495,6 +498,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
+    doc_width_bl: Some(36),
     url: None,
     format: None,
     table_columns: None,
@@ -538,6 +542,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(1),
+    doc_width_bl: Some(36),
     url: None,
     format: None,
     table_columns: None,
@@ -737,6 +742,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
       }
     }
+    if let Some(doc_width_bl) = new.doc_width_bl {
+      if match old.doc_width_bl { Some(o) => o != doc_width_bl, None => { true } } {
+        if old.item_type != ItemType::Page { cannot_modify_err("docWidthBl", &old.id)?; }
+        result.insert(String::from("docWidthBl"), Value::Number(doc_width_bl.into()));
+      }
+    }
 
     // note
     if let Some(new_url) = &new.url {
@@ -934,6 +945,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Page { not_applicable_err("gridNumberOfColumns", self.item_type, &self.id)?; }
       self.grid_number_of_columns = Some(v);
     }
+    if let Some(v) = json::get_integer_field(map, "docWidthBl")? {
+      if self.item_type != ItemType::Page { not_applicable_err("docWidthBl", self.item_type, &self.id)?; }
+      self.doc_width_bl = Some(v);
+    }
 
     // note
     if let Some(v) = json::get_string_field(map, "url")? {
@@ -1103,6 +1118,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(grid_number_of_columns) = item.grid_number_of_columns {
     if item.item_type != ItemType::Page { unexpected_field_err("gridNumberOfColumns", &item.id, item.item_type)? }
     result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
+  }
+  if let Some(doc_width_bl) = item.doc_width_bl {
+    if item.item_type != ItemType::Page { unexpected_field_err("docWidthBl", &item.id, item.item_type)? }
+    result.insert(String::from("docWidthBl"), Value::Number(doc_width_bl.into()));
   }
 
   // note
@@ -1303,6 +1322,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     grid_number_of_columns: match json::get_integer_field(map, "gridNumberOfColumns")? {
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("gridNumberOfColumns", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("gridNumberOfColumns", item_type, &id)) } else { Ok(None) } }
+    }?,
+    doc_width_bl: match json::get_integer_field(map, "docWidthBl")? {
+      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("docWidthBl", item_type, &id)) } },
+      None => { if item_type == ItemType::Page { Err(expected_for_err("docWidthBl", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // note

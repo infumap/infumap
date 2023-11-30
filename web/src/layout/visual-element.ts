@@ -74,7 +74,7 @@ export enum VisualElementFlags {
   Attachment           = 0x0100, // The visual element is an attachment.
   ShowChildren         = 0x0200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
   Fixed                = 0x0400, // positioning is fixed, not absolute.
-  InsideComposite      = 0x0800, // The visual element is inside a composite item.
+  InsideCompositeOrDoc = 0x0800, // The visual element is inside a composite item.
   ZAbove               = 0x1000, // Render above everything else (except moving).
   Moving               = 0x2000, // Render the visual element partially transparent and on top of everything else.
   IsDock               = 0x4000, // render the page as the dock.
@@ -92,7 +92,7 @@ function visualElementFlagsToString(visualElementFlags: VisualElementFlags): str
   if (visualElementFlags & VisualElementFlags.Attachment) { result += "Attachment "; }
   if (visualElementFlags & VisualElementFlags.ShowChildren) { result += "ShowChildren "; }
   if (visualElementFlags & VisualElementFlags.Fixed) { result += "Fixed "; }
-  if (visualElementFlags & VisualElementFlags.InsideComposite) { result += "InsideComposite "; }
+  if (visualElementFlags & VisualElementFlags.InsideCompositeOrDoc) { result += "InsideCompositeOrDoc "; }
   if (visualElementFlags & VisualElementFlags.ZAbove) { result += "ZAbove "; }
   if (visualElementFlags & VisualElementFlags.Moving) { result += "Moving "; }
   return result;
