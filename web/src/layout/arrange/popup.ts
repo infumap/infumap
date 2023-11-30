@@ -44,7 +44,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   li.id = POPUP_LINK_ID;
   li.spatialWidthGr = 1000;
   li.spatialPositionGr = { x: 0, y: 0, };
-  const desktopBoundsPx = store.desktopBoundsPx();
+  const desktopBoundsPx = store.desktopMainAreaBoundsPx();
   const cellBoundsPx = {
     x: desktopBoundsPx.w * 0.1,
     y: desktopBoundsPx.h * 0.07,

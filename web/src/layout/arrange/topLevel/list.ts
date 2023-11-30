@@ -28,6 +28,9 @@ import { arrangeSelectedListItem } from "../item";
 import { getVePropertiesForItem } from "../util";
 import { renderDockMaybe } from ".";
 import { HitboxFlags, HitboxFns } from "../../hitbox";
+import { PopupType } from "../../../store/StoreProvider_History";
+import { arrangeCellPopup } from "../popup";
+import { panic } from "../../../util/lang";
 
 
 export const arrange_list = (store: StoreContextModel) => {
@@ -100,7 +103,19 @@ export const arrange_list = (store: StoreContextModel) => {
     topLevelVisualElementSpec.dockVes = dockVesMaybe;
   }
 
-  // TODO (HIGH): render popup here.
+  const currentPopupSpec = store.history.currentPopupSpec();
+  if (currentPopupSpec != null) {
+    if (currentPopupSpec.type == PopupType.Page) {
+      topLevelVisualElementSpec.popupVes = arrangeCellPopup(store);
+    } else if (currentPopupSpec.type == PopupType.Attachment) {
+      // Ves are created inline.
+    } else if (currentPopupSpec.type == PopupType.Image) {
+      topLevelVisualElementSpec.popupVes = arrangeCellPopup(store);
+    } else {
+      panic(`arrange_grid: unknown popup type: ${currentPopupSpec.type}.`);
+    }
+  }
+
 
   VesCache.finalizeFullArrange(topLevelVisualElementSpec, currentPath, store);
 }
