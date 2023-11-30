@@ -398,6 +398,23 @@ const arrangePageWithChildren = (
     };
 
 
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+
+    pageWithChildrenVisualElementSpec = {
+      displayItem: displayItem_pageWithChildren,
+      linkItemMaybe: linkItemMaybe_pageWithChildren,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
+             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+      boundsPx: outerBoundsPx,
+      childAreaBoundsPx: geometry.boundsPx,
+      hitboxes,
+      parentPath,
+    };
+
   } else {
 
     panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
