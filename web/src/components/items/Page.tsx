@@ -17,7 +17,7 @@
 */
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LEFT_TOOLBAR_WIDTH_PX, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, HighlightColor, linearGradient } from "../../style";
@@ -604,7 +604,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <Show when={props.visualElement.popupVes != null}>
             <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
           </Show>
-          <Show when={asPageItem(VeFns.canonicalItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
+          <Show when={isPage(VeFns.canonicalItem(props.visualElement)) && asPageItem(VeFns.canonicalItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
             <>
               <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
               <div class="absolute" style={`left: ${(36 + 3) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
