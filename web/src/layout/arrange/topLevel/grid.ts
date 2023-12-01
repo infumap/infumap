@@ -94,13 +94,9 @@ export const arrange_grid = (store: StoreContextModel): void => {
       h: cellHPx - marginPx * 2.0
     };
 
-    if (movingItem != null && item.id == movingItem.id) {
-      // TODO (placeholder).
-    } else {
-      const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false);
-      const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false, false, false);
-      childrenVes.push(ves);
-    }
+    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false);
+    const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false, false, false);
+    childrenVes.push(ves);
   }
 
   if (movingItem) {
