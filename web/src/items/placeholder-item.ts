@@ -103,7 +103,7 @@ export const PlaceholderFns = {
     };
   },
 
-  calcGeometry_Cell: (_placeholder: PlaceholderMeasurable, _cellBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_InCell: (_placeholder: PlaceholderMeasurable, _cellBoundsPx: BoundingBox): ItemGeometry => {
     panic("PlaceholderFns.calcGeometry_Cell: not implemented.");
   },
 

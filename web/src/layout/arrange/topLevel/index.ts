@@ -64,7 +64,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       let wPx = store.overlay.dockWidthPx.get() - GAP_PX * 2;
       if (wPx < 0) { wPx = 0; }
       const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: store.overlay.dockWidthPx.get() };
-      const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false);
+      const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false);
 
       if (movingItem != null && childId == movingItem.id) {
         const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();

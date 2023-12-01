@@ -28,7 +28,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { server } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { arrange } from '../layout/arrange';
 import { ItemFns } from './base/item-polymorphism';
 
@@ -169,8 +169,9 @@ export const RatingFns = {
     };
   },
 
-  calcGeometry_Cell: (rating: RatingMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
-    const boundsPx = calcBoundsInCellFromSizeBl(RatingFns.calcSpatialDimensionsBl(rating), cellBoundsPx);
+  calcGeometry_InCell: (rating: RatingMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
+    const sizeBl = RatingFns.calcSpatialDimensionsBl(rating);
+    const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(cellBoundsPx)!,

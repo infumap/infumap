@@ -29,7 +29,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
-import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin } from './base/flags-item';
 import { VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
@@ -218,9 +218,9 @@ export const CompositeFns = {
     });
   },
 
-  calcGeometry_Cell: (composite: CompositeMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_InCell: (composite: CompositeMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
     const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
-    const boundsPx = calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
+    const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(boundsPx)!,

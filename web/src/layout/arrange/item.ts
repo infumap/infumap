@@ -203,7 +203,7 @@ const arrangePageWithChildren = (
         h: cellHPx - marginPx * 2.0
       };
 
-      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false);
+      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false, false);
       const renderChildrenAsFull = isPagePopup || isRoot;
       const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
       childrenVes.push(ves);
@@ -242,7 +242,7 @@ const arrangePageWithChildren = (
       };
       cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false);
+      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false, false);
       const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
       childrenVes.push(ves);
     }
@@ -707,7 +707,7 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false);
+  const geometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false);
   if (isPage(item)) {
     geometry.boundsPx = boundsPx;
     geometry.hitboxes = [];

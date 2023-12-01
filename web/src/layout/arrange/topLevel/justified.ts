@@ -61,7 +61,6 @@ export const arrange_justified = (store: StoreContextModel): void => {
   const numRows = Math.ceil((currentPage.computed_children.length + nItemAdj) / numCols);
   const cellWPx = pageBoundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
-  const marginPx = cellWPx * 0.01;
   const pageHeightPx = numRows * cellHPx;
   const boundsPx = (() => {
     const result = cloneBoundingBox(pageBoundsPx)!;
@@ -104,7 +103,7 @@ export const arrange_justified = (store: StoreContextModel): void => {
       h: layout.boxes[i].height
     };
 
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false);
+    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false, true);
     const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Justified, item, geometry, true, false, false, false, false);
     childrenVes.push(ves);
   }
@@ -139,7 +138,7 @@ export const arrange_justified = (store: StoreContextModel): void => {
 function justifyOptions(widthPx: number) {
   const options: JustifiedLayoutOptions = {
     containerWidth: widthPx,
-    containerPadding: 1,
+    containerPadding: 10,
     boxSpacing: 5,
     targetRowHeight: 200,
   };

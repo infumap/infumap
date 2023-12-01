@@ -186,7 +186,7 @@ export const ImageFns = {
     };
   },
 
-  calcGeometry_Cell: (image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+  calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
     const boundsPx = calcBoundsInCell(image.imageSizePx, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({

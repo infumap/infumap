@@ -32,7 +32,7 @@ import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
 import { PlaceholderFns } from "./placeholder-item";
@@ -269,8 +269,9 @@ export const TableFns = {
     };
   },
 
-  calcGeometry_Cell: (table: TableMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
-    const boundsPx = calcBoundsInCellFromSizeBl(TableFns.calcSpatialDimensionsBl(table), cellBoundsPx);
+  calcGeometry_InCell: (table: TableMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
+    const sizeBl =TableFns.calcSpatialDimensionsBl(table);
+    const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
       boundsPx: cloneBoundingBox(boundsPx)!,

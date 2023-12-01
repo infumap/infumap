@@ -350,7 +350,7 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_Cell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);

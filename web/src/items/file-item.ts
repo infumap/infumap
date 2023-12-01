@@ -29,7 +29,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { StoreContextModel } from '../store/StoreProvider';
 import { VisualElement } from '../layout/visual-element';
-import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { NoteFlags } from './base/flags-item';
@@ -174,8 +174,9 @@ export const FileFns = {
     };
   },
 
-  calcGeometry_Cell: (file: FileMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
-    const boundsPx = calcBoundsInCellFromSizeBl(FileFns.calcSpatialDimensionsBl(file), cellBoundsPx);
+  calcGeometry_InCell: (file: FileMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
+    const sizeBl = FileFns.calcSpatialDimensionsBl(file);
+    const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(boundsPx)!,

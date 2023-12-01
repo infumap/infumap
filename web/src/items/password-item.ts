@@ -28,7 +28,7 @@ import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
-import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 
 
@@ -183,8 +183,9 @@ export const PasswordFns = {
     };
   },
 
-  calcGeometry_Cell: (password: PasswordMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
-    const boundsPx = calcBoundsInCellFromSizeBl(PasswordFns.calcSpatialDimensionsBl(password), cellBoundsPx);
+  calcGeometry_InCell: (password: PasswordMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
+    const sizeBl = PasswordFns.calcSpatialDimensionsBl(password);
+    const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(cellBoundsPx)!,

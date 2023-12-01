@@ -94,7 +94,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
       h: cellHPx - marginPx * 2.0
     };
 
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false);
+    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false, false);
     const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, item, geometry, true, false, false, false, false);
     childrenVes.push(ves);
   }
@@ -110,7 +110,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
     };
     cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-    const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false, false, false, false);
+    const geometry = ItemFns.calcGeometry_InCell(movingItem, cellBoundsPx, false, false, false, false, false);
     const ves = arrangeItem(store, currentPath, ArrangeAlgorithm.Grid, movingItem, geometry, true, false, false, false, false);
     childrenVes.push(ves);
   }
