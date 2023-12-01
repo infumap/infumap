@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_PAGE_CELL_ASPECT } from "../../../constants";
 import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { MouseAction, MouseActionState } from "../../../input/state";
 import { StoreContextModel } from "../../../store/StoreProvider";
@@ -38,10 +37,6 @@ export const arrange_justified = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const pageBoundsPx = store.desktopMainAreaBoundsPx();
-
-  const numCols = currentPage.gridNumberOfColumns;
-
   let movingItem = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
     movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
@@ -58,25 +53,8 @@ export const arrange_justified = (store: StoreContextModel): void => {
     }
   }
 
-  const numRows = Math.ceil((currentPage.computed_children.length + nItemAdj) / numCols);
-  const cellWPx = pageBoundsPx.w / numCols;
-  const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
-  const pageHeightPx = numRows * cellHPx;
-  const boundsPx = (() => {
-    const result = cloneBoundingBox(pageBoundsPx)!;
-    result.h = pageHeightPx;
-    return result;
-  })();
-
-  const topLevelVisualElementSpec: VisualElementSpec = {
-    displayItem: currentPage,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: store.desktopMainAreaBoundsPx(),
-    childAreaBoundsPx: boundsPx,
-  };
-
   let dims = [];
-  let itms = [];
+  let items = [];
   for (let i=0; i<currentPage.computed_children.length; ++i) {
     const item = itemState.get(currentPage.computed_children[i])!;
     if (movingItem && item.id == movingItem!.id) {
@@ -84,18 +62,28 @@ export const arrange_justified = (store: StoreContextModel): void => {
     }
     let dimensions = ItemFns.calcSpatialDimensionsBl(item);
     dims.push({ width: dimensions.w, height: dimensions.h });
-    itms.push(item);
+    items.push(item);
   }
 
-  const layout = createJustifiedLayout(dims, justifyOptions(store.desktopMainAreaBoundsPx().w));
-  if (layout.boxes.length != itms.length) {
-    panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${itms.length}.`);
+  const layout = createJustifiedLayout(dims, standardJustifyOptions(store.desktopMainAreaBoundsPx().w));
+  if (layout.boxes.length != items.length) {
+    panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${items.length}.`);
   }
+
+  const childAreaBoundsPx = cloneBoundingBox(store.desktopMainAreaBoundsPx())!;
+  childAreaBoundsPx.h = layout.containerHeight;
+
+  const topLevelVisualElementSpec: VisualElementSpec = {
+    displayItem: currentPage,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
+    boundsPx: store.desktopMainAreaBoundsPx(),
+    childAreaBoundsPx,
+  };
 
   const childrenVes = [];
 
-  for (let i=0; i<itms.length; ++i) {
-    const item = itms[i];
+  for (let i=0; i<items.length; ++i) {
+    const item = items[i];
     const cellBoundsPx = {
       x: layout.boxes[i].left,
       y: layout.boxes[i].top,
@@ -135,7 +123,7 @@ export const arrange_justified = (store: StoreContextModel): void => {
 
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/justified-layout/index.d.ts
 
-function justifyOptions(widthPx: number) {
+export function standardJustifyOptions(widthPx: number) {
   const options: JustifiedLayoutOptions = {
     containerWidth: widthPx,
     containerPadding: 10,
