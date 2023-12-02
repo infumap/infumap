@@ -223,7 +223,7 @@ export const NoteEditOverlay: Component = () => {
   const keyDown_Down = (): void => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (!isComposite(parentVe.displayItem)) { return; }
+    if (!isComposite(parentVe.displayItem) && !(isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document)) { return; }
     const endCaretCoords = getCaretCoordinates(textElement!, textElement!.value.length);
     const caretCoords = getCaretCoordinates(textElement!, textElement!.selectionStart);
     if (caretCoords.top < endCaretCoords.top) { return; }
@@ -235,7 +235,7 @@ export const NoteEditOverlay: Component = () => {
   const keyDown_Up = (): void => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
-    if (!isComposite(parentVe.displayItem)) { return; }
+    if (!isComposite(parentVe.displayItem) && !(isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document)) { return; }
     const startCaretCoords = getCaretCoordinates(textElement!, 0);
     const caretCoords = getCaretCoordinates(textElement!, textElement!.selectionStart);
     if (caretCoords.top > startCaretCoords.top) { return; }
