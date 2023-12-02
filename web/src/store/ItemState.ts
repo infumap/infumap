@@ -175,7 +175,6 @@ export const itemState = {
     if (item.relationshipToParent == RelationshipToParent.Child) {
       const parentItem = itemState.getAsContainerItem(item.parentId)!;
       parentItem.computed_children = [...parentItem.computed_children, item.id];
-      console.log("sorting", parentItem.id);
       itemState.sortChildren(parentItem.id);
     } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
       const parentItem = itemState.getAsAttachmentsItem(item.parentId)!;

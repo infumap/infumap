@@ -248,48 +248,71 @@ export const NoteEditOverlay: Component = () => {
     if (store.user.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.user.getUser().userId) { return; }
     if (noteItem().title != "") { return; }
 
-    // maybe delete note item.
     const ve = noteVisualElement();
-    let compositeVe = VesCache.get(ve.parentPath!)!.get();
-    if (!isComposite(compositeVe.displayItem)) { return; }
-    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
-    if (closest == null) { return; }
+    let parentVe = VesCache.get(ve.parentPath!)!.get();
 
-    // definitely delete note item.
-    ev.preventDefault();
-    store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
-    const canonicalId = VeFns.canonicalItem(ve).id;
-    deleted = true;
-    itemState.delete(canonicalId);
-    await server.deleteItem(canonicalId);
-    arrange(store);
+    if (isPage(parentVe.displayItem) && (asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document)) {
+      // ## document page case
 
-    justCreatedCompositeItemMaybe = null;
-    justCreatedNoteItemMaybe = null;
+      const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+      if (closest == null) { return; }
 
-    // maybe delete composite item and move note to parent.
-    compositeVe = VesCache.get(ve.parentPath!)!.get();
-    assert(isComposite(compositeVe.displayItem), "parentVe is not a composite.");
-    const compositeItem = asCompositeItem(compositeVe.displayItem);
-    if (compositeItem.computed_children.length > 1) { return; }
-
-    // definitely delete composite item and move note to parent.
-    assert(compositeItem.computed_children.length == 1, "composite has other than one child.");
-    const keepNoteId = compositeItem.computed_children[0];
-    const keepNote = itemState.get(keepNoteId)!;
-    const canonicalCompositeItem = VeFns.canonicalItem(compositeVe);
-    const posGr = asPositionalItem(canonicalCompositeItem).spatialPositionGr;
-    const compositePageId = canonicalCompositeItem.parentId;
-    store.overlay.noteEditOverlayInfo.set(null);
-    setTimeout(() => {
-      itemState.moveToNewParent(keepNote, compositePageId, canonicalCompositeItem.relationshipToParent, canonicalCompositeItem.ordering);
-      asPositionalItem(keepNote).spatialPositionGr = posGr;
-      server.updateItem(keepNote);
-      itemState.delete(compositeVe.displayItem.id);
-      server.deleteItem(compositeVe.displayItem.id);
+      // definitely delete note item.
+      ev.preventDefault();
+      store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
+      const canonicalId = VeFns.canonicalItem(ve).id;
+      deleted = true;
+      itemState.delete(canonicalId);
+      await server.deleteItem(canonicalId);
       arrange(store);
-      store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!) });
-    }, 0);
+
+      justCreatedNoteItemMaybe = null;
+
+    } else {
+      // ## composite case
+
+      // maybe delete note item.
+      let compositeVe = parentVe;
+      if (!isComposite(compositeVe.displayItem)) { return; }
+      const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+      if (closest == null) { return; }
+
+      // definitely delete note item.
+      ev.preventDefault();
+      store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
+      const canonicalId = VeFns.canonicalItem(ve).id;
+      deleted = true;
+      itemState.delete(canonicalId);
+      await server.deleteItem(canonicalId);
+      arrange(store);
+
+      justCreatedCompositeItemMaybe = null;
+      justCreatedNoteItemMaybe = null;
+
+      // maybe delete composite item and move note to parent.
+      compositeVe = VesCache.get(ve.parentPath!)!.get();
+      assert(isComposite(compositeVe.displayItem), "parentVe is not a composite.");
+      const compositeItem = asCompositeItem(compositeVe.displayItem);
+      if (compositeItem.computed_children.length > 1) { return; }
+
+      // definitely delete composite item and move note to parent.
+      assert(compositeItem.computed_children.length == 1, "composite has other than one child.");
+      const keepNoteId = compositeItem.computed_children[0];
+      const keepNote = itemState.get(keepNoteId)!;
+      const canonicalCompositeItem = VeFns.canonicalItem(compositeVe);
+      const posGr = asPositionalItem(canonicalCompositeItem).spatialPositionGr;
+      const compositePageId = canonicalCompositeItem.parentId;
+      store.overlay.noteEditOverlayInfo.set(null);
+      setTimeout(() => {
+        itemState.moveToNewParent(keepNote, compositePageId, canonicalCompositeItem.relationshipToParent, canonicalCompositeItem.ordering);
+        asPositionalItem(keepNote).spatialPositionGr = posGr;
+        server.updateItem(keepNote);
+        itemState.delete(compositeVe.displayItem.id);
+        server.deleteItem(compositeVe.displayItem.id);
+        arrange(store);
+        store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!) });
+      }, 0);
+    }
   };
 
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
@@ -304,6 +327,16 @@ export const NoteEditOverlay: Component = () => {
       arrange(store);
 
     } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) { 
+
+      if (justCreatedNoteItemMaybe != null) {
+        itemState.delete(justCreatedNoteItemMaybe.id);
+        server.deleteItem(justCreatedNoteItemMaybe.id);
+        store.overlay.noteEditOverlayInfo.set(null);
+        arrange(store);
+        justCreatedNoteItemMaybe = null;
+        return;
+      }
+
       server.updateItem(ve.displayItem);
       const ordering = itemState.newOrderingDirectlyAfterChild(VeFns.canonicalItem(parentVe).id, VeFns.canonicalItem(ve).id);
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
