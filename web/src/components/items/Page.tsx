@@ -50,6 +50,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     } else if (props.visualElement.flags & VisualElementFlags.Popup) {
       veid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       div = popupDiv;
+    } else if (props.visualElement.flags & VisualElementFlags.Root) {
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+      const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
+      veid = VeFns.veidFromPath(selectedPath);
+      div = rootDiv;
+      console.log(veid, rootDiv);
     } else {
       veid = VeFns.veidFromVe(props.visualElement);
       div = translucentDiv;
@@ -534,7 +540,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: ${boundsPx().y}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div ref={rootDiv}
+        <div id={'rootPageDiv'}
+             ref={rootDiv}
              class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
              style={`overflow-y: auto; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
