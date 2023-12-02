@@ -567,16 +567,21 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
       const desktopSizePx = props.visualElement.boundsPx;
-      const currentPageVeid = store.history.currentPage()!;
+      let veid = store.history.currentPage()!;
+      if (props.visualElement.parentPath != null) {
+        const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+        const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
+        veid = VeFns.veidFromPath(selectedPath);
+      }
 
       if (desktopSizePx.w < pageBoundsPx.w) {
         const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
-        store.perItem.setPageScrollXProp(currentPageVeid, scrollXProp);
+        store.perItem.setPageScrollXProp(veid, scrollXProp);
       }
 
       if (desktopSizePx.h < pageBoundsPx.h) {
         const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
-        store.perItem.setPageScrollYProp(currentPageVeid, scrollYProp);
+        store.perItem.setPageScrollYProp(veid, scrollYProp);
       }
     }
 
@@ -590,7 +595,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                   `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
-          onscroll={rootScrollHandler}>
+           onscroll={rootScrollHandler}>
         <div class="absolute"
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +

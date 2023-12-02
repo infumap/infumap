@@ -220,10 +220,12 @@ function determineRoot(
     if (isInside(posRelativeToRootVisualElementPx, newRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = newRootVesMaybe;
       rootVisualElement = newRootVeMaybe;
+      const selected = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(VeFns.veidFromVe(topLevelVisualElement)));
+      const scrollPropY = store.perItem.getPageScrollYProp(selected);
       posRelativeToRootVisualElementPx = vectorSubtract(
         posRelativeToRootVisualElementPx,
         { x: rootVisualElement.childAreaBoundsPx!.x,
-          y: rootVisualElement.childAreaBoundsPx!.y }); // - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx
+          y: rootVisualElement.childAreaBoundsPx!.y - scrollPropY * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)})
       let hitboxType = HitboxFlags.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {

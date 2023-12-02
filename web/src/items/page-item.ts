@@ -460,7 +460,10 @@ export const PageFns = {
   },
 
   handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    switchToPage(store, VeFns.veidFromVe(visualElement), true, false);
+    const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
+    const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
+    const selectedVeid = VeFns.veidFromPath(selectedPath);
+    switchToPage(store, selectedVeid, true, false);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

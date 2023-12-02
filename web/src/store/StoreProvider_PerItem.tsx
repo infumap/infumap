@@ -32,10 +32,10 @@ export interface PerItemStoreContextModel {
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
   getPageScrollXProp: (veid: Veid) => number,
-  setPageScrollXProp: (veid: Veid, path: number) => void,
+  setPageScrollXProp: (veid: Veid, prop: number) => void,
 
   getPageScrollYProp: (veid: Veid) => number,
-  setPageScrollYProp: (veid: Veid, path: number) => void,
+  setPageScrollYProp: (veid: Veid, prop: number) => void,
 
   clear: () => void,
 }
@@ -74,13 +74,13 @@ export function makePerItemStore(): PerItemStoreContextModel {
     return pageScrollXPxs.get(key)!.get();
   };
 
-  const setPageScrollXProp = (veid: Veid, px: number): void => {
+  const setPageScrollXProp = (veid: Veid, prop: number): void => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollXPxs.get(key)) {
-      pageScrollXPxs.set(key, createNumberSignal(px));
+      pageScrollXPxs.set(key, createNumberSignal(prop));
       return;
     }
-    pageScrollXPxs.get(key)!.set(px);
+    pageScrollXPxs.get(key)!.set(prop);
   };
 
   const getPageScrollYProp = (veid: Veid): number => {
@@ -91,13 +91,13 @@ export function makePerItemStore(): PerItemStoreContextModel {
     return pageScrollYPxs.get(key)!.get();
   };
 
-  const setPageScrollYProp = (veid: Veid, px: number): void => {
+  const setPageScrollYProp = (veid: Veid, prop: number): void => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
     if (!pageScrollYPxs.get(key)) {
-      pageScrollYPxs.set(key, createNumberSignal(px));
+      pageScrollYPxs.set(key, createNumberSignal(prop));
       return;
     }
-    pageScrollYPxs.get(key)!.set(px);
+    pageScrollYPxs.get(key)!.set(prop);
   };
 
   const getSelectedListPageItem = (veid: Veid): VisualElementPath => {
