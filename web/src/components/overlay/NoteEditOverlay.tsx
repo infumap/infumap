@@ -40,7 +40,7 @@ import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_dow
 import { assert } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 import getCaretCoordinates from 'textarea-caret';
-import { asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 
 
 // TODO (LOW): don't create items on the server until it is certain that they are needed.
@@ -302,6 +302,20 @@ export const NoteEditOverlay: Component = () => {
       server.updateItem(ve.displayItem);
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
+
+    } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) { 
+      server.updateItem(ve.displayItem);
+      const ordering = itemState.newOrderingDirectlyAfterChild(VeFns.canonicalItem(parentVe).id, VeFns.canonicalItem(ve).id);
+      const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
+      itemState.add(note);
+      server.addItem(note, null);
+      const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
+      if (parent.computed_children[parent.computed_children.length-1] == note.id) {
+        justCreatedNoteItemMaybe = note;
+      }
+      arrange(store);
+      const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
+      store.overlay.noteEditOverlayInfo.set({ itemPath });
 
     } else if (isComposite(parentVe.displayItem)) {
 

@@ -21,6 +21,7 @@ import { ContainerItem, asContainerItem, isContainer } from "../items/base/conta
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
@@ -93,7 +94,7 @@ export const itemState = {
 
   sortChildren: (parentId: Uid): void => {
     const container = asContainerItem(itemState.get(parentId)!);
-    if (container.orderChildrenBy == "") {
+    if (container.orderChildrenBy == "" || (isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.Document)) {
       container.computed_children.sort((a, b) => compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering));
     } else if (container.orderChildrenBy == "title[ASC]") {
       container.computed_children.sort((a, b) => {
@@ -174,6 +175,7 @@ export const itemState = {
     if (item.relationshipToParent == RelationshipToParent.Child) {
       const parentItem = itemState.getAsContainerItem(item.parentId)!;
       parentItem.computed_children = [...parentItem.computed_children, item.id];
+      console.log("sorting", parentItem.id);
       itemState.sortChildren(parentItem.id);
     } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
       const parentItem = itemState.getAsAttachmentsItem(item.parentId)!;

@@ -54,6 +54,7 @@ export const Toolbar_Page: Component = () => {
     else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) { newAA = ArrangeAlgorithm.SpatialStretch; }
     else { panic("unexpected arrange algorithm " + pageItem().arrangeAlgorithm); }
     pageItem().arrangeAlgorithm = newAA;
+    itemState.sortChildren(pageItem().id);
     arrange(store);
     rerenderToolbar();
     server.updateItem(pageItem());
