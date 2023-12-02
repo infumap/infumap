@@ -34,14 +34,6 @@ export const arrange_document = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const pageBoundsPx = store.desktopMainAreaBoundsPx();
-
-  const topLevelVisualElementSpec: VisualElementSpec = {
-    displayItem: currentPage,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
-    boundsPx: store.desktopMainAreaBoundsPx(),
-    childAreaBoundsPx: pageBoundsPx,
-  };
 
   let TOP_MARGIN_PX = 1 * LINE_HEIGHT_PX;
   let LEFT_MARGIN_PX = 3 * LINE_HEIGHT_PX;
@@ -63,9 +55,7 @@ export const arrange_document = (store: StoreContextModel): void => {
       currentPage.docWidthBl,
       topPx);
 
-    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
-
-    const compositeChildVeSpec: VisualElementSpec = {
+    const childVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
       linkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
@@ -83,9 +73,21 @@ export const arrange_document = (store: StoreContextModel): void => {
     };
 
     const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), currentPath);
-    const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
+    const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, compositeChildVePath);
     childrenVes.push(compositeChildVeSignal);
+
+    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
   }
+
+  const pageBoundsPx = store.desktopMainAreaBoundsPx();
+  pageBoundsPx.h = topPx + TOP_MARGIN_PX;
+
+  const topLevelVisualElementSpec: VisualElementSpec = {
+    displayItem: currentPage,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
+    boundsPx: store.desktopMainAreaBoundsPx(),
+    childAreaBoundsPx: pageBoundsPx,
+  };
 
   const dockVesMaybe = renderDockMaybe(store, currentPath);
   if (dockVesMaybe) {
