@@ -87,12 +87,24 @@ export const Toolbar_Page: Component = () => {
 
   const showOrderByButton = () => {
     if (alwaysFalseSignal.get()) { panic("unexpected state"); }
-    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List || pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ||
+           pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+           pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
-  const showGridColsButton = () => {
+  const showGridButtons = () => {
     if (alwaysFalseSignal.get()) { panic("unexpected state"); }
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
+  }
+
+  const showJustifiedButtons = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
+  }
+
+  const showInnerBlockWidthButton = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
   }
 
   const showEmptyTrash = () => {
@@ -125,6 +137,11 @@ export const Toolbar_Page: Component = () => {
   const cellAspectText = () => {
     store.overlay.pageAspectOverlayInfoMaybe.get();
     return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
+  }
+
+  const justifiedAspectText = () => {
+    store.overlay.pageAspectOverlayInfoMaybe.get();
+    return Math.round(pageItem().justifiedRowAspect * 1000.0) / 1000.0;
   }
 
   const numColsText = () => {
@@ -177,6 +194,11 @@ export const Toolbar_Page: Component = () => {
     //   { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
   };
 
+  const handleJustifiedAspectClick = () => {
+    // store.overlay.pageAspectOverlayInfoMaybe.set(
+    //   { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
+  };
+
   const handleWidthClick = () => {
     store.overlay.pageWidthOverlayInfoMaybe.set(
       { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
@@ -209,18 +231,25 @@ export const Toolbar_Page: Component = () => {
       <div class="inline-block h-[22px] align-middle">
         <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
       </div>
-      <div ref={widthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleWidthClick}>
-        <i class="bi-arrows" /> <span style={`font-size: 13px;`}>{widthText()}</span>
-      </div>
+      <Show when={showInnerBlockWidthButton()}>
+        <div ref={widthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleWidthClick}>
+          <i class="bi-arrows" /> <span style={`font-size: 13px;`}>{widthText()}</span>
+        </div>
+      </Show>
       <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleAspectClick}>
         <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{aspectText()}</span>
       </div>
-      <Show when={showGridColsButton()}>
+      <Show when={showGridButtons()}>
         <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleCellAspectClick}>
           <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{cellAspectText()}</span>
         </div>
         <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>
           <i class="bi-layout-three-columns" /> <span style={`font-size: 13px;`}>{numColsText()}</span>
+        </div>
+      </Show>
+      <Show when={showJustifiedButtons()}>
+        <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleJustifiedAspectClick}>
+          <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{justifiedAspectText()}</span>
         </div>
       </Show>
       <Show when={showOrderByButton()}>

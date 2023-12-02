@@ -65,7 +65,7 @@ export const arrange_justified = (store: StoreContextModel): void => {
     items.push(item);
   }
 
-  const layout = createJustifiedLayout(dims, standardJustifyOptions(store.desktopMainAreaBoundsPx().w));
+  const layout = createJustifiedLayout(dims, createJustifyOptions(store.desktopMainAreaBoundsPx().w, currentPage.justifiedRowAspect));
   if (layout.boxes.length != items.length) {
     panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${items.length}.`);
   }
@@ -123,12 +123,14 @@ export const arrange_justified = (store: StoreContextModel): void => {
 
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/justified-layout/index.d.ts
 
-export function standardJustifyOptions(widthPx: number) {
+export function createJustifyOptions(widthPx: number, rowAspect: number) {
+  const NORMAL_ROW_HEIGHT = 200;
+  const targetRowHeight = widthPx / rowAspect;
   const options: JustifiedLayoutOptions = {
     containerWidth: widthPx,
-    containerPadding: 10,
-    boxSpacing: 5,
-    targetRowHeight: 200,
+    containerPadding: 10 * targetRowHeight / 200,
+    boxSpacing: 5 * targetRowHeight / 200,
+    targetRowHeight,
   };
   return options;
 }

@@ -17,7 +17,7 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_PAGE_CELL_ASPECT, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
@@ -47,7 +47,7 @@ import { CursorEventState, MouseAction, MouseActionState } from "../../input/sta
 import { PopupType } from "../../store/StoreProvider_History";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import createJustifiedLayout from "justified-layout";
-import { standardJustifyOptions } from "./topLevel/justified";
+import { createJustifyOptions } from "./topLevel/justified";
 
 
 export const arrangeItem = (
@@ -164,7 +164,7 @@ const arrangePageWithChildren = (
 
     const numRows = Math.ceil((pageItem.computed_children.length + nItemAdj) / numCols);
     const cellWPx = geometry.boundsPx.w / numCols;
-    const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
+    const cellHPx = cellWPx * (1.0/pageItem.gridCellAspect);
     const marginPx = cellWPx * 0.01;
     const pageHeightPx = numRows * cellHPx;
     const boundsPx = (() => {
@@ -282,7 +282,7 @@ const arrangePageWithChildren = (
       items.push(item);
     }
 
-    const layout = createJustifiedLayout(dims, standardJustifyOptions(geometry.boundsPx.w));
+    const layout = createJustifiedLayout(dims, createJustifyOptions(geometry.boundsPx.w, displayItem_pageWithChildren.justifiedRowAspect));
     if (layout.boxes.length != items.length) {
       panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${items.length}.`);
     }

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_PAGE_CELL_ASPECT, LINE_HEIGHT_PX } from "../../../constants";
+import { LINE_HEIGHT_PX } from "../../../constants";
 import { ItemFns } from "../../../items/base/item-polymorphism";
 import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
 import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
@@ -60,7 +60,7 @@ export const arrange_grid = (store: StoreContextModel): void => {
 
   const numRows = Math.ceil((currentPage.computed_children.length + nItemAdj) / numCols);
   const cellWPx = pageBoundsPx.w / numCols;
-  const cellHPx = cellWPx * (1.0/GRID_PAGE_CELL_ASPECT);
+  const cellHPx = cellWPx * (1.0/currentPage.gridCellAspect);
   const marginPx = cellWPx * 0.01;
   const pageHeightPx = numRows * cellHPx;
   const boundsPx = (() => {

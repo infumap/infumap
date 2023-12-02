@@ -18,8 +18,6 @@
 
 export const ROOT_USERNAME = "root";
 
-export const GRID_PAGE_CELL_ASPECT = 1.5;
-
 export const GRID_SIZE = 60;
 
 export const LEFT_TOOLBAR_WIDTH_PX = 0;
