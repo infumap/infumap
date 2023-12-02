@@ -55,7 +55,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
       veid = VeFns.veidFromPath(selectedPath);
       div = rootDiv;
-      console.log(veid, rootDiv);
     } else {
       veid = VeFns.veidFromVe(props.visualElement);
       div = translucentDiv;

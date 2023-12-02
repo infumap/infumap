@@ -17,7 +17,7 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
@@ -252,6 +252,7 @@ const arrangePageWithChildren = (
     pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
 
+  // *** JUSTIFIED VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
 
     let movingItem = null;
@@ -322,6 +323,73 @@ const arrangePageWithChildren = (
     }
 
     pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
+
+
+  // *** DOCUMENT VIEW ***
+  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+
+    const BLOCK_SIZE_PX = { w: 24, h: 24 };
+
+    const childrenVes = [];
+
+    let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX;
+    for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
+      const childId = displayItem_pageWithChildren.computed_children[idx];
+      const childItem = itemState.get(childId)!;
+
+      const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
+      if (isTable(displayItem_childItem)) { continue; }
+
+      const geometry = ItemFns.calcGeometry_InComposite(
+        linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
+        BLOCK_SIZE_PX,
+        displayItem_pageWithChildren.docWidthBl,
+        topPx);
+
+      const childVeSpec: VisualElementSpec = {
+        displayItem: displayItem_childItem,
+        linkItemMaybe: linkItemMaybe_childItem,
+        flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
+        boundsPx: {
+          x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX,
+          y: geometry.boundsPx.y,
+          w: geometry.boundsPx.w,
+          h: geometry.boundsPx.h,
+        },
+        hitboxes: geometry.hitboxes,
+        parentPath: pageWithChildrenVePath,
+        col: 0,
+        row: idx,
+        blockSizePx: BLOCK_SIZE_PX,
+      };
+
+      const childVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), pageWithChildrenVePath);
+      const childVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, childVePath);
+      childrenVes.push(childVeSignal);
+
+      topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
+    }
+
+    const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
+    childAreaBoundsPx.h = topPx;
+
+    pageWithChildrenVisualElementSpec = {
+      displayItem: displayItem_pageWithChildren,
+      linkItemMaybe: linkItemMaybe_pageWithChildren,
+      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+            (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+            (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+            (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
+            (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+            (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+      boundsPx: outerBoundsPx,
+      childAreaBoundsPx,
+      hitboxes,
+      parentPath,
+    };
+
+    pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
+
 
   // *** SPATIAL_STRETCH ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
@@ -450,25 +518,6 @@ const arrangePageWithChildren = (
       pageWithChildrenVisualElementSpec.childrenVes.push(
         arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
     }
-
-
-  // *** DOCUMENT VIEW ***
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
-
-    pageWithChildrenVisualElementSpec = {
-      displayItem: displayItem_pageWithChildren,
-      linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
-      boundsPx: outerBoundsPx,
-      childAreaBoundsPx: geometry.boundsPx,
-      hitboxes,
-      parentPath,
-    };
 
 
   } else {

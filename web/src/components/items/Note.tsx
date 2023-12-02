@@ -47,8 +47,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       const parentVe = VesCache.find(parentVeid)[0].get();
       const canonicalItem = VeFns.canonicalItem(parentVe);
-      if (isPage(canonicalItem)) {
-        cloned.spatialWidthGr = asPageItem(canonicalItem).docWidthBl * GRID_SIZE;
+      if (isPage(parentVe.displayItem)) {
+        cloned.spatialWidthGr = asPageItem(parentVe.displayItem).docWidthBl * GRID_SIZE;
       } else {
         cloned.spatialWidthGr = asXSizableItem(canonicalItem).spatialWidthGr;
       }

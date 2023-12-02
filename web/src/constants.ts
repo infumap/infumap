@@ -60,3 +60,7 @@ export const Z_INDEX_MOVING = 20;
 export const Z_INDEX_TEXT_OVERLAY = 30;
 export const Z_INDEX_TOOLBAR_OVERLAY = 40;
 export const Z_PANIC = 1000;
+
+
+export const PAGE_DOCUMENT_TOP_MARGIN_PX = 1 * LINE_HEIGHT_PX;
+export const PAGE_DOCUMENT_LEFT_MARGIN_PX = 3 * LINE_HEIGHT_PX;

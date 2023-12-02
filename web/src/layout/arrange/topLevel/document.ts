@@ -22,7 +22,7 @@ import { itemState } from "../../../store/ItemState";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { renderDockMaybe } from ".";
-import { COMPOSITE_ITEM_GAP_BL, LINE_HEIGHT_PX } from "../../../constants";
+import { COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../../constants";
 import { getVePropertiesForItem } from "../util";
 import { isTable } from "../../../items/table-item";
 import { ItemFns } from "../../../items/base/item-polymorphism";
@@ -34,14 +34,11 @@ export const arrange_document = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-
-  let TOP_MARGIN_PX = 1 * LINE_HEIGHT_PX;
-  let LEFT_MARGIN_PX = 3 * LINE_HEIGHT_PX;
-  let BLOCK_SIZE_PX = { w: 24, h: 24 };
+  const BLOCK_SIZE_PX = { w: 24, h: 24 };
 
   const childrenVes = [];
 
-  let topPx = TOP_MARGIN_PX;
+  let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX;
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childId = currentPage.computed_children[idx];
     const childItem = itemState.get(childId)!;
@@ -60,7 +57,7 @@ export const arrange_document = (store: StoreContextModel): void => {
       linkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
       boundsPx: {
-        x: geometry.boundsPx.x + LEFT_MARGIN_PX,
+        x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX,
         y: geometry.boundsPx.y,
         w: geometry.boundsPx.w,
         h: geometry.boundsPx.h,
@@ -72,15 +69,15 @@ export const arrange_document = (store: StoreContextModel): void => {
       blockSizePx: BLOCK_SIZE_PX,
     };
 
-    const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), currentPath);
-    const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, compositeChildVePath);
-    childrenVes.push(compositeChildVeSignal);
+    const childVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), currentPath);
+    const childVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, childVePath);
+    childrenVes.push(childVeSignal);
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
   }
 
   const pageBoundsPx = store.desktopMainAreaBoundsPx();
-  pageBoundsPx.h = topPx + TOP_MARGIN_PX;
+  pageBoundsPx.h = topPx + PAGE_DOCUMENT_TOP_MARGIN_PX;
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
