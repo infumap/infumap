@@ -59,7 +59,9 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   backgroundColorIndex: number;
   arrangeAlgorithm: string;
   gridNumberOfColumns: number;
+  gridCellAspect: number;
   docWidthBl: number;
+  justifiedRowAspect: number;
   popupPositionGr: Vector;
   popupAlignmentPoint: string;
   popupWidthGr: number;
@@ -76,7 +78,9 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
   id: Uid;
   childrenLoaded: boolean;
   gridNumberOfColumns: number;
+  gridCellAspect: number;
   docWidthBl: number,
+  justifiedRowAspect: number;
   computed_children: Array<Uid>;
 }
 
@@ -106,7 +110,9 @@ export const PageFns = {
       popupAlignmentPoint: "center",
       popupWidthGr: 10.0 * GRID_SIZE,
       gridNumberOfColumns: 6,
+      gridCellAspect: 1.5,
       docWidthBl: 36,
+      justifiedRowAspect: 5.0,
 
       orderChildrenBy: "title[ASC]",
 
@@ -147,7 +153,9 @@ export const PageFns = {
       popupAlignmentPoint: o.popupAlignmentPoint,
       popupWidthGr: o.popupWidthGr,
       gridNumberOfColumns: o.gridNumberOfColumns,
+      gridCellAspect: o.gridCellAspect,
       docWidthBl: o.docWidthBl,
+      justifiedRowAspect: o.justifiedRowAspect,
 
       orderChildrenBy: o.orderChildrenBy,
 
@@ -187,7 +195,9 @@ export const PageFns = {
       popupAlignmentPoint: p.popupAlignmentPoint,
       popupWidthGr: p.popupWidthGr,
       gridNumberOfColumns: p.gridNumberOfColumns,
+      gridCellAspect: p.gridCellAspect,
       docWidthBl: p.docWidthBl,
+      justifiedRowAspect: p.justifiedRowAspect,
 
       orderChildrenBy: p.orderChildrenBy,
 
@@ -463,7 +473,9 @@ export const PageFns = {
       innerSpatialWidthGr: page.innerSpatialWidthGr,
       arrangeAlgorithm: page.arrangeAlgorithm,
       gridNumberOfColumns: page.gridNumberOfColumns,
+      gridCellAspect: page.gridCellAspect,
       docWidthBl: page.docWidthBl,
+      justifiedRowAspect: page.justifiedRowAspect,
       childrenLoaded: page.childrenLoaded,
       computed_children: page.computed_children,
     });

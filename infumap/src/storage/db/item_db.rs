@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use log::{info, debug};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, Number};
 use tokio::fs::File;
 use tokio::io::{BufReader, AsyncReadExt};
 use std::collections::{HashMap, HashSet};
@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 12;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 13;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -754,6 +754,43 @@ pub fn migrate_record_v11_to_v12(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       if item_type == "page" {
         let existing = result.insert(String::from("docWidthBl"), Value::Number((36 as i64).into()));
         if existing.is_some() { return Err("docWidthBl field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add docWidthBl field to page items.
+ */
+pub fn migrate_record_v12_to_v13(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 12);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "page" {
+        let existing = result.insert(String::from("justifiedRowAspect"), Value::Number(Number::from_f64(5.0 as f64).ok_or("invalid justifiedRowAspect")?));
+        if existing.is_some() { return Err("justifiedRowAspect field already exists.".into()); }
+      }
+      if item_type == "page" {
+        let existing = result.insert(String::from("gridCellAspect"), Value::Number(Number::from_f64(1.5 as f64).ok_or("invalid gridCellAspect")?));
+        if existing.is_some() { return Err("gridCellAspect field already exists.".into()); }
       }
       return Ok(result);
     },

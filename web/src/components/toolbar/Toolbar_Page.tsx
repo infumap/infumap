@@ -122,6 +122,11 @@ export const Toolbar_Page: Component = () => {
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
+  const cellAspectText = () => {
+    store.overlay.pageAspectOverlayInfoMaybe.get();
+    return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
+  }
+
   const numColsText = () => {
     store.overlay.pageNumColsOverlayInfoMaybe.get();
     return pageItem().gridNumberOfColumns;
@@ -167,6 +172,11 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
   };
 
+  const handleCellAspectClick = () => {
+    // store.overlay.pageAspectOverlayInfoMaybe.set(
+    //   { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
+  };
+
   const handleWidthClick = () => {
     store.overlay.pageWidthOverlayInfoMaybe.set(
       { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
@@ -206,6 +216,9 @@ export const Toolbar_Page: Component = () => {
         <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{aspectText()}</span>
       </div>
       <Show when={showGridColsButton()}>
+        <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleCellAspectClick}>
+          <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{cellAspectText()}</span>
+        </div>
         <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>
           <i class="bi-layout-three-columns" /> <span style={`font-size: 13px;`}>{numColsText()}</span>
         </div>

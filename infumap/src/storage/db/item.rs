@@ -285,7 +285,7 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 37] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 39] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -294,7 +294,8 @@ const ALL_JSON_FIELDS: [&'static str; 37] = ["__recordType",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "linkTo", "linkToBaseUrl", "gridNumberOfColumns", "orderChildrenBy",
-  "text", "flags", "permissionFlags", "format", "docWidthBl"];
+  "text", "flags", "permissionFlags", "format", "docWidthBl",
+  "gridCellAspect", "justifiedRowAspect"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -353,7 +354,9 @@ pub struct Item {
   pub popup_alignment_point: Option<AlignmentPoint>,
   pub popup_width_gr: Option<i64>,
   pub grid_number_of_columns: Option<i64>,
+  pub grid_cell_aspect: Option<f64>,
   pub doc_width_bl: Option<i64>,
+  pub justified_row_aspect: Option<f64>,
 
   // note
   pub url: Option<String>,
@@ -410,7 +413,9 @@ impl Clone for Item {
       popup_alignment_point: self.popup_alignment_point.clone(),
       popup_width_gr: self.popup_width_gr.clone(),
       grid_number_of_columns: self.grid_number_of_columns.clone(),
+      grid_cell_aspect: self.grid_cell_aspect.clone(),
       doc_width_bl: self.doc_width_bl.clone(),
+      justified_row_aspect: self.justified_row_aspect.clone(),
       url: self.url.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
@@ -454,7 +459,9 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
+    grid_cell_aspect: Some(1.5),
     doc_width_bl: Some(36),
+    justified_row_aspect: Some(5.0),
     url: None,
     format: None,
     table_columns: None,
@@ -498,7 +505,9 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(4),
+    grid_cell_aspect: Some(1.5),
     doc_width_bl: Some(36),
+    justified_row_aspect: Some(5.0),
     url: None,
     format: None,
     table_columns: None,
@@ -542,7 +551,9 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     popup_alignment_point: Some(crate::storage::db::item::AlignmentPoint::Center),
     popup_width_gr: Some(inner_spatial_width_br / 2 * GRID_SIZE),
     grid_number_of_columns: Some(1),
+    grid_cell_aspect: Some(1.5),
     doc_width_bl: Some(36),
+    justified_row_aspect: Some(5.0),
     url: None,
     format: None,
     table_columns: None,
@@ -742,10 +753,22 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
       }
     }
+    if let Some(new_grid_cell_aspect) = new.grid_cell_aspect {
+      if match old.grid_cell_aspect { Some(o) => o != new_grid_cell_aspect, None => { true } } {
+        if old.item_type != ItemType::Page { cannot_modify_err("gridCellAspect", &old.id)?; }
+        result.insert(String::from("gridCellAspect"), Value::Number(Number::from_f64(new_grid_cell_aspect).ok_or(nan_err("gridCellAspect", &old.id))?));
+      }
+    }
     if let Some(doc_width_bl) = new.doc_width_bl {
       if match old.doc_width_bl { Some(o) => o != doc_width_bl, None => { true } } {
         if old.item_type != ItemType::Page { cannot_modify_err("docWidthBl", &old.id)?; }
         result.insert(String::from("docWidthBl"), Value::Number(doc_width_bl.into()));
+      }
+    }
+    if let Some(new_justified_row_aspect) = new.justified_row_aspect {
+      if match old.justified_row_aspect { Some(o) => o != new_justified_row_aspect, None => { true } } {
+        if old.item_type != ItemType::Page { cannot_modify_err("justifiedRowAspect", &old.id)?; }
+        result.insert(String::from("justifiedRowAspect"), Value::Number(Number::from_f64(new_justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &old.id))?));
       }
     }
 
@@ -945,9 +968,17 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Page { not_applicable_err("gridNumberOfColumns", self.item_type, &self.id)?; }
       self.grid_number_of_columns = Some(v);
     }
+    if let Some(v) = json::get_float_field(map, "gridCellAspect")? {
+      if self.item_type != ItemType::Page { not_applicable_err("gridCellAspect", self.item_type, &self.id)?; }
+      self.grid_cell_aspect = Some(v);
+    }
     if let Some(v) = json::get_integer_field(map, "docWidthBl")? {
       if self.item_type != ItemType::Page { not_applicable_err("docWidthBl", self.item_type, &self.id)?; }
       self.doc_width_bl = Some(v);
+    }
+    if let Some(v) = json::get_float_field(map, "justifiedRowAspect")? {
+      if self.item_type != ItemType::Page { not_applicable_err("justifiedRowAspect", self.item_type, &self.id)?; }
+      self.justified_row_aspect = Some(v);
     }
 
     // note
@@ -1119,9 +1150,21 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     if item.item_type != ItemType::Page { unexpected_field_err("gridNumberOfColumns", &item.id, item.item_type)? }
     result.insert(String::from("gridNumberOfColumns"), Value::Number(grid_number_of_columns.into()));
   }
+  if let Some(grid_cell_aspect) = item.grid_cell_aspect {
+    if item.item_type != ItemType::Page { unexpected_field_err("gridCellAspect", &item.id, item.item_type)? }
+    result.insert(
+      String::from("gridCellAspect"),
+      Value::Number(Number::from_f64(grid_cell_aspect).ok_or(nan_err("gridCellAspect", &item.id))?));
+  }
   if let Some(doc_width_bl) = item.doc_width_bl {
     if item.item_type != ItemType::Page { unexpected_field_err("docWidthBl", &item.id, item.item_type)? }
     result.insert(String::from("docWidthBl"), Value::Number(doc_width_bl.into()));
+  }
+  if let Some(justified_row_aspect) = item.justified_row_aspect {
+    if item.item_type != ItemType::Page { unexpected_field_err("justifiedRowAspect", &item.id, item.item_type)? }
+    result.insert(
+      String::from("justifiedRowAspect"),
+      Value::Number(Number::from_f64(justified_row_aspect).ok_or(nan_err("justifiedRowAspect", &item.id))?));
   }
 
   // note
@@ -1323,9 +1366,17 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("gridNumberOfColumns", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("gridNumberOfColumns", item_type, &id)) } else { Ok(None) } }
     }?,
+    grid_cell_aspect: match json::get_float_field(map, "gridCellAspect")? {
+      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("gridCellAspect", item_type, &id)) } },
+      None => { if item_type == ItemType::Page { Err(expected_for_err("gridCellAspect", item_type, &id)) } else { Ok(None) } }
+    }?,
     doc_width_bl: match json::get_integer_field(map, "docWidthBl")? {
       Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("docWidthBl", item_type, &id)) } },
       None => { if item_type == ItemType::Page { Err(expected_for_err("docWidthBl", item_type, &id)) } else { Ok(None) } }
+    }?,
+    justified_row_aspect: match json::get_float_field(map, "justifiedRowAspect")? {
+      Some(v) => { if item_type == ItemType::Page { Ok(Some(v)) } else { Err(not_applicable_err("justifiedRowAspect", item_type, &id)) } },
+      None => { if item_type == ItemType::Page { Err(expected_for_err("justifiedRowAspect", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // note
