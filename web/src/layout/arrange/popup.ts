@@ -60,7 +60,10 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
     batch(() => {
       ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
       let newV = ves.get();
-      newV.flags |= (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ? VisualElementFlags.Fixed : VisualElementFlags.None);
+      newV.flags |= ((currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+                      currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified)
+          ? VisualElementFlags.Fixed
+          : VisualElementFlags.None);
       ves.set(newV);
     });
     return ves!;
@@ -69,7 +72,10 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
       displayItem: item,
       linkItemMaybe: li,
       flags: VisualElementFlags.Detailed | VisualElementFlags.Popup |
-             (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ? VisualElementFlags.Fixed : VisualElementFlags.None),
+             ((currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+               currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified)
+          ? VisualElementFlags.Fixed
+          : VisualElementFlags.None),
       boundsPx: geometry.boundsPx,
       childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
       hitboxes: geometry.hitboxes,

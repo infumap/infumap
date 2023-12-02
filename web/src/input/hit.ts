@@ -222,7 +222,8 @@ function determineRoot(
       rootVisualElement = newRootVeMaybe;
       posRelativeToRootVisualElementPx = vectorSubtract(
         posRelativeToRootVisualElementPx,
-        { x: rootVisualElement.childAreaBoundsPx!.x, y: rootVisualElement.childAreaBoundsPx!.y });
+        { x: rootVisualElement.childAreaBoundsPx!.x,
+          y: rootVisualElement.childAreaBoundsPx!.y }); // - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx
       let hitboxType = HitboxFlags.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
