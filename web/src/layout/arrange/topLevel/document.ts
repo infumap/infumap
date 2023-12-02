@@ -43,7 +43,6 @@ export const arrange_document = (store: StoreContextModel): void => {
     childAreaBoundsPx: pageBoundsPx,
   };
 
-  let BLOCK_WIDTH = 30;
   let TOP_MARGIN_PX = 1 * LINE_HEIGHT_PX;
   let LEFT_MARGIN_PX = 3 * LINE_HEIGHT_PX;
   let BLOCK_SIZE_PX = { w: 24, h: 24 };
@@ -61,7 +60,7 @@ export const arrange_document = (store: StoreContextModel): void => {
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
       BLOCK_SIZE_PX,
-      BLOCK_WIDTH,
+      currentPage.docWidthBl,
       topPx);
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
