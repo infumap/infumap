@@ -178,7 +178,8 @@ pub enum ItemType {
   Image,
   Rating,
   Link,
-  Placeholder
+  Placeholder,
+  Expression,
 }
 
 impl ItemType {
@@ -194,6 +195,7 @@ impl ItemType {
       ItemType::Rating => "rating",
       ItemType::Link => "link",
       ItemType::Placeholder => "placeholder",
+      ItemType::Expression => "expression",
     }
   }
 
@@ -209,6 +211,7 @@ impl ItemType {
       "rating" => Ok(ItemType::Rating),
       "link" => Ok(ItemType::Link),
       "placeholder" => Ok(ItemType::Placeholder),
+      "expression" => Ok(ItemType::Expression),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into())
     }
   }
@@ -244,7 +247,7 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
   item_type == ItemType::Image || item_type == ItemType::Password ||
-  item_type == ItemType::Composite
+  item_type == ItemType::Composite || item_type == ItemType::Expression
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
@@ -254,7 +257,7 @@ pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
 pub fn is_titled_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File || item_type == ItemType::Note ||
   item_type == ItemType::Page || item_type == ItemType::Table ||
-  item_type == ItemType::Image
+  item_type == ItemType::Image || item_type == ItemType::Expression
 }
 
 pub fn is_image_item(item: &Item) -> bool {
@@ -382,6 +385,8 @@ pub struct Item {
   pub link_to_base_url: Option<String>,
 
   // composite
+
+  // expression
 }
 
 impl Clone for Item {
