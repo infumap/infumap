@@ -102,6 +102,11 @@ export const Toolbar_Page: Component = () => {
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
+  const showDocumentButtons = () => {
+    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
+  }
+
   const showInnerBlockWidthButton = () => {
     if (alwaysFalseSignal.get()) { panic("unexpected state"); }
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
@@ -127,6 +132,11 @@ export const Toolbar_Page: Component = () => {
   const widthText = () => {
     store.overlay.pageWidthOverlayInfoMaybe.get();
     return pageItem().innerSpatialWidthGr / GRID_SIZE;
+  }
+
+  const docWidthBlText = () => {
+    store.overlay.pageWidthOverlayInfoMaybe.get();
+    return pageItem().docWidthBl;
   }
 
   const aspectText = () => {
@@ -204,6 +214,11 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
   };
 
+  const handleDocWidthBlClick = () => {
+    // store.overlay.pageWidthOverlayInfoMaybe.set(
+    //   { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
+  };
+
   const handleNumColsClick = () => {
     store.overlay.pageNumColsOverlayInfoMaybe.set(
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 } });
@@ -250,6 +265,11 @@ export const Toolbar_Page: Component = () => {
       <Show when={showJustifiedButtons()}>
         <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleJustifiedAspectClick}>
           <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{justifiedAspectText()}</span>
+        </div>
+      </Show>
+      <Show when={showDocumentButtons()}>
+        <div ref={widthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleDocWidthBlClick}>
+          <i class="bi-arrows" /> <span style={`font-size: 13px;`}>{docWidthBlText()}</span>
         </div>
       </Show>
       <Show when={showOrderByButton()}>
