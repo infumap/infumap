@@ -108,13 +108,16 @@ export const Login: Component = () => {
           <b>Quick Help</b>
         </div>
         <div class="mb-3">
-          "/" → create new item under cursor using context menu.
+          "/" → create new item at current location using context menu.
         </div>
         <div class="mb-3">
-          "\\" → edit item under cursor.
+          "n", "p", "t", "r", "w", "l", "e" → create specific item (note, page, table, rating, password, link, expression) at current location.
         </div>
         <div class="mb-3">
-          mouse left / right button → navigate.
+          "\\" → edit item under cursor (being phased out).
+        </div>
+        <div class="mb-3">
+          mouse right button → navigate back in history.
         </div>
       </div>
     </>
