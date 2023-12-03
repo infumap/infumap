@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { CursorEventState } from "../../input/state";
@@ -59,6 +59,10 @@ export const Toolbar_Note_Format: Component = () => {
     x: store.overlay.noteFormatOverlayInfoMaybe.get()!.topLeftPx.x,
     y: store.overlay.noteFormatOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 500, h: 40
+  });
+
+  onMount(() => {
+    formatTextElement!.focus();
   });
 
   return (

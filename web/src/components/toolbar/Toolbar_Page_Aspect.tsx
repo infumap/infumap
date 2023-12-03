@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -61,6 +61,10 @@ export const Toolbar_Page_Aspect: Component = () => {
     x: store.overlay.pageAspectOverlayInfoMaybe.get()!.topLeftPx.x,
     y: store.overlay.pageAspectOverlayInfoMaybe.get()!.topLeftPx.y,
     w: 300, h: 30
+  });
+
+  onMount(() => {
+    aspectTextElement!.focus();
   });
 
   return (
