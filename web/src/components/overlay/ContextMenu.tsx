@@ -17,30 +17,13 @@
 */
 
 import { Component } from "solid-js";
-import { NoteFns } from "../../items/note-item";
-import { asPageItem, isPage, PageFns } from "../../items/page-item";
 import { useStore } from "../../store/StoreProvider";
-import { isInside, Vector } from "../../util/geometry";
-import { server } from "../../server";
-import { asTableItem, isTable, TableFns } from "../../items/table-item";
-import { RatingFns } from "../../items/rating-item";
-import { initialEditDialogBounds } from "./edit/EditDialog";
-import { panic } from "../../util/lang";
+import { Vector } from "../../util/geometry";
 import { HitInfo } from "../../input/hit";
-import { asLinkItem, isLink, LinkFns } from "../../items/link-item";
-import { EMPTY_UID, Uid } from "../../util/uid";
-import { itemState } from "../../store/ItemState";
-import { PasswordFns } from "../../items/password-item";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { InfuIconButton } from "../library/InfuIconButton";
-import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { arrange } from "../../layout/arrange";
 import { MOUSE_LEFT } from "../../input/mouse_down";
-import { PositionalItem } from "../../items/base/positional-item";
-import { isPlaceholder, PlaceholderFns } from "../../items/placeholder-item";
-import { VesCache } from "../../layout/ves-cache";
-import { GRID_SIZE, Z_INDEX_TEXT_OVERLAY } from "../../constants";
-import { asAttachmentsItem } from "../../items/base/attachments-item";
+import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { newItemInContext } from "../../input/create";
 
 
 type ContexMenuProps = {
@@ -51,187 +34,12 @@ type ContexMenuProps = {
 export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const store = useStore();
 
-  const newPageInContext = () => newItemInContext("page");
-  const newNoteInContext = () => newItemInContext("note");
-  const newTableInContext = () => newItemInContext("table");
-  const newRatingInContext = () => newItemInContext("rating");
-  const newLinkInContext = () => newItemInContext("link");
-  const newPasswordInContext = () => newItemInContext("password");
-
-  function createNewItem(type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
-    let newItem = null;
-    if (type == "rating") {
-      newItem = RatingFns.create(store.user.getUser().userId, parentId, 3, relationship, ordering)
-    } else if (type == "table") {
-      newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
-    } else if (type == "note") {
-      newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
-    } else if (type == "page") {
-      newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
-    } else if (type == "link")  {
-      newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
-    } else if (type == "password")  {
-      newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
-    } else {
-      panic("AddItem.createNewItem: unexpected item type.");
-    }
-    return newItem;
-  }
-
-  const newItemInContext = (type: string) => {
-    const overElementVe = props.hitInfo.overElementVes.get();
-    const overPositionableVe = props.hitInfo.overPositionableVe;
-
-    let newItem;
-    let newItemPath;
-
-    if (isPlaceholder(overElementVe.displayItem)) {
-      newItem = createNewItem(
-        type,
-        overElementVe.displayItem.parentId,
-        overElementVe.displayItem.ordering,
-        overElementVe.displayItem.relationshipToParent);
-
-      itemState.delete(overElementVe.displayItem.id);
-      server.deleteItem(overElementVe.displayItem.id);
-      itemState.add(newItem);
-      server.addItem(newItem, null);
-
-      store.overlay.contextMenuInfo.set(null);
-      arrange(store);
-
-      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
-    }
-
-    else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
-      newItem = createNewItem(
-        type,
-        overElementVe.displayItem.id,
-        itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
-        RelationshipToParent.Child);
-
-      const page = asPageItem(overElementVe.displayItem);
-      const propX = (props.desktopPosPx.x - overElementVe.boundsPx.x) / overElementVe.boundsPx.w;
-      const propY = (props.desktopPosPx.y - overElementVe.boundsPx.y) / overElementVe.boundsPx.h;
-      newItem.spatialPositionGr = {
-        x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-        y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-      };
-      const naturalAspect = (store.desktopBoundsPx().w / store.desktopBoundsPx().h);
-      if (isPage(newItem)) {
-        const page = asPageItem(newItem);
-        asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
-        page.popupPositionGr = {
-          x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
-          y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
-        };
-        const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
-        const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;
-        const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
-        const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
-        asPageItem(newItem).popupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
-      }
-
-      server.addItem(newItem, null);
-      itemState.add(newItem);
-
-      store.overlay.contextMenuInfo.set(null);
-      arrange(store);
-
-      newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
-    }
-
-    else if (isTable(overElementVe.displayItem)) {
-      if (isInside(props.desktopPosPx, overElementVe.childAreaBoundsPx!)) {
-        const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, props.desktopPosPx);
-        const tableItem = asTableItem(overElementVe.displayItem);
-
-        if (attachmentPos == -1 || insertRow >= tableItem.computed_children.length) {
-          newItem = createNewItem(
-            type,
-            overElementVe.displayItem.id,
-            itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
-            RelationshipToParent.Child);
-          server.addItem(newItem, null);
-          itemState.add(newItem);
-          store.overlay.contextMenuInfo.set(null);
-          arrange(store);
-          newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
-
-        } else {
-          const childId = tableItem.computed_children[insertRow];
-          const child = asAttachmentsItem(itemState.get(childId)!);
-          const displayedChild = asAttachmentsItem(isLink(child)
-            ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
-            : child);
-
-          const numPlaceholdersToCreate = attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
-          for (let i=0; i<numPlaceholdersToCreate; ++i) {
-            const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
-            itemState.add(placeholderItem);
-            server.addItem(placeholderItem, null);
-          }
-
-          newItem = createNewItem(
-            type,
-            displayedChild.id,
-            itemState.newOrderingAtEndOfAttachments(childId),
-            RelationshipToParent.Attachment);
-
-          server.addItem(newItem, null);
-          itemState.add(newItem);
-          store.overlay.contextMenuInfo.set(null);
-          arrange(store);
-
-          newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
-        }
-      }
-
-      else {
-        // not inside child area: create item in the page containing the table.
-        const parentVe = VesCache.get(overElementVe.parentPath!)!.get();
-        newItem = createNewItem(
-          type,
-          parentVe.displayItem.id,
-          itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId),
-          RelationshipToParent.Child);
-
-        const page = asPageItem(overPositionableVe!.displayItem);
-        const propX = (props.desktopPosPx.x - overPositionableVe!.boundsPx.x) / overPositionableVe!.boundsPx.w;
-        const propY = (props.desktopPosPx.y - overPositionableVe!.boundsPx.y) / overPositionableVe!.boundsPx.h;
-        newItem.spatialPositionGr = {
-          x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-          y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-        };
-
-        server.addItem(newItem, null);
-        itemState.add(newItem);
-
-        store.overlay.contextMenuInfo.set(null);
-        arrange(store);
-
-        newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
-      }
-    }
-
-    else {
-      panic("cannot create item in context here.");
-    }
-
-
-    if (type == "note") {
-      store.overlay.noteEditOverlayInfo.set({ itemPath: newItemPath });
-    } else if (type == "rating") {
-      // noop.
-    } else {
-      store.overlay.editDialogInfo.set({
-        desktopBoundsPx: initialEditDialogBounds(store),
-        item: newItem
-      });
-    }
-  }
-
-  const noop = () => {}
+  const newPageInContext = () => newItemInContext(store, "page", props.hitInfo, props.desktopPosPx);
+  const newNoteInContext = () => newItemInContext(store, "note", props.hitInfo, props.desktopPosPx);
+  const newTableInContext = () => newItemInContext(store, "table", props.hitInfo, props.desktopPosPx);
+  const newRatingInContext = () => newItemInContext(store, "rating", props.hitInfo, props.desktopPosPx);
+  const newLinkInContext = () => newItemInContext(store, "link", props.hitInfo, props.desktopPosPx);
+  const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
 
   return (
     <div class="border rounded w-[110px] h-[205px] bg-slate-50 mb-1">

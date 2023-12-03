@@ -31,7 +31,11 @@ import { CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
 
 
-const recognizedKeys = ["Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter"];
+const recognizedKeys = [
+  "Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter",
+  "KeyN",
+  // "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE"
+];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (store.overlay.editDialogInfo.get() != null || store.overlay.contextMenuInfo.get() != null || store.overlay.noteEditOverlayInfo.get() != null) {
@@ -117,6 +121,10 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     if (spec && spec.type == PopupType.Page) {
       switchToPage(store, VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath), true, false);
     }
+  }
+
+  else if (ev.code == "KeyN") {
+    
   }
 
   else {
