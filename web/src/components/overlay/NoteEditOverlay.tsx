@@ -321,6 +321,9 @@ export const NoteEditOverlay: Component = () => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
 
+    const beforeText = textElement!.value.substring(0, textElement!.selectionStart);
+    const afterText = textElement!.value.substring(textElement!.selectionEnd);
+
     if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement().linkItemMaybe != null) {
       server.updateItem(ve.displayItem);
       store.overlay.noteEditOverlayInfo.set(null);
@@ -328,24 +331,12 @@ export const NoteEditOverlay: Component = () => {
 
     } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) { 
 
-      if (justCreatedNoteItemMaybe != null) {
-        itemState.delete(justCreatedNoteItemMaybe.id);
-        server.deleteItem(justCreatedNoteItemMaybe.id);
-        store.overlay.noteEditOverlayInfo.set(null);
-        arrange(store);
-        justCreatedNoteItemMaybe = null;
-        return;
-      }
-
       server.updateItem(ve.displayItem);
       const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
       itemState.add(note);
       server.addItem(note, null);
       const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
-      if (parent.computed_children[parent.computed_children.length-1] == note.id) {
-        justCreatedNoteItemMaybe = note;
-      }
       arrange(store);
       const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
       store.overlay.noteEditOverlayInfo.set({ itemPath });
