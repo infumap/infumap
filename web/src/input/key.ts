@@ -34,8 +34,7 @@ import { newItemInContext } from "./create";
 
 const recognizedKeys = [
   "Slash", "Backslash", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape", "Enter",
-  "KeyN",
-  // "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE"
+  "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE"
 ];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
@@ -127,6 +126,37 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   else if (ev.code == "KeyN") {
     ev.preventDefault();
     newItemInContext(store, "note", hitInfo, CursorEventState.getLatestDesktopPx());
+  }
+
+  else if (ev.code == "KeyP") {
+    ev.preventDefault();
+    newItemInContext(store, "page", hitInfo, CursorEventState.getLatestDesktopPx());
+  }
+
+  else if (ev.code == "KeyT") {
+    ev.preventDefault();
+    newItemInContext(store, "table", hitInfo, CursorEventState.getLatestDesktopPx());
+  }
+
+  else if (ev.code == "KeyR") {
+    ev.preventDefault();
+    newItemInContext(store, "rating", hitInfo, CursorEventState.getLatestDesktopPx());
+  }
+
+  else if (ev.code == "KeyW") {
+    ev.preventDefault();
+    newItemInContext(store, "password", hitInfo, CursorEventState.getLatestDesktopPx());
+  }
+
+  else if (ev.code == "KeyL") {
+    ev.preventDefault();
+    newItemInContext(store, "link", hitInfo, CursorEventState.getLatestDesktopPx());
+  }
+
+  else if (ev.code == "KeyE") {
+    ev.preventDefault();
+    // TODO: expressions..
+    // newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx());
   }
 
   else {
