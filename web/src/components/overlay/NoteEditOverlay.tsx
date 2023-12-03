@@ -220,6 +220,7 @@ export const NoteEditOverlay: Component = () => {
     justCreatedCompositeItemMaybe = null;
   };
 
+
   const keyDown_Down = (): void => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -232,6 +233,7 @@ export const NoteEditOverlay: Component = () => {
     store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
   };
 
+
   const keyDown_Up = (): void => {
     const ve = noteVisualElement();
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -243,6 +245,7 @@ export const NoteEditOverlay: Component = () => {
     if (closest == null) { return; }
     store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
   };
+
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
     if (store.user.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.user.getUser().userId) { return; }
@@ -315,6 +318,7 @@ export const NoteEditOverlay: Component = () => {
     }
   };
 
+
   const keyDown_Enter = async (ev: KeyboardEvent): Promise<void> => {
     if (store.user.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.user.getUser().userId) { return; }
     ev.preventDefault();
@@ -333,10 +337,12 @@ export const NoteEditOverlay: Component = () => {
 
       server.updateItem(ve.displayItem);
       const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
+      noteItem().title = beforeText;
+      server.updateItem(noteItem());
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
+      note.title = afterText;
       itemState.add(note);
       server.addItem(note, null);
-      const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
       arrange(store);
       const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
       store.overlay.noteEditOverlayInfo.set({ itemPath });
@@ -364,10 +370,11 @@ export const NoteEditOverlay: Component = () => {
         return;
       }
 
-      noteItem().title = textElement!.value;
-      server.updateItem(ve.displayItem);
+      noteItem().title = beforeText;
+      server.updateItem(noteItem());
       const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
+      note.title = afterText;
       itemState.add(note);
       server.addItem(note, null);
       const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
@@ -391,10 +398,12 @@ export const NoteEditOverlay: Component = () => {
       server.addItem(composite, null);
       justCreatedCompositeItemMaybe = composite;
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
+      asNoteItem(ve.displayItem).title = beforeText;
       server.updateItem(ve.displayItem);
 
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
+      note.title = afterText;
       itemState.add(note);
       server.addItem(note, null);
       justCreatedNoteItemMaybe = note;
@@ -405,6 +414,7 @@ export const NoteEditOverlay: Component = () => {
       store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(newVes.get()) });
     }
   };
+
 
   const style = () => getTextStyleForNote(noteItem().flags);
 
