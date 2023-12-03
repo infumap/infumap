@@ -58,14 +58,14 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.preventDefault();
-    await mouseDownHandler(store, ev.button);
+    await mouseDownHandler(store, ev.button, false);
   };
 
   const touchListener = async (ev: TouchEvent) => {
     if (ev.touches.length > 1) {
       CursorEventState.setFromTouchEvent(ev);
       ev.preventDefault();
-      await mouseDownHandler(store, MOUSE_RIGHT);
+      await mouseDownHandler(store, MOUSE_RIGHT, false);
     }
   }
 

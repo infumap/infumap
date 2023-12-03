@@ -234,7 +234,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const noop = () => {}
 
   return (
-    <div class="border rounded w-[100px] h-[205px] bg-slate-50 mb-1">
+    <div class="border rounded w-[110px] h-[205px] bg-slate-50 mb-1">
       <div class="text-sm pt-[3px]"><InfuIconButton icon="fa fa-sticky-note" highlighted={false} clickHandler={newNoteInContext} /> Note</div>
       <div class="text-sm"><InfuIconButton icon="fa fa-folder" highlighted={false} clickHandler={newPageInContext} /> Page</div>
       <div class="text-sm"><InfuIconButton icon="fa fa-table" highlighted={false} clickHandler={newTableInContext} /> Table</div>
@@ -243,7 +243,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <div class="text-sm"><InfuIconButton icon="fa fa-eye-slash" highlighted={false} clickHandler={newPasswordInContext} /> Password</div>
       <div class="text-sm text-slate-500"><i class="fa fa-image w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> Image</div>
       <div class="text-sm text-slate-500"><i class="fa fa-file w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> File</div>
-      <div class="text-sm text-slate-500"><span class="w-[22px] h-[16px] inline-block text-center ml-[3px] relative">∑</span> Equation</div>
+      <div class="text-sm text-slate-500"><span class="w-[22px] h-[16px] inline-block text-center ml-[3px] relative">∑</span> Expression</div>
     </div>
   );
 }

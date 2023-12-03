@@ -137,7 +137,7 @@ export const NoteEditOverlay: Component = () => {
     arrange(store); // input focus changed.
 
     if (ev.button == MOUSE_LEFT) {
-      mouseDownHandler(store, MOUSE_LEFT);
+      mouseDownHandler(store, MOUSE_LEFT, true);
     }
   };
 
@@ -338,7 +338,7 @@ export const NoteEditOverlay: Component = () => {
       }
 
       server.updateItem(ve.displayItem);
-      const ordering = itemState.newOrderingDirectlyAfterChild(VeFns.canonicalItem(parentVe).id, VeFns.canonicalItem(ve).id);
+      const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
       const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
       itemState.add(note);
       server.addItem(note, null);

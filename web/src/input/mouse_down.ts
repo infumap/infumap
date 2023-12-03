@@ -39,12 +39,12 @@ export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
 
 
-export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number) {
+export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number, viaOverlay: boolean) {
   if (store.history.currentPage() == null) { return; }
 
   switch(buttonNumber) {
     case MOUSE_LEFT:
-      mouseLeftDownHandler(store);
+      mouseLeftDownHandler(store, viaOverlay);
       return;
     case MOUSE_RIGHT:
       await mouseRightDownHandler(store);
@@ -56,7 +56,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 }
 
 
-export function mouseLeftDownHandler(store: StoreContextModel) {
+export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boolean) {
 
   const desktopPosPx = CursorEventState.getLatestDesktopPx();
 
@@ -92,7 +92,7 @@ export function mouseLeftDownHandler(store: StoreContextModel) {
 
   const hitInfo = getHitInfo(store, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxFlags.None) {
-    if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
+    if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup && !viaOverlay) {
       DoubleClickState.preventDoubleClick();
       switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
     } else {
