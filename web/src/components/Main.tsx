@@ -17,7 +17,7 @@
 */
 
 import { useNavigate, useParams } from "@solidjs/router";
-import { Component, onMount, Show } from "solid-js";
+import { Component, onCleanup, onMount, Show } from "solid-js";
 import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsAndTheirAttachments, server } from "../server";
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
@@ -43,6 +43,8 @@ export const Main: Component = () => {
   const params = useParams();
   const store = useStore();
   const navigate = useNavigate();
+
+  let mainDiv: HTMLDivElement | undefined;
 
   onMount(async () => {
     if (!store.general.installationState()!.hasRootUser) {
@@ -122,7 +124,18 @@ export const Main: Component = () => {
       }
       navigate('/login');
     }
+
+    mainDiv!.addEventListener('contextmenu', contextMenuListener);
   });
+
+  onCleanup(() => {
+    mainDiv!.removeEventListener('contextmenu', contextMenuListener);
+  });
+
+  const contextMenuListener = (ev: Event) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+  };
 
   logout = async () => {
     store.clear();
@@ -138,7 +151,7 @@ export const Main: Component = () => {
   };
 
   return (
-    <div class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
+    <div ref={mainDiv} class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
       <Show when={store.topLevelVisualElement.get().displayItem.itemType != ItemType.None}>
         <Desktop visualElement={store.topLevelVisualElement.get()} />
       </Show>

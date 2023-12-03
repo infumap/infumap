@@ -94,11 +94,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     setTopLevelPageScrollPositions(store);
   };
 
-  const contextMenuListener = (ev: Event) => {
-    ev.stopPropagation();
-    ev.preventDefault();
-  };
-
   const dropListener = async (ev: DragEvent) => {
     CursorEventState.setFromMouseEvent(ev);
     ev.stopPropagation();
@@ -127,7 +122,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   onMount(() => {
     // TODO (MEDIUM): attach to desktopDiv?. need tab index.
     document.addEventListener('keydown', keyListener);
-    desktopDiv!.addEventListener('contextmenu', contextMenuListener);
     desktopDiv!.addEventListener('dragover', dragoverListener);
     desktopDiv!.addEventListener('drop', dropListener);
     window.addEventListener('resize', windowResizeListener);
@@ -136,7 +130,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
   onCleanup(() => {
     document.removeEventListener('keydown', keyListener);
-    desktopDiv!.removeEventListener('contextmenu', contextMenuListener);
     desktopDiv!.removeEventListener('dragover', dragoverListener);
     desktopDiv!.removeEventListener('drop', dropListener);
     window.removeEventListener('resize', windowResizeListener);
