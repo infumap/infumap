@@ -17,7 +17,7 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { BLOCK_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
@@ -328,11 +328,15 @@ const arrangePageWithChildren = (
   // *** DOCUMENT VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
 
-    const BLOCK_SIZE_PX = { w: 24, h: 24 };
+    const totalWidthBl = displayItem_pageWithChildren.docWidthBl + 4; // 4 == total margin.
+    const requiredWidthPx = totalWidthBl * BLOCK_SIZE_PX.w;
+    let scale = geometry.boundsPx.w / requiredWidthPx;
+    if (scale > 1.0) { scale = 1.0; }
+    const blockSizePx = { w: BLOCK_SIZE_PX.w * scale, h: BLOCK_SIZE_PX.h * scale };
 
     const childrenVes = [];
 
-    let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX;
+    let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
     for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
       const childId = displayItem_pageWithChildren.computed_children[idx];
       const childItem = itemState.get(childId)!;
@@ -342,7 +346,7 @@ const arrangePageWithChildren = (
 
       const geometry = ItemFns.calcGeometry_InComposite(
         linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
-        BLOCK_SIZE_PX,
+        blockSizePx,
         displayItem_pageWithChildren.docWidthBl,
         topPx);
 
@@ -351,7 +355,7 @@ const arrangePageWithChildren = (
         linkItemMaybe: linkItemMaybe_childItem,
         flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
         boundsPx: {
-          x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX,
+          x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale,
           y: geometry.boundsPx.y,
           w: geometry.boundsPx.w,
           h: geometry.boundsPx.h,
@@ -360,14 +364,14 @@ const arrangePageWithChildren = (
         parentPath: pageWithChildrenVePath,
         col: 0,
         row: idx,
-        blockSizePx: BLOCK_SIZE_PX,
+        blockSizePx: blockSizePx,
       };
 
       const childVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), pageWithChildrenVePath);
       const childVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, childVePath);
       childrenVes.push(childVeSignal);
 
-      topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
+      topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
     }
 
     const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;

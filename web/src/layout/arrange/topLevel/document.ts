@@ -22,7 +22,7 @@ import { itemState } from "../../../store/ItemState";
 import { VesCache } from "../../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementSpec } from "../../visual-element";
 import { renderDockMaybe } from ".";
-import { COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../../constants";
+import { BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../../constants";
 import { getVePropertiesForItem } from "../util";
 import { isTable } from "../../../items/table-item";
 import { ItemFns } from "../../../items/base/item-polymorphism";
@@ -34,11 +34,16 @@ export const arrange_document = (store: StoreContextModel): void => {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = currentPage.id;
 
-  const BLOCK_SIZE_PX = { w: 24, h: 24 };
+  const pageBoundsPx = store.desktopMainAreaBoundsPx();
+  const totalWidthBl = currentPage.docWidthBl + 3.5; // 3.5 == total margin.
+  const requiredWidthPx = totalWidthBl * BLOCK_SIZE_PX.w;
+  let scale = pageBoundsPx.w / requiredWidthPx;
+  if (scale > 1.0) { scale = 1.0; }
+  const blockSizePx = { w: BLOCK_SIZE_PX.w * scale, h: BLOCK_SIZE_PX.h * scale };
 
   const childrenVes = [];
 
-  let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX;
+  let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
   for (let idx=0; idx<currentPage.computed_children.length; ++idx) {
     const childId = currentPage.computed_children[idx];
     const childItem = itemState.get(childId)!;
@@ -48,7 +53,7 @@ export const arrange_document = (store: StoreContextModel): void => {
 
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
-      BLOCK_SIZE_PX,
+      blockSizePx,
       currentPage.docWidthBl,
       topPx);
 
@@ -57,7 +62,7 @@ export const arrange_document = (store: StoreContextModel): void => {
       linkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
       boundsPx: {
-        x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX,
+        x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale,
         y: geometry.boundsPx.y,
         w: geometry.boundsPx.w,
         h: geometry.boundsPx.h,
@@ -66,24 +71,24 @@ export const arrange_document = (store: StoreContextModel): void => {
       parentPath: currentPath,
       col: 0,
       row: idx,
-      blockSizePx: BLOCK_SIZE_PX,
+      blockSizePx,
     };
 
     const childVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), currentPath);
     const childVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, childVePath);
     childrenVes.push(childVeSignal);
 
-    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * BLOCK_SIZE_PX.h;
+    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
 
-  const pageBoundsPx = store.desktopMainAreaBoundsPx();
-  pageBoundsPx.h = topPx + PAGE_DOCUMENT_TOP_MARGIN_PX;
+  const childAreaBoundsPx = store.desktopMainAreaBoundsPx();
+  childAreaBoundsPx.h = topPx + PAGE_DOCUMENT_TOP_MARGIN_PX;
 
   const topLevelVisualElementSpec: VisualElementSpec = {
     displayItem: currentPage,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren,
     boundsPx: store.desktopMainAreaBoundsPx(),
-    childAreaBoundsPx: pageBoundsPx,
+    childAreaBoundsPx,
   };
 
   const dockVesMaybe = renderDockMaybe(store, currentPath);

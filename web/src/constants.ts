@@ -35,6 +35,8 @@ export const FONT_SIZE_PX = 16;
 
 export const LINE_HEIGHT_PX = 24;
 
+export const BLOCK_SIZE_PX = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
+
 export const NOTE_PADDING_PX = 5;
 
 export const MOUSE_MOVE_AMBIGUOUS_PX = 5;
