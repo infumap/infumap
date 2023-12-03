@@ -29,6 +29,7 @@ import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
+import { newItemInContext } from "./create";
 
 
 const recognizedKeys = [
@@ -124,7 +125,8 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   }
 
   else if (ev.code == "KeyN") {
-    
+    ev.preventDefault();
+    newItemInContext(store, "note", hitInfo, CursorEventState.getLatestDesktopPx());
   }
 
   else {
