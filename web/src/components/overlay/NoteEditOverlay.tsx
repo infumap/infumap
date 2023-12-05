@@ -228,10 +228,44 @@ export const NoteEditOverlay: Component = () => {
       case "ArrowUp":
         keyDown_Up();
         break;
+      case "ArrowLeft":
+        keyDown_Left(ev);
+        break;
+      case "ArrowRight":
+        keyDown_Right(ev);
+        break;
     }
 
     justCreatedNoteItemMaybe = null;
     justCreatedCompositeItemMaybe = null;
+  };
+
+
+  const keyDown_Left = (ev: KeyboardEvent): void => {
+    if (textElement!.selectionStart != textElement!.selectionEnd) { return; }
+    if (textElement!.selectionStart != 0) { return; }
+
+    const ve = noteVisualElement();
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+    if (closest == null) { return; }
+
+    ev.preventDefault();
+    store.overlay.noteEditOverlayInfo.set(null);
+    store.overlay.noteEditOverlayInfo.set({ itemPath: closest, initialCursorPosition: CursorPosition.End });
+  };
+
+
+  const keyDown_Right = (ev: KeyboardEvent): void => {
+    if (textElement!.selectionStart != textElement!.selectionEnd) { return; }
+    if (textElement!.selectionStart != textElement!.value.length) { return; }
+
+    const ve = noteVisualElement();
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
+    if (closest == null) { return; }
+
+    ev.preventDefault();
+    store.overlay.noteEditOverlayInfo.set(null);
+    store.overlay.noteEditOverlayInfo.set({ itemPath: closest, initialCursorPosition: CursorPosition.Start });
   };
 
 
