@@ -82,6 +82,8 @@ export interface OverlayStoreContextModel {
   dockWidthPx: InfuSignal<number>,
 
   clear: () => void,
+
+  anOverlayIsVisible: () => boolean,
 }
 
 
@@ -94,6 +96,13 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
   const dockWidthPx = createInfuSignal<number>(80);
 
+  const noteUrlOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+  const noteFormatOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+  const pageColorOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+  const pageAspectOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+  const pageWidthOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+  const pageNumColsOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+
   function clear() {
     tableEditOverlayInfo.set(null);
     editDialogInfo.set(null);
@@ -102,6 +111,23 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     noteEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
     dockWidthPx.set(80);
+  }
+
+  function anOverlayIsVisible(): boolean {
+    return (
+      tableEditOverlayInfo.get() != null ||
+      searchOverlayVisible.get() != null ||
+      noteEditOverlayInfo.get() != null ||
+      editDialogInfo.get() != null ||
+      editUserSettingsInfo.get() != null ||
+      contextMenuInfo.get() != null ||
+      noteUrlOverlayInfoMaybe.get() != null ||
+      noteFormatOverlayInfoMaybe.get() != null ||
+      pageColorOverlayInfoMaybe.get() != null ||
+      pageAspectOverlayInfoMaybe.get() != null ||
+      pageWidthOverlayInfoMaybe.get() != null ||
+      pageNumColsOverlayInfoMaybe.get() != null
+    );
   }
 
   return ({
@@ -116,13 +142,14 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
     isPanicked: createInfuSignal<boolean>(false),
 
-    noteUrlOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
-    noteFormatOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
-    pageColorOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
-    pageAspectOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
-    pageWidthOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
-    pageNumColsOverlayInfoMaybe: createInfuSignal<OverlayCoordinates | null>(null),
+    noteUrlOverlayInfoMaybe,
+    noteFormatOverlayInfoMaybe,
+    pageColorOverlayInfoMaybe,
+    pageAspectOverlayInfoMaybe,
+    pageWidthOverlayInfoMaybe,
+    pageNumColsOverlayInfoMaybe,
 
     clear,
+    anOverlayIsVisible,
   });
 }

@@ -35,6 +35,7 @@ import { Toolbar_Page_Color } from "./toolbar/Toolbar_Page_Color";
 import { Toolbar_Page_Aspect } from "./toolbar/Toolbar_Page_Aspect";
 import { Toolbar_Page_Width } from "./toolbar/Toolbar_Page_Width";
 import { Toolbar_Page_NumCols } from "./toolbar/Toolbar_Page_NumCols";
+import { SearchOverlay } from "./overlay/SearchOverlay";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -175,6 +176,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.pageNumColsOverlayInfoMaybe.get() != null}>
         <Toolbar_Page_NumCols />
+      </Show>
+      <Show when={store.overlay.searchOverlayVisible.get()}>
+        <SearchOverlay />
       </Show>
 
     </div>

@@ -34,7 +34,6 @@ import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
 import { CursorEventState } from "../input/state";
 import { arrange } from "../layout/arrange";
-import { SearchOverlay } from "./overlay/SearchOverlay";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { keyHandler } from "../input/key";
@@ -163,9 +162,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       </Show>
       <Show when={store.overlay.tableEditOverlayInfo.get() != null}>
         <TableEditOverlay />
-      </Show>
-      <Show when={store.overlay.searchOverlayVisible.get()}>
-        <SearchOverlay />
       </Show>
       <Show when={store.overlay.isPanicked.get()}>
         <Panic />

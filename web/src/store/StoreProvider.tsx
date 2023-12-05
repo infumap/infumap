@@ -105,7 +105,6 @@ export function StoreProvider(props: StoreContextProps) {
     perItem.clear();
   };
 
-
   const getToolbarFocus = (): Veid => {
     if (overlay.noteEditOverlayInfo.get() != null) {
       return VeFns.veidFromPath(overlay.noteEditOverlayInfo.get()!.itemPath);
@@ -123,7 +122,9 @@ export function StoreProvider(props: StoreContextProps) {
 
 
   const value: StoreContextModel = {
-    desktopBoundsPx, resetDesktopSizePx, desktopMainAreaBoundsPx,
+    desktopBoundsPx,
+    resetDesktopSizePx,
+    desktopMainAreaBoundsPx,
 
     topLevelVisualElement,
 

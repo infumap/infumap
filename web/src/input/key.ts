@@ -38,7 +38,7 @@ const recognizedKeys = [
 ];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
-  if (store.overlay.editDialogInfo.get() != null || store.overlay.contextMenuInfo.get() != null || store.overlay.noteEditOverlayInfo.get() != null) {
+  if (store.overlay.anOverlayIsVisible()) {
     return;
   }
 

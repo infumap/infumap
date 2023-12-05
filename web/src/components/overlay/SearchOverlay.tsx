@@ -25,7 +25,7 @@ import { Uid } from "../../util/uid";
 import { switchToPage } from "../../layout/navigation";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
-import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { TOP_TOOLBAR_HEIGHT_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { initiateLoadItemMaybe } from "../../layout/load";
 import { isInside } from "../../util/geometry";
 
@@ -35,8 +35,8 @@ export const SearchOverlay: Component = () => {
 
   const boxBoundsPx = () => {
     return ({
-      x: 10,
-      y: 10,
+      x: 5,
+      y: 5 + TOP_TOOLBAR_HEIGHT_PX,
       w: 405,
       h: 64
     });
