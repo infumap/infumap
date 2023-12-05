@@ -802,6 +802,7 @@ export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
 export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, isExpandable: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
+  const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
 
   const paddedBoundsPx = {
     x: boundsPx.x + LINE_HEIGHT_PX,
@@ -810,7 +811,7 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
     h: boundsPx.h - 2 * LINE_HEIGHT_PX,
   };
 
-  let li = LinkFns.create(item.ownerId, item.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
+  let li = LinkFns.create(item.ownerId, canonicalItem.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
   li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }

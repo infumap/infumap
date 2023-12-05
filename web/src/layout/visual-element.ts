@@ -326,6 +326,16 @@ export const VeFns = {
     return item;
   },
 
+  canonicalItemFromVeid: (veid: Veid): Item | null => {
+    let item;
+    if (veid.linkIdMaybe) {
+      item = itemState.get(veid.linkIdMaybe);
+    } else {
+      item = itemState.get(veid.itemId);
+    }
+    return item;
+  },
+
   addVeidToPath: (veid: Veid, path: VisualElementPath): VisualElementPath => {
     let current = veid.itemId;
     if (veid.linkIdMaybe != null) {
