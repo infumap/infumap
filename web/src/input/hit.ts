@@ -169,10 +169,10 @@ function determineRoot(
   if (dockRootMaybe != null) { return dockRootMaybe!; }
 
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
-  posOnDesktopPx.x = posOnDesktopPx.x - store.overlay.dockWidthPx.get();
+  posOnDesktopPx.x = posOnDesktopPx.x - store.dockWidthPx.get();
 
   posRelativeToRootVisualElementPx = cloneVector(posRelativeToRootVisualElementPx)!;
-  posRelativeToRootVisualElementPx.x = posRelativeToRootVisualElementPx.x - store.overlay.dockWidthPx.get();
+  posRelativeToRootVisualElementPx.x = posRelativeToRootVisualElementPx.x - store.dockWidthPx.get();
 
 
   let done = false;

@@ -44,6 +44,8 @@ export interface StoreContextModel {
 
   getToolbarFocus: () => Veid,
 
+  dockWidthPx: InfuSignal<number>,
+
   anItemIsMoving: InfuSignal<boolean>,
 
   perItem: PerItemStoreContextModel,
@@ -68,6 +70,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
+  const dockWidthPx = createInfuSignal<number>(80);
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
@@ -88,8 +91,8 @@ export function StoreProvider(props: StoreContextProps) {
 
   const desktopMainAreaBoundsPx = () => {
     const result = desktopBoundsPx();
-    result.x = overlay.dockWidthPx.get();
-    result.w = result.w - overlay.dockWidthPx.get();
+    result.x = dockWidthPx.get();
+    result.w = result.w - dockWidthPx.get();
     return result;
   }
 
@@ -103,6 +106,7 @@ export function StoreProvider(props: StoreContextProps) {
     history.clear();
     overlay.clear();
     perItem.clear();
+    dockWidthPx.set(80);
   };
 
   const getToolbarFocus = (): Veid => {
@@ -125,6 +129,7 @@ export function StoreProvider(props: StoreContextProps) {
     desktopBoundsPx,
     resetDesktopSizePx,
     desktopMainAreaBoundsPx,
+    dockWidthPx,
 
     topLevelVisualElement,
 

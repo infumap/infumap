@@ -78,9 +78,6 @@ export interface OverlayStoreContextModel {
   pageNumColsOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
   isPanicked: InfuSignal<boolean>,
 
-  // dock
-  dockWidthPx: InfuSignal<number>,
-
   clear: () => void,
 
   anOverlayIsVisible: () => boolean,
@@ -94,7 +91,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
-  const dockWidthPx = createInfuSignal<number>(80);
 
   const noteUrlOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
   const noteFormatOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
@@ -110,7 +106,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     contextMenuInfo.set(null);
     noteEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
-    dockWidthPx.set(80);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -137,8 +132,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editDialogInfo,
     editUserSettingsInfo,
     contextMenuInfo,
-
-    dockWidthPx,
 
     isPanicked: createInfuSignal<boolean>(false),
 

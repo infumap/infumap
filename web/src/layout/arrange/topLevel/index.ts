@@ -61,9 +61,9 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       const childId = dockPage.computed_children[i];
       const childItem = itemState.get(childId)!;
 
-      let wPx = store.overlay.dockWidthPx.get() - GAP_PX * 2;
+      let wPx = store.dockWidthPx.get() - GAP_PX * 2;
       if (wPx < 0) { wPx = 0; }
-      const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: store.overlay.dockWidthPx.get() };
+      const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: store.dockWidthPx.get() };
       const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false);
 
       if (movingItem != null && childId == movingItem.id) {
@@ -74,7 +74,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         yCurrentPx += geometry.boundsPx.h + GAP_PX;
       }
 
-      if (store.overlay.dockWidthPx.get() > 25) {
+      if (store.dockWidthPx.get() > 25) {
         const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
         dockChildren.push(ves);
       }
@@ -82,20 +82,20 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     yCurrentPx += GAP_PX;
 
     let trashHeightPx = 50;
-    if (store.overlay.dockWidthPx.get() - GAP_PX*2 < trashHeightPx) {
-      trashHeightPx = store.overlay.dockWidthPx.get() - GAP_PX*2;
+    if (store.dockWidthPx.get() - GAP_PX*2 < trashHeightPx) {
+      trashHeightPx = store.dockWidthPx.get() - GAP_PX*2;
       if (trashHeightPx < 0) { trashHeightPx = 0; }
     }
 
     const dockBoundsPx = {
       x: 0, y: 0,
-      w: store.overlay.dockWidthPx.get(),
+      w: store.dockWidthPx.get(),
       h: store.desktopBoundsPx().h
     };
 
     const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
     resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
-    resizeBoundsPx.x = store.overlay.dockWidthPx.get() - RESIZE_BOX_SIZE_PX;
+    resizeBoundsPx.x = store.dockWidthPx.get() - RESIZE_BOX_SIZE_PX;
 
     const dockVisualElementSpec = {
       displayItem: dockPage,
@@ -117,7 +117,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       const trashBoundsPx = {
         x: GAP_PX,
         y: store.desktopBoundsPx().h - trashHeightPx - GAP_PX * 2,
-        w: store.overlay.dockWidthPx.get() - GAP_PX*2,
+        w: store.dockWidthPx.get() - GAP_PX*2,
         h: trashHeightPx,
       }
       const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -134,7 +134,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         parentPath: dockPath,
       };
 
-      if (store.overlay.dockWidthPx.get() > 25) {
+      if (store.dockWidthPx.get() > 25) {
         const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  dockPath);
         dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
       }
