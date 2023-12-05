@@ -116,7 +116,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   function anOverlayIsVisible(): boolean {
     return (
       tableEditOverlayInfo.get() != null ||
-      searchOverlayVisible.get() != null ||
+      searchOverlayVisible.get() ||
       noteEditOverlayInfo.get() != null ||
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
