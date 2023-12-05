@@ -22,13 +22,9 @@ import { NoteFns, asNoteItem } from "../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { useStore } from "../../store/StoreProvider";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { PlaceholderFns } from "../../items/placeholder-item";
-import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { itemState } from "../../store/ItemState";
-import { server } from "../../server";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
 export const Toolbar_Note: Component = () => {
@@ -103,31 +99,6 @@ export const Toolbar_Note: Component = () => {
     arrange(store);
   };
 
-  let deleted = false;
-
-  const deleteButtonHandler = async (): Promise<void> => {
-    if (compositeItemMaybe() != null) {
-      console.log("TODO: delete composite");
-      // TODO (HIGH)
-
-    } else {
-      const noteParentVe = VesCache.get(noteVisualElement().parentPath!);
-      if (noteParentVe!.get().flags & VisualElementFlags.InsideTable) {
-        // must be an attachment item in a table.
-        const placeholder = PlaceholderFns.create(noteParentVe!.get().displayItem.ownerId, noteParentVe!.get().displayItem.id, RelationshipToParent.Attachment, noteItem().ordering);
-        itemState.add(placeholder);
-        server.addItem(placeholder, null);
-      }
-
-      server.deleteItem(noteItem().id); // throws on failure.
-      itemState.delete(noteItem().id);
-
-      deleted = true;
-      store.overlay.noteEditOverlayInfo.set(null);
-      arrange(store);
-    }
-  };
-
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
       <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
@@ -156,18 +127,12 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
-      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId && noteVisualElement().linkItemMaybe == null}>
-        <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
-      </Show>
     </div>;
 
   const renderCompositeToolbox = () =>
     <>
       <div class="inline-block">
         <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-        <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
-          <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
-        </Show>
       </div>
       <div class="inline-block">
         <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
@@ -188,9 +153,6 @@ export const Toolbar_Note: Component = () => {
           <Show when={isInTable()}>
             <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
-        </Show>
-        <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
-          <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
         </Show>
       </div>
     </>;
