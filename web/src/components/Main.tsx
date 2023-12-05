@@ -29,13 +29,8 @@ import { panic } from "../util/lang";
 import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
-import { Toolbar_Note_Url } from "./toolbar/Toolbar_Note_Url";
-import { Toolbar_Note_Format } from "./toolbar/Toolbar_Note_Format";
-import { Toolbar_Page_Color } from "./toolbar/Toolbar_Page_Color";
-import { Toolbar_Page_Aspect } from "./toolbar/Toolbar_Page_Aspect";
-import { Toolbar_Page_Width } from "./toolbar/Toolbar_Page_Width";
-import { Toolbar_Page_NumCols } from "./toolbar/Toolbar_Page_NumCols";
 import { SearchOverlay } from "./overlay/SearchOverlay";
+import { Toolbar_Overlay } from "./toolbar/Toolbar_Overlay";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -159,23 +154,8 @@ export const Main: Component = () => {
       <Toolbar />
 
       {/* global overlays */}
-      <Show when={store.overlay.noteUrlOverlayInfoMaybe.get() != null}>
-        <Toolbar_Note_Url />
-      </Show>
-      <Show when={store.overlay.noteFormatOverlayInfoMaybe.get() != null}>
-        <Toolbar_Note_Format />
-      </Show>
-      <Show when={store.overlay.pageColorOverlayInfoMaybe.get() != null}>
-        <Toolbar_Page_Color />
-      </Show>
-      <Show when={store.overlay.pageAspectOverlayInfoMaybe.get() != null}>
-        <Toolbar_Page_Aspect />
-      </Show>
-      <Show when={store.overlay.pageWidthOverlayInfoMaybe.get() != null}>
-        <Toolbar_Page_Width />
-      </Show>
-      <Show when={store.overlay.pageNumColsOverlayInfoMaybe.get() != null}>
-        <Toolbar_Page_NumCols />
+      <Show when={store.overlay.toolbarOverlayInfoMaybe.get() != null}>
+        <Toolbar_Overlay />
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />

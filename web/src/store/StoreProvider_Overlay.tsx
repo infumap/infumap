@@ -23,7 +23,17 @@ import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
 
 
-export interface OverlayCoordinates {
+export enum ToolbarOverlayType {
+  NoteUrl = "url",
+  NoteFormat = "format",
+  PageColor = "color",
+  PageAspect = "aspect",
+  PageWidth = "width",
+  PageNumCols = "numcols",
+}
+
+export interface ToolbarOverlayInfo {
+  type: ToolbarOverlayType,
   topLeftPx: Vector
 }
 
@@ -70,12 +80,8 @@ export interface OverlayStoreContextModel {
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
 
   // global overlays
-  noteUrlOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
-  noteFormatOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
-  pageColorOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
-  pageAspectOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
-  pageWidthOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
-  pageNumColsOverlayInfoMaybe: InfuSignal<OverlayCoordinates | null>,
+  toolbarOverlayInfoMaybe: InfuSignal<ToolbarOverlayInfo | null>,
+
   isPanicked: InfuSignal<boolean>,
 
   clear: () => void,
@@ -92,12 +98,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
 
-  const noteUrlOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
-  const noteFormatOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
-  const pageColorOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
-  const pageAspectOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
-  const pageWidthOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
-  const pageNumColsOverlayInfoMaybe = createInfuSignal<OverlayCoordinates | null>(null);
+  const toolbarOverlayInfoMaybe = createInfuSignal<ToolbarOverlayInfo | null>(null);
 
   function clear() {
     tableEditOverlayInfo.set(null);
@@ -116,12 +117,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
-      noteUrlOverlayInfoMaybe.get() != null ||
-      noteFormatOverlayInfoMaybe.get() != null ||
-      pageColorOverlayInfoMaybe.get() != null ||
-      pageAspectOverlayInfoMaybe.get() != null ||
-      pageWidthOverlayInfoMaybe.get() != null ||
-      pageNumColsOverlayInfoMaybe.get() != null
+      toolbarOverlayInfoMaybe.get() != null
     );
   }
 
@@ -135,12 +131,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
     isPanicked: createInfuSignal<boolean>(false),
 
-    noteUrlOverlayInfoMaybe,
-    noteFormatOverlayInfoMaybe,
-    pageColorOverlayInfoMaybe,
-    pageAspectOverlayInfoMaybe,
-    pageWidthOverlayInfoMaybe,
-    pageNumColsOverlayInfoMaybe,
+    toolbarOverlayInfoMaybe,
 
     clear,
     anOverlayIsVisible,

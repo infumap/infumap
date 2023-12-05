@@ -60,7 +60,7 @@ export const Toolbar: Component = () => {
   const mainTitleColor = () => {
     // item state is not solid-js signals.
     // as a bit of a hack, change in color is signalled by re-setting this instead.
-    store.overlay.pageColorOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
   };
 

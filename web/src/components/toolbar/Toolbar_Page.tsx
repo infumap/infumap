@@ -30,6 +30,7 @@ import { server } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
+import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Page: Component = () => {
@@ -126,37 +127,37 @@ export const Toolbar_Page: Component = () => {
   }
 
   const colorNumber = () => {
-    store.overlay.pageColorOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return pageItem().backgroundColorIndex;
   }
 
   const widthText = () => {
-    store.overlay.pageWidthOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return pageItem().innerSpatialWidthGr / GRID_SIZE;
   }
 
   const docWidthBlText = () => {
-    store.overlay.pageWidthOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return pageItem().docWidthBl;
   }
 
   const aspectText = () => {
-    store.overlay.pageAspectOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
   const cellAspectText = () => {
-    store.overlay.pageAspectOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
   }
 
   const justifiedAspectText = () => {
-    store.overlay.pageAspectOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return Math.round(pageItem().justifiedRowAspect * 1000.0) / 1000.0;
   }
 
   const numColsText = () => {
-    store.overlay.pageNumColsOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return pageItem().gridNumberOfColumns;
   }
 
@@ -191,13 +192,13 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleColorClick = () => {
-    store.overlay.pageColorOverlayInfoMaybe.set(
-      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x, y: divBeforeColroSelect!.getBoundingClientRect().y + 16 } });
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x, y: divBeforeColroSelect!.getBoundingClientRect().y + 16 }, type: ToolbarOverlayType.PageColor });
   };
 
   const handleAspectClick = () => {
-    store.overlay.pageAspectOverlayInfoMaybe.set(
-      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageAspect });
   };
 
   const handleCellAspectClick = () => {
@@ -211,8 +212,8 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleWidthClick = () => {
-    store.overlay.pageWidthOverlayInfoMaybe.set(
-      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageWidth });
   };
 
   const handleDocWidthBlClick = () => {
@@ -221,14 +222,14 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleNumColsClick = () => {
-    store.overlay.pageNumColsOverlayInfoMaybe.set(
-      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 } });
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageNumCols });
   };
 
   const subTitleColor = () => {
     // item state has no solid-js signals.
     // as a bit of a hack, change in title/color is signalled by re-setting this instead.
-    store.overlay.pageColorOverlayInfoMaybe.get();
+    store.overlay.toolbarOverlayInfoMaybe.get();
     return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
   };
 

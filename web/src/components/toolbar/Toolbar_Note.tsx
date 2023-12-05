@@ -29,6 +29,7 @@ import { PlaceholderFns } from "../../items/placeholder-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { itemState } from "../../store/ItemState";
 import { server } from "../../server";
+import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
 export const Toolbar_Note: Component = () => {
   const store = useStore();
@@ -65,9 +66,9 @@ export const Toolbar_Note: Component = () => {
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(store); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(store); };
 
-  const urlButtonHandler = () => { store.overlay.noteUrlOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
+  const urlButtonHandler = () => { store.overlay.toolbarOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y }, type: ToolbarOverlayType.NoteUrl }); }
 
-  const formatHandler = () => { store.overlay.noteFormatOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y } }); }
+  const formatHandler = () => { store.overlay.toolbarOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y }, type: ToolbarOverlayType.NoteFormat }); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
