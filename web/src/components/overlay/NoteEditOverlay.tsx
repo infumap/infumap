@@ -41,6 +41,8 @@ import { assert } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 import getCaretCoordinates from 'textarea-caret';
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { CursorPosition } from "../../store/StoreProvider_Overlay";
+import { asTitledItem } from "../../items/base/titled-item";
 
 
 // TODO (LOW): don't create items on the server until it is certain that they are needed.
@@ -160,23 +162,35 @@ export const NoteEditOverlay: Component = () => {
   });
 
   onMount(() => {
-    const mouseClientPosPx = CursorEventState.getLatestClientPx();
-    const r = textElement!.getBoundingClientRect();
-    const teTopLeftPx: Vector = { x: r.x, y: r.y };
-    const posInTb = vectorSubtract(mouseClientPosPx, teTopLeftPx);
-    let closestDist = 10000000.0;
-    let closestIdx = 1;
-    for (let i=1; i<=textElement!.value.length; ++i) {
-      const coords = getCaretCoordinates(textElement!, i);
-      if (posInTb.y < coords.top || posInTb.y > coords.top + coords.height) { continue; }
-      const distX = (coords.left - posInTb.x) * (coords.left - posInTb.x);
-      if (distX < closestDist) {
-        closestDist = distX;
-        closestIdx = i;
+    const initialCursorPosition = store.overlay.noteEditOverlayInfo.get()!.initialCursorPosition;
+    if (initialCursorPosition == CursorPosition.UnderMouse) {
+      const mouseClientPosPx = CursorEventState.getLatestClientPx();
+      const r = textElement!.getBoundingClientRect();
+      const teTopLeftPx: Vector = { x: r.x, y: r.y };
+      const posInTb = vectorSubtract(mouseClientPosPx, teTopLeftPx);
+      let closestDist = 10000000.0;
+      let closestIdx = 1;
+      for (let i=1; i<=textElement!.value.length; ++i) {
+        const coords = getCaretCoordinates(textElement!, i);
+        if (posInTb.y < coords.top || posInTb.y > coords.top + coords.height) { continue; }
+        const distX = (coords.left - posInTb.x) * (coords.left - posInTb.x);
+        if (distX < closestDist) {
+          closestDist = distX;
+          closestIdx = i;
+        }
       }
+      textElement!.selectionStart = closestIdx;
+      textElement!.selectionEnd = closestIdx;
+    } else if (initialCursorPosition == CursorPosition.Start) {
+      textElement!.selectionStart = 0;
+      textElement!.selectionEnd = 0;
+    } else if (initialCursorPosition == CursorPosition.End) {
+      textElement!.selectionStart = textElement!.value.length;
+      textElement!.selectionEnd = textElement!.value.length;
+    } else {
+      textElement!.selectionStart = initialCursorPosition as any;
+      textElement!.selectionEnd = initialCursorPosition as any;
     }
-    textElement!.selectionStart = closestIdx;
-    textElement!.selectionEnd = closestIdx;
     textElement!.focus();
   });
 
@@ -230,7 +244,8 @@ export const NoteEditOverlay: Component = () => {
     if (caretCoords.top < endCaretCoords.top) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
     if (closest == null) { return; }
-    store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
+    store.overlay.noteEditOverlayInfo.set(null);
+    store.overlay.noteEditOverlayInfo.set({ itemPath: closest, initialCursorPosition: 0 });
   };
 
 
@@ -243,13 +258,15 @@ export const NoteEditOverlay: Component = () => {
     if (caretCoords.top > startCaretCoords.top) { return; }
     const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
     if (closest == null) { return; }
-    store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
+    store.overlay.noteEditOverlayInfo.set(null);
+    store.overlay.noteEditOverlayInfo.set({ itemPath: closest, initialCursorPosition: 0 });
   };
 
 
   const keyDown_Backspace = async (ev: KeyboardEvent): Promise<void> => {
     if (store.user.getUserMaybe() == null || noteItemOnInitialize.ownerId != store.user.getUser().userId) { return; }
-    if (noteItem().title != "") { return; }
+    if (textElement!.selectionStart != textElement!.selectionEnd) { return; }
+    if (textElement!.selectionStart != 0) { return; }
 
     const ve = noteVisualElement();
     let parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -262,7 +279,12 @@ export const NoteEditOverlay: Component = () => {
 
       // definitely delete note item.
       ev.preventDefault();
-      store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
+      const veid = VeFns.veidFromPath(closest);
+      const nextFocusItem = asTitledItem(itemState.get(veid.itemId)!);
+      nextFocusItem.title = nextFocusItem.title + textElement!.value;
+
+      store.overlay.noteEditOverlayInfo.set(null);
+      store.overlay.noteEditOverlayInfo.set({ itemPath: closest, initialCursorPosition: nextFocusItem.title.length - textElement!.value.length });
       const canonicalId = VeFns.canonicalItem(ve).id;
       deleted = true;
       itemState.delete(canonicalId);
@@ -280,9 +302,14 @@ export const NoteEditOverlay: Component = () => {
       const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
       if (closest == null) { return; }
 
+      const veid = VeFns.veidFromPath(closest);
+      const nextFocusItem = asTitledItem(itemState.get(veid.itemId)!);
+      nextFocusItem.title = nextFocusItem.title + textElement!.value;
+
       // definitely delete note item.
       ev.preventDefault();
-      store.overlay.noteEditOverlayInfo.set({ itemPath: closest });
+      store.overlay.noteEditOverlayInfo.set(null);
+      store.overlay.noteEditOverlayInfo.set({ itemPath: closest, initialCursorPosition: nextFocusItem.title.length - textElement!.value.length });
       const canonicalId = VeFns.canonicalItem(ve).id;
       deleted = true;
       itemState.delete(canonicalId);
@@ -313,7 +340,8 @@ export const NoteEditOverlay: Component = () => {
         itemState.delete(compositeVe.displayItem.id);
         server.deleteItem(compositeVe.displayItem.id);
         arrange(store);
-        store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!) });
+        store.overlay.noteEditOverlayInfo.set(null);
+        store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!), initialCursorPosition: nextFocusItem.title.length - textElement!.value.length });
       }, 0);
     }
   };
@@ -345,7 +373,8 @@ export const NoteEditOverlay: Component = () => {
       server.addItem(note, null);
       arrange(store);
       const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
-      store.overlay.noteEditOverlayInfo.set({ itemPath });
+      store.overlay.noteEditOverlayInfo.set(null);
+      store.overlay.noteEditOverlayInfo.set({ itemPath, initialCursorPosition: CursorPosition.Start });
 
     } else if (isComposite(parentVe.displayItem)) {
 
@@ -383,7 +412,8 @@ export const NoteEditOverlay: Component = () => {
       }
       arrange(store);
       const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
-      store.overlay.noteEditOverlayInfo.set({ itemPath });
+      store.overlay.noteEditOverlayInfo.set(null);
+      store.overlay.noteEditOverlayInfo.set({ itemPath, initialCursorPosition: CursorPosition.Start });
 
     } else {
       assert(justCreatedNoteItemMaybe == null, "not expecting note to have been just created");
@@ -411,7 +441,8 @@ export const NoteEditOverlay: Component = () => {
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
       const newVes = VesCache.findSingle(VeFns.veidFromItems(note, null));
-      store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(newVes.get()) });
+      store.overlay.noteEditOverlayInfo.set(null);
+      store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(newVes.get()), initialCursorPosition: CursorPosition.Start });
     }
   };
 

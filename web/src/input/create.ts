@@ -34,6 +34,7 @@ import { VeFns, VisualElementFlags } from "../layout/visual-element";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { Vector, isInside } from "../util/geometry";
 import { panic } from "../util/lang";
 import { EMPTY_UID, Uid } from "../util/uid";
@@ -207,7 +208,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
 
   if (type == "note") {
-    store.overlay.noteEditOverlayInfo.set({ itemPath: newItemPath });
+    store.overlay.noteEditOverlayInfo.set({ itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == "rating") {
     // noop.
   } else {

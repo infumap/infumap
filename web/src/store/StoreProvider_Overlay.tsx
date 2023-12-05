@@ -27,8 +27,15 @@ export interface OverlayCoordinates {
   topLeftPx: Vector
 }
 
+export enum CursorPosition {
+  Start = "START",
+  End = "END",
+  UnderMouse = "UNDER_MOUSE",
+}
+
 export interface EditOverlayInfo {
-  itemPath: VisualElementPath
+  itemPath: VisualElementPath,
+  initialCursorPosition: CursorPosition | number
 }
 
 export interface TableEditOverlayInfo {

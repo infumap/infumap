@@ -34,6 +34,7 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { arrange } from '../layout/arrange';
+import { CursorPosition } from '../store/StoreProvider_Overlay';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -228,7 +229,7 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement) });
+    store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
     arrange(store); // input focus changed.
   },
 
