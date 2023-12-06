@@ -81,6 +81,8 @@ export const Toolbar_Overlay: Component = () => {
       noteItem().format = textElement!.value;
     } else if (overlayTypeConst == ToolbarOverlayType.PageNumCols) {
       pageItem().gridNumberOfColumns = Math.round(parseFloat(textElement!.value));
+    } else if (overlayTypeConst == ToolbarOverlayType.PageDocWidth) {
+      pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
     }
     arrange(store);
   };
@@ -119,6 +121,7 @@ export const Toolbar_Overlay: Component = () => {
     if (overlayType() == ToolbarOverlayType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarOverlayType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarOverlayType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
+    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     return "[unknown]";
   }
 
@@ -128,6 +131,7 @@ export const Toolbar_Overlay: Component = () => {
     if (overlayType() == ToolbarOverlayType.PageWidth) { return "Inner Width"; }
     if (overlayType() == ToolbarOverlayType.PageAspect) { return "Aspect"; }
     if (overlayType() == ToolbarOverlayType.PageNumCols) { return "Num Cols"; }
+    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "Doc Width"; }
     return "[unknown]";
   }
 

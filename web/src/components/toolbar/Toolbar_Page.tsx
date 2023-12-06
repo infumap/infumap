@@ -37,6 +37,7 @@ export const Toolbar_Page: Component = () => {
 
   let divBeforeColroSelect: HTMLInputElement | undefined;
   let widthDiv: HTMLInputElement | undefined;
+  let docWidthDiv: HTMLInputElement | undefined;
   let aspectDiv: HTMLInputElement | undefined;
   let numColsDiv: HTMLInputElement | undefined;
 
@@ -213,8 +214,8 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleDocWidthBlClick = () => {
-    // store.overlay.pageWidthOverlayInfoMaybe.set(
-    //   { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 } });
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageDocWidth });
   };
 
   const handleNumColsClick = () => {
@@ -266,7 +267,7 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <Show when={showDocumentButtons()}>
-        <div ref={widthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleDocWidthBlClick}>
+        <div ref={docWidthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleDocWidthBlClick}>
           <i class="bi-arrows" /> <span style={`font-size: 13px;`}>{docWidthBlText()}</span>
         </div>
       </Show>
