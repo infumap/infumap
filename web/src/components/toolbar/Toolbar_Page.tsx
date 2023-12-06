@@ -24,7 +24,6 @@ import { InfuIconButton } from "../library/InfuIconButton";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { panic } from "../../util/lang";
 import { arrange } from "../../layout/arrange";
-import { createBooleanSignal } from "../../util/signals";
 import { GRID_SIZE } from "../../constants";
 import { server } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
@@ -41,9 +40,6 @@ export const Toolbar_Page: Component = () => {
   let aspectDiv: HTMLInputElement | undefined;
   let numColsDiv: HTMLInputElement | undefined;
 
-  let alwaysFalseSignal = createBooleanSignal(false);
-  const rerenderToolbar = () => { alwaysFalseSignal.set(false); }
-
   const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const handleChangeAlgorithm = () => {
@@ -57,17 +53,17 @@ export const Toolbar_Page: Component = () => {
     pageItem().arrangeAlgorithm = newAA;
     itemState.sortChildren(pageItem().id);
     arrange(store);
-    rerenderToolbar();
+    store.rerenderToolbar();
     server.updateItem(pageItem());
   };
 
   // force rerender when color selector closes.
   createEffect(() => {
-    rerenderToolbar();
+    store.rerenderToolbar();
   });
 
   const arrangeAlgoText = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     const aa = pageItem().arrangeAlgorithm;
     if (aa == ArrangeAlgorithm.SpatialStretch) { return "spatial"; }
     if (aa == ArrangeAlgorithm.Document) { return "document"; }
@@ -78,86 +74,86 @@ export const Toolbar_Page: Component = () => {
   }
 
   const isSortedByTitle = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return pageItem().orderChildrenBy == "title[ASC]";
   }
 
   const isPublic= () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return !(!(pageItem().permissionFlags & PermissionFlags.Public));
   }
 
   const showOrderByButton = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ||
            pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
            pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
   const showGridButtons = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
   }
 
   const showJustifiedButtons = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
   const showDocumentButtons = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
   }
 
   const showInnerBlockWidthButton = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
   }
 
   const showEmptyTrash = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     if (store.user.getUserMaybe() == null) { return false; }
     return (pageItem().id == store.user.getUser().trashPageId);
   }
 
   const showMakePublicButton = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     if (store.user.getUserMaybe() == null) { return false; }
     return (pageItem().id != store.user.getUser().trashPageId && pageItem().id != store.user.getUser().dockPageId);
   }
 
   const colorNumber = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return pageItem().backgroundColorIndex;
   }
 
   const widthText = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return pageItem().innerSpatialWidthGr / GRID_SIZE;
   }
 
   const docWidthBlText = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return pageItem().docWidthBl;
   }
 
   const aspectText = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
   const cellAspectText = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
   }
 
   const justifiedAspectText = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return Math.round(pageItem().justifiedRowAspect * 1000.0) / 1000.0;
   }
 
   const numColsText = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.rerenderToolbarDependency();
     return pageItem().gridNumberOfColumns;
   }
 
@@ -171,7 +167,7 @@ export const Toolbar_Page: Component = () => {
     itemState.sortChildren(pageItem().id);
     arrange(store);
     server.updateItem(pageItem());
-    rerenderToolbar();
+    store.rerenderToolbar();
   }
 
   const handleChangePermissions = () => {
@@ -182,7 +178,7 @@ export const Toolbar_Page: Component = () => {
     }
     arrange(store);
     server.updateItem(pageItem());
-    rerenderToolbar();
+    store.rerenderToolbar();
   }
 
   const emptyTrashHandler = () => {

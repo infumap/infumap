@@ -490,8 +490,7 @@ export const NoteEditOverlay: Component = () => {
   const HACK_ADJUST_TEXTAREA_HEIGHT = 2.5;
 
   return (
-    <div id="textEntryOverlay"
-         class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
+    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
          style={`background-color: #00000000; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}

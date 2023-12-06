@@ -50,6 +50,7 @@ export const Toolbar_Overlay: Component = () => {
       return;
     }
     store.overlay.toolbarOverlayInfoMaybe.set(null);
+    store.rerenderToolbar();
     arrange(store);
     server.updateItem(item());
   };

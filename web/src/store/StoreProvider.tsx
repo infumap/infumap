@@ -48,6 +48,9 @@ export interface StoreContextModel {
 
   anItemIsMoving: InfuSignal<boolean>,
 
+  rerenderToolbar: () => void,  
+  rerenderToolbarDependency: () => void,
+
   perItem: PerItemStoreContextModel,
   overlay: OverlayStoreContextModel,
   history: HistoryStoreContextModel,
@@ -124,6 +127,9 @@ export function StoreProvider(props: StoreContextProps) {
     return history.currentPage()!;
   };
 
+  let rerenderToolbarSignal = createInfuSignal<boolean>(false);
+  const rerenderToolbar = () => { rerenderToolbarSignal.set(false); }
+  const rerenderToolbarDependency = () => { if (rerenderToolbarSignal.get()) { panic("toolbar rerender dependency signal should never be true."); } }
 
   const value: StoreContextModel = {
     desktopBoundsPx,
@@ -136,6 +142,9 @@ export function StoreProvider(props: StoreContextProps) {
     clear,
 
     getToolbarFocus,
+
+    rerenderToolbar,
+    rerenderToolbarDependency,
 
     currentVisiblePassword,
 

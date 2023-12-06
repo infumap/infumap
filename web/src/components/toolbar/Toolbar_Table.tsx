@@ -16,10 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show } from "solid-js";
+import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
-import { createBooleanSignal } from "../../util/signals";
 import { panic } from "../../util/lang";
 import { asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
@@ -31,13 +30,10 @@ import { TableFlags } from "../../items/base/flags-item";
 export const Toolbar_Table: Component = () => {
   const store = useStore();
 
-  let alwaysFalseSignal = createBooleanSignal(false);
-  const rerenderToolbar = () => { alwaysFalseSignal.set(false); }
-
   const tableItem = () => asTableItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const isSortedByTitle = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return tableItem().orderChildrenBy == "title[ASC]";
   }
 
@@ -51,13 +47,11 @@ export const Toolbar_Table: Component = () => {
     itemState.sortChildren(tableItem().id);
     arrange(store);
     server.updateItem(tableItem());
-    rerenderToolbar();
+    store.rerenderToolbar();
   }
 
-  const deleteButtonHandler = () => {};
-
   const showHeader = () => {
-    if (alwaysFalseSignal.get()) { panic("unexpected state"); }
+    store.rerenderToolbarDependency();
     return !(!(tableItem().flags & TableFlags.ShowColHeader));
   }
 
@@ -71,13 +65,18 @@ export const Toolbar_Table: Component = () => {
     arrange(store);
   }
 
+  const tableTitleText = () => {
+    store.rerenderToolbarDependency();
+    return tableItem().title;
+  }
+
   return (
     <div class="inline-block p-[4px] flex-grow-0">
+      <div class="font-bold inline-block">
+        {tableTitleText()}
+      </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
-      <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == tableItem().ownerId}>
-        <InfuIconButton icon="fa fa-trash" highlighted={false} clickHandler={deleteButtonHandler} />
-      </Show>
     </div>
   )
 }
