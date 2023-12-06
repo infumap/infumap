@@ -39,6 +39,7 @@ export const Toolbar_Page: Component = () => {
   let widthDiv: HTMLInputElement | undefined;
   let docWidthDiv: HTMLInputElement | undefined;
   let aspectDiv: HTMLInputElement | undefined;
+  let cellAspectDiv: HTMLInputElement | undefined;
   let numColsDiv: HTMLInputElement | undefined;
 
   const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
@@ -199,8 +200,8 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleCellAspectClick = () => {
-    // store.overlay.pageAspectOverlayInfoMaybe.set(
-    //   { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageCellAspect });
   };
 
   const handleJustifiedAspectClick = () => {
@@ -254,7 +255,7 @@ export const Toolbar_Page: Component = () => {
         <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{aspectText()}</span>
       </div>
       <Show when={showGridButtons()}>
-        <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleCellAspectClick}>
+        <div ref={cellAspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleCellAspectClick}>
           <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{cellAspectText()}</span>
         </div>
         <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>

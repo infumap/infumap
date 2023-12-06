@@ -75,6 +75,8 @@ export const Toolbar_Overlay: Component = () => {
       pageItem().innerSpatialWidthGr = Math.round(parseFloat(textElement!.value)) * GRID_SIZE;
     } else if (overlayTypeConst == ToolbarOverlayType.PageAspect) {
       pageItem().naturalAspect = parseFloat(textElement!.value);
+    } else if (overlayTypeConst == ToolbarOverlayType.PageCellAspect) {
+      pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarOverlayType.NoteUrl) {
       noteItem().url = textElement!.value;
     } else if (overlayTypeConst == ToolbarOverlayType.NoteFormat) {
@@ -122,6 +124,7 @@ export const Toolbar_Overlay: Component = () => {
     if (overlayType() == ToolbarOverlayType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarOverlayType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
     if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "" + pageItem().docWidthBl; }
+    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     return "[unknown]";
   }
 
@@ -132,6 +135,7 @@ export const Toolbar_Overlay: Component = () => {
     if (overlayType() == ToolbarOverlayType.PageAspect) { return "Aspect"; }
     if (overlayType() == ToolbarOverlayType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "Doc Width"; }
+    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return "Cell Aspect"; }
     return "[unknown]";
   }
 
