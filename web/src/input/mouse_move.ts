@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
@@ -212,7 +212,7 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   const startPx = MouseActionState.get().startDockWidthPx!;
   let newDockWidthPx = startPx + deltaPx.x;
   if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
-  if (newDockWidthPx > 300) { newDockWidthPx = 300; }
+  if (newDockWidthPx > 12 * BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * BLOCK_SIZE_PX.w; }
   store.dockWidthPx.set(newDockWidthPx);
   arrange(store);
 }
