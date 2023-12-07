@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LEFT_TOOLBAR_WIDTH_PX, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, HighlightColor, linearGradient } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -437,7 +437,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderShadow = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
-           style={`left: ${boundsPx().x - 10 + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+           style={`left: ${boundsPx().x - 10}px; ` +
                   `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
                   `background-color: #303030d0;` +
@@ -446,7 +446,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-           style={`width: ${boundsPx().w + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+           style={`width: ${boundsPx().w}px; ` +
                   `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `background-color: #ffffff;` +
@@ -473,7 +473,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderPage = () =>
       <div ref={popupDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-2 rounded-sm`}
-           style={`left: ${boundsPx().x + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+           style={`left: ${boundsPx().x}px; ` +
                   `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: #ffffff; border-color: ${borderColorVal()}; ` +
@@ -495,7 +495,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderAnchorMaybe = () =>
       <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
-             style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+             style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
                     `top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                     `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
                     `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
@@ -535,7 +535,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-           style={`width: ${boundsPx().w + (props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+           style={`width: ${boundsPx().w}px; ` +
                   `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: ${boundsPx().y}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -595,7 +595,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div ref={rootDiv}
            id={'rootPageDiv'}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-           style={`left: ${(props.visualElement.flags & VisualElementFlags.Fixed ? LEFT_TOOLBAR_WIDTH_PX : 0)}px; ` +
+           style={`left: 0px; ` +
                   `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +

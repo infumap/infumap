@@ -21,7 +21,7 @@ import imgUrl from '../../assets/circle.png'
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
-import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
+import { TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { Toolbar_Note } from "./Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
@@ -67,10 +67,10 @@ export const Toolbar: Component = () => {
   return (
     <div class="fixed right-0 top-0 border-b border-slate-300"
          style={`background-color: #f9fbfd; ` +
-                `left: ${LEFT_TOOLBAR_WIDTH_PX}px; ` +
-                `height: ${TOP_TOOLBAR_HEIGHT_PX}px; ${LEFT_TOOLBAR_WIDTH_PX}px; `}>
+                `left: 0px; ` +
+                `height: ${TOP_TOOLBAR_HEIGHT_PX}px; 0px; `}>
 
-      <div class="fixed top-0" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; right: ${10}px;`}>
+      <div class="fixed top-0" style={`left: 10px; right: 10px;`}>
         <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
         <div class="inline-block pl-1"></div>
         <div class="font-bold p-[4px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
@@ -86,7 +86,7 @@ export const Toolbar: Component = () => {
         </div>
       </div>
 
-      <div class="fixed right-[10px] top-[42px] rounded-lg" style={`left: ${LEFT_TOOLBAR_WIDTH_PX + 10}px; background-color: #edf2fa;`}>
+      <div class="fixed right-[10px] top-[42px] rounded-lg" style={`left: 10px; background-color: #edf2fa;`}>
         <div class="flex flex-row flex-nowrap">
           <Toolbar_Navigation />
           <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>

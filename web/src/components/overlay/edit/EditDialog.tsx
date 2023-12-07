@@ -20,7 +20,6 @@ import { Component } from "solid-js";
 import { StoreContextModel, useStore } from "../../../store/StoreProvider";
 import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../../util/geometry";
 import { EditItem } from "./EditItem";
-import { LEFT_TOOLBAR_WIDTH_PX } from "../../../constants";
 
 
 const DIALOG_WIDTH_PX = 400;
@@ -29,7 +28,7 @@ export const editDialogSizePx = { w: DIALOG_WIDTH_PX, h: 500 };
 
 export function initialEditDialogBounds(store: StoreContextModel) {
   let posPx = {
-    x: (store.desktopBoundsPx().w) / 2.0 + LEFT_TOOLBAR_WIDTH_PX - DIALOG_WIDTH_PX / 2.0,
+    x: (store.desktopBoundsPx().w) / 2.0 - DIALOG_WIDTH_PX / 2.0,
     y: 120.0
   };
   return boundingBoxFromPosSize(posPx, { ...editDialogSizePx }); 

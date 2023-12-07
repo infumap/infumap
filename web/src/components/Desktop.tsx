@@ -18,7 +18,7 @@
 
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
-import { LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
+import { TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { ContextMenu } from "./overlay/ContextMenu";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { handleUpload } from "../upload";
@@ -138,7 +138,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     <div id="desktop"
          ref={desktopDiv}
          class="absolute top-0 bottom-0 right-0 select-none outline-none"
-         style={`left: ${LEFT_TOOLBAR_WIDTH_PX}px; top: ${TOP_TOOLBAR_HEIGHT_PX}px; `}
+         style={`left: 0px; top: ${TOP_TOOLBAR_HEIGHT_PX}px; `}
          ontouchstart={touchListener}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}

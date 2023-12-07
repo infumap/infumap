@@ -21,7 +21,7 @@ import { createContext, useContext } from "solid-js";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions } from "../util/geometry";
-import { BLOCK_SIZE_PX, LEFT_TOOLBAR_WIDTH_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
+import { BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VeFns } from "../layout/visual-element";
 import { createInfuSignal, InfuSignal } from "../util/signals";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
@@ -79,7 +79,7 @@ export function StoreProvider(props: StoreContextProps) {
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
     return {
-      w: rootElement.clientWidth - LEFT_TOOLBAR_WIDTH_PX,
+      w: rootElement.clientWidth,
       h: rootElement.clientHeight - TOP_TOOLBAR_HEIGHT_PX,
     };
   }
