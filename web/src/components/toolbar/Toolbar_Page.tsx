@@ -40,6 +40,7 @@ export const Toolbar_Page: Component = () => {
   let docWidthDiv: HTMLInputElement | undefined;
   let aspectDiv: HTMLInputElement | undefined;
   let cellAspectDiv: HTMLInputElement | undefined;
+  let justifiedRowAspectDiv: HTMLInputElement | undefined;
   let numColsDiv: HTMLInputElement | undefined;
 
   const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
@@ -204,9 +205,9 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageCellAspect });
   };
 
-  const handleJustifiedAspectClick = () => {
-    // store.overlay.pageAspectOverlayInfoMaybe.set(
-    //   { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 } });
+  const handleJustifiedRowAspectClick = () => {
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageJustifiedRowAspect });
   };
 
   const handleWidthClick = () => {
@@ -263,7 +264,7 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <Show when={showJustifiedButtons()}>
-        <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleJustifiedAspectClick}>
+        <div ref={justifiedRowAspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleJustifiedRowAspectClick}>
           <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{justifiedAspectText()}</span>
         </div>
       </Show>

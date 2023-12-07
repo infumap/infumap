@@ -32,6 +32,7 @@ export enum ToolbarOverlayType {
   PageNumCols = "numcols",
   PageDocWidth = "docwidth",
   PageCellAspect = "cellaspect",
+  PageJustifiedRowAspect = "justifiedrowaspect",
 }
 
 export interface ToolbarOverlayInfo {
