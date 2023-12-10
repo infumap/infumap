@@ -315,7 +315,6 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const ev = CursorEventState.get();
   const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
-console.log("title of overElement", asTitledItem(hitInfo.rootVe.displayItem).title);
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
       lastMouseOverVes.get().mouseIsOver.set(false);
