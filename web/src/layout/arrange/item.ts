@@ -20,7 +20,7 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, RESIZE_BOX_SIZ
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { PageItem, asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
+import { asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
@@ -42,13 +42,9 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { arrange_grid_page } from "./page_grid";
-import { arrange_spatial_page } from "./page_spatial";
-import { arrange_justified_page } from "./page_justified";
-import { arrange_document_page } from "./page_document";
-import { arrange_list_page } from "./page_list";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
+import { arrangePageWithChildren } from "./page";
 
 
 export const arrangeItem = (
@@ -109,55 +105,6 @@ export const arrangeItem = (
 
   const renderAsOutline = !renderChildrenAsFull;
   return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, isListPageMainItem, isMoving, renderAsOutline);
-}
-
-
-const arrangePageWithChildren = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    realParentVeid: Veid | null,
-    displayItem_pageWithChildren: PageItem,
-    linkItemMaybe_pageWithChildren: LinkItem | null,
-    geometry: ItemGeometry,
-    isPagePopup: boolean,
-    isRoot: boolean,
-    isListPageMainItem: boolean,
-    isMoving: boolean): VisualElementSignal => {
-
-  let pageWithChildrenVisualElementSpec: VisualElementSpec;
-
-  switch (displayItem_pageWithChildren.arrangeAlgorithm) {
-    case ArrangeAlgorithm.Grid:
-      pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-      break;
-    case ArrangeAlgorithm.Justified:
-      pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-      break;
-    case ArrangeAlgorithm.Document:
-      pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-      break;
-    case ArrangeAlgorithm.SpatialStretch:
-      pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-      break;
-    case ArrangeAlgorithm.List:
-      pageWithChildrenVisualElementSpec = arrange_list_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-      break;
-    default:
-      panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
-  }
-
-  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-  const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
-
-  const outerBoundsPx = geometry.boundsPx;
-
-  if (!isRoot) {
-    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
-    pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
-  }
-
-  const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
-  return pageWithChildrenVisualElementSignal;
 }
 
 
