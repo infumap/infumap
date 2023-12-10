@@ -22,13 +22,13 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { PageItem, asPageItem, isPage, PageFns, ArrangeAlgorithm } from "../../items/page-item";
+import { PageItem, asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, EMPTY_VEID, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
-import { assert, panic } from "../../util/lang";
+import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { itemState } from "../../store/ItemState";
 import { TableFlags } from "../../items/base/flags-item";
@@ -38,18 +38,17 @@ import { CompositeItem, asCompositeItem, isComposite } from "../../items/composi
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
-import { POPUP_LINK_UID, newUid } from "../../util/uid";
+import { newUid } from "../../util/uid";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
-import { PopupType } from "../../store/StoreProvider_History";
+import { MouseAction, MouseActionState } from "../../input/state";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import createJustifiedLayout from "justified-layout";
 import { arrangeCellPopup } from "./popup";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_spatial_page } from "./page_spatial";
+import { arrange_justified_page } from "./page_justified";
 
 
 export const arrangeItem = (
@@ -143,82 +142,7 @@ const arrangePageWithChildren = (
   // *** JUSTIFIED VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
 
-    let movingItem = null;
-    if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-      movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
-    }
-
-    // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
-    // change until after the move is complete to avoid a very distruptive jump in y scroll px.
-    let nItemAdj = 0;
-    if (movingItem && !MouseActionState.get().linkCreatedOnMoveStart) {
-      const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
-      const startParent = startParentVes.get().displayItem;
-      if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
-        nItemAdj = 1;
-      }
-    }
-
-    let dims = [];
-    let items = [];
-    for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
-      const item = itemState.get(displayItem_pageWithChildren.computed_children[i])!;
-      if (movingItem && item.id == movingItem!.id) {
-        continue;
-      }
-      let dimensions = ItemFns.calcSpatialDimensionsBl(item);
-      dims.push({ width: dimensions.w, height: dimensions.h });
-      items.push(item);
-    }
-
-    const layout = createJustifiedLayout(dims, createJustifyOptions(geometry.boundsPx.w, displayItem_pageWithChildren.justifiedRowAspect));
-    if (layout.boxes.length != items.length) {
-      panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${items.length}.`);
-    }
-
-    const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
-    childAreaBoundsPx.h = layout.containerHeight;
-
-    pageWithChildrenVisualElementSpec = {
-      displayItem: displayItem_pageWithChildren,
-      linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
-      boundsPx: outerBoundsPx,
-      childAreaBoundsPx,
-      hitboxes,
-      parentPath,
-    };
-
-    const childrenVes = [];
-
-    for (let i=0; i<items.length; ++i) {
-      const item = items[i];
-      const cellBoundsPx = {
-        x: layout.boxes[i].left,
-        y: layout.boxes[i].top,
-        w: layout.boxes[i].width,
-        h: layout.boxes[i].height
-      };
-
-      const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false, true);
-      const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, geometry, true, false, false, false, false);
-      childrenVes.push(ves);
-    }
-
-    pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
-
-    if (isRoot && !isPagePopup) {
-      const currentPopupSpec = store.history.currentPopupSpec();
-      if (currentPopupSpec != null) {
-        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
-      }
-    }
-
+    pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
 
   // *** DOCUMENT VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
@@ -698,84 +622,4 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
 
   const result = arrangeItem(store, currentPath, veid, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
   return result;
-}
-
-function createJustifyOptions(widthPx: number, rowAspect: number) {
-  const NORMAL_ROW_HEIGHT = 200;
-  const targetRowHeight = widthPx / rowAspect;
-  const options: JustifiedLayoutOptions = {
-    containerWidth: widthPx,
-    containerPadding: 10 * targetRowHeight / 200,
-    boxSpacing: 5 * targetRowHeight / 200,
-    targetRowHeight,
-  };
-  return options;
-}
-
-/**
- * Options for configuring the justified layout.
- */
-interface JustifiedLayoutOptions {
-  /**
-   * The width that boxes will be contained within irrelevant of padding.
-   * @default 1060
-   */
-  containerWidth?: number | undefined;
-  /**
-   * Provide a single integer to apply padding to all sides or provide an object to apply
-   * individual values to each side.
-   * @default 10
-   */
-  containerPadding?: number | { top: number; right: number; left: number; bottom: number } | undefined;
-  /**
-   * Provide a single integer to apply spacing both horizontally and vertically or provide an
-   * object to apply individual values to each axis.
-   * @default 10
-   */
-  boxSpacing?: number | { horizontal: number; vertical: number } | undefined;
-  /**
-   * It's called a target because row height is the lever we use in order to fit everything in
-   * nicely. The algorithm will get as close to the target row height as it can.
-   * @default 320
-   */
-  targetRowHeight?: number | undefined;
-  /**
-   * How far row heights can stray from targetRowHeight. `0` would force rows to be the
-   * `targetRowHeight` exactly and would likely make it impossible to justify. The value must
-   * be between `0` and `1`.
-   * @default 0.25
-   */
-  targetRowHeightTolerance?: number | undefined;
-  /**
-   * Will stop adding rows at this number regardless of how many items still need to be laid
-   * out.
-   * @default Number.POSITIVE_INFINITY
-   */
-  maxNumRows?: number | undefined;
-  /**
-   * Provide an aspect ratio here to return everything in that aspect ratio. Makes the values
-   * in your input array irrelevant. The length of the array remains relevant.
-   * @default false
-   */
-  forceAspectRatio?: boolean | number | undefined;
-  /**
-   * If you'd like to insert a full width box every n rows you can specify it with this
-   * parameter. The box on that row will ignore the targetRowHeight, make itself as wide as
-   * `containerWidth - containerPadding` and be as tall as its aspect ratio defines. It'll
-   * only happen if that item has an aspect ratio >= 1. Best to have a look at the examples to
-   * see what this does.
-   * @default false
-   */
-  fullWidthBreakoutRowCadence?: boolean | number | undefined;
-  /**
-   * By default we'll return items at the end of a justified layout even if they don't make a
-   * full row. If false they'll be omitted from the output.
-   * @default true
-   */
-  showWidows?: boolean | undefined;
-  /**
-   * If widows are visible, how should they be laid out?
-   * @default "left"
-   */
-  widowLayoutStyle?: "left" | "justify" | "center" | undefined;
 }
