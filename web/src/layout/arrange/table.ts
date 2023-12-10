@@ -33,6 +33,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
+import { ArrangeItemFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -42,9 +43,7 @@ export const arrangeTable = (
     displayItem_Table: TableItem,
     linkItemMaybe_Table: LinkItem | null,
     tableGeometry: ItemGeometry,
-    isListPageMainItem: boolean,
-    parentIsPopup: boolean,
-    isMoving: boolean): VisualElementSignal => {
+    flags: ArrangeItemFlags): VisualElementSignal => {
 
   const sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
@@ -62,8 +61,8 @@ export const arrangeTable = (
     displayItem: displayItem_Table,
     linkItemMaybe: linkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
-          (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: tableGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: tableGeometry.hitboxes,
@@ -87,7 +86,7 @@ export const arrangeTable = (
       ? sizeBl.w
       : Math.min(displayItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
-    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup);
+    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup));
 
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
@@ -123,7 +122,7 @@ export const arrangeTable = (
           initiateLoadChildItemsMaybe(store, attachment_veid);
         }
 
-        const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, parentIsPopup);
+        const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup));
 
         const tableChildAttachmentVeSpec: VisualElementSpec = {
           displayItem: displayItem_attachment,

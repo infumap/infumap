@@ -25,6 +25,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
+import { ArrangeItemFlags } from "./item";
 import { arrange_document_page } from "./page_document";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_justified_page } from "./page_justified";
@@ -38,28 +39,25 @@ export const arrangePageWithChildren = (
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
-    isPagePopup: boolean,
-    isRoot: boolean,
-    isListPageMainItem: boolean,
-    isMoving: boolean): VisualElementSignal => {
+    flags: ArrangeItemFlags): VisualElementSignal => {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
   switch (displayItem_pageWithChildren.arrangeAlgorithm) {
     case ArrangeAlgorithm.Grid:
-      pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, flags);
       break;
     case ArrangeAlgorithm.Justified:
-      pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, flags);
       break;
     case ArrangeAlgorithm.Document:
-      pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, flags);
       break;
     case ArrangeAlgorithm.SpatialStretch:
-      pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, flags);
       break;
     case ArrangeAlgorithm.List:
-      pageWithChildrenVisualElementSpec = arrange_list_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      pageWithChildrenVisualElementSpec = arrange_list_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, flags);
       break;
     default:
       panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
@@ -70,7 +68,7 @@ export const arrangePageWithChildren = (
 
   const outerBoundsPx = geometry.boundsPx;
 
-  if (!isRoot) {
+  if (!(flags & ArrangeItemFlags.IsRoot)) {
     const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
     pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
   }

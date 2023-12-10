@@ -27,7 +27,7 @@ import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 import createJustifiedLayout from "justified-layout";
 
@@ -39,10 +39,7 @@ export function arrange_justified_page(
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
-    isPagePopup: boolean,
-    isRoot: boolean,
-    isListPageMainItem: boolean,
-    isMoving: boolean): VisualElementSpec {
+    flags :ArrangeItemFlags): VisualElementSpec {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -52,7 +49,7 @@ export function arrange_justified_page(
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
-  const parentIsPopup = isPagePopup;
+  const parentIsPopup = flags & ArrangeItemFlags.IsPopup;
       
   let movingItem = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
@@ -94,11 +91,11 @@ export function arrange_justified_page(
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-           (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-           (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-           (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx,
     hitboxes,
@@ -117,13 +114,15 @@ export function arrange_justified_page(
     };
 
     const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false, true);
-    const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, geometry, true, false, false, false, false);
+    const ves = arrangeItem(
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, geometry,
+      ArrangeItemFlags.RenderChildrenAsFull);
     childrenVes.push(ves);
   }
 
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (isRoot && !isPagePopup) {
+  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopup)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);

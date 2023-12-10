@@ -27,6 +27,7 @@ import { cloneBoundingBox } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { ArrangeItemFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -38,10 +39,7 @@ export function arrange_document_page(
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
-    isPagePopup: boolean,
-    isRoot: boolean,
-    isListPageMainItem: boolean,
-    isMoving: boolean): VisualElementSpec {
+    flags: ArrangeItemFlags): VisualElementSpec {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -51,7 +49,7 @@ export function arrange_document_page(
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
-  const parentIsPopup = isPagePopup;
+  const parentIsPopup = flags & ArrangeItemFlags.IsPopup;
 
   const totalWidthBl = displayItem_pageWithChildren.docWidthBl + 4; // 4 == total margin.
   const requiredWidthPx = totalWidthBl * BLOCK_SIZE_PX.w;
@@ -106,11 +104,11 @@ export function arrange_document_page(
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-          (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-          (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-          (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-          (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx,
     hitboxes,

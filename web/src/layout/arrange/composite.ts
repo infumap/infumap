@@ -28,6 +28,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
+import { ArrangeItemFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -37,8 +38,7 @@ export const arrangeComposite = (
     displayItem_Composite: CompositeItem,
     linkItemMaybe_Composite: LinkItem | null,
     compositeGeometry: ItemGeometry,
-    isListPageMainItem: boolean,
-    isMoving: boolean): VisualElementSignal => {
+    flags: ArrangeItemFlags): VisualElementSignal => {
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
 
@@ -51,8 +51,8 @@ export const arrangeComposite = (
     displayItem: displayItem_Composite,
     linkItemMaybe: linkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed |
-          (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: compositeGeometry.hitboxes,

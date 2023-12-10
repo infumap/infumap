@@ -26,7 +26,7 @@ import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
-import { arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeItem } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
 import { POPUP_LINK_UID, TOP_LEVEL_PAGE_UID } from "../../util/uid";
@@ -61,7 +61,9 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
+      ves = arrangeItem(
+        store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry,
+        ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopup | ArrangeItemFlags.IsRoot);
       let newV = ves.get();
       newV.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(newV);

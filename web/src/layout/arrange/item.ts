@@ -38,6 +38,17 @@ import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
 
 
+export enum ArrangeItemFlags {
+  None                  = 0x000,
+  RenderChildrenAsFull  = 0x001,
+  IsPopup               = 0x002,
+  IsRoot                = 0x004,
+  IsListPageMainItem    = 0x008,
+  ParentIsPopup         = 0x010,
+  IsMoving              = 0x020,
+  RenderAsOutline       = 0x040,
+}
+
 export const arrangeItem = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
@@ -45,12 +56,8 @@ export const arrangeItem = (
     parentArrangeAlgorithm: string,
     item: Item,
     itemGeometry: ItemGeometry,
-    renderChildrenAsFull: boolean,
-    isPopup: boolean,
-    isRoot: boolean,
-    isListPageMainItem: boolean,
-    parentIsPopup: boolean): VisualElementSignal => {
-  if (isPopup && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
+    flags: ArrangeItemFlags): VisualElementSignal => {
+  if (flags & ArrangeItemFlags.IsPopup && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
 
   const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(store, item);
   const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
@@ -63,10 +70,12 @@ export const arrangeItem = (
     }
   }
 
+  flags |= (isMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
+
   const renderWithChildren = (() => {
-    if (isRoot) { return true; }
-    if (isPopup) { return true; }
-    if (!renderChildrenAsFull) { return false; }
+    if (flags & ArrangeItemFlags.IsRoot) { return true; }
+    if (flags & ArrangeItemFlags.IsPopup) { return true; }
+    if (!(flags & ArrangeItemFlags.RenderChildrenAsFull)) { return false; }
     if (!isPage(displayItem)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
     return (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
@@ -79,23 +88,24 @@ export const arrangeItem = (
   if (renderWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
-      store, parentPath, realParentVeid, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);
+      store, parentPath, realParentVeid, asPageItem(displayItem), linkItemMaybe, itemGeometry, flags);
   }
 
-  if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || renderChildrenAsFull)) {
+  if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeTable(
-      store, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, parentIsPopup, isMoving);
+      store, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry, flags);
   }
 
   if (isComposite(displayItem)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeComposite(
-      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry, isListPageMainItem, isMoving);
+      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry, flags);
   }
 
-  const renderAsOutline = !renderChildrenAsFull;
-  return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, itemGeometry, isPopup, isListPageMainItem, isMoving, renderAsOutline);
+  const renderAsOutline = !(flags & ArrangeItemFlags.RenderChildrenAsFull);
+  flags |= (renderAsOutline ? ArrangeItemFlags.RenderAsOutline : ArrangeItemFlags.None);
+  return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, itemGeometry, flags);
 }
 
 
@@ -105,20 +115,17 @@ export const arrangeItemNoChildren = (
     displayItem: Item,
     linkItemMaybe: LinkItem | null,
     itemGeometry: ItemGeometry,
-    isPopup: boolean,
-    isListPageMainItem: boolean,
-    isMoving: boolean,
-    renderAsOutline: boolean): VisualElementSignal => {
+    flags: ArrangeItemFlags): VisualElementSignal => {
   const currentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), parentVePath);
 
   const item = displayItem != null ? displayItem : linkItemMaybe!;
   const itemVisualElement: VisualElementSpec = {
     displayItem: item,
     linkItemMaybe,
-    flags: (renderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
-           (isPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+    flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
+           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,
     parentPath: parentVePath,

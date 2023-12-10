@@ -28,7 +28,7 @@ import { HitboxFlags, HitboxFns } from "../hitbox";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath } from "../visual-element";
-import { arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeItem } from "./item";
 
 
 export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath): VisualElementSignal | null => {
@@ -75,7 +75,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       }
 
       if (store.dockWidthPx.get() > 25) {
-        const ves = arrangeItem(store, dockPath, null, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
+        const ves = arrangeItem(store, dockPath, null, ArrangeAlgorithm.Dock, childItem, geometry, ArrangeItemFlags.RenderChildrenAsFull);
         dockChildren.push(ves);
       }
     }

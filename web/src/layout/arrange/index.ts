@@ -25,7 +25,7 @@ import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
 import { VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
-import { arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeItem } from "./item";
 
 
 /**
@@ -83,12 +83,7 @@ export const arrange = (store: StoreContextModel): void => {
 
   const pageVes = arrangeItem(
     store, currentPath, realParentVeid, ArrangeAlgorithm.SpatialStretch, currentPage, itemGeometry,
-    true,  // renderChildrenFull
-    false, // isPopup
-    true,  // isRoot,
-    false, // isListPageMainItem
-    false  // parentIsPopup
-  );
+    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsRoot);
   childrenVes.push(pageVes);
   visualElementSpec.childrenVes = childrenVes;
 
