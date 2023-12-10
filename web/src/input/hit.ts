@@ -176,7 +176,7 @@ function determineRoot(
   if (dockRootMaybe != null) { return dockRootMaybe!; }
 
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
-  posOnDesktopPx.x = posOnDesktopPx.x - store.dockWidthPx.get();
+  posOnDesktopPx.x = posOnDesktopPx.x + store.dockWidthPx.get();
 
   posRelativeToRootVisualElementPx = cloneVector(posRelativeToRootVisualElementPx)!;
   posRelativeToRootVisualElementPx.x = posRelativeToRootVisualElementPx.x - store.dockWidthPx.get();
@@ -185,16 +185,17 @@ function determineRoot(
   let done = false;
 
   if (rootVisualElement.popupVes) {
-    const newRootVesMaybe = rootVisualElement.popupVes!;
-    const newRootVeMaybe = newRootVesMaybe.get();
+    const popupRootVesMaybe = rootVisualElement.popupVes!;
+    const popupRootVeMaybe = popupRootVesMaybe.get();
 
-    const popupPosRelativeToTopLevelVisualElementPx = (newRootVeMaybe.flags & VisualElementFlags.Fixed)
-      ? posOnDesktopPx
-      : posRelativeToRootVisualElementPx;
+    const popupPosRelativeToTopLevelVisualElementPx =
+      (popupRootVeMaybe.flags & VisualElementFlags.Fixed)
+        ? { x: posOnDesktopPx.x - store.dockWidthPx.get(), y: posOnDesktopPx.y }
+        : posRelativeToRootVisualElementPx;
 
-    if (isInside(popupPosRelativeToTopLevelVisualElementPx, newRootVeMaybe.boundsPx)) {
-      rootVisualElementSignal = newRootVesMaybe;
-      rootVisualElement = newRootVeMaybe;
+    if (isInside(popupPosRelativeToTopLevelVisualElementPx, popupRootVeMaybe.boundsPx)) {
+      rootVisualElementSignal = popupRootVesMaybe;
+      rootVisualElement = popupRootVeMaybe;
       const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       const scrollYPx = isPage(rootVisualElement.displayItem)
         ? store.perItem.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)

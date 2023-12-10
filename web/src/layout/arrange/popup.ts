@@ -37,6 +37,9 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
   const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), TOP_LEVEL_PAGE_UID);
   const currentPopupSpec = store.history.currentPopupSpec()!;
 
+  const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+                         currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified);
+
   const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
   li.id = POPUP_LINK_UID;
@@ -50,7 +53,9 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
     h: desktopBoundsPx.h * 0.8,
   };
   let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, true, PageFns.popupPositioningHasChanged(currentPage), false);
-
+  if (renderAsFixed) {
+    geometry.boundsPx.x += store.dockWidthPx.get();
+  }
   const item = itemState.get(popupLinkToImageId)!;
 
   if (isPage(item)) {
@@ -58,10 +63,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
     batch(() => {
       ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
       let newV = ves.get();
-      newV.flags |= ((currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-                      currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified)
-          ? VisualElementFlags.Fixed
-          : VisualElementFlags.None);
+      newV.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(newV);
     });
     return ves!;
@@ -70,10 +72,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
       displayItem: item,
       linkItemMaybe: li,
       flags: VisualElementFlags.Detailed | VisualElementFlags.Popup |
-             ((currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-               currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified)
-          ? VisualElementFlags.Fixed
-          : VisualElementFlags.None),
+             (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None),
       boundsPx: geometry.boundsPx,
       childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
       hitboxes: geometry.hitboxes,

@@ -256,6 +256,13 @@ const arrangePageWithChildren = (
 
     pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
+    if (isRoot && !isPagePopup) {
+      const currentPopupSpec = store.history.currentPopupSpec();
+      if (currentPopupSpec != null) {
+        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+      }
+    }
+
 
   // *** JUSTIFIED VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {

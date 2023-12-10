@@ -36,6 +36,7 @@ import { MouseAction, MouseActionState, CursorEventState, DialogMoveState, UserS
 import { arrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
+import { asTitledItem } from "../items/base/titled-item";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -314,7 +315,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const ev = CursorEventState.get();
   const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev), [], false);
   const overElementVes = hitInfo.overElementVes;
-
+console.log("title of overElement", asTitledItem(hitInfo.rootVe.displayItem).title);
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
       lastMouseOverVes.get().mouseIsOver.set(false);

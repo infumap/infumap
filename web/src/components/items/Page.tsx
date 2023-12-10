@@ -675,6 +675,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
         {renderAsTrash()}
       </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
+        {renderAsPopup()}
+      </Match>
       <Match when={(props.visualElement.parentPath == null || (props.visualElement.flags & VisualElementFlags.Root)) &&
                    !(props.visualElement.flags & VisualElementFlags.Popup)}>
         {renderAsFullOrRoot()}
@@ -692,9 +695,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                    props.visualElement.parentPath != null &&
                    props.visualElement.flags & VisualElementFlags.ShowChildren}>
         {renderAsTranslucent()}
-      </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
-        {renderAsPopup()}
       </Match>
     </Switch>
   );
