@@ -24,24 +24,22 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
-import { TWO_UID } from "../../util/uid";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { arrangeItem } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
+import { POPUP_LINK_UID, TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
-
-export const POPUP_LINK_ID = TWO_UID;
 
 export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid | null): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
-  const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), "");
+  const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), TOP_LEVEL_PAGE_UID);
   const currentPopupSpec = store.history.currentPopupSpec()!;
 
   const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
-  li.id = POPUP_LINK_ID;
+  li.id = POPUP_LINK_UID;
   li.spatialWidthGr = 1000;
   li.spatialPositionGr = { x: 0, y: 0, };
   const desktopBoundsPx = store.desktopMainAreaBoundsPx();

@@ -38,7 +38,7 @@ import { CompositeItem, asCompositeItem, isComposite } from "../../items/composi
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
-import { newUid } from "../../util/uid";
+import { POPUP_LINK_UID, newUid } from "../../util/uid";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -47,8 +47,7 @@ import { CursorEventState, MouseAction, MouseActionState } from "../../input/sta
 import { PopupType } from "../../store/StoreProvider_History";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import createJustifiedLayout from "justified-layout";
-// import { createJustifyOptions } from "./topLevel/justified";
-import { POPUP_LINK_ID, arrangeCellPopup } from "./popup";
+import { arrangeCellPopup } from "./popup";
 
 
 export const arrangeItem = (
@@ -476,7 +475,7 @@ const arrangePageWithChildren = (
           // Position of page popup in spatial pages is user defined.
           const popupLinkToPageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
           const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
-          li.id = POPUP_LINK_ID;
+          li.id = POPUP_LINK_UID;
           const widthGr = PageFns.getPopupWidthGr(displayItem_pageWithChildren);
           const heightGr = Math.round((widthGr / displayItem_pageWithChildren.naturalAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;
           li.spatialWidthGr = widthGr;

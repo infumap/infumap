@@ -24,6 +24,6 @@ export function newUid(): Uid {
   return uuid.createV4().split('-').join('');
 }
 
-export const EMPTY_UID: string = "00000000000000000000000000000000";
-export const ONE_UID: string =   "00000000000000000000000000000001";
-export const TWO_UID: string =   "00000000000000000000000000000002";
+export const EMPTY_UID: string =           "00000000000000000000000000000000";
+export const TOP_LEVEL_PAGE_UID: string =  "00000000000000000000000000000001";
+export const POPUP_LINK_UID: string =      "00000000000000000000000000000002";

@@ -20,7 +20,7 @@ import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { EMPTY_UID, newUid, ONE_UID, Uid } from '../util/uid';
+import { EMPTY_UID, newUid, TOP_LEVEL_PAGE_UID, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
@@ -557,6 +557,6 @@ export function asPageItem(item: ItemTypeMixin): PageItem {
 
 const topLevelPage = () => {
   const result = PageFns.create(EMPTY_UID, EMPTY_UID, RelationshipToParent.NoParent, "", newOrdering());
-  result.id = ONE_UID;
+  result.id = TOP_LEVEL_PAGE_UID;
   return result;
 }

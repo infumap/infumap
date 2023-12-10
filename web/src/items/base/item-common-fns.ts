@@ -18,13 +18,13 @@
 
 import { LINE_HEIGHT_PX } from "../../constants";
 import { arrange } from "../../layout/arrange";
-import { POPUP_LINK_ID } from "../../layout/arrange/popup";
 import { HitboxFns, HitboxFlags } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
+import { POPUP_LINK_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../page-item";
 import { Measurable } from "./item";
 
@@ -33,7 +33,7 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
   const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
-    if (parentVeid.linkIdMaybe == POPUP_LINK_ID) {
+    if (parentVeid.linkIdMaybe == POPUP_LINK_UID) {
       store.perItem.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
     } else {
       store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
