@@ -16,18 +16,16 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { panic, getPanickedMessage } from "../../util/lang";
-import { initiateLoadChildItemsMaybe } from "../load";
-import { arrange_document } from "./topLevel/document";
-import { arrange_grid } from "./topLevel/grid";
-import { arrange_list } from "./topLevel/list";
-import { arrange_spatialStretch } from "./topLevel/spatial";
+import { getPanickedMessage } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
-import { arrange_justified } from "./topLevel/justified";
+import { VesCache } from "../ves-cache";
+import { VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { renderDockMaybe } from "./topLevel";
+import { arrangeItem } from "./item";
 
 
 /**
@@ -57,27 +55,44 @@ export const arrange = (store: StoreContextModel): void => {
     return;
   }
 
-  initiateLoadChildItemsMaybe(store, store.history.currentPage()!);
+  VesCache.initFullArrange();
 
-  switch (asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm) {
-    case ArrangeAlgorithm.SpatialStretch:
-      arrange_spatialStretch(store);
-      break;
-    case ArrangeAlgorithm.Grid:
-      arrange_grid(store);
-      break;
-    case ArrangeAlgorithm.Justified:
-      arrange_justified(store);
-      break;
-    case ArrangeAlgorithm.List:
-      arrange_list(store);
-      break;
-    case ArrangeAlgorithm.Document:
-      arrange_document(store);
-      break;
-    default:
-      panic(`arrange: unexpected arrange type: ${asPageItem(itemState.get(store.history.currentPage()!.itemId)!).arrangeAlgorithm}.`);
+  const currentPage = itemState.get(store.history.currentPage()!.itemId)!;
+
+  const pageItem = PageFns.topLevelPage();
+  const currentPath = pageItem.id;
+  const realParentVeid = null;
+
+  const visualElementSpec: VisualElementSpec = {
+    displayItem: pageItem,
+    flags: VisualElementFlags.TopLevelPage,
+    boundsPx: store.desktopBoundsPx(),
+    childAreaBoundsPx: store.desktopBoundsPx(),
+  };
+
+  const dockVesMaybe = renderDockMaybe(store, currentPath);
+  if (dockVesMaybe) {
+    visualElementSpec.dockVes = dockVesMaybe;
   }
+
+  const childrenVes = [];
+  const itemGeometry = {
+    boundsPx: store.desktopMainAreaBoundsPx(),
+    hitboxes: []
+  };
+
+  const pageVes = arrangeItem(
+    store, currentPath, realParentVeid, ArrangeAlgorithm.SpatialStretch, currentPage, itemGeometry,
+    true,  // renderChildrenFull
+    false, // isPopup
+    true,  // isRoot,
+    false, // isListPageMainItem
+    false  // parentIsPopup
+  );
+  childrenVes.push(pageVes);
+  visualElementSpec.childrenVes = childrenVes;
+
+  VesCache.finalizeFullArrange(visualElementSpec, currentPath, store);
 
   evaluateExpressions();
 

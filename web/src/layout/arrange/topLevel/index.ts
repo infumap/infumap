@@ -75,7 +75,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       }
 
       if (store.dockWidthPx.get() > 25) {
-        const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
+        const ves = arrangeItem(store, dockPath, null, ArrangeAlgorithm.Dock, childItem, geometry, true, false, false, false, false);
         dockChildren.push(ves);
       }
     }

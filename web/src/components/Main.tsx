@@ -24,13 +24,19 @@ import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { switchToPage } from "../layout/navigation";
+import { setTopLevelPageScrollPositions, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
-import { PageFns } from "../items/page-item";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
 import { SearchOverlay } from "./overlay/SearchOverlay";
 import { Toolbar_Overlay } from "./toolbar/Toolbar_Overlay";
+import { mouseUpHandler } from "../input/mouse_up";
+import { mouseMoveHandler } from "../input/mouse_move";
+import { CursorEventState } from "../input/state";
+import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
+import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
+import { keyHandler } from "../input/key";
+import { arrange } from "../layout/arrange";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -58,7 +64,7 @@ export const Main: Component = () => {
       try {
         result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
       } catch (e: any) {
-        console.error(`fetchItems failed ${id}`, e);
+        console.error(`Main.onMount fetchItems failed ${id}`, e);
         throw e;
       }
 
@@ -67,7 +73,7 @@ export const Main: Component = () => {
       try {
         itemState.setItemFromServerObject(pageObject, null);
       } catch (e: any) {
-        console.error(`setItemFromServerObject failed ${id}`, e);
+        console.error(`Main.onMount setItemFromServerObject failed ${id}`, e);
         throw e;
       }
 
@@ -76,7 +82,7 @@ export const Main: Component = () => {
           itemState.setAttachmentItemsFromServerObjects(pageId, result.attachments[pageId], null);
         }
       } catch (e: any) {
-        console.error(`setAttachmentItemsFromServerObjects (1) failed ${id}`, e);
+        console.error(`Main.onMount setAttachmentItemsFromServerObjects (1) failed ${id}`, e);
         throw e;
       }
 
@@ -85,21 +91,15 @@ export const Main: Component = () => {
       try {
         itemState.setChildItemsFromServerObjects(pageId, result.children, null);
       } catch (e: any) {
-        console.error(`setChildItemsFromServerObjects failed ${id}`, e);
+        console.error(`Main.onMount setChildItemsFromServerObjects failed ${id}`, e);
         throw e;
-      }
-
-      try {
-        PageFns.setDefaultListPageSelectedItemMaybe(store, { itemId: pageId, linkIdMaybe: null });
-      } catch (e: any) {
-        console.error(`setDefaultListPageSelectedItemMaybe failed ${pageId}`, e);
       }
 
       Object.keys(result.attachments).forEach(id => {
         try {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
         } catch (e: any) {
-          console.error(`setAttachmentItemsFromServerObjects (2) failed ${id}`, e);
+          console.error(`Main.onMount setAttachmentItemsFromServerObjects (2) failed ${id}`, e);
           throw e;
         }
       });
@@ -107,7 +107,7 @@ export const Main: Component = () => {
       try {
         switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false);
       } catch (e: any) {
-        console.error(`switchToPage ${pageId} failed`, e);
+        console.error(`Main.onMount switchToPage ${pageId} failed`, e);
         throw e;
       }
     } catch (e: any) {
@@ -122,11 +122,36 @@ export const Main: Component = () => {
     }
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
+    document.addEventListener('keydown', keyListener);
+    window.addEventListener('resize', windowResizeListener);
+    window.addEventListener('popstate', windowPopStateListener);
   });
 
   onCleanup(() => {
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
+    document.removeEventListener('keydown', keyListener);
+    window.removeEventListener('resize', windowResizeListener);
+    window.removeEventListener('popstate', windowPopStateListener);
   });
+
+  const keyListener = (ev: KeyboardEvent) => {
+    keyHandler(store, ev);
+  };
+
+  const windowResizeListener = () => {
+    store.resetDesktopSizePx();
+    arrange(store);
+    setTopLevelPageScrollPositions(store);
+  };
+
+  const windowPopStateListener = () => {
+    store.overlay.contextMenuInfo.set(null);
+    store.overlay.editDialogInfo.set(null);
+    store.overlay.editUserSettingsInfo.set(null);
+    store.history.popPage();
+    arrange(store);
+    setTopLevelPageScrollPositions(store);
+  };
 
   const contextMenuListener = (ev: Event) => {
     ev.stopPropagation();
@@ -146,11 +171,47 @@ export const Main: Component = () => {
     }
   };
 
+  const mouseDoubleClickListener = (ev: MouseEvent) => {
+    ev.preventDefault();
+    mouseDoubleClickHandler(store, ev);
+  };
+
+  const mouseDownListener = async (ev: MouseEvent) => {
+    ev.preventDefault();
+    await mouseDownHandler(store, ev.button, false);
+  };
+
+  const touchListener = async (ev: TouchEvent) => {
+    if (ev.touches.length > 1) {
+      CursorEventState.setFromTouchEvent(ev);
+      ev.preventDefault();
+      await mouseDownHandler(store, MOUSE_RIGHT, false);
+    }
+  }
+
+  const mouseMoveListener = (ev: MouseEvent) => {
+    CursorEventState.setFromMouseEvent(ev);
+    mouseMoveHandler(store);
+  };
+
+  const mouseUpListener = (ev: MouseEvent) => {
+    ev.preventDefault();
+    mouseUpHandler(store);
+  };
+
   return (
-    <div ref={mainDiv} class="fixed top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden">
+    <div ref={mainDiv}
+         class="absolute top-0 left-0 right-0 bottom-0 select-none touch-none overflow-hidden"
+         ontouchstart={touchListener}
+         onmousedown={mouseDownListener}
+         onmousemove={mouseMoveListener}
+         ondblclick={mouseDoubleClickListener}
+         onmouseup={mouseUpListener}>
+
       <Show when={store.topLevelVisualElement.get().displayItem.itemType != ItemType.None}>
         <Desktop visualElement={store.topLevelVisualElement.get()} />
       </Show>
+
       <Toolbar />
 
       {/* global overlays */}

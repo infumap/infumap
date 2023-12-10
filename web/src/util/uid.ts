@@ -25,3 +25,5 @@ export function newUid(): Uid {
 }
 
 export const EMPTY_UID: string = "00000000000000000000000000000000";
+export const ONE_UID: string =   "00000000000000000000000000000001";
+export const TWO_UID: string =   "00000000000000000000000000000002";

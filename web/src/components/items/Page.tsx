@@ -122,8 +122,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderAsDock = () => {
     return (
-      <div class={`fixed border-r border-slate-300 rounded-sm align-middle text-center`}
-           style={`left: ${boundsPx().x}px; top: ${TOP_TOOLBAR_HEIGHT_PX + boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+      <div class={`absolute border-r border-slate-300 rounded-sm align-middle text-center`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; `}>
         <For each={props.visualElement.childrenVes}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
@@ -643,8 +643,32 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     );
   }
 
+
+  // # Top Level
+
+  const renderAsTopLevel = () => {
+    return (
+      <>
+        <div class={`absolute`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #ffffff;`}>
+          <Show when={props.visualElement.dockVes != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
+          </Show>
+          <For each={props.visualElement.childrenVes}>{childVes =>
+            <VisualElement_Desktop visualElement={childVes.get()} />
+          }</For>
+        </div>
+      </>
+    );
+  }
+
+
   return (
     <Switch>
+      <Match when={props.visualElement.flags & VisualElementFlags.TopLevelPage}>
+        {renderAsTopLevel()}
+      </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
         {renderAsDock()}
       </Match>

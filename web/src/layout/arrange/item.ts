@@ -47,12 +47,14 @@ import { CursorEventState, MouseAction, MouseActionState } from "../../input/sta
 import { PopupType } from "../../store/StoreProvider_History";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import createJustifiedLayout from "justified-layout";
-import { createJustifyOptions } from "./topLevel/justified";
+// import { createJustifyOptions } from "./topLevel/justified";
+import { POPUP_LINK_ID, arrangeCellPopup } from "./popup";
 
 
 export const arrangeItem = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
+    realParentVeid: Veid | null,
     parentArrangeAlgorithm: string,
     item: Item,
     itemGeometry: ItemGeometry,
@@ -75,6 +77,8 @@ export const arrangeItem = (
   }
 
   const renderWithChildren = (() => {
+    if (isRoot) { return true; }
+    if (isPopup) { return true; }
     if (!renderChildrenAsFull) { return false; }
     if (!isPage(displayItem)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
@@ -88,7 +92,7 @@ export const arrangeItem = (
   if (renderWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
-      store, parentPath, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);
+      store, parentPath, realParentVeid, asPageItem(displayItem), linkItemMaybe, itemGeometry, isPopup, isRoot, isListPageMainItem, isMoving);
   }
 
   if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || renderChildrenAsFull)) {
@@ -111,6 +115,7 @@ export const arrangeItem = (
 const arrangePageWithChildren = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
+    realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
@@ -118,6 +123,7 @@ const arrangePageWithChildren = (
     isRoot: boolean,
     isListPageMainItem: boolean,
     isMoving: boolean): VisualElementSignal => {
+
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
@@ -207,7 +213,7 @@ const arrangePageWithChildren = (
 
       let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false, false);
       const renderChildrenAsFull = isPagePopup || isRoot;
-      const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
+      const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
       childrenVes.push(ves);
     }
 
@@ -245,7 +251,7 @@ const arrangePageWithChildren = (
       cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
       cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
       const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false, false);
-      const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
+      const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
       childrenVes.push(ves);
     }
 
@@ -318,7 +324,7 @@ const arrangePageWithChildren = (
       };
 
       const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false, true);
-      const ves = arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, item, geometry, true, false, false, false, false);
+      const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, geometry, true, false, false, false, false);
       childrenVes.push(ves);
     }
 
@@ -397,6 +403,20 @@ const arrangePageWithChildren = (
 
   // *** SPATIAL_STRETCH ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    const aspect = outerBoundsPx.w / outerBoundsPx.h;
+    const pageAspect = displayItem_pageWithChildren.naturalAspect;
+    const pageBoundsPx = (() => {
+      let result = cloneBoundingBox(outerBoundsPx)!;
+      // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
+      if (pageAspect / aspect > 1.3) {
+        // page to scroll horizontally.
+        result.w = Math.round(result.h * pageAspect);
+      } else if (pageAspect / aspect < 0.7) {
+        // page needs to scroll vertically.
+        result.h = Math.round(result.w / pageAspect);
+      }
+      return result;
+    })();
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
@@ -408,7 +428,7 @@ const arrangePageWithChildren = (
              (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
              (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
       boundsPx: outerBoundsPx,
-      childAreaBoundsPx: geometry.boundsPx,
+      childAreaBoundsPx: pageBoundsPx,
       hitboxes,
       parentPath,
     };
@@ -432,7 +452,7 @@ const arrangePageWithChildren = (
           emitHitboxes,
           childItemIsPopup,
           hasPendingChanges);
-        childrenVes.push(arrangeItem(store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false, false, parentIsPopup));
+        childrenVes.push(arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry, true, childItemIsPopup, false, false, parentIsPopup));
       } else {
         const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
         const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
@@ -449,11 +469,57 @@ const arrangePageWithChildren = (
     }
     pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
+    if (isRoot && !isPagePopup) {
+      const currentPopupSpec = store.history.currentPopupSpec();
+      if (currentPopupSpec != null) {
+        if (currentPopupSpec.type == PopupType.Page) {
+          // Position of page popup in spatial pages is user defined.
+          const popupLinkToPageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
+          const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
+          li.id = POPUP_LINK_ID;
+          const widthGr = PageFns.getPopupWidthGr(displayItem_pageWithChildren);
+          const heightGr = Math.round((widthGr / displayItem_pageWithChildren.naturalAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;
+          li.spatialWidthGr = widthGr;
+          // assume center positioning.
+          li.spatialPositionGr = {
+            x: PageFns.getPopupPositionGr(displayItem_pageWithChildren).x - widthGr / 2.0,
+            y: PageFns.getPopupPositionGr(displayItem_pageWithChildren).y - heightGr / 2.0
+          };
+
+          const itemGeometry = ItemFns.calcGeometry_Spatial(li,
+            zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
+            PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
+            false, true, true,
+            PageFns.popupPositioningHasChanged(displayItem_pageWithChildren));
+          pageWithChildrenVisualElementSpec.popupVes = arrangeItem(
+            store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, li, itemGeometry, true, true, false, false, false);
+  
+        } else if (currentPopupSpec.type == PopupType.Attachment) {
+          // Ves are created inline.
+        } else if (currentPopupSpec.type == PopupType.Image) {
+          pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+        } else {
+          panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
+        }
+      }
+    }
+
 
   // *** LIST VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.List) {
 
-    const scale = outerBoundsPx.w / store.desktopBoundsPx().w;
+    const isFull = outerBoundsPx.h == store.desktopMainAreaBoundsPx().h;
+    const scale = isFull ? 1.0 : outerBoundsPx.w / store.desktopMainAreaBoundsPx().w;
+
+    let resizeBoundsPx = {
+      x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
+      y: 0,
+      w: RESIZE_BOX_SIZE_PX,
+      h: store.desktopMainAreaBoundsPx().h
+    }
+    if (isFull) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
+    }
 
     pageWithChildrenVisualElementSpec = {
       displayItem: displayItem_pageWithChildren,
@@ -476,12 +542,12 @@ const arrangePageWithChildren = (
       const poppedUpPath = poppedUp.vePath;
       const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
       selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(poppedUpVeid));
-    } else if (isRoot) {
-      // TODO (MEDIUM): list pages in list pages.
-      console.log("not implemented");
     } else {
-      const listPageVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-      selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(listPageVeid)!);
+      if (realParentVeid == null) {
+        selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
+      } else {
+        selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(realParentVeid!));
+      }
     }
 
     let listVeChildren: Array<VisualElementSignal> = [];
@@ -519,10 +585,11 @@ const arrangePageWithChildren = (
         w: outerBoundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
         h: outerBoundsPx.h - LINE_HEIGHT_PX * scale
       };
-      pageWithChildrenVisualElementSpec.childrenVes.push(
-        arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, false, false));
+      const selectedIsRoot = isRoot && isPage(itemState.get(selectedVeid.itemId)!);
+      const isExpandable = selectedIsRoot;
+      pageWithChildrenVisualElementSpec.selectedVes =
+        arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, isExpandable, selectedIsRoot);
     }
-
 
   } else {
 
@@ -660,7 +727,6 @@ const arrangeTable = (
     const childVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
 
     if (isComposite(displayItem_childItem)) {
-
       initiateLoadChildItemsMaybe(store, childVeid);
     }
 
@@ -831,6 +897,86 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
     }
   }
 
-  const result = arrangeItem(store, currentPath, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
+  const result = arrangeItem(store, currentPath, veid, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
   return result;
+}
+
+function createJustifyOptions(widthPx: number, rowAspect: number) {
+  const NORMAL_ROW_HEIGHT = 200;
+  const targetRowHeight = widthPx / rowAspect;
+  const options: JustifiedLayoutOptions = {
+    containerWidth: widthPx,
+    containerPadding: 10 * targetRowHeight / 200,
+    boxSpacing: 5 * targetRowHeight / 200,
+    targetRowHeight,
+  };
+  return options;
+}
+
+/**
+ * Options for configuring the justified layout.
+ */
+interface JustifiedLayoutOptions {
+  /**
+   * The width that boxes will be contained within irrelevant of padding.
+   * @default 1060
+   */
+  containerWidth?: number | undefined;
+  /**
+   * Provide a single integer to apply padding to all sides or provide an object to apply
+   * individual values to each side.
+   * @default 10
+   */
+  containerPadding?: number | { top: number; right: number; left: number; bottom: number } | undefined;
+  /**
+   * Provide a single integer to apply spacing both horizontally and vertically or provide an
+   * object to apply individual values to each axis.
+   * @default 10
+   */
+  boxSpacing?: number | { horizontal: number; vertical: number } | undefined;
+  /**
+   * It's called a target because row height is the lever we use in order to fit everything in
+   * nicely. The algorithm will get as close to the target row height as it can.
+   * @default 320
+   */
+  targetRowHeight?: number | undefined;
+  /**
+   * How far row heights can stray from targetRowHeight. `0` would force rows to be the
+   * `targetRowHeight` exactly and would likely make it impossible to justify. The value must
+   * be between `0` and `1`.
+   * @default 0.25
+   */
+  targetRowHeightTolerance?: number | undefined;
+  /**
+   * Will stop adding rows at this number regardless of how many items still need to be laid
+   * out.
+   * @default Number.POSITIVE_INFINITY
+   */
+  maxNumRows?: number | undefined;
+  /**
+   * Provide an aspect ratio here to return everything in that aspect ratio. Makes the values
+   * in your input array irrelevant. The length of the array remains relevant.
+   * @default false
+   */
+  forceAspectRatio?: boolean | number | undefined;
+  /**
+   * If you'd like to insert a full width box every n rows you can specify it with this
+   * parameter. The box on that row will ignore the targetRowHeight, make itself as wide as
+   * `containerWidth - containerPadding` and be as tall as its aspect ratio defines. It'll
+   * only happen if that item has an aspect ratio >= 1. Best to have a look at the examples to
+   * see what this does.
+   * @default false
+   */
+  fullWidthBreakoutRowCadence?: boolean | number | undefined;
+  /**
+   * By default we'll return items at the end of a justified layout even if they don't make a
+   * full row. If false they'll be omitted from the output.
+   * @default true
+   */
+  showWidows?: boolean | undefined;
+  /**
+   * If widows are visible, how should they be laid out?
+   * @default "left"
+   */
+  widowLayoutStyle?: "left" | "justify" | "center" | undefined;
 }

@@ -542,7 +542,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     spatial_position_gr: Some(Vector { x: 0, y: 0 }),
     spatial_width_gr: Some(60 * GRID_SIZE),
     spatial_height_gr: None,
-    title: Some("Briefcase".to_owned()),
+    title: Some("Dock".to_owned()),
     original_creation_date: None,
     mime_type: None,
     file_size_bytes: None,

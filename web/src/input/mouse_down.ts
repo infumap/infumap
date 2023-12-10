@@ -133,6 +133,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   };
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
+
+  const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false);
+  const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
+
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
@@ -141,8 +145,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,
-    moveOver_scaleDefiningElement: VeFns.veToPath(
-      getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false).overPositionableVe!),
+    moveOver_scaleDefiningElement: scaleDefiningElement,
     hitboxTypeOnMouseDown: hitInfo.hitboxType,
     compositeHitboxTypeMaybeOnMouseDown: hitInfo.compositeHitboxTypeMaybe,
     action: MouseAction.Ambiguous,
@@ -186,7 +189,6 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
-
   if (store.overlay.contextMenuInfo.get()) {
     store.overlay.contextMenuInfo.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);

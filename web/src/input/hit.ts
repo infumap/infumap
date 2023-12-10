@@ -16,8 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { GRID_SIZE } from "../constants";
 import { isComposite } from "../items/composite-item";
-import { isPage } from "../items/page-item";
+import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
@@ -30,13 +31,14 @@ import { Uid } from "../util/uid";
 
 
 export interface HitInfo {
-  hitboxType: HitboxFlags,                    // the intersected hitbox flags of overElement.
-  compositeHitboxTypeMaybe: HitboxFlags,      // if the item hit was inside a composite container, the intersected hitbox flags of the composite container, else None.
+  hitboxType: HitboxFlags,                   // the intersected hitbox flags of overElement.
+  compositeHitboxTypeMaybe: HitboxFlags,     // if the item hit was inside a composite container, the intersected hitbox flags of the composite container, else None.
   rootVe: VisualElement,                     // the first fully editable page directly under the specified position.
   overElementVes: VisualElementSignal,       // the visual element under the specified position.
   overElementMeta: HitboxMeta | null,        // meta data from the hit hitbox of the visual element under specified position.
   overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
   overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position (for a table this is it's parent page).
+  overPositionGr: Vector | null,             // position in the positionable element.
 }
 
 
@@ -69,7 +71,7 @@ export function getHitInfo(
     }
   }
   if (hitboxType != HitboxFlags.None) {
-    return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null);
+    return finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
   }
 
   for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
@@ -104,7 +106,8 @@ export function getHitInfo(
             overElementVes: attachmentVisualElementSignal,
             overElementMeta: meta,
             overContainerVe: noAttachmentResult.overContainerVe,
-            overPositionableVe: noAttachmentResult.overPositionableVe
+            overPositionableVe: noAttachmentResult.overPositionableVe,
+            overPositionGr: noAttachmentResult.overPositionGr,
           };
         }
       }
@@ -121,7 +124,7 @@ export function getHitInfo(
     const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, ignoreAttachments, posOnDesktopPx);
     if (insideTableHit != null) { return insideTableHit; }
 
-    const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems);
+    const insideCompositeHit = handleInsideCompositeMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems);
     if (insideCompositeHit != null) { return insideCompositeHit; }
 
     // handle inside any other item (including pages that are sized such that they can't be clicked in).
@@ -134,11 +137,11 @@ export function getHitInfo(
       }
     }
     if (!ignoreItems.find(a => a == childVisualElement.displayItem.id)) {
-      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta);
+      return finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementPx);
     }
   }
 
-  return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null);
+  return finalize(store, HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
 }
 
 
@@ -157,15 +160,19 @@ function determineRoot(
     // does not incorporate page scroll.
     posOnDesktopPx: Vector): RootInfo {
 
-  let rootVisualElement = topLevelVisualElement;
+  if (topLevelVisualElement.childrenVes.length != 1) {
+    panic("expected topLevelVisualElement to have a child");
+  }
+    
+  let rootVisualElement = topLevelVisualElement.childrenVes[0].get();
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
-  let rootVisualElementSignal = store.topLevelVisualElement;
+  let rootVisualElementSignal = topLevelVisualElement.childrenVes[0];
 
-  if (topLevelVisualElement.childrenVes.length == 0) {
+  if (rootVisualElement.childrenVes.length == 0) {
     return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
   }
 
-  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
+  const dockRootMaybe = determineIfDockRoot(store, topLevelVisualElement, posOnDesktopPx);
   if (dockRootMaybe != null) { return dockRootMaybe!; }
 
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
@@ -177,8 +184,8 @@ function determineRoot(
 
   let done = false;
 
-  if (topLevelVisualElement.popupVes) {
-    const newRootVesMaybe = topLevelVisualElement.popupVes!;
+  if (rootVisualElement.popupVes) {
+    const newRootVesMaybe = rootVisualElement.popupVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
 
     const popupPosRelativeToTopLevelVisualElementPx = (newRootVeMaybe.flags & VisualElementFlags.Fixed)
@@ -203,7 +210,7 @@ function determineRoot(
         }
       }
       if (hitboxType != HitboxFlags.None) {
-        return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null) };
+        return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx) };
       }
       posRelativeToRootVisualElementPx = vectorSubtract(
         popupPosRelativeToTopLevelVisualElementPx,
@@ -213,28 +220,30 @@ function determineRoot(
     }
   }
 
-  if (!done && topLevelVisualElement.selectedVes) {
-    const newRootVesMaybe = topLevelVisualElement.selectedVes!;
+  if (!done && rootVisualElement.selectedVes != null) {
+    const newRootVesMaybe = rootVisualElement.selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
 
-    if (isInside(posRelativeToRootVisualElementPx, newRootVeMaybe.boundsPx)) {
-      rootVisualElementSignal = newRootVesMaybe;
-      rootVisualElement = newRootVeMaybe;
-      const selected = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(VeFns.veidFromVe(topLevelVisualElement)));
-      const scrollPropY = store.perItem.getPageScrollYProp(selected);
-      posRelativeToRootVisualElementPx = vectorSubtract(
-        posRelativeToRootVisualElementPx,
-        { x: rootVisualElement.childAreaBoundsPx!.x,
-          y: rootVisualElement.childAreaBoundsPx!.y - scrollPropY * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)})
-      let hitboxType = HitboxFlags.None;
-      for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
-          hitboxType |= rootVisualElement.hitboxes[j].type;
+    if (isPage(newRootVeMaybe.displayItem)) {
+      if (isInside(posRelativeToRootVisualElementPx, newRootVeMaybe.boundsPx)) {
+        rootVisualElementSignal = newRootVesMaybe;
+        rootVisualElement = newRootVeMaybe;
+        const selected = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(VeFns.veidFromVe(topLevelVisualElement)));
+        const scrollPropY = store.perItem.getPageScrollYProp(selected);
+        posRelativeToRootVisualElementPx = vectorSubtract(
+          posRelativeToRootVisualElementPx,
+          { x: rootVisualElement.childAreaBoundsPx!.x,
+            y: rootVisualElement.childAreaBoundsPx!.y - scrollPropY * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)})
+        let hitboxType = HitboxFlags.None;
+        for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
+          if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
+            hitboxType |= rootVisualElement.hitboxes[j].type;
+          }
         }
-      }
 
-      if (hitboxType != HitboxFlags.None) {
-        return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null) };
+        if (hitboxType != HitboxFlags.None) {
+          return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx) };
+        }
       }
     }
   }
@@ -242,7 +251,7 @@ function determineRoot(
   return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
 }
 
-function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
+function determineIfDockRoot(store: StoreContextModel, topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
 
   if (topLevelVisualElement.dockVes == null) {
     return null;
@@ -262,7 +271,7 @@ function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopP
     }
   }
   if (hitboxType != HitboxFlags.None) {
-    return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null) };
+    return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: finalize(store, hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx) };
   }
 
   return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: null };
@@ -288,14 +297,14 @@ function handleInsideTableMaybe(
   const resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta);
+    return finalize(store, HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx);
   }
   // col resize also takes precedence over anything in the child area.
   for (let j=tableVisualElement.hitboxes.length-2; j>=0; j--) {
     const hb = tableVisualElement.hitboxes[j];
     if (hb.type != HitboxFlags.HorizontalResize) { break; }
     if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta);
+      return finalize(store, HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx);
     }
   }
 
@@ -318,7 +327,7 @@ function handleInsideTableMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta);
+        return finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx);
       }
     }
     if (!ignoreAttachments) {
@@ -343,7 +352,8 @@ function handleInsideTableMaybe(
               overElementVes: attachmentVes,
               overElementMeta: meta,
               overContainerVe: noAttachmentResult.overContainerVe,
-              overPositionableVe: noAttachmentResult.overPositionableVe
+              overPositionableVe: noAttachmentResult.overPositionableVe,
+              overPositionGr: noAttachmentResult.overPositionGr,
             };
           }
         }
@@ -356,6 +366,7 @@ function handleInsideTableMaybe(
 
 
 function handleInsideCompositeMaybe(
+    store: StoreContextModel,
     childVisualElement: VisualElement, childVisualElementSignal: VisualElementSignal,
     rootVisualElement: VisualElement,
     posRelativeToRootVisualElementPx: Vector,
@@ -372,7 +383,7 @@ function handleInsideCompositeMaybe(
   const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta);
+    return finalize(store, HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx);
   }
 
   // for the composite case, also hit the container, even if a child is also hit.
@@ -403,11 +414,11 @@ function handleInsideCompositeMaybe(
       if (hitboxType == HitboxFlags.None) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
         if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
-          return finalize(compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta);
+          return finalize(store, compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx);
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-          return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta);
+          return finalize(store, hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx);
         }
       }
     }
@@ -417,25 +428,99 @@ function handleInsideCompositeMaybe(
 }
 
 
-// calculate overContainerVe and overPositionableVe.
-function finalize(hitboxType: HitboxFlags, containerHitboxType: HitboxFlags, rootVe: VisualElement, overElementVes: VisualElementSignal, overElementMeta: HitboxMeta | null): HitInfo {
+function finalize(
+    store: StoreContextModel,
+    hitboxType: HitboxFlags,
+    containerHitboxType: HitboxFlags,
+    rootVe: VisualElement,
+    overElementVes: VisualElementSignal,
+    overElementMeta: HitboxMeta | null,
+    posRelativeToRootVisualElementPx: Vector): HitInfo {
+
   const overVe = overElementVes.get();
+  if (overVe.displayItem.id == PageFns.topLevelPage().id) {
+    return {
+      hitboxType: HitboxFlags.None,
+      compositeHitboxTypeMaybe: HitboxFlags.None,
+      rootVe: overVe,
+      overElementVes,
+      overElementMeta: null,
+      overContainerVe: null,
+      overPositionableVe: null,
+      overPositionGr: null,
+    };
+  }
+
+  const overPositionGr = { x: 0, y: 0 };
+
   if (overVe.flags & VisualElementFlags.InsideTable) {
     assert(isTable(VesCache.get(overVe.parentPath!)!.get().displayItem), "a visual element marked as inside table, is not in fact inside a table.");
     const parentTableVe = VesCache.get(overVe.parentPath!)!.get();
     const tableParentPageVe = VesCache.get(parentTableVe.parentPath!)!.get();
     assert(isPage(tableParentPageVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
     assert((tableParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing table is not marked as having children visible.");
-    return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentTableVe, overPositionableVe: tableParentPageVe };
+    // console.log("A", tableParentPageVe.displayItem.itemType, posRelativeToRootVisualElementPx, tableParentPageVe);
+    return {
+      hitboxType,
+      compositeHitboxTypeMaybe: containerHitboxType,
+      rootVe,
+      overElementVes,
+      overElementMeta,
+      overContainerVe: parentTableVe,
+      overPositionableVe: tableParentPageVe,
+      overPositionGr,
+    };
   }
 
   if (isTable(overVe.displayItem)) {
     assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, "a page containing a table is not marked as having children visible.");
-    return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: VesCache.get(overVe.parentPath!)!.get() };
+    const parentVe = VesCache.get(overVe.parentPath!)!.get();
+    let prop = {
+      x: (posRelativeToRootVisualElementPx.x - parentVe.childAreaBoundsPx!.x) / parentVe.childAreaBoundsPx!.w,
+      y: (posRelativeToRootVisualElementPx.y - parentVe.childAreaBoundsPx!.y) / parentVe.childAreaBoundsPx!.h
+    }
+    const overPositionGr = {
+      x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
+      y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
+    };
+    console.log(overPositionGr);
+    return {
+      hitboxType,
+      compositeHitboxTypeMaybe: containerHitboxType,
+      rootVe,
+      overElementVes,
+      overElementMeta,
+      overContainerVe: overVe,
+      overPositionableVe: parentVe,
+      overPositionGr,
+    };
   }
 
   if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren)) {
-    return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVe };
+    let prop = {
+      x: (posRelativeToRootVisualElementPx.x - overVe.childAreaBoundsPx!.x) / overVe.childAreaBoundsPx!.w,
+      y: (posRelativeToRootVisualElementPx.y - overVe.childAreaBoundsPx!.y) / overVe.childAreaBoundsPx!.h
+    }
+    if (rootVe == overVe) {
+      prop = {
+        x: posRelativeToRootVisualElementPx.x / overVe.childAreaBoundsPx!.w,
+        y: posRelativeToRootVisualElementPx.y / overVe.childAreaBoundsPx!.h
+      }
+    }
+    const overPositionGr = {
+      x: Math.round(prop.x * asPageItem(overVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
+      y: Math.round(prop.y * asPageItem(overVe.displayItem).innerSpatialWidthGr / asPageItem(overVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
+    };
+    return {
+      hitboxType,
+      compositeHitboxTypeMaybe: containerHitboxType,
+      rootVe,
+      overElementVes,
+      overElementMeta,
+      overContainerVe: overVe,
+      overPositionableVe: overVe,
+      overPositionGr,
+    };
   }
 
   if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
@@ -443,14 +528,45 @@ function finalize(hitboxType: HitboxFlags, containerHitboxType: HitboxFlags, roo
     const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
     assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
     assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing composite is not marked as having children visible.");
-    return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: parentCompositeVe, overPositionableVe: compositeParentPageVe };
+    // console.log("D", compositeParentPageVe.displayItem.itemType, posRelativeToRootVisualElementPx, compositeParentPageVe);
+    return {
+      hitboxType,
+      compositeHitboxTypeMaybe: containerHitboxType,
+      rootVe,
+      overElementVes,
+      overElementMeta,
+      overContainerVe: parentCompositeVe,
+      overPositionableVe: compositeParentPageVe,
+      overPositionGr,
+    };
   }
 
   const overVeParent = VesCache.get(overVe.parentPath!)!.get();
   assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a non-container item not in page is not a page.");
   assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, `the parent '${VesCache.get(overVe.parentPath!)!.get().displayItem.id}' of a non-container does not allow drag in positioning.`);
   if (isPage(overVe.displayItem)) {
-    return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVe, overPositionableVe: overVeParent };
+    // console.log("E", overVeParent.displayItem.itemType, "overVeParent", overVeParent);
+    return {
+      hitboxType,
+      compositeHitboxTypeMaybe: containerHitboxType,
+      rootVe,
+      overElementVes,
+      overElementMeta,
+      overContainerVe: overVe,
+      overPositionableVe: overVeParent,
+      overPositionGr,
+    };
   }
-  return { hitboxType, compositeHitboxTypeMaybe: containerHitboxType, rootVe, overElementVes, overElementMeta, overContainerVe: overVeParent, overPositionableVe: overVeParent };
+
+  // console.log("F", overVeParent.displayItem.itemType, posRelativeToRootVisualElementPx, overVeParent);
+  return {
+    hitboxType,
+    compositeHitboxTypeMaybe: containerHitboxType,
+    rootVe,
+    overElementVes,
+    overElementMeta,
+    overContainerVe: overVeParent,
+    overPositionableVe: overVeParent,
+    overPositionGr,
+  };
 }

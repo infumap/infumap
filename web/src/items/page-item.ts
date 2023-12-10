@@ -20,7 +20,7 @@ import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { EMPTY_UID, newUid, Uid } from '../util/uid';
+import { EMPTY_UID, newUid, ONE_UID, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
@@ -42,6 +42,8 @@ import { server } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
 import { PopupType } from '../store/StoreProvider_History';
+import { RelationshipToParent } from '../layout/relationship-to-parent';
+import { newOrdering } from '../util/ordering';
 
 
 export const ArrangeAlgorithm = {
@@ -86,6 +88,8 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export const PageFns = {
+  topLevelPage: () => topLevelPage(),
+
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem => {
     return ({
       origin: null,
@@ -549,4 +553,10 @@ export function asPageItem(item: ItemTypeMixin): PageItem {
   const item_any: any = item;
   const id = item_any["id"] ? item_any["id"] : "[unknown]";
   panic(`item (id: ${id}) is a '${item.itemType}', not a page.`);
+}
+
+const topLevelPage = () => {
+  const result = PageFns.create(EMPTY_UID, EMPTY_UID, RelationshipToParent.NoParent, "", newOrdering());
+  result.id = ONE_UID;
+  return result;
 }

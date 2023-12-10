@@ -95,14 +95,13 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.id),
       RelationshipToParent.Child);
 
-    const page = asPageItem(overElementVe.displayItem);
-    const propX = (desktopPosPx.x - overElementVe.boundsPx.x) / overElementVe.boundsPx.w;
-    const propY = (desktopPosPx.y - overElementVe.boundsPx.y) / overElementVe.boundsPx.h;
-    newItem.spatialPositionGr = {
-      x: Math.floor(page.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-      y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
-    };
-    const naturalAspect = (store.desktopBoundsPx().w / store.desktopBoundsPx().h);
+    if (hitInfo.overPositionGr != null) {
+      newItem.spatialPositionGr = hitInfo.overPositionGr!;
+    } else {
+      console.warn("hitInfo.overPositionGr is not set");
+    }
+
+    const naturalAspect = (store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h);
     if (isPage(newItem)) {
       const page = asPageItem(newItem);
       asPageItem(newItem).naturalAspect = Math.round(naturalAspect * 1000) / 1000;
@@ -127,6 +126,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else if (isTable(overElementVe.displayItem)) {
+    console.log("here");
     if (isInside(desktopPosPx, overElementVe.childAreaBoundsPx!)) {
       const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, desktopPosPx);
       const tableItem = asTableItem(overElementVe.displayItem);

@@ -222,7 +222,7 @@ function createOrRecycleVisualElementSignalImpl (
     const oldVals: any = existing.get();
     const newProps = Object.getOwnPropertyNames(visualElementOverride);
     let dirty = false;
-    if (debug) { console.debug(newProps, visualElementOverride); }
+    if (debug) { console.debug(newProps, oldVals, visualElementOverride); }
     for (let i=0; i<newProps.length; ++i) {
       if (debug) { console.debug("considering", newProps[i]); }
       if (typeof(oldVals[newProps[i]]) == 'undefined') {
@@ -271,6 +271,18 @@ function createOrRecycleVisualElementSignalImpl (
         }
       }
     }
+
+    // properties that can become unset.
+    // TODO (MEDIUM): something less of a hack here.
+    if (oldVals["popupVes"] && !visualElementOverride["popupVes"]) {
+      if (debug) { console.debug("popVes has become unset."); }
+      dirty = true;
+    }
+    if (oldVals["selectedVes"] && !visualElementOverride["selectedVes"]) {
+      if (debug) {  console.debug("selectedVes has become unset."); }
+      dirty = true;
+    }
+
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       newCache.set(path, existing);

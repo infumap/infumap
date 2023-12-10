@@ -24,17 +24,17 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
-import { newUid } from "../../util/uid";
+import { TWO_UID } from "../../util/uid";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { VeFns, VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { arrangeItem } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
 
 
-export const POPUP_LINK_ID = newUid();
+export const POPUP_LINK_ID = TWO_UID;
 
-export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
+export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid | null): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), "");
   const currentPopupSpec = store.history.currentPopupSpec()!;
@@ -58,7 +58,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
+      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry, true, true, true, false, false);
       let newV = ves.get();
       newV.flags |= ((currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
                       currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified)
