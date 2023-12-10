@@ -336,6 +336,13 @@ const arrangePageWithChildren = (
 
     pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
+    if (isRoot && !isPagePopup) {
+      const currentPopupSpec = store.history.currentPopupSpec();
+      if (currentPopupSpec != null) {
+        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+      }
+    }
+
 
   // *** DOCUMENT VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
@@ -596,6 +603,14 @@ const arrangePageWithChildren = (
       pageWithChildrenVisualElementSpec.selectedVes =
         arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, isExpandable, selectedIsRoot);
     }
+
+    if (isRoot && !isPagePopup) {
+      const currentPopupSpec = store.history.currentPopupSpec();
+      if (currentPopupSpec != null) {
+        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+      }
+    }
+
 
   } else {
 
