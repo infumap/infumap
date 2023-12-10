@@ -18,10 +18,9 @@
 
 import { LINE_HEIGHT_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
-import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
@@ -38,7 +37,7 @@ export function arrange_grid_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
     realParentVeid: Veid | null,
-    displayItem_pageWithChildren: Item,
+    displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
     isPagePopup: boolean,

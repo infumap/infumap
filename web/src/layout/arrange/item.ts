@@ -49,6 +49,7 @@ import { arrangeCellPopup } from "./popup";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_spatial_page } from "./page_spatial";
 import { arrange_justified_page } from "./page_justified";
+import { arrange_document_page } from "./page_document";
 
 
 export const arrangeItem = (
@@ -134,87 +135,18 @@ const arrangePageWithChildren = (
 
   const parentIsPopup = isPagePopup;
 
-  // *** GRID ***
   if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
 
     pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
 
-  // *** JUSTIFIED VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
 
     pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
 
-  // *** DOCUMENT VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
 
-    const totalWidthBl = displayItem_pageWithChildren.docWidthBl + 4; // 4 == total margin.
-    const requiredWidthPx = totalWidthBl * BLOCK_SIZE_PX.w;
-    let scale = geometry.boundsPx.w / requiredWidthPx;
-    if (scale > 1.0) { scale = 1.0; }
-    const blockSizePx = { w: BLOCK_SIZE_PX.w * scale, h: BLOCK_SIZE_PX.h * scale };
+    pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
 
-    const childrenVes = [];
-
-    let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
-    for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
-      const childId = displayItem_pageWithChildren.computed_children[idx];
-      const childItem = itemState.get(childId)!;
-
-      const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
-      if (isTable(displayItem_childItem)) { continue; }
-
-      const geometry = ItemFns.calcGeometry_InComposite(
-        linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
-        blockSizePx,
-        displayItem_pageWithChildren.docWidthBl,
-        topPx);
-
-      const childVeSpec: VisualElementSpec = {
-        displayItem: displayItem_childItem,
-        linkItemMaybe: linkItemMaybe_childItem,
-        flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
-        boundsPx: {
-          x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale,
-          y: geometry.boundsPx.y,
-          w: geometry.boundsPx.w,
-          h: geometry.boundsPx.h,
-        },
-        hitboxes: geometry.hitboxes,
-        parentPath: pageWithChildrenVePath,
-        col: 0,
-        row: idx,
-        blockSizePx: blockSizePx,
-      };
-
-      const childVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), pageWithChildrenVePath);
-      const childVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, childVePath);
-      childrenVes.push(childVeSignal);
-
-      topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
-    }
-
-    const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
-    childAreaBoundsPx.h = topPx;
-
-    pageWithChildrenVisualElementSpec = {
-      displayItem: displayItem_pageWithChildren,
-      linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-            (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-            (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-            (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-            (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-            (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
-      boundsPx: outerBoundsPx,
-      childAreaBoundsPx,
-      hitboxes,
-      parentPath,
-    };
-
-    pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
-
-
-  // *** SPATIAL_STRETCH ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
 
     pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
