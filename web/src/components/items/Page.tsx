@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX, Z_INDEX_ITEMS } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, HighlightColor, linearGradient } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -536,13 +536,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderEmbededInteractiveBackgroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="w-full h-full" style={`border-width: 2px; border-color: ${Colors[pageItem().backgroundColorIndex]}; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)}; `} />
+        <div class="absolute w-full h-full" style={`border-width: 2px; border-color: ${Colors[pageItem().backgroundColorIndex]}; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)}; `} />
+      </Show>;
+
+    const renderEmbededInteractiveForegroundMaybe = () =>
+      <Show when={isEmbeddedInteractive()}>
+        <div class="absolute w-full h-full pointer-events-none" style={`z-index: ${Z_INDEX_ITEMS}; border-width: 2px; border-color: ${Colors[pageItem().backgroundColorIndex]};`} />
       </Show>;
 
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`width: ${boundsPx().w}px; ` +
-                  `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: ${boundsPx().y}px; ` +
+                  `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: 0px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div id={'rootPageDiv'}
@@ -644,6 +649,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               {renderPage()}
             </Match>
           </Switch>
+          {renderEmbededInteractiveForegroundMaybe()}
           {renderIsPublicBorder()}
         </div>
       </>
