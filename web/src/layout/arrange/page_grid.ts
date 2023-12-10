@@ -44,7 +44,7 @@ export function arrange_grid_page(
     isPagePopup: boolean,
     isRoot: boolean,
     isListPageMainItem: boolean,
-    isMoving: boolean) {
+    isMoving: boolean): VisualElementSpec {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
