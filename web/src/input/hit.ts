@@ -484,7 +484,6 @@ function finalize(
       x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
       y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
     };
-    console.log(overPositionGr);
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
