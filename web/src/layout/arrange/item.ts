@@ -48,6 +48,7 @@ import { PopupType } from "../../store/StoreProvider_History";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import createJustifiedLayout from "justified-layout";
 import { arrangeCellPopup } from "./popup";
+import { arrange_grid_page } from "./page_grid";
 
 
 export const arrangeItem = (
@@ -136,133 +137,7 @@ const arrangePageWithChildren = (
   // *** GRID ***
   if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
 
-    let movingItem = null;
-    let movingItemInThisPage = null;
-    if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-      const veid = VeFns.veidFromPath(MouseActionState.get().activeElement);
-      if (veid.linkIdMaybe) {
-        movingItemInThisPage = itemState.get(veid.linkIdMaybe);
-      } else {
-        movingItemInThisPage = itemState.get(veid.itemId);
-      }
-      movingItem = movingItemInThisPage;
-      if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
-        movingItemInThisPage = null;
-      }
-    }
-
-    const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
-
-    const pageItem = asPageItem(displayItem_pageWithChildren);
-    const numCols = pageItem.gridNumberOfColumns;
-
-    // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
-    // change until after the move is complete to avoid a very distruptive jump in y scroll px.
-    let nItemAdj = 0;
-    if (movingItem && !MouseActionState.get().linkCreatedOnMoveStart) {
-      const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
-      const startParent = startParentVes.get().displayItem;
-      if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
-        nItemAdj = 1;
-      }
-    }
-
-    const numRows = Math.ceil((pageItem.computed_children.length + nItemAdj) / numCols);
-    const cellWPx = geometry.boundsPx.w / numCols;
-    const cellHPx = cellWPx * (1.0/pageItem.gridCellAspect);
-    const marginPx = cellWPx * 0.01;
-    const pageHeightPx = numRows * cellHPx;
-    const boundsPx = (() => {
-      const result = cloneBoundingBox(geometry.boundsPx)!;
-      result.h = pageHeightPx;
-      return result;
-    })();
-
-    pageWithChildrenVisualElementSpec = {
-      displayItem: displayItem_pageWithChildren,
-      linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-            (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-            (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-            (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-            (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-            (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
-      boundsPx: outerBoundsPx,
-      childAreaBoundsPx: boundsPx,
-      hitboxes,
-      parentPath,
-    };
-
-    const childrenVes = [];
-    let idx = 0;
-    for (let i=0; i<pageItem.computed_children.length; ++i) {
-      const item = itemState.get(pageItem.computed_children[i])!;
-      if (movingItemInThisPage && item.id == movingItemInThisPage!.id) {
-        continue;
-      }
-      const col = idx % numCols;
-      const row = Math.floor(idx / numCols);
-      idx += 1;
-      const cellBoundsPx = {
-        x: col * cellWPx + marginPx,
-        y: row * cellHPx + marginPx,
-        w: cellWPx - marginPx * 2.0,
-        h: cellHPx - marginPx * 2.0
-      };
-
-      let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, parentIsPopup, false, false, false);
-      const renderChildrenAsFull = isPagePopup || isRoot;
-      const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, item, geometry, renderChildrenAsFull, false, false, false, parentIsPopup);
-      childrenVes.push(ves);
-    }
-
-    if (movingItemInThisPage) {
-      let scrollPropY;
-      let scrollPropX;
-      if (isPagePopup) {
-        const popupSpec = store.history.currentPopupSpec();
-        assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
-        scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
-        scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
-      } else {
-        scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-        scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-      }
-
-      const topLevelVisualElement = store.topLevelVisualElement.get();
-      const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
-      const desktopSizePx = store.desktopBoundsPx();
-      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPage()!);
-      const pageYScrollPx = pageYScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
-      const pageXScrollProp = store.perItem.getPageScrollXProp(store.history.currentPage()!);
-      const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
-
-      const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
-      const xOffsetPx = scrollPropX * (boundsPx.w - outerBoundsPx.w);
-      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-      const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
-      const cellBoundsPx = {
-        x: mouseDestkopPosPx.x - outerBoundsPx.x + xOffsetPx + pageXScrollPx,
-        y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx + pageYScrollPx,
-        w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
-        h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
-      };
-      cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
-      cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-      const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, parentIsPopup, false, false, false);
-      const ves = arrangeItem(store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry, true, false, false, false, parentIsPopup);
-      childrenVes.push(ves);
-    }
-
-    pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
-
-    if (isRoot && !isPagePopup) {
-      const currentPopupSpec = store.history.currentPopupSpec();
-      if (currentPopupSpec != null) {
-        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
-      }
-    }
-
+    pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
 
   // *** JUSTIFIED VIEW ***
   } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
