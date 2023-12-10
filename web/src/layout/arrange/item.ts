@@ -17,16 +17,16 @@
 */
 
 import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { BLOCK_SIZE_PX, CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PageItem, asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { TableItem, asTableItem, isTable } from "../../items/table-item";
-import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, EMPTY_VEID, Veid } from "../visual-element";
+import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -45,11 +45,11 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { arrangeCellPopup } from "./popup";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_spatial_page } from "./page_spatial";
 import { arrange_justified_page } from "./page_justified";
 import { arrange_document_page } from "./page_document";
+import { arrange_list_page } from "./page_list";
 
 
 export const arrangeItem = (
@@ -125,134 +125,37 @@ const arrangePageWithChildren = (
     isListPageMainItem: boolean,
     isMoving: boolean): VisualElementSignal => {
 
+  let pageWithChildrenVisualElementSpec: VisualElementSpec;
+
+  switch (displayItem_pageWithChildren.arrangeAlgorithm) {
+    case ArrangeAlgorithm.Grid:
+      pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      break;
+    case ArrangeAlgorithm.Justified:
+      pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      break;
+    case ArrangeAlgorithm.Document:
+      pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      break;
+    case ArrangeAlgorithm.SpatialStretch:
+      pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      break;
+    case ArrangeAlgorithm.List:
+      pageWithChildrenVisualElementSpec = arrange_list_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
+      break;
+    default:
+      panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
+  }
+
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const outerBoundsPx = geometry.boundsPx;
-  const hitboxes = geometry.hitboxes;
 
-  let pageWithChildrenVisualElementSpec: VisualElementSpec;
-
-  const parentIsPopup = isPagePopup;
-
-  if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-
-    pageWithChildrenVisualElementSpec = arrange_grid_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-
-    pageWithChildrenVisualElementSpec = arrange_justified_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.Document) {
-
-    pageWithChildrenVisualElementSpec = arrange_document_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-
-    pageWithChildrenVisualElementSpec = arrange_spatial_page(store, parentPath, realParentVeid, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry, isPagePopup, isRoot, isListPageMainItem, isMoving);
-
-
-  // *** LIST VIEW ***
-  } else if (displayItem_pageWithChildren.arrangeAlgorithm == ArrangeAlgorithm.List) {
-
-    const isFull = outerBoundsPx.h == store.desktopMainAreaBoundsPx().h;
-    const scale = isFull ? 1.0 : outerBoundsPx.w / store.desktopMainAreaBoundsPx().w;
-
-    let resizeBoundsPx = {
-      x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
-      y: 0,
-      w: RESIZE_BOX_SIZE_PX,
-      h: store.desktopMainAreaBoundsPx().h
-    }
-    if (isFull) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
-    }
-
-    pageWithChildrenVisualElementSpec = {
-      displayItem: displayItem_pageWithChildren,
-      linkItemMaybe: linkItemMaybe_pageWithChildren,
-      flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-             (isPagePopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-             (isPagePopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-             (isRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
-             (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-             (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
-      boundsPx: outerBoundsPx,
-      childAreaBoundsPx: geometry.boundsPx,
-      hitboxes,
-      parentPath,
-    };
-
-    let selectedVeid = EMPTY_VEID;
-    if (isPagePopup) {
-      const poppedUp = store.history.currentPopupSpec()!;
-      const poppedUpPath = poppedUp.vePath;
-      const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
-      selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(poppedUpVeid));
-    } else {
-      if (realParentVeid == null) {
-        selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
-      } else {
-        selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(realParentVeid!));
-      }
-    }
-
-    let listVeChildren: Array<VisualElementSignal> = [];
-    for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
-      const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
-      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-
-      const widthBl = LIST_PAGE_LIST_WIDTH_BL;
-      const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
-
-      const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup);
-
-      const listItemVeSpec: VisualElementSpec = {
-        displayItem,
-        linkItemMaybe,
-        flags: VisualElementFlags.LineItem |
-               (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
-        boundsPx: geometry.boundsPx,
-        hitboxes: geometry.hitboxes,
-        parentPath: pageWithChildrenVePath,
-        col: 0,
-        row: idx,
-        blockSizePx,
-      };
-      const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
-      const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
-      listVeChildren.push(listItemVisualElementSignal);
-    }
-    pageWithChildrenVisualElementSpec.childrenVes = listVeChildren;
-
-    if (selectedVeid != EMPTY_VEID) {
-      const boundsPx = {
-        x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX * scale,
-        y: 0,
-        w: outerBoundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
-        h: outerBoundsPx.h - LINE_HEIGHT_PX * scale
-      };
-      const selectedIsRoot = isRoot && isPage(itemState.get(selectedVeid.itemId)!);
-      const isExpandable = selectedIsRoot;
-      pageWithChildrenVisualElementSpec.selectedVes =
-        arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, isExpandable, selectedIsRoot);
-    }
-
-    if (isRoot && !isPagePopup) {
-      const currentPopupSpec = store.history.currentPopupSpec();
-      if (currentPopupSpec != null) {
-        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
-      }
-    }
-
-
-  } else {
-
-    panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
+  if (!isRoot) {
+    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
+    pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
   }
-
-  const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
-  pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
