@@ -17,6 +17,7 @@
 */
 
 import { BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
 import { PageItem } from "../../items/page-item";
@@ -31,11 +32,10 @@ import { ArrangeItemFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
-
 export function arrange_document_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
-    realParentVeid: Veid | null,
+    _realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
@@ -100,15 +100,18 @@ export function arrange_document_page(
   const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
   childAreaBoundsPx.h = topPx;
 
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2;
+
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsRoot ? VisualElementFlags.Root : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
+          (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx,
     hitboxes,

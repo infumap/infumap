@@ -35,6 +35,7 @@ import { ArrangeItemFlags, arrangeItem, arrangeItemNoChildren } from "./item";
 import { arrangeCellPopup } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
+
 export function arrange_spatial_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
@@ -69,16 +70,18 @@ export function arrange_spatial_page(
     return result;
   })();
 
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2;
+
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
             (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
             (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-            ((flags & ArrangeItemFlags.IsRoot || (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2) ? VisualElementFlags.Root : VisualElementFlags.None) |
+            (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
             (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
             (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
-            (displayItem_pageWithChildren.flags & PageFlags.Interactive && !(flags & ArrangeItemFlags.IsRoot) && VeFns.pathDepth(parentPath) == 2 ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
+            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
     hitboxes,
