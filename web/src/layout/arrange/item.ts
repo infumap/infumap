@@ -16,14 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../../components/items/Table";
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PageItem, asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
-import { TableItem, asTableItem, isTable } from "../../items/table-item";
+import { asTableItem, isTable } from "../../items/table-item";
 import { VisualElementFlags, VisualElementSpec, VisualElementPath, VeFns, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox } from "../../util/geometry";
@@ -31,10 +29,9 @@ import { LinkFns, LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { itemState } from "../../store/ItemState";
-import { TableFlags } from "../../items/base/flags-item";
 import { VesCache } from "../ves-cache";
 import { ItemGeometry } from "../item-geometry";
-import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
@@ -51,6 +48,7 @@ import { arrange_justified_page } from "./page_justified";
 import { arrange_document_page } from "./page_document";
 import { arrange_list_page } from "./page_list";
 import { arrangeTable } from "./table";
+import { arrangeComposite } from "./composite";
 
 
 export const arrangeItem = (
@@ -160,85 +158,6 @@ const arrangePageWithChildren = (
 
   const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
-}
-
-
-const arrangeComposite = (
-    store: StoreContextModel,
-    parentPath: VisualElementPath,
-    displayItem_Composite: CompositeItem,
-    linkItemMaybe_Composite: LinkItem | null,
-    compositeGeometry: ItemGeometry,
-    isListPageMainItem: boolean,
-    isMoving: boolean): VisualElementSignal => {
-  const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
-
-  let childAreaBoundsPx = {
-    x: compositeGeometry.boundsPx.x, y: compositeGeometry.boundsPx.y,
-    w: compositeGeometry.boundsPx.w, h: compositeGeometry.boundsPx.h
-  };
-
-  const compositeVisualElementSpec: VisualElementSpec = {
-    displayItem: displayItem_Composite,
-    linkItemMaybe: linkItemMaybe_Composite,
-    flags: VisualElementFlags.Detailed |
-           (isMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (isListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
-    boundsPx: compositeGeometry.boundsPx,
-    childAreaBoundsPx,
-    hitboxes: compositeGeometry.hitboxes,
-    parentPath,
-  };
-
-  const compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
-  const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
-
-  let compositeVeChildren: Array<VisualElementSignal> = [];
-  let topPx = 0.0;
-  for (let idx=0; idx<displayItem_Composite.computed_children.length; ++idx) {
-    const childId = displayItem_Composite.computed_children[idx];
-    const childItem = itemState.get(childId)!;
-
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
-    if (isTable(displayItem_childItem)) { continue; }
-
-    const geometry = ItemFns.calcGeometry_InComposite(
-      linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
-      blockSizePx,
-      compositeSizeBl.w,
-      topPx);
-
-    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
-
-    const compositeChildVeSpec: VisualElementSpec = {
-      displayItem: displayItem_childItem,
-      linkItemMaybe: linkItemMaybe_childItem,
-      flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
-      boundsPx: {
-        x: geometry.boundsPx.x,
-        y: geometry.boundsPx.y,
-        w: geometry.boundsPx.w,
-        h: geometry.boundsPx.h,
-      },
-      hitboxes: geometry.hitboxes,
-      parentPath: compositeVePath,
-      col: 0,
-      row: idx,
-      blockSizePx,
-    };
-
-    const attachments = arrangeItemAttachments(store, displayItem_childItem, linkItemMaybe_childItem, geometry.boundsPx, compositeVePath);
-    compositeChildVeSpec.attachmentsVes = attachments;
-
-    const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
-    const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
-    compositeVeChildren.push(compositeChildVeSignal);
-  }
-  compositeVisualElementSpec.childrenVes = compositeVeChildren;
-
-  const compositeVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath);
-
-  return compositeVisualElementSignal;
 }
 
 
