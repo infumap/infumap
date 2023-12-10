@@ -30,7 +30,7 @@ import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

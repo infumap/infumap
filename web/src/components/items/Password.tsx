@@ -24,7 +24,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
 export const Password: Component<VisualElementProps> = (props: VisualElementProps) => {

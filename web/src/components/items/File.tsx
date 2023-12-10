@@ -27,8 +27,8 @@ import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 import { asPageItem, isPage } from "../../items/page-item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {

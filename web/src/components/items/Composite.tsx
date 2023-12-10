@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

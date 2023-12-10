@@ -18,16 +18,22 @@
 
 import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem } from "../../items/link-item";
-import { PageItem, isPage } from "../../items/page-item";
+import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
+import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
+import { LinkFns, LinkItem } from "../../items/link-item";
+import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
+import { BoundingBox } from "../../util/geometry";
+import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
+import { newUid } from "../../util/uid";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
+import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { arrangeSelectedListItem } from "./item";
+import { arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
@@ -146,4 +152,42 @@ export function arrange_list_page(
   }
 
   return pageWithChildrenVisualElementSpec;
+}
+
+
+export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
+
+export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, isExpandable: boolean, isRoot: boolean): VisualElementSignal {
+  const item = itemState.get(veid.itemId)!;
+  const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
+
+  const paddedBoundsPx = {
+    x: boundsPx.x + LINE_HEIGHT_PX,
+    y: boundsPx.y + LINE_HEIGHT_PX,
+    w: boundsPx.w - 2 * LINE_HEIGHT_PX,
+    h: boundsPx.h - 2 * LINE_HEIGHT_PX,
+  };
+
+  let li = LinkFns.create(item.ownerId, canonicalItem.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
+  li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
+  if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
+  if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
+  li.spatialPositionGr = { x: 0.0, y: 0.0 };
+
+  const geometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false);
+  if (isPage(item)) {
+    geometry.boundsPx = boundsPx;
+    geometry.hitboxes = [];
+    if (isExpandable) {
+      geometry.hitboxes = [
+        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
+        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: boundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
+        HitboxFns.create(HitboxFlags.Expand, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      ];
+    }
+  }
+
+  const result = arrangeItem(store, currentPath, veid, ArrangeAlgorithm.List, li, geometry, true, false, isRoot, true, false);
+  return result;
 }

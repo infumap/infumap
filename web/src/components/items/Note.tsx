@@ -32,8 +32,8 @@ import { isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/item";
 import { asPageItem, isPage } from "../../items/page-item";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
