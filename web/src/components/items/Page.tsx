@@ -99,6 +99,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath();
   const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
+  const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbededInteractive);
 
   const lineVes = () => props.visualElement.childrenVes.filter(c => c.get().flags & VisualElementFlags.LineItem);
   const desktopVes = () => props.visualElement.childrenVes.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
@@ -524,13 +525,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
 
-  // ## Full or Root
+  // ## Root
 
-  const renderAsFullOrRoot = () => {
+  const renderAsRoot = () => {
 
     const renderIsPublicBorder = () =>
       <Show when={isPublic() && store.user.getUserMaybe() != null}>
         <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
+      </Show>;
+
+    const renderEmbededInteractiveBackgroundMaybe = () =>
+      <Show when={isEmbeddedInteractive()}>
+        <div class="w-full h-full" style={`border-width: 2px; border-color: ${Colors[pageItem().backgroundColorIndex]}; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)}; `} />
       </Show>;
 
     const renderListPage = () =>
@@ -629,6 +635,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class={`absolute`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: #ffffff;`}>
+          {renderEmbededInteractiveBackgroundMaybe()}
           <Switch>
             <Match when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
               {renderListPage()}
@@ -678,19 +685,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
         {renderAsPopup()}
       </Match>
-      <Match when={(props.visualElement.parentPath == null || (props.visualElement.flags & VisualElementFlags.Root)) &&
-                   !(props.visualElement.flags & VisualElementFlags.Popup)}>
-        {renderAsFullOrRoot()}
+      <Match when={props.visualElement.flags & VisualElementFlags.Root}>
+        {renderAsRoot()}
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
                    (!(props.visualElement.flags & VisualElementFlags.Root) &&
-                   !(props.visualElement.flags & VisualElementFlags.Popup) &&
-                   props.visualElement.parentPath != null &&
-                   !(props.visualElement.flags & VisualElementFlags.ShowChildren))}>
+                    props.visualElement.parentPath != null &&
+                    !(props.visualElement.flags & VisualElementFlags.ShowChildren))}>
         {renderAsOpaque()}
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Root) &&
-                   !(props.visualElement.flags & VisualElementFlags.Popup) &&
                    props.visualElement.flags & VisualElementFlags.Detailed &&
                    props.visualElement.parentPath != null &&
                    props.visualElement.flags & VisualElementFlags.ShowChildren}>

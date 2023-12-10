@@ -49,6 +49,7 @@ export enum ArrangeItemFlags {
   RenderAsOutline       = 0x040,
 }
 
+
 export const arrangeItem = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
@@ -57,6 +58,7 @@ export const arrangeItem = (
     item: Item,
     itemGeometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSignal => {
+
   if (flags & ArrangeItemFlags.IsPopup && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
 
   const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(store, item);

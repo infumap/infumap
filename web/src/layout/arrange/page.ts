@@ -32,6 +32,7 @@ import { arrange_justified_page } from "./page_justified";
 import { arrange_list_page } from "./page_list";
 import { arrange_spatial_page } from "./page_spatial";
 
+
 export const arrangePageWithChildren = (
     store: StoreContextModel,
     parentPath: VisualElementPath,

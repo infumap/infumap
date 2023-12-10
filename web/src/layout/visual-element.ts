@@ -62,24 +62,25 @@ export const EMPTY_VEID: Veid = {
 
 
 export enum VisualElementFlags {
-  None                 = 0x00000,
-  Selected             = 0x00001, // The item is selected.
-  HasToolbarFocus      = 0x00002, // The item has toolbar focus.
-  LineItem             = 0x00004, // Render as a line item (like in a table), not deskop item.
-  Detailed             = 0x00008, // The visual element has detail / can be interacted with.
-  Popup                = 0x00010, // The visual element is a popped up page or image.
-  Root                 = 0x00020, // Render as a root level page (popup, list page, top level page).
-  ListPageRootItem     = 0x00040, // Is the root item in a list page.
-  InsideTable          = 0x00080, // The visual element is inside a table.
-  Attachment           = 0x00100, // The visual element is an attachment.
-  ShowChildren         = 0x00200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
-  Fixed                = 0x00400, // positioning is fixed, not absolute.
-  InsideCompositeOrDoc = 0x00800, // The visual element is inside a composite item.
-  ZAbove               = 0x01000, // Render above everything else (except moving).
-  Moving               = 0x02000, // Render the visual element partially transparent and on top of everything else.
-  IsDock               = 0x04000, // render the page as the dock.
-  IsTrash              = 0x08000, // render the page as the trash icon.
-  TopLevelPage         = 0x10000, // the top level page.
+  None                  = 0x00000,
+  Selected              = 0x00001, // The item is selected.
+  HasToolbarFocus       = 0x00002, // The item has toolbar focus.
+  LineItem              = 0x00004, // Render as a line item (like in a table), not deskop item.
+  Detailed              = 0x00008, // The visual element has detail / can be interacted with.
+  Popup                 = 0x00010, // The visual element is a popped up page or image.
+  Root                  = 0x00020, // Render as a root level page (popup, list page, top level page).
+  ListPageRootItem      = 0x00040, // Is the root item in a list page.
+  InsideTable           = 0x00080, // The visual element is inside a table.
+  Attachment            = 0x00100, // The visual element is an attachment.
+  ShowChildren          = 0x00200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
+  Fixed                 = 0x00400, // positioning is fixed, not absolute.
+  InsideCompositeOrDoc  = 0x00800, // The visual element is inside a composite item.
+  ZAbove                = 0x01000, // Render above everything else (except moving).
+  Moving                = 0x02000, // Render the visual element partially transparent and on top of everything else.
+  IsDock                = 0x04000, // render the page as the dock.
+  IsTrash               = 0x08000, // render the page as the trash icon.
+  TopLevelPage          = 0x10000, // the top level page.
+  EmbededInteractive    = 0x20000, // an embedded interactive page.
 }
 
 function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {
@@ -347,6 +348,11 @@ export const VeFns = {
     }
     current += path;
     return current;
+  },
+
+  pathDepth: (path: VisualElementPath): number => {
+    let parts = path.split("-");
+    return parts.length;
   },
 
   /**
