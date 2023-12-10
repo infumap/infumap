@@ -24,7 +24,7 @@ import { getPanickedMessage } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
 import { VisualElementFlags, VisualElementSpec } from "../visual-element";
-import { renderDockMaybe } from "./topLevel";
+import { renderDockMaybe } from "./dock";
 import { arrangeItem } from "./item";
 
 

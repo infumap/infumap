@@ -16,19 +16,19 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { RESIZE_BOX_SIZE_PX } from "../../../constants";
-import { CursorEventState, MouseAction, MouseActionState } from "../../../input/state";
-import { ItemFns } from "../../../items/base/item-polymorphism";
-import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
-import { itemState } from "../../../store/ItemState";
-import { StoreContextModel } from "../../../store/StoreProvider";
-import { zeroBoundingBoxTopLeft } from "../../../util/geometry";
-import { VisualElementSignal } from "../../../util/signals";
-import { HitboxFlags, HitboxFns } from "../../hitbox";
-import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../load";
-import { VesCache } from "../../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath } from "../../visual-element";
-import { arrangeItem } from "../item";
+import { RESIZE_BOX_SIZE_PX } from "../../constants";
+import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
+import { itemState } from "../../store/ItemState";
+import { StoreContextModel } from "../../store/StoreProvider";
+import { zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { VisualElementSignal } from "../../util/signals";
+import { HitboxFlags, HitboxFns } from "../hitbox";
+import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
+import { VesCache } from "../ves-cache";
+import { VeFns, VisualElementFlags, VisualElementPath } from "../visual-element";
+import { arrangeItem } from "./item";
 
 
 export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath): VisualElementSignal | null => {
