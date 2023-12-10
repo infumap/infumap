@@ -24,7 +24,7 @@ import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
+import { Vector, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { assert, panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
@@ -57,11 +57,15 @@ export function getHitInfo(
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
-  const {
+  let level1RootInfo = determineRootLevel1(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx);
+  if (level1RootInfo.hitMaybe) { return level1RootInfo.hitMaybe!; } // if a root hitbox was hit.
+
+  let {
     rootVisualElementSignal,
     rootVisualElement,
     posRelativeToRootVisualElementPx,
-    hitMaybe } = determineRoot(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx);
+    hitMaybe
+  } = determineRootLevel2(level1RootInfo);
   if (hitMaybe) { return hitMaybe!; } // if a root hitbox was hit.
 
   let hitboxType = HitboxFlags.None;
@@ -152,7 +156,7 @@ interface RootInfo {
   hitMaybe: HitInfo | null
 }
 
-function determineRoot(
+function determineRootLevel1(
     store: StoreContextModel,
     topLevelVisualElement: VisualElement,
     // this may be scrolled, so not be the same as posOnDesktopPx.
@@ -250,6 +254,33 @@ function determineRoot(
   }
 
   return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
+}
+
+function determineRootLevel2(
+    level1RootInfo: RootInfo): RootInfo {
+  const {
+    rootVisualElement,
+    posRelativeToRootVisualElementPx,
+  } = level1RootInfo;
+
+  for (let i=0; i<rootVisualElement.childrenVes.length; ++i) {
+    const childVes = rootVisualElement.childrenVes[i];
+    const childVe = childVes.get();
+    if (!(childVe.flags & VisualElementFlags.EmbededInteractive)) {
+      continue;
+    }
+
+    if (isInside(posRelativeToRootVisualElementPx, childVe.boundsPx)) {
+      return ({
+        rootVisualElementSignal: childVes,
+        rootVisualElement: childVe,
+        posRelativeToRootVisualElementPx: vectorSubtract(posRelativeToRootVisualElementPx, getBoundingBoxTopLeft(childVe.boundsPx)),
+        hitMaybe: null // TODO (HIGH)
+      })
+    }
+  }
+
+  return level1RootInfo;
 }
 
 function determineIfDockRoot(store: StoreContextModel, topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
