@@ -37,7 +37,7 @@ import { switchToPage } from '../layout/navigation';
 import { arrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
-import { NoteFlags } from './base/flags-item';
+import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
 import { server } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
@@ -73,7 +73,7 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   pendingPopupAlignmentPoint: string | null;
 }
 
-export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
+export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
   innerSpatialWidthGr: number;
   naturalAspect: number;
   arrangeAlgorithm: string;
@@ -120,6 +120,7 @@ export const PageFns = {
 
       orderChildrenBy: "title[ASC]",
 
+      flags: PageFlags.None,
       permissionFlags: PermissionFlags.None,
 
       computed_children: [],
@@ -163,6 +164,7 @@ export const PageFns = {
 
       orderChildrenBy: o.orderChildrenBy,
 
+      flags: o.flags,
       permissionFlags: o.permissionFlags,
 
       computed_children: [],
@@ -206,6 +208,7 @@ export const PageFns = {
       orderChildrenBy: p.orderChildrenBy,
 
       permissionFlags: p.permissionFlags,
+      flags: p.flags,
     });
   },
 
@@ -485,6 +488,7 @@ export const PageFns = {
       justifiedRowAspect: page.justifiedRowAspect,
       childrenLoaded: page.childrenLoaded,
       computed_children: page.computed_children,
+      flags: page.flags,
     });
   },
 

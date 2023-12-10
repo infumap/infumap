@@ -48,8 +48,13 @@ export enum CompositeFlags {
   HideBorder =     0x001,
 };
 
+export enum PageFlags {
+  None =           0x000,
+  Interactive =    0x001,
+};
 
-const ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Composite];
+
+const ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Composite, ItemType.Page];
 
 
 export interface FlagsMixin {

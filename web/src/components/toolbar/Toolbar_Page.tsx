@@ -30,6 +30,7 @@ import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors } from "../../style";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { PageFlags } from "../../items/base/flags-item";
 
 
 export const Toolbar_Page: Component = () => {
@@ -84,6 +85,11 @@ export const Toolbar_Page: Component = () => {
   const isPublic= () => {
     store.rerenderToolbarDependency();
     return !(!(pageItem().permissionFlags & PermissionFlags.Public));
+  }
+
+  const isInteractive= () => {
+    store.rerenderToolbarDependency();
+    return !(!(pageItem().flags & PageFlags.Interactive));
   }
 
   const showOrderByButton = () => {
@@ -178,6 +184,17 @@ export const Toolbar_Page: Component = () => {
       pageItem().permissionFlags &= ~PermissionFlags.Public;
     } else {
       pageItem().permissionFlags |= PermissionFlags.Public;
+    }
+    arrange(store);
+    server.updateItem(pageItem());
+    store.rerenderToolbar();
+  }
+
+  const handleChangeInteractive = () => {
+    if (pageItem().flags & PageFlags.Interactive) {
+      pageItem().flags &= ~PageFlags.Interactive
+    } else {
+      pageItem().flags |= PageFlags.Interactive;
     }
     arrange(store);
     server.updateItem(pageItem());
@@ -279,6 +296,7 @@ export const Toolbar_Page: Component = () => {
       <Show when={showMakePublicButton()}>
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
+      <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
              style={`font-size: 13px;`}

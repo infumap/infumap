@@ -281,7 +281,7 @@ pub fn is_link_item(item: &Item) -> bool {
 }
 
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table || item_type == ItemType::Note || item_type == ItemType::Composite
+  item_type == ItemType::Table || item_type == ItemType::Note || item_type == ItemType::Composite || item_type == ItemType::Page
 }
 
 pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
@@ -454,7 +454,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     original_creation_date: None,
     mime_type: None,
     file_size_bytes: None,
-    flags: None,
+    flags: Some(0),
     permission_flags: Some(0),
     inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
     natural_aspect: Some(natural_aspect),
@@ -500,7 +500,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     original_creation_date: None,
     mime_type: None,
     file_size_bytes: None,
-    flags: None,
+    flags: Some(0),
     permission_flags: Some(0),
     inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
     natural_aspect: Some(natural_aspect),
@@ -546,7 +546,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     original_creation_date: None,
     mime_type: None,
     file_size_bytes: None,
-    flags: None,
+    flags: Some(0),
     permission_flags: Some(0),
     inner_spatial_width_gr: Some(inner_spatial_width_br * GRID_SIZE),
     natural_aspect: Some(natural_aspect),
