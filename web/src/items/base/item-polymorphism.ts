@@ -203,9 +203,9 @@ export const ItemFns = {
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 
-  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const item = visualElement.displayItem;
-    if (isPage(item)) { PageFns.handlePopupClick(visualElement, store); }
+    if (isPage(item)) { PageFns.handleOpenPopupClick(visualElement, store); }
     else if (isTable(item)) { }
     else if (isComposite(item)) { }
     else if (isNote(item)) { }
@@ -214,7 +214,7 @@ export const ItemFns = {
     else if (isPassword(item)) { }
     else if (isRating(item)) { }
     else if (isLink(item)) { }
-    else if (isPlaceholder(item)) { panic!("handlePopupClick: placeholder") }
+    else if (isPlaceholder(item)) { panic("handleOpenPopupClick: placeholder") }
     else { panic(`Unknown item type: ${item.itemType}`); }
   },
 

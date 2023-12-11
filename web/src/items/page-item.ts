@@ -254,7 +254,7 @@ export const PageFns = {
       ? cloneBoundingBox(innerBoundsPx)!
       : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
           w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
-    if (!isPopup) {
+    if (!isPopup && !(page.flags & PageFlags.Interactive)) {
       return ({
         boundsPx,
         hitboxes: !emitHitboxes ? [] : [
@@ -275,7 +275,7 @@ export const PageFns = {
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ];
 
-    if (hasPendingChanges) {
+    if (hasPendingChanges && isPopup) {
       hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
     }
 
@@ -423,7 +423,7 @@ export const PageFns = {
     switchToPage(store, VeFns.veidFromVe(visualElement), true, false);
   },
 
-  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVe = VesCache.get(visualElement.parentPath!)!.get();
 
     // line item in list page.

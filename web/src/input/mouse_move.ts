@@ -37,6 +37,7 @@ import { arrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { asTitledItem } from "../items/base/titled-item";
+import { PageFlags } from "../items/base/flags-item";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -352,8 +353,10 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "nwse-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {
       document.body.style.cursor = "ew-resize";
-    } else if ((hitInfo.hitboxType & HitboxFlags.Move) && (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup)) {
-      document.body.style.cursor = "move";
+    } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(hitInfo.overElementVes.get().displayItem))) {
+      if ((hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) || (asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.Interactive)) {
+        document.body.style.cursor = "move";
+      }
     } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
       document.body.style.cursor = "zoom-in";
     } else {

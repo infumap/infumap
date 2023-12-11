@@ -33,6 +33,8 @@ import { isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
+import { asPageItem, isPage } from "../items/page-item";
+import { PageFlags } from "../items/base/flags-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -93,6 +95,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const hitInfo = getHitInfo(store, desktopPosPx, [], false);
   if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup && !viaOverlay) {
+      DoubleClickState.preventDoubleClick();
+      switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
+    } else if(isPage(hitInfo.overElementVes.get().displayItem) && asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.Interactive) {
       DoubleClickState.preventDoubleClick();
       switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
     } else {

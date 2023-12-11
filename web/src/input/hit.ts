@@ -17,6 +17,7 @@
 */
 
 import { GRID_SIZE } from "../constants";
+import { PageFlags } from "../items/base/flags-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
@@ -58,15 +59,23 @@ export function getHitInfo(
 
   // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
   let level1RootInfo = determineRootLevel1(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx);
-  if (level1RootInfo.hitMaybe) { return level1RootInfo.hitMaybe!; } // if a root hitbox was hit.
+  if (level1RootInfo.hitMaybe) {
+    if (!ignoreItems.find(a => a == level1RootInfo.hitMaybe?.overElementVes.get().displayItem.id)) {
+      return level1RootInfo.hitMaybe!;
+    }
+  } // if a root hitbox was hit.
 
   let {
     rootVisualElementSignal,
     rootVisualElement,
     posRelativeToRootVisualElementPx,
     hitMaybe
-  } = determineRootLevel2(level1RootInfo);
-  if (hitMaybe) { return hitMaybe!; } // if a root hitbox was hit.
+  } = determineRootLevel2(store, level1RootInfo);
+  if (hitMaybe) {
+    if (!ignoreItems.find(a => a == hitMaybe?.overElementVes.get().displayItem.id)) {
+      return hitMaybe!;
+    }
+  } // if a root hitbox was hit.
 
   let hitboxType = HitboxFlags.None;
   for (let i=0; i<rootVisualElement.hitboxes.length; ++i) {
@@ -257,7 +266,9 @@ function determineRootLevel1(
 }
 
 function determineRootLevel2(
+    store: StoreContextModel,
     level1RootInfo: RootInfo): RootInfo {
+
   const {
     rootVisualElement,
     posRelativeToRootVisualElementPx,
@@ -271,11 +282,20 @@ function determineRootLevel2(
     }
 
     if (isInside(posRelativeToRootVisualElementPx, childVe.boundsPx)) {
+      const newPosRelativeToRootVisualElementPx = vectorSubtract(posRelativeToRootVisualElementPx, getBoundingBoxTopLeft(childVe.boundsPx));
+      let hitboxType = HitboxFlags.None;
+      for (let j=childVe.hitboxes.length-1; j>=0; --j) {
+        if (isInside(newPosRelativeToRootVisualElementPx, childVe.hitboxes[j].boundsPx)) {
+          hitboxType |= childVe.hitboxes[j].type;
+        }
+      }
       return ({
         rootVisualElementSignal: childVes,
         rootVisualElement: childVe,
-        posRelativeToRootVisualElementPx: vectorSubtract(posRelativeToRootVisualElementPx, getBoundingBoxTopLeft(childVe.boundsPx)),
-        hitMaybe: null // TODO (HIGH)
+        posRelativeToRootVisualElementPx: newPosRelativeToRootVisualElementPx,
+        hitMaybe: hitboxType != HitboxFlags.None
+          ? finalize(store, hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementPx)
+          : null
       })
     }
   }
@@ -515,6 +535,7 @@ function finalize(
       x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
       y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
     };
+    // console.log("B");
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -542,14 +563,21 @@ function finalize(
       x: Math.round(prop.x * asPageItem(overVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
       y: Math.round(prop.y * asPageItem(overVe.displayItem).innerSpatialWidthGr / asPageItem(overVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
     };
+    let overPositionableVe = overVe;
+    let overContainerVe = overVe;
+    if (asPageItem(overVe.displayItem).flags & PageFlags.Interactive) {
+      overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
+      overContainerVe = VesCache.get(overVe.parentPath!)!.get();
+    }
+    // console.log("C");
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
       rootVe,
       overElementVes,
       overElementMeta,
-      overContainerVe: overVe,
-      overPositionableVe: overVe,
+      overContainerVe,
+      overPositionableVe,
       overPositionGr,
     };
   }

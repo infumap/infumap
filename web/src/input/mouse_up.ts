@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { PageFns } from "../items/page-item";
+import { PageFns, asPageItem } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { arrange } from "../layout/arrange";
@@ -104,7 +104,7 @@ export function mouseUpHandler(store: StoreContextModel) {
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handlePopupClick(activeVisualElement, store);
+        ItemFns.handleOpenPopupClick(activeVisualElement, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();

@@ -141,8 +141,8 @@ function createJustifyOptions(widthPx: number, rowAspect: number) {
   const targetRowHeight = widthPx / rowAspect;
   const options: JustifiedLayoutOptions = {
     containerWidth: widthPx,
-    containerPadding: 10 * targetRowHeight / 200,
-    boxSpacing: 5 * targetRowHeight / 200,
+    containerPadding: 10 * targetRowHeight / NORMAL_ROW_HEIGHT,
+    boxSpacing: 5 * targetRowHeight / NORMAL_ROW_HEIGHT,
     targetRowHeight,
   };
   return options;
