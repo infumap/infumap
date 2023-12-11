@@ -39,7 +39,6 @@ import { Vector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../uti
 import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
-import { asTitledItem } from "../items/base/titled-item";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {

@@ -70,7 +70,7 @@ export function getHitInfo(
     rootVisualElement,
     posRelativeToRootVisualElementPx,
     hitMaybe
-  } = determineRootLevel2(store, level1RootInfo);
+  } = determineRootLevel2(level1RootInfo);
   if (hitMaybe) {
     if (!ignoreItems.find(a => a == hitMaybe?.overElementVes.get().displayItem.id)) {
       return hitMaybe!;
@@ -84,7 +84,7 @@ export function getHitInfo(
     }
   }
   if (hitboxType != HitboxFlags.None) {
-    return finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
+    return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
   }
 
   for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
@@ -150,11 +150,11 @@ export function getHitInfo(
       }
     }
     if (!ignoreItems.find(a => a == childVisualElement.displayItem.id)) {
-      return finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementPx);
+      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementPx);
     }
   }
 
-  return finalize(store, HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
+  return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
 }
 
 
@@ -185,7 +185,7 @@ function determineRootLevel1(
     return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
   }
 
-  const dockRootMaybe = determineIfDockRoot(store, topLevelVisualElement, posOnDesktopPx);
+  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
   if (dockRootMaybe != null) { return dockRootMaybe!; }
 
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
@@ -224,7 +224,10 @@ function determineRootLevel1(
         }
       }
       if (hitboxType != HitboxFlags.None) {
-        return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx) };
+        return {
+          rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx,
+          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx)
+        };
       }
       posRelativeToRootVisualElementPx = vectorSubtract(
         popupPosRelativeToTopLevelVisualElementPx,
@@ -256,7 +259,10 @@ function determineRootLevel1(
         }
 
         if (hitboxType != HitboxFlags.None) {
-          return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx) };
+          return {
+            rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx,
+            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx)
+          };
         }
       }
     }
@@ -266,7 +272,6 @@ function determineRootLevel1(
 }
 
 function determineRootLevel2(
-    store: StoreContextModel,
     level1RootInfo: RootInfo): RootInfo {
 
   const {
@@ -294,7 +299,7 @@ function determineRootLevel2(
         rootVisualElement: childVe,
         posRelativeToRootVisualElementPx: newPosRelativeToRootVisualElementPx,
         hitMaybe: hitboxType != HitboxFlags.None
-          ? finalize(store, hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementPx)
+          ? finalize(hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementPx)
           : null
       })
     }
@@ -303,7 +308,7 @@ function determineRootLevel2(
   return level1RootInfo;
 }
 
-function determineIfDockRoot(store: StoreContextModel, topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
+function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
 
   if (topLevelVisualElement.dockVes == null) {
     return null;
@@ -323,7 +328,10 @@ function determineIfDockRoot(store: StoreContextModel, topLevelVisualElement: Vi
     }
   }
   if (hitboxType != HitboxFlags.None) {
-    return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: finalize(store, hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx) };
+    return {
+      rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx,
+      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx)
+    };
   }
 
   return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: null };
@@ -349,14 +357,14 @@ function handleInsideTableMaybe(
   const resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-    return finalize(store, HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx);
   }
   // col resize also takes precedence over anything in the child area.
   for (let j=tableVisualElement.hitboxes.length-2; j>=0; j--) {
     const hb = tableVisualElement.hitboxes[j];
     if (hb.type != HitboxFlags.HorizontalResize) { break; }
     if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-      return finalize(store, HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx);
+      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx);
     }
   }
 
@@ -379,7 +387,7 @@ function handleInsideTableMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(store, hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx);
+        return finalize(hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx);
       }
     }
     if (!ignoreAttachments) {
@@ -435,7 +443,7 @@ function handleInsideCompositeMaybe(
   const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
-    return finalize(store, HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx);
   }
 
   // for the composite case, also hit the container, even if a child is also hit.
@@ -466,11 +474,11 @@ function handleInsideCompositeMaybe(
       if (hitboxType == HitboxFlags.None) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
         if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
-          return finalize(store, compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx);
+          return finalize(compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx);
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-          return finalize(store, hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx);
+          return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx);
         }
       }
     }
@@ -481,7 +489,6 @@ function handleInsideCompositeMaybe(
 
 
 function finalize(
-    store: StoreContextModel,
     hitboxType: HitboxFlags,
     containerHitboxType: HitboxFlags,
     rootVe: VisualElement,
