@@ -186,6 +186,7 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 
 
 function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
+  console.log("moving_activeItemToPage: ", moveToVe.displayItem.id, "TODO: check for move into child.");
   const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 

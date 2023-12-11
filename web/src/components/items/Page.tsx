@@ -536,12 +536,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderEmbededInteractiveBackgroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full h-full" style={`border-width: 2px; border-color: ${Colors[pageItem().backgroundColorIndex]}; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)}; `} />
+        <div class="absolute w-full h-full" style={`border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; `} />
       </Show>;
 
     const renderEmbededInteractiveForegroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full h-full pointer-events-none" style={`z-index: ${Z_INDEX_ITEMS}; border-width: 2px; border-color: ${Colors[pageItem().backgroundColorIndex]};`} />
+        <div class="absolute w-full h-full pointer-events-none" style={`z-index: ${Z_INDEX_ITEMS}; border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]};`} />
       </Show>;
 
     const renderListPage = () =>
