@@ -49,12 +49,12 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     arrange(store);
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-    const hitInfo = getHitInfo(store, desktopPosPx, [], false);
+    const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
     arrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = getHitInfo(store, desktopPosPx, [], false);
+    const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
     arrange(store);
   }
@@ -104,7 +104,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
     for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
   }
-  const hitInfo = getHitInfo(store, desktopPosPx, ignoreIds, false);
+  const hitInfo = getHitInfo(store, desktopPosPx, ignoreIds, false, false);
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||

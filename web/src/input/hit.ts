@@ -46,7 +46,8 @@ export function getHitInfo(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
     ignoreItems: Array<Uid>,
-    ignoreAttachments: boolean): HitInfo {
+    ignoreAttachments: boolean,
+    canHitEmbeddedInteractive: boolean): HitInfo {
 
   const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
   const topLevelVeid = store.history.currentPage()!;
@@ -57,7 +58,7 @@ export function getHitInfo(
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
-  let level1RootInfo = determineRootLevel1(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx);
+  let level1RootInfo = determineRootLevel1(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx, canHitEmbeddedInteractive);
   if (level1RootInfo.hitMaybe) {
     if (!ignoreItems.find(a => a == level1RootInfo.hitMaybe?.overElementVes.get().displayItem.id)) {
       return level1RootInfo.hitMaybe!;
@@ -69,7 +70,7 @@ export function getHitInfo(
     rootVisualElement,
     posRelativeToRootVisualElementPx,
     hitMaybe
-  } = determineRootLevel2(level1RootInfo);
+  } = determineRootLevel2(level1RootInfo, canHitEmbeddedInteractive);
   if (hitMaybe) {
     if (!ignoreItems.find(a => a == hitMaybe?.overElementVes.get().displayItem.id)) {
       return hitMaybe!;
@@ -83,7 +84,7 @@ export function getHitInfo(
     }
   }
   if (hitboxType != HitboxFlags.None) {
-    return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
+    return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
   }
 
   for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
@@ -110,7 +111,7 @@ export function getHitInfo(
           }
         }
         if (!ignoreItems.find(a => a == attachmentVisualElement.displayItem.id)) {
-          const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true);
+          const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
           return {
             hitboxType,
             compositeHitboxTypeMaybe: HitboxFlags.None,
@@ -133,10 +134,10 @@ export function getHitInfo(
       console.error("A table visual element unexpectedly had no childAreaBoundsPx set.", childVisualElement);
     }
 
-    const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, ignoreAttachments, posOnDesktopPx);
+    const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, ignoreAttachments, posOnDesktopPx, canHitEmbeddedInteractive);
     if (insideTableHit != null) { return insideTableHit; }
 
-    const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems);
+    const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, canHitEmbeddedInteractive);
     if (insideCompositeHit != null) { return insideCompositeHit; }
 
     // handle inside any other item (including pages that are sized such that they can't be clicked in).
@@ -149,11 +150,11 @@ export function getHitInfo(
       }
     }
     if (!ignoreItems.find(a => a == childVisualElement.displayItem.id)) {
-      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementPx);
+      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
     }
   }
 
-  return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx);
+  return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
 }
 
 
@@ -170,7 +171,8 @@ function determineRootLevel1(
     // this may be scrolled, so not be the same as posOnDesktopPx.
     posRelativeToTopLevelVisualElementPx: Vector,
     // does not incorporate page scroll.
-    posOnDesktopPx: Vector): RootInfo {
+    posOnDesktopPx: Vector,
+    canHitEmbeddedInteractive: boolean): RootInfo {
 
   if (topLevelVisualElement.childrenVes.length != 1) {
     panic("expected topLevelVisualElement to have a child");
@@ -184,7 +186,7 @@ function determineRootLevel1(
     return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
   }
 
-  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
+  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx, canHitEmbeddedInteractive);
   if (dockRootMaybe != null) { return dockRootMaybe!; }
 
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
@@ -225,7 +227,7 @@ function determineRootLevel1(
       if (hitboxType != HitboxFlags.None) {
         return {
           rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx,
-          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx)
+          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
         };
       }
       posRelativeToRootVisualElementPx = vectorSubtract(
@@ -260,7 +262,7 @@ function determineRootLevel1(
         if (hitboxType != HitboxFlags.None) {
           return {
             rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx,
-            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx)
+            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
           };
         }
       }
@@ -271,7 +273,8 @@ function determineRootLevel1(
 }
 
 function determineRootLevel2(
-    level1RootInfo: RootInfo): RootInfo {
+    level1RootInfo: RootInfo,
+    canHitEmbeddedInteractive: boolean): RootInfo {
 
   const {
     rootVisualElement,
@@ -298,7 +301,7 @@ function determineRootLevel2(
         rootVisualElement: childVe,
         posRelativeToRootVisualElementPx: newPosRelativeToRootVisualElementPx,
         hitMaybe: hitboxType != HitboxFlags.None
-          ? finalize(hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementPx)
+          ? finalize(hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
           : null
       })
     }
@@ -307,7 +310,7 @@ function determineRootLevel2(
   return level1RootInfo;
 }
 
-function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
+function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector, canHitEmbeddedInteractive: boolean): RootInfo | null {
 
   if (topLevelVisualElement.dockVes == null) {
     return null;
@@ -329,7 +332,7 @@ function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopP
   if (hitboxType != HitboxFlags.None) {
     return {
       rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx,
-      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx)
+      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
     };
   }
 
@@ -343,7 +346,8 @@ function handleInsideTableMaybe(
     posRelativeToRootVisualElementPx: Vector,
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean,
-    posOnDesktopPx: Vector): HitInfo | null {
+    posOnDesktopPx: Vector,
+    canHitEmbeddedInteractive: boolean): HitInfo | null {
 
   if (!isTable(childVisualElement.displayItem)) { return null; }
   if (childVisualElement.flags & VisualElementFlags.LineItem) { return null; }
@@ -356,14 +360,14 @@ function handleInsideTableMaybe(
   const resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
   }
   // col resize also takes precedence over anything in the child area.
   for (let j=tableVisualElement.hitboxes.length-2; j>=0; j--) {
     const hb = tableVisualElement.hitboxes[j];
     if (hb.type != HitboxFlags.HorizontalResize) { break; }
     if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx);
+      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
     }
   }
 
@@ -386,7 +390,7 @@ function handleInsideTableMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx);
+        return finalize(hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
       }
     }
     if (!ignoreAttachments) {
@@ -403,7 +407,7 @@ function handleInsideTableMaybe(
             }
           }
           if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true);
+            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
             return {
               hitboxType,
               compositeHitboxTypeMaybe: HitboxFlags.None,
@@ -428,7 +432,8 @@ function handleInsideCompositeMaybe(
     childVisualElement: VisualElement, childVisualElementSignal: VisualElementSignal,
     rootVisualElement: VisualElement,
     posRelativeToRootVisualElementPx: Vector,
-    ignoreItems: Array<Uid>): HitInfo | null {
+    ignoreItems: Array<Uid>,
+    canHitEmbeddedInteractive: boolean): HitInfo | null {
 
   if (!isComposite(childVisualElement.displayItem)) { return null; }
   if (childVisualElement.flags & VisualElementFlags.LineItem) { return null; }
@@ -441,7 +446,7 @@ function handleInsideCompositeMaybe(
   const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
   }
 
   // for the composite case, also hit the container, even if a child is also hit.
@@ -472,11 +477,11 @@ function handleInsideCompositeMaybe(
       if (hitboxType == HitboxFlags.None) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
         if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
-          return finalize(compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx);
+          return finalize(compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-          return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx);
+          return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
         }
       }
     }
@@ -492,7 +497,8 @@ function finalize(
     rootVe: VisualElement,
     overElementVes: VisualElementSignal,
     overElementMeta: HitboxMeta | null,
-    posRelativeToRootVisualElementPx: Vector): HitInfo {
+    posRelativeToRootVisualElementPx: Vector,
+    canHitEmbeddedInteractive: boolean): HitInfo {
 
   const overVe = overElementVes.get();
   if (overVe.displayItem.id == PageFns.topLevelPage().id) {

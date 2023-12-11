@@ -92,7 +92,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     return;
   }
 
-  const hitInfo = getHitInfo(store, desktopPosPx, [], false);
+  const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
   if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup && !viaOverlay) {
       DoubleClickState.preventDoubleClick();
@@ -139,7 +139,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
 
-  const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false);
+  const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, true);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
   MouseActionState.set({

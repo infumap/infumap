@@ -30,7 +30,7 @@ export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent
   if (store.overlay.noteEditOverlayInfo.get() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
-  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
+  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false, false);
 
   store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
   mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);

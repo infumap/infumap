@@ -50,7 +50,7 @@ export async function handleUpload(
 
   let posPx = { x: 0.0, y: 0.0 };
   if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const hbi = getHitInfo(store, desktopPx, [], false);
+    const hbi = getHitInfo(store, desktopPx, [], false, false);
     const propX = (desktopPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
     const propY = (desktopPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
     posPx = {

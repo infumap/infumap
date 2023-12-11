@@ -313,7 +313,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const hasModal = dialogInfo != null || cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
-  const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev), [], false);
+  const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev), [], false, false);
   const overElementVes = hitInfo.overElementVes;
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {

@@ -46,7 +46,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
-  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false);
+  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false, false);
 
   if (ev.code == "Slash") {
     ev.preventDefault();
