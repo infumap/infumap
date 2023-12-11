@@ -17,7 +17,6 @@
 */
 
 import { GRID_SIZE } from "../constants";
-import { PageFlags } from "../items/base/flags-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
@@ -137,7 +136,7 @@ export function getHitInfo(
     const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, ignoreAttachments, posOnDesktopPx);
     if (insideTableHit != null) { return insideTableHit; }
 
-    const insideCompositeHit = handleInsideCompositeMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems);
+    const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems);
     if (insideCompositeHit != null) { return insideCompositeHit; }
 
     // handle inside any other item (including pages that are sized such that they can't be clicked in).
@@ -426,7 +425,6 @@ function handleInsideTableMaybe(
 
 
 function handleInsideCompositeMaybe(
-    store: StoreContextModel,
     childVisualElement: VisualElement, childVisualElementSignal: VisualElementSignal,
     rootVisualElement: VisualElement,
     posRelativeToRootVisualElementPx: Vector,
