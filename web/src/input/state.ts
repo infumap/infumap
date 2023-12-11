@@ -73,6 +73,8 @@ export interface MouseActionStateType {
 
   onePxSizeBl: Vector,
   newPlaceholderItem: PlaceholderItem | null,
+
+  hitEmbeddedInteractive: boolean,
 }
 
 

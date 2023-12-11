@@ -139,7 +139,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
 
-  const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, true);
+  const canHitEmbeddedInteractive = !!(hitInfo.overElementVes.get().flags & VisualElementFlags.EmbededInteractive);
+  const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
   MouseActionState.set({
@@ -166,6 +167,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
     newPlaceholderItem: null,
+    hitEmbeddedInteractive: canHitEmbeddedInteractive
   });
 }
 

@@ -522,7 +522,7 @@ function finalize(
     const tableParentPageVe = VesCache.get(parentTableVe.parentPath!)!.get();
     assert(isPage(tableParentPageVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
     assert((tableParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing table is not marked as having children visible.");
-    console.log("A", tableParentPageVe.displayItem.itemType, posRelativeToRootVisualElementPx, tableParentPageVe);
+    // console.log("A", tableParentPageVe.displayItem.itemType, posRelativeToRootVisualElementPx, tableParentPageVe);
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -546,7 +546,7 @@ function finalize(
       x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
       y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
     };
-    console.log("B");
+    // console.log("B");
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -576,11 +576,13 @@ function finalize(
     };
     let overPositionableVe = overVe;
     let overContainerVe = overVe;
-    if (overVe.flags & VisualElementFlags.EmbededInteractive) {
-      overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
-      overContainerVe = VesCache.get(overVe.parentPath!)!.get();
+    if (canHitEmbeddedInteractive) {
+      if (overVe.flags & VisualElementFlags.EmbededInteractive) {
+        overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
+        overContainerVe = VesCache.get(overVe.parentPath!)!.get();
+      }
     }
-    console.log("C");
+    // console.log("C");
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -598,7 +600,7 @@ function finalize(
     const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
     assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
     assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing composite is not marked as having children visible.");
-    console.log("D", compositeParentPageVe.displayItem.itemType, posRelativeToRootVisualElementPx, compositeParentPageVe);
+    // console.log("D", compositeParentPageVe.displayItem.itemType, posRelativeToRootVisualElementPx, compositeParentPageVe);
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -615,7 +617,7 @@ function finalize(
   assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a non-container item not in page is not a page.");
   assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, `the parent '${VesCache.get(overVe.parentPath!)!.get().displayItem.id}' of a non-container does not allow drag in positioning.`);
   if (isPage(overVe.displayItem)) {
-    console.log("E", overVeParent.displayItem.itemType, "overVeParent", overVeParent);
+    // console.log("E", overVeParent.displayItem.itemType, "overVeParent", overVeParent);
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -628,7 +630,7 @@ function finalize(
     };
   }
 
-  console.log("F", overVeParent.displayItem.itemType, posRelativeToRootVisualElementPx, overVeParent);
+  // console.log("F", overVeParent.displayItem.itemType, posRelativeToRootVisualElementPx, overVeParent);
   return {
     hitboxType,
     compositeHitboxTypeMaybe: containerHitboxType,

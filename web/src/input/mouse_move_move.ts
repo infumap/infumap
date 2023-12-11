@@ -31,7 +31,7 @@ import { arrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -96,7 +96,8 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
 
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
+  const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   let ignoreIds = [activeVisualElement.displayItem.id];
@@ -104,7 +105,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
     for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
   }
-  const hitInfo = getHitInfo(store, desktopPosPx, ignoreIds, false, false);
+  const hitInfo = getHitInfo(store, desktopPosPx, ignoreIds, false, MouseActionState.get().hitEmbeddedInteractive);
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
