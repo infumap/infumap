@@ -24,7 +24,7 @@ import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { Vector, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
@@ -50,11 +50,14 @@ export function getHitInfo(
     canHitEmbeddedInteractive: boolean): HitInfo {
 
   const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
-  const topLevelVeid = store.history.currentPage()!;
+  assert(topLevelVisualElement.childrenVes.length == 1, "expecting top level visual element to have exactly one child");
+
+  const currentPageVeid = store.history.currentPage()!;
+  const currentPageVe = topLevelVisualElement.childrenVes[0].get();
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
-      x: store.perItem.getPageScrollXProp(topLevelVeid) * (topLevelVisualElement.childAreaBoundsPx!.w - topLevelVisualElement.boundsPx.w),
-      y: store.perItem.getPageScrollYProp(topLevelVeid) * (topLevelVisualElement.childAreaBoundsPx!.h - topLevelVisualElement.boundsPx.h)
+      x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+      y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.

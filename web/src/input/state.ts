@@ -25,7 +25,6 @@ import { Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
 
 
-
 // ### MouseAction State
 
 export enum MouseAction {

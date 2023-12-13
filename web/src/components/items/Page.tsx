@@ -31,6 +31,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -584,8 +585,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
       const desktopSizePx = props.visualElement.boundsPx;
+
       let veid = store.history.currentPage()!;
-      if (props.visualElement.parentPath != null) {
+      if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
         const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
         const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
         veid = VeFns.veidFromPath(selectedPath);
