@@ -20,7 +20,7 @@ import { GRID_SIZE } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
@@ -76,19 +76,17 @@ export function arrange_spatial_page(
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-            (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-            (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-            (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
-            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-            (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
-            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
+           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
     hitboxes,
     parentPath,
   };
-
-  const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
 
   const childrenVes = [];
   for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
@@ -96,38 +94,33 @@ export function arrange_spatial_page(
     const childItem = itemState.get(childId)!;
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
+    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.Interactive;
     const hasPendingChanges = false; // it may do, but only matters for popups.
+    const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
+    const itemGeometry = ItemFns.calcGeometry_Spatial(
+      childItem,
+      zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
+      parentPageInnerDimensionsBl,
+      parentIsPopup,
+      emitHitboxes,
+      childItemIsPopup,
+      hasPendingChanges);
     if (flags & ArrangeItemFlags.IsPopup || flags & ArrangeItemFlags.IsRoot || displayItem_pageWithChildren.flags & PageFlags.Interactive) {
-      const itemGeometry = ItemFns.calcGeometry_Spatial(
-        childItem,
-        zeroBoundingBoxTopLeft(pageWithChildrenVisualElementSpec.childAreaBoundsPx!),
-        PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
-        parentIsPopup,
-        emitHitboxes,
-        childItemIsPopup,
-        hasPendingChanges);
       const ves = arrangeItem(
         store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
+        (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopup : ArrangeItemFlags.None) |
         (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
       childrenVes.push(ves);
     } else {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-      const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
-      const itemGeometry = ItemFns.calcGeometry_Spatial(
-        childItem,
-        innerBoundsPx,
-        parentPageInnerDimensionsBl,
-        parentIsPopup,
-        emitHitboxes,
-        childItemIsPopup,
-        hasPendingChanges);
-      childrenVes.push(arrangeItemNoChildren(
+      const ves = arrangeItemNoChildren(
         store, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry,
         (childItemIsPopup ? ArrangeItemFlags.IsPopup : ArrangeItemFlags.None) |
         (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
-        ArrangeItemFlags.RenderAsOutline));
+        ArrangeItemFlags.RenderAsOutline)
+      childrenVes.push(ves);
     }
   }
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;

@@ -86,10 +86,12 @@ export enum VisualElementFlags {
 function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {
   let result = "";
   if (visualElementFlags & VisualElementFlags.Selected) { result += "Selected "; }
+  if (visualElementFlags & VisualElementFlags.HasToolbarFocus) { result += "HasToolbarFocus "; }
   if (visualElementFlags & VisualElementFlags.LineItem) { result += "LineItem "; }
   if (visualElementFlags & VisualElementFlags.Detailed) { result += "Detailed "; }
   if (visualElementFlags & VisualElementFlags.Popup) { result += "Popup "; }
   if (visualElementFlags & VisualElementFlags.Root) { result += "Root "; }
+  if (visualElementFlags & VisualElementFlags.ListPageRootItem) { result += "ListPageRootItem "; }
   if (visualElementFlags & VisualElementFlags.InsideTable) { result += "InsideTable "; }
   if (visualElementFlags & VisualElementFlags.Attachment) { result += "Attachment "; }
   if (visualElementFlags & VisualElementFlags.ShowChildren) { result += "ShowChildren "; }
@@ -97,6 +99,10 @@ function visualElementFlagsToString(visualElementFlags: VisualElementFlags): str
   if (visualElementFlags & VisualElementFlags.InsideCompositeOrDoc) { result += "InsideCompositeOrDoc "; }
   if (visualElementFlags & VisualElementFlags.ZAbove) { result += "ZAbove "; }
   if (visualElementFlags & VisualElementFlags.Moving) { result += "Moving "; }
+  if (visualElementFlags & VisualElementFlags.IsDock) { result += "IsDock "; }
+  if (visualElementFlags & VisualElementFlags.IsTrash) { result += "IsTrash "; }
+  if (visualElementFlags & VisualElementFlags.TopLevelPage) { result += "TopLevelPage "; }
+  if (visualElementFlags & VisualElementFlags.EmbededInteractive) { result += "EmbededInteractive "; }
   return result;
 }
 

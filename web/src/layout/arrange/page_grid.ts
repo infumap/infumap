@@ -21,7 +21,7 @@ import { CursorEventState, MouseAction, MouseActionState } from "../../input/sta
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, PageItem, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
@@ -116,8 +116,8 @@ export function arrange_grid_page(
   const childrenVes = [];
   let idx = 0;
   for (let i=0; i<pageItem.computed_children.length; ++i) {
-    const item = itemState.get(pageItem.computed_children[i])!;
-    if (movingItemInThisPage && item.id == movingItemInThisPage!.id) {
+    const childItem = itemState.get(pageItem.computed_children[i])!;
+    if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
       continue;
     }
     const col = idx % numCols;
@@ -130,11 +130,14 @@ export function arrange_grid_page(
       h: cellHPx - marginPx * 2.0
     };
 
-    let geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopup), false, false, false);
+    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.Interactive;
     const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopup || flags & ArrangeItemFlags.IsRoot;
+
+    let geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopup), false, false, false);
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, item, geometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, geometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
+      (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }
