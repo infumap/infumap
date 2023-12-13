@@ -587,7 +587,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const desktopSizePx = props.visualElement.boundsPx;
 
       let veid = store.history.currentPage()!;
-      if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
+      if (props.visualElement.flags & VisualElementFlags.EmbededInteractive) {
+        veid = VeFns.veidFromVe(props.visualElement);
+      } else if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
         const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
         const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
         veid = VeFns.veidFromPath(selectedPath);

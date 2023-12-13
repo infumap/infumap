@@ -73,7 +73,7 @@ export function getHitInfo(
     rootVisualElement,
     posRelativeToRootVisualElementPx,
     hitMaybe
-  } = determineRootLevel2(level1RootInfo, canHitEmbeddedInteractive);
+  } = determineRootLevel2(store, level1RootInfo, canHitEmbeddedInteractive);
   if (hitMaybe) {
     if (!ignoreItems.find(a => a == hitMaybe?.overElementVes.get().displayItem.id)) {
       return hitMaybe!;
@@ -180,7 +180,7 @@ function determineRootLevel1(
   if (topLevelVisualElement.childrenVes.length != 1) {
     panic("expected topLevelVisualElement to have a child");
   }
-    
+
   let rootVisualElement = topLevelVisualElement.childrenVes[0].get();
   let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = topLevelVisualElement.childrenVes[0];
@@ -276,6 +276,7 @@ function determineRootLevel1(
 }
 
 function determineRootLevel2(
+    store: StoreContextModel,
     level1RootInfo: RootInfo,
     canHitEmbeddedInteractive: boolean): RootInfo {
 
@@ -292,7 +293,14 @@ function determineRootLevel2(
     }
 
     if (isInside(posRelativeToRootVisualElementPx, childVe.boundsPx)) {
-      const newPosRelativeToRootVisualElementPx = vectorSubtract(posRelativeToRootVisualElementPx, getBoundingBoxTopLeft(childVe.boundsPx));
+      const childVeid = VeFns.veidFromVe(childVe);
+      const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
+
+      const newPosRelativeToRootVisualElementPx = vectorSubtract(
+        posRelativeToRootVisualElementPx,
+        { x: childVe.childAreaBoundsPx!.x,
+          y: childVe.childAreaBoundsPx!.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.boundsPx.h)});
+
       let hitboxType = HitboxFlags.None;
       for (let j=childVe.hitboxes.length-1; j>=0; --j) {
         if (isInside(newPosRelativeToRootVisualElementPx, childVe.hitboxes[j].boundsPx)) {
