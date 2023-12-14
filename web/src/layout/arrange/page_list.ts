@@ -26,6 +26,7 @@ import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox } from "../../util/geometry";
+import { panic } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
@@ -95,12 +96,16 @@ export function arrange_list_page(
     const poppedUpPath = poppedUp.vePath;
     const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
     selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(poppedUpVeid));
+  } else if (flags & ArrangeItemFlags.IsTopRoot) {
+    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
+  } else if (flags & ArrangeItemFlags.IsListPageMainRoot) {
+    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(realParentVeid!));
+  } else if (flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot || ArrangeItemFlags.RenderChildrenAsFull) {
+    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(veid));
   } else {
-    if (realParentVeid == null) {
-      selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
-    } else {
-      selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(realParentVeid!));
-    }
+    console.log(flags);
+    panic("unexpected list page scenario.");
   }
 
   let listVeChildren: Array<VisualElementSignal> = [];
