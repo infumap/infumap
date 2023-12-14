@@ -82,7 +82,7 @@ export const PlaceholderFns = {
     panic("PlaceholderFns.calcGeometry_Spatial: not implemented.");
   },
 
-  calcGeometry_InComposite: (_measurable: PlaceholderMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, _topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (_measurable: PlaceholderMeasurable, _blockSizePx: Dimensions, _compositeWidthBl: number, leftMarginBl: number, _topPx: number): ItemGeometry => {
     panic("PlaceholderFns.calcGeometry_InComposite: not implemented.");
   },
 

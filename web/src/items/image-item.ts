@@ -128,12 +128,12 @@ export const ImageFns = {
     }
   },
 
-  calcGeometry_InComposite: (measurable: ImageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (measurable: ImageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = ImageFns.asImageMeasurable(ItemFns.cloneMeasurableFields(measurable));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
     const sizeBl = ImageFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
-      x: 0,
+      x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: compositeWidthBl * blockSizePx.w,
       h: sizeBl.h * blockSizePx.h

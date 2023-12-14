@@ -156,10 +156,10 @@ export const CompositeFns = {
     });
   },
 
-  calcGeometry_InComposite: (_measurable: CompositeMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (_measurable: CompositeMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     const sizeBl = { w: compositeWidthBl, h: 1 };
     const boundsPx = {
-      x: 0,
+      x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: compositeWidthBl * blockSizePx.w,
       h: sizeBl.h * blockSizePx.h

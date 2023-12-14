@@ -164,10 +164,10 @@ export const LinkFns = {
     return ItemFns.calcGeometry_Spatial(measurableMaybe, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
   },
 
-  calcGeometry_InComposite: (link: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (link: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     function noLinkTo() {
       const boundsPx = {
-        x: 0,
+        x: leftMarginBl * blockSizePx.w,
         y: topPx,
         w: compositeWidthBl * blockSizePx.w,
         h: blockSizePx.h
@@ -195,7 +195,7 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, topPx);
+    return ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, leftMarginBl, topPx);
   },
 
   calcGeometry_Attachment: (link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {

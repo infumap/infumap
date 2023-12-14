@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
@@ -67,7 +67,8 @@ export function arrange_document_page(
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
       blockSizePx,
-      displayItem_pageWithChildren.docWidthBl,
+      totalWidthBl,
+      PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx);
 
     const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
@@ -79,7 +80,7 @@ export function arrange_document_page(
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
 
-    ves.get().boundsPx.x = ves.get().boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale;
+    // ves.get().boundsPx.x = ves.get().boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale;
     ves.get().blockSizePx = blockSizePx
     ves.get().row = idx;
     ves.get().col = 0;

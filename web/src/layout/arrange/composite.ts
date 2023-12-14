@@ -75,6 +75,7 @@ export const arrangeComposite = (
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
       blockSizePx,
       compositeSizeBl.w,
+      0,
       topPx);
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;

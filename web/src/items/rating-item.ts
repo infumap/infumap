@@ -114,9 +114,9 @@ export const RatingFns = {
     }
   },
 
-  calcGeometry_InComposite: (_measurable: RatingMeasurable, blockSizePx: Dimensions, _compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (_measurable: RatingMeasurable, blockSizePx: Dimensions, _compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     const boundsPx = {
-      x: 0,
+      x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: blockSizePx.w,
       h: blockSizePx.h

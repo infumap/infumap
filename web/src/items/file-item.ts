@@ -111,12 +111,12 @@ export const FileFns = {
     }
   },
 
-  calcGeometry_InComposite: (measurable: FileMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (measurable: FileMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(measurable));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
     const sizePx = FileFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
-      x: 0,
+      x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: compositeWidthBl * blockSizePx.w,
       h: sizePx.h * blockSizePx.h

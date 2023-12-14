@@ -211,12 +211,12 @@ export const TableFns = {
     };
   },
 
-  calcGeometry_InComposite: (measurable: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InComposite: (measurable: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = TableFns.asTableMeasurable(ItemFns.cloneMeasurableFields(measurable));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
     const sizeBl = TableFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
-      x: 0,
+      x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: compositeWidthBl * blockSizePx.w,
       h: sizeBl.h * blockSizePx.h
@@ -239,6 +239,7 @@ export const TableFns = {
           w: innerBoundsPx.w / 2,
           h: ATTACH_AREA_SIZE_PX,
         }),
+        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ]
     };
   },
