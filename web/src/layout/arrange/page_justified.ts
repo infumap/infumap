@@ -117,7 +117,8 @@ export function arrange_justified_page(
       h: layout.boxes[i].height
     };
 
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, false, false, false, true);
+    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
+
     const ves = arrangeItem(
       store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, geometry,
       ArrangeItemFlags.RenderChildrenAsFull);

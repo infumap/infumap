@@ -20,15 +20,13 @@ import { BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAG
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
-import { PageItem } from "../../items/page-item";
-import { isTable } from "../../items/table-item";
+import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
-import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -65,7 +63,6 @@ export function arrange_document_page(
     const childItem = itemState.get(childId)!;
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
-    if (isTable(displayItem_childItem)) { continue; }
 
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
@@ -73,26 +70,23 @@ export function arrange_document_page(
       displayItem_pageWithChildren.docWidthBl,
       topPx);
 
-    const childVeSpec: VisualElementSpec = {
-      displayItem: displayItem_childItem,
-      linkItemMaybe: linkItemMaybe_childItem,
-      flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
-      boundsPx: {
-        x: geometry.boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale,
-        y: geometry.boundsPx.y,
-        w: geometry.boundsPx.w,
-        h: geometry.boundsPx.h,
-      },
-      hitboxes: geometry.hitboxes,
-      parentPath: pageWithChildrenVePath,
-      col: 0,
-      row: idx,
-      blockSizePx: blockSizePx,
-    };
+    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
 
-    const childVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), pageWithChildrenVePath);
-    const childVeSignal = VesCache.createOrRecycleVisualElementSignal(childVeSpec, childVePath);
-    childrenVes.push(childVeSignal);
+    const ves = arrangeItem(
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Document, childItem, geometry,
+      (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
+      (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
+
+    ves.get().boundsPx.x = ves.get().boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale;
+    ves.get().blockSizePx = blockSizePx
+    ves.get().row = idx;
+    ves.get().col = 0;
+    ves.get().flags = ves.get().flags | VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed;
+    ves.set(ves.get()); // TODO (MEDIUM): avoid the double set (arrangeItem also sets).
+
+    childrenVes.push(ves);
 
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
