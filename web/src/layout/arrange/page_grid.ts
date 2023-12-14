@@ -30,7 +30,7 @@ import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 
 
@@ -103,7 +103,7 @@ export function arrange_grid_page(
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
+          (arrangeFlagIsRoot(flags) || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
@@ -131,13 +131,13 @@ export function arrange_grid_page(
     };
 
     const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
-    const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || flags & ArrangeItemFlags.IsRoot;
+    const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
 
     let geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false);
     const ves = arrangeItem(
       store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, geometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
-      (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsRoot : ArrangeItemFlags.None) |
+      (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }
@@ -184,7 +184,7 @@ export function arrange_grid_page(
 
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
+  if (arrangeFlagIsRoot(flags) && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);

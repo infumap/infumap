@@ -25,7 +25,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
-import { ArrangeItemFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
 import { arrange_document_page } from "./page_document";
 import { arrange_grid_page } from "./page_grid";
 import { arrange_justified_page } from "./page_justified";
@@ -69,7 +69,7 @@ export const arrangePageWithChildren = (
 
   const outerBoundsPx = geometry.boundsPx;
 
-  if (!(flags & ArrangeItemFlags.IsRoot)) {
+  if (!(arrangeFlagIsRoot(flags))) {
     const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
     pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
   }

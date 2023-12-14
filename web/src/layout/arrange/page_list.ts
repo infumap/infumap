@@ -34,7 +34,7 @@ import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
@@ -79,7 +79,7 @@ export function arrange_list_page(
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
+          (arrangeFlagIsRoot(flags) || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
@@ -138,13 +138,13 @@ export function arrange_list_page(
       w: outerBoundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
       h: outerBoundsPx.h - LINE_HEIGHT_PX * scale
     };
-    const selectedIsRoot = !!(flags & ArrangeItemFlags.IsRoot) && isPage(itemState.get(selectedVeid.itemId)!);
+    const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const isExpandable = selectedIsRoot;
     pageWithChildrenVisualElementSpec.selectedVes =
       arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, isExpandable, selectedIsRoot);
   }
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
+  if (arrangeFlagIsRoot(flags) && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
@@ -190,6 +190,6 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
 
   const result = arrangeItem(
     store, currentPath, veid, ArrangeAlgorithm.List, li, geometry,
-    ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsRoot : ArrangeItemFlags.None));
+    ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None));
   return result;
 }

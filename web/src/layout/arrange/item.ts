@@ -39,16 +39,23 @@ import { arrangePageWithChildren } from "./page";
 
 
 export enum ArrangeItemFlags {
-  None                  = 0x000,
-  IsPopupRoot           = 0x002,
-  IsListPageMainRoot    = 0x008,
-  ParentIsPopup         = 0x010,
-  IsMoving              = 0x020,
-  RenderChildrenAsFull  = 0x001,
-  RenderAsOutline       = 0x040,
-  IsRoot                = 0x004,
+  None                       = 0x000,
+  IsTopRoot                  = 0x001,
+  IsPopupRoot                = 0x002,
+  IsListPageMainRoot         = 0x008,
+  IsEmbeddedInteractiveRoot  = 0x010,
+  ParentIsPopup              = 0x020,
+  IsMoving                   = 0x040,
+  RenderChildrenAsFull       = 0x080,
+  RenderAsOutline            = 0x100,
 }
 
+export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
+  return !!(flags & ArrangeItemFlags.IsTopRoot |
+            flags & ArrangeItemFlags.IsPopupRoot |
+            flags & ArrangeItemFlags.IsListPageMainRoot |
+            flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot);
+}
 
 export const arrangeItem = (
     store: StoreContextModel,
@@ -75,7 +82,7 @@ export const arrangeItem = (
   flags |= (isMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
 
   const renderWithChildren = (() => {
-    if (flags & ArrangeItemFlags.IsRoot) { return true; }
+    if (arrangeFlagIsRoot(flags)) { return true; }
     if (flags & ArrangeItemFlags.IsPopupRoot) { return true; }
     if (!(flags & ArrangeItemFlags.RenderChildrenAsFull)) { return false; }
     if (!isPage(displayItem)) { return false; }

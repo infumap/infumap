@@ -31,7 +31,7 @@ import { POPUP_LINK_UID } from "../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, arrangeItemNoChildren } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren } from "./item";
 import { arrangeCellPopup } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
@@ -78,7 +78,7 @@ export function arrange_spatial_page(
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
+           (arrangeFlagIsRoot(flags) || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
@@ -94,7 +94,7 @@ export function arrange_spatial_page(
     const childItem = itemState.get(childId)!;
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
-    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const childItemIsEmbededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const hasPendingChanges = false; // it may do, but only matters for popups.
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
     const itemGeometry = ItemFns.calcGeometry_Spatial(
@@ -105,11 +105,11 @@ export function arrange_spatial_page(
       emitHitboxes,
       childItemIsPopup,
       hasPendingChanges);
-    if (flags & ArrangeItemFlags.IsPopupRoot || flags & ArrangeItemFlags.IsRoot || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
+    if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
       const ves = arrangeItem(
         store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
-        (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsRoot : ArrangeItemFlags.None) |
+        (childItemIsEmbededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
       childrenVes.push(ves);
@@ -125,7 +125,7 @@ export function arrange_spatial_page(
   }
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
+  if (arrangeFlagIsRoot(flags) && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       if (currentPopupSpec.type == PopupType.Page) {

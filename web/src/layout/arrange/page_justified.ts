@@ -28,7 +28,7 @@ import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 import createJustifiedLayout from "justified-layout";
 
@@ -96,7 +96,7 @@ export function arrange_justified_page(
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
+           (arrangeFlagIsRoot(flags) || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
@@ -126,7 +126,7 @@ export function arrange_justified_page(
 
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
+  if (arrangeFlagIsRoot(flags) && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);

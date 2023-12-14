@@ -83,7 +83,7 @@ export const arrange = (store: StoreContextModel): void => {
 
   const pageVes = arrangeItem(
     store, currentPath, realParentVeid, ArrangeAlgorithm.SpatialStretch, currentPage, itemGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsRoot);
+    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot);
   childrenVes.push(pageVes);
   visualElementSpec.childrenVes = childrenVes;
 
