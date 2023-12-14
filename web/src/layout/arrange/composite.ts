@@ -52,7 +52,7 @@ export const arrangeComposite = (
     linkItemMaybe: linkItemMaybe_Composite,
     flags: VisualElementFlags.Detailed |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: compositeGeometry.hitboxes,

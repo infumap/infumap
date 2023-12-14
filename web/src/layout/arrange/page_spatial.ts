@@ -53,7 +53,7 @@ export function arrange_spatial_page(
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
-  const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopup);
+  const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
   const aspect = outerBoundsPx.w / outerBoundsPx.h;
   const pageAspect = displayItem_pageWithChildren.naturalAspect;
@@ -70,18 +70,18 @@ export function arrange_spatial_page(
     return result;
   })();
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
-           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx: pageBoundsPx,
     hitboxes,
@@ -94,7 +94,7 @@ export function arrange_spatial_page(
     const childItem = itemState.get(childId)!;
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
-    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.Interactive;
+    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const hasPendingChanges = false; // it may do, but only matters for popups.
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
     const itemGeometry = ItemFns.calcGeometry_Spatial(
@@ -105,19 +105,19 @@ export function arrange_spatial_page(
       emitHitboxes,
       childItemIsPopup,
       hasPendingChanges);
-    if (flags & ArrangeItemFlags.IsPopup || flags & ArrangeItemFlags.IsRoot || displayItem_pageWithChildren.flags & PageFlags.Interactive) {
+    if (flags & ArrangeItemFlags.IsPopupRoot || flags & ArrangeItemFlags.IsRoot || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
       const ves = arrangeItem(
         store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, childItem, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
         (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsRoot : ArrangeItemFlags.None) |
-        (childItemIsPopup ? ArrangeItemFlags.IsPopup : ArrangeItemFlags.None) |
+        (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
       childrenVes.push(ves);
     } else {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
       const ves = arrangeItemNoChildren(
         store, pageWithChildrenVePath, displayItem, linkItemMaybe, itemGeometry,
-        (childItemIsPopup ? ArrangeItemFlags.IsPopup : ArrangeItemFlags.None) |
+        (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
         ArrangeItemFlags.RenderAsOutline)
       childrenVes.push(ves);
@@ -125,7 +125,7 @@ export function arrange_spatial_page(
   }
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopup)) {
+  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       if (currentPopupSpec.type == PopupType.Page) {
@@ -149,7 +149,7 @@ export function arrange_spatial_page(
           PageFns.popupPositioningHasChanged(displayItem_pageWithChildren));
         pageWithChildrenVisualElementSpec.popupVes = arrangeItem(
           store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, li, itemGeometry,
-          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopup);
+          ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
 
       } else if (currentPopupSpec.type == PopupType.Attachment) {
         // Ves are created inline.

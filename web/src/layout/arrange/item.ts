@@ -40,13 +40,13 @@ import { arrangePageWithChildren } from "./page";
 
 export enum ArrangeItemFlags {
   None                  = 0x000,
-  RenderChildrenAsFull  = 0x001,
-  IsPopup               = 0x002,
-  IsRoot                = 0x004,
-  IsListPageMainItem    = 0x008,
+  IsPopupRoot           = 0x002,
+  IsListPageMainRoot    = 0x008,
   ParentIsPopup         = 0x010,
   IsMoving              = 0x020,
+  RenderChildrenAsFull  = 0x001,
   RenderAsOutline       = 0x040,
+  IsRoot                = 0x004,
 }
 
 
@@ -59,7 +59,7 @@ export const arrangeItem = (
     itemGeometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSignal => {
 
-  if (flags & ArrangeItemFlags.IsPopup && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
+  if (flags & ArrangeItemFlags.IsPopupRoot && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
 
   const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(store, item);
   const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
@@ -76,7 +76,7 @@ export const arrangeItem = (
 
   const renderWithChildren = (() => {
     if (flags & ArrangeItemFlags.IsRoot) { return true; }
-    if (flags & ArrangeItemFlags.IsPopup) { return true; }
+    if (flags & ArrangeItemFlags.IsPopupRoot) { return true; }
     if (!(flags & ArrangeItemFlags.RenderChildrenAsFull)) { return false; }
     if (!isPage(displayItem)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
@@ -125,9 +125,9 @@ export const arrangeItemNoChildren = (
     displayItem: item,
     linkItemMaybe,
     flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
-           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,
     parentPath: parentVePath,

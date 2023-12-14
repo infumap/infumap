@@ -61,7 +61,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry, ArrangeItemFlags.IsPopup);
+      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry, ArrangeItemFlags.IsPopupRoot);
       let ve = ves.get();
       ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(ve);
@@ -71,7 +71,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
     const itemVisualElement: VisualElementSpec = {
       displayItem: item,
       linkItemMaybe: li,
-      flags: VisualElementFlags.Popup |
+      flags: VisualElementFlags.PopupRoot |
              VisualElementFlags.Detailed |
              (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None),
       boundsPx: geometry.boundsPx,

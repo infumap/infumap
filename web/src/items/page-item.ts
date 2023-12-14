@@ -254,7 +254,7 @@ export const PageFns = {
       ? cloneBoundingBox(innerBoundsPx)!
       : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
           w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
-    if (!isPopup && !(page.flags & PageFlags.Interactive)) {
+    if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       return ({
         boundsPx,
         hitboxes: !emitHitboxes ? [] : [
@@ -282,6 +282,52 @@ export const PageFns = {
     return ({
       boundsPx,
       hitboxes: !emitHitboxes ? [] : hitboxes,
+    });
+  },
+
+  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
+    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+
+    if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
+      if (expandable) {
+        const hitboxes = [
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+          HitboxFns.create(HitboxFlags.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        ];
+        return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
+      }
+
+      const popupClickBoundsPx = parentIsPopup
+        ? cloneBoundingBox(innerBoundsPx)!
+        : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+            w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+      const hitboxes = [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
+      ];
+      return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
+    }
+
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+    ];
+
+    if (hasPendingChanges) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
+    }
+
+    return ({
+      boundsPx,
+      hitboxes,
     });
   },
 
@@ -367,52 +413,6 @@ export const PageFns = {
     });
   },
 
-  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
-    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
-    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-
-    if (!isPopup) {
-      if (expandable) {
-        const hitboxes = [
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-          HitboxFns.create(HitboxFlags.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-        ];
-        return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
-      }
-
-      const popupClickBoundsPx = parentIsPopup
-        ? cloneBoundingBox(innerBoundsPx)!
-        : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-            w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
-      const hitboxes = [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
-      ];
-      return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
-    }
-
-    const hitboxes = [
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-      HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
-    ];
-
-    if (hasPendingChanges) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
-    }
-
-    return ({
-      boundsPx,
-      hitboxes,
-    });
-  },
-
   asPageMeasurable: (item: ItemTypeMixin): PageMeasurable => {
     if (item.itemType == ItemType.Page) { return item as PageMeasurable; }
     panic("not page measurable.");
@@ -435,10 +435,10 @@ export const PageFns = {
     }
 
     // inside a popup.
-    let insidePopup = parentVe.flags & VisualElementFlags.Popup ? true : false;
+    let insidePopup = parentVe.flags & VisualElementFlags.PopupRoot ? true : false;
     if (isTable(parentVe.displayItem)) {
       const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
-      if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
+      if (parentParentVe.flags & VisualElementFlags.PopupRoot) { insidePopup = true; }
     }
     if (insidePopup) {
       store.history.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });

@@ -138,7 +138,7 @@ function changeMouseActionStateMaybe(
 
   if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
     MouseActionState.get().startPosBl = null;
-    if (activeVisualElement.flags & VisualElementFlags.Popup) {
+    if (activeVisualElement.flags & VisualElementFlags.PopupRoot) {
       MouseActionState.get().startWidthBl = activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE;
       MouseActionState.get().startHeightBl = null;
       MouseActionState.get().action = MouseAction.ResizingPopup;
@@ -185,7 +185,7 @@ function changeMouseActionStateMaybe(
     }
     MouseActionState.get().startWidthBl = null;
     MouseActionState.get().startHeightBl = null;
-    if (activeVisualElement.flags & VisualElementFlags.Popup) {
+    if (activeVisualElement.flags & VisualElementFlags.PopupRoot) {
       store.anItemIsMoving.set(true);
       MouseActionState.get().action = MouseAction.MovingPopup;
       const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get().displayItem;
@@ -330,14 +330,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPage()!.itemId) &&
-      !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOver.get() &&
+      !(overElementVes.get().flags & VisualElementFlags.PopupRoot) && !overElementVes.get().mouseIsOver.get() &&
       !hasModal) {
     overElementVes!.get().mouseIsOver.set(true);
     lastMouseOverVes = overElementVes;
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPage()!.itemId) &&
-      !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      !(overElementVes.get().flags & VisualElementFlags.PopupRoot) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
       overElementVes!.get().mouseIsOverOpenPopup.set(true);
@@ -353,7 +353,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {
       document.body.style.cursor = "ew-resize";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(hitInfo.overElementVes.get().displayItem))) {
-      if ((hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) || (asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.Interactive)) {
+      if ((hitInfo.overElementVes.get().flags & VisualElementFlags.PopupRoot) || (asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.EmbeddedInteractive)) {
         document.body.style.cursor = "move";
       }
     } else if (hitInfo.hitboxType & HitboxFlags.Expand) {

@@ -89,7 +89,7 @@ export const Toolbar_Page: Component = () => {
 
   const isInteractive= () => {
     store.rerenderToolbarDependency();
-    return !(!(pageItem().flags & PageFlags.Interactive));
+    return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
   }
 
   const showOrderByButton = () => {
@@ -191,10 +191,10 @@ export const Toolbar_Page: Component = () => {
   }
 
   const handleChangeInteractive = () => {
-    if (pageItem().flags & PageFlags.Interactive) {
-      pageItem().flags &= ~PageFlags.Interactive
+    if (pageItem().flags & PageFlags.EmbeddedInteractive) {
+      pageItem().flags &= ~PageFlags.EmbeddedInteractive
     } else {
-      pageItem().flags |= PageFlags.Interactive;
+      pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     arrange(store);
     server.updateItem(pageItem());

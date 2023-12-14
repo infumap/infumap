@@ -31,7 +31,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
+import { newUid, TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -43,32 +43,42 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     let veid;
     let div;
 
+    console.log("mount", props.visualElement.displayItem.id);
     if (props.visualElement.parentPath == null) {
       // the top level page visual element signal is always recycled, which means this component
       // is never re-mounted. For that reason, initial scroll positions of the top level page
       // are set in the switchToPage method in navigation.ts.
       return;
-    } else if (props.visualElement.flags & VisualElementFlags.Popup) {
+    } else if (props.visualElement.flags & VisualElementFlags.PopupRoot) {
+      console.log("A");
       veid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       div = popupDiv;
-    } else if (props.visualElement.flags & VisualElementFlags.Root) {
+    } else if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
+      console.log("B");
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
       veid = VeFns.veidFromPath(selectedPath);
       div = rootDiv;
+    } else if (props.visualElement.flags & VisualElementFlags.Root || props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
+      console.log("B2");
+      veid = VeFns.veidFromVe(props.visualElement);
+      div = rootDiv;
     } else {
+      console.log("C");
       veid = VeFns.veidFromVe(props.visualElement);
       div = translucentDiv;
     }
 
+    console.log(div, veid);
     if (!div) { return; }
-
+    console.log("D");
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
     const scrollXPx = scrollXProp * (childAreaBoundsPx().w - boundsPx().w);
 
     const scrollYProp = store.perItem.getPageScrollYProp(veid);
     const scrollYPx = scrollYProp * (childAreaBoundsPx().h - boundsPx().h);
 
+    console.log("E", veid, scrollYPx);
     div.scrollTop = scrollYPx;
     div.scrollLeft = scrollXPx;
   });
@@ -100,7 +110,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath();
   const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
-  const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbededInteractive);
+  const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot);
 
   const lineVes = () => props.visualElement.childrenVes.filter(c => c.get().flags & VisualElementFlags.LineItem);
   const desktopVes = () => props.visualElement.childrenVes.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
@@ -313,7 +323,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderBoxTitleMaybe = () =>
-      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRootItem)}>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
         <div class="absolute flex items-center justify-center pointer-events-none"
             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -551,7 +561,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: 0px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div id={'rootPageDiv'}
+        <div id={isEmbeddedInteractive() ? undefined : 'rootPageDiv'}
              ref={rootDiv}
              class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
              style={`overflow-y: auto; ` +
@@ -587,7 +597,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const desktopSizePx = props.visualElement.boundsPx;
 
       let veid = store.history.currentPage()!;
-      if (props.visualElement.flags & VisualElementFlags.EmbededInteractive) {
+      if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
         veid = VeFns.veidFromVe(props.visualElement);
       } else if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
         const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
@@ -608,7 +618,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPage = () =>
       <div ref={rootDiv}
-           id={'rootPageDiv'}
+           id={isEmbeddedInteractive() ? undefined : 'rootPageDiv'}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`left: 0px; ` +
                   `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
@@ -692,7 +702,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
         {renderAsTrash()}
       </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
+      <Match when={props.visualElement.flags & VisualElementFlags.PopupRoot}>
         {renderAsPopup()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Root}>

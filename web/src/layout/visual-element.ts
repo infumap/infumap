@@ -62,50 +62,26 @@ export const EMPTY_VEID: Veid = {
 
 
 export enum VisualElementFlags {
-  None                  = 0x00000,
-  Selected              = 0x00001, // The item is selected.
-  HasToolbarFocus       = 0x00002, // The item has toolbar focus.
-  LineItem              = 0x00004, // Render as a line item (like in a table), not deskop item.
-  Detailed              = 0x00008, // The visual element has detail / can be interacted with.
-  Popup                 = 0x00010, // The visual element is a popped up page or image.
-  Root                  = 0x00020, // Render as a root level page (popup, list page, top level page).
-  ListPageRootItem      = 0x00040, // Is the root item in a list page.
-  InsideTable           = 0x00080, // The visual element is inside a table.
-  Attachment            = 0x00100, // The visual element is an attachment.
-  ShowChildren          = 0x00200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
-  Fixed                 = 0x00400, // positioning is fixed, not absolute.
-  InsideCompositeOrDoc  = 0x00800, // The visual element is inside a composite item.
-  ZAbove                = 0x01000, // Render above everything else (except moving).
-  Moving                = 0x02000, // Render the visual element partially transparent and on top of everything else.
-  IsDock                = 0x04000, // render the page as the dock.
-  IsTrash               = 0x08000, // render the page as the trash icon.
-  TopLevelPage          = 0x10000, // the top level page.
-  EmbededInteractive    = 0x20000, // an embedded interactive page.
+  None                    = 0x00000,
+  Selected                = 0x00001, // The item is selected.
+  HasToolbarFocus         = 0x00002, // The item has toolbar focus.
+  LineItem                = 0x00004, // Render as a line item (like in a table), not deskop item.
+  Detailed                = 0x00008, // The visual element has detail / can be interacted with.
+  PopupRoot               = 0x00010, // The visual element is a popped up page or image.
+  Root                    = 0x00020, // Render as a root level page (popup, list page, top level page).
+  ListPageRoot            = 0x00040, // Is the root item in a list page.
+  InsideTable             = 0x00080, // The visual element is inside a table.
+  Attachment              = 0x00100, // The visual element is an attachment.
+  ShowChildren            = 0x00200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
+  Fixed                   = 0x00400, // positioning is fixed, not absolute.
+  InsideCompositeOrDoc    = 0x00800, // The visual element is inside a composite item.
+  ZAbove                  = 0x01000, // Render above everything else (except moving).
+  Moving                  = 0x02000, // Render the visual element partially transparent and on top of everything else.
+  IsDock                  = 0x04000, // render the page as the dock.
+  IsTrash                 = 0x08000, // render the page as the trash icon.
+  TopLevelPage            = 0x10000, // the top level page.
+  EmbededInteractiveRoot  = 0x20000, // an embedded interactive page.
 }
-
-function visualElementFlagsToString(visualElementFlags: VisualElementFlags): string {
-  let result = "";
-  if (visualElementFlags & VisualElementFlags.Selected) { result += "Selected "; }
-  if (visualElementFlags & VisualElementFlags.HasToolbarFocus) { result += "HasToolbarFocus "; }
-  if (visualElementFlags & VisualElementFlags.LineItem) { result += "LineItem "; }
-  if (visualElementFlags & VisualElementFlags.Detailed) { result += "Detailed "; }
-  if (visualElementFlags & VisualElementFlags.Popup) { result += "Popup "; }
-  if (visualElementFlags & VisualElementFlags.Root) { result += "Root "; }
-  if (visualElementFlags & VisualElementFlags.ListPageRootItem) { result += "ListPageRootItem "; }
-  if (visualElementFlags & VisualElementFlags.InsideTable) { result += "InsideTable "; }
-  if (visualElementFlags & VisualElementFlags.Attachment) { result += "Attachment "; }
-  if (visualElementFlags & VisualElementFlags.ShowChildren) { result += "ShowChildren "; }
-  if (visualElementFlags & VisualElementFlags.Fixed) { result += "Fixed "; }
-  if (visualElementFlags & VisualElementFlags.InsideCompositeOrDoc) { result += "InsideCompositeOrDoc "; }
-  if (visualElementFlags & VisualElementFlags.ZAbove) { result += "ZAbove "; }
-  if (visualElementFlags & VisualElementFlags.Moving) { result += "Moving "; }
-  if (visualElementFlags & VisualElementFlags.IsDock) { result += "IsDock "; }
-  if (visualElementFlags & VisualElementFlags.IsTrash) { result += "IsTrash "; }
-  if (visualElementFlags & VisualElementFlags.TopLevelPage) { result += "TopLevelPage "; }
-  if (visualElementFlags & VisualElementFlags.EmbededInteractive) { result += "EmbededInteractive "; }
-  return result;
-}
-
 
 /**
  * Specifies a visual element, corresponding to a rendered item in the visual tree.
@@ -448,7 +424,7 @@ export const VeFns = {
       } else if (isPage(ve.displayItem)) {
         let adjY = 0.0;
         let adjX = 0.0;
-        if (ve.flags & VisualElementFlags.Popup) {
+        if (ve.flags & VisualElementFlags.PopupRoot) {
           const popupSpec = store.history.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
@@ -480,10 +456,6 @@ export const VeFns = {
 
   printCurrentVisualElementTree: (store: StoreContextModel) => {
     printRecursive(store.topLevelVisualElement.get(), 0, "c");
-  },
-
-  visualElementFlagsToString: (visualElementFlags: VisualElementFlags) => {
-    return visualElementFlagsToString(visualElementFlags);
   },
 
   isInTable: (visualElement: VisualElement): boolean => {

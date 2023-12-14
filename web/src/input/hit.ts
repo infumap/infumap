@@ -288,7 +288,7 @@ function determineRootLevel2(
   for (let i=0; i<rootVisualElement.childrenVes.length; ++i) {
     const childVes = rootVisualElement.childrenVes[i];
     const childVe = childVes.get();
-    if (!(childVe.flags & VisualElementFlags.EmbededInteractive)) {
+    if (!(childVe.flags & VisualElementFlags.EmbededInteractiveRoot)) {
       continue;
     }
 
@@ -588,7 +588,7 @@ function finalize(
     let overPositionableVe = overVe;
     let overContainerVe = overVe;
     if (canHitEmbeddedInteractive) {
-      if (overVe.flags & VisualElementFlags.EmbededInteractive) {
+      if (overVe.flags & VisualElementFlags.EmbededInteractiveRoot) {
         overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
         overContainerVe = VesCache.get(overVe.parentPath!)!.get();
       }

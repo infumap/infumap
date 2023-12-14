@@ -56,7 +56,7 @@ export function arrange_list_page(
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
-  const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopup);
+  const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
   const isFull = outerBoundsPx.h == store.desktopMainAreaBoundsPx().h;
   const scale = isFull ? 1.0 : outerBoundsPx.w / store.desktopMainAreaBoundsPx().w;
@@ -71,18 +71,18 @@ export function arrange_list_page(
     hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
   }
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-          (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
-          (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+          (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx: geometry.boundsPx,
     hitboxes,
@@ -90,7 +90,7 @@ export function arrange_list_page(
   };
 
   let selectedVeid = EMPTY_VEID;
-  if (flags & ArrangeItemFlags.IsPopup) {
+  if (flags & ArrangeItemFlags.IsPopupRoot) {
     const poppedUp = store.history.currentPopupSpec()!;
     const poppedUpPath = poppedUp.vePath;
     const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
@@ -144,7 +144,7 @@ export function arrange_list_page(
       arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, isExpandable, selectedIsRoot);
   }
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopup)) {
+  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);

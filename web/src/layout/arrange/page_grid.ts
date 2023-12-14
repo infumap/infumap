@@ -51,7 +51,7 @@ export function arrange_grid_page(
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
-  const parentIsPopup = flags & ArrangeItemFlags.IsPopup;
+  const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
 
   let movingItem = null;
   let movingItemInThisPage = null;
@@ -95,18 +95,18 @@ export function arrange_grid_page(
     return result;
   })();
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-          (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
+          (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
-          (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+          (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx: boundsPx,
     hitboxes,
@@ -130,10 +130,10 @@ export function arrange_grid_page(
       h: cellHPx - marginPx * 2.0
     };
 
-    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.Interactive;
-    const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopup || flags & ArrangeItemFlags.IsRoot;
+    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || flags & ArrangeItemFlags.IsRoot;
 
-    let geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopup), false, false, false);
+    let geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false);
     const ves = arrangeItem(
       store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, geometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
@@ -145,7 +145,7 @@ export function arrange_grid_page(
   if (movingItemInThisPage) {
     let scrollPropY;
     let scrollPropX;
-    if (flags & ArrangeItemFlags.IsPopup) {
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
       const popupSpec = store.history.currentPopupSpec();
       assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
       scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
@@ -184,7 +184,7 @@ export function arrange_grid_page(
 
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopup)) {
+  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);

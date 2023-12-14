@@ -50,7 +50,7 @@ export enum CompositeFlags {
 
 export enum PageFlags {
   None =           0x000,
-  Interactive =    0x001,
+  EmbeddedInteractive =    0x001,
 };
 
 

@@ -50,7 +50,7 @@ export function arrange_justified_page(
   const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
-  const _parentIsPopup = flags & ArrangeItemFlags.IsPopup;
+  const _parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
       
   let movingItem = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
@@ -88,18 +88,18 @@ export function arrange_justified_page(
   const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
   childAreaBoundsPx.h = layout.containerHeight;
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.Interactive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-           (flags & ArrangeItemFlags.IsPopup ? VisualElementFlags.Popup : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsPopup && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.PopupRoot : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsRoot || isEmbeddedInteractive ? VisualElementFlags.Root : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None) |
-           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractive : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx,
     hitboxes,
@@ -126,7 +126,7 @@ export function arrange_justified_page(
 
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopup)) {
+  if (flags & ArrangeItemFlags.IsRoot && !(flags & ArrangeItemFlags.IsPopupRoot)) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);

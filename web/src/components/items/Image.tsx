@@ -87,7 +87,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   onMount(() => {
     if (isDetailed_OnLoad) {
-      const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
+      const isHighPriority = (props.visualElement.flags & VisualElementFlags.PopupRoot) != 0;
       getImage(imgSrcOnLoad, imgOriginOnLoad, isHighPriority)
         .then((objectUrl) => {
           imgElement!.src = objectUrl;
@@ -102,7 +102,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   const renderPopupBaseMaybe = (): JSX.Element =>
-    <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
+    <Show when={props.visualElement.flags & VisualElementFlags.PopupRoot}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                   `text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
             style={`left: ${boundsPx().x-10}px; ` +
@@ -145,7 +145,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           src={thumbnailSrc()} />;
 
   const renderTitleMaybe = (): JSX.Element =>
-    <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
+    <Show when={props.visualElement.flags & VisualElementFlags.PopupRoot}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
             style={`left: ${boundsPx().x}px; ` +
                    `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
@@ -168,7 +168,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={props.visualElement.attachmentsVes}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
-        <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+        <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.PopupRoot) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;` +
                       `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`} />
         </Show>

@@ -62,7 +62,7 @@ export const arrangeTable = (
     linkItemMaybe: linkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-          (flags & ArrangeItemFlags.IsListPageMainItem ? VisualElementFlags.ListPageRootItem : VisualElementFlags.None),
+          (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     boundsPx: tableGeometry.boundsPx,
     childAreaBoundsPx,
     hitboxes: tableGeometry.hitboxes,
