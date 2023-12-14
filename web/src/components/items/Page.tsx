@@ -31,7 +31,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { newUid, TOP_LEVEL_PAGE_UID } from "../../util/uid";
+import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -43,43 +43,31 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     let veid;
     let div;
 
-    console.log("mount", props.visualElement.displayItem.id);
-    if (props.visualElement.parentPath == null) {
-      // the top level page visual element signal is always recycled, which means this component
-      // is never re-mounted. For that reason, initial scroll positions of the top level page
-      // are set in the switchToPage method in navigation.ts.
-      return;
-    } else if (props.visualElement.flags & VisualElementFlags.Popup) {
-      console.log("A");
+    if (props.visualElement.flags & VisualElementFlags.Popup) {
       veid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       div = popupDiv;
     } else if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
-      console.log("B");
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
       veid = VeFns.veidFromPath(selectedPath);
       div = rootDiv;
     } else if (props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
                props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
-      console.log("B2");
       veid = VeFns.veidFromVe(props.visualElement);
       div = rootDiv;
     } else {
-      console.log("C");
       veid = VeFns.veidFromVe(props.visualElement);
       div = translucentDiv;
     }
 
-    console.log(div, veid);
     if (!div) { return; }
-    console.log("D");
+
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
     const scrollXPx = scrollXProp * (childAreaBoundsPx().w - boundsPx().w);
 
     const scrollYProp = store.perItem.getPageScrollYProp(veid);
     const scrollYPx = scrollYProp * (childAreaBoundsPx().h - boundsPx().h);
 
-    console.log("E", veid, scrollYPx);
     div.scrollTop = scrollYPx;
     div.scrollLeft = scrollXPx;
   });

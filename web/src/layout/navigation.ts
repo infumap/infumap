@@ -55,8 +55,6 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 
   arrange(store);
 
-  setTopLevelPageScrollPositions(store);
-
   if (updateHistory) {
     updateHref(store);
   }
@@ -78,7 +76,6 @@ export function navigateBack(store: StoreContextModel): boolean {
   if (changePages) {
     updateHref(store);
     arrange(store);
-    setTopLevelPageScrollPositions(store);
     return true;
   }
 
@@ -122,22 +119,4 @@ export async function navigateUp(store: StoreContextModel) {
   }
 
   panic(`navigateUp: could not find page after ${MAX_LEVELS} levels.`);
-}
-
-
-export function setTopLevelPageScrollPositions(store: StoreContextModel) {
-  let rootPageDiv = window.document.getElementById("rootPageDiv")!;
-  let veid = store.history.currentPage()!;
-
-  const topLevelVisualElement = store.topLevelVisualElement.get();
-  const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
-  const desktopSizePx = store.desktopBoundsPx();
-
-  const scrollXPx = store.perItem.getPageScrollXProp(veid) * (topLevelBoundsPx.w - desktopSizePx.w);
-  const scrollYPx = store.perItem.getPageScrollYProp(veid) * (topLevelBoundsPx.h - desktopSizePx.h);
-
-  if (rootPageDiv) {
-    rootPageDiv.scrollTop = scrollYPx;
-    rootPageDiv.scrollLeft = scrollXPx;
-  }
 }

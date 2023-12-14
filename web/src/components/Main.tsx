@@ -24,7 +24,7 @@ import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { childrenLoadInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { setTopLevelPageScrollPositions, switchToPage } from "../layout/navigation";
+import { switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -141,7 +141,6 @@ export const Main: Component = () => {
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
     arrange(store);
-    setTopLevelPageScrollPositions(store);
   };
 
   const windowPopStateListener = () => {
@@ -150,7 +149,6 @@ export const Main: Component = () => {
     store.overlay.editUserSettingsInfo.set(null);
     store.history.popPage();
     arrange(store);
-    setTopLevelPageScrollPositions(store);
   };
 
   const contextMenuListener = (ev: Event) => {
