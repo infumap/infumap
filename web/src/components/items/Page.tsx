@@ -550,8 +550,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: 0px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div id={isEmbeddedInteractive() ? undefined : 'rootPageDiv'}
-             ref={rootDiv}
+        <div ref={rootDiv}
              class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
              style={`overflow-y: auto; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
@@ -607,7 +606,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPage = () =>
       <div ref={rootDiv}
-           id={isEmbeddedInteractive() ? undefined : 'rootPageDiv'}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`left: 0px; ` +
                   `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
