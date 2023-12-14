@@ -67,20 +67,27 @@ export enum VisualElementFlags {
   HasToolbarFocus         = 0x00002, // The item has toolbar focus.
   LineItem                = 0x00004, // Render as a line item (like in a table), not deskop item.
   Detailed                = 0x00008, // The visual element has detail / can be interacted with.
-  PopupRoot               = 0x00010, // The visual element is a popped up page or image.
-  Root                    = 0x00020, // Render as a root level page (popup, list page, top level page).
-  ListPageRoot            = 0x00040, // Is the root item in a list page.
-  InsideTable             = 0x00080, // The visual element is inside a table.
-  Attachment              = 0x00100, // The visual element is an attachment.
-  ShowChildren            = 0x00200, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
-  Fixed                   = 0x00400, // positioning is fixed, not absolute.
-  InsideCompositeOrDoc    = 0x00800, // The visual element is inside a composite item.
-  ZAbove                  = 0x01000, // Render above everything else (except moving).
-  Moving                  = 0x02000, // Render the visual element partially transparent and on top of everything else.
-  IsDock                  = 0x04000, // render the page as the dock.
-  IsTrash                 = 0x08000, // render the page as the trash icon.
-  TopLevelPage            = 0x10000, // the top level page.
-  EmbededInteractiveRoot  = 0x20000, // an embedded interactive page.
+  InsideTable             = 0x00010, // The visual element is inside a table.
+  Attachment              = 0x00020, // The visual element is an attachment.
+  ShowChildren            = 0x00040, // Children are visible and an item dragged over the container (page) is positioned according to the mouse position.
+  Fixed                   = 0x00080, // positioning is fixed, not absolute.
+  InsideCompositeOrDoc    = 0x00100, // The visual element is inside a composite item.
+  ZAbove                  = 0x00200, // Render above everything else (except moving).
+  Moving                  = 0x00400, // Render the visual element partially transparent and on top of everything else.
+  IsDock                  = 0x00800, // render the page as the dock.
+  IsTrash                 = 0x01000, // render the page as the trash icon.
+  TopLevelPage            = 0x02000, // the top level page.
+  Popup                   = 0x04000, // Is a popped up something (page or image or anything).
+  TopLevelRoot            = 0x08000, // The top most page root element.
+  ListPageRoot            = 0x10000, // Is the root item in a list page.
+  EmbededInteractiveRoot  = 0x20000, // Is an embedded interactive page.
+}
+
+export function veFlagIsRoot(flags: VisualElementFlags): boolean {
+  return !!(flags & VisualElementFlags.TopLevelRoot |
+            flags & VisualElementFlags.Popup |
+            flags & VisualElementFlags.ListPageRoot |
+            flags & VisualElementFlags.EmbededInteractiveRoot);
 }
 
 /**
@@ -424,7 +431,7 @@ export const VeFns = {
       } else if (isPage(ve.displayItem)) {
         let adjY = 0.0;
         let adjX = 0.0;
-        if (ve.flags & VisualElementFlags.PopupRoot) {
+        if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = store.history.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));

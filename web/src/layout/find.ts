@@ -53,7 +53,7 @@ export function findClosest(path: VisualElementPath, direction: FindDirection, a
 
   const siblings = VesCache.getSiblings(path)
     .map(ves => ves.get())
-    .filter(ve => !(ve.flags & VisualElementFlags.PopupRoot))
+    .filter(ve => !(ve.flags & VisualElementFlags.Popup))
     .filter(ve => allItemTypes ? true : isPage(ve.displayItem) || isImage(ve.displayItem));
 
   const SLACK_PX = 2;

@@ -94,7 +94,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
 
   const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
   if (hitInfo.hitboxType == HitboxFlags.None) {
-    if (hitInfo.overElementVes.get().flags & VisualElementFlags.PopupRoot && !viaOverlay) {
+    if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup && !viaOverlay) {
       DoubleClickState.preventDoubleClick();
       switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
     } else if(isPage(hitInfo.overElementVes.get().displayItem) && asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.EmbeddedInteractive) {
@@ -114,7 +114,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const activeItem = VeFns.canonicalItem(hitInfo.overElementVes.get());
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overElementVes.get());
   let onePxSizeBl;
-  if (hitInfo.overElementVes.get().flags & VisualElementFlags.PopupRoot) {
+  if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
     onePxSizeBl = {
       x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w) / boundsOnTopLevelPagePx.w,
       y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnTopLevelPagePx.h };
@@ -144,7 +144,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
   MouseActionState.set({
-    activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.PopupRoot ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
+    activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
     activeElement: VeFns.veToPath(hitInfo.overElementVes.get()),
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(hitInfo.overContainerVe!) : null,

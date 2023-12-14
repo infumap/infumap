@@ -200,9 +200,9 @@ export const ImageFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    if (visualElement.flags & VisualElementFlags.PopupRoot) {
+    if (visualElement.flags & VisualElementFlags.Popup) {
       window.open('/files/' + visualElement.displayItem.id, '_blank');
-    } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.PopupRoot) {
+    } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
       arrange(store);
     } else {

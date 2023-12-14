@@ -435,10 +435,10 @@ export const PageFns = {
     }
 
     // inside a popup.
-    let insidePopup = parentVe.flags & VisualElementFlags.PopupRoot ? true : false;
+    let insidePopup = parentVe.flags & VisualElementFlags.Popup ? true : false;
     if (isTable(parentVe.displayItem)) {
       const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
-      if (parentParentVe.flags & VisualElementFlags.PopupRoot) { insidePopup = true; }
+      if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
       store.history.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });

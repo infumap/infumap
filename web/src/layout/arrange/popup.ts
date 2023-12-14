@@ -71,7 +71,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
     const itemVisualElement: VisualElementSpec = {
       displayItem: item,
       linkItemMaybe: li,
-      flags: VisualElementFlags.PopupRoot |
+      flags: VisualElementFlags.Popup |
              VisualElementFlags.Detailed |
              (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None),
       boundsPx: geometry.boundsPx,

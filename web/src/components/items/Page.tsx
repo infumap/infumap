@@ -49,7 +49,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       // is never re-mounted. For that reason, initial scroll positions of the top level page
       // are set in the switchToPage method in navigation.ts.
       return;
-    } else if (props.visualElement.flags & VisualElementFlags.PopupRoot) {
+    } else if (props.visualElement.flags & VisualElementFlags.Popup) {
       console.log("A");
       veid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
       div = popupDiv;
@@ -59,7 +59,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
       veid = VeFns.veidFromPath(selectedPath);
       div = rootDiv;
-    } else if (props.visualElement.flags & VisualElementFlags.Root || props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
+    } else if (props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
+               props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
       console.log("B2");
       veid = VeFns.veidFromVe(props.visualElement);
       div = rootDiv;
@@ -702,20 +703,19 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
         {renderAsTrash()}
       </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.PopupRoot}>
+      <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
         {renderAsPopup()}
       </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Root}>
+      <Match when={props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
+                   props.visualElement.flags & VisualElementFlags.ListPageRoot ||
+                   props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot}>
         {renderAsRoot()}
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
-                   (!(props.visualElement.flags & VisualElementFlags.Root) &&
-                    props.visualElement.parentPath != null &&
-                    !(props.visualElement.flags & VisualElementFlags.ShowChildren))}>
+                   !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
         {renderAsOpaque()}
       </Match>
-      <Match when={!(props.visualElement.flags & VisualElementFlags.Root) &&
-                   props.visualElement.flags & VisualElementFlags.Detailed &&
+      <Match when={props.visualElement.flags & VisualElementFlags.Detailed &&
                    props.visualElement.parentPath != null &&
                    props.visualElement.flags & VisualElementFlags.ShowChildren}>
         {renderAsTranslucent()}
