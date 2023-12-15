@@ -20,7 +20,7 @@ export const ROOT_USERNAME = "root";
 
 export const GRID_SIZE = 60;
 
-export const TOP_TOOLBAR_HEIGHT_PX = 80;
+export const TOP_TOOLBAR_HEIGHT_PX = 40;
 
 export const RESIZE_BOX_SIZE_PX = 8;
 

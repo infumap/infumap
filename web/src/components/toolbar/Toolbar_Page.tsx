@@ -250,18 +250,14 @@ export const Toolbar_Page: Component = () => {
   };
 
   return (
-    <div class="inline-block p-[4px] flex-grow-0">
+    <div class="inline-block p-[7px] flex-grow-0">
       <Show when={store.getToolbarFocus().itemId != store.history.currentPage()!.itemId }>
         <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
           {pageItem().title}
         </div>
       </Show>
-      <div class="inline-block w-[70px] border border-slate-400 text-center rounded-md ml-[10px]" style={`font-size: 13px;`}>
-        {arrangeAlgoText()}
-      </div>
-      <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} />
       <div ref={divBeforeColroSelect} class="inline-block ml-[7px]"></div>
-      <div class="inline-block h-[22px] align-middle">
+      <div class="inline-block h-[22px] mt-[3px] align-middle">
         <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
       </div>
       <Show when={showInnerBlockWidthButton()}>
@@ -297,6 +293,10 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
+      <div class="inline-block w-[70px] border border-slate-400 text-center rounded-md ml-[10px]" style={`font-size: 13px;`}>
+        {arrangeAlgoText()}
+      </div>
+      <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} />
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
              style={`font-size: 13px;`}
