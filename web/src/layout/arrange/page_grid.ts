@@ -185,7 +185,7 @@ export function arrange_grid_page(
 
   pageWithChildrenVisualElementSpec.childrenVes = childrenVes;
 
-  if (arrangeFlagIsRoot(flags) && !(flags & ArrangeItemFlags.IsPopupRoot)) {
+  if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
