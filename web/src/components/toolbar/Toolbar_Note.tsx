@@ -99,6 +99,11 @@ export const Toolbar_Note: Component = () => {
     arrange(store);
   };
 
+  const handleQr = () => {
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+  }
+
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
       <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
@@ -127,6 +132,9 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
+      <div class="pl-[4px] inline-block">
+        <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+      </div>
     </div>;
 
   const renderCompositeToolbox = () =>
@@ -154,12 +162,15 @@ export const Toolbar_Note: Component = () => {
             <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
         </Show>
+        <div class="pl-[4px] inline-block">
+          <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+        </div>
       </div>
     </>;
 
   return (
     <>
-      <div class="inline-block p-[4px] flex-grow-0">
+      <div class="inline-block p-[7px] flex-grow-0">
         <Switch>
           <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
           <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>

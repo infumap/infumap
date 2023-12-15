@@ -30,12 +30,9 @@ import { itemState } from "../../store/ItemState";
 import { asPageItem } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors, linearGradient } from "../../style";
-import { Toolbar_Note_Info } from './Toolbar_Note_Info';
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
-import { Toolbar_Page_Info } from './Toolbar_Page_Info';
 import { Toolbar_Table } from './Toolbar_Table';
-import { Toolbar_Table_Info } from './Toolbar_Table_Info';
 
 
 export const Toolbar: Component = () => {
@@ -67,7 +64,7 @@ export const Toolbar: Component = () => {
   const pageColor = () => {
     store.overlay.toolbarOverlayInfoMaybe.get();
     if (currentPageMaybe() == null) { return ''; }
-    return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.95)};`
+    return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
   }
 
   return (
@@ -75,15 +72,15 @@ export const Toolbar: Component = () => {
          style={`left: 0px; ` +
                 `height: ${TOP_TOOLBAR_HEIGHT_PX}px; 0px; `}>
 
-      <div class="fixed left-0 top-0 border-r border-b border-slate-300 overflow-hidden bg-slate-100"
-           style={`width: ${store.dockWidthPx.get()}px; height: ${TOP_TOOLBAR_HEIGHT_PX}px;`}>
+      <div class="fixed left-0 top-0 border-r border-b border-slate-300 overflow-hidden"
+           style={`width: ${store.dockWidthPx.get()}px; height: ${TOP_TOOLBAR_HEIGHT_PX}px; background-color: #f8f8f8;`}>
         <div style={'width: 160px; margin-top: 4px; margin-left: 6px;'}>
           <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
           <Toolbar_Navigation />
         </div>
       </div>
 
-      <div class="fixed right-[10px] top-[0px] rounded-lg" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
+      <div class="fixed right-0 top-0" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
         <div class="flex flex-row flex-nowrap">
           <div class="font-bold p-[4px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
             {title()}
@@ -93,22 +90,19 @@ export const Toolbar: Component = () => {
               <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Note />
-                {/* <Toolbar_Note_Info /> */}
               </Match>
               <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Table />
-                {/* <Toolbar_Table_Info /> */}
               </Match>
               {/* default */}
               <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
                 <div class="inline-block" style="flex-grow: 1"></div>
                 <Toolbar_Page />
-                {/* <Toolbar_Page_Info /> */}
               </Match>
             </Switch>
           </Show>
-          <div class="float-right p-[8px]">
+          <div class="float-right pt-[8px] pb-[8px] pr-[8px]">
             <Show when={!store.user.getUserMaybe()}>
               <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
             </Show>

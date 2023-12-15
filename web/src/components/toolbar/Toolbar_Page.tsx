@@ -242,6 +242,11 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageNumCols });
   };
 
+  const handleQr = () => {
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+  }
+
   const subTitleColor = () => {
     // item state has no solid-js signals.
     // as a bit of a hack, change in title/color is signalled by re-setting this instead.
@@ -293,10 +298,15 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
-      <div class="inline-block w-[70px] border border-slate-400 text-center rounded-md ml-[10px]" style={`font-size: 13px;`}>
-        {arrangeAlgoText()}
+      <div class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px]" style={`font-size: 13px;`}>
+        <div class="inline-block w-[65px] pl-[6px]">
+          {arrangeAlgoText()}
+        </div>
+        <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} />
       </div>
-      <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} />
+      <div class="pl-[4px] inline-block">
+        <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+      </div>
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
              style={`font-size: 13px;`}

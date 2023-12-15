@@ -34,6 +34,8 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
 
+export const HEADER_HEIGHT_BL = 1.0;
+
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 

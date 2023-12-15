@@ -25,6 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { arrange } from "../../layout/arrange";
 import { server } from "../../server";
 import { TableFlags } from "../../items/base/flags-item";
+import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Table: Component = () => {
@@ -70,13 +71,21 @@ export const Toolbar_Table: Component = () => {
     return tableItem().title;
   }
 
+  const handleQr = () => {
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+  }
+
   return (
-    <div class="inline-block p-[4px] flex-grow-0">
+    <div class="inline-block p-[7px] flex-grow-0">
       <div class="font-bold inline-block">
         {tableTitleText()}
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
+      <div class="pl-[4px] inline-block">
+        <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+      </div>
     </div>
   )
 }
