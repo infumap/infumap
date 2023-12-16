@@ -38,7 +38,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const tableItem = () => asTableItem(props.visualElement.displayItem);
   const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
   const boundsPx = () => props.visualElement.boundsPx;
-  const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
+  const viewportBoundsPx = () => props.visualElement.viewportBoundsPx;
   const spatialWidthGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
       return props.visualElement.linkItemMaybe.spatialWidthGr;
@@ -144,14 +144,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
       <TableChildArea visualElement={props.visualElement} />
       <div class="absolute pointer-events-none"
-           style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
-                  `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
+           style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
+                  `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <For each={columnSpecs()}>{spec =>
           <>
             <Show when={!spec.isLast}>
               <div class="absolute bg-slate-700"
-                   style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${childAreaBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+                   style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
             </Show>
             <Show when={showColHeader()}>
               <div class="absolute whitespace-nowrap overflow-hidden"
@@ -203,23 +203,8 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     scrollDoneTimer = null;
   }
 
-  const tableItem = () => asTableItem(props.visualElement.displayItem);
-  const showHeader = () => tableItem().flags & TableFlags.ShowColHeader;
-  const spatialHeightGr = () => {
-    if (props.visualElement.linkItemMaybe != null) {
-      return props.visualElement.linkItemMaybe.spatialHeightGr;
-    }
-    return tableItem().spatialHeightGr;
-  }
-  const blockHeightPx = () => {
-    const heightBr = spatialHeightGr() / GRID_SIZE - TABLE_TITLE_HEADER_HEIGHT_BL - (showHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
-    const heightPx = props.visualElement.childAreaBoundsPx!.h;
-    const bhpx = heightPx / heightBr;
-    return bhpx;
-  }
-  const totalScrollableHeightPx = () =>
-    tableItem().computed_children.length * blockHeightPx();
-  const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx;
+  const blockHeightPx = () => props.visualElement.blockSizePx!.h;
+  const viewportBoundsPx = () => props.visualElement.viewportBoundsPx;
 
   const scrollHandler = (_ev: Event) => {
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
@@ -236,7 +221,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     const visibleChildrenIds = [];
     const yScrollProp = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
     const firstItemIdx = Math.floor(yScrollProp);
-    let lastItemIdx = Math.ceil((yScrollProp * blockHeightPx() + props.visualElement.childAreaBoundsPx!.h) / blockHeightPx());
+    let lastItemIdx = Math.ceil((yScrollProp * blockHeightPx() + props.visualElement.viewportBoundsPx!.h) / blockHeightPx());
     if (lastItemIdx > children.length - 1) { lastItemIdx = children.length - 1; }
     for (let i=firstItemIdx; i<=lastItemIdx; ++i) {
       visibleChildrenIds.push(children[i]);
@@ -265,11 +250,11 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     <div ref={outerDiv}
          id={props.visualElement.displayItem.id}
          class='absolute'
-         style={`left: ${childAreaBoundsPx()!.x}px; top: ${childAreaBoundsPx()!.y}px; ` +
-                `width: ${childAreaBoundsPx()!.w}px; height: ${childAreaBoundsPx()!.h}px; overflow-y: auto;` +
+         style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y}px; ` +
+                `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; overflow-y: auto;` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
                 onscroll={scrollHandler}>
-      <div class='absolute' style={`width: ${childAreaBoundsPx()!.w}px; height: ${totalScrollableHeightPx()}px;`}>
+      <div class='absolute' style={`width: ${viewportBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
         {drawVisibleItems()}
       </div>
     </div>

@@ -16,10 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../components/items/Table";
 import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
-import { TableFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
@@ -27,6 +25,7 @@ import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { TableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -50,6 +49,9 @@ export const arrangeTable = (
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
 
+  const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
+  childAreaBoundsPx.h = displayItem_Table.computed_children.length * tableGeometry.blockSizePx.h;
+
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
     linkItemMaybe: linkItemMaybe_Table,
@@ -57,7 +59,8 @@ export const arrangeTable = (
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     boundsPx: tableGeometry.boundsPx,
-    childAreaBoundsPx: tableGeometry.viewportBoundsPx!,
+    viewportBoundsPx: tableGeometry.viewportBoundsPx!,
+    childAreaBoundsPx,
     hitboxes: tableGeometry.hitboxes,
     blockSizePx,
     parentPath,
