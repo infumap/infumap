@@ -65,10 +65,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!div) { return; }
 
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
-    const scrollXPx = scrollXProp * (childAreaBoundsPx().w - boundsPx().w);
+    const scrollXPx = scrollXProp * (childAreaBoundsPx().w - viewportBoundsPx().w);
 
     const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * (childAreaBoundsPx().h - boundsPx().h);
+    const scrollYPx = scrollYProp * (childAreaBoundsPx().h - viewportBoundsPx().h);
 
     div.scrollTop = scrollYPx;
     div.scrollLeft = scrollXPx;
@@ -81,12 +81,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return asPageItem(itemState.get(parentVe.displayItem.id)!);
   };
   const boundsPx = () => props.visualElement.boundsPx;
+  const blockSizePx = () => props.visualElement.blockSizePx!;
+  const scale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
+  const viewportBoundsPx = () => props.visualElement.viewportBoundsPx!;
   const innerBoundsPx = () => {
     let r = zeroBoundingBoxTopLeft(props.visualElement.boundsPx);
     r.w = r.w - 2;
     r.h = r.h - 2;
     return r;
-  }
+  };
   const childAreaBoundsPx = () => props.visualElement.childAreaBoundsPx!;
   const clickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.Click || hb.type == HitboxFlags.OpenAttachment)!.boundsPx;
   const popupClickBoundsPx = (): BoundingBox | null => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup)!.boundsPx;
@@ -405,10 +408,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (popupDiv && store.history.currentPopupSpec()) {
       popupDiv.scrollTop =
         store.perItem.getPageScrollYProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
-        (childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+        (childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
       popupDiv.scrollLeft =
         store.perItem.getPageScrollXProp(VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath)) *
-        (childAreaBoundsPx().w - props.visualElement.boundsPx.w);
+        (childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
     }
 
     setTimeout(() => {
@@ -428,12 +431,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (!popupDiv) { return; }
       if (updatingPopupScrollTop) { return; }
 
-      const pageBoundsPx = props.visualElement.boundsPx;
+      const viewportBoundsPx = props.visualElement.viewportBoundsPx!;
       const childAreaBoundsPx_ = childAreaBoundsPx();
       const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
 
-      if (childAreaBoundsPx_.h > pageBoundsPx.h) {
-        const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - pageBoundsPx.h);
+      if (childAreaBoundsPx_.h > viewportBoundsPx.h) {
+        const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - viewportBoundsPx.h);
         store.perItem.setPageScrollYProp(popupVeid, scrollYProp);
       }
     };
@@ -445,6 +448,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
                   `background-color: #303030d0;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
+      </div>;
+
+    const renderPopupTitle = () =>
+      <div class={`absolute`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        {pageItem().title}
       </div>;
 
     const renderListPage = () =>
@@ -476,9 +485,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderPage = () =>
       <div ref={popupDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-2 rounded-sm`}
-           style={`left: ${boundsPx().x}px; ` +
-                  `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
-                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${viewportBoundsPx().x}px; ` +
+                  `top: ${viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
                   `background-color: #ffffff; border-color: ${borderColorVal()}; ` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                   `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
@@ -522,6 +531,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Match>
         </Switch>
         {renderAnchorMaybe()}
+        {renderPopupTitle()}
       </>
     );
   }
@@ -538,19 +548,30 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderEmbededInteractiveBackgroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full h-full" style={`border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; `} />
+        <div class="absolute w-full h-full"
+             style={`border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; ` +
+                    `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; ` +
+                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;`} />
       </Show>;
 
     const renderEmbededInteractiveForegroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full h-full pointer-events-none" style={`z-index: ${Z_INDEX_ITEMS}; border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]};`} />
+        <div class="absolute w-full h-full pointer-events-none"
+             style={`z-index: ${Z_INDEX_ITEMS}; border-width: 1px; ` +
+                    `border-color: ${Colors[pageItem().backgroundColorIndex]}; ` +
+                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;`} />
       </Show>;
 
     const renderEmbededInteractiveTitleMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
         <div class={`absolute`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-          {pageItem().title}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px;`}>
+          <div class="absolute font-bold"
+               style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale()}px; ` +
+                      `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                      `overflow-wrap: break-word;`}>
+            {pageItem().title}
+          </div>
         </div>
       </Show>;
 
@@ -618,10 +639,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`left: 0px; ` +
-                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
-                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                  `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
+                  `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
+                  `overflow-y: ${viewportBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${viewportBoundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={rootScrollHandler}>
         <div class="absolute"

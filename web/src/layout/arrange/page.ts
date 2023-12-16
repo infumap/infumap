@@ -67,10 +67,8 @@ export const arrangePageWithChildren = (
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const outerBoundsPx = geometry.boundsPx;
-
   if (!(arrangeFlagIsRoot(flags))) {
-    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, outerBoundsPx, pageWithChildrenVePath);
+    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, geometry.viewportBoundsPx!, pageWithChildrenVePath);
     pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
   }
 

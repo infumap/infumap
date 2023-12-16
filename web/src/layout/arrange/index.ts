@@ -81,7 +81,7 @@ export const arrange = (store: StoreContextModel): void => {
   const itemGeometry: ItemGeometry = {
     boundsPx: store.desktopMainAreaBoundsPx(),
     blockSizePx: NATURAL_BLOCK_SIZE_PX,
-    viewportBoundsPx: null,
+    viewportBoundsPx: store.desktopMainAreaBoundsPx(),
     hitboxes: []
   };
 

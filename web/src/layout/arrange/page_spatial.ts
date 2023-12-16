@@ -50,15 +50,14 @@ export function arrange_spatial_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
   const childAreaBoundsPx = (() => {
-    const aspect = outerBoundsPx.w / outerBoundsPx.h;
+    const aspect = geometry.viewportBoundsPx!.w / geometry.viewportBoundsPx!.h;
     const pageAspect = displayItem_pageWithChildren.naturalAspect;
-    let result = cloneBoundingBox(outerBoundsPx)!;
+    let result = cloneBoundingBox(geometry.viewportBoundsPx)!;
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / aspect > 1.3) {
       // page to scroll horizontally.
@@ -83,7 +82,8 @@ export function arrange_spatial_page(
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
-    boundsPx: outerBoundsPx,
+    boundsPx: geometry.boundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx,
     hitboxes,
     parentPath,
