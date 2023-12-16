@@ -99,6 +99,8 @@ export const PlaceholderFns = {
     };
     return {
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: []
     };
   },

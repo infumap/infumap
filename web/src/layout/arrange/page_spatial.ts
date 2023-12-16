@@ -55,9 +55,9 @@ export function arrange_spatial_page(
 
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
-  const aspect = outerBoundsPx.w / outerBoundsPx.h;
-  const pageAspect = displayItem_pageWithChildren.naturalAspect;
-  const pageBoundsPx = (() => {
+  const childAreaBoundsPx = (() => {
+    const aspect = outerBoundsPx.w / outerBoundsPx.h;
+    const pageAspect = displayItem_pageWithChildren.naturalAspect;
     let result = cloneBoundingBox(outerBoundsPx)!;
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / aspect > 1.3) {
@@ -84,7 +84,7 @@ export function arrange_spatial_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
-    childAreaBoundsPx: pageBoundsPx,
+    childAreaBoundsPx,
     hitboxes,
     parentPath,
   };

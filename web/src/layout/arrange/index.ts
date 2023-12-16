@@ -26,6 +26,8 @@ import { VesCache } from "../ves-cache";
 import { VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
+import { ItemGeometry } from "../item-geometry";
+import { NATURAL_BLOCK_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 
 
 /**
@@ -76,8 +78,10 @@ export const arrange = (store: StoreContextModel): void => {
   }
 
   const childrenVes = [];
-  const itemGeometry = {
+  const itemGeometry: ItemGeometry = {
     boundsPx: store.desktopMainAreaBoundsPx(),
+    blockSizePx: NATURAL_BLOCK_SIZE_PX,
+    viewportBoundsPx: null,
     hitboxes: []
   };
 

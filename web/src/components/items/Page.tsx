@@ -546,6 +546,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="absolute w-full h-full pointer-events-none" style={`z-index: ${Z_INDEX_ITEMS}; border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]};`} />
       </Show>;
 
+    const renderEmbededInteractiveTitleMaybe = () =>
+      <Show when={isEmbeddedInteractive()}>
+        <div class={`absolute`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+          {pageItem().title}
+        </div>
+      </Show>;
+
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`width: ${boundsPx().w}px; ` +
@@ -655,6 +663,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           {renderEmbededInteractiveForegroundMaybe()}
           {renderIsPublicBorder()}
         </div>
+        {renderEmbededInteractiveTitleMaybe()}
       </>
     );
   }

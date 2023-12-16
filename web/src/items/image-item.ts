@@ -110,15 +110,22 @@ export const ImageFns = {
   },
 
   calcGeometry_Spatial: (image: ImageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+    const sizeBl = ImageFns.calcSpatialDimensionsBl(image);
+    const blockSizePx = {
+      w: containerBoundsPx.w / containerInnerSizeBl.w,
+      h: containerBoundsPx.h / containerInnerSizeBl.h
+    };
     const boundsPx = {
-      x: (image.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-      y: (image.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-      w: ImageFns.calcSpatialDimensionsBl(image).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-      h: ImageFns.calcSpatialDimensionsBl(image).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+      x: (image.spatialPositionGr.x / GRID_SIZE) + containerBoundsPx.x,
+      y: (image.spatialPositionGr.y / GRID_SIZE) + containerBoundsPx.y,
+      w: sizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
+      h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: !emitHitboxes ? [] : [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
@@ -147,6 +154,8 @@ export const ImageFns = {
     };
     return {
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
@@ -179,6 +188,8 @@ export const ImageFns = {
     };
     return {
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
@@ -187,10 +198,17 @@ export const ImageFns = {
   },
 
   calcGeometry_InCell: (image: ImageMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
+    const sizeBl = ImageFns.calcSpatialDimensionsBl(image); // TODO (MEDIUM): inappropriate quantization.
     const boundsPx = calcBoundsInCell(image.imageSizePx, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const blockSizePx = {
+      w: boundsPx.w / sizeBl.w,
+      h: boundsPx.h / sizeBl.h,
+    };
     return ({
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),

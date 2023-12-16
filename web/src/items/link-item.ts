@@ -140,17 +140,24 @@ export const LinkFns = {
     return ItemFns.calcSpatialDimensionsBl(measurableMaybe!);
   },
 
-  calcGeometry_Spatial: (link: LinkItem, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
-    function noLinkTo() {
+  calcGeometry_Spatial: (link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+    function noLinkTo(): ItemGeometry {
+      const sizeBl = LinkFns.calcSpatialDimensionsBl(link);
+      const blockSizePx = {
+        w: containerBoundsPx.w / containerInnerSizeBl.w,
+        h: containerBoundsPx.h / containerInnerSizeBl.h
+      };
       const boundsPx = {
-        x: (link.spatialPositionGr.x / (parentInnerSizeBl.w * GRID_SIZE)) * parentBoundsPx.w + parentBoundsPx.x,
-        y: (link.spatialPositionGr.y / (parentInnerSizeBl.h * GRID_SIZE)) * parentBoundsPx.h + parentBoundsPx.y,
-        w: LinkFns.calcSpatialDimensionsBl(link).w / parentInnerSizeBl.w * parentBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-        h: LinkFns.calcSpatialDimensionsBl(link).h / parentInnerSizeBl.h * parentBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+        x: (link.spatialPositionGr.x / GRID_SIZE) * blockSizePx.w + containerBoundsPx.x,
+        y: (link.spatialPositionGr.y / GRID_SIZE) * blockSizePx.h + containerBoundsPx.y,
+        w: sizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
+        h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
       };
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
       return {
         boundsPx,
+        blockSizePx,
+        viewportBoundsPx: null,
         hitboxes: !emitHitboxes ? [] : [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
@@ -161,11 +168,11 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_Spatial(measurableMaybe, parentBoundsPx, parentInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
+    return ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
   },
 
   calcGeometry_InComposite: (link: LinkItem, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
-    function noLinkTo() {
+    function noLinkTo(): ItemGeometry {
       const boundsPx = {
         x: leftMarginBl * blockSizePx.w,
         y: topPx,
@@ -186,6 +193,8 @@ export const LinkFns = {
       };
       return {
         boundsPx,
+        blockSizePx,
+        viewportBoundsPx: null,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
         ]
@@ -210,7 +219,7 @@ export const LinkFns = {
   },
 
   calcGeometry_ListItem: (link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean): ItemGeometry => {
-    function noLinkTo() {
+    function noLinkTo(): ItemGeometry {
       const boundsPx = {
         x: blockSizePx.w * col,
         y: blockSizePx.h * row,
@@ -219,6 +228,8 @@ export const LinkFns = {
       };
       return {
         boundsPx,
+        blockSizePx,
+        viewportBoundsPx: null,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx))
         ]
@@ -232,15 +243,23 @@ export const LinkFns = {
   },
 
   calcGeometry_InCell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean): ItemGeometry => {
-    function noLinkTo() {
+    const sizeBl = LinkFns.calcSpatialDimensionsBl(link);
+    const boundsPx = cloneBoundingBox(cellBoundsPx)!;
+    const blockSizePx = {
+      w: boundsPx.w / sizeBl.w,
+      h: boundsPx.h / sizeBl.h,
+    };
+    function noLinkTo(): ItemGeometry {
       return ({
         boundsPx: cloneBoundingBox(cellBoundsPx)!,
+        blockSizePx,
+        viewportBoundsPx: null,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Click, zeroBoundingBoxTopLeft(cellBoundsPx))
         ]
       });
     }
-  
+
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }

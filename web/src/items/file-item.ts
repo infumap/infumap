@@ -93,15 +93,22 @@ export const FileFns = {
   },
 
   calcGeometry_Spatial: (file: FileMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+    const sizeBl = FileFns.calcSpatialDimensionsBl(file);
+    const blockSizePx = {
+      w: containerBoundsPx.w / containerInnerSizeBl.w,
+      h: containerBoundsPx.h / containerInnerSizeBl.h
+    };
     const boundsPx = {
-      x: (file.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-      y: (file.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-      w: FileFns.calcSpatialDimensionsBl(file).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-      h: FileFns.calcSpatialDimensionsBl(file).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+      x: (file.spatialPositionGr.x / GRID_SIZE) * blockSizePx.w + containerBoundsPx.x,
+      y: (file.spatialPositionGr.y / GRID_SIZE) * blockSizePx.h + containerBoundsPx.y,
+      w: sizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
+      h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
       boundsPx,
+      viewportBoundsPx: null,
+      blockSizePx,
       hitboxes: !emitHitboxes ? [] : [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
@@ -114,12 +121,12 @@ export const FileFns = {
   calcGeometry_InComposite: (measurable: FileMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(measurable));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
-    const sizePx = FileFns.calcSpatialDimensionsBl(cloned);
+    const sizeBl = FileFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: compositeWidthBl * blockSizePx.w,
-      h: sizePx.h * blockSizePx.h
+      h: sizeBl.h * blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     let moveWidthPx = 10;
@@ -135,6 +142,8 @@ export const FileFns = {
     };
     return {
       boundsPx,
+      viewportBoundsPx: null,
+      blockSizePx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
@@ -167,6 +176,8 @@ export const FileFns = {
     };
     return {
       boundsPx,
+      viewportBoundsPx: null,
+      blockSizePx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
@@ -177,9 +188,15 @@ export const FileFns = {
   calcGeometry_InCell: (file: FileMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
     const sizeBl = FileFns.calcSpatialDimensionsBl(file);
     const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
+    const blockSizePx = {
+      w: boundsPx.w / sizeBl.w,
+      h: boundsPx.h / sizeBl.h,
+    };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return ({
       boundsPx: cloneBoundingBox(boundsPx)!,
+      viewportBoundsPx: null,
+      blockSizePx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx)

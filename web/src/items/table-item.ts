@@ -33,7 +33,7 @@ import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { COL_HEADER_HEIGHT_BL, HEADER_HEIGHT_BL } from "../components/items/Table";
+import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
 import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -148,71 +148,22 @@ export const TableFns = {
   },
 
   calcGeometry_Spatial: (table: TableMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+    const blockSizePx = {
+      w: containerBoundsPx.w / containerInnerSizeBl.w,
+      h: containerBoundsPx.h / containerInnerSizeBl.h
+    };
     const tableSizeBl: Dimensions = TableFns.calcSpatialDimensionsBl(table);
     const boundsPx: BoundingBox = {
-      x: (table.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-      y: (table.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-      w: tableSizeBl.w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-      h: tableSizeBl.h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+      x: (table.spatialPositionGr.x / GRID_SIZE) * blockSizePx.w + containerBoundsPx.x,
+      y: (table.spatialPositionGr.y / GRID_SIZE) * blockSizePx.h + containerBoundsPx.y,
+      w: tableSizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
+      h: tableSizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    const blockSizePx: Dimensions = {
-      w: innerBoundsPx.w / tableSizeBl.w,
-      h: innerBoundsPx.h / tableSizeBl.h
-    };
-    const titleBoundsPx = {
-      x: 0, y: 0,
-      w: innerBoundsPx.w,
-      h: blockSizePx.h,
-    };
-    let accumBl = 0;
-    let colResizeHitboxes = [];
-    let colClickHitboxes = [];
-    for (let i=0; i<table.tableColumns.length; ++i) {
-      const startBl = accumBl;
-      const startXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
-      accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
-      let endXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
-      let endBl = accumBl;
-      if (endXPx > innerBoundsPx.w) {
-        endXPx = innerBoundsPx.w;
-        endBl = table.spatialWidthGr / GRID_SIZE;
-      }
-      if (i == table.tableColumns.length-1) {
-        endXPx = innerBoundsPx.w;
-        endBl = endBl = table.spatialWidthGr / GRID_SIZE;
-      }
-      if (accumBl < table.spatialWidthGr / GRID_SIZE && i < table.tableColumns.length-1) {
-        colResizeHitboxes.push(HitboxFns.create(
-          HitboxFlags.HorizontalResize,
-          { x: endXPx, y: blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: containerBoundsPx.h - blockSizePx.h },
-          HitboxFns.createMeta({ colNum: i })
-        ));
-      }
-      if (table.flags & TableFlags.ShowColHeader) {
-        colClickHitboxes.push(HitboxFns.create(
-          HitboxFlags.Click,
-          { x: startXPx, y: blockSizePx.h, w: endXPx - startXPx, h: blockSizePx.h },
-          HitboxFns.createMeta({ colNum: i, startBl, endBl })
-        ));
-      }
-      if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
-    }
-    return {
-      boundsPx,
-      hitboxes: !emitHitboxes ? [] : [
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-        ...colResizeHitboxes,
-        ...colClickHitboxes,
-        HitboxFns.create(HitboxFlags.Click, titleBoundsPx),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ],
-    };
+    return calcTableGeometryImpl(table, boundsPx, blockSizePx, emitHitboxes);
   },
 
-  calcGeometry_InComposite: (measurable: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
-    let cloned = TableFns.asTableMeasurable(ItemFns.cloneMeasurableFields(measurable));
+  calcGeometry_InComposite: (table: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
+    let cloned = TableFns.asTableMeasurable(ItemFns.cloneMeasurableFields(table));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
     const sizeBl = TableFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
@@ -221,6 +172,7 @@ export const TableFns = {
       w: compositeWidthBl * blockSizePx.w,
       h: sizeBl.h * blockSizePx.h
     };
+    const result = calcTableGeometryImpl(table, boundsPx, blockSizePx, true);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
@@ -228,20 +180,17 @@ export const TableFns = {
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
     };
-    return {
-      boundsPx,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
-        HitboxFns.create(HitboxFlags.AttachComposite, {
-          x: innerBoundsPx.w / 4,
-          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
-          w: innerBoundsPx.w / 2,
-          h: ATTACH_AREA_SIZE_PX,
-        }),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ]
-    };
+    const resizeHb = result.hitboxes.pop()!;
+    result.hitboxes.push(HitboxFns.create(HitboxFlags.Move, moveBoundsPx));
+    result.hitboxes.push(
+      HitboxFns.create(HitboxFlags.AttachComposite, {
+        x: innerBoundsPx.w / 4,
+        y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+        w: innerBoundsPx.w / 2,
+        h: ATTACH_AREA_SIZE_PX,
+      }));
+    result.hitboxes.push(resizeHb); // expected to be last.
+    return result;
   },
 
   calcGeometry_Attachment: (table: TableMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {
@@ -263,6 +212,8 @@ export const TableFns = {
     };
     return {
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
@@ -271,17 +222,13 @@ export const TableFns = {
   },
 
   calcGeometry_InCell: (table: TableMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
-    const sizeBl =TableFns.calcSpatialDimensionsBl(table);
+    const sizeBl = TableFns.calcSpatialDimensionsBl(table);
     const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    return {
-      boundsPx: cloneBoundingBox(boundsPx)!,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
-      ]
+    const blockSizePx = {
+      w: boundsPx.w / sizeBl.w,
+      h: boundsPx.h / sizeBl.h,
     };
+    return calcTableGeometryImpl(table, boundsPx, blockSizePx, true);
   },
 
   asTableMeasurable: (item: ItemTypeMixin): TableMeasurable => {
@@ -362,7 +309,7 @@ export const TableFns = {
     const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
     const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
     const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-    let insertRow = rawTableRowNumber + yScrollPos - HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? COL_HEADER_HEIGHT_BL : 0);
+    let insertRow = rawTableRowNumber + yScrollPos - TABLE_TITLE_HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0);
     if (insertRow < yScrollPos) { insertRow = yScrollPos; }
     insertRow -= insertRow > tableItem.computed_children.length
       ? insertRow - tableItem.computed_children.length
@@ -411,4 +358,63 @@ export function asTableItem(item: ItemTypeMixin): TableItem {
   const item_any: any = item;
   const id = item_any["id"] ? item_any["id"] : "[unknown]";
   panic(`item (id: ${id}) is a '${item.itemType}', not a table.`);
+}
+
+
+function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, blockSizePx: Dimensions, emitHitboxes: boolean): ItemGeometry {
+  const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  const titleBoundsPx = {
+    x: 0, y: 0,
+    w: innerBoundsPx.w,
+    h: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h,
+  };
+  let accumBl = 0;
+  let colResizeHitboxes = [];
+  let colClickHitboxes = [];
+  for (let i=0; i<table.tableColumns.length; ++i) {
+    const startBl = accumBl;
+    const startXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
+    accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
+    let endXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
+    let endBl = accumBl;
+    if (endXPx > innerBoundsPx.w) {
+      endXPx = innerBoundsPx.w;
+      endBl = table.spatialWidthGr / GRID_SIZE;
+    }
+    if (i == table.tableColumns.length-1) {
+      endXPx = innerBoundsPx.w;
+      endBl = endBl = table.spatialWidthGr / GRID_SIZE;
+    }
+    if (accumBl < table.spatialWidthGr / GRID_SIZE && i < table.tableColumns.length-1) {
+      colResizeHitboxes.push(HitboxFns.create(
+        HitboxFlags.HorizontalResize,
+        { x: endXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: boundsPx.h - TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h },
+        HitboxFns.createMeta({ colNum: i })
+      ));
+    }
+    if (table.flags & TableFlags.ShowColHeader) {
+      colClickHitboxes.push(HitboxFns.create(
+        HitboxFlags.Click,
+        { x: startXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: endXPx - startXPx, h: TABLE_COL_HEADER_HEIGHT_BL * blockSizePx.h },
+        HitboxFns.createMeta({ colNum: i, startBl, endBl })
+      ));
+    }
+    if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
+  }
+  const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
+  viewportBoundsPx.h -= (TABLE_COL_HEADER_HEIGHT_BL + TABLE_TITLE_HEADER_HEIGHT_BL) * blockSizePx.h;
+  viewportBoundsPx.y += (TABLE_COL_HEADER_HEIGHT_BL + TABLE_TITLE_HEADER_HEIGHT_BL) * blockSizePx.h;
+  return {
+    boundsPx,
+    blockSizePx,
+    viewportBoundsPx,
+    hitboxes: !emitHitboxes ? [] : [
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+      ...colResizeHitboxes,
+      ...colClickHitboxes,
+      HitboxFns.create(HitboxFlags.Click, titleBoundsPx),
+      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
+    ],
+  };
 }

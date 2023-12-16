@@ -59,6 +59,8 @@ export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx
   };
   return {
     boundsPx,
+    blockSizePx,
+    viewportBoundsPx: null,
     hitboxes: [
       HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx)

@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
-import { BoundingBox, cloneBoundingBox, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
+import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, TOP_LEVEL_PAGE_UID, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
@@ -243,20 +243,29 @@ export const PageFns = {
   calcGeometry_Spatial: (
       page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
       parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
-    const boundsPx = {
-      x: (page.spatialPositionGr.x / (containerInnerSizeBl.w * GRID_SIZE)) * containerBoundsPx.w + containerBoundsPx.x,
-      y: (page.spatialPositionGr.y / (containerInnerSizeBl.h * GRID_SIZE)) * containerBoundsPx.h + containerBoundsPx.y,
-      w: PageFns.calcSpatialDimensionsBl(page).w / containerInnerSizeBl.w * containerBoundsPx.w + ITEM_BORDER_WIDTH_PX,
-      h: PageFns.calcSpatialDimensionsBl(page).h / containerInnerSizeBl.h * containerBoundsPx.h + ITEM_BORDER_WIDTH_PX,
+
+    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
+    const blockSizePx = {
+      w: containerBoundsPx.w / containerInnerSizeBl.w,
+      h: containerBoundsPx.h / containerInnerSizeBl.h
     };
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    const popupClickBoundsPx = parentIsPopup
-      ? cloneBoundingBox(innerBoundsPx)!
-      : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
-          w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+    const boundsPx = {
+      x: (page.spatialPositionGr.x / GRID_SIZE) * blockSizePx.w + containerBoundsPx.x,
+      y: (page.spatialPositionGr.y / GRID_SIZE) * blockSizePx.h + containerBoundsPx.y,
+      w: sizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
+      h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
+    };
+
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
+      const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+      const popupClickBoundsPx = parentIsPopup
+        ? cloneBoundingBox(innerBoundsPx)!
+        : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+            w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
       return ({
         boundsPx,
+        blockSizePx,
+        viewportBoundsPx: boundsPx,
         hitboxes: !emitHitboxes ? [] : [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
@@ -267,9 +276,16 @@ export const PageFns = {
       });
     }
 
+    let headerHeightBl = isPopup ? 2 : 1;
+    let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
+    boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
+    viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
+
+    const innerBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
+
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX + blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
@@ -281,6 +297,8 @@ export const PageFns = {
 
     return ({
       boundsPx,
+      viewportBoundsPx,
+      blockSizePx,
       hitboxes: !emitHitboxes ? [] : hitboxes,
     });
   },
@@ -298,20 +316,39 @@ export const PageFns = {
           HitboxFns.create(HitboxFlags.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
           HitboxFns.create(HitboxFlags.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
         ];
-        return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
+        return ({
+          boundsPx: cloneBoundingBox(boundsPx)!,
+          blockSizePx: NATURAL_BLOCK_SIZE_PX,
+          viewportBoundsPx: boundsPx,
+          hitboxes
+        });
       }
 
       const popupClickBoundsPx = parentIsPopup
         ? cloneBoundingBox(innerBoundsPx)!
         : { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
             w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
+
       const hitboxes = [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
       ];
-      return ({ boundsPx: cloneBoundingBox(boundsPx)!, hitboxes });
+
+      return ({
+        boundsPx: cloneBoundingBox(boundsPx)!,
+        viewportBoundsPx: cloneBoundingBox(boundsPx)!,
+        blockSizePx: NATURAL_BLOCK_SIZE_PX,
+        hitboxes,
+      });
     }
+
+    // TODO (HIGH): this is not what is needed, but will do as a placeholder for now.
+    let blockSizePx = cloneDimensions(NATURAL_BLOCK_SIZE_PX)!;
+    let headerHeightBl = isPopup ? 2 : 1;
+    let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
+    boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
+    viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
 
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
@@ -327,6 +364,8 @@ export const PageFns = {
 
     return ({
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx,
       hitboxes,
     });
   },
@@ -350,6 +389,8 @@ export const PageFns = {
     };
     return {
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: boundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
@@ -391,25 +432,13 @@ export const PageFns = {
       : { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     return ({
       boundsPx,
+      blockSizePx,
+      viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
       ]
-    });
-  },
-
-  calcGeometry_ListPageTitle: (_page: PageItem, blockSizePx: Dimensions, widthBl: number): ItemGeometry => {
-    const innerBoundsPx = {
-      x: 0.0,
-      y: 0.0,
-      w: blockSizePx.w * widthBl,
-      h: blockSizePx.h
-    };
-    const boundsPx = innerBoundsPx;
-    return ({
-      boundsPx,
-      hitboxes: []
     });
   },
 

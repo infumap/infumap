@@ -29,8 +29,8 @@ import { TableFlags } from "../../items/base/flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
-export const HEADER_HEIGHT_BL = 1.0;
-export const COL_HEADER_HEIGHT_BL = 1.0;
+export const TABLE_TITLE_HEADER_HEIGHT_BL = 1;
+export const TABLE_COL_HEADER_HEIGHT_BL = 1;
 
 export const Table_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -55,12 +55,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const sizeBl = { w: spatialWidthGr() / GRID_SIZE, h: spatialHeightGr() / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
   }
-  const headerHeightPx = () => blockSizePx().h * HEADER_HEIGHT_BL;
+  const headerHeightPx = () => blockSizePx().h * TABLE_TITLE_HEADER_HEIGHT_BL;
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + HEADER_HEIGHT_BL + (showColHeader() ? COL_HEADER_HEIGHT_BL : 0);
+    const rowNumber = props.visualElement.moveOverRowNumber.get() - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + TABLE_TITLE_HEADER_HEIGHT_BL + (showColHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
@@ -120,7 +120,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute font-bold"
              style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                    `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word;`}>
           {tableItem().title}
         </div>
@@ -156,7 +156,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             <Show when={showColHeader()}>
               <div class="absolute whitespace-nowrap overflow-hidden"
                    style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                          `line-height: ${LINE_HEIGHT_PX * HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
+                          `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
                 {spec.name}
               </div>
             </Show>
@@ -212,7 +212,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     return tableItem().spatialHeightGr;
   }
   const blockHeightPx = () => {
-    const heightBr = spatialHeightGr() / GRID_SIZE - HEADER_HEIGHT_BL - (showHeader() ? COL_HEADER_HEIGHT_BL : 0);
+    const heightBr = spatialHeightGr() / GRID_SIZE - TABLE_TITLE_HEADER_HEIGHT_BL - (showHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
     const heightPx = props.visualElement.childAreaBoundsPx!.h;
     const bhpx = heightPx / heightBr;
     return bhpx;

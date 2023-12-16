@@ -21,7 +21,7 @@ import { createContext, useContext } from "solid-js";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions } from "../util/geometry";
-import { BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
+import { NATURAL_BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { NONE_VISUAL_ELEMENT, VisualElement, Veid, VeFns } from "../layout/visual-element";
 import { createInfuSignal, InfuSignal } from "../util/signals";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
@@ -74,7 +74,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
-  const dockWidthPx = createInfuSignal<number>(INITIAL_DOCK_WIDTH_BL * BLOCK_SIZE_PX.w);
+  const dockWidthPx = createInfuSignal<number>(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
@@ -110,7 +110,7 @@ export function StoreProvider(props: StoreContextProps) {
     history.clear();
     overlay.clear();
     perItem.clear();
-    dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * BLOCK_SIZE_PX.w);
+    dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
   };
 
   const getToolbarFocus = (): Veid => {

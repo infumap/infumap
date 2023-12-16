@@ -16,21 +16,29 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox } from "../util/geometry";
+import { BoundingBox, Dimensions } from "../util/geometry";
 import { Hitbox } from "./hitbox";
 
 
 /**
- * Specifies the basic geometry of an item.
- *
- * Used to generate visual elements.
+ * Specifies the geometry of an item.
  */
 export interface ItemGeometry {
 
   /**
-   * The pixel bounds of the item, relative to the container that contains it.
+   * The complete bounds of the visual element, relative to the containing visual element's childAreaBoundsPx.
    */
   boundsPx: BoundingBox,
+
+  /**
+   * The (outer) bounds of the part of the visual element that contains child visual elements.
+   */
+  viewportBoundsPx: BoundingBox | null,
+
+  /**
+   * Size of a 1x1 bl block in pixels. Not set in all cases.
+   */
+  blockSizePx: Dimensions,
 
   /**
    * Hitboxes.

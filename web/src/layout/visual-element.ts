@@ -116,13 +116,18 @@ export interface VisualElement {
   resizingFromBoundsPx: BoundingBox | null,
 
   /**
-   * The bounds of the visual element, relative to the containing visual element's childAreaBoundsPx.
+   * The complete bounds of the visual element, relative to the containing visual element's childAreaBoundsPx.
    */
   boundsPx: BoundingBox,
 
   /**
-   * The bounds of the part of the visual element that contains child visual elements.
-   * This may be larger than boundsPx, if the area scrolls.
+   * The (outer) bounds of the part of the visual element that contains child visual elements.
+   */
+  viewportBoundsPx: BoundingBox | null,
+
+  /**
+   * The (inner) bounds of the part of the visual element that contains child visual elements.
+   * This may be larger than viewportBoundsPx, if the area scrolls.
    */
   childAreaBoundsPx: BoundingBox | null,
 
@@ -174,6 +179,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
+  viewportBoundsPx: null,
   blockSizePx: null,
   col: null,
   row: null,
@@ -211,6 +217,7 @@ export interface VisualElementSpec {
   flags?: VisualElementFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
+  viewportBoundsPx?: BoundingBox,
   blockSizePx?: Dimensions,
   col?: number,
   row?: number,
@@ -237,6 +244,7 @@ export const VeFns = {
       resizingFromBoundsPx: null,
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
+      viewportBoundsPx: null,
       blockSizePx: null,
       col: null,
       row: null,
@@ -268,6 +276,7 @@ export const VeFns = {
     if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+    if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
     if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }
