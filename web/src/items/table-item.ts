@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
@@ -33,7 +33,6 @@ import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../components/items/Table";
 import { itemState } from "../store/ItemState";
 import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -368,6 +367,7 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
     w: innerBoundsPx.w,
     h: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h,
   };
+  const colHeaderHeightPxOrZero = table.flags & TableFlags.ShowColHeader ? TABLE_COL_HEADER_HEIGHT_BL * blockSizePx.h : 0;
   let accumBl = 0;
   let colResizeHitboxes = [];
   let colClickHitboxes = [];
@@ -395,15 +395,15 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
     if (table.flags & TableFlags.ShowColHeader) {
       colClickHitboxes.push(HitboxFns.create(
         HitboxFlags.Click,
-        { x: startXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: endXPx - startXPx, h: TABLE_COL_HEADER_HEIGHT_BL * blockSizePx.h },
+        { x: startXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: endXPx - startXPx, h: colHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i, startBl, endBl })
       ));
     }
     if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
   }
   const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
-  viewportBoundsPx.h -= (TABLE_COL_HEADER_HEIGHT_BL + TABLE_TITLE_HEADER_HEIGHT_BL) * blockSizePx.h;
-  viewportBoundsPx.y += (TABLE_COL_HEADER_HEIGHT_BL + TABLE_TITLE_HEADER_HEIGHT_BL) * blockSizePx.h;
+  viewportBoundsPx.h -= TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h + colHeaderHeightPxOrZero;
+  viewportBoundsPx.y += TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h + colHeaderHeightPxOrZero;
   return {
     boundsPx,
     blockSizePx,

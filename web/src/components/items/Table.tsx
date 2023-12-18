@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, onMount, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VisualElementSignal } from "../../util/signals";
@@ -28,9 +28,6 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
-
-export const TABLE_TITLE_HEADER_HEIGHT_BL = 1;
-export const TABLE_COL_HEADER_HEIGHT_BL = 1;
 
 export const Table_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
