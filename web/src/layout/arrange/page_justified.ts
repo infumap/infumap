@@ -102,6 +102,7 @@ export function arrange_justified_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes,
     parentPath,
   };

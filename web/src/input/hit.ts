@@ -71,7 +71,7 @@ export function getHitInfo(
   let {
     rootVisualElementSignal,
     rootVisualElement,
-    posRelativeToRootVisualElementPx,
+    posRelativeToRootVisualElementViewportPx,
     hitMaybe
   } = determineRootLevel2(store, level1RootInfo, canHitEmbeddedInteractive);
   if (hitMaybe) {
@@ -79,16 +79,6 @@ export function getHitInfo(
       return hitMaybe!;
     }
   } // if a root hitbox was hit.
-
-  let hitboxType = HitboxFlags.None;
-  for (let i=0; i<rootVisualElement.hitboxes.length; ++i) {
-    if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[i].boundsPx)) {
-      hitboxType |= rootVisualElement.hitboxes[i].type;
-    }
-  }
-  if (hitboxType != HitboxFlags.None) {
-    return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
-  }
 
   for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
     const childVisualElementSignal = rootVisualElement.childrenVes[i];
@@ -98,7 +88,7 @@ export function getHitInfo(
 
     // attachments take precedence.
     if (!ignoreAttachments) {
-      const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVisualElementPx, { x: childVisualElement.boundsPx.x, y: childVisualElement.boundsPx.y });
+      const posRelativeToChildElementPx = vectorSubtract(posRelativeToRootVisualElementViewportPx, { x: childVisualElement.boundsPx.x, y: childVisualElement.boundsPx.y });
       for (let j=childVisualElement.attachmentsVes.length-1; j>=0; j--) {
         const attachmentVisualElementSignal = childVisualElement.attachmentsVes[j];
         const attachmentVisualElement = attachmentVisualElementSignal.get();
@@ -129,7 +119,7 @@ export function getHitInfo(
       }
     }
 
-    if (!isInside(posRelativeToRootVisualElementPx, childVisualElement.boundsPx)) {
+    if (!isInside(posRelativeToRootVisualElementViewportPx, childVisualElement.boundsPx)) {
       continue;
     }
 
@@ -137,34 +127,35 @@ export function getHitInfo(
       console.error("A table visual element unexpectedly had no childAreaBoundsPx set.", childVisualElement);
     }
 
-    const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, ignoreAttachments, posOnDesktopPx, canHitEmbeddedInteractive);
+    const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems, ignoreAttachments, posOnDesktopPx, canHitEmbeddedInteractive);
     if (insideTableHit != null) { return insideTableHit; }
 
-    const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, ignoreItems, canHitEmbeddedInteractive);
+    const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems, canHitEmbeddedInteractive);
     if (insideCompositeHit != null) { return insideCompositeHit; }
 
     // handle inside any other item (including pages that are sized such that they can't be clicked in).
     let hitboxType = HitboxFlags.None;
     let meta = null;
     for (let j=childVisualElement.hitboxes.length-1; j>=0; --j) {
-      if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {
+      if (isInside(posRelativeToRootVisualElementViewportPx, offsetBoundingBoxTopLeftBy(childVisualElement.hitboxes[j].boundsPx, getBoundingBoxTopLeft(childVisualElement.boundsPx)))) {
         hitboxType |= childVisualElement.hitboxes[j].type;
         if (childVisualElement.hitboxes[j].meta != null) { meta = childVisualElement.hitboxes[j].meta; }
       }
     }
     if (!ignoreItems.find(a => a == childVisualElement.displayItem.id)) {
-      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive);
     }
   }
 
-  return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+  return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive);
 }
 
 
 interface RootInfo {
   rootVisualElementSignal: VisualElementSignal,
   rootVisualElement: VisualElement,
-  posRelativeToRootVisualElementPx: Vector,
+  posRelativeToRootVisualElementViewportPx: Vector,
+  posRelativeToRootVisualElementBoundsPx: Vector,
   hitMaybe: HitInfo | null
 }
 
@@ -182,11 +173,17 @@ function determineRootLevel1(
   }
 
   let rootVisualElement = topLevelVisualElement.childrenVes[0].get();
-  let posRelativeToRootVisualElementPx = posRelativeToTopLevelVisualElementPx;
+  let posRelativeToRootVisualElementBoundsPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = topLevelVisualElement.childrenVes[0];
 
   if (rootVisualElement.childrenVes.length == 0) {
-    return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
+    return ({
+      rootVisualElementSignal,
+      rootVisualElement,
+      posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementBoundsPx,
+      posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementBoundsPx,
+      hitMaybe: null
+    });
   }
 
   const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx, canHitEmbeddedInteractive);
@@ -195,8 +192,8 @@ function determineRootLevel1(
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
   posOnDesktopPx.x = posOnDesktopPx.x + store.dockWidthPx.get();
 
-  posRelativeToRootVisualElementPx = cloneVector(posRelativeToRootVisualElementPx)!;
-  posRelativeToRootVisualElementPx.x = posRelativeToRootVisualElementPx.x - store.dockWidthPx.get();
+  posRelativeToRootVisualElementBoundsPx = cloneVector(posRelativeToRootVisualElementBoundsPx)!;
+  posRelativeToRootVisualElementBoundsPx.x = posRelativeToRootVisualElementBoundsPx.x - store.dockWidthPx.get();
 
 
   let done = false;
@@ -208,7 +205,7 @@ function determineRootLevel1(
     const popupPosRelativeToTopLevelVisualElementPx =
       (popupRootVeMaybe.flags & VisualElementFlags.Fixed)
         ? { x: posOnDesktopPx.x - store.dockWidthPx.get(), y: posOnDesktopPx.y }
-        : posRelativeToRootVisualElementPx;
+        : posRelativeToRootVisualElementBoundsPx;
 
     if (isInside(popupPosRelativeToTopLevelVisualElementPx, popupRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = popupRootVesMaybe;
@@ -220,20 +217,28 @@ function determineRootLevel1(
       const scrollXPx = isPage(rootVisualElement.displayItem)
         ? store.perItem.getPageScrollXProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.w - rootVisualElement.boundsPx.w)
         : 0;
-      posRelativeToRootVisualElementPx = vectorSubtract(popupPosRelativeToTopLevelVisualElementPx, { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
+      posRelativeToRootVisualElementBoundsPx = vectorSubtract(
+        popupPosRelativeToTopLevelVisualElementPx,
+        { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
+      let posRelativeToRootVisualElementViewportPx = vectorSubtract(
+          popupPosRelativeToTopLevelVisualElementPx,
+          { x: rootVisualElement.viewportBoundsPx!.x, y: rootVisualElement.viewportBoundsPx!.y });
       let hitboxType = HitboxFlags.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
-        if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
+        if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
           hitboxType |= rootVisualElement.hitboxes[j].type;
         }
       }
       if (hitboxType != HitboxFlags.None) {
-        return {
-          rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx,
-          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
-        };
+        return ({
+          rootVisualElementSignal,
+          rootVisualElement,
+          posRelativeToRootVisualElementBoundsPx,
+          posRelativeToRootVisualElementViewportPx,
+          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive)
+        });
       }
-      posRelativeToRootVisualElementPx = vectorSubtract(
+      posRelativeToRootVisualElementBoundsPx = vectorSubtract(
         popupPosRelativeToTopLevelVisualElementPx,
         { x: rootVisualElement.childAreaBoundsPx!.x - scrollXPx,
           y: rootVisualElement.childAreaBoundsPx!.y - scrollYPx });
@@ -246,33 +251,41 @@ function determineRootLevel1(
     const newRootVeMaybe = newRootVesMaybe.get();
 
     if (isPage(newRootVeMaybe.displayItem)) {
-      if (isInside(posRelativeToRootVisualElementPx, newRootVeMaybe.boundsPx)) {
+      if (isInside(posRelativeToRootVisualElementBoundsPx, newRootVeMaybe.boundsPx)) {
         rootVisualElementSignal = newRootVesMaybe;
         rootVisualElement = newRootVeMaybe;
         const selected = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(VeFns.veidFromVe(topLevelVisualElement)));
         const scrollPropY = store.perItem.getPageScrollYProp(selected);
-        posRelativeToRootVisualElementPx = vectorSubtract(
-          posRelativeToRootVisualElementPx,
+        posRelativeToRootVisualElementBoundsPx = vectorSubtract(
+          posRelativeToRootVisualElementBoundsPx,
           { x: rootVisualElement.childAreaBoundsPx!.x,
             y: rootVisualElement.childAreaBoundsPx!.y - scrollPropY * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)})
         let hitboxType = HitboxFlags.None;
         for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
-          if (isInside(posRelativeToRootVisualElementPx, rootVisualElement.hitboxes[j].boundsPx)) {
+          if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
             hitboxType |= rootVisualElement.hitboxes[j].type;
           }
         }
 
         if (hitboxType != HitboxFlags.None) {
-          return {
-            rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx,
-            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
-          };
+          return ({
+            rootVisualElementSignal,
+            rootVisualElement,
+            posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementBoundsPx,
+            posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementBoundsPx,
+            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive)
+          });
         }
       }
     }
   }
 
-  return { rootVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementPx, hitMaybe: null };
+  return {
+    rootVisualElementSignal,
+    rootVisualElement,
+    posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementBoundsPx,
+    posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementBoundsPx,
+    hitMaybe: null };
 }
 
 function determineRootLevel2(
@@ -282,7 +295,7 @@ function determineRootLevel2(
 
   const {
     rootVisualElement,
-    posRelativeToRootVisualElementPx,
+    posRelativeToRootVisualElementViewportPx,
   } = level1RootInfo;
 
   for (let i=0; i<rootVisualElement.childrenVes.length; ++i) {
@@ -292,27 +305,34 @@ function determineRootLevel2(
       continue;
     }
 
-    if (isInside(posRelativeToRootVisualElementPx, childVe.boundsPx)) {
+    if (isInside(posRelativeToRootVisualElementViewportPx, childVe.boundsPx!)) {
       const childVeid = VeFns.veidFromVe(childVe);
       const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
 
-      const newPosRelativeToRootVisualElementPx = vectorSubtract(
-        posRelativeToRootVisualElementPx,
-        { x: childVe.childAreaBoundsPx!.x,
-          y: childVe.childAreaBoundsPx!.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.boundsPx.h)});
+      const newPosRelativeToRootVisualElementViewportPx = vectorSubtract(
+        posRelativeToRootVisualElementViewportPx,
+        { x: childVe.viewportBoundsPx!.x,
+          y: childVe.viewportBoundsPx!.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h)});
+
+      const newPosRelativeToRootVisualElementBoundsPx = vectorSubtract(
+        posRelativeToRootVisualElementViewportPx,
+        { x: childVe.boundsPx.x,
+          y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h)});
 
       let hitboxType = HitboxFlags.None;
       for (let j=childVe.hitboxes.length-1; j>=0; --j) {
-        if (isInside(newPosRelativeToRootVisualElementPx, childVe.hitboxes[j].boundsPx)) {
+        if (isInside(newPosRelativeToRootVisualElementBoundsPx, childVe.hitboxes[j].boundsPx)) {
           hitboxType |= childVe.hitboxes[j].type;
         }
       }
+
       return ({
         rootVisualElementSignal: childVes,
         rootVisualElement: childVe,
-        posRelativeToRootVisualElementPx: newPosRelativeToRootVisualElementPx,
+        posRelativeToRootVisualElementViewportPx: newPosRelativeToRootVisualElementViewportPx,
+        posRelativeToRootVisualElementBoundsPx: newPosRelativeToRootVisualElementBoundsPx,
         hitMaybe: hitboxType != HitboxFlags.None
-          ? finalize(hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
+          ? finalize(hitboxType, HitboxFlags.None, childVe, childVes, null, newPosRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive)
           : null
       })
     }
@@ -341,13 +361,22 @@ function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopP
     }
   }
   if (hitboxType != HitboxFlags.None) {
-    return {
-      rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx,
+    return ({
+      rootVisualElementSignal: dockVes,
+      rootVisualElement: dockVe,
+      posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementPx,
+      posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementPx,
       hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
-    };
+    });
   }
 
-  return { rootVisualElementSignal: dockVes, rootVisualElement: dockVe, posRelativeToRootVisualElementPx, hitMaybe: null };
+  return ({
+    rootVisualElementSignal: dockVes,
+    rootVisualElement: dockVe,
+    posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementPx,
+    posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementPx,
+    hitMaybe: null
+  });
 }
 
 function handleInsideTableMaybe(
@@ -362,7 +391,7 @@ function handleInsideTableMaybe(
 
   if (!isTable(childVisualElement.displayItem)) { return null; }
   if (childVisualElement.flags & VisualElementFlags.LineItem) { return null; }
-  if (!isInside(posRelativeToRootVisualElementPx, childVisualElement.childAreaBoundsPx!)) { return null; }
+  if (!isInside(posRelativeToRootVisualElementPx, childVisualElement.viewportBoundsPx!)) { return null; }
 
   const tableVisualElementSignal = childVisualElementSignal;
   const tableVisualElement = childVisualElement;
@@ -386,10 +415,11 @@ function handleInsideTableMaybe(
     const tableChildVes = tableVisualElement.childrenVes[j];
     const tableChildVe = tableChildVes.get();
     const tableBlockHeightPx = tableChildVe.boundsPx.h;
+
     const posRelativeToTableChildAreaPx = vectorSubtract(
       posRelativeToRootVisualElementPx,
-      { x: tableVisualElement.childAreaBoundsPx!.x,
-        y: tableVisualElement.childAreaBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
+      { x: tableVisualElement.viewportBoundsPx!.x,
+        y: tableVisualElement.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
     );
     if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
       let hitboxType = HitboxFlags.None;

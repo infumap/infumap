@@ -17,7 +17,7 @@
 */
 
 import { BoundingBox, Dimensions } from '../../util/geometry';
-import { panic } from '../../util/lang';
+import { assert, panic } from '../../util/lang';
 import { VisualElementSignal } from '../../util/signals';
 import { StoreContextModel } from '../../store/StoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
@@ -42,8 +42,11 @@ import { HitboxMeta } from '../../layout/hitbox';
 // Now, they are not and could be, however I don't necessarily mind sticking to the simpler subset of TS, even if it does result in this verbosity.
 
 export const ItemFns = {
-  calcSpatialDimensionsBl: (measurable: Measurable): Dimensions => {
-    if (isPage(measurable)) { return PageFns.calcSpatialDimensionsBl(PageFns.asPageMeasurable(measurable)); }
+
+  calcSpatialDimensionsBl: (measurable: Measurable, adjustBl?: Dimensions): Dimensions => {
+    if (isPage(measurable)) { return PageFns.calcSpatialDimensionsBl(PageFns.asPageMeasurable(measurable), adjustBl); }
+    if (isLink(measurable)) { return LinkFns.calcSpatialDimensionsBl(asLinkItem(measurable), adjustBl); }
+    assert(!adjustBl, "spatial dimensions adjustment only expected for page item types");
     if (isTable(measurable)) { return TableFns.calcSpatialDimensionsBl(TableFns.asTableMeasurable(measurable)); }
     if (isComposite(measurable)) { return CompositeFns.calcSpatialDimensionsBl(CompositeFns.asCompositeMeasurable(measurable)); }
     if (isNote(measurable)) { return NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(measurable)); }
@@ -51,7 +54,6 @@ export const ItemFns = {
     if (isFile(measurable)) { return FileFns.calcSpatialDimensionsBl(FileFns.asFileMeasurable(measurable)); }
     if (isPassword(measurable)) { return PasswordFns.calcSpatialDimensionsBl(PasswordFns.asPasswordMeasurable(measurable)); }
     if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(measurable)); }
-    if (isLink(measurable)) { return LinkFns.calcSpatialDimensionsBl(asLinkItem(measurable)); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcSpatialDimensionsBl(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
     panic(`calcSpatialDimensionsBl: unknown item type: ${measurable.itemType}`);
   },

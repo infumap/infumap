@@ -256,12 +256,7 @@ export const Toolbar_Page: Component = () => {
 
   return (
     <div class="inline-block p-[7px] flex-grow-0">
-      <Show when={store.getToolbarFocus().itemId != store.history.currentPage()!.itemId }>
-        <div class="font-bold inline-block" style={`color: ${subTitleColor()}`}>
-          {pageItem().title}
-        </div>
-      </Show>
-      <div ref={divBeforeColroSelect} class="inline-block ml-[7px]"></div>
+      <div ref={divBeforeColroSelect} class="inline-block ml-[7px]" />
       <div class="inline-block h-[22px] mt-[3px] align-middle">
         <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
       </div>

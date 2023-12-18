@@ -233,7 +233,7 @@ function createOrRecycleVisualElementSignalImpl (
       const oldVal = oldVals[newProps[i]];
       const newVal = newVals[newProps[i]];
       if (oldVal != newVal) {
-        if (newProps[i] == "boundsPx" || newProps[i] == "childAreaBoundsPx") {
+        if (newProps[i] == "boundsPx" || newProps[i] == "childAreaBoundsPx" || newProps[i] == "viewportBoundsPx") {
           if (compareBoundingBox(oldVal, newVal) != 0) {
             if (debug) { console.debug("visual element property changed: ", newProps[i]); }
             dirty = true;

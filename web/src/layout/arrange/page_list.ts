@@ -86,6 +86,7 @@ export function arrange_list_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx: geometry.boundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes,
     parentPath,
   };

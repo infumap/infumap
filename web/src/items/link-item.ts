@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
-import { currentUnixTimeSeconds, panic } from "../util/lang";
+import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
@@ -130,14 +130,15 @@ export const LinkFns = {
     });
   },
 
-  calcSpatialDimensionsBl: (link: LinkItem): Dimensions => {
+  calcSpatialDimensionsBl: (link: LinkItem, adjustBl?: Dimensions): Dimensions => {
     function noLinkTo() {
+      assert(!adjustBl, "size adjustment on empty link item unexpected.");
       return { w: link.spatialWidthGr / GRID_SIZE, h: 1.0 };
     }
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcSpatialDimensionsBl(measurableMaybe!);
+    return ItemFns.calcSpatialDimensionsBl(measurableMaybe!, adjustBl);
   },
 
   calcGeometry_Spatial: (link: LinkItem, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {

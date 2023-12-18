@@ -35,6 +35,7 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
 import { asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
+import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 
 
 export const MOUSE_LEFT = 0;
@@ -115,9 +116,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
+    const sizeBl = ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL});
     onePxSizeBl = {
-      x: (ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).w) / boundsOnTopLevelPagePx.w,
-      y: ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!).h / boundsOnTopLevelPagePx.h };
+      x: sizeBl.w / boundsOnTopLevelPagePx.w,
+      y: sizeBl.h / boundsOnTopLevelPagePx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
       const activeCompositeItem = VeFns.canonicalItem(hitInfo.overContainerVe!);
@@ -126,9 +128,12 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,
         y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnTopLevelPagePx.h };
     } else {
+      const sizeBl = (hitInfo.overElementVes.get().flags & VisualElementFlags.EmbededInteractiveRoot)
+        ? ItemFns.calcSpatialDimensionsBl(activeItem, { w: 0, h: PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL })
+        : ItemFns.calcSpatialDimensionsBl(activeItem);
       onePxSizeBl = {
-        x: ItemFns.calcSpatialDimensionsBl(activeItem).w / boundsOnTopLevelPagePx.w,
-        y: ItemFns.calcSpatialDimensionsBl(activeItem).h / boundsOnTopLevelPagePx.h };
+        x: sizeBl.w / boundsOnTopLevelPagePx.w,
+        y: sizeBl.h / boundsOnTopLevelPagePx.h };
     }
   }
 

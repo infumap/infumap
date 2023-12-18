@@ -110,6 +110,7 @@ export function arrange_document_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
     boundsPx: outerBoundsPx,
     childAreaBoundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes,
     parentPath,
   };

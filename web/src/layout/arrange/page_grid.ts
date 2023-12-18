@@ -107,8 +107,9 @@ export function arrange_grid_page(
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
-    boundsPx: outerBoundsPx,
+    boundsPx: geometry.boundsPx,
     childAreaBoundsPx: boundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes,
     parentPath,
   };

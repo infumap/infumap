@@ -194,13 +194,13 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
   const moveToPage = asPageItem(moveToVe.displayItem);
   let moveToPageAbsoluteBoundsPx;
-  if (moveToVe.parentPath == null) {
-    // moveToVe is top level page is a special case - the only one where it's appropropriate
-    // for dimensions to be that of clientAreaBounds not boundsPx.
-    moveToPageAbsoluteBoundsPx = moveToVe.childAreaBoundsPx!;
-  } else {
+  // if (moveToVe.parentPath == null) {
+  //   // moveToVe is top level page is a special case - the only one where it's appropropriate
+  //   // for dimensions to be that of clientAreaBounds not boundsPx.
+  //   moveToPageAbsoluteBoundsPx = moveToVe.childAreaBoundsPx!;
+  // } else {
     moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToVe);
-  }
+  // }
 
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
@@ -276,19 +276,19 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
   const moveToPage = asPageItem(tableParentVe.displayItem);
   let moveToPageAbsoluteBoundsPx;
-  if (tableParentVe.parentPath == null) {
-    moveToPageAbsoluteBoundsPx = tableParentVe.childAreaBoundsPx!;
-  } else {
+  // if (tableParentVe.parentPath == null) {
+  //   moveToPageAbsoluteBoundsPx = tableParentVe.childAreaBoundsPx!;
+  // } else {
     moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableParentVe);
-  }
+  // }
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx();
   itemPosInPagePx.x -= store.dockWidthPx.get();
   const tableParentPage = asPageItem(tableParentVe.displayItem);
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVe!.childAreaBoundsPx!.w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe!.childAreaBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / tableParentVe!.viewportBoundsPx!.w * tableParentPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / tableParentVe!.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,

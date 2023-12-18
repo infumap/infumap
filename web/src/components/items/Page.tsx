@@ -34,8 +34,6 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
 
-export const HEADER_HEIGHT_BL = 1.0;
-
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
@@ -452,12 +450,20 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPopupTitle = () =>
       <div class={`absolute`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        {pageItem().title}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px; ` +
+                  `background-color: #fff; ` +
+                  `${VeFns.zIndexStyle(props.visualElement)}` +
+                  `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)};`}>
+        <div class="absolute font-bold"
+              style={`left: 0px; top: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.05}px; width: ${boundsPx().w / scale() * 0.9}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.9}px; ` +
+                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale() * 0.9}); transform-origin: top left; ` +
+                     `overflow-wrap: break-word; padding-left: 4px;`}>
+          {pageItem().title}
+        </div>
       </div>;
 
     const renderListPage = () =>
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"}`}
            style={`width: ${boundsPx().w}px; ` +
                   `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
@@ -484,11 +490,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPage = () =>
       <div ref={popupDiv}
-           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-2 rounded-sm`}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-t border-slate-300`}
            style={`left: ${viewportBoundsPx().x}px; ` +
                   `top: ${viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
-                  `background-color: #ffffff; border-color: ${borderColorVal()}; ` +
+                  `background-color: #ffffff;` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                   `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
@@ -519,6 +525,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </div>
       </Show>;
 
+    const renderBorder = () =>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border pointer-events-none`}
+           style={`left: ${boundsPx().x}px; ` +
+                  `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `border-color: ${borderColorVal()}; ` +
+                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.zIndexStyle(props.visualElement)}`} />;
+
     return (
       <>
         {renderShadow()}
@@ -532,6 +546,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Switch>
         {renderAnchorMaybe()}
         {renderPopupTitle()}
+        {renderBorder()}
       </>
     );
   }
@@ -548,7 +563,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderEmbededInteractiveBackgroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full h-full"
+        <div class="absolute w-full"
              style={`border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; ` +
                     `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; ` +
                     `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;`} />
@@ -556,7 +571,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderEmbededInteractiveForegroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full h-full pointer-events-none"
+        <div class="absolute w-full pointer-events-none"
              style={`z-index: ${Z_INDEX_ITEMS}; border-width: 1px; ` +
                     `border-color: ${Colors[pageItem().backgroundColorIndex]}; ` +
                     `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;`} />

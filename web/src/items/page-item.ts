@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX, PAGE_POPUP_TITLE_HEIGHT_BL, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -228,9 +228,14 @@ export const PageFns = {
     return { w: widthBl, h: style.lineHeightMultiplier };
   },
 
-  calcSpatialDimensionsBl: (page: PageMeasurable): Dimensions => {
+  calcSpatialDimensionsBl: (page: PageMeasurable, adjustBl?: Dimensions): Dimensions => {
     let bh = Math.round(page.spatialWidthGr / GRID_SIZE / page.naturalAspect * 2.0) / 2.0;
-    return { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
+    const result = { w: page.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
+    if (adjustBl) {
+      result.h += adjustBl.h;
+      result.w += adjustBl.w;
+    }
+    return result;
   },
 
   calcInnerSpatialDimensionsBl: (page: PageMeasurable): Dimensions => {
@@ -276,12 +281,12 @@ export const PageFns = {
       });
     }
 
-    let headerHeightBl = isPopup ? 2 : 1;
+    let headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
     let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
     boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
     viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
 
-    const innerBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
@@ -295,12 +300,14 @@ export const PageFns = {
       hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
     }
 
-    return ({
+    const result = {
       boundsPx,
       viewportBoundsPx,
       blockSizePx,
       hitboxes: !emitHitboxes ? [] : hitboxes,
-    });
+    };
+
+    return result;
   },
 
   calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
@@ -345,7 +352,7 @@ export const PageFns = {
 
     // TODO (HIGH): this is not what is needed, but will do as a placeholder for now.
     let blockSizePx = cloneDimensions(NATURAL_BLOCK_SIZE_PX)!;
-    let headerHeightBl = isPopup ? 2 : 1;
+    let headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
     let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
     boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
     viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
