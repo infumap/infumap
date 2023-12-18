@@ -48,9 +48,6 @@ export function arrange_grid_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const outerBoundsPx = geometry.boundsPx;
-  const hitboxes = geometry.hitboxes;
-
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
 
   let movingItem = null;
@@ -89,7 +86,7 @@ export function arrange_grid_page(
   const cellHPx = cellWPx * (1.0/pageItem.gridCellAspect);
   const marginPx = cellWPx * 0.01;
   const pageHeightPx = numRows * cellHPx;
-  const boundsPx = (() => {
+  const childAreaBoundsPx = (() => {
     const result = cloneBoundingBox(geometry.boundsPx)!;
     result.h = pageHeightPx;
     return result;
@@ -108,9 +105,9 @@ export function arrange_grid_page(
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
     boundsPx: geometry.boundsPx,
-    childAreaBoundsPx: boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
-    hitboxes,
+    hitboxes: geometry.hitboxes,
+    childAreaBoundsPx,
     parentPath,
   };
 
@@ -134,10 +131,10 @@ export function arrange_grid_page(
     const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const renderChildrenAsFull = arrangeFlagIsRoot(flags);
 
-    let geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false);
+    const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, geometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, cellGeometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
@@ -165,21 +162,21 @@ export function arrange_grid_page(
     const pageXScrollProp = store.perItem.getPageScrollXProp(store.history.currentPage()!);
     const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
 
-    const yOffsetPx = scrollPropY * (boundsPx.h - outerBoundsPx.h);
-    const xOffsetPx = scrollPropX * (boundsPx.w - outerBoundsPx.w);
+    const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
+    const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
     const cellBoundsPx = {
-      x: mouseDestkopPosPx.x - outerBoundsPx.x + xOffsetPx + pageXScrollPx,
-      y: mouseDestkopPosPx.y - outerBoundsPx.y + yOffsetPx + pageYScrollPx,
+      x: mouseDestkopPosPx.x - geometry.boundsPx.x + xOffsetPx + pageXScrollPx,
+      y: mouseDestkopPosPx.y - geometry.boundsPx.y + yOffsetPx + pageYScrollPx,
       w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
     };
     cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
-    const geometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false);
+    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false);
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, movingItemInThisPage, geometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, movingItemInThisPage, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }

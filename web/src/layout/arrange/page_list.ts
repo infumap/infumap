@@ -54,13 +54,12 @@ export function arrange_list_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const outerBoundsPx = geometry.boundsPx;
   const hitboxes = geometry.hitboxes;
 
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
-  const isFull = outerBoundsPx.h == store.desktopMainAreaBoundsPx().h;
-  const scale = isFull ? 1.0 : outerBoundsPx.w / store.desktopMainAreaBoundsPx().w;
+  const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
+  const scale = isFull ? 1.0 : geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
 
   let resizeBoundsPx = {
     x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
@@ -84,9 +83,9 @@ export function arrange_list_page(
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
-    boundsPx: outerBoundsPx,
-    childAreaBoundsPx: geometry.boundsPx,
+    boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
+    childAreaBoundsPx: geometry.boundsPx,
     hitboxes,
     parentPath,
   };
@@ -117,15 +116,15 @@ export function arrange_list_page(
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
-    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup);
 
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
       linkItemMaybe,
       flags: VisualElementFlags.LineItem |
             (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
-      boundsPx: geometry.boundsPx,
-      hitboxes: geometry.hitboxes,
+      boundsPx: listItemGeometry.boundsPx,
+      hitboxes: listItemGeometry.hitboxes,
       parentPath: pageWithChildrenVePath,
       col: 0,
       row: idx,
@@ -141,8 +140,8 @@ export function arrange_list_page(
     const boundsPx = {
       x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX * scale,
       y: 0,
-      w: outerBoundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
-      h: outerBoundsPx.h - LINE_HEIGHT_PX * scale
+      w: geometry.boundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
+      h: geometry.boundsPx.h - LINE_HEIGHT_PX * scale
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const isExpandable = selectedIsRoot;
@@ -180,12 +179,12 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const geometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false);
+  const cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false);
   if (isPage(item)) {
-    geometry.boundsPx = boundsPx;
-    geometry.hitboxes = [];
+    cellGeometry.boundsPx = boundsPx;
+    cellGeometry.hitboxes = [];
     if (isExpandable) {
-      geometry.hitboxes = [
+      cellGeometry.hitboxes = [
         HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
         HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
         HitboxFns.create(HitboxFlags.Expand, { x: 0, y: boundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
@@ -195,7 +194,7 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   }
 
   const result = arrangeItem(
-    store, currentPath, veid, ArrangeAlgorithm.List, li, geometry,
+    store, currentPath, veid, ArrangeAlgorithm.List, li, cellGeometry,
     ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None));
   return result;
 }

@@ -47,9 +47,6 @@ export function arrange_justified_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const outerBoundsPx = geometry.boundsPx;
-  const hitboxes = geometry.hitboxes;
-
   const _parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
       
   let movingItem = null;
@@ -100,10 +97,10 @@ export function arrange_justified_page(
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
-    boundsPx: outerBoundsPx,
-    childAreaBoundsPx,
+    boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
-    hitboxes,
+    hitboxes: geometry.hitboxes,
+    childAreaBoundsPx,
     parentPath,
   };
 
@@ -118,10 +115,10 @@ export function arrange_justified_page(
       h: layout.boxes[i].height
     };
 
-    const geometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
+    const cellGeometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, geometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull);
     childrenVes.push(ves);
   }

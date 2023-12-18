@@ -50,8 +50,6 @@ export function arrange_spatial_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const hitboxes = geometry.hitboxes;
-
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
   const childAreaBoundsPx = (() => {
@@ -84,8 +82,8 @@ export function arrange_spatial_page(
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
+    hitboxes: geometry.hitboxes,
     childAreaBoundsPx,
-    hitboxes,
     parentPath,
   };
 

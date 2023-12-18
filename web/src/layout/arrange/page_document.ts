@@ -44,9 +44,6 @@ export function arrange_document_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const outerBoundsPx = geometry.boundsPx;
-  const hitboxes = geometry.hitboxes;
-
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
 
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
@@ -81,7 +78,6 @@ export function arrange_document_page(
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
 
-    // ves.get().boundsPx.x = ves.get().boundsPx.x + PAGE_DOCUMENT_LEFT_MARGIN_PX * scale;
     ves.get().blockSizePx = blockSizePx
     ves.get().row = idx;
     ves.get().col = 0;
@@ -108,10 +104,10 @@ export function arrange_document_page(
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
-    boundsPx: outerBoundsPx,
-    childAreaBoundsPx,
+    boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
-    hitboxes,
+    hitboxes: geometry.hitboxes,
+    childAreaBoundsPx,
     parentPath,
   };
 
