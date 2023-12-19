@@ -599,7 +599,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div ref={rootDiv}
              class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
              style={`overflow-y: auto; ` +
-                    `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
+                    `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
                     `height: ${boundsPx().h}px; ` +
                     `background-color: #ffffff;` +
                     `${VeFns.zIndexStyle(props.visualElement)}`}>

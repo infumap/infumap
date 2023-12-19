@@ -184,6 +184,7 @@ function calcStartCompositeItemMaybe(activeItem: Item): CompositeItem | null {
   if (activeItem.parentId == null) { return null; }
   if (activeItem.relationshipToParent != RelationshipToParent.Child) { return null; }
   let parent = itemState.get(activeItem.parentId)!;
+  if (!parent) { return null; }
   if (parent.parentId == null) { return null; }
   if (!isComposite(parent)) { return null; }
   return asCompositeItem(parent);

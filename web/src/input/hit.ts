@@ -282,12 +282,24 @@ function determineRootLevel1(
     }
   }
 
-  return {
+  let hitboxType = HitboxFlags.None;
+  for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
+    if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
+      hitboxType |= rootVisualElement.hitboxes[j].type;
+    }
+  }
+  let hitMaybe = null;
+  if (hitboxType != HitboxFlags.None) {
+    hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive);
+  }
+
+  return ({
     rootVisualElementSignal,
     rootVisualElement,
     posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementBoundsPx,
     posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementBoundsPx,
-    hitMaybe: null };
+    hitMaybe
+  });
 }
 
 function determineRootLevel2(
