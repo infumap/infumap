@@ -71,7 +71,7 @@ export function arrange_list_page(
     hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
   }
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,

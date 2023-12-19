@@ -85,7 +85,7 @@ export function arrange_justified_page(
   const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
   childAreaBoundsPx.h = layout.containerHeight;
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,

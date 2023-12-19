@@ -92,7 +92,7 @@ export function arrange_grid_page(
     return result;
   })();
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) == 2;
+  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
@@ -111,6 +111,7 @@ export function arrange_grid_page(
     parentPath,
   };
 
+  console.log("AS");
   const childrenVes = [];
   let idx = 0;
   for (let i=0; i<pageItem.computed_children.length; ++i) {
@@ -128,7 +129,7 @@ export function arrange_grid_page(
       h: cellHPx - marginPx * 2.0
     };
 
-    const childItemIsEmbeededInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const childItemIsEmbeededInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
     const renderChildrenAsFull = arrangeFlagIsRoot(flags);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false);
