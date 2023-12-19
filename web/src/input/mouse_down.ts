@@ -116,7 +116,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overElementVes.get());
   let onePxSizeBl;
   if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
-    const sizeBl = ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL});
+    const sizeBl = isPage(hitInfo.overElementVes.get().displayItem)
+      ? ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL })
+      : ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!);
     onePxSizeBl = {
       x: sizeBl.w / boundsOnTopLevelPagePx.w,
       y: sizeBl.h / boundsOnTopLevelPagePx.h };

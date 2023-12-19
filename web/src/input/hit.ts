@@ -222,7 +222,9 @@ function determineRootLevel1(
         { x: rootVisualElement.boundsPx.x, y: rootVisualElement.boundsPx.y });
       let posRelativeToRootVisualElementViewportPx = vectorSubtract(
           popupPosRelativeToTopLevelVisualElementPx,
-          { x: rootVisualElement.viewportBoundsPx!.x, y: rootVisualElement.viewportBoundsPx!.y });
+          isPage(popupRootVeMaybe.displayItem)
+            ? getBoundingBoxTopLeft(rootVisualElement.viewportBoundsPx!)
+            : getBoundingBoxTopLeft(rootVisualElement.boundsPx));
       let hitboxType = HitboxFlags.None;
       for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
         if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
