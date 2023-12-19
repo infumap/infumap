@@ -92,7 +92,12 @@ export function arrange_document_page(
   const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
   childAreaBoundsPx.h = topPx;
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
+  const isEmbeddedInteractive =
+    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    (VeFns.pathDepth(parentPath) >= 2) &&
+    !(flags & ArrangeItemFlags.IsTopRoot) &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,

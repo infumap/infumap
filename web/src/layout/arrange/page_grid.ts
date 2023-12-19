@@ -92,7 +92,12 @@ export function arrange_grid_page(
     return result;
   })();
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
+  const isEmbeddedInteractive =
+    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    (VeFns.pathDepth(parentPath) >= 2) &&
+    !(flags & ArrangeItemFlags.IsTopRoot) &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
@@ -111,7 +116,6 @@ export function arrange_grid_page(
     parentPath,
   };
 
-  console.log("AS");
   const childrenVes = [];
   let idx = 0;
   for (let i=0; i<pageItem.computed_children.length; ++i) {

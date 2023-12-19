@@ -71,7 +71,12 @@ export function arrange_list_page(
     hitboxes.push(HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx));
   }
 
-  const isEmbeddedInteractive = (displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
+  const isEmbeddedInteractive =
+    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    (VeFns.pathDepth(parentPath) >= 2) &&
+    !(flags & ArrangeItemFlags.IsTopRoot) &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
