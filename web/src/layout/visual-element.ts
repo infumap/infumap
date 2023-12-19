@@ -431,7 +431,7 @@ export const VeFns = {
 
     ve = VesCache.get(ve.parentPath!)!.get();
     while (ve != null) {
-      r = vectorAdd(r, getBoundingBoxTopLeft(ve.childAreaBoundsPx ? ve.childAreaBoundsPx : ve.boundsPx));
+      r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
       if (isTable(ve.displayItem)) {
         const tableItem = asTableItem(ve.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
