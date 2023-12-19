@@ -95,13 +95,15 @@ export function veFlagIsRoot(flags: VisualElementFlags): boolean {
  */
 export interface VisualElement {
   /**
-   * The item to be visually depicted. If the VisualElement corresponds to a link item, 'item' is the
+   * The item to be visually depicted. If the VisualElement corresponds to a link item, 'displayItem' is the
    * linked-to item unless this is invalid or unknown, in which case 'item' is the link item itself.
    */
   displayItem: Item,
 
   /**
-   * If the visual element corresponds to a link item, a reference to that.
+   * If the visual element corresponds to a link item, a reference to that. If the visual element is a popup
+   * or selected item in a list page, this will be the substitute link item (not the actually selected link
+   * item if there is one).
    */
   linkItemMaybe: LinkItem | null,
 

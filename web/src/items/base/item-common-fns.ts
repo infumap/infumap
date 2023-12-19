@@ -30,13 +30,23 @@ import { Measurable } from "./item";
 
 
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, store: StoreContextModel): boolean {
-  const parentItem = VesCache.get(visualElement.parentPath!)!.get().displayItem;
+  const parentVe = VesCache.get(visualElement.parentPath!)!.get();
+  const parentItem = parentVe.displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
     if (parentVeid.linkIdMaybe == POPUP_LINK_UID) {
       store.perItem.setSelectedListPageItem({ itemId: parentVeid.itemId, linkIdMaybe: VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath).linkIdMaybe }, VeFns.veToPath(visualElement));
     } else {
-      store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+      if (!parentVe.parentPath) {
+        store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+      }
+      const parentParentVe = VesCache.get(parentVe.parentPath!)!.get();
+      if (isPage(parentParentVe.displayItem) && asPageItem(parentParentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+        const parentVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(VeFns.veidFromVe(parentParentVe)));
+        store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+      } else {
+        store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+      }
     }
     arrange(store);
     return true;
