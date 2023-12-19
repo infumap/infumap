@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -30,7 +30,7 @@ import { panic } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
-import { HitboxFlags, HitboxFns } from "../hitbox";
+import { Hitbox, HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
@@ -141,7 +141,7 @@ export function arrange_list_page(
       x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX * scale,
       y: 0,
       w: geometry.boundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
-      h: geometry.boundsPx.h - LINE_HEIGHT_PX * scale
+      h: geometry.boundsPx.h
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const isExpandable = selectedIsRoot;
@@ -179,18 +179,26 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
-  const cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false);
+  let cellGeometry: ItemGeometry;
+
   if (isPage(item)) {
-    cellGeometry.boundsPx = boundsPx;
-    cellGeometry.hitboxes = [];
+    let hitboxes: Array<Hitbox> = [];
     if (isExpandable) {
-      cellGeometry.hitboxes = [
+      hitboxes = [
         HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
         HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
         HitboxFns.create(HitboxFlags.Expand, { x: 0, y: boundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: boundsPx.w }),
         HitboxFns.create(HitboxFlags.Expand, { x: boundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       ];
     }
+    cellGeometry = {
+      boundsPx: boundsPx,
+      hitboxes,
+      viewportBoundsPx: boundsPx,
+      blockSizePx: NATURAL_BLOCK_SIZE_PX,
+    };
+  } else {
+    cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false);
   }
 
   const result = arrangeItem(

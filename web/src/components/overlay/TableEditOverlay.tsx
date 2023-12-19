@@ -77,8 +77,7 @@ export const TableEditOverlay: Component = () => {
     ev.stopPropagation();
   };
 
-  const keyDownListener = (ev: KeyboardEvent): void => {
-  }
+  const keyDownListener = (_ev: KeyboardEvent): void => { }
 
   const inputMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
