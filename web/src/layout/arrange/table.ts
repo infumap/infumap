@@ -41,6 +41,7 @@ export const arrangeTable = (
     parentPath: VisualElementPath,
     displayItem_Table: TableItem,
     linkItemMaybe_Table: LinkItem | null,
+    actualLinkItemMaybe_Table: LinkItem | null,
     tableGeometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSignal => {
 
@@ -55,6 +56,7 @@ export const arrangeTable = (
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
     linkItemMaybe: linkItemMaybe_Table,
+    actualLinkItemMaybe: actualLinkItemMaybe_Table,
     flags: VisualElementFlags.Detailed |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
@@ -87,6 +89,7 @@ export const arrangeTable = (
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
       linkItemMaybe: linkItemMaybe_childItem,
+      actualLinkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
       boundsPx: geometry.boundsPx,
       hitboxes: geometry.hitboxes,
@@ -123,6 +126,7 @@ export const arrangeTable = (
         const tableChildAttachmentVeSpec: VisualElementSpec = {
           displayItem: displayItem_attachment,
           linkItemMaybe: linkItemMaybe_attachment,
+          actualLinkItemMaybe: linkItemMaybe_attachment,
           flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
           boundsPx: geometry.boundsPx,
           hitboxes: geometry.hitboxes,

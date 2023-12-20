@@ -23,7 +23,7 @@ import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { Item, ItemTypeMixin, ItemType, Measurable } from "./item";
 import { ItemFns } from "./item-polymorphism";
-import { RESIZE_BOX_SIZE_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 
 
 const ITEM_TYPES = [ItemType.Page, ItemType.Table, ItemType.Note, ItemType.File, ItemType.Image, ItemType.Password, ItemType.Composite];
@@ -99,7 +99,12 @@ export function calcGeometryOfAttachmentItemImpl(
   } else {
     hitboxes.push(HitboxFns.create(HitboxFlags.Click, innerBoundsPx));
   }
-  return ({ boundsPx, hitboxes });
+  return ({
+    boundsPx,
+    viewportBoundsPx: boundsPx,
+    blockSizePx: NATURAL_BLOCK_SIZE_PX,
+    hitboxes
+  });
 }
 
 export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number): ItemGeometry {
@@ -121,6 +126,8 @@ export function calcGeometryOfSelectedAttachmentItemImpl(item: Measurable, paren
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   return {
     boundsPx,
+    viewportBoundsPx: boundsPx,
+    blockSizePx: NATURAL_BLOCK_SIZE_PX,
     hitboxes: [
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
       HitboxFns.create(HitboxFlags.Click, innerBoundsPx),

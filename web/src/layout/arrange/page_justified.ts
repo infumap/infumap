@@ -19,7 +19,7 @@
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem } from "../../items/link-item";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -28,7 +28,7 @@ import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 import createJustifiedLayout from "justified-layout";
 
@@ -39,6 +39,7 @@ export function arrange_justified_page(
     realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
+    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
     flags :ArrangeItemFlags): VisualElementSpec {
 
@@ -95,6 +96,7 @@ export function arrange_justified_page(
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
+    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
@@ -112,7 +114,8 @@ export function arrange_justified_page(
   const childrenVes = [];
 
   for (let i=0; i<items.length; ++i) {
-    const item = items[i];
+    const childItem = items[i];
+    const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
     const cellBoundsPx = {
       x: layout.boxes[i].left,
       y: layout.boxes[i].top,
@@ -120,10 +123,10 @@ export function arrange_justified_page(
       h: layout.boxes[i].height
     };
 
-    const cellGeometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
+    const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, item, cellGeometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull);
     childrenVes.push(ves);
   }

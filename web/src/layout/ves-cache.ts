@@ -262,7 +262,7 @@ function createOrRecycleVisualElementSignalImpl (
             dirty = true;
             break;
           }
-        } else if (newProps[i] == "linkItemMaybe") {
+        } else if (newProps[i] == "linkItemMaybe" || newProps[i] == "actualLinkItemMaybe") {
           // object ref might have changed.
         } else {
           if (debug) { console.debug("visual element property changed: ", newProps[i], oldVal, newVal); }

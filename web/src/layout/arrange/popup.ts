@@ -18,7 +18,7 @@
 
 import { batch } from "solid-js";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkFns } from "../../items/link-item";
+import { LinkFns, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
@@ -40,7 +40,9 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
                          currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified);
 
-  const popupLinkToImageId = VeFns.veidFromPath(currentPopupSpec.vePath).itemId;
+  const popupVeid = VeFns.veidFromPath(currentPopupSpec.vePath);
+  const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
+  const popupLinkToImageId = popupVeid.itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
   li.id = POPUP_LINK_UID;
   li.spatialWidthGr = 1000;
@@ -61,7 +63,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, geometry, ArrangeItemFlags.IsPopupRoot);
+      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot);
       let ve = ves.get();
       ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(ve);
@@ -71,6 +73,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
     const itemVisualElement: VisualElementSpec = {
       displayItem: item,
       linkItemMaybe: li,
+      actualLinkItemMaybe: actualLinkItemMaybe,
       flags: VisualElementFlags.Popup |
              VisualElementFlags.Detailed |
              (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None),

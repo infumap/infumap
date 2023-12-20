@@ -21,7 +21,7 @@ import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
-import { LinkFns, LinkItem } from "../../items/link-item";
+import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -46,6 +46,7 @@ export function arrange_list_page(
     realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
+    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSpec {
 
@@ -81,6 +82,7 @@ export function arrange_list_page(
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
+    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
@@ -126,6 +128,7 @@ export function arrange_list_page(
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
       linkItemMaybe,
+      actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem |
             (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
       boundsPx: listItemGeometry.boundsPx,
@@ -169,6 +172,7 @@ export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
 export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, isExpandable: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
+  const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
   const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
 
   const paddedBoundsPx = {
@@ -207,7 +211,7 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   }
 
   const result = arrangeItem(
-    store, currentPath, veid, ArrangeAlgorithm.List, li, cellGeometry,
+    store, currentPath, veid, ArrangeAlgorithm.List, li, actualLinkItemMaybe, cellGeometry,
     ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None));
   return result;
 }

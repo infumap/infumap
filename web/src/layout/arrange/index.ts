@@ -28,6 +28,7 @@ import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
 import { NATURAL_BLOCK_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
+import { asLinkItem } from "../../items/link-item";
 
 
 /**
@@ -60,13 +61,15 @@ export const arrange = (store: StoreContextModel): void => {
   VesCache.initFullArrange();
 
   const currentPage = itemState.get(store.history.currentPage()!.itemId)!;
-
+  const actualLinkItemMaybe = store.history.currentPage()!.linkIdMaybe ? asLinkItem(itemState.get(store.history.currentPage()!.linkIdMaybe!)!) : null;
   const pageItem = PageFns.topLevelPage();
   const currentPath = pageItem.id;
   const realParentVeid = null;
 
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
+    linkItemMaybe: null,
+    actualLinkItemMaybe: null,
     flags: VisualElementFlags.TopLevelPage,
     boundsPx: store.desktopBoundsPx(),
     childAreaBoundsPx: store.desktopBoundsPx(),
@@ -86,7 +89,7 @@ export const arrange = (store: StoreContextModel): void => {
   };
 
   const pageVes = arrangeItem(
-    store, currentPath, realParentVeid, ArrangeAlgorithm.SpatialStretch, currentPage, itemGeometry,
+    store, currentPath, realParentVeid, ArrangeAlgorithm.SpatialStretch, currentPage, actualLinkItemMaybe, itemGeometry,
     ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot);
   childrenVes.push(pageVes);
   visualElementSpec.childrenVes = childrenVes;

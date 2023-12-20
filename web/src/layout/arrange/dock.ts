@@ -19,6 +19,7 @@
 import { RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -60,6 +61,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     for (let i=0; i<dockPage.computed_children.length; ++i) {
       const childId = dockPage.computed_children[i];
       const childItem = itemState.get(childId)!;
+      const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
 
       let wPx = store.dockWidthPx.get() - GAP_PX * 2;
       if (wPx < 0) { wPx = 0; }
@@ -75,7 +77,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       }
 
       if (store.dockWidthPx.get() > 25) {
-        const ves = arrangeItem(store, dockPath, null, ArrangeAlgorithm.Dock, childItem, geometry, ArrangeItemFlags.RenderChildrenAsFull);
+        const ves = arrangeItem(store, dockPath, null, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry, ArrangeItemFlags.RenderChildrenAsFull);
         dockChildren.push(ves);
       }
     }

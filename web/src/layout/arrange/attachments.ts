@@ -68,6 +68,7 @@ export function arrangeItemAttachments(
     const veSpec: VisualElementSpec = {
       displayItem: attachmentDisplayItem,
       linkItemMaybe: attachmentLinkItemMaybe,
+      actualLinkItemMaybe: attachmentLinkItemMaybe,
       boundsPx: attachmentGeometry.boundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parentPath: parentItemVePath,

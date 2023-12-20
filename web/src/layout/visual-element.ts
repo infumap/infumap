@@ -102,10 +102,15 @@ export interface VisualElement {
 
   /**
    * If the visual element corresponds to a link item, a reference to that. If the visual element is a popup
-   * or selected item in a list page, this will be the substitute link item (not the actually selected link
-   * item if there is one).
+   * or selected item in a list page, this will be the popup or selection link item (not the actually selected
+   * link item, if there is one).
    */
   linkItemMaybe: LinkItem | null,
+
+  /**
+   * The actual link item (if there is one), never the popup or selected link.
+   */
+  actualLinkItemMaybe: LinkItem | null,
 
   /**
    * Various flags that indicate how the visual element should be rendered.
@@ -177,6 +182,7 @@ export interface VisualElement {
 export const NONE_VISUAL_ELEMENT: VisualElement = {
   displayItem: EMPTY_ITEM(),
   linkItemMaybe: null,
+  actualLinkItemMaybe: null,
   flags: VisualElementFlags.None,
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
@@ -216,6 +222,7 @@ export interface VisualElementSpec {
   displayItem: Item,
   displayItemFingerprint?: string,
   linkItemMaybe?: LinkItem | null,
+  actualLinkItemMaybe?: LinkItem | null,
   flags?: VisualElementFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
@@ -242,6 +249,7 @@ export const VeFns = {
     let result: VisualElement = {
       displayItem: EMPTY_ITEM(),
       linkItemMaybe: null,
+      actualLinkItemMaybe: null,
       flags: VisualElementFlags.None,
       resizingFromBoundsPx: null,
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
@@ -275,6 +283,7 @@ export const VeFns = {
     result.displayItem = override.displayItem;
 
     if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
+    if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
     if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }

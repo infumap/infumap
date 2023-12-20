@@ -256,8 +256,11 @@ function determineRootLevel1(
       if (isInside(posRelativeToRootVisualElementBoundsPx, newRootVeMaybe.boundsPx)) {
         rootVisualElementSignal = newRootVesMaybe;
         rootVisualElement = newRootVeMaybe;
-        const selected = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(VeFns.veidFromVe(topLevelVisualElement)));
+        let rootParentVe = VesCache.get(newRootVeMaybe.parentPath!)!;
+        let veid = VeFns.veidFromVe(newRootVeMaybe);
+        const selected = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(veid));
         const scrollPropY = store.perItem.getPageScrollYProp(selected);
+        console.log(veid, scrollPropY, "TODO: make this work with actualLinkItemMaybe");
         posRelativeToRootVisualElementBoundsPx = vectorSubtract(
           posRelativeToRootVisualElementBoundsPx,
           { x: rootVisualElement.childAreaBoundsPx!.x,

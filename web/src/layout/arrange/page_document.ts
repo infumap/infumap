@@ -16,10 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_LEFT_MARGIN_PX, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem } from "../../items/link-item";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -36,6 +36,7 @@ export function arrange_document_page(
     _realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
+    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSpec {
 
@@ -59,6 +60,7 @@ export function arrange_document_page(
   for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childId = displayItem_pageWithChildren.computed_children[idx];
     const childItem = itemState.get(childId)!;
+    const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
 
@@ -73,7 +75,7 @@ export function arrange_document_page(
     const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Document, childItem, geometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, geometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
@@ -102,6 +104,7 @@ export function arrange_document_page(
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
+    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |

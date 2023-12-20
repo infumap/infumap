@@ -20,7 +20,7 @@ import { LINE_HEIGHT_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkItem } from "../../items/link-item";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -40,6 +40,7 @@ export function arrange_grid_page(
     realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
+    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSpec {
 
@@ -102,6 +103,7 @@ export function arrange_grid_page(
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
+    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
@@ -120,6 +122,7 @@ export function arrange_grid_page(
   let idx = 0;
   for (let i=0; i<pageItem.computed_children.length; ++i) {
     const childItem = itemState.get(pageItem.computed_children[i])!;
+    const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
     if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
       continue;
     }
@@ -139,7 +142,7 @@ export function arrange_grid_page(
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, cellGeometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, childItem, actualLinkItemMaybe, cellGeometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
@@ -147,6 +150,8 @@ export function arrange_grid_page(
   }
 
   if (movingItemInThisPage) {
+    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+
     let scrollPropY;
     let scrollPropX;
     if (flags & ArrangeItemFlags.IsPopupRoot) {
@@ -181,7 +186,7 @@ export function arrange_grid_page(
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
     const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false);
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, movingItemInThisPage, cellGeometry,
+      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }

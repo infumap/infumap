@@ -63,6 +63,7 @@ export const arrangeItem = (
     realParentVeid: Veid | null,
     parentArrangeAlgorithm: string,
     item: Item,
+    actualLinkItemMaybe: LinkItem | null,
     itemGeometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSignal => {
 
@@ -97,24 +98,24 @@ export const arrangeItem = (
   if (renderWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
-      store, parentPath, realParentVeid, asPageItem(displayItem), linkItemMaybe, itemGeometry, flags);
+      store, parentPath, realParentVeid, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeTable(
-      store, parentPath, asTableItem(displayItem), linkItemMaybe, itemGeometry, flags);
+      store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   if (isComposite(displayItem)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeComposite(
-      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, itemGeometry, flags);
+      store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   const renderAsOutline = !(flags & ArrangeItemFlags.RenderChildrenAsFull);
   flags |= (renderAsOutline ? ArrangeItemFlags.RenderAsOutline : ArrangeItemFlags.None);
-  return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, itemGeometry, flags);
+  return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
 }
 
 
@@ -123,6 +124,7 @@ export const arrangeItemNoChildren = (
     parentVePath: VisualElementPath,
     displayItem: Item,
     linkItemMaybe: LinkItem | null,
+    actualLinkItemMaybe: LinkItem | null,
     itemGeometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSignal => {
   const currentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), parentVePath);
@@ -131,6 +133,7 @@ export const arrangeItemNoChildren = (
   const itemVisualElement: VisualElementSpec = {
     displayItem: item,
     linkItemMaybe,
+    actualLinkItemMaybe,
     flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
