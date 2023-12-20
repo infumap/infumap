@@ -241,7 +241,7 @@ function determineRootLevel1(
         });
       }
       posRelativeToRootVisualElementBoundsPx = vectorSubtract(
-        popupPosRelativeToTopLevelVisualElementPx,
+        posRelativeToRootVisualElementViewportPx,
         { x: rootVisualElement.childAreaBoundsPx!.x - scrollXPx,
           y: rootVisualElement.childAreaBoundsPx!.y - scrollYPx });
       done = true;

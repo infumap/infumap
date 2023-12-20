@@ -464,16 +464,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"}`}
-           style={`width: ${boundsPx().w}px; ` +
-                  `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
-                  `left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+           style={`width: ${viewportBoundsPx().w}px; ` +
+                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `left: ${viewportBoundsPx().x}px; top: ${viewportBoundsPx().y}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={popupDiv}
              class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
              style={`overflow-y: auto; overflow-x: hidden; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
-                    `height: ${boundsPx().h}px; ` +
+                    `height: ${viewportBoundsPx().h}px; ` +
                     `background-color: #ffffff;` +
                     `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
@@ -495,12 +495,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `top: ${viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
                   `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
                   `background-color: #ffffff;` +
-                  `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
-                  `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                  `overflow-y: ${viewportBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${viewportBoundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={popupScrollHandler}>
         <div class="absolute"
-             style={`left: ${boundsPx().w - childAreaBoundsPx().w}px; ` +
+             style={`left: ${viewportBoundsPx().w - childAreaBoundsPx().w}px; ` +
                     `top: ${0}px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
                     `height: ${childAreaBoundsPx().h}px;`}>
@@ -592,15 +592,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
-           style={`width: ${boundsPx().w}px; ` +
-                  `height: ${boundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; top: 0px; ` +
+           style={`width: ${viewportBoundsPx().w}px; ` +
+                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; ` +
+                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
              class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
              style={`overflow-y: auto; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
-                    `height: ${boundsPx().h}px; ` +
+                    `height: ${viewportBoundsPx().h}px; ` +
                     `background-color: #ffffff;` +
                     `${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="absolute"
