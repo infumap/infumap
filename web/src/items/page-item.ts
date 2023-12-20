@@ -465,7 +465,8 @@ export const PageFns = {
     // line item in list page.
     const parentItem = parentVe.displayItem;
     if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      store.perItem.setSelectedListPageItem(VeFns.veidFromPath(visualElement.parentPath!), VeFns.veToPath(visualElement));
+      const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
+      store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
       arrange(store);
       return;
     }
