@@ -23,7 +23,7 @@ import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { cloneBoundingBox } from "../../util/geometry";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
@@ -82,7 +82,7 @@ export function arrange_justified_page(
     panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${items.length}.`);
   }
 
-  const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
+  const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
   childAreaBoundsPx.h = layout.containerHeight;
 
   const isEmbeddedInteractive =

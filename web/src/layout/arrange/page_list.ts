@@ -25,7 +25,7 @@ import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
@@ -91,7 +91,7 @@ export function arrange_list_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None),
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
-    childAreaBoundsPx: geometry.boundsPx,
+    childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
     hitboxes,
     parentPath,
   };

@@ -23,6 +23,7 @@ import { LinkItem } from "../../items/link-item";
 import { isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
+import { zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
@@ -43,10 +44,11 @@ export const arrangeComposite = (
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
 
-  let childAreaBoundsPx = {
+  let viewportBoundsPx = {
     x: compositeGeometry.boundsPx.x, y: compositeGeometry.boundsPx.y,
     w: compositeGeometry.boundsPx.w, h: compositeGeometry.boundsPx.h
   };
+  let childAreaBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
 
   const compositeVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Composite,
@@ -57,6 +59,7 @@ export const arrangeComposite = (
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
+    viewportBoundsPx,
     hitboxes: compositeGeometry.hitboxes,
     parentPath,
   };

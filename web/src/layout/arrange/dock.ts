@@ -104,7 +104,6 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       linkItemMaybe: null,
       flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
       boundsPx: dockBoundsPx,
-      childAreaBoundsPx: dockBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.HorizontalResize, resizeBoundsPx),
       ],
@@ -128,7 +127,6 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         linkItemMaybe: null,
         flags: VisualElementFlags.IsTrash,
         boundsPx: trashBoundsPx,
-        childAreaBoundsPx: trashBoundsPx,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
           HitboxFns.create(HitboxFlags.OpenPopup, innerBoundsPx),

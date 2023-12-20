@@ -23,7 +23,7 @@ import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { cloneBoundingBox } from "../../util/geometry";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
@@ -90,7 +90,7 @@ export function arrange_document_page(
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
 
-  const childAreaBoundsPx = cloneBoundingBox(geometry.boundsPx)!;
+  const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.boundsPx)!);
   childAreaBoundsPx.h = topPx;
 
   const isEmbeddedInteractive =

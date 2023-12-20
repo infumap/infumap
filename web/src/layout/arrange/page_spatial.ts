@@ -24,13 +24,13 @@ import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../i
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { cloneBoundingBox, getBoundingBoxTopLeft, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren } from "./item";
 import { arrangeCellPopup } from "./popup";
 import { getVePropertiesForItem } from "./util";
@@ -55,7 +55,7 @@ export function arrange_spatial_page(
   const childAreaBoundsPx = (() => {
     const aspect = geometry.viewportBoundsPx!.w / geometry.viewportBoundsPx!.h;
     const pageAspect = displayItem_pageWithChildren.naturalAspect;
-    let result = cloneBoundingBox(geometry.viewportBoundsPx)!;
+    let result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
     if (pageAspect / aspect > 1.3) {
       // page to scroll horizontally.
@@ -82,7 +82,6 @@ export function arrange_spatial_page(
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
-           (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsPopupRoot && store.getToolbarFocus()!.itemId == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None),
@@ -155,6 +154,7 @@ export function arrange_spatial_page(
           PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren),
           false, true, true,
           PageFns.popupPositioningHasChanged(displayItem_pageWithChildren));
+
         pageWithChildrenVisualElementSpec.popupVes = arrangeItem(
           store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, li, actualLinkItemMaybe, itemGeometry,
           ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);

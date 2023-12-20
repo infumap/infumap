@@ -25,7 +25,7 @@ import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
-import { cloneBoundingBox } from "../../util/geometry";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
@@ -87,7 +87,7 @@ export function arrange_grid_page(
   const marginPx = cellWPx * 0.01;
   const pageHeightPx = numRows * cellHPx;
   const childAreaBoundsPx = (() => {
-    const result = cloneBoundingBox(geometry.boundsPx)!;
+    const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;
     return result;
   })();
