@@ -105,8 +105,7 @@ export function arrange_list_page(
   } else if (flags & ArrangeItemFlags.IsTopRoot) {
     selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
   } else if (flags & ArrangeItemFlags.IsListPageMainRoot) {
-    panic("implement this again");
-    // selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(reaParentVeid!));
+    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: actualLinkItemMaybe_pageWithChildren == null ? null : actualLinkItemMaybe_pageWithChildren.id }));
   } else if (flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot || ArrangeItemFlags.RenderChildrenAsFull) {
     const veid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
     selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(veid));

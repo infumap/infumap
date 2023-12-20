@@ -456,7 +456,7 @@ export const PageFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    switchToPage(store, VeFns.veidFromVe(visualElement), true, false);
+    switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false);
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {

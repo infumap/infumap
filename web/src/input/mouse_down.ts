@@ -97,10 +97,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   if (hitInfo.hitboxType == HitboxFlags.None) {
     if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup && !viaOverlay) {
       DoubleClickState.preventDoubleClick();
-      switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
+      switchToPage(store, VeFns.actualVeidFromVe(hitInfo.overElementVes.get()), true, false);
     } else if(isPage(hitInfo.overElementVes.get().displayItem) && asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.EmbeddedInteractive) {
       DoubleClickState.preventDoubleClick();
-      switchToPage(store, VeFns.veidFromVe(hitInfo.overElementVes.get()), true, false);
+      switchToPage(store, VeFns.actualVeidFromVe(hitInfo.overElementVes.get()), true, false);
     } else {
       arrange(store);
     }

@@ -119,7 +119,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   else if (ev.code == "Enter") {
     const spec = store.history.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
-      switchToPage(store, VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath), true, false);
+      switchToPage(store, VeFns.actualVeidFromPath(store.history.currentPopupSpec()!.vePath), true, false);
     }
   }
 
