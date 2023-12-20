@@ -39,7 +39,6 @@ import { getVePropertiesForItem } from "./util";
 export function arrange_spatial_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
-    realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     actualLinkItemMaybe_pageWithChildren: LinkItem | null,
@@ -114,7 +113,7 @@ export function arrange_spatial_page(
       hasPendingChanges);
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
       const ves = arrangeItem(
-        store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
+        store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, childItem, actualLinkItemMaybe, itemGeometry,
         ArrangeItemFlags.RenderChildrenAsFull |
         (childItemIsEmbededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
@@ -157,13 +156,13 @@ export function arrange_spatial_page(
           false, true, true,
           PageFns.popupPositioningHasChanged(displayItem_pageWithChildren));
         pageWithChildrenVisualElementSpec.popupVes = arrangeItem(
-          store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.SpatialStretch, li, actualLinkItemMaybe, itemGeometry,
+          store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, li, actualLinkItemMaybe, itemGeometry,
           ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
 
       } else if (currentPopupSpec.type == PopupType.Attachment) {
         // Ves are created inline.
       } else if (currentPopupSpec.type == PopupType.Image) {
-        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
       } else {
         panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
       }

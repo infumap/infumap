@@ -60,7 +60,6 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
 export const arrangeItem = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
-    realParentVeid: Veid | null,
     parentArrangeAlgorithm: string,
     item: Item,
     actualLinkItemMaybe: LinkItem | null,
@@ -98,7 +97,7 @@ export const arrangeItem = (
   if (renderWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
-      store, parentPath, realParentVeid, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
+      store, parentPath, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
   if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {

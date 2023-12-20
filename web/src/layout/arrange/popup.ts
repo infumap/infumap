@@ -32,7 +32,7 @@ import { arrangeItemAttachments } from "./attachments";
 import { POPUP_LINK_UID, TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
 
-export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid | null): VisualElementSignal {
+export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
   const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), TOP_LEVEL_PAGE_UID);
   const currentPopupSpec = store.history.currentPopupSpec()!;
@@ -63,7 +63,7 @@ export function arrangeCellPopup(store: StoreContextModel, realParentVeid: Veid 
   if (isPage(item)) {
     let ves: VisualElementSignal;
     batch(() => {
-      ves = arrangeItem(store, currentPath, realParentVeid, currentPage.arrangeAlgorithm, li, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot);
+      ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot);
       let ve = ves.get();
       ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
       ves.set(ve);

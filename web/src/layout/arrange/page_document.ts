@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { getVePropertiesForItem } from "./util";
 
@@ -33,7 +33,6 @@ import { getVePropertiesForItem } from "./util";
 export function arrange_document_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
-    _realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     actualLinkItemMaybe_pageWithChildren: LinkItem | null,
@@ -75,7 +74,7 @@ export function arrange_document_page(
     const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, geometry,
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, geometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));

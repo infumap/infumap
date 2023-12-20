@@ -64,7 +64,6 @@ export const arrange = (store: StoreContextModel): void => {
   const actualLinkItemMaybe = store.history.currentPage()!.linkIdMaybe ? asLinkItem(itemState.get(store.history.currentPage()!.linkIdMaybe!)!) : null;
   const pageItem = PageFns.topLevelPage();
   const currentPath = pageItem.id;
-  const realParentVeid = null;
 
   const visualElementSpec: VisualElementSpec = {
     displayItem: pageItem,
@@ -89,7 +88,7 @@ export const arrange = (store: StoreContextModel): void => {
   };
 
   const pageVes = arrangeItem(
-    store, currentPath, realParentVeid, ArrangeAlgorithm.SpatialStretch, currentPage, actualLinkItemMaybe, itemGeometry,
+    store, currentPath, ArrangeAlgorithm.SpatialStretch, currentPage, actualLinkItemMaybe, itemGeometry,
     ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot);
   childrenVes.push(pageVes);
   visualElementSpec.childrenVes = childrenVes;

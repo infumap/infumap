@@ -43,7 +43,6 @@ import { getVePropertiesForItem } from "./util";
 export function arrange_list_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
-    realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     actualLinkItemMaybe_pageWithChildren: LinkItem | null,
@@ -106,7 +105,8 @@ export function arrange_list_page(
   } else if (flags & ArrangeItemFlags.IsTopRoot) {
     selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
   } else if (flags & ArrangeItemFlags.IsListPageMainRoot) {
-    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(realParentVeid!));
+    panic("implement this again");
+    // selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(reaParentVeid!));
   } else if (flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot || ArrangeItemFlags.RenderChildrenAsFull) {
     const veid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
     selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(veid));
@@ -160,7 +160,7 @@ export function arrange_list_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
     }
   }
 
@@ -211,7 +211,7 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
   }
 
   const result = arrangeItem(
-    store, currentPath, veid, ArrangeAlgorithm.List, li, actualLinkItemMaybe, cellGeometry,
+    store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe, cellGeometry,
     ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None));
   return result;
 }

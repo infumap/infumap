@@ -36,7 +36,6 @@ import createJustifiedLayout from "justified-layout";
 export function arrange_justified_page(
     store: StoreContextModel,
     parentPath: VisualElementPath,
-    realParentVeid: Veid | null,
     displayItem_pageWithChildren: PageItem,
     linkItemMaybe_pageWithChildren: LinkItem | null,
     actualLinkItemMaybe_pageWithChildren: LinkItem | null,
@@ -126,7 +125,7 @@ export function arrange_justified_page(
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
 
     const ves = arrangeItem(
-      store, pageWithChildrenVePath, pageWithChildrenVeid, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,
       ArrangeItemFlags.RenderChildrenAsFull);
     childrenVes.push(ves);
   }
@@ -136,7 +135,7 @@ export function arrange_justified_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store, realParentVeid);
+      pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
     }
   }
 
