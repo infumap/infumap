@@ -632,9 +632,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       let veid = store.history.currentPage()!;
       if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
-        veid = VeFns.veidFromVe(props.visualElement);
+        veid = VeFns.actualVeidFromVe(props.visualElement);
       } else if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
-        const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+        const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
         const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
         veid = VeFns.veidFromPath(selectedPath);
       }

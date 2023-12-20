@@ -320,6 +320,13 @@ export const VeFns = {
     });
   },
 
+  actualVeidFromVe: (visualElement: VisualElement): Veid => {
+    return ({
+      itemId: visualElement.displayItem.id,
+      linkIdMaybe: visualElement.actualLinkItemMaybe == null ? null : visualElement.actualLinkItemMaybe.id
+    });
+  },
+
   canonicalItem: (visualElement: VisualElement): Item => {
     return visualElement.linkItemMaybe != null
       ? visualElement.linkItemMaybe!
@@ -403,6 +410,11 @@ export const VeFns = {
     return getIdsFromPathPart(parts[0]);
   },
 
+  actualVeidFromPath: (path: VisualElementPath): Veid => {
+    const ves = VesCache.get(path)!;
+    return VeFns.actualVeidFromVe(ves.get());
+  },
+
   itemIdFromPath: (path: VisualElementPath): Uid => {
     if (path == "") { return EMPTY_UID; }
     const parts = path.split("-");
@@ -454,12 +466,12 @@ export const VeFns = {
         if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = store.history.currentPopupSpec()!;
           assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
-          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec.vePath));
-          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromPath(popupSpec.vePath));
+          adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.actualVeidFromPath(popupSpec.vePath));
+          adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.actualVeidFromPath(popupSpec.vePath));
         } else {
           if (ve.flags & VisualElementFlags.ShowChildren) {
-            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromVe(ve));
-            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromVe(ve));
+            adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(ve));
+            adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.actualVeidFromVe(ve));
           }
         }
         r.x -= adjX;
