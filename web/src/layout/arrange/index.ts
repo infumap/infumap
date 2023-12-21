@@ -27,9 +27,8 @@ import { VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
-import { NATURAL_BLOCK_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { asLinkItem } from "../../items/link-item";
-import { POPUP_LINK_UID } from "../../util/uid";
 
 
 /**
@@ -75,6 +74,7 @@ export const arrange = (store: StoreContextModel): void => {
     flags: VisualElementFlags.TopLevelPage,
     boundsPx: store.desktopBoundsPx(),
     childAreaBoundsPx: store.desktopBoundsPx(),
+    viewportBoundsPx: store.desktopBoundsPx(),
   };
 
   const dockVesMaybe = renderDockMaybe(store, currentPath);
