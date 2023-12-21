@@ -20,7 +20,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -28,7 +28,7 @@ import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { arrangeCellPopup } from "./popup";
 import createJustifiedLayout from "justified-layout";
 
@@ -47,7 +47,7 @@ export function arrange_justified_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const _parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
+  const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
       
   let movingItem = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
@@ -122,11 +122,16 @@ export function arrange_justified_page(
       h: layout.boxes[i].height
     };
 
+    const childItemIsEmbeededInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
+    const renderChildrenAsFull = arrangeFlagIsRoot(flags);
+
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
 
     const ves = arrangeItem(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull);
+      (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
+      (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
+      (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }
 
