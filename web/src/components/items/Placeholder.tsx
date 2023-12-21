@@ -22,6 +22,8 @@ import { cloneBoundingBox } from "../../util/geometry";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 
 
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
 export const Placeholder_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const boundsPx = () => props.visualElement.boundsPx;
 

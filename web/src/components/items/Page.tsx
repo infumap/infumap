@@ -28,11 +28,12 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
-import { VesCache } from "../../layout/ves-cache";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
 
+
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();

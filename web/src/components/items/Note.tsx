@@ -24,7 +24,6 @@ import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
-import { VesCache } from "../../layout/ves-cache";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { getTextStyleForNote } from "../../layout/text";
 import { useStore } from "../../store/StoreProvider";
@@ -34,7 +33,10 @@ import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
 import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { itemState } from "../../store/ItemState";
 
+
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -45,12 +47,18 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
-      const parentVe = VesCache.find(parentVeid)[0].get();
-      const canonicalItem = VeFns.canonicalItem(parentVe);
-      if (isPage(parentVe.displayItem)) {
-        cloned.spatialWidthGr = asPageItem(parentVe.displayItem).docWidthBl * GRID_SIZE;
+      const parentDisplayItem = itemState.get(parentVeid.itemId)!;
+
+      let parentCanonicalItem = VeFns.canonicalItemFromVeid(parentVeid);
+      if (parentCanonicalItem == null) {
+        // case where link is virtual (not in itemState). happens in list selected page case.
+        parentCanonicalItem = itemState.get(parentVeid.itemId)!;
+      }
+
+      if (isPage(parentDisplayItem)) {
+        cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = asXSizableItem(canonicalItem).spatialWidthGr;
+        cloned.spatialWidthGr = asXSizableItem(parentCanonicalItem).spatialWidthGr;
       }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
@@ -122,7 +130,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     props.visualElement.mouseIsOver.get() &&
     !store.anItemIsMoving.get() &&
     store.overlay.noteEditOverlayInfo.get() == null &&
-    isComposite(VesCache.get(props.visualElement.parentPath!)!.get().displayItem);
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
   const renderShadow = () =>
     <div class={`${outerClass(true)}`}

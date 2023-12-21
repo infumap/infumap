@@ -28,6 +28,8 @@ import { PopupType } from "../../store/StoreProvider_History";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 

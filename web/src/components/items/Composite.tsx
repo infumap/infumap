@@ -28,6 +28,8 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const boundsPx = () => props.visualElement.boundsPx;
 

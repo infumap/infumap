@@ -29,7 +29,10 @@ import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { itemState } from "../../store/ItemState";
 
+
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
   const fileItem = () => asFileItem(props.visualElement.displayItem);
@@ -53,12 +56,19 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = FileFns.asFileMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
-      const parentVe = VesCache.get(props.visualElement.parentPath!)!.get();
-      const canonicalItem = VeFns.canonicalItem(parentVe);
-      if (isPage(canonicalItem)) {
-        cloned.spatialWidthGr = asPageItem(canonicalItem).docWidthBl * GRID_SIZE;
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+      const parentDisplayItem = itemState.get(parentVeid.itemId)!;
+
+      let parentCanonicalItem = VeFns.canonicalItemFromVeid(parentVeid);
+      if (parentCanonicalItem == null) {
+        // case where link is virtual (not in itemState). happens in list selected page case.
+        parentCanonicalItem = itemState.get(parentVeid.itemId)!;
+      }
+
+      if (isPage(parentDisplayItem)) {
+        cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = asXSizableItem(canonicalItem).spatialWidthGr;
+        cloned.spatialWidthGr = asXSizableItem(parentCanonicalItem).spatialWidthGr;
       }
       return ItemFns.calcSpatialDimensionsBl(cloned);
     }
