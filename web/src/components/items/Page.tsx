@@ -74,12 +74,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const pageItem = () => asPageItem(props.visualElement.displayItem);
   const parentPage = () => {
-    const veParentPath = props.visualElement.parentPath!;
-    const parentVe = VesCache.get(veParentPath)!.get();
-    return asPageItem(itemState.get(parentVe.displayItem.id)!);
+    const parentId = VeFns.itemIdFromPath(props.visualElement.parentPath!);
+    return asPageItem(itemState.get(parentId)!);
   };
   const boundsPx = () => props.visualElement.boundsPx;
-  const blockSizePx = () => props.visualElement.blockSizePx!;
   const scale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx!;
   const innerBoundsPx = () => {
@@ -271,7 +269,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderListPage = () =>
       <>
-        <div class="absolute border-r border-slate-700"
+        <div class={`absolute ${borderClass()}`}
              style={`overflow-y: auto; overflow-x: hidden; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
                     `height: ${boundsPx().h}px; ` +
@@ -301,7 +299,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPage = () =>
       <div ref={translucentDiv}
-           class={`absolute border border-slate-700 rounded-sm shadow-lg`}
+           class={`absolute ${borderClass()} rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: #ffffff; ` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
@@ -367,6 +365,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
       </Show>;
 
+    const backgroundStyle = () => parentPage().arrangeAlgorithm == ArrangeAlgorithm.List
+        ? ''
+        : `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`;
+
+    const borderClass = () => parentPage().arrangeAlgorithm == ArrangeAlgorithm.List
+        ? ''
+        : 'border border-slate-700';
+
     return (
       <>
         <Switch>
@@ -377,9 +383,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             {renderPage()}
           </Match>
         </Switch>
-        <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
+        <div class={`absolute ${borderClass()} rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};` +
+                    backgroundStyle() +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           {renderHoverOverMaybe()}
           {renderMovingOverMaybe()}
@@ -755,9 +761,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                    !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
         {renderAsOpaque()}
       </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Detailed &&
-                   props.visualElement.parentPath != null &&
-                   props.visualElement.flags & VisualElementFlags.ShowChildren}>
+      <Match when={true}>
         {renderAsTranslucent()}
       </Match>
     </Switch>

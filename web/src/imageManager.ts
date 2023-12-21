@@ -145,10 +145,12 @@ function serveWaiting() {
 
 export function releaseImage(filename: string) {
   if (!objectUrlsRefCount.has(filename)) {
-    throw new Error(`objectUrlRefCount map does not contain: ${filename}`);
+    console.error(`objectUrlRefCount map does not contain: ${filename}`);
+    return;
   }
   if (objectUrlsRefCount.get(filename) == 0) {
-    throw new Error(`objectUrlRefCount map value for ${filename} is 0.`);
+    console.error(`objectUrlRefCount map value for ${filename} is 0.`);
+    return;
   }
   const newRefCount = objectUrlsRefCount.get(filename) as number - 1;
   objectUrlsRefCount.set(filename, newRefCount);

@@ -96,23 +96,9 @@ export function arrange_list_page(
     parentPath,
   };
 
-  let selectedVeid = EMPTY_VEID;
-  if (flags & ArrangeItemFlags.IsPopupRoot) {
-    const poppedUp = store.history.currentPopupSpec()!;
-    const poppedUpPath = poppedUp.vePath;
-    const poppedUpVeid = VeFns.veidFromPath(poppedUpPath);
-    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(poppedUpVeid));
-  } else if (flags & ArrangeItemFlags.IsTopRoot) {
-    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(store.history.currentPage()!));
-  } else if (flags & ArrangeItemFlags.IsListPageMainRoot) {
-    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem({ itemId: displayItem_pageWithChildren.id, linkIdMaybe: actualLinkItemMaybe_pageWithChildren == null ? null : actualLinkItemMaybe_pageWithChildren.id }));
-  } else if (flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot || ArrangeItemFlags.RenderChildrenAsFull) {
-    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-    selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(veid));
-  } else {
-    console.log(flags);
-    panic("unexpected list page scenario.");
-  }
+  const selectedVeid = VeFns.veidFromPath(store.perItem.getSelectedListPageItem(
+    VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren)
+  ));
 
   let listVeChildren: Array<VisualElementSignal> = [];
   for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
