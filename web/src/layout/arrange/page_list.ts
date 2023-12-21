@@ -147,8 +147,8 @@ export function arrange_list_page(
     const boundsPx = {
       x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX * scale,
       y: 0,
-      w: geometry.boundsPx.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
-      h: geometry.boundsPx.h
+      w: geometry.viewportBoundsPx!.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
+      h: geometry.viewportBoundsPx!.h
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
     const isExpandable = selectedIsRoot;

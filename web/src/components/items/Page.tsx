@@ -293,6 +293,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <For each={desktopVes()}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
+          <Show when={props.visualElement.selectedVes != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+          </Show>
         </div>
       </>;
 
@@ -486,6 +489,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <For each={desktopVes()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
+        <Show when={props.visualElement.selectedVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+        </Show>
       </div>;
 
     const renderPage = () =>
