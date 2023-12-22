@@ -361,8 +361,9 @@ export const PageFns = {
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
 
     const boundsPx = calcBoundsInCell(sizeBl, adjustedCellBoundsPx);
-    const viewportBoundsPx = cloneBoundingBox(boundsPx);
-    boundsPx.h += NATURAL_BLOCK_SIZE_PX.h;
+    const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
+    boundsPx.h += headerHeightBl * NATURAL_BLOCK_SIZE_PX.h;
+    viewportBoundsPx.y += headerHeightBl * NATURAL_BLOCK_SIZE_PX.h
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
     const blockSizePx = cloneDimensions(NATURAL_BLOCK_SIZE_PX)!;
@@ -379,12 +380,14 @@ export const PageFns = {
       hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
     }
 
-    return ({
+    const result = {
       boundsPx,
       blockSizePx,
       viewportBoundsPx,
       hitboxes,
-    });
+    };
+
+    return result;
   },
 
   calcGeometry_InComposite: (measurable: PageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {

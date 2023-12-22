@@ -459,8 +459,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderPopupTitle = () =>
-      <div class={`absolute`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px; ` +
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px; ` +
                   `background-color: #fff; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}` +
                   `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)};`}>
