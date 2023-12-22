@@ -24,7 +24,7 @@ import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, cloneBoundingBox, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
+import { Vector, cloneVector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, panic } from "../util/lang";
 import { VisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
@@ -39,6 +39,14 @@ export interface HitInfo {
   overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
   overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position (for a table this is it's parent page).
   overPositionGr: Vector | null,             // position in the positionable element.
+}
+
+interface RootInfo {
+  rootVisualElementSignal: VisualElementSignal,
+  rootVisualElement: VisualElement,
+  posRelativeToRootVisualElementViewportPx: Vector,
+  posRelativeToRootVisualElementBoundsPx: Vector,
+  hitMaybe: HitInfo | null
 }
 
 
@@ -61,10 +69,10 @@ export function getHitInfo(
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
-  let level1RootInfo = determineRootLevel1(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx, canHitEmbeddedInteractive);
-  if (level1RootInfo.hitMaybe) {
-    if (!ignoreItems.find(a => a == level1RootInfo.hitMaybe?.overElementVes.get().displayItem.id)) {
-      return level1RootInfo.hitMaybe!;
+  let topLevelRoot = determineTopLevelRoot(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx, canHitEmbeddedInteractive);
+  if (topLevelRoot.hitMaybe) {
+    if (!ignoreItems.find(a => a == topLevelRoot.hitMaybe?.overElementVes.get().displayItem.id)) {
+      return topLevelRoot.hitMaybe!;
     }
   } // if a root hitbox was hit.
 
@@ -73,7 +81,7 @@ export function getHitInfo(
     rootVisualElement,
     posRelativeToRootVisualElementViewportPx,
     hitMaybe
-  } = determineRootLevel2(store, level1RootInfo, canHitEmbeddedInteractive);
+  } = determineEmbeddedRootMaybe(store, topLevelRoot, canHitEmbeddedInteractive);
   if (hitMaybe) {
     if (!ignoreItems.find(a => a == hitMaybe?.overElementVes.get().displayItem.id)) {
       return hitMaybe!;
@@ -151,15 +159,7 @@ export function getHitInfo(
 }
 
 
-interface RootInfo {
-  rootVisualElementSignal: VisualElementSignal,
-  rootVisualElement: VisualElement,
-  posRelativeToRootVisualElementViewportPx: Vector,
-  posRelativeToRootVisualElementBoundsPx: Vector,
-  hitMaybe: HitInfo | null
-}
-
-function determineRootLevel1(
+function determineTopLevelRoot(
     store: StoreContextModel,
     topLevelVisualElement: VisualElement,
     // this may be scrolled, so not be the same as posOnDesktopPx.
@@ -307,15 +307,16 @@ function determineRootLevel1(
   });
 }
 
-function determineRootLevel2(
+
+function determineEmbeddedRootMaybe(
     store: StoreContextModel,
-    level1RootInfo: RootInfo,
+    topRootInfo: RootInfo,
     canHitEmbeddedInteractive: boolean): RootInfo {
 
   const {
     rootVisualElement,
     posRelativeToRootVisualElementViewportPx,
-  } = level1RootInfo;
+  } = topRootInfo;
 
   for (let i=0; i<rootVisualElement.childrenVes.length; ++i) {
     const childVes = rootVisualElement.childrenVes[i];
@@ -357,21 +358,18 @@ function determineRootLevel2(
     }
   }
 
-  return level1RootInfo;
+  return topRootInfo;
 }
 
+
 function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector, canHitEmbeddedInteractive: boolean): RootInfo | null {
+  if (topLevelVisualElement.dockVes == null) { return null; }
 
-  if (topLevelVisualElement.dockVes == null) {
-    return null;
-  }
   let dockVes = topLevelVisualElement.dockVes;
-
   const dockVe = dockVes.get();
-
   if (!isInside(posOnDesktopPx, dockVe.boundsPx)) { return null; }
 
-  const posRelativeToRootVisualElementPx = vectorSubtract(posOnDesktopPx, { x: dockVe.viewportBoundsPx!.x, y: dockVe.viewportBoundsPx!.y });
+  const posRelativeToRootVisualElementPx = vectorSubtract(posOnDesktopPx, { x: dockVe.boundsPx.x, y: dockVe.boundsPx.y });
 
   let hitboxType = HitboxFlags.None;
   for (let j=dockVe.hitboxes.length-1; j>=0; --j) {
@@ -397,6 +395,7 @@ function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopP
     hitMaybe: null
   });
 }
+
 
 function handleInsideTableMaybe(
     store: StoreContextModel,

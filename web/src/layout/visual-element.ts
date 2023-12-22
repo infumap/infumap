@@ -146,6 +146,16 @@ export interface VisualElement {
   row: number | null,  // Set only if inside table. the actual row number - i.e. not necessarily the visible row number.
   col: number | null,  // Set only if inside table.
 
+  /**
+   * Size of one grid cell. Set only in the case of grid pages.
+   */
+  cellSizePx: Dimensions | null,
+
+  /**
+   * The number of grid rows. Set only in the case of grid pages.
+   */
+  numRows: number | null,
+
   hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
   parentPath: VisualElementPath | null,
@@ -191,6 +201,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   blockSizePx: null,
   col: null,
   row: null,
+  cellSizePx: null,
+  numRows: null,
   hitboxes: [],
 
   childrenVes: [],
@@ -230,6 +242,8 @@ export interface VisualElementSpec {
   blockSizePx?: Dimensions,
   col?: number,
   row?: number,
+  cellSizePx?: Dimensions,
+  numRows?: number,
   hitboxes?: Array<Hitbox>,
   parentPath?: VisualElementPath,
   childrenVes?: Array<VisualElementSignal>,
@@ -258,6 +272,8 @@ export const VeFns = {
       blockSizePx: null,
       col: null,
       row: null,
+      cellSizePx: null,
+      numRows: null,
       hitboxes: [],
       childrenVes: [],
       attachmentsVes: [],
@@ -291,6 +307,8 @@ export const VeFns = {
     if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }
+    if (typeof(override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
+    if (typeof(override.numRows) != 'undefined') { result.numRows = override.numRows; }
     if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
     if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
     if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }

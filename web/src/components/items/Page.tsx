@@ -125,7 +125,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderAsDock = () => {
     return (
-      <div class={`absolute border-r border-slate-300 rounded-sm align-middle text-center`}
+      <div class={`absolute border-r border-slate-300 rounded-sm`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; `}>
         <For each={props.visualElement.childrenVes}>{childVe =>
@@ -603,6 +603,24 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         </div>
       </Show>;
 
+    const renderGridlinesMaybe = () =>
+      <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
+        <For each={[...Array(pageItem().gridNumberOfColumns).keys()]}>{i =>
+          <Show when={i != 0}>
+            <div class="absolute bg-slate-100"
+                 style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${childAreaBoundsPx().h}px; width: 1px; top: 0px;`}>
+            </div>
+          </Show>
+        }</For>
+        <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
+          <Show when={i != 0}>
+            <div class="absolute bg-slate-100"
+                 style={`left: 0px; height: 1px; width: ${childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * i}px;`}>
+            </div>
+          </Show>
+        }</For>
+      </Show>;
+
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`width: ${viewportBoundsPx().w}px; ` +
@@ -693,6 +711,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               <div class="absolute" style={`left: ${(asPageItem(VeFns.canonicalItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
             </>
           </Show>
+          {renderGridlinesMaybe()}
         </div>
       </div>;
 

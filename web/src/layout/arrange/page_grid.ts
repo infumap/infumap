@@ -115,6 +115,8 @@ export function arrange_grid_page(
     hitboxes: geometry.hitboxes,
     childAreaBoundsPx,
     parentPath,
+    cellSizePx: { w: cellWPx, h: cellHPx },
+    numRows,
   };
 
   const childrenVes = [];
