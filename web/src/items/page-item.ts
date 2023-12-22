@@ -353,21 +353,23 @@ export const PageFns = {
 
     // page types with a header.
 
-    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
-    sizeBl.h = sizeBl.h + headerHeightBl;
-    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+    const adjustedCellBoundsPx = cloneBoundingBox(cellBoundsPx)!;
+    adjustedCellBoundsPx.h -= headerHeightBl * NATURAL_BLOCK_SIZE_PX.h;
+    if (adjustedCellBoundsPx.h < 10) { adjustedCellBoundsPx.h = 10; } // TODO (LOW): better behavior for small sizing.
+
+    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
+
+    const boundsPx = calcBoundsInCell(sizeBl, adjustedCellBoundsPx);
+    const viewportBoundsPx = cloneBoundingBox(boundsPx);
+    boundsPx.h += NATURAL_BLOCK_SIZE_PX.h;
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
-    let blockSizePx = { w: innerBoundsPx.w / sizeBl.w, h: innerBoundsPx.h / sizeBl.h };
-
-    let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
-    viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
-    viewportBoundsPx.h = viewportBoundsPx.h - headerHeightBl * blockSizePx.h;
+    const blockSizePx = cloneDimensions(NATURAL_BLOCK_SIZE_PX)!;
 
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
