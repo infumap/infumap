@@ -311,11 +311,12 @@ export const PageFns = {
   },
 
   calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
-    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
-    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
+      const sizeBl = PageFns.calcSpatialDimensionsBl(page);
+      const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+      const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+
       if (expandable) {
         const hitboxes = [
           HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
@@ -350,12 +351,19 @@ export const PageFns = {
       });
     }
 
-    // TODO (HIGH): this is not what is needed, but will do as a placeholder for now.
-    let blockSizePx = cloneDimensions(NATURAL_BLOCK_SIZE_PX)!;
-    let headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+    // page types with a header.
+
+    const sizeBl = PageFns.calcSpatialDimensionsBl(page);
+    const headerHeightBl = isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+    sizeBl.h = sizeBl.h + headerHeightBl;
+    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+
+    let blockSizePx = { w: innerBoundsPx.w / sizeBl.w, h: innerBoundsPx.h / sizeBl.h };
+
     let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
-    boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
     viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
+    viewportBoundsPx.h = viewportBoundsPx.h - headerHeightBl * blockSizePx.h;
 
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
