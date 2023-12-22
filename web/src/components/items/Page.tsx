@@ -102,6 +102,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath();
   const isPublic = () => pageItem().permissionFlags != PermissionFlags.None;
   const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot);
+  const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
 
   const lineVes = () => props.visualElement.childrenVes.filter(c => c.get().flags & VisualElementFlags.LineItem);
   const desktopVes = () => props.visualElement.childrenVes.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
@@ -589,20 +590,25 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
       </Show>;
 
+    const borderStyle = () =>
+      isDockItem()
+        ? `border-color: ${Colors[pageItem().backgroundColorIndex]}; ` // border-color: ${Colors[pageItem().backgroundColorIndex]};
+        : `border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; `;
+
     const renderEmbededInteractiveBackgroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
         <div class="absolute w-full"
-             style={`border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; ` +
-                    `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; ` +
-                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;`} />
+             style={`background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; ` +
+                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
+                    borderStyle()} />
       </Show>;
 
     const renderEmbededInteractiveForegroundMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
         <div class="absolute w-full pointer-events-none"
-             style={`z-index: ${Z_INDEX_ITEMS}; border-width: 1px; ` +
-                    `border-color: ${Colors[pageItem().backgroundColorIndex]}; ` +
-                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;`} />
+             style={`z-index: ${Z_INDEX_ITEMS}; ` +
+                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
+                    borderStyle()} />
       </Show>;
 
     const renderEmbededInteractiveTitleMaybe = () =>

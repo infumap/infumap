@@ -44,17 +44,19 @@ export enum ArrangeItemFlags {
   IsPopupRoot                = 0x002,
   IsListPageMainRoot         = 0x008,
   IsEmbeddedInteractiveRoot  = 0x010,
-  ParentIsPopup              = 0x020,
-  IsMoving                   = 0x040,
-  RenderChildrenAsFull       = 0x080,
-  RenderAsOutline            = 0x100,
+  IsDockRoot                 = 0x020,
+  ParentIsPopup              = 0x040,
+  IsMoving                   = 0x080,
+  RenderChildrenAsFull       = 0x100,
+  RenderAsOutline            = 0x200,
 }
 
 export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
   return !!(flags & ArrangeItemFlags.IsTopRoot |
             flags & ArrangeItemFlags.IsPopupRoot |
             flags & ArrangeItemFlags.IsListPageMainRoot |
-            flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot);
+            flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+            flags & ArrangeItemFlags.IsDockRoot);
 }
 
 export const arrangeItem = (

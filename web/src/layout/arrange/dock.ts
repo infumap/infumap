@@ -87,7 +87,9 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       }
 
       if (store.dockWidthPx.get() > 25) {
-        const ves = arrangeItem(store, dockPath, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry, ArrangeItemFlags.RenderChildrenAsFull);
+        const ves = arrangeItem(
+          store, dockPath, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry,
+          ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
         dockChildren.push(ves);
       }
     }
