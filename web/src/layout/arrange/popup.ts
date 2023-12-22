@@ -57,7 +57,9 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, true, PageFns.popupPositioningHasChanged(currentPage), false);
   if (renderAsFixed) {
     geometry.boundsPx.x += store.dockWidthPx.get();
-    geometry.viewportBoundsPx!.x += store.dockWidthPx.get();
+    if (geometry.viewportBoundsPx != null) {
+      geometry.viewportBoundsPx!.x += store.dockWidthPx.get();
+    }
   }
   const item = itemState.get(popupLinkToImageId)!;
 
