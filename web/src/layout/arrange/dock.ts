@@ -66,13 +66,23 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       let wPx = store.dockWidthPx.get() - GAP_PX * 2;
       if (wPx < 0) { wPx = 0; }
       const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: store.dockWidthPx.get() };
-      const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false);
+      const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false, true);
 
+      let viewportOffsetPx = 0;
+      if (geometry.viewportBoundsPx) {
+        viewportOffsetPx = geometry.viewportBoundsPx.y - geometry.boundsPx.y;
+      }
       if (movingItem != null && childId == movingItem.id) {
         const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
         geometry.boundsPx.y = 0;
+        if (geometry.viewportBoundsPx) {
+          geometry.viewportBoundsPx!.y = viewportOffsetPx;
+        }
       } else {
         geometry.boundsPx.y = GAP_PX + yCurrentPx;
+        if (geometry.viewportBoundsPx) {
+          geometry.viewportBoundsPx.y = geometry.boundsPx.y + viewportOffsetPx;
+        }
         yCurrentPx += geometry.boundsPx.h + GAP_PX;
       }
 

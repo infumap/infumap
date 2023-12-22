@@ -125,7 +125,7 @@ export function arrange_justified_page(
     const childItemIsEmbeededInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
     const renderChildrenAsFull = arrangeFlagIsRoot(flags);
 
-    const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true);
+    const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, true, false);
 
     const ves = arrangeItem(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,

@@ -186,8 +186,10 @@ function determineTopLevelRoot(
     });
   }
 
-  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx, canHitEmbeddedInteractive);
-  if (dockRootMaybe != null) { return dockRootMaybe!; }
+  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
+  if (dockRootMaybe != null) {
+    return dockRootMaybe!;
+  }
 
   posOnDesktopPx = cloneVector(posOnDesktopPx)!;
   posOnDesktopPx.x = posOnDesktopPx.x + store.dockWidthPx.get();
@@ -362,7 +364,7 @@ function determineEmbeddedRootMaybe(
 }
 
 
-function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector, canHitEmbeddedInteractive: boolean): RootInfo | null {
+function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
   if (topLevelVisualElement.dockVes == null) { return null; }
 
   let dockVes = topLevelVisualElement.dockVes;
@@ -383,7 +385,7 @@ function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopP
       rootVisualElement: dockVe,
       posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementPx,
       posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementPx,
-      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive)
+      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVe, dockVes, null, posRelativeToRootVisualElementPx, false)
     });
   }
 

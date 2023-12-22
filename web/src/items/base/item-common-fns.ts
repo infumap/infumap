@@ -68,28 +68,31 @@ export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx
  * Units of size are arbitrary. Used only for aspect calculations.
  */
 export function calcBoundsInCell(size: Dimensions, cellBoundsPx: BoundingBox): BoundingBox {
-  const imageAspect = size.w / size.h;
+  const aspect = size.w / size.h;
   let result: BoundingBox;
   if (size.w / cellBoundsPx.w > size.h / cellBoundsPx.h) {
     // constraining dimension is width.
     result = {
       x: cellBoundsPx.x,
       w: cellBoundsPx.w,
-      h: Math.round(cellBoundsPx.w / imageAspect),
-      y: Math.round(cellBoundsPx.y + (cellBoundsPx.h - (cellBoundsPx.w / imageAspect)) / 2.0)
+      h: Math.round(cellBoundsPx.w / aspect),
+      y: Math.round(cellBoundsPx.y + (cellBoundsPx.h - (cellBoundsPx.w / aspect)) / 2.0)
     };
   } else {
     // constraining dimension is height.
     result = {
       y: cellBoundsPx.y,
       h: cellBoundsPx.h,
-      w: Math.round(cellBoundsPx.h * imageAspect),
-      x: Math.round(cellBoundsPx.x + (cellBoundsPx.w - (cellBoundsPx.h * imageAspect)) / 2.0)
+      w: Math.round(cellBoundsPx.h * aspect),
+      x: Math.round(cellBoundsPx.x + (cellBoundsPx.w - (cellBoundsPx.h * aspect)) / 2.0)
     };
   }
   return result;
 }
 
+/**
+ * Size is bounded by natural block size.
+ */
 export function calcBoundsInCellFromSizeBl(sizeBl: Dimensions, cellBoundsPx: BoundingBox): BoundingBox {
   const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
   const blockSizePx: Dimensions = {

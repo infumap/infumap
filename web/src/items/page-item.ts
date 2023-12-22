@@ -310,11 +310,22 @@ export const PageFns = {
     return result;
   },
 
-  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, ignoreCellHeight: boolean): ItemGeometry => {
 
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
-      const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+      let boundsPx;
+      if (ignoreCellHeight) {
+        const aspect = sizeBl.w / sizeBl.h;
+        boundsPx = {
+          x: cellBoundsPx.x,
+          w: cellBoundsPx.w,
+          h: Math.round(cellBoundsPx.w / aspect),
+          y: Math.round(cellBoundsPx.y + (cellBoundsPx.h - (cellBoundsPx.w / aspect)) / 2.0)
+        };
+      } else {
+        boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
+      }
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
 
       if (expandable) {
@@ -360,7 +371,19 @@ export const PageFns = {
 
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
 
-    const boundsPx = calcBoundsInCell(sizeBl, adjustedCellBoundsPx);
+    let boundsPx;
+    if (ignoreCellHeight) {
+      const aspect = sizeBl.w / sizeBl.h;
+      boundsPx = {
+        x: adjustedCellBoundsPx.x,
+        w: adjustedCellBoundsPx.w,
+        h: Math.round(adjustedCellBoundsPx.w / aspect),
+        y: Math.round(adjustedCellBoundsPx.y + (adjustedCellBoundsPx.h - (adjustedCellBoundsPx.w / aspect)) / 2.0)
+      };
+    } else {
+      boundsPx = calcBoundsInCell(sizeBl, adjustedCellBoundsPx);
+    }
+
     const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
     boundsPx.h += headerHeightBl * NATURAL_BLOCK_SIZE_PX.h;
     viewportBoundsPx.y += headerHeightBl * NATURAL_BLOCK_SIZE_PX.h
