@@ -123,6 +123,20 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const listViewScale = () => props.visualElement.boundsPx.w / store.desktopMainAreaBoundsPx().w;
 
+  const renderGridlinesMaybe = () =>
+    <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
+      <For each={[...Array(pageItem().gridNumberOfColumns).keys()]}>{i =>
+        <Show when={i != 0}>
+          <div class="absolute bg-slate-100"
+               style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
+        </Show>
+      }</For>
+      <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
+        <div class="absolute bg-slate-100"
+             style={`left: 0px; height: 1px; width: ${childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * (i+1)}px;`} />
+      }</For>
+    </Show>;
+
   const renderAsDock = () => {
     return (
       <div class={`absolute border-r border-slate-300 rounded-sm`}
@@ -520,6 +534,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <For each={props.visualElement.childrenVes}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
+          {renderGridlinesMaybe()}
         </div>
       </div>;
 
@@ -601,22 +616,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             {pageItem().title}
           </div>
         </div>
-      </Show>;
-
-    const renderGridlinesMaybe = () =>
-      <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
-        <For each={[...Array(pageItem().gridNumberOfColumns).keys()]}>{i =>
-          <Show when={i != 0}>
-            <div class="absolute bg-slate-100"
-                 style={`left: ${props.visualElement.cellSizePx!.w * i}px; height: ${childAreaBoundsPx().h}px; width: 1px; top: 0px;`} />
-          </Show>
-        }</For>
-        <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
-          <Show when={i != 0}>
-            <div class="absolute bg-slate-100"
-                 style={`left: 0px; height: 1px; width: ${childAreaBoundsPx().w}px; top: ${props.visualElement.cellSizePx!.h * i}px;`} />
-          </Show>
-        }</For>
       </Show>;
 
     const renderListPage = () =>
