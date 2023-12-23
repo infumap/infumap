@@ -62,7 +62,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         const overVe = hitInfo.overElementVes.get();
         if (overVe.linkItemMaybe != null) {
           const poppedUp = store.history.currentPopupSpec();
-          if (poppedUp && overVe.displayItem.id == VeFns.veidFromPath(poppedUp!.vePath).itemId) {
+          if (poppedUp && overVe.displayItem.id == poppedUp!.actualVeid.itemId) {
             return overVe.displayItem;
           }
           const selected = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
@@ -99,17 +99,18 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         }
       }
     } else {
-      if (store.history.currentPopupSpec() == null) {
-        return;
-      }
+      if (store.history.currentPopupSpec() == null) { return; }
+      const path = store.history.currentPopupSpec()!.vePath;
+      if (path == null) { return; }
       const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(store.history.currentPopupSpec()!.vePath, direction, false)!;
+      const closest = findClosest(path, direction, false)!;
       if (closest != null) {
         const closestVeid = VeFns.veidFromPath(closest);
         const closestItem = itemState.get(closestVeid.itemId);
         store.history.replacePopup({
           type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
-          vePath: closest
+          vePath: closest,
+          actualVeid: closestVeid,
         });
         arrange(store);
       }
@@ -119,7 +120,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   else if (ev.code == "Enter") {
     const spec = store.history.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
-      switchToPage(store, VeFns.actualVeidFromPath(store.history.currentPopupSpec()!.vePath), true, false);
+      switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false);
     }
   }
 

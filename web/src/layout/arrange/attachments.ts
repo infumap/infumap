@@ -27,7 +27,6 @@ import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
-import { PopupType } from "../../store/StoreProvider_History";
 
 
 export function arrangeItemAttachments(
@@ -57,11 +56,13 @@ export function arrangeItemAttachments(
 
     const popupSpec = store.history.currentPopupSpec();
     let isSelected = false;
-    if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
-      if (attachmentVePath == popupSpec.vePath) {
-        isSelected = true;
-      }
-    }
+
+    // TODO: redo this for actualVeid change.
+    // if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
+    //   if (attachmentVePath == popupSpec.vePath) {
+    //     isSelected = true;
+    //   }
+    // }
 
     const attachmentGeometry = ItemFns.calcGeometry_Attachment(attachmentItem, parentItemBoundsPx, parentItemSizeBl, i, isSelected);
 

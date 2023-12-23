@@ -514,13 +514,13 @@ export const PageFns = {
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
-      store.history.pushPopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: null });
       arrange(store);
       return;
     }
 
     // not inside popup.
-    store.history.replacePopup({ type: PopupType.Page, vePath: VeFns.veToPath(visualElement) });
+    store.history.replacePopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     arrange(store);
   },
 

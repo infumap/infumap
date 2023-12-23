@@ -159,8 +159,8 @@ export function arrange_grid_page(
     if (flags & ArrangeItemFlags.IsPopupRoot) {
       const popupSpec = store.history.currentPopupSpec();
       assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
-      scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromPath(popupSpec!.vePath));
-      scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromPath(popupSpec!.vePath));
+      scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
+      scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
     } else {
       scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
       scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));

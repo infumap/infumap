@@ -142,7 +142,8 @@ function handleAttachmentClick(store: StoreContextModel, visualElement: VisualEl
   VesCache.remove(veid);
   store.history.replacePopup({
     type: PopupType.Attachment,
-    vePath: VeFns.veToPath(visualElement)
+    actualVeid: VeFns.actualVeidFromVe(visualElement),
+    vePath: VeFns.veToPath(visualElement),
   })
 }
 

@@ -23,7 +23,7 @@ import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, arrangeFlagIsRoot } from "./item";
 import { arrange_document_page } from "./page_document";

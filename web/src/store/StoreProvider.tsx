@@ -127,7 +127,7 @@ export function StoreProvider(props: StoreContextProps) {
     }
     if (history.currentPopupSpec() != null) {
       if (history.currentPopupSpec()!.type == PopupType.Page) {
-        return VeFns.veidFromPath(history.currentPopupSpec()!.vePath);
+        return history.currentPopupSpec()!.actualVeid;
       }
     }
     return history.currentPage()!;

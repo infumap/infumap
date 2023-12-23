@@ -24,7 +24,7 @@ import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../i
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
-import { cloneBoundingBox, getBoundingBoxTopLeft, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { POPUP_LINK_UID } from "../../util/uid";
@@ -136,7 +136,7 @@ export function arrange_spatial_page(
     if (currentPopupSpec != null) {
       if (currentPopupSpec.type == PopupType.Page) {
         // Position of page popup in spatial pages is user defined.
-        const popupVeid = VeFns.veidFromPath(currentPopupSpec.vePath);
+        const popupVeid = currentPopupSpec.actualVeid;
         const popupLinkToPageId = popupVeid.itemId;
         const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
         const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);

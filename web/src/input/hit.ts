@@ -212,7 +212,7 @@ function determineTopLevelRoot(
     if (isInside(popupPosRelativeToTopLevelVisualElementPx, popupRootVeMaybe.boundsPx)) {
       rootVisualElementSignal = popupRootVesMaybe;
       rootVisualElement = popupRootVeMaybe;
-      const popupVeid = VeFns.veidFromPath(store.history.currentPopupSpec()!.vePath);
+      const popupVeid = store.history.currentPopupSpec()!.actualVeid;
       const scrollYPx = isPage(rootVisualElement.displayItem)
         ? store.perItem.getPageScrollYProp(popupVeid) * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)
         : 0;

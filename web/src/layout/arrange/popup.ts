@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
@@ -40,7 +40,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
                          currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified);
 
-  const popupVeid = VeFns.veidFromPath(currentPopupSpec.vePath);
+  const popupVeid = currentPopupSpec.actualVeid;
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
   const popupLinkToImageId = popupVeid.itemId;
   const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);

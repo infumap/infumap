@@ -220,10 +220,10 @@ export const ImageFns = {
     if (visualElement.flags & VisualElementFlags.Popup) {
       window.open('/files/' + visualElement.displayItem.id, '_blank');
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      store.history.pushPopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: null });
       arrange(store);
     } else {
-      store.history.replacePopup({ type: PopupType.Image, vePath: VeFns.veToPath(visualElement) });
+      store.history.replacePopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       arrange(store);
     }
   },

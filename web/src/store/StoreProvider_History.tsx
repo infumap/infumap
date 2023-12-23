@@ -29,7 +29,8 @@ export enum PopupType {
 
 export interface PopupSpec {
   type: PopupType,
-  vePath: VisualElementPath
+  actualVeid: Veid,
+  vePath: VisualElementPath | null,
 };
 
 interface PageBreadcrumb {
@@ -46,7 +47,7 @@ export interface HistoryStoreContextModel {
   popPopup: () => void,
   popAllPopups: () => void,
   currentPopupSpec: () => PopupSpec | null,
-  currentPopupSpecVePath: () => VisualElementPath | null,
+  currentPopupSpecVeid: () => Veid | null,
   setHistoryToSinglePage: (currentPage: Veid) => void,
   clear: () => void,
 }
@@ -113,12 +114,12 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
   };
 
-  const currentPopupSpecVePath = (): VisualElementPath | null => {
+  const currentPopupSpecVeid = (): Veid | null => {
     if (breadcrumbs().length == 0) { return null; }
     if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) { return null; }
     const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
     const currentSpec = lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
-    return currentSpec.vePath;
+    return currentSpec.actualVeid;
   };
 
   const setHistoryToSinglePage = (pageVeid: Veid): void => {
@@ -138,7 +139,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     popPopup,
     popAllPopups,
     currentPopupSpec,
-    currentPopupSpecVePath,
+    currentPopupSpecVeid,
     setHistoryToSinglePage,
     clear,
   });

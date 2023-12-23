@@ -74,7 +74,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
-  const isMainPoppedUp = () => VeFns.veToPath(props.visualElement) == store.history.currentPopupSpecVePath() && store.history.currentPopupSpec()!.type != PopupType.Attachment;
+  const isMainPoppedUp = () =>
+    store.history.currentPopupSpecVeid() != null &&
+    VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0 &&
+    store.history.currentPopupSpec()!.type != PopupType.Attachment;
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no
@@ -194,7 +197,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                       `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;` +
                       `${VeFns.zIndexStyle(props.visualElement)}`}
                width={imageWidthToRequestPx(false)} />
-          <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isMainPoppedUp()}>
+          <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #dddddd88; ${VeFns.zIndexStyle(props.visualElement)}`} />
