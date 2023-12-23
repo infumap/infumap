@@ -32,6 +32,7 @@ import { Colors, linearGradient } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
+import { arrange } from '../../layout/arrange';
 
 
 export const Toolbar: Component = () => {
@@ -64,6 +65,12 @@ export const Toolbar: Component = () => {
     store.overlay.toolbarOverlayInfoMaybe.get();
     if (currentPageMaybe() == null) { return ''; }
     return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
+  }
+
+  const hideToolbar = () => {
+    store.topToolbarVisible.set(false);
+    store.resetDesktopSizePx();
+    arrange(store);
   }
 
   return (
@@ -109,6 +116,9 @@ export const Toolbar: Component = () => {
               <Show when={store.user.getUserMaybe()}>
                 <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
               </Show>
+              <div class="inline-block">
+                <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
+              </div>
             </div>
           </div>
         </div>
