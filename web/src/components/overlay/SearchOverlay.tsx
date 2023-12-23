@@ -25,7 +25,7 @@ import { Uid } from "../../util/uid";
 import { switchToPage } from "../../layout/navigation";
 import { VeFns } from "../../layout/visual-element";
 import { createBooleanSignal, createNumberSignal } from "../../util/signals";
-import { TOP_TOOLBAR_HEIGHT_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
+import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { initiateLoadItemMaybe } from "../../layout/load";
 import { isInside } from "../../util/geometry";
 
@@ -36,7 +36,7 @@ export const SearchOverlay: Component = () => {
   const boxBoundsPx = () => {
     return ({
       x: 5,
-      y: 5 + TOP_TOOLBAR_HEIGHT_PX,
+      y: 5 + store.topToolbarHeight(),
       w: 405,
       h: 64
     });
@@ -49,7 +49,7 @@ export const SearchOverlay: Component = () => {
   const mouseDownListener = (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestDesktopPx(), boxBoundsPx())) { return; }
+    if (isInside(CursorEventState.getLatestDesktopPx(store), boxBoundsPx())) { return; }
     if (overResultsDiv) { return; }
     store.overlay.searchOverlayVisible.set(false);
   };

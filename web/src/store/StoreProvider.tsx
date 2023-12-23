@@ -45,6 +45,8 @@ export interface StoreContextModel {
   getToolbarFocus: () => Veid,
 
   dockWidthPx: InfuSignal<number>,
+  topToolbarVisible: InfuSignal<boolean>,
+  topToolbarHeight: () => number,
 
   anItemIsMoving: InfuSignal<boolean>,
 
@@ -68,6 +70,17 @@ const StoreContext = createContext<StoreContextModel>();
 const INITIAL_DOCK_WIDTH_BL = 8;
 
 export function StoreProvider(props: StoreContextProps) {
+  const topToolbarVisible = createInfuSignal<boolean>(true);
+  const topToolbarHeight = () => topToolbarVisible.get() ? TOP_TOOLBAR_HEIGHT_PX : 0;
+
+  function currentDesktopSize(): Dimensions {
+    let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
+    return {
+      w: rootElement.clientWidth,
+      h: rootElement.clientHeight - topToolbarHeight(),
+    };
+  }
+
   const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
 
   const topLevelVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
@@ -75,14 +88,6 @@ export function StoreProvider(props: StoreContextProps) {
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
   const dockWidthPx = createInfuSignal<number>(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
-
-  function currentDesktopSize(): Dimensions {
-    let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
-    return {
-      w: rootElement.clientWidth,
-      h: rootElement.clientHeight - TOP_TOOLBAR_HEIGHT_PX,
-    };
-  }
 
   const resetDesktopSizePx = () => {
     desktopSizePx.set(currentDesktopSize());
@@ -137,6 +142,8 @@ export function StoreProvider(props: StoreContextProps) {
     resetDesktopSizePx,
     desktopMainAreaBoundsPx,
     dockWidthPx,
+    topToolbarVisible,
+    topToolbarHeight,
 
     topLevelVisualElement,
 

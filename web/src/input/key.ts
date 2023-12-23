@@ -46,11 +46,11 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
-  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false, false);
+  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
 
   if (ev.code == "Slash") {
     ev.preventDefault();
-    store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+    store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(store), hitInfo });
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
   }
 
@@ -125,38 +125,38 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
   else if (ev.code == "KeyN") {
     ev.preventDefault();
-    newItemInContext(store, "note", hitInfo, CursorEventState.getLatestDesktopPx());
+    newItemInContext(store, "note", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyP") {
     ev.preventDefault();
-    newItemInContext(store, "page", hitInfo, CursorEventState.getLatestDesktopPx());
+    newItemInContext(store, "page", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyT") {
     ev.preventDefault();
-    newItemInContext(store, "table", hitInfo, CursorEventState.getLatestDesktopPx());
+    newItemInContext(store, "table", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyR") {
     ev.preventDefault();
-    newItemInContext(store, "rating", hitInfo, CursorEventState.getLatestDesktopPx());
+    newItemInContext(store, "rating", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyW") {
     ev.preventDefault();
-    newItemInContext(store, "password", hitInfo, CursorEventState.getLatestDesktopPx());
+    newItemInContext(store, "password", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyL") {
     ev.preventDefault();
-    newItemInContext(store, "link", hitInfo, CursorEventState.getLatestDesktopPx());
+    newItemInContext(store, "link", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyE") {
     ev.preventDefault();
     // TODO: expressions..
-    // newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx());
+    // newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else {

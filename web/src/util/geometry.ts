@@ -16,8 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { TouchOrMouseEvent } from "../input/state";
+import { StoreContextModel } from "../store/StoreProvider";
 
 
 export interface BoundingBox {
@@ -132,10 +132,10 @@ function clientPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
   return { x: ev.clientX, y: ev.clientY };
 }
 
-export function desktopPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
+export function desktopPxFromMouseEvent(ev: TouchOrMouseEvent, store: StoreContextModel): Vector {
   return vectorSubtract(
     clientPxFromMouseEvent(ev),
-    { x: 0, y: TOP_TOOLBAR_HEIGHT_PX }
+    { x: 0, y: store.topToolbarHeight() }
   );
 }
 

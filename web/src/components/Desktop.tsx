@@ -18,7 +18,6 @@
 
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
-import { TOP_TOOLBAR_HEIGHT_PX } from "../constants";
 import { ContextMenu } from "./overlay/ContextMenu";
 import { handleUpload } from "../upload";
 import { HitboxFlags } from "../layout/hitbox";
@@ -44,7 +43,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false, false);
+      let hi = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
       if (hi.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
@@ -54,7 +53,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         console.log("must upload on page.");
         return;
       }
-      await handleUpload(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(), asPageItem(item));
+      await handleUpload(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store), asPageItem(item));
     }
   };
 
@@ -80,7 +79,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     <div id="desktop"
          ref={desktopDiv}
          class="absolute left-0 bottom-0 right-0 select-none outline-none"
-         style={`top: ${TOP_TOOLBAR_HEIGHT_PX}px; `}>
+         style={`top: ${store.topToolbarHeight()}px; `}>
 
       <Page_Desktop visualElement={props.visualElement} />
 

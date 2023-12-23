@@ -129,7 +129,7 @@ export const NoteEditOverlay: Component = () => {
     justCreatedCompositeItemMaybe = null;
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    const desktopPx = CursorEventState.getLatestDesktopPx();
+    const desktopPx = CursorEventState.getLatestDesktopPx(store);
     if (isInside(desktopPx, noteVeBoundsPx())) { return; }
 
     if (store.user.getUserMaybe() != null && noteItem().ownerId == store.user.getUser().userId) {

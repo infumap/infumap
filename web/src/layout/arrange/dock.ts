@@ -73,7 +73,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         viewportOffsetPx = geometry.viewportBoundsPx.y - geometry.boundsPx.y;
       }
       if (movingItem != null && childId == movingItem.id) {
-        const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
+        const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
         geometry.boundsPx.y = 0;
         if (geometry.viewportBoundsPx) {
           geometry.viewportBoundsPx!.y = viewportOffsetPx;

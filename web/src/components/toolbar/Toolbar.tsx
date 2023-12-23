@@ -21,7 +21,6 @@ import imgUrl from '../../assets/circle.png'
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
-import { TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
 import { Toolbar_Note } from "./Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
@@ -70,48 +69,50 @@ export const Toolbar: Component = () => {
   return (
     <div class="fixed right-0 top-0 border-b border-slate-300"
          style={`left: 0px; ` +
-                `height: ${TOP_TOOLBAR_HEIGHT_PX}px; 0px; `}>
+                `height: ${store.topToolbarHeight()}px; 0px; `}>
 
-      <div class="fixed left-0 top-0 border-r border-b border-slate-300 overflow-hidden"
-           style={`width: ${store.dockWidthPx.get()}px; height: ${TOP_TOOLBAR_HEIGHT_PX}px; background-color: #f8f8f8;`}>
-        <div style={'width: 160px; margin-top: 4px; margin-left: 6px;'}>
-          <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
-          <Toolbar_Navigation />
-        </div>
-      </div>
-
-      <div class="fixed right-0 top-0" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
-        <div class="flex flex-row flex-nowrap">
-          <div class="font-bold p-[4px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
-            {title()}
-          </div>
-          <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-            <Switch>
-              <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
-                <div class="inline-block" style="flex-grow: 1"></div>
-                <Toolbar_Note />
-              </Match>
-              <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
-                <div class="inline-block" style="flex-grow: 1"></div>
-                <Toolbar_Table />
-              </Match>
-              {/* default */}
-              <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
-                <div class="inline-block" style="flex-grow: 1"></div>
-                <Toolbar_Page />
-              </Match>
-            </Switch>
-          </Show>
-          <div class="float-right pt-[8px] pb-[8px] pr-[8px]">
-            <Show when={!store.user.getUserMaybe()}>
-              <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
-            </Show>
-            <Show when={store.user.getUserMaybe()}>
-              <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
-            </Show>
+      <Show when={store.topToolbarVisible.get()}>
+        <div class="fixed left-0 top-0 border-r border-b border-slate-300 overflow-hidden"
+             style={`width: ${store.dockWidthPx.get()}px; height: ${store.topToolbarHeight()}px; background-color: #f8f8f8;`}>
+          <div style={'width: 160px; margin-top: 4px; margin-left: 6px;'}>
+            <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
+            <Toolbar_Navigation />
           </div>
         </div>
-      </div>
+
+        <div class="fixed right-0 top-0" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
+          <div class="flex flex-row flex-nowrap">
+            <div class="font-bold p-[4px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
+              {title()}
+            </div>
+            <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+              <Switch>
+                <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
+                  <div class="inline-block" style="flex-grow: 1"></div>
+                  <Toolbar_Note />
+                </Match>
+                <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
+                  <div class="inline-block" style="flex-grow: 1"></div>
+                  <Toolbar_Table />
+                </Match>
+                {/* default */}
+                <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
+                  <div class="inline-block" style="flex-grow: 1"></div>
+                  <Toolbar_Page />
+                </Match>
+              </Switch>
+            </Show>
+            <div class="float-right pt-[8px] pb-[8px] pr-[8px]">
+              <Show when={!store.user.getUserMaybe()}>
+                <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
+              </Show>
+              <Show when={store.user.getUserMaybe()}>
+                <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
+              </Show>
+            </div>
+          </div>
+        </div>
+      </Show>
 
     </div>
   );

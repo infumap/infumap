@@ -48,7 +48,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
   const hasUser = store.user.getUserMaybe() != null;
 
-  const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx();
+  const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx(store);
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
@@ -313,7 +313,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const hasModal = dialogInfo != null || cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
-  const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev), [], false, true);
+  const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev, store), [], false, true);
   const overElementVes = hitInfo.overElementVes;
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {

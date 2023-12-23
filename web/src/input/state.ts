@@ -21,6 +21,7 @@ import { CompositeItem } from "../items/composite-item";
 import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VisualElementPath } from "../layout/visual-element";
+import { StoreContextModel } from "../store/StoreProvider";
 import { Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
 
@@ -165,7 +166,7 @@ export const CursorEventState = {
 
   getLatestClientPx: (): Vector => ({ x: lastMoveEvent.clientX, y: lastMoveEvent.clientY }),
 
-  getLatestDesktopPx: (): Vector => desktopPxFromMouseEvent(lastMoveEvent),
+  getLatestDesktopPx: (store: StoreContextModel): Vector => desktopPxFromMouseEvent(lastMoveEvent, store),
 }
 
 

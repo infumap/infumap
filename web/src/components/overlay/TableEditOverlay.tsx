@@ -59,7 +59,7 @@ export const TableEditOverlay: Component = () => {
   const mouseDownListener = async (ev: MouseEvent) => {
     ev.stopPropagation();
     CursorEventState.setFromMouseEvent(ev);
-    const desktopPx = CursorEventState.getLatestDesktopPx();
+    const desktopPx = CursorEventState.getLatestDesktopPx(store);
     if (isInside(desktopPx, editBoxBoundsPx())) { return; }
     if (store.user.getUserMaybe() != null && tableItem().ownerId == store.user.getUser().userId) {
       server.updateItem(tableItem());

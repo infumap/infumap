@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX, Z_INDEX_ITEMS } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, HighlightColor, linearGradient } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -467,7 +467,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderShadow = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} text-xl font-bold rounded-md p-8 blur-md`}
            style={`left: ${boundsPx().x - 10}px; ` +
-                  `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
                   `background-color: #303030d0;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -475,7 +475,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPopupTitle = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px; ` +
                   `background-color: #fff; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}` +
                   `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)};`}>
@@ -490,7 +490,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"}`}
            style={`width: ${viewportBoundsPx().w}px; ` +
-                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `left: ${viewportBoundsPx().x}px; top: ${viewportBoundsPx().y}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -520,7 +520,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div ref={popupDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-t border-slate-300`}
            style={`left: ${viewportBoundsPx().x}px; ` +
-                  `top: ${viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `top: ${viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
                   `background-color: #ffffff;` +
                   `overflow-y: ${viewportBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
@@ -543,7 +543,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={PageFns.popupPositioningHasChanged(parentPage())}>
         <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm text-gray-100`}
              style={`left: ${boundsPx().x + boundsPx().w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX}px; ` +
-                    `top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                    `top: ${boundsPx().y + boundsPx().h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                     `width: ${ANCHOR_BOX_SIZE_PX}px; ` +
                     `height: ${ANCHOR_BOX_SIZE_PX}px; ` +
                     `background-color: #ff0000;` +
@@ -557,7 +557,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderBorder = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border pointer-events-none`}
            style={`left: ${boundsPx().x}px; ` +
-                  `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `border-color: ${borderColorVal()}; ` +
                   `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`} />;
@@ -627,8 +627,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`width: ${viewportBoundsPx().w}px; ` +
-                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; left: 0px; ` +
-                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
+                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; left: 0px; ` +
+                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
@@ -689,7 +689,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`left: 0px; ` +
-                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
+                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
                   `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
                   `overflow-y: ${viewportBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                   `overflow-x: ${viewportBoundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +

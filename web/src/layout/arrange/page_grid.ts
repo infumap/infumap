@@ -177,7 +177,7 @@ export function arrange_grid_page(
     const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
     const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx();
+    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
     const cellBoundsPx = {
       x: mouseDestkopPosPx.x - geometry.boundsPx.x + xOffsetPx + pageXScrollPx,
       y: mouseDestkopPosPx.y - geometry.boundsPx.y + yOffsetPx + pageYScrollPx,

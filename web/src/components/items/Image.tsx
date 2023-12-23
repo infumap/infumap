@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Match, Show, Switch, onCleanup, onMount } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, TOP_TOOLBAR_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -108,7 +108,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                   `text-xl font-bold rounded-md p-8 blur-md pointer-events-none`}
             style={`left: ${boundsPx().x-10}px; ` +
-                   `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                   `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                    `width: ${boundsPx().w+20}px; ` +
                    `height: ${boundsPx().h+20}px; ` +
                    `background-color: #303030d0;` +
@@ -116,7 +116,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                   `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
             style={`left: ${quantizedBoundsPx().x}px; ` +
-                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                    `width: ${quantizedBoundsPx().w}px; ` +
                    `height: ${quantizedBoundsPx().h}px;` +
                    `${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -134,7 +134,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
                 `border border-slate-700 overflow-hidden pointer-events-none`}
           style={`left: ${quantizedBoundsPx().x}px; ` +
-                 `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                 `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                  `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;`} />;
 
   const notDetailedFallback = (): JSX.Element =>
@@ -150,7 +150,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} flex items-center justify-center pointer-events-none`}
             style={`left: ${boundsPx().x}px; ` +
-                   `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                   `top: ${boundsPx().y + boundsPx().h - 50 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                    `width: ${boundsPx().w}px; ` +
                    `height: ${50}px;` +
                    `${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -164,7 +164,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={isDetailed()}>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
           style={`left: ${quantizedBoundsPx().x}px; ` +
-                `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                 `width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px;` +
                 `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <For each={props.visualElement.attachmentsVes}>{attachment =>
@@ -183,7 +183,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
                   `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
            style={`left: ${quantizedBoundsPx().x}px; ` +
-                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? TOP_TOOLBAR_HEIGHT_PX : 0)}px; ` +
+                  `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `width: ${quantizedBoundsPx().w}px; ` +
                   `height: ${quantizedBoundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>

@@ -30,8 +30,8 @@ export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent
   if (store.overlay.noteEditOverlayInfo.get() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
-  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(), [], false, false);
+  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
 
-  store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(), hitInfo });
+  store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(store), hitInfo });
   mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
 }

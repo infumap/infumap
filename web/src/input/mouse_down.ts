@@ -61,7 +61,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
 export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boolean) {
 
-  const desktopPosPx = CursorEventState.getLatestDesktopPx();
+  const desktopPosPx = CursorEventState.getLatestDesktopPx(store);
 
   if (store.overlay.contextMenuInfo.get() != null) {
     DoubleClickState.preventDoubleClick();

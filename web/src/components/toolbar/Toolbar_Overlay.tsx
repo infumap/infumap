@@ -22,7 +22,7 @@ import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
-import { GRID_SIZE, TOP_TOOLBAR_HEIGHT_PX, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
+import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { arrange } from "../../layout/arrange";
 import { server } from "../../server";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
@@ -142,7 +142,7 @@ export const Toolbar_Overlay: Component = () => {
     if (overlayType() != ToolbarOverlayType.PageColor) {
       return {
         x: store.desktopBoundsPx().w - 335,
-        y: TOP_TOOLBAR_HEIGHT_PX + 5,
+        y: store.topToolbarHeight() + 5,
         w: 330, h: heightPx()
       }
     }
