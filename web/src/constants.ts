@@ -55,6 +55,7 @@ export const Z_INDEX_ITEMS = 2;
 export const Z_INDEX_POPUP = 10;
 export const Z_INDEX_MOVING = 20;
 export const Z_INDEX_TEXT_OVERLAY = 30;
+export const Z_INDEX_SHOW_TOOLBAR_ICON = 30;
 export const Z_INDEX_TOOLBAR_OVERLAY = 40;
 export const Z_PANIC = 1000;
 
