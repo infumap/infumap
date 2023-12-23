@@ -170,7 +170,7 @@ export const Toolbar_Note: Component = () => {
 
   return (
     <>
-      <div class="inline-block p-[7px] flex-grow-0">
+      <div class="inline-block pt-[7px] pb-[4px] flex-grow-0">
         <Switch>
           <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
           <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>

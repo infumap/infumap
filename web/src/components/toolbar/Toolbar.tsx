@@ -28,7 +28,7 @@ import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
 import { asPageItem } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
-import { Colors, linearGradient } from "../../style";
+import { Colors, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
@@ -83,12 +83,14 @@ export const Toolbar: Component = () => {
   return (
     <>
       <Show when={store.topToolbarVisible.get()}>
-        <div class="fixed right-0 top-0 border-b border-slate-300"
+        <div class="fixed right-0 top-0 border-b"
              style={`left: 0px; ` +
-                    `height: ${store.topToolbarHeight()}px; 0px; `}>
+                    `height: ${store.topToolbarHeight()}px; 0px; ` +
+                    `border-color: ${LIGHT_BORDER_COLOR}; `}>
 
-          <div class="fixed left-0 top-0 border-r border-b border-slate-300 overflow-hidden"
-              style={`width: ${store.dockWidthPx.get()}px; height: ${store.topToolbarHeight()}px; background-color: #f8f8f8;`}>
+          <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
+               style={`width: ${store.dockWidthPx.get()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
+                      `border-color: ${LIGHT_BORDER_COLOR}; `}>
             <div style={'width: 160px; margin-top: 4px; margin-left: 6px;'}>
               <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
               <Toolbar_Navigation />
@@ -97,35 +99,35 @@ export const Toolbar: Component = () => {
 
           <div class="fixed right-0 top-0" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
             <div class="flex flex-row flex-nowrap">
-              <div class="font-bold p-[4px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
+              <div class="font-bold p-[3px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
                 {title()}
               </div>
-              <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-                <Switch>
-                  <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
-                    <div class="inline-block" style="flex-grow: 1"></div>
-                    <Toolbar_Note />
-                  </Match>
-                  <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
-                    <div class="inline-block" style="flex-grow: 1"></div>
-                    <Toolbar_Table />
-                  </Match>
-                  {/* default */}
-                  <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
-                    <div class="inline-block" style="flex-grow: 1"></div>
-                    <Toolbar_Page />
-                  </Match>
-                </Switch>
-              </Show>
-              <div class="float-right pt-[8px] pb-[8px] pr-[8px]">
-                <Show when={!store.user.getUserMaybe()}>
-                  <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
+              <div class="inline-block" style="flex-grow: 1"></div>
+              <div class="border-l pl-[8px]" style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; `}>
+                <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+                  <Switch>
+                    <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
+                      <Toolbar_Note />
+                    </Match>
+                    <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
+                      <Toolbar_Table />
+                    </Match>
+                    {/* default */}
+                    <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
+                      <Toolbar_Page />
+                    </Match>
+                  </Switch>
                 </Show>
-                <Show when={store.user.getUserMaybe()}>
-                  <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
-                </Show>
-                <div class="inline-block">
-                  <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
+                <div class="float-right pt-[7px] pb-[4px] pr-[8px]">
+                  <Show when={!store.user.getUserMaybe()}>
+                    <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
+                  </Show>
+                  <Show when={store.user.getUserMaybe()}>
+                    <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
+                  </Show>
+                  <div class="inline-block">
+                    <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
+                  </div>
                 </div>
               </div>
             </div>

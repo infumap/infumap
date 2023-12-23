@@ -35,5 +35,7 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
   return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`
 }
 
-export let HighlightColor = "#0957d0";
-export let HighlightEntryColor = "#a8c7fa";
+export let HIGHLIGHT_COLOR = "#0957d0";
+export let HIGHLIGHT_ENTRY_COLOR = "#a8c7fa";
+
+export let LIGHT_BORDER_COLOR = "#e1e3e1" // matches chrome v120 color scheme.

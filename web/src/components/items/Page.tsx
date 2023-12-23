@@ -20,7 +20,7 @@ import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch 
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { Colors, HighlightColor, linearGradient } from "../../style";
+import { Colors, HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -143,9 +143,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderAsDock = () => {
     return (
-      <div class={`absolute border-r border-slate-300 rounded-sm`}
+      <div class={`absolute border-r`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; `}>
+                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
+                  `border-color: ${LIGHT_BORDER_COLOR}; `}>
         <For each={props.visualElement.childrenVes}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
@@ -448,7 +449,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderAsPopup = () => {
     const borderColorVal = () => {
       if (props.visualElement.flags & VisualElementFlags.HasToolbarFocus) {
-        return HighlightColor;
+        return HIGHLIGHT_COLOR;
       }
       return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `
     };

@@ -255,7 +255,7 @@ export const Toolbar_Page: Component = () => {
   };
 
   return (
-    <div class="inline-block p-[7px] flex-grow-0">
+    <div class="inline-block pt-[7px] pb-[4px] flex-grow-0">
       <div ref={divBeforeColroSelect} class="inline-block ml-[7px]" />
       <div class="inline-block h-[22px] mt-[3px] align-middle">
         <InfuColorButton col={colorNumber()} onClick={handleColorClick} />

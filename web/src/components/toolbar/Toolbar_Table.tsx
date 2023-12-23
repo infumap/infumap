@@ -77,7 +77,7 @@ export const Toolbar_Table: Component = () => {
   }
 
   return (
-    <div class="inline-block p-[7px] flex-grow-0">
+    <div class="inline-block pt-[7px] pb-[4px] flex-grow-0">
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
       <div class="pl-[4px] inline-block">
