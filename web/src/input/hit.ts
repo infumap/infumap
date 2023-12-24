@@ -191,16 +191,35 @@ function determineTopLevelRoot(
     return dockRootMaybe!;
   }
 
-  posOnDesktopPx = cloneVector(posOnDesktopPx)!;
-  posOnDesktopPx.x = posOnDesktopPx.x + store.dockWidthPx.get();
-
   posRelativeToRootVisualElementBoundsPx = cloneVector(posRelativeToRootVisualElementBoundsPx)!;
   posRelativeToRootVisualElementBoundsPx.x = posRelativeToRootVisualElementBoundsPx.x - store.dockWidthPx.get();
 
+  // TODO (LOW): pretty sure this is never utilized, but it's harmless.
+  let hitboxType = HitboxFlags.None;
+  for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
+    if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
+      hitboxType |= rootVisualElement.hitboxes[j].type;
+    }
+  }
+  if (hitboxType != HitboxFlags.None) {
+    const hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive);
+    return ({
+      rootVisualElementSignal,
+      rootVisualElement,
+      posRelativeToRootVisualElementBoundsPx,
+      posRelativeToRootVisualElementViewportPx: cloneVector(posRelativeToRootVisualElementBoundsPx)!,
+      hitMaybe
+    });
+  }
 
+
+  // TODO (HIGH): factor the below out to a new method.
   let done = false;
 
   if (rootVisualElement.popupVes) {
+    posOnDesktopPx = cloneVector(posOnDesktopPx)!;
+    posOnDesktopPx.x = posOnDesktopPx.x + store.dockWidthPx.get();
+
     const popupRootVesMaybe = rootVisualElement.popupVes!;
     const popupRootVeMaybe = popupRootVesMaybe.get();
 
@@ -286,7 +305,7 @@ function determineTopLevelRoot(
     }
   }
 
-  let hitboxType = HitboxFlags.None;
+  hitboxType = HitboxFlags.None;
   for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
     if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
       hitboxType |= rootVisualElement.hitboxes[j].type;
