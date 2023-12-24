@@ -540,7 +540,7 @@ export const PageFns = {
   },
 
   handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    const parentVeid = VeFns.veidFromPath(visualElement.parentPath!);
+    const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
     const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
     const selectedVeid = VeFns.veidFromPath(selectedPath);
     switchToPage(store, selectedVeid, true, false);
