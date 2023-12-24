@@ -76,6 +76,13 @@ export function getHitInfo(
     }
   } // if a root hitbox was hit.
 
+  topLevelRoot = determinePopupOrSelectedRootMaybe(store, topLevelRoot, posOnDesktopPx, canHitEmbeddedInteractive);
+  if (topLevelRoot.hitMaybe) {
+    if (!ignoreItems.find(a => a == topLevelRoot.hitMaybe?.overElementVes.get().displayItem.id)) {
+      return topLevelRoot.hitMaybe!;
+    }
+  } // if a root hitbox was hit.
+
   let {
     rootVisualElementSignal,
     rootVisualElement,
@@ -201,19 +208,30 @@ function determineTopLevelRoot(
       hitboxType |= rootVisualElement.hitboxes[j].type;
     }
   }
+  let hitMaybe: HitInfo | null = null;
   if (hitboxType != HitboxFlags.None) {
-    const hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive);
-    return ({
-      rootVisualElementSignal,
-      rootVisualElement,
-      posRelativeToRootVisualElementBoundsPx,
-      posRelativeToRootVisualElementViewportPx: cloneVector(posRelativeToRootVisualElementBoundsPx)!,
-      hitMaybe
-    });
+    hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive);
   }
 
+  return ({
+    rootVisualElementSignal,
+    rootVisualElement,
+    posRelativeToRootVisualElementBoundsPx,
+    posRelativeToRootVisualElementViewportPx: cloneVector(posRelativeToRootVisualElementBoundsPx)!,
+    hitMaybe
+  });
+}
 
-  // TODO (HIGH): factor the below out to a new method.
+function determinePopupOrSelectedRootMaybe(
+    store: StoreContextModel,
+    topRootInfo: RootInfo,
+    // does not incorporate page scroll.
+    posOnDesktopPx: Vector,
+    canHitEmbeddedInteractive: boolean): RootInfo {
+
+  let rootVisualElement = topRootInfo.rootVisualElement;
+  let rootVisualElementSignal = topRootInfo.rootVisualElementSignal;
+  let posRelativeToRootVisualElementBoundsPx = topRootInfo.posRelativeToRootVisualElementBoundsPx
   let done = false;
 
   if (rootVisualElement.popupVes) {
@@ -305,7 +323,7 @@ function determineTopLevelRoot(
     }
   }
 
-  hitboxType = HitboxFlags.None;
+  let hitboxType = HitboxFlags.None;
   for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
     if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
       hitboxType |= rootVisualElement.hitboxes[j].type;
