@@ -31,25 +31,51 @@ import { Uid } from "../util/uid";
 
 
 export interface HitInfo {
-  hitboxType: HitboxFlags,                   // the intersected hitbox flags of overElement.
-  compositeHitboxTypeMaybe: HitboxFlags,     // if the item hit was inside a composite container, the intersected hitbox flags of the composite container, else None.
-  rootVe: VisualElement,                     // the first fully editable page directly under the specified position.
-  overElementVes: VisualElementSignal,       // the visual element under the specified position.
-  overElementMeta: HitboxMeta | null,        // meta data from the hit hitbox of the visual element under specified position.
-  overContainerVe: VisualElement | null,     // the visual element of the container immediately under the specified position.
-  overPositionableVe: VisualElement | null,  // the visual element that defines scaling/positioning immediately under the specified position (for a table this is it's parent page).
-  overPositionGr: Vector | null,             // position in the positionable element.
+  /**
+   * The intersected hitbox flags of overElement.
+   */
+  hitboxType: HitboxFlags,
+
+  /**
+   * If the item hit was inside a composite container, the intersected hitbox flags of the composite container, else None.
+   */
+  compositeHitboxTypeMaybe: HitboxFlags,
+
+  /**
+   * The first fully editable page directly under the specified position.
+   */
+  rootVe: VisualElement,
+
+  /**
+   * The visual element under the specified position.
+   */
+  overElementVes: VisualElementSignal,
+
+  /**
+   * Meta data from the hit hitbox of the visual element under specified position.
+   */
+  overElementMeta: HitboxMeta | null,
+
+  /**
+   * The visual element of the container immediately under the specified position.
+   */
+  overContainerVe: VisualElement | null,
+
+  /**
+   * The visual element that defines scaling/positioning immediately under the specified position (for a table this is it's parent page).
+   */
+  overPositionableVe: VisualElement | null,
+
+  /**
+   * Position in the positionable element.
+   */
+  overPositionGr: Vector | null,
 }
 
-interface RootInfo {
-  rootVisualElementSignal: VisualElementSignal,
-  rootVisualElement: VisualElement,
-  posRelativeToRootVisualElementViewportPx: Vector,
-  posRelativeToRootVisualElementBoundsPx: Vector,
-  hitMaybe: HitInfo | null
-}
 
-
+/**
+ * Intersect posOnDesktopPx with the cached visual element state.
+ */
 export function getHitInfo(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
@@ -165,6 +191,14 @@ export function getHitInfo(
   return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive);
 }
 
+
+interface RootInfo {
+  rootVisualElementSignal: VisualElementSignal,
+  rootVisualElement: VisualElement,
+  posRelativeToRootVisualElementViewportPx: Vector,
+  posRelativeToRootVisualElementBoundsPx: Vector,
+  hitMaybe: HitInfo | null
+}
 
 function determineTopLevelRoot(
     store: StoreContextModel,
@@ -299,10 +333,11 @@ function determinePopupOrSelectedRootMaybe(
         rootVisualElementSignal = newRootVesMaybe;
         rootVisualElement = newRootVeMaybe;
         let veid = VeFns.actualVeidFromVe(newRootVeMaybe);
+        const scrollPropX = store.perItem.getPageScrollXProp(veid);
         const scrollPropY = store.perItem.getPageScrollYProp(veid);
         posRelativeToRootVisualElementBoundsPx = vectorSubtract(
           posRelativeToRootVisualElementBoundsPx,
-          { x: rootVisualElement.viewportBoundsPx!.x,
+          { x: rootVisualElement.viewportBoundsPx!.x - scrollPropX * (rootVisualElement.childAreaBoundsPx!.w - rootVisualElement.boundsPx.w),
             y: rootVisualElement.viewportBoundsPx!.y - scrollPropY * (rootVisualElement.childAreaBoundsPx!.h - rootVisualElement.boundsPx.h)})
         let hitboxType = HitboxFlags.None;
         for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
@@ -375,16 +410,18 @@ function determineEmbeddedRootMaybe(
 
     if (isInside(posRelativeToRootVisualElementViewportPx, childVe.boundsPx!)) {
       const childVeid = VeFns.veidFromVe(childVe);
+
+      const scrollPropX = store.perItem.getPageScrollXProp(childVeid);
       const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
 
       const newPosRelativeToRootVisualElementViewportPx = vectorSubtract(
         posRelativeToRootVisualElementViewportPx,
-        { x: childVe.viewportBoundsPx!.x,
+        { x: childVe.viewportBoundsPx!.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w),
           y: childVe.viewportBoundsPx!.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h)});
 
       const newPosRelativeToRootVisualElementBoundsPx = vectorSubtract(
         posRelativeToRootVisualElementViewportPx,
-        { x: childVe.boundsPx.x,
+        { x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w),
           y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h)});
 
       let hitboxType = HitboxFlags.None;
