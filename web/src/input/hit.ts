@@ -121,11 +121,10 @@ export function getHitInfo(
     }
   } // if a root hitbox was hit.
 
-  for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
-    const childVisualElementSignal = rootVisualElement.childrenVes[i];
+  function hitChildMaybe(childVisualElementSignal: VisualElementSignal) {
     const childVisualElement = childVisualElementSignal.get();
 
-    if (childVisualElement.flags & VisualElementFlags.IsDock) { continue; }
+    if (childVisualElement.flags & VisualElementFlags.IsDock) { return null; }
 
     // attachments take precedence.
     if (!ignoreAttachments) {
@@ -161,7 +160,7 @@ export function getHitInfo(
     }
 
     if (!isInside(posRelativeToRootVisualElementViewportPx, childVisualElement.boundsPx)) {
-      continue;
+      return null;
     }
 
     if (isTable(childVisualElement.displayItem) && !(childVisualElement.flags & VisualElementFlags.LineItem) && childVisualElement.childAreaBoundsPx == null) {
@@ -184,8 +183,18 @@ export function getHitInfo(
       }
     }
     if (!ignoreItems.find(a => a == childVisualElement.displayItem.id)) {
-      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElement.childrenVes[i], meta, posRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive);
+      return finalize(hitboxType, HitboxFlags.None, rootVisualElement, childVisualElementSignal, meta, posRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive);
     }
+  }
+
+  for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
+    const hitMaybe = hitChildMaybe(rootVisualElement.childrenVes[i]);
+    if (hitMaybe) { return hitMaybe; }
+  }
+
+  if (rootVisualElement.selectedVes) {
+    const hitMaybe = hitChildMaybe(rootVisualElement.selectedVes);
+    if (hitMaybe) { return hitMaybe; }
   }
 
   return finalize(HitboxFlags.None, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementViewportPx, canHitEmbeddedInteractive);
