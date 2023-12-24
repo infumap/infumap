@@ -232,7 +232,8 @@ function determinePopupOrSelectedRootMaybe(
   let rootVisualElement = topRootInfo.rootVisualElement;
   let rootVisualElementSignal = topRootInfo.rootVisualElementSignal;
   let posRelativeToRootVisualElementBoundsPx = topRootInfo.posRelativeToRootVisualElementBoundsPx
-  let done = false;
+
+  let changedRoot = false;
 
   if (rootVisualElement.popupVes) {
     posOnDesktopPx = cloneVector(posOnDesktopPx)!;
@@ -285,11 +286,11 @@ function determinePopupOrSelectedRootMaybe(
         popupPosRelativeToTopLevelVisualElementPx,
         { x: rootVisualElement.boundsPx!.x - scrollXPx,
           y: rootVisualElement.boundsPx!.y - scrollYPx });
-      done = true;
+      changedRoot = true;
     }
   }
 
-  if (!done && rootVisualElement.selectedVes != null) {
+  if (!changedRoot && rootVisualElement.selectedVes != null) {
     const newRootVesMaybe = rootVisualElement.selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
 
@@ -319,6 +320,8 @@ function determinePopupOrSelectedRootMaybe(
             hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive)
           });
         }
+
+        changedRoot = true;
       }
     }
   }
@@ -337,13 +340,19 @@ function determinePopupOrSelectedRootMaybe(
   const posRelativeToRootVisualElementViewportPx = cloneVector(posRelativeToRootVisualElementBoundsPx)!;
   posRelativeToRootVisualElementViewportPx.y = posRelativeToRootVisualElementViewportPx.y - (rootVisualElement.boundsPx.h - rootVisualElement.viewportBoundsPx!.h);
 
-  return ({
+  let result = {
     rootVisualElementSignal,
     rootVisualElement,
     posRelativeToRootVisualElementBoundsPx,
     posRelativeToRootVisualElementViewportPx,
     hitMaybe
-  });
+  };
+
+  if (changedRoot && rootVisualElement.selectedVes) {
+    return determinePopupOrSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive);
+  }
+
+  return result;
 }
 
 
