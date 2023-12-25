@@ -494,8 +494,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"}`}
            style={`width: ${viewportBoundsPx().w}px; ` +
-                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
-                  `left: ${viewportBoundsPx().x}px; top: ${viewportBoundsPx().y}px; ` +
+                  `height: ${viewportBoundsPx().h}px; ` +
+                  `left: ${viewportBoundsPx().x}px; ` +
+                  `top: ${viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={popupDiv}
