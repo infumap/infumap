@@ -319,7 +319,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderPage = () =>
       <div ref={translucentDiv}
            class={`absolute ${borderClass()} rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; ` +
+                  `top: ${boundsPx().y}px; ` +
+                  `width: ${boundsPx().w}px; ` +
+                  `height: ${boundsPx().h}px; ` +
                   `background-color: #ffffff; ` +
                   `overflow-y: ${boundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                   `overflow-x: ${boundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
@@ -337,8 +340,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderBoxTitleMaybe = () =>
       <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
         <div class="absolute flex items-center justify-center pointer-events-none"
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
-                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+            style={`left: ${boundsPx().x}px; ` +
+                   `top: ${boundsPx().y}px; ` +
+                   `width: ${boundsPx().w}px; ` +
+                   `height: ${boundsPx().h}px;` +
+                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none"
               style={`transform: scale(${translucentTitleInBoxScale()}); transform-origin: center center;`}>
             {pageItem().title}
@@ -453,6 +459,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `
     };
 
+    const titleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
+
     const popupScrollHandler = (_ev: Event) => {
       if (!popupDiv) { return; }
       if (updatingPopupScrollTop) { return; }
@@ -483,9 +491,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `${VeFns.zIndexStyle(props.visualElement)}` +
                   `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)};`}>
         <div class="absolute font-bold"
-              style={`left: 0px; top: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.05}px; width: ${boundsPx().w / scale() * 0.9}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.9}px; ` +
-                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale() * 0.9}); transform-origin: top left; ` +
-                     `overflow-wrap: break-word; padding-left: 4px;`}>
+              style={`left: 0px; top: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.05}px; ` +
+                     `width: ${boundsPx().w / scale() * 0.9}px; ` +
+                     `height: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.9}px; ` +
+                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale() * 0.9}); ` +
+                     `transform-origin: top left; ` +
+                     `overflow-wrap: break-word; ` +
+                     `padding-left: 4px; ` +
+                     `margin-left: 3px;` +
+                     `color: ${titleColor()}`}>
           {pageItem().title}
         </div>
       </div>;
