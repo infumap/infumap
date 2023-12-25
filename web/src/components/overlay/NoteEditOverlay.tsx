@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server } from "../../server";
-import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, Veid, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -390,7 +390,7 @@ export const NoteEditOverlay: Component = () => {
     const beforeText = textElement!.value.substring(0, textElement!.selectionStart);
     const afterText = textElement!.value.substring(textElement!.selectionEnd);
 
-    if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement().linkItemMaybe != null) {
+    if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement().actualLinkItemMaybe != null) {
       server.updateItem(ve.displayItem);
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
@@ -452,6 +452,13 @@ export const NoteEditOverlay: Component = () => {
     } else {
       assert(justCreatedNoteItemMaybe == null, "not expecting note to have been just created");
 
+      // editing in links is not supported, so parent of displayItem always what is required here.
+      const parentVe = VesCache.get(ve.parentPath!)!.get();
+      let updateSelectedItemOfVeid: Veid | null = null;
+      if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+        updateSelectedItemOfVeid = VeFns.actualVeidFromVe(parentVe);
+      }
+
       // if the note item is in a link, create the new composite under the item's (as opposed to the link item's) parent.
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
       const spatialWidthGr = asXSizableItem(ve.displayItem).spatialWidthGr;
@@ -474,7 +481,12 @@ export const NoteEditOverlay: Component = () => {
 
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
-      const newVes = VesCache.findSingle(VeFns.veidFromItems(note, null));
+      if (updateSelectedItemOfVeid) {
+        console.log("TODO: update this:", store.perItem.getSelectedListPageItem(updateSelectedItemOfVeid));
+      }
+
+      const veid = { itemId: note.id, linkIdMaybe: null };
+      const newVes = VesCache.findSingle(veid);
       store.overlay.noteEditOverlayInfo.set(null);
       store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(newVes.get()), initialCursorPosition: CursorPosition.Start });
     }
