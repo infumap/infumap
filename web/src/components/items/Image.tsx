@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, JSX, Match, Show, Switch, onCleanup, onMount } from "solid-js";
+import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup, onMount } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
@@ -87,22 +87,32 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 
   let isDetailed_OnLoad = isDetailed();
-  let imgSrcOnLoad = imgSrc();
+  let currentImgSrc = imgSrc();
   let imgOriginOnLoad = imgOrigin();
+  let isMounting = true;
 
-  onMount(() => {
-    if (isDetailed_OnLoad) {
-      const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
-      getImage(imgSrcOnLoad, imgOriginOnLoad, isHighPriority)
-        .then((objectUrl) => {
-          imgElement!.src = objectUrl;
-        });
+  createEffect(() => {
+    const nextId = props.visualElement.displayItem.id;
+    if (nextId != imgSrc()) {
+      if (isDetailed_OnLoad) {
+        if (!isMounting) {
+          releaseImage(currentImgSrc);
+        }
+        isMounting = false;
+        currentImgSrc = imgSrc();
+        imgElement!.src = "";
+        const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
+        getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
+          .then((objectUrl) => {
+            imgElement!.src = objectUrl;
+          });
+      }
     }
   });
 
   onCleanup(() => {
     if (isDetailed_OnLoad) {
-      releaseImage(imgSrcOnLoad);
+      releaseImage(currentImgSrc);
     }
   });
 
