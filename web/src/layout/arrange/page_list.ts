@@ -157,7 +157,6 @@ export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
 export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, isExpandable: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
-  console.log(veid, item);
   const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
   const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
 

@@ -482,8 +482,10 @@ export const NoteEditOverlay: Component = () => {
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
       if (updateSelectedItemOfVeid) {
-        console.log("TODO: update this:", store.perItem.getSelectedListPageItem(updateSelectedItemOfVeid));
+        store.perItem.setSelectedListPageItem(updateSelectedItemOfVeid, { itemId: composite.id, linkIdMaybe: null });
       }
+      // TODO (LOW): probably possible to avoid the double arrange.
+      arrange(store);
 
       const veid = { itemId: note.id, linkIdMaybe: null };
       const newVes = VesCache.findSingle(veid);
