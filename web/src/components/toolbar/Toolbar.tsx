@@ -91,18 +91,23 @@ export const Toolbar: Component = () => {
           <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
                style={`width: ${store.dockWidthPx.get()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
                       `border-color: ${LIGHT_BORDER_COLOR}; `}>
-            <div style={'width: 160px; margin-top: 4px; margin-left: 6px;'}>
-              <div class="align-middle inline-block" style="margin-top: -3px; margin-left: 2px;"><a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a></div>
-              <Toolbar_Navigation />
+            <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
+              <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0;">
+                <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
+              </div>
+              <div class="inline-block" style="flex-grow: 1;" />
+              <div class="inline-block" style="flex-grow: 0; margin-right: 8px;">
+                <Toolbar_Navigation />
+              </div>
             </div>
           </div>
 
           <div class="fixed right-0 top-0" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
-            <div class="flex flex-row flex-nowrap">
+            <div class="flex flex-row">
               <div class="font-bold p-[3px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
                 {title()}
               </div>
-              <div class="inline-block" style="flex-grow: 1"></div>
+              <div class="inline-block flex-nowrap" style="flex-grow: 1;"></div>
               <div class="border-l pl-[8px]" style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; `}>
                 <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
                   <Switch>

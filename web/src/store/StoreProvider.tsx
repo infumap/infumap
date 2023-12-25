@@ -67,7 +67,7 @@ export interface StoreContextProps {
 
 const StoreContext = createContext<StoreContextModel>();
 
-const INITIAL_DOCK_WIDTH_BL = 8;
+const INITIAL_DOCK_WIDTH_BL = 7;
 
 export function StoreProvider(props: StoreContextProps) {
   const topToolbarVisible = createInfuSignal<boolean>(true);

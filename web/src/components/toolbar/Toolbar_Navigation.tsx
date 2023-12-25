@@ -47,9 +47,9 @@ export const Toolbar_Navigation: Component = () => {
   const handleSearchClick = () => { store.overlay.searchOverlayVisible.set(!store.overlay.searchOverlayVisible.get()); };
 
   return (
-    <div class="inline-block p-[4px] flex-grow-0">
+    <div class="inline-block p-[4px]" style="height: 30px; overflow-y: hidden;">
       <Show when={store.user.getUserMaybe()}>
-        <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} />        
+        <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} />
       </Show>
       <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} />
       <InfuIconButton icon="fa fa-arrow-circle-up" highlighted={false} clickHandler={handleUp} />
