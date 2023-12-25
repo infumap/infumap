@@ -84,7 +84,7 @@ export const arrangeTable = (
       ? sizeBl.w
       : Math.min(displayItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
-    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup));
+    const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false);
 
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: displayItem_childItem,
@@ -121,7 +121,7 @@ export const arrangeTable = (
           initiateLoadChildItemsMaybe(store, attachment_veid);
         }
 
-        const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup));
+        const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, idx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false);
 
         const tableChildAttachmentVeSpec: VisualElementSpec = {
           displayItem: displayItem_attachment,

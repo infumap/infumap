@@ -91,10 +91,10 @@ export const PlaceholderFns = {
     return calcGeometryOfAttachmentItemImpl(placeholder, parentBoundsPx, parentInnerSizeBl, index, isSelected, false);
   },
 
-  calcGeometry_ListItem: (_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry => {
+  calcGeometry_ListItem: (_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean): ItemGeometry => {
     const boundsPx = {
       x: blockSizePx.w * col,
-      y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
+      y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX : 0),
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };

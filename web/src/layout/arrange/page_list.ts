@@ -114,7 +114,7 @@ export function arrange_list_page(
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup, true);
 
     const listItemVeSpec: VisualElementSpec = {
       displayItem,

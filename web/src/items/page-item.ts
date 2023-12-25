@@ -451,7 +451,7 @@ export const PageFns = {
     return calcGeometryOfAttachmentItemImpl(page, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_page: PageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean, padTop: boolean): ItemGeometry => {
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -460,7 +460,7 @@ export const PageFns = {
     };
     const boundsPx = {
       x: blockSizePx.w * col,
-      y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
+      y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX : 0),
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
