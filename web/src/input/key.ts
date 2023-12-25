@@ -66,7 +66,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
             return overVe.displayItem;
           }
           const selected = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
-          if (selected && overVe.displayItem.id == VeFns.veidFromPath(selected).itemId) {
+          if (selected && overVe.displayItem.id == selected.itemId) {
             return overVe.displayItem;
           }
           return overVe.linkItemMaybe!;
@@ -92,11 +92,12 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
         const selectedItem = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
         const direction = findDirectionFromKeyCode(ev.code);
-        const closest = findClosest(selectedItem, direction, true)!;
-        if (closest != null) {
-          store.perItem.setSelectedListPageItem(store.history.currentPage()!, closest);
-          arrange(store);
-        }
+        console.log("TODO: make this work again.");
+        // const closest = findClosest(selectedItem, direction, true)!;
+        // if (closest != null) {
+        //   store.perItem.setSelectedListPageItem(store.history.currentPage()!, closest);
+        //   arrange(store);
+        // }
       }
     } else {
       if (store.history.currentPopupSpec() == null) { return; }

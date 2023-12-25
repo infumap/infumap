@@ -33,7 +33,7 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
   const parentItem = parentVe.displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
-    store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+    store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
     arrange(store);
     return true;
   }

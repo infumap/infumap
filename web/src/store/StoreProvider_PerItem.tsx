@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Veid, VisualElementPath } from "../layout/visual-element";
+import { EMPTY_VEID, Veid, VisualElementPath } from "../layout/visual-element";
 import { InfuSignal, NumberSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 
 
 export interface PerItemStoreContextModel {
-  getSelectedListPageItem: (veid: Veid) => VisualElementPath,
-  setSelectedListPageItem: (veid: Veid, path: VisualElementPath) => void,
+  getSelectedListPageItem: (listPageVeid: Veid) => Veid,
+  setSelectedListPageItem: (listPageVeid: Veid, selectedVeid: Veid) => void,
 
   getListPageColWidth: (itemId: Uid) => number,
   setListPageColWidth: (itemId: Uid, width: number) => void,
@@ -46,7 +46,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const tableScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
-  const selectedItems = new Map<string, InfuSignal<VisualElementPath>>();
+  const selectedItems = new Map<string, InfuSignal<Veid>>();
   const listPageColWidths = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
@@ -100,21 +100,21 @@ export function makePerItemStore(): PerItemStoreContextModel {
     pageScrollYPxs.get(key)!.set(prop);
   };
 
-  const getSelectedListPageItem = (veid: Veid): VisualElementPath => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+  const getSelectedListPageItem = (listPageVeid: Veid): Veid => {
+    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
-      selectedItems.set(key, createInfuSignal<VisualElementPath>(""));
+      selectedItems.set(key, createInfuSignal<Veid>(EMPTY_VEID));
     }
     return selectedItems.get(key)!.get();
   };
 
-  const setSelectedListPageItem = (veid: Veid, path: VisualElementPath): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+  const setSelectedListPageItem = (listPageVeid: Veid, selectedVeid: Veid): void => {
+    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
     if (!selectedItems.get(key)) {
-      selectedItems.set(key, createInfuSignal<VisualElementPath>(path));
+      selectedItems.set(key, createInfuSignal<Veid>(selectedVeid));
       return;
     }
-    selectedItems.get(key)!.set(path);
+    selectedItems.get(key)!.set(selectedVeid);
   };
 
   const getListPageColWidth = (itemId: Uid): number => {

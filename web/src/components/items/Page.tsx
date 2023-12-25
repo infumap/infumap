@@ -49,8 +49,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       div = popupDiv;
     } else if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
-      const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
-      veid = VeFns.veidFromPath(selectedPath);
+      veid = store.perItem.getSelectedListPageItem(parentVeid);
       div = rootDiv;
     } else if (props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
                props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
@@ -675,8 +674,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         veid = VeFns.actualVeidFromVe(props.visualElement);
       } else if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
         const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
-        const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
-        veid = VeFns.veidFromPath(selectedPath);
+        veid = store.perItem.getSelectedListPageItem(parentVeid);
       }
 
       if (desktopSizePx.w < pageBoundsPx.w) {

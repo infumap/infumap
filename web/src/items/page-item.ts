@@ -29,7 +29,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
@@ -502,7 +502,7 @@ export const PageFns = {
     const parentItem = parentVe.displayItem;
     if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
-      store.perItem.setSelectedListPageItem(parentVeid, VeFns.veToPath(visualElement));
+      store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
       arrange(store);
       return;
     }
@@ -541,8 +541,7 @@ export const PageFns = {
 
   handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
-    const selectedPath = store.perItem.getSelectedListPageItem(parentVeid);
-    const selectedVeid = VeFns.veidFromPath(selectedPath);
+    const selectedVeid = store.perItem.getSelectedListPageItem(parentVeid);
     switchToPage(store, selectedVeid, true, false);
   },
 
@@ -603,7 +602,7 @@ export const PageFns = {
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {
-    if (store.perItem.getSelectedListPageItem(itemVeid) != "") { return; }
+    if (store.perItem.getSelectedListPageItem(itemVeid) != EMPTY_VEID) { return; }
     const item = itemState.get(itemVeid.itemId)!;
     if (isPage(item)) {
       const page = asPageItem(item);
@@ -611,8 +610,7 @@ export const PageFns = {
         if (page.computed_children.length > 0) {
           const firstItemId = page.computed_children[0];
           const veid = VeFns.veidFromId(firstItemId);
-          const path = VeFns.addVeidToPath(veid, page.id);
-          store.perItem.setSelectedListPageItem(itemVeid, path);
+          store.perItem.setSelectedListPageItem(itemVeid, veid);
         }
       }
     }
