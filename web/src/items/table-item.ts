@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
@@ -205,7 +205,7 @@ export const TableFns = {
     };
     const boundsPx = {
       x: blockSizePx.w * col,
-      y: blockSizePx.h * row,
+      y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };

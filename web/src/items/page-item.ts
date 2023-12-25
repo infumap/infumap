@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX, PAGE_POPUP_TITLE_HEIGHT_BL, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL } from '../constants';
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX, PAGE_POPUP_TITLE_HEIGHT_BL, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, LIST_PAGE_TOP_PADDING_PX } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -460,7 +460,7 @@ export const PageFns = {
     };
     const boundsPx = {
       x: blockSizePx.w * col,
-      y: blockSizePx.h * row,
+      y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };

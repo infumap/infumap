@@ -42,6 +42,7 @@ export const MOUSE_MOVE_AMBIGUOUS_PX = 5;
 export const CHILD_ITEMS_VISIBLE_WIDTH_BL = 6;
 
 export const LIST_PAGE_LIST_WIDTH_BL = 8;
+export const LIST_PAGE_TOP_PADDING_PX = 4;
 
 export const ITEM_BORDER_WIDTH_PX = 1;
 

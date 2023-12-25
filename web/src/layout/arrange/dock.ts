@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { RESIZE_BOX_SIZE_PX } from "../../constants";
+import { LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -54,7 +54,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
     }
 
-    const GAP_PX = 8;
+    const GAP_PX = LIST_PAGE_TOP_PADDING_PX;
 
     let yCurrentPx = 0;
     const dockChildren = [];

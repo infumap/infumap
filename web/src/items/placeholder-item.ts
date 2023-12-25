@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LIST_PAGE_TOP_PADDING_PX } from "../constants";
 import { ItemGeometry } from "../layout/item-geometry";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { BoundingBox, Dimensions } from "../util/geometry";
@@ -93,7 +94,7 @@ export const PlaceholderFns = {
   calcGeometry_ListItem: (_placeholder: PlaceholderMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number): ItemGeometry => {
     const boundsPx = {
       x: blockSizePx.w * col,
-      y: blockSizePx.h * row,
+      y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };

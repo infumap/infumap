@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
@@ -223,7 +223,7 @@ export const LinkFns = {
     function noLinkTo(): ItemGeometry {
       const boundsPx = {
         x: blockSizePx.w * col,
-        y: blockSizePx.h * row,
+        y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
         w: blockSizePx.w * widthBl,
         h: blockSizePx.h
       };
