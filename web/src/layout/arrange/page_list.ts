@@ -21,6 +21,7 @@ import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
+import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -31,6 +32,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
 import { Hitbox, HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
+import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
@@ -104,6 +106,10 @@ export function arrange_list_page(
   for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+
+    if (isComposite(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+    }
 
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
