@@ -17,14 +17,12 @@
 */
 
 import { Component, Match, Show, Switch, onMount } from "solid-js";
-import { useStore } from "../../store/StoreProvider";
+import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
-import { CursorEventState } from "../../input/state";
-import { isInside } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { arrange } from "../../layout/arrange";
-import { server } from "../../server";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
@@ -32,12 +30,63 @@ import { VesCache } from "../../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 
 
+function toolbarOverlayHeight(overlayType: ToolbarOverlayType, isComposite: boolean): number {
+  if (overlayType == ToolbarOverlayType.NoteFormat) { return 105; }
+  if (overlayType == ToolbarOverlayType.NoteUrl) { return 38; }
+  if (overlayType == ToolbarOverlayType.PageWidth) { return 74; }
+  if (overlayType == ToolbarOverlayType.PageAspect) { return 92; }
+  if (overlayType == ToolbarOverlayType.PageNumCols) { return 38; }
+  if (overlayType == ToolbarOverlayType.PageDocWidth) { return 74; }
+  if (overlayType == ToolbarOverlayType.PageCellAspect) { return 60; }
+  if (overlayType == ToolbarOverlayType.PageJustifiedRowAspect) { return 60; }
+  if (overlayType == ToolbarOverlayType.Ids) {
+    if (isComposite) {
+      return 60;
+    }
+    return 30;
+  }
+  return 30;
+}
+
+export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
+  const overlayType = store.overlay.toolbarOverlayInfoMaybe.get()!.type;
+  const compositeVisualElementMaybe = () => {
+    if (!isNote(itemState.get(store.getToolbarFocus()!.itemId))) {
+      return null;
+    }
+    const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
+    const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
+    if (!isComposite(parentVe.displayItem)) { return null; }
+    return parentVe;
+  };
+  const compositeItemMaybe = () => {
+    const compositeVeMaybe = compositeVisualElementMaybe();
+    if (compositeVeMaybe == null) { return null; }
+    return asCompositeItem(compositeVeMaybe.displayItem);
+  };
+
+  if (overlayType != ToolbarOverlayType.PageColor) {
+    return {
+      x: store.desktopBoundsPx().w - 335,
+      y: store.topToolbarHeight() + 5,
+      w: 330, h: toolbarOverlayHeight(overlayType, compositeItemMaybe() != null)
+    }
+  }
+  else {
+    return {
+      x: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.x,
+      y: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.y,
+      w: 96, h: 56
+    }
+  }
+}
+
+
 export const Toolbar_Overlay: Component = () => {
   const store = useStore();
 
   let textElement: HTMLInputElement | undefined;
 
-  const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
   const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
   const noteItem = () => asNoteItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
@@ -58,34 +107,6 @@ export const Toolbar_Overlay: Component = () => {
 
   const overlayTypeConst = store.overlay.toolbarOverlayInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarOverlayInfoMaybe.get()!.type;
-
-  const mouseDownListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-    CursorEventState.setFromMouseEvent(ev);
-    if (isInside(CursorEventState.getLatestClientPx(), boxBoundsPx())) {
-      ev.stopPropagation();
-      return;
-    }
-    store.overlay.toolbarOverlayInfoMaybe.set(null);
-    store.rerenderToolbar();
-    arrange(store);
-    server.updateItem(item());
-  };
-
-  const mouseMoveListener = (ev: MouseEvent) => {
-    if (isInside(CursorEventState.getLatestClientPx(), boxBoundsPx())) {
-      ev.stopPropagation();
-      return;
-    }
-    CursorEventState.setFromMouseEvent(ev);
-  };
-
-  const mouseUpListener = (ev: MouseEvent) => {
-    if (isInside(CursorEventState.getLatestClientPx(), boxBoundsPx())) {
-      ev.stopPropagation();
-      return;
-    }
-  };
 
   const handleTextChange = () => {
     if (overlayTypeConst == ToolbarOverlayType.PageWidth) {
@@ -108,23 +129,7 @@ export const Toolbar_Overlay: Component = () => {
     arrange(store);
   };
 
-  const heightPx = (): number => {
-    if (overlayType() == ToolbarOverlayType.NoteFormat) { return 105; }
-    if (overlayType() == ToolbarOverlayType.NoteUrl) { return 38; }
-    if (overlayType() == ToolbarOverlayType.PageWidth) { return 74; }
-    if (overlayType() == ToolbarOverlayType.PageAspect) { return 92; }
-    if (overlayType() == ToolbarOverlayType.PageNumCols) { return 38; }
-    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return 74; }
-    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return 60; }
-    if (overlayType() == ToolbarOverlayType.PageJustifiedRowAspect) { return 60; }
-    if (overlayType() == ToolbarOverlayType.Ids) {
-      if (compositeItemMaybe() != null) {
-        return 60;
-      }
-      return 30;
-    }
-    return 30;
-  };
+  const heightPx = (): number => toolbarOverlayHeight(overlayType(), compositeItemMaybe() != null);
 
   const inputWidthPx = (): number => {
     if (overlayType() == ToolbarOverlayType.NoteFormat) { return 264; }
@@ -138,22 +143,7 @@ export const Toolbar_Overlay: Component = () => {
     return 200;
   }
 
-  const boxBoundsPx = () => {
-    if (overlayType() != ToolbarOverlayType.PageColor) {
-      return {
-        x: store.desktopBoundsPx().w - 335,
-        y: store.topToolbarHeight() + 5,
-        w: 330, h: heightPx()
-      }
-    }
-    else {
-      return {
-        x: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.x,
-        y: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.y,
-        w: 96, h: 56
-      }
-    }
-  };
+  const boxBoundsPx = () => toolbarBoxBoundsPx(store);
 
   onMount(() => {
     if (overlayType() != ToolbarOverlayType.PageColor && overlayType() != ToolbarOverlayType.Ids) {
@@ -209,16 +199,11 @@ export const Toolbar_Overlay: Component = () => {
   const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
 
   return (
-    <div id="formatOverlay"
-         class="fixed left-0 top-0 bottom-0 right-0 select-none outline-none"
-         style={`background-color: #00000010; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-         onmousedown={mouseDownListener}
-         onmousemove={mouseMoveListener}
-         onmouseup={mouseUpListener}>
+    <>
       <Switch>
         <Match when={overlayType() == ToolbarOverlayType.PageColor}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
             <div class="pt-[6px] pl-[4px]">
               <div class="inline-block pl-[2px]"><InfuColorButton col={0} onClick={handleColorClick} /></div>
               <div class="inline-block pl-[2px]"><InfuColorButton col={1} onClick={handleColorClick} /></div>
@@ -235,7 +220,7 @@ export const Toolbar_Overlay: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarOverlayType.Ids}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
             <div class="inline-block text-slate-800 text-xs p-[6px]">
               <span class="font-mono text-slate-400">{`I: ${store.getToolbarFocus()!.itemId}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
@@ -252,7 +237,7 @@ export const Toolbar_Overlay: Component = () => {
         </Match>
         <Match when={true}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px`}>
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
             <Show when={label() != null}>
               <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
               <input ref={textElement}
@@ -271,6 +256,6 @@ export const Toolbar_Overlay: Component = () => {
           </div>
         </Match>
       </Switch>
-    </div>
+    </>
   );
 }

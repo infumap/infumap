@@ -36,25 +36,47 @@ import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, Mouse
 import { asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
+import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Overlay";
+import { server } from "../server";
 
 
 export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
 
 
-export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number, viaOverlay: boolean) {
-  if (store.history.currentPage() == null) { return; }
+export enum MouseDownActionFlags {
+  None =           0x00,
+  PreventDefault = 0x01,
+}
+
+export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number, viaOverlay: boolean): Promise<MouseDownActionFlags> {
+  let defaultResult = MouseDownActionFlags.PreventDefault;
+
+  if (store.history.currentPage() == null) { return defaultResult; }
+
+  if (store.overlay.toolbarOverlayInfoMaybe.get() != null) {
+    const boundsPx = toolbarBoxBoundsPx(store);
+    if (isInside(CursorEventState.getLatestClientPx(), boundsPx)) {
+      return MouseDownActionFlags.None;
+    }
+
+    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    store.overlay.toolbarOverlayInfoMaybe.set(null);
+    store.rerenderToolbar();
+    arrange(store);
+    server.updateItem(item());
+  }
 
   switch(buttonNumber) {
     case MOUSE_LEFT:
       mouseLeftDownHandler(store, viaOverlay);
-      return;
+      return defaultResult;
     case MOUSE_RIGHT:
       await mouseRightDownHandler(store);
-      return;
+      return defaultResult;
     default:
       console.warn("unsupported mouse button: " + buttonNumber);
-      return;
+      return defaultResult;
   }
 }
 

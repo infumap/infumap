@@ -33,7 +33,7 @@ import { Toolbar_Overlay } from "./toolbar/Toolbar_Overlay";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
-import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
+import { MOUSE_RIGHT, MouseDownActionFlags, mouseDownHandler } from "../input/mouse_down";
 import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
 import { keyHandler } from "../input/key";
 import { arrange } from "../layout/arrange";
@@ -176,8 +176,10 @@ export const Main: Component = () => {
   };
 
   const mouseDownListener = async (ev: MouseEvent) => {
-    ev.preventDefault();
-    await mouseDownHandler(store, ev.button, false);
+    let flags = await mouseDownHandler(store, ev.button, false);
+    if (flags & MouseDownActionFlags.PreventDefault) {
+      ev.preventDefault();
+    }
   };
 
   const touchListener = async (ev: TouchEvent) => {
