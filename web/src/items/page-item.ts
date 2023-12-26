@@ -500,7 +500,9 @@ export const PageFns = {
 
     // line item in list page.
     const parentItem = parentVe.displayItem;
-    if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    if ((visualElement.flags & VisualElementFlags.LineItem) &&
+        !(parentVe.flags & VisualElementFlags.DockItem) &&
+        isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
       store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
       arrange(store);

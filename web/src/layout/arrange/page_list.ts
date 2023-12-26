@@ -50,6 +50,10 @@ export function arrange_list_page(
     geometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSpec {
 
+  if (flags & ArrangeItemFlags.IsDockRoot) {
+    return arrange_dock_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
+  }
+
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
@@ -202,4 +206,73 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
     store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe, cellGeometry,
     ArrangeItemFlags.RenderChildrenAsFull | (isRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None));
   return result;
+}
+
+
+export function arrange_dock_list_page(
+    store: StoreContextModel,
+    parentPath: VisualElementPath,
+    displayItem_pageWithChildren: PageItem,
+    linkItemMaybe_pageWithChildren: LinkItem | null,
+    actualLinkItemMaybe_pageWithChildren: LinkItem | null,
+    geometry: ItemGeometry,
+    flags: ArrangeItemFlags): VisualElementSpec {
+
+  let pageWithChildrenVisualElementSpec: VisualElementSpec;
+
+  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+  const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
+
+  const hitboxes = geometry.hitboxes;
+
+  pageWithChildrenVisualElementSpec = {
+    displayItem: displayItem_pageWithChildren,
+    linkItemMaybe: linkItemMaybe_pageWithChildren,
+    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+            (flags & ArrangeItemFlags.IsTopRoot ? VisualElementFlags.TopLevelRoot : VisualElementFlags.None) |
+            VisualElementFlags.EmbededInteractiveRoot |
+            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
+            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+    boundsPx: geometry.boundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
+    childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
+    hitboxes,
+    parentPath,
+  };
+
+
+  let listVeChildren: Array<VisualElementSignal> = [];
+  for (let idx=0; idx<displayItem_pageWithChildren.computed_children.length; ++idx) {
+    const childItem = itemState.get(displayItem_pageWithChildren.computed_children[idx])!;
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+
+    if (isComposite(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+    }
+
+    const blockSizePx = NATURAL_BLOCK_SIZE_PX;
+    const widthBl = geometry.boundsPx.w / blockSizePx.w;
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false, false);
+
+    const listItemVeSpec: VisualElementSpec = {
+      displayItem,
+      linkItemMaybe,
+      actualLinkItemMaybe: linkItemMaybe,
+      flags: VisualElementFlags.LineItem,
+      boundsPx: listItemGeometry.boundsPx,
+      hitboxes: listItemGeometry.hitboxes,
+      parentPath: pageWithChildrenVePath,
+      col: 0,
+      row: idx,
+      blockSizePx,
+    };
+    const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+    const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
+    listVeChildren.push(listItemVisualElementSignal);
+  }
+  pageWithChildrenVisualElementSpec.childrenVes = listVeChildren;
+
+  return pageWithChildrenVisualElementSpec;
 }

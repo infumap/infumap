@@ -650,9 +650,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
-             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-300`}
+             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
+                    `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
              style={`overflow-y: auto; ` +
-                    `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
+                    `width: ${viewportBoundsPx().w}px; ` +
                     `height: ${viewportBoundsPx().h}px; ` +
                     `background-color: #ffffff;` +
                     `${VeFns.zIndexStyle(props.visualElement)}`}>
