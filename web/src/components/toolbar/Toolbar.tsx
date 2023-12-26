@@ -108,7 +108,11 @@ export const Toolbar: Component = () => {
                 {title()}
               </div>
               <div class="inline-block flex-nowrap" style="flex-grow: 1;"></div>
-              <div class="border-l pl-[8px]" style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; `}>
+
+              <div class="border-l pl-[8px] flex flex-row"
+                   style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; ` +
+                          `align-items: baseline;`}>
+
                 <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
                   <Switch>
                     <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
@@ -123,7 +127,12 @@ export const Toolbar: Component = () => {
                     </Match>
                   </Switch>
                 </Show>
-                <div class="float-right pt-[7px] pb-[4px] pr-[8px]">
+
+                <div class="flex-grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
+                  {/* TODO (LOW): line is currently drawn below as a fixed element 'cause i can't get the alignment right if done here. */}
+                </div>
+
+                <div class="flex-grow-0 pr-[8px]" style="flex-order: 2;">
                   <Show when={!store.user.getUserMaybe()}>
                     <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
                   </Show>
@@ -134,9 +143,14 @@ export const Toolbar: Component = () => {
                     <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
                   </div>
                 </div>
+
               </div>
+
             </div>
           </div>
+
+          <div class="fixed border-r border-slate-300" style="height: 25px; right: 62px; top: 7px;"></div>
+
         </div>
       </Show>
 

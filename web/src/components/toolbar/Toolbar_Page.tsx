@@ -158,7 +158,7 @@ export const Toolbar_Page: Component = () => {
 
   const justifiedAspectText = () => {
     store.rerenderToolbarDependency();
-    return Math.round(pageItem().justifiedRowAspect * 1000.0) / 1000.0;
+    return Math.round(pageItem().justifiedRowAspect * 10.0) / 10.0;
   }
 
   const numColsText = () => {
@@ -255,53 +255,7 @@ export const Toolbar_Page: Component = () => {
   };
 
   return (
-    <div class="inline-block pt-[7px] pb-[4px] flex-grow-0">
-      <div ref={divBeforeColroSelect} class="inline-block ml-[7px]" />
-      <div class="inline-block h-[22px] mt-[3px] align-middle">
-        <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
-      </div>
-      <Show when={showInnerBlockWidthButton()}>
-        <div ref={widthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleWidthClick}>
-          <i class="bi-arrows" /> <span style={`font-size: 13px;`}>{widthText()}</span>
-        </div>
-      </Show>
-      <div ref={aspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleAspectClick}>
-        <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{aspectText()}</span>
-      </div>
-      <Show when={showGridButtons()}>
-        <div ref={cellAspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleCellAspectClick}>
-          <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{cellAspectText()}</span>
-        </div>
-        <div ref={numColsDiv} class="inline-block ml-[10px] align-middle" onClick={handleNumColsClick}>
-          <i class="bi-layout-three-columns" /> <span style={`font-size: 13px;`}>{numColsText()}</span>
-        </div>
-      </Show>
-      <Show when={showJustifiedButtons()}>
-        <div ref={justifiedRowAspectDiv} class="inline-block ml-[10px] align-middle" onClick={handleJustifiedRowAspectClick}>
-          <i class="bi-aspect-ratio" /> <span style={`font-size: 13px;`}>{justifiedAspectText()}</span>
-        </div>
-      </Show>
-      <Show when={showDocumentButtons()}>
-        <div ref={docWidthDiv} class="inline-block ml-[10px]" style={`font-size: 13px;`} onClick={handleDocWidthBlClick}>
-          <i class="bi-arrows" /> <span style={`font-size: 13px;`}>{docWidthBlText()}</span>
-        </div>
-      </Show>
-      <Show when={showOrderByButton()}>
-        <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
-      </Show>
-      <Show when={showMakePublicButton()}>
-        <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
-      </Show>
-      <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
-      <div class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px]" style={`font-size: 13px;`}>
-        <div class="inline-block w-[65px] pl-[6px]">
-          {arrangeAlgoText()}
-        </div>
-        <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} />
-      </div>
-      <div class="pl-[4px] inline-block">
-        <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
-      </div>
+    <div class="flex-grow-0" style="flex-order: 0;">
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
              style={`font-size: 13px;`}
@@ -309,6 +263,93 @@ export const Toolbar_Page: Component = () => {
           empty trash
         </div>
       </Show>
+      <Show when={showInnerBlockWidthButton()}>
+        <div ref={widthDiv}
+             class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={handleWidthClick}>
+          <i class="bi-arrows ml-[4px]" />
+          <div class="inline-block w-[30px] pl-[6px] text-right">
+            {widthText()}
+          </div>
+        </div>
+      </Show>
+      <div ref={aspectDiv}
+           class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+           style={`font-size: 13px;`}
+           onClick={handleAspectClick}>
+        <i class="bi-aspect-ratio ml-[4px]" />
+        <div class="inline-block w-[40px] pl-[6px] text-right">
+          {aspectText()}
+        </div>
+      </div>
+      <Show when={showGridButtons()}>
+        <div ref={cellAspectDiv}
+             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={handleCellAspectClick}>
+          <i class="bi-aspect-ratio ml-[4px]" />
+          <div class="inline-block w-[40px] pl-[6px] text-right">
+            {cellAspectText()}
+          </div>
+        </div>
+        <div ref={numColsDiv}
+             class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={handleNumColsClick}>
+          <i class="bi-layout-three-columns ml-[4px]" />
+          <div class="inline-block w-[20px] pl-[6px] text-right">
+            {numColsText()}
+          </div>
+        </div>
+      </Show>
+      <Show when={showJustifiedButtons()}>
+        <div ref={justifiedRowAspectDiv}
+             class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={handleJustifiedRowAspectClick}>
+          <i class="bi-aspect-ratio ml-[4px]" />
+          <div class="inline-block w-[25px] pl-[6px] text-right">
+            {justifiedAspectText()}
+          </div>
+        </div>
+      </Show>
+      <Show when={showDocumentButtons()}>
+        <div ref={docWidthDiv}
+             class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+             style={`font-size: 13px;`}
+             onClick={handleDocWidthBlClick}>
+          <i class="bi-arrows ml-[4px]" />
+          <div class="inline-block w-[30px] pl-[6px] text-right">
+            {docWidthBlText()}
+          </div>
+        </div>
+      </Show>
+      <Show when={showOrderByButton()}>
+        <div class="inline-block ml-[10px]">
+          <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+        </div>
+      </Show>
+      <div class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+           style={`font-size: 13px;`}
+           onClick={handleChangeAlgorithm}>
+        <div class="inline-block w-[70px] pl-[6px]">
+          {arrangeAlgoText()}
+        </div>
+        <i class="fa fa-refresh ml-[4px]" />
+        {/* <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} /> */}
+      </div>
+      <div ref={divBeforeColroSelect} class="inline-block ml-[0px]" />
+      <div class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle">
+        <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
+      </div>
+      <Show when={showMakePublicButton()}>
+        <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
+      </Show>
+      <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
+      <div class="inline-block">
+        <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+      </div>
     </div>
   );
 }

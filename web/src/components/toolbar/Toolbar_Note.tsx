@@ -117,7 +117,7 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
         </Show>
         <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
-        <div class="inline-block ml-[12px]"></div>
+        <div class="inline-block ml-[20px]"></div>
         <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
@@ -140,9 +140,6 @@ export const Toolbar_Note: Component = () => {
   const renderCompositeToolbox = () =>
     <>
       <div class="inline-block">
-        <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-      </div>
-      <div class="inline-block">
         <Show when={store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
           <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
           <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
@@ -150,7 +147,7 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
           <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
           <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
-          <div class="inline-block ml-[12px]"></div>
+          <div class="inline-block ml-[20px]"></div>
           <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
           <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
           <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
@@ -161,6 +158,9 @@ export const Toolbar_Note: Component = () => {
           <Show when={isInTable()}>
             <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
           </Show>
+          <div class="inline-block">
+            <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          </div>
         </Show>
         <div class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
@@ -170,7 +170,7 @@ export const Toolbar_Note: Component = () => {
 
   return (
     <>
-      <div class="inline-block pt-[7px] pb-[4px] flex-grow-0">
+      <div class="flex-grow-0" style="flex-order: 0">
         <Switch>
           <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
           <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>
