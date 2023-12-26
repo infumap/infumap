@@ -129,13 +129,11 @@ export const Toolbar_Overlay: Component = () => {
     arrange(store);
   };
 
-  const heightPx = (): number => toolbarOverlayHeight(overlayType(), compositeItemMaybe() != null);
-
   const inputWidthPx = (): number => {
     if (overlayType() == ToolbarOverlayType.NoteFormat) { return 264; }
     if (overlayType() == ToolbarOverlayType.NoteUrl) { return 292; }
     if (overlayType() == ToolbarOverlayType.PageWidth) { return 196; }
-    if (overlayType() == ToolbarOverlayType.PageAspect) { return 230; }
+    if (overlayType() == ToolbarOverlayType.PageAspect) { return 180; }
     if (overlayType() == ToolbarOverlayType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarOverlayType.PageNumCols) { return 250; }
     if (overlayType() == ToolbarOverlayType.PageJustifiedRowAspect) { return 230; }
@@ -192,11 +190,19 @@ export const Toolbar_Overlay: Component = () => {
     return null;
   }
 
+  const showAutoButton = (): boolean => overlayType() == ToolbarOverlayType.PageAspect;
+
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.getToolbarFocus()!.itemId); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + store.getToolbarFocus()!.itemId); }
 
   const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
   const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
+
+  const handleAutoClick = (): void => {
+    const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
+    textElement!.value = aspect;
+    pageItem().naturalAspect = parseFloat(textElement!.value);
+  }
 
   return (
     <>
@@ -247,6 +253,13 @@ export const Toolbar_Overlay: Component = () => {
                      value={textEntryValue()!}
                      type="text"
                      onChange={handleTextChange} />
+            </Show>
+            <Show when={showAutoButton()}>
+              <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px]"
+                      type="button"
+                      onClick={handleAutoClick}>
+                auto
+              </button>
             </Show>
             <Show when={tooltip() != null}>
               <div class="text-xs p-[4px] pt-[5px]">
