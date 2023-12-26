@@ -203,7 +203,7 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
   // let newDockWidthPx = startPx + deltaPx.x;
   // if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
   // if (newDockWidthPx > 300) { newDockWidthPx = 300; }
-  // store.overlay.dockWidthPx.set(newDockWidthPx);
+  // store.overlay.setDockWidthPx(newDockWidthPx);
   // arrange(store);
   console.log("TODO: mouseAction_resizingListPageColumn");
 }
@@ -214,7 +214,7 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   let newDockWidthPx = startPx + deltaPx.x;
   if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
-  store.dockWidthPx.set(newDockWidthPx);
+  store.setDockWidthPx(newDockWidthPx);
   arrange(store);
 }
 

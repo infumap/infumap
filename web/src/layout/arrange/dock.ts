@@ -56,6 +56,8 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
 
     const GAP_PX = LIST_PAGE_TOP_PADDING_PX;
 
+    const dockWidthPx = store.getDockWidthPx();
+
     let yCurrentPx = 0;
     const dockChildren = [];
     for (let i=0; i<dockPage.computed_children.length; ++i) {
@@ -63,9 +65,9 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       const childItem = itemState.get(childId)!;
       const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
 
-      let wPx = store.dockWidthPx.get() - GAP_PX * 2;
+      let wPx = dockWidthPx - GAP_PX * 2;
       if (wPx < 0) { wPx = 0; }
-      const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: store.dockWidthPx.get()*10 };
+      const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
       const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false, true);
 
       let viewportOffsetPx = 0;
@@ -86,7 +88,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         yCurrentPx += geometry.boundsPx.h + GAP_PX;
       }
 
-      if (store.dockWidthPx.get() > 25) {
+      if (dockWidthPx > 25) {
         const ves = arrangeItem(
           store, dockPath, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry,
           ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
@@ -96,20 +98,20 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     yCurrentPx += GAP_PX;
 
     let trashHeightPx = 50;
-    if (store.dockWidthPx.get() - GAP_PX*2 < trashHeightPx) {
-      trashHeightPx = store.dockWidthPx.get() - GAP_PX*2;
+    if (dockWidthPx - GAP_PX*2 < trashHeightPx) {
+      trashHeightPx = dockWidthPx - GAP_PX*2;
       if (trashHeightPx < 0) { trashHeightPx = 0; }
     }
 
     const dockBoundsPx = {
       x: 0, y: 0,
-      w: store.dockWidthPx.get(),
+      w: dockWidthPx,
       h: store.desktopBoundsPx().h
     };
 
     const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
     resizeBoundsPx.w = RESIZE_BOX_SIZE_PX;
-    resizeBoundsPx.x = store.dockWidthPx.get() - RESIZE_BOX_SIZE_PX;
+    resizeBoundsPx.x = dockWidthPx - RESIZE_BOX_SIZE_PX;
 
     const dockVisualElementSpec: VisualElementSpec = {
       displayItem: dockPage,
@@ -132,7 +134,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       const trashBoundsPx = {
         x: GAP_PX,
         y: store.desktopBoundsPx().h - trashHeightPx - GAP_PX * 2,
-        w: store.dockWidthPx.get() - GAP_PX*2,
+        w: dockWidthPx - GAP_PX*2,
         h: trashHeightPx,
       }
       const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -148,7 +150,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
         parentPath: dockPath,
       };
 
-      if (store.dockWidthPx.get() > 25) {
+      if (dockWidthPx > 25) {
         const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  dockPath);
         dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
       }

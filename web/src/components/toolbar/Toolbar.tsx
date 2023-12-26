@@ -89,7 +89,7 @@ export const Toolbar: Component = () => {
                     `border-color: ${LIGHT_BORDER_COLOR}; `}>
 
           <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-               style={`width: ${store.dockWidthPx.get()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
+               style={`width: ${store.getDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
                       `border-color: ${LIGHT_BORDER_COLOR}; `}>
             <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
               <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0;">
@@ -102,7 +102,7 @@ export const Toolbar: Component = () => {
             </div>
           </div>
 
-          <div class="fixed right-0 top-0" style={`left: ${store.dockWidthPx.get()}px; ${pageColor()}`}>
+          <div class="fixed right-0 top-0" style={`left: ${store.getDockWidthPx()}px; ${pageColor()}`}>
             <div class="flex flex-row">
               <div class="font-bold p-[3px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
                 {title()}

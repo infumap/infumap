@@ -44,7 +44,9 @@ export interface StoreContextModel {
 
   getToolbarFocus: () => Veid,
 
-  dockWidthPx: InfuSignal<number>,
+  getDockWidthPx: () => number,
+  setDockWidthPx: (widthPx: number) => void,
+
   topToolbarVisible: InfuSignal<boolean>,
   topToolbarHeight: () => number,
 
@@ -70,6 +72,8 @@ const StoreContext = createContext<StoreContextModel>();
 const INITIAL_DOCK_WIDTH_BL = 7;
 
 export function StoreProvider(props: StoreContextProps) {
+  const userStore = makeUserStore();
+
   const topToolbarVisible = createInfuSignal<boolean>(true);
   const topToolbarHeight = () => topToolbarVisible.get() ? TOP_TOOLBAR_HEIGHT_PX : 0;
 
@@ -89,6 +93,14 @@ export function StoreProvider(props: StoreContextProps) {
 
   const dockWidthPx = createInfuSignal<number>(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
 
+  const getDockWidthPx = () => {
+    if (userStore.getUserMaybe() == null) { return 0; }
+    return dockWidthPx.get();
+  }
+  const setDockWidthPx = (widthPx: number) => {
+    dockWidthPx.set(widthPx);
+  }
+
   const resetDesktopSizePx = () => {
     desktopSizePx.set(currentDesktopSize());
   }
@@ -100,8 +112,8 @@ export function StoreProvider(props: StoreContextProps) {
 
   const desktopMainAreaBoundsPx = () => {
     const result = desktopBoundsPx();
-    result.x = dockWidthPx.get();
-    result.w = result.w - dockWidthPx.get();
+    result.x = getDockWidthPx();
+    result.w = result.w - getDockWidthPx();
     return result;
   }
 
@@ -141,7 +153,8 @@ export function StoreProvider(props: StoreContextProps) {
     desktopBoundsPx,
     resetDesktopSizePx,
     desktopMainAreaBoundsPx,
-    dockWidthPx,
+    getDockWidthPx,
+    setDockWidthPx,
     topToolbarVisible,
     topToolbarHeight,
 
@@ -162,7 +175,7 @@ export function StoreProvider(props: StoreContextProps) {
     overlay,
     history,
     general: makeGeneralStore(),
-    user: makeUserStore(),
+    user: userStore,
   };
 
   return (

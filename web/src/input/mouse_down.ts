@@ -167,7 +167,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     startPosBl,
     startWidthBl,
     startHeightBl,
-    startDockWidthPx: store.dockWidthPx.get(),
+    startDockWidthPx: store.getDockWidthPx(),
     startAttachmentsItem,
     startCompositeItem,
     clickOffsetProp,
