@@ -84,10 +84,10 @@ export const arrangeItem = (
   flags |= (isMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
 
   const renderWithChildren = (() => {
+    if (!isPage(displayItem)) { return false; }
     if (arrangeFlagIsRoot(flags)) { return true; }
     if (flags & ArrangeItemFlags.IsPopupRoot) { return true; }
     if (!(flags & ArrangeItemFlags.RenderChildrenAsFull)) { return false; }
-    if (!isPage(displayItem)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
     return (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
       ? // This test does not depend on pixel size, so is invariant over display devices.
