@@ -24,7 +24,6 @@ import { asPageItem, isPage } from "../../../items/page-item";
 import { asTableItem, isTable } from "../../../items/table-item";
 import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
-import { EditPage } from "./Panels/EditPage";
 import { EditTable } from "./Panels/EditTable";
 import { asLinkItem, isLink } from "../../../items/link-item";
 import { EditLink } from "./Panels/EditLink";
@@ -55,9 +54,6 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkClickHandler} />
       </div>
       <Switch fallback={<div>Unknown item type: '{props.item.itemType}'</div>}>
-        <Match when={isPage(props.item)}>
-          <EditPage pageItem={asPageItem(props.item)} linkedTo={props.linkedTo} />
-        </Match>
         <Match when={isTable(props.item)}>
           <EditTable tableItem={asTableItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
