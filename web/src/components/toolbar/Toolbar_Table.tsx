@@ -31,6 +31,8 @@ import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 export const Toolbar_Table: Component = () => {
   const store = useStore();
 
+  let numColsDiv: HTMLInputElement | undefined;
+
   const tableItem = () => asTableItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const isSortedByTitle = () => {
@@ -66,18 +68,32 @@ export const Toolbar_Table: Component = () => {
     arrange(store);
   }
 
-  const tableTitleText = () => {
-    store.touchToolbarDependency();
-    return tableItem().title;
-  }
-
   const handleQr = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
       { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
   }
 
+  const numColsText = () => {
+    store.touchToolbarDependency();
+    return tableItem().tableColumns.length;
+  }
+
+  const handleNumColsClick = () => {
+    // unsure exactly what behavior is best here.
+    console.log("TODO");
+  };
+
   return (
     <div class="flex-grow-0" style="flex-order: 0;">
+      <div ref={numColsDiv}
+            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleNumColsClick}>
+        <i class="bi-layout-three-columns ml-[4px]" />
+        <div class="inline-block w-[20px] pl-[6px] text-right">
+          {numColsText()}
+        </div>
+      </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
       <div class="pl-[4px] inline-block">
