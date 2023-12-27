@@ -26,9 +26,9 @@ import { Parser } from "./parser";
 import { TokenType } from "./token";
 
 
-export function evaluateExpressions() {
+export function evaluateExpressions(virtual: boolean) {
   for (let path of VesCache.getEvaluationRequired()) {
-    const ves = VesCache.get(path)!;
+    const ves = virtual ? VesCache.getVirtual(path)! : VesCache.get(path)!;
     const ve = ves.get();
     const noteItem = asNoteItem(ve.displayItem);
     const equation = noteItem.title;

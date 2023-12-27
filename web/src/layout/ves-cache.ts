@@ -43,7 +43,8 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 */
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-let newCache = new Map<VisualElementPath, VisualElementSignal>();
+let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
+let constructingCache = new Map<VisualElementPath, VisualElementSignal>();
 let evaluationRequired = new Set<VisualElementPath>();
 
 export let VesCache = {
@@ -53,12 +54,17 @@ export let VesCache = {
    */
   clear: (): void => {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-    newCache = new Map<VisualElementPath, VisualElementSignal>();
+    virtualCache = new Map<VisualElementPath, VisualElementSignal>();
+    constructingCache = new Map<VisualElementPath, VisualElementSignal>();
     evaluationRequired = new Set<VisualElementPath>();
   },
 
   get: (path: VisualElementPath): VisualElementSignal | undefined => {
     return currentVesCache.get(path);
+  },
+
+  getVirtual: (path: VisualElementPath): VisualElementSignal | undefined => {
+    return virtualCache.get(path);
   },
 
   getSiblings: (path: VisualElementPath): Array<VisualElementSignal> => {
@@ -76,15 +82,20 @@ export let VesCache = {
     evaluationRequired = new Set<VisualElementPath>();
   },
 
-  finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, store: StoreContextModel): void => {
+  finalizeFullArrange: (store: StoreContextModel, topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, virtualTopLevelVes?: VisualElementSignal): void => {
     if (topLevelVisualElementSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
     topLevelVisualElementSpec.displayItemFingerprint = ItemFns.getFingerprint(topLevelVisualElementSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
 
-    newCache.set(topLevelPath, store.topLevelVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
-    currentVesCache = newCache;
-    store.topLevelVisualElement.set(VeFns.create(topLevelVisualElementSpec));
+    if (virtualTopLevelVes) {
+      constructingCache.set(topLevelPath, virtualTopLevelVes);
+      virtualCache = constructingCache;
+    } else {
+      constructingCache.set(topLevelPath, store.topLevelVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
+      store.topLevelVisualElement.set(VeFns.create(topLevelVisualElementSpec));
+      currentVesCache = constructingCache;
+    }
 
-    newCache = new Map<VisualElementPath, VisualElementSignal>();
+    constructingCache = new Map<VisualElementPath, VisualElementSignal>();
   },
 
   /**
@@ -118,7 +129,7 @@ export let VesCache = {
       }
     }
     const result: Array<VisualElementSignal> = [];
-    findImpl(newCache, result);
+    findImpl(constructingCache, result);
     findImpl(currentVesCache, result);
     return result;
   },
@@ -143,7 +154,7 @@ export let VesCache = {
       }
       return result;
     }
-    let resultMaybe = findSingleImpl(newCache);
+    let resultMaybe = findSingleImpl(constructingCache);
     if (resultMaybe != null) { return resultMaybe; }
     resultMaybe = findSingleImpl(currentVesCache);
     if (resultMaybe == null) {
@@ -207,7 +218,7 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
     if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
-      newCache.set(path, existing);
+      constructingCache.set(path, existing);
       return existing;
     }
 
@@ -278,17 +289,17 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
 
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
-      newCache.set(path, existing);
+      constructingCache.set(path, existing);
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
     existing.set(VeFns.create(visualElementOverride));
-    newCache.set(path, existing);
+    constructingCache.set(path, existing);
     return existing;
   }
 
   if (debug) { console.debug("creating:", path); }
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-  newCache.set(path, newElement);
+  constructingCache.set(path, newElement);
   return newElement;
 }

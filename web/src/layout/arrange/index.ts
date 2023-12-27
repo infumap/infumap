@@ -23,12 +23,13 @@ import { itemState } from "../../store/ItemState";
 import { getPanickedMessage } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
-import { VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
 import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { asLinkItem } from "../../items/link-item";
+import { createVisualElementSignal } from "../../util/signals";
 
 
 /**
@@ -50,7 +51,7 @@ import { asLinkItem } from "../../items/link-item";
  *    you need to be very congisant of functional dependencies, what is being captured etc. Even though the direct
  *    approach is more ad-hoc / less "automated", the code is simpler to work on due to this.
  */
-export const arrange = (store: StoreContextModel): void => {
+export const arrange = (store: StoreContextModel, virtualPageVeid?: Veid): void => {
   if (store.history.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {
@@ -60,9 +61,11 @@ export const arrange = (store: StoreContextModel): void => {
 
   VesCache.initFullArrange();
 
-  const currentPage = itemState.get(store.history.currentPage()!.itemId)!;
-  const actualLinkItemMaybe = store.history.currentPage()!.linkIdMaybe
-    ? asLinkItem(itemState.get(store.history.currentPage()!.linkIdMaybe!)!)
+  let currentPageVeid = virtualPageVeid ? virtualPageVeid : store.history.currentPage()!;
+
+  const currentPage = itemState.get(currentPageVeid.itemId)!;
+  const actualLinkItemMaybe = currentPageVeid.linkIdMaybe
+    ? asLinkItem(itemState.get(currentPageVeid.linkIdMaybe!)!)
     : null;
   const pageItem = PageFns.topLevelPage();
   const currentPath = pageItem.id;
@@ -96,9 +99,14 @@ export const arrange = (store: StoreContextModel): void => {
   childrenVes.push(pageVes);
   visualElementSpec.childrenVes = childrenVes;
 
-  VesCache.finalizeFullArrange(visualElementSpec, currentPath, store);
-
-  evaluateExpressions();
+  if (virtualPageVeid) {
+    const topLevelVes = createVisualElementSignal(VeFns.create(visualElementSpec));
+    VesCache.finalizeFullArrange(store, visualElementSpec, currentPath, topLevelVes);
+    evaluateExpressions(true);
+  } else {
+    VesCache.finalizeFullArrange(store, visualElementSpec, currentPath);
+    evaluateExpressions(false);
+  }
 
   const hasUser = store.user.getUserMaybe() != null;
   mouseMove_handleNoButtonDown(store, hasUser);
