@@ -77,7 +77,13 @@ export let VesCache = {
   },
 
   finalizeFullArrange: (topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, store: StoreContextModel): void => {
-    createOrRecycleVisualElementSignalImpl(topLevelVisualElementSpec, topLevelPath, store.topLevelVisualElement);
+    if (topLevelVisualElementSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
+    topLevelVisualElementSpec.displayItemFingerprint = ItemFns.getFingerprint(topLevelVisualElementSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
+
+    newCache.set(topLevelPath, store.topLevelVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
+    currentVesCache = newCache;
+    store.topLevelVisualElement.set(VeFns.create(topLevelVisualElementSpec));
+
     newCache = new Map<VisualElementPath, VisualElementSignal>();
   },
 
@@ -177,25 +183,12 @@ export let VesCache = {
 }
 
 
-function createOrRecycleVisualElementSignalImpl (
-    visualElementOverride: VisualElementSpec,
-    path: VisualElementPath,
-    alwaysUseVes?: VisualElementSignal): VisualElementSignal {
+function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal {
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
   if (visualElementOverride.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
-  // TODO (LOW): Modifying the input object is a bit dirty.
-  visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem);
-
-  if (alwaysUseVes) {
-    if (debug) { console.debug("alwaysUse:", path); }
-    // TODO (HIGH): full property reconciliation, to avoid this update.
-    newCache.set(path, alwaysUseVes);
-    currentVesCache = newCache;
-    alwaysUseVes.set(VeFns.create(visualElementOverride));
-    return alwaysUseVes;
-  }
+  visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
 
   function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) {
