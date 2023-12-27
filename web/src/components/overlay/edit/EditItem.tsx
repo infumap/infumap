@@ -20,7 +20,6 @@ import { Component, Match, Switch } from "solid-js";
 import { Item } from "../../../items/base/item";
 import { asFileItem, isFile } from "../../../items/file-item";
 import { asImageItem, isImage } from "../../../items/image-item";
-import { asPageItem, isPage } from "../../../items/page-item";
 import { asTableItem, isTable } from "../../../items/table-item";
 import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
@@ -30,7 +29,6 @@ import { EditLink } from "./Panels/EditLink";
 import { asPasswordItem, isPassword } from "../../../items/password-item";
 import { EditPassword } from "./Panels/EditPassword";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
-import { EditComposite } from "./Panels/EditComposite";
 import { useStore } from "../../../store/StoreProvider";
 
 
@@ -68,9 +66,6 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         </Match>
         <Match when={isPassword(props.item)}>
           <EditPassword passwordItem={asPasswordItem(props.item)} linkedTo={props.linkedTo} />
-        </Match>
-        <Match when={isComposite(props.item)}>
-          <EditComposite compositeItem={asCompositeItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
       </Switch>
     </div>
