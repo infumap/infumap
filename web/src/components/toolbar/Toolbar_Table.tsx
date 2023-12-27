@@ -34,7 +34,7 @@ export const Toolbar_Table: Component = () => {
   const tableItem = () => asTableItem(itemState.get(store.getToolbarFocus()!.itemId)!);
 
   const isSortedByTitle = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return tableItem().orderChildrenBy == "title[ASC]";
   }
 
@@ -48,11 +48,11 @@ export const Toolbar_Table: Component = () => {
     itemState.sortChildren(tableItem().id);
     arrange(store);
     server.updateItem(tableItem());
-    store.rerenderToolbar();
+    store.touchToolbar();
   }
 
   const showHeader = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return !(!(tableItem().flags & TableFlags.ShowColHeader));
   }
 
@@ -67,7 +67,7 @@ export const Toolbar_Table: Component = () => {
   }
 
   const tableTitleText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return tableItem().title;
   }
 

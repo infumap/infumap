@@ -37,6 +37,7 @@ import { MOUSE_RIGHT, MouseDownActionFlags, mouseDownHandler } from "../input/mo
 import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
 import { keyHandler } from "../input/key";
 import { arrange } from "../layout/arrange";
+import { Toolbar_EditTitleOverlay } from "./toolbar/Toolbar_EditTitleOverlay";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -218,6 +219,9 @@ export const Main: Component = () => {
       {/* global overlays */}
       <Show when={store.overlay.toolbarOverlayInfoMaybe.get() != null}>
         <Toolbar_Overlay />
+      </Show>
+      <Show when={store.overlay.editingTitle.get()}>
+        <Toolbar_EditTitleOverlay />
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />

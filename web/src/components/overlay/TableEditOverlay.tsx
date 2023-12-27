@@ -102,7 +102,7 @@ export const TableEditOverlay: Component = () => {
     } else {
       tableItem().tableColumns[overlayInfo.colNum!].name = textElement!.value;
     }
-    store.rerenderToolbar();
+    store.touchToolbar();
   }
 
   return (

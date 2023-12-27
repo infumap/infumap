@@ -18,6 +18,7 @@
 
 import { HitInfo } from "../input/hit";
 import { Item } from "../items/base/item";
+import { PageItem } from "../items/page-item";
 import { VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
@@ -73,6 +74,14 @@ export interface EditUserSettingsInfo {
   desktopBoundsPx: BoundingBox,
 }
 
+export interface EditPageTitleOverlayInfo {
+  pageItem: PageItem,
+  color: string,
+  fontSize: string,
+  fontWeight: string,
+  boundsPx: BoundingBox,
+  initialValue: string,
+};
 
 export interface OverlayStoreContextModel {
   // desktop overlays
@@ -85,6 +94,7 @@ export interface OverlayStoreContextModel {
 
   // global overlays
   toolbarOverlayInfoMaybe: InfuSignal<ToolbarOverlayInfo | null>,
+  editingTitle: InfuSignal<EditPageTitleOverlayInfo | null>,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -101,6 +111,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
+  const editingTitle = createInfuSignal<EditPageTitleOverlayInfo | null>(null);
 
   const toolbarOverlayInfoMaybe = createInfuSignal<ToolbarOverlayInfo | null>(null);
 
@@ -111,6 +122,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     contextMenuInfo.set(null);
     noteEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
+    editingTitle.set(null);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -121,7 +133,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
-      toolbarOverlayInfoMaybe.get() != null
+      toolbarOverlayInfoMaybe.get() != null ||
+      editingTitle.get() != null
     );
   }
 
@@ -136,6 +149,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     isPanicked: createInfuSignal<boolean>(false),
 
     toolbarOverlayInfoMaybe,
+    editingTitle,
 
     clear,
     anOverlayIsVisible,

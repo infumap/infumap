@@ -52,8 +52,8 @@ export interface StoreContextModel {
 
   anItemIsMoving: InfuSignal<boolean>,
 
-  rerenderToolbar: () => void,  
-  rerenderToolbarDependency: () => void,
+  touchToolbar: () => void,  
+  touchToolbarDependency: () => void,
 
   perItem: PerItemStoreContextModel,
   overlay: OverlayStoreContextModel,
@@ -145,9 +145,9 @@ export function StoreProvider(props: StoreContextProps) {
     return history.currentPage()!;
   };
 
-  let rerenderToolbarSignal = createInfuSignal<boolean>(false);
-  const rerenderToolbar = () => { rerenderToolbarSignal.set(false); }
-  const rerenderToolbarDependency = () => { if (rerenderToolbarSignal.get()) { panic("toolbar rerender dependency signal should never be true."); } }
+  let touchToolbarSignal = createInfuSignal<boolean>(false);
+  const touchToolbar = () => { touchToolbarSignal.set(false); }
+  const touchToolbarDependency = () => { if (touchToolbarSignal.get()) { panic("toolbar rerender dependency signal should never be true."); } }
 
   const value: StoreContextModel = {
     desktopBoundsPx,
@@ -164,8 +164,8 @@ export function StoreProvider(props: StoreContextProps) {
 
     getToolbarFocus,
 
-    rerenderToolbar,
-    rerenderToolbarDependency,
+    touchToolbar,
+    touchToolbarDependency,
 
     currentVisiblePassword,
 

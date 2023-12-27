@@ -57,17 +57,17 @@ export const Toolbar_Page: Component = () => {
     pageItem().arrangeAlgorithm = newAA;
     itemState.sortChildren(pageItem().id);
     arrange(store);
-    store.rerenderToolbar();
+    store.touchToolbar();
     server.updateItem(pageItem());
   };
 
   // force rerender when color selector closes.
   createEffect(() => {
-    store.rerenderToolbar();
+    store.touchToolbar();
   });
 
   const arrangeAlgoText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     const aa = pageItem().arrangeAlgorithm;
     if (aa == ArrangeAlgorithm.SpatialStretch) { return "spatial"; }
     if (aa == ArrangeAlgorithm.Document) { return "document"; }
@@ -78,91 +78,91 @@ export const Toolbar_Page: Component = () => {
   }
 
   const isSortedByTitle = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().orderChildrenBy == "title[ASC]";
   }
 
   const isPublic= () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return !(!(pageItem().permissionFlags & PermissionFlags.Public));
   }
 
   const isInteractive= () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
   }
 
   const showOrderByButton = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ||
            pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
            pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
   const showGridButtons = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
   }
 
   const showJustifiedButtons = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
   const showDocumentButtons = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
   }
 
   const showInnerBlockWidthButton = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
   }
 
   const showEmptyTrash = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     if (store.user.getUserMaybe() == null) { return false; }
     return (pageItem().id == store.user.getUser().trashPageId);
   }
 
   const showMakePublicButton = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     if (store.user.getUserMaybe() == null) { return false; }
     return (pageItem().id != store.user.getUser().trashPageId && pageItem().id != store.user.getUser().dockPageId);
   }
 
   const colorNumber = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().backgroundColorIndex;
   }
 
   const widthText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().innerSpatialWidthGr / GRID_SIZE;
   }
 
   const docWidthBlText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().docWidthBl;
   }
 
   const aspectText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
   const cellAspectText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
   }
 
   const justifiedAspectText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return Math.round(pageItem().justifiedRowAspect * 10.0) / 10.0;
   }
 
   const numColsText = () => {
-    store.rerenderToolbarDependency();
+    store.touchToolbarDependency();
     return pageItem().gridNumberOfColumns;
   }
 
@@ -176,7 +176,7 @@ export const Toolbar_Page: Component = () => {
     itemState.sortChildren(pageItem().id);
     arrange(store);
     server.updateItem(pageItem());
-    store.rerenderToolbar();
+    store.touchToolbar();
   }
 
   const handleChangePermissions = () => {
@@ -187,7 +187,7 @@ export const Toolbar_Page: Component = () => {
     }
     arrange(store);
     server.updateItem(pageItem());
-    store.rerenderToolbar();
+    store.touchToolbar();
   }
 
   const handleChangeInteractive = () => {
@@ -198,7 +198,7 @@ export const Toolbar_Page: Component = () => {
     }
     arrange(store);
     server.updateItem(pageItem());
-    store.rerenderToolbar();
+    store.touchToolbar();
   }
 
   const emptyTrashHandler = () => {

@@ -34,6 +34,7 @@ import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
 import { arrange } from '../../layout/arrange';
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
+import { EditPageTitleOverlayInfo } from '../../store/StoreProvider_Overlay';
 
 
 export const Toolbar: Component = () => {
@@ -51,6 +52,7 @@ export const Toolbar: Component = () => {
   }
 
   const title = () => {
+    store.touchToolbarDependency();
     if (currentPageMaybe() == null) { return ""; }
     return currentPageMaybe()!.title;
   }
@@ -80,6 +82,28 @@ export const Toolbar: Component = () => {
     arrange(store);
   }
 
+  const handleTitleClick = () => {
+    const titleDiv = document.getElementById("toolbarTitleDiv")!;
+    const bounds = titleDiv.getBoundingClientRect();
+    const style = titleDiv.style;
+
+    const spec: EditPageTitleOverlayInfo = {
+      pageItem: currentPageMaybe()!,
+      color: style.color,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      boundsPx: {
+        x: bounds.x,
+        y: bounds.y,
+        w: 200,
+        h: bounds.height
+      },
+      initialValue: titleDiv.innerText
+    };
+
+    store.overlay.editingTitle.set(spec);
+  }
+
   return (
     <>
       <Show when={store.topToolbarVisible.get()}>
@@ -104,7 +128,10 @@ export const Toolbar: Component = () => {
 
           <div class="fixed right-0 top-0" style={`left: ${store.getDockWidthPx()}px; ${pageColor()}`}>
             <div class="flex flex-row">
-              <div class="font-bold p-[3px] ml-[6px] inline-block" style={`font-size: 22px; color: ${mainTitleColor()}`}>
+              <div id="toolbarTitleDiv"
+                   class="p-[3px] ml-[6px] inline-block cursor-text"
+                   style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700;`}
+                   onClick={handleTitleClick}>
                 {title()}
               </div>
               <div class="inline-block flex-nowrap" style="flex-grow: 1;"></div>

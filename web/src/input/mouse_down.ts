@@ -62,9 +62,20 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
     const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
     store.overlay.toolbarOverlayInfoMaybe.set(null);
-    store.rerenderToolbar();
+    store.touchToolbar();
     arrange(store);
     server.updateItem(item());
+  }
+
+  if (store.overlay.editingTitle.get()) {
+    store.overlay.editingTitle.set(null);
+
+    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    store.overlay.toolbarOverlayInfoMaybe.set(null);
+    store.touchToolbar();
+    arrange(store);
+    server.updateItem(item());
+    store.touchToolbar();
   }
 
   switch(buttonNumber) {
