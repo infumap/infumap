@@ -40,6 +40,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newRatingInContext = () => newItemInContext(store, "rating", props.hitInfo, props.desktopPosPx);
   const newLinkInContext = () => newItemInContext(store, "link", props.hitInfo, props.desktopPosPx);
   const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
+  const newExpressionInContext = () => newItemInContext(store, "expression", props.hitInfo, props.desktopPosPx);
 
   return (
     <div class="border rounded w-[110px] h-[205px] bg-slate-50 mb-1">
@@ -47,11 +48,11 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
       <div class="text-sm"><InfuIconButton icon="fa fa-folder" highlighted={false} clickHandler={newPageInContext} /> Page</div>
       <div class="text-sm"><InfuIconButton icon="fa fa-table" highlighted={false} clickHandler={newTableInContext} /> Table</div>
       <div class="text-sm"><InfuIconButton icon="fa fa-star" highlighted={false} clickHandler={newRatingInContext} /> Rating</div>
+      <div class="text-sm"><InfuIconButton icon="expression" highlighted={false} clickHandler={newExpressionInContext} /> Expression</div>
       <div class="text-sm"><InfuIconButton icon="fa fa-link" highlighted={false} clickHandler={newLinkInContext} /> Link</div>
       <div class="text-sm"><InfuIconButton icon="fa fa-eye-slash" highlighted={false} clickHandler={newPasswordInContext} /> Password</div>
       <div class="text-sm text-slate-500"><i class="fa fa-image w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> Image</div>
       <div class="text-sm text-slate-500"><i class="fa fa-file w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> File</div>
-      <div class="text-sm text-slate-500"><span class="w-[22px] h-[16px] inline-block text-center ml-[3px] relative">∑</span> Expression</div>
     </div>
   );
 }

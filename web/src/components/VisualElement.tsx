@@ -24,6 +24,7 @@ import { isPage } from "../items/page-item";
 import { isRating } from "../items/rating-item";
 import { isTable } from "../items/table-item";
 import { Note_Desktop } from "./items/Note";
+import { Expression_Desktop } from "./items/Expression";
 import { Page_Desktop } from "./items/Page";
 import { Rating_Desktop } from "./items/Rating";
 import { Table_Desktop } from "./items/Table";
@@ -34,6 +35,7 @@ import { Placeholder_Desktop } from "./items/Placeholder";
 import { FileLineItem } from "./items/File";
 import { Image_LineItem } from "./items/Image";
 import { Note_LineItem } from "./items/Note";
+import { Expression_LineItem } from "./items/Expression";
 import { Page_LineItem } from "./items/Page";
 import { Rating_LineItem } from "./items/Rating";
 import { Table_LineItem } from "./items/Table";
@@ -46,6 +48,7 @@ import { isPassword } from "../items/password-item";
 import { Password, PasswordLineItem } from "./items/Password";
 import { Composite_Desktop, Composite_LineItem } from "./items/Composite";
 import { isComposite } from "../items/composite-item";
+import { isExpression } from "../items/expression-item";
 
 
 export interface VisualElementProps {
@@ -59,6 +62,7 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
       <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
       <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
       <Match when={isNote(props.visualElement.displayItem)}><Note_Desktop {...props} /></Match>
+      <Match when={isExpression(props.visualElement.displayItem)}><Expression_Desktop {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>
       <Match when={isImage(props.visualElement.displayItem)}><Image_Desktop {...props} /></Match>
       <Match when={isFile(props.visualElement.displayItem)}><File {...props} /></Match>
@@ -77,6 +81,7 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
       <Match when={isTable(props.visualElement.displayItem)}><Table_LineItem {...props} /></Match>
       <Match when={isComposite(props.visualElement.displayItem)}><Composite_LineItem {...props} /></Match>
       <Match when={isNote(props.visualElement.displayItem)}><Note_LineItem {...props} /></Match>
+      <Match when={isExpression(props.visualElement.displayItem)}><Expression_LineItem {...props} /></Match>
       <Match when={isImage(props.visualElement.displayItem)}><Image_LineItem {...props} /></Match>
       <Match when={isFile(props.visualElement.displayItem)}><FileLineItem {...props} /></Match>
       <Match when={isPassword(props.visualElement.displayItem)}><PasswordLineItem {...props} /></Match>

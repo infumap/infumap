@@ -55,9 +55,14 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
 
   return (
     <div ref={outerDivElement} class={divClass()}>
-      <i class={`${icon()}`} />
-      <Show when={subscript() != null}>
-        <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>
+      <Show when={props.icon == "expression"}>
+        <span class="w-[22px] h-[16px] inline-block text-center relative">∑</span>
+      </Show>
+      <Show when={props.icon != "expression"}>
+        <i class={`${icon()}`} />
+        <Show when={subscript() != null}>
+          <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>
+        </Show>
       </Show>
     </div>
   );

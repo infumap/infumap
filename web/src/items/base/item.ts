@@ -32,6 +32,7 @@ export const ItemType = {
   Rating: "rating",
   Link: "link",
   Placeholder: "placeholder",
+  Expression: "expression",
 };
 
 

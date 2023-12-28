@@ -20,8 +20,8 @@ import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
-const ITEM_TYPES = [ItemType.Page, ItemType.Note, ItemType.Table, ItemType.Image, ItemType.File, ItemType.Link, ItemType.Password, ItemType.Composite];
-const HALF_SIZEABLE_ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Image, ItemType.File, ItemType.Password, ItemType.Composite];
+const ITEM_TYPES = [ItemType.Page, ItemType.Note, ItemType.Table, ItemType.Image, ItemType.File, ItemType.Link, ItemType.Password, ItemType.Composite, ItemType.Expression];
+const HALF_SIZEABLE_ITEM_TYPES = [ItemType.Note, ItemType.Table, ItemType.Image, ItemType.File, ItemType.Password, ItemType.Composite, ItemType.Expression];
 
 export interface XSizableMixin {
   spatialWidthGr: number,

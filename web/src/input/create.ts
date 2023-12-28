@@ -20,6 +20,7 @@ import { initialEditDialogBounds } from "../components/overlay/edit/EditDialog";
 import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { PositionalItem } from "../items/base/positional-item";
+import { ExpressionFns } from "../items/expression-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
@@ -55,6 +56,8 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
     newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
   } else if (type == "password")  {
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+  } else if (type == "expression") {
+    newItem = ExpressionFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
@@ -126,7 +129,6 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else if (isTable(overElementVe.displayItem)) {
-    console.log("here");
     if (isInside(desktopPosPx, overElementVe.childAreaBoundsPx!)) {
       const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, desktopPosPx);
       const tableItem = asTableItem(overElementVe.displayItem);

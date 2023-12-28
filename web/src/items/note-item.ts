@@ -39,10 +39,11 @@ import { CursorPosition } from '../store/StoreProvider_Overlay';
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
   url: string,
-  format: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin { }
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin {
+  format: string,
+}
 
 
 export const NoteFns = {
@@ -257,6 +258,7 @@ export const NoteFns = {
       spatialWidthGr: note.spatialWidthGr,
       title: note.title,
       flags: note.flags,
+      format: note.format,
     });
   },
 
