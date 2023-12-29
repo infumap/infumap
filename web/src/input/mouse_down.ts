@@ -78,6 +78,19 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.touchToolbar();
   }
 
+  if (store.overlay.noteEditOverlayInfo.get() != null) {
+    store.overlay.justCreatedNoteItemMaybe.set(null);
+    store.overlay.justCreatedCompositeItemMaybe.set(null);
+
+    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+
+    if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
+      server.updateItem(item());
+    }
+    store.overlay.noteEditOverlayInfo.set(null);
+    arrange(store); // input focus changed.
+  }
+
   switch(buttonNumber) {
     case MOUSE_LEFT:
       mouseLeftDownHandler(store, viaOverlay);

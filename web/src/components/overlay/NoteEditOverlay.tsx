@@ -26,7 +26,7 @@ import { arrange } from "../../layout/arrange";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { Vector, isInside, vectorSubtract } from "../../util/geometry";
+import { Vector, vectorSubtract } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
@@ -36,7 +36,7 @@ import { getTextStyleForNote, measureLineCount } from "../../layout/text";
 import { newOrdering } from "../../util/ordering";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { TableFns, asTableItem } from "../../items/table-item";
-import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_down";
+import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { assert } from "../../util/lang";
 import { asContainerItem } from "../../items/base/container-item";
 import getCaretCoordinates from 'textarea-caret';
@@ -45,9 +45,6 @@ import { CursorPosition } from "../../store/StoreProvider_Overlay";
 import { asTitledItem } from "../../items/base/titled-item";
 
 
-// TODO (LOW): don't create items on the server until it is certain that they are needed.
-let justCreatedNoteItemMaybe: NoteItem | null = null;
-let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
 export const NoteEditOverlay: Component = () => {
   const store = useStore();
@@ -55,7 +52,11 @@ export const NoteEditOverlay: Component = () => {
   let textElement: HTMLTextAreaElement | undefined;
 
   const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
-  const noteVeBoundsPx = () => VeFns.veBoundsRelativeToDestkopPx(store, noteVisualElement());
+  const noteVeBoundsPx = () => {
+    const relativeToDesktopPx = VeFns.veBoundsRelativeToDestkopPx(store, noteVisualElement());
+    relativeToDesktopPx.y += store.topToolbarHeight();
+    return relativeToDesktopPx;
+  }
   const editBoxBoundsPx = () => {
     if (noteVisualElement()!.flags & VisualElementFlags.InsideTable) {
       const sBl = sizeBl();
@@ -123,34 +124,6 @@ export const NoteEditOverlay: Component = () => {
   const heightScale = () => (editBoxBoundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
-
-  const mouseDownListener = async (ev: MouseEvent) => {
-    justCreatedNoteItemMaybe = null;
-    justCreatedCompositeItemMaybe = null;
-    ev.stopPropagation();
-    CursorEventState.setFromMouseEvent(ev);
-    const desktopPx = CursorEventState.getLatestDesktopPx(store);
-    if (isInside(desktopPx, noteVeBoundsPx())) { return; }
-
-    if (store.user.getUserMaybe() != null && noteItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(noteItem());
-    }
-    store.overlay.noteEditOverlayInfo.set(null);
-    arrange(store); // input focus changed.
-
-    if (ev.button == MOUSE_LEFT) {
-      mouseDownHandler(store, MOUSE_LEFT, true);
-    }
-  };
-
-  const mouseMoveListener = (ev: MouseEvent) => {
-    CursorEventState.setFromMouseEvent(ev);
-    ev.stopPropagation();
-  };
-
-  const mouseUpListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-  };
 
   onCleanup(() => {
     if (!deleted && store.user.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.user.getUser().userId) {
@@ -236,8 +209,8 @@ export const NoteEditOverlay: Component = () => {
         break;
     }
 
-    justCreatedNoteItemMaybe = null;
-    justCreatedCompositeItemMaybe = null;
+    store.overlay.justCreatedNoteItemMaybe.set(null);
+    store.overlay.justCreatedCompositeItemMaybe.set(null);
   };
 
 
@@ -325,7 +298,7 @@ export const NoteEditOverlay: Component = () => {
       await server.deleteItem(canonicalId);
       arrange(store);
 
-      justCreatedNoteItemMaybe = null;
+      store.overlay.justCreatedNoteItemMaybe.set(null);
 
     } else {
       // ## composite case
@@ -350,8 +323,8 @@ export const NoteEditOverlay: Component = () => {
       await server.deleteItem(canonicalId);
       arrange(store);
 
-      justCreatedCompositeItemMaybe = null;
-      justCreatedNoteItemMaybe = null;
+      store.overlay.justCreatedCompositeItemMaybe.set(null);
+      store.overlay.justCreatedNoteItemMaybe.set(null);
 
       // maybe delete composite item and move note to parent.
       compositeVe = VesCache.get(ve.parentPath!)!.get();
@@ -412,24 +385,24 @@ export const NoteEditOverlay: Component = () => {
 
     } else if (isComposite(parentVe.displayItem)) {
 
-      if (justCreatedNoteItemMaybe != null) {
-        itemState.delete(justCreatedNoteItemMaybe.id);
-        server.deleteItem(justCreatedNoteItemMaybe.id);
-        if (justCreatedCompositeItemMaybe != null) {
-          assert(justCreatedCompositeItemMaybe!.computed_children.length == 1, "unexpected number of new composite child elements");
-          const originalNote = itemState.get(justCreatedCompositeItemMaybe!.computed_children[0])!;
-          itemState.moveToNewParent(originalNote, justCreatedCompositeItemMaybe.parentId, justCreatedCompositeItemMaybe.relationshipToParent, justCreatedCompositeItemMaybe.ordering);
+      if (store.overlay.justCreatedNoteItemMaybe.get() != null) {
+        itemState.delete(store.overlay.justCreatedNoteItemMaybe.get()!.id);
+        server.deleteItem(store.overlay.justCreatedNoteItemMaybe.get()!.id);
+        if (store.overlay.justCreatedCompositeItemMaybe.get() != null) {
+          assert(store.overlay.justCreatedCompositeItemMaybe.get()!.computed_children.length == 1, "unexpected number of new composite child elements");
+          const originalNote = itemState.get(store.overlay.justCreatedCompositeItemMaybe.get()!.computed_children[0])!;
+          itemState.moveToNewParent(originalNote, store.overlay.justCreatedCompositeItemMaybe.get()!.parentId, store.overlay.justCreatedCompositeItemMaybe.get()!.relationshipToParent, store.overlay.justCreatedCompositeItemMaybe.get()!.ordering);
           server.updateItem(originalNote);
           deleted = true;
-          itemState.delete(justCreatedCompositeItemMaybe.id);
-          server.deleteItem(justCreatedCompositeItemMaybe.id);
+          itemState.delete(store.overlay.justCreatedCompositeItemMaybe.get()!.id);
+          server.deleteItem(store.overlay.justCreatedCompositeItemMaybe.get()!.id);
         } else if (asContainerItem(parentVe.displayItem).computed_children.length == 1) {
           console.log("TODO (HIGH): delete composite.");
         }
         store.overlay.noteEditOverlayInfo.set(null);
         arrange(store);
-        justCreatedCompositeItemMaybe = null;
-        justCreatedNoteItemMaybe = null;
+        store.overlay.justCreatedCompositeItemMaybe.set(null);
+        store.overlay.justCreatedNoteItemMaybe.set(null);
         return;
       }
 
@@ -442,7 +415,7 @@ export const NoteEditOverlay: Component = () => {
       server.addItem(note, null);
       const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
       if (parent.computed_children[parent.computed_children.length-1] == note.id) {
-        justCreatedNoteItemMaybe = note;
+        store.overlay.justCreatedNoteItemMaybe.set(note);
       }
       arrange(store);
       const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
@@ -450,7 +423,7 @@ export const NoteEditOverlay: Component = () => {
       store.overlay.noteEditOverlayInfo.set({ itemPath, initialCursorPosition: CursorPosition.Start });
 
     } else {
-      assert(justCreatedNoteItemMaybe == null, "not expecting note to have been just created");
+      assert(store.overlay.justCreatedNoteItemMaybe.get() == null, "not expecting note to have been just created");
 
       // editing in links is not supported, so parent of displayItem always what is required here.
       const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -467,7 +440,7 @@ export const NoteEditOverlay: Component = () => {
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);
       server.addItem(composite, null);
-      justCreatedCompositeItemMaybe = composite;
+      store.overlay.justCreatedCompositeItemMaybe.set(composite);
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
       asNoteItem(ve.displayItem).title = beforeText;
       server.updateItem(ve.displayItem);
@@ -477,7 +450,7 @@ export const NoteEditOverlay: Component = () => {
       note.title = afterText;
       itemState.add(note);
       server.addItem(note, null);
-      justCreatedNoteItemMaybe = note;
+      store.overlay.justCreatedNoteItemMaybe.set(note);
 
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
@@ -504,31 +477,25 @@ export const NoteEditOverlay: Component = () => {
   const HACK_ADJUST_TEXTAREA_HEIGHT = 2.5;
 
   return (
-    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
-         style={`background-color: #00000000; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
-         onmousedown={mouseDownListener}
-         onmousemove={mouseMoveListener}
-         onmouseup={mouseUpListener}
-         onKeyDown={keyDownListener}>
-      <div class={`absolute rounded border`}
-           style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px;`}>
-        <textarea ref={textElement}
-                  class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
-                  style={`position: absolute; ` +
-                         `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                         `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
-                         `width: ${naturalWidthPx()}px; ` +
-                         `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
-                         `font-size: ${style().fontSize}px; ` +
-                         `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
-                         `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                         `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
-                         `${style().isBold ? ' font-weight: bold; ' : ""}`}
-                  value={noteItem().title}
-                  disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != noteItem().ownerId}
-                  onMouseDown={textAreaMouseDownHandler}
-                  onInput={textAreaOnInputHandler} />
-      </div>
+    <div class={`absolute rounded border`}
+         style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px; ` +
+                `z-index: ${Z_INDEX_TEXT_OVERLAY}`}>
+      <textarea ref={textElement}
+                class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
+                style={`position: absolute; ` +
+                        `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
+                        `width: ${naturalWidthPx()}px; ` +
+                        `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * style().lineHeightMultiplier}px;` +
+                        `font-size: ${style().fontSize}px; ` +
+                        `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * style().lineHeightMultiplier}px; ` +
+                        `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                        `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;` +
+                        `${style().isBold ? ' font-weight: bold; ' : ""}`}
+                value={noteItem().title}
+                disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != noteItem().ownerId}
+                onMouseDown={textAreaMouseDownHandler}
+                onInput={textAreaOnInputHandler} />
     </div>
   );
 }

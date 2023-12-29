@@ -34,10 +34,11 @@ import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, MouseDownActionFlags, mouseDownHandler } from "../input/mouse_down";
-import { mouseDoubleClickHandler } from "../input/mouse_doubleClick";
 import { keyHandler } from "../input/key";
 import { arrange } from "../layout/arrange";
 import { Toolbar_EditTitleOverlay } from "./toolbar/Toolbar_EditTitleOverlay";
+import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
+import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -226,7 +227,12 @@ export const Main: Component = () => {
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
       </Show>
-
+      <Show when={store.overlay.noteEditOverlayInfo.get() != null}>
+        <NoteEditOverlay />
+      </Show>
+      <Show when={store.overlay.expressionEditOverlayInfo.get() != null}>
+        <ExpressionEditOverlay />
+      </Show>
     </div>
   );
 }

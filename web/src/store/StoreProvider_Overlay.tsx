@@ -18,6 +18,8 @@
 
 import { HitInfo } from "../input/hit";
 import { Item } from "../items/base/item";
+import { CompositeItem } from "../items/composite-item";
+import { NoteItem } from "../items/note-item";
 import { PageItem } from "../items/page-item";
 import { VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
@@ -86,8 +88,6 @@ export interface EditPageTitleOverlayInfo {
 
 export interface OverlayStoreContextModel {
   // desktop overlays
-  noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
-  expressionEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
   tableEditOverlayInfo: InfuSignal<TableEditOverlayInfo | null>,
   searchOverlayVisible: InfuSignal<boolean>,
   editDialogInfo: InfuSignal<EditDialogInfo | null>,
@@ -97,6 +97,12 @@ export interface OverlayStoreContextModel {
   // global overlays
   toolbarOverlayInfoMaybe: InfuSignal<ToolbarOverlayInfo | null>,
   editingTitle: InfuSignal<EditPageTitleOverlayInfo | null>,
+  expressionEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+
+  noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  // TODO (LOW): don't create items on the server until it is certain that they are needed.
+  justCreatedNoteItemMaybe: InfuSignal<NoteItem | null>,
+  justCreatedCompositeItemMaybe: InfuSignal<CompositeItem | null>,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -108,13 +114,16 @@ export interface OverlayStoreContextModel {
 
 export function makeOverlayStore(): OverlayStoreContextModel {
   const tableEditOverlayInfo = createInfuSignal<TableEditOverlayInfo | null>(null);
-  const noteEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
   const expressionEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
   const editingTitle = createInfuSignal<EditPageTitleOverlayInfo | null>(null);
+
+  const noteEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const justCreatedNoteItemMaybe = createInfuSignal<NoteItem | null>(null);
+  const justCreatedCompositeItemMaybe = createInfuSignal<CompositeItem | null>(null);
 
   const toolbarOverlayInfoMaybe = createInfuSignal<ToolbarOverlayInfo | null>(null);
 
@@ -124,6 +133,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     noteEditOverlayInfo.set(null);
+    justCreatedNoteItemMaybe.set(null);
+    justCreatedCompositeItemMaybe.set(null);
     expressionEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
     editingTitle.set(null);
@@ -147,6 +158,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     tableEditOverlayInfo,
     searchOverlayVisible,
     noteEditOverlayInfo,
+    justCreatedNoteItemMaybe,
+    justCreatedCompositeItemMaybe,
     expressionEditOverlayInfo,
     editDialogInfo,
     editUserSettingsInfo,

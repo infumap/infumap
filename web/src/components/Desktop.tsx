@@ -26,12 +26,10 @@ import { EditDialog } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { getHitInfo } from "../input/hit";
-import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { CursorEventState } from "../input/state";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { TableEditOverlay } from "./overlay/TableEditOverlay";
-import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -93,12 +91,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       </Show>
       <Show when={store.overlay.contextMenuInfo.get() != null}>
         <ContextMenu />
-      </Show>
-      <Show when={store.overlay.noteEditOverlayInfo.get() != null}>
-        <NoteEditOverlay />
-      </Show>
-      <Show when={store.overlay.expressionEditOverlayInfo.get() != null}>
-        <ExpressionEditOverlay />
       </Show>
       <Show when={store.overlay.tableEditOverlayInfo.get() != null}>
         <TableEditOverlay />
