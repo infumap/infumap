@@ -30,6 +30,7 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
 import { newItemInContext } from "./create";
+import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditOverlay";
 
 
 const recognizedKeys = [
@@ -38,6 +39,10 @@ const recognizedKeys = [
 ];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+  if (store.overlay.noteEditOverlayInfo.get()) {
+    noteEditOverlay_keyDownListener(store, ev);
+  }
+
   if (store.overlay.anOverlayIsVisible()) {
     return;
   }
