@@ -134,6 +134,9 @@ export function StoreProvider(props: StoreContextProps) {
     if (overlay.noteEditOverlayInfo.get() != null) {
       return VeFns.veidFromPath(overlay.noteEditOverlayInfo.get()!.itemPath);
     }
+    if (overlay.expressionEditOverlayInfo.get() != null) {
+      return VeFns.veidFromPath(overlay.expressionEditOverlayInfo.get()!.itemPath);
+    }
     if (overlay.tableEditOverlayInfo.get() != null) {
       return VeFns.veidFromPath(overlay.tableEditOverlayInfo.get()!.itemPath);
     }

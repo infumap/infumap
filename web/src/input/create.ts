@@ -19,6 +19,7 @@
 import { initialEditDialogBounds } from "../components/overlay/edit/EditDialog";
 import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
+import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { ExpressionFns } from "../items/expression-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
@@ -209,9 +210,11 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
 
-  if (type == "note") {
+  if (type == ItemType.Note) {
     store.overlay.noteEditOverlayInfo.set({ itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
-  } else if (type == "rating") {
+  } else if (type == ItemType.Expression) {
+    store.overlay.expressionEditOverlayInfo.set({ itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+  } else if (type == ItemType.Rating) {
     // noop.
   } else {
     store.overlay.editDialogInfo.set({

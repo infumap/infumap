@@ -17,18 +17,20 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { arrange } from "../layout/arrange";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { ItemGeometry } from "../layout/item-geometry";
 import { measureLineCount } from "../layout/text";
-import { VisualElement } from "../layout/visual-element";
+import { VeFns, VisualElement } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
+import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { NoteFlags } from "./base/flags-item";
 import { ItemType, ItemTypeMixin } from "./base/item";
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl } from "./base/item-common-fns";
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { ItemFns } from "./base/item-polymorphism";
 import { PositionalMixin } from "./base/positional-item";
 import { TitledItem, TitledMixin } from "./base/titled-item";
@@ -224,8 +226,10 @@ export const ExpressionFns = {
     console.log("TODO");
   },
 
-  handleClick: (_visualElement: VisualElement, _store: StoreContextModel): void => {
-    console.log("TODO");
+  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    store.overlay.expressionEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    arrange(store); // input focus changed.
   },
 
   cloneMeasurableFields: (expression: ExpressionMeasurable): ExpressionMeasurable => {

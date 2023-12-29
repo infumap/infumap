@@ -84,7 +84,7 @@ export const TableEditOverlay: Component = () => {
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && tableItemOnInitialize.ownerId == store.user.getUser().userId) {
         server.updateItem(tableItem());
-        store.overlay.noteEditOverlayInfo.set(null);
+        store.overlay.tableEditOverlayInfo.set(null);
       }
     }
   }

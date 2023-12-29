@@ -87,6 +87,7 @@ export interface EditPageTitleOverlayInfo {
 export interface OverlayStoreContextModel {
   // desktop overlays
   noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
+  expressionEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
   tableEditOverlayInfo: InfuSignal<TableEditOverlayInfo | null>,
   searchOverlayVisible: InfuSignal<boolean>,
   editDialogInfo: InfuSignal<EditDialogInfo | null>,
@@ -108,6 +109,7 @@ export interface OverlayStoreContextModel {
 export function makeOverlayStore(): OverlayStoreContextModel {
   const tableEditOverlayInfo = createInfuSignal<TableEditOverlayInfo | null>(null);
   const noteEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
+  const expressionEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
@@ -122,6 +124,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     noteEditOverlayInfo.set(null);
+    expressionEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
     editingTitle.set(null);
   }
@@ -131,6 +134,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       tableEditOverlayInfo.get() != null ||
       searchOverlayVisible.get() ||
       noteEditOverlayInfo.get() != null ||
+      expressionEditOverlayInfo.get() != null ||
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
@@ -143,6 +147,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     tableEditOverlayInfo,
     searchOverlayVisible,
     noteEditOverlayInfo,
+    expressionEditOverlayInfo,
     editDialogInfo,
     editUserSettingsInfo,
     contextMenuInfo,

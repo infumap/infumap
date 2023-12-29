@@ -35,6 +35,7 @@ import { Toolbar_Table } from './Toolbar_Table';
 import { arrange } from '../../layout/arrange';
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
 import { EditPageTitleOverlayInfo } from '../../store/StoreProvider_Overlay';
+import { Toolbar_Expression } from './Toolbar_Expression';
 
 
 export const Toolbar: Component = () => {
@@ -145,11 +146,14 @@ export const Toolbar: Component = () => {
                     <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
                       <Toolbar_Note />
                     </Match>
+                    <Match when={store.overlay.expressionEditOverlayInfo.get() != null}>
+                      <Toolbar_Expression />
+                    </Match>
                     <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
                       <Toolbar_Table />
                     </Match>
                     {/* default */}
-                    <Match when={store.overlay.noteEditOverlayInfo.get() == null}>
+                    <Match when={true}>
                       <Toolbar_Page />
                     </Match>
                   </Switch>
