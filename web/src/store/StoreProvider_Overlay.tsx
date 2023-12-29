@@ -100,9 +100,6 @@ export interface OverlayStoreContextModel {
   expressionEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
 
   noteEditOverlayInfo: InfuSignal<EditOverlayInfo | null>,
-  // TODO (LOW): don't create items on the server until it is certain that they are needed.
-  justCreatedNoteItemMaybe: InfuSignal<NoteItem | null>,
-  justCreatedCompositeItemMaybe: InfuSignal<CompositeItem | null>,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -122,8 +119,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editingTitle = createInfuSignal<EditPageTitleOverlayInfo | null>(null);
 
   const noteEditOverlayInfo = createInfuSignal<EditOverlayInfo | null>(null);
-  const justCreatedNoteItemMaybe = createInfuSignal<NoteItem | null>(null);
-  const justCreatedCompositeItemMaybe = createInfuSignal<CompositeItem | null>(null);
 
   const toolbarOverlayInfoMaybe = createInfuSignal<ToolbarOverlayInfo | null>(null);
 
@@ -133,8 +128,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     noteEditOverlayInfo.set(null);
-    justCreatedNoteItemMaybe.set(null);
-    justCreatedCompositeItemMaybe.set(null);
     expressionEditOverlayInfo.set(null);
     searchOverlayVisible.set(false);
     editingTitle.set(null);
@@ -158,8 +151,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     tableEditOverlayInfo,
     searchOverlayVisible,
     noteEditOverlayInfo,
-    justCreatedNoteItemMaybe,
-    justCreatedCompositeItemMaybe,
     expressionEditOverlayInfo,
     editDialogInfo,
     editUserSettingsInfo,

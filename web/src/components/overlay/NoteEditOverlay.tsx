@@ -19,7 +19,7 @@
 import { Component, onCleanup, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { VesCache } from "../../layout/ves-cache";
-import { NoteFns, asNoteItem } from "../../items/note-item";
+import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server } from "../../server";
 import { VeFns, Veid, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
@@ -28,7 +28,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { Vector, vectorSubtract } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
-import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
+import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { CursorEventState } from "../../input/state";
 import { FindDirection, findClosest } from "../../layout/find";
@@ -45,10 +45,14 @@ import { CursorPosition } from "../../store/StoreProvider_Overlay";
 import { asTitledItem } from "../../items/base/titled-item";
 
 
-let textElement: HTMLTextAreaElement | undefined;
 const noteVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
 const noteItem = (store: StoreContextModel) => asNoteItem(noteVisualElement(store).displayItem);
+
+let textElement: HTMLTextAreaElement | undefined;
 let deleted = false;
+// TODO (LOW): don't create items on the server until it is certain that they are needed.
+let justCreatedNoteItemMaybe: NoteItem | null = null;
+let justCreatedCompositeItemMaybe: CompositeItem | null = null;
 
 
 export const NoteEditOverlay: Component = () => {
@@ -217,7 +221,10 @@ export const NoteEditOverlay: Component = () => {
 }
 
 
-
+export const noteEditOverlay_clearJustCreated = (): void => {
+  justCreatedNoteItemMaybe = null;
+  justCreatedCompositeItemMaybe = null;
+}
 
 
 export const noteEditOverlay_keyDownListener = (store: StoreContextModel, ev: KeyboardEvent): void => {
@@ -244,8 +251,8 @@ export const noteEditOverlay_keyDownListener = (store: StoreContextModel, ev: Ke
       break;
   }
 
-  store.overlay.justCreatedNoteItemMaybe.set(null);
-  store.overlay.justCreatedCompositeItemMaybe.set(null);
+  justCreatedNoteItemMaybe = null;
+  justCreatedCompositeItemMaybe = null;
 };
 
 
@@ -333,7 +340,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
     await server.deleteItem(canonicalId);
     arrange(store);
 
-    store.overlay.justCreatedNoteItemMaybe.set(null);
+    justCreatedNoteItemMaybe = null;
 
   } else {
     // ## composite case
@@ -358,8 +365,8 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
     await server.deleteItem(canonicalId);
     arrange(store);
 
-    store.overlay.justCreatedCompositeItemMaybe.set(null);
-    store.overlay.justCreatedNoteItemMaybe.set(null);
+    justCreatedCompositeItemMaybe = null;
+    justCreatedNoteItemMaybe = null;
 
     // maybe delete composite item and move note to parent.
     compositeVe = VesCache.get(ve.parentPath!)!.get();
@@ -420,24 +427,24 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
 
   } else if (isComposite(parentVe.displayItem)) {
 
-    if (store.overlay.justCreatedNoteItemMaybe.get() != null) {
-      itemState.delete(store.overlay.justCreatedNoteItemMaybe.get()!.id);
-      server.deleteItem(store.overlay.justCreatedNoteItemMaybe.get()!.id);
-      if (store.overlay.justCreatedCompositeItemMaybe.get() != null) {
-        assert(store.overlay.justCreatedCompositeItemMaybe.get()!.computed_children.length == 1, "unexpected number of new composite child elements");
-        const originalNote = itemState.get(store.overlay.justCreatedCompositeItemMaybe.get()!.computed_children[0])!;
-        itemState.moveToNewParent(originalNote, store.overlay.justCreatedCompositeItemMaybe.get()!.parentId, store.overlay.justCreatedCompositeItemMaybe.get()!.relationshipToParent, store.overlay.justCreatedCompositeItemMaybe.get()!.ordering);
+    if (justCreatedNoteItemMaybe != null) {
+      itemState.delete(justCreatedNoteItemMaybe!.id);
+      server.deleteItem(justCreatedNoteItemMaybe!.id);
+      if (justCreatedCompositeItemMaybe != null) {
+        assert(justCreatedCompositeItemMaybe!.computed_children.length == 1, "unexpected number of new composite child elements");
+        const originalNote = itemState.get(justCreatedCompositeItemMaybe!.computed_children[0])!;
+        itemState.moveToNewParent(originalNote, justCreatedCompositeItemMaybe!.parentId, justCreatedCompositeItemMaybe!.relationshipToParent, justCreatedCompositeItemMaybe!.ordering);
         server.updateItem(originalNote);
         deleted = true;
-        itemState.delete(store.overlay.justCreatedCompositeItemMaybe.get()!.id);
-        server.deleteItem(store.overlay.justCreatedCompositeItemMaybe.get()!.id);
+        itemState.delete(justCreatedCompositeItemMaybe!.id);
+        server.deleteItem(justCreatedCompositeItemMaybe!.id);
       } else if (asContainerItem(parentVe.displayItem).computed_children.length == 1) {
         console.log("TODO (HIGH): delete composite.");
       }
       store.overlay.noteEditOverlayInfo.set(null);
       arrange(store);
-      store.overlay.justCreatedCompositeItemMaybe.set(null);
-      store.overlay.justCreatedNoteItemMaybe.set(null);
+      justCreatedCompositeItemMaybe = null;
+      justCreatedNoteItemMaybe = null;
       return;
     }
 
@@ -450,7 +457,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     server.addItem(note, null);
     const parent = asContainerItem(itemState.get(parentVe.displayItem.id)!);
     if (parent.computed_children[parent.computed_children.length-1] == note.id) {
-      store.overlay.justCreatedNoteItemMaybe.set(note);
+      justCreatedNoteItemMaybe = note;
     }
     arrange(store);
     const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
@@ -458,7 +465,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     store.overlay.noteEditOverlayInfo.set({ itemPath, initialCursorPosition: CursorPosition.Start });
 
   } else {
-    assert(store.overlay.justCreatedNoteItemMaybe.get() == null, "not expecting note to have been just created");
+    assert(justCreatedNoteItemMaybe == null, "not expecting note to have been just created");
 
     // editing in links is not supported, so parent of displayItem always what is required here.
     const parentVe = VesCache.get(ve.parentPath!)!.get();
@@ -475,7 +482,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     composite.spatialWidthGr = spatialWidthGr;
     itemState.add(composite);
     server.addItem(composite, null);
-    store.overlay.justCreatedCompositeItemMaybe.set(composite);
+    justCreatedCompositeItemMaybe = composite;
     itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
     asNoteItem(ve.displayItem).title = beforeText;
     server.updateItem(ve.displayItem);
@@ -485,7 +492,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     note.title = afterText;
     itemState.add(note);
     server.addItem(note, null);
-    store.overlay.justCreatedNoteItemMaybe.set(note);
+    justCreatedNoteItemMaybe = note;
 
     store.overlay.noteEditOverlayInfo.set(null);
     arrange(store);

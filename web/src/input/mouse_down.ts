@@ -38,6 +38,7 @@ import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Overlay";
 import { server } from "../server";
+import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
 
 
 export const MOUSE_LEFT = 0;
@@ -79,8 +80,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (store.overlay.noteEditOverlayInfo.get() != null) {
-    store.overlay.justCreatedNoteItemMaybe.set(null);
-    store.overlay.justCreatedCompositeItemMaybe.set(null);
+    noteEditOverlay_clearJustCreated();
 
     const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
 
