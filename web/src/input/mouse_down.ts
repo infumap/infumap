@@ -60,7 +60,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (isInside(CursorEventState.getLatestClientPx(), boundsPx)) {
       return MouseDownActionFlags.None;
     }
-
     const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
@@ -70,7 +69,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.overlay.editingTitle.get()) {
     store.overlay.editingTitle.set(null);
-
     const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
@@ -79,16 +77,23 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.touchToolbar();
   }
 
-  if (store.overlay.noteEditOverlayInfo.get() != null) {
+  if (store.overlay.noteEditOverlayInfo.get()) {
     noteEditOverlay_clearJustCreated();
-
     const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
-
     if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
       server.updateItem(item());
     }
     store.overlay.noteEditOverlayInfo.set(null);
     arrange(store); // input focus changed.
+  }
+
+  if (store.overlay.tableEditOverlayInfo.get()) {
+    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
+      server.updateItem(item());
+    }
+    store.overlay.tableEditOverlayInfo.set(null);
+    arrange(store);
   }
 
   switch(buttonNumber) {

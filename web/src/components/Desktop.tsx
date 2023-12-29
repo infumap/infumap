@@ -29,7 +29,6 @@ import { getHitInfo } from "../input/hit";
 import { CursorEventState } from "../input/state";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
-import { TableEditOverlay } from "./overlay/TableEditOverlay";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -91,9 +90,6 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       </Show>
       <Show when={store.overlay.contextMenuInfo.get() != null}>
         <ContextMenu />
-      </Show>
-      <Show when={store.overlay.tableEditOverlayInfo.get() != null}>
-        <TableEditOverlay />
       </Show>
       <Show when={store.overlay.isPanicked.get()}>
         <Panic />

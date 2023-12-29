@@ -39,6 +39,7 @@ import { arrange } from "../layout/arrange";
 import { Toolbar_EditTitleOverlay } from "./toolbar/Toolbar_EditTitleOverlay";
 import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
+import { TableEditOverlay } from "./overlay/TableEditOverlay";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -232,6 +233,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.expressionEditOverlayInfo.get() != null}>
         <ExpressionEditOverlay />
+      </Show>
+      <Show when={store.overlay.tableEditOverlayInfo.get() != null}>
+        <TableEditOverlay />
       </Show>
     </div>
   );

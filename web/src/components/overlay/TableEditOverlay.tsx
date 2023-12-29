@@ -42,6 +42,7 @@ export const TableEditOverlay: Component = () => {
     const blockSizePx = tableVisualElement().blockSizePx!;
     const result = tableVeBoundsPx();
     result.h = blockSizePx.h;
+    result.y += store.topToolbarHeight();
     const overlayInfo = store.overlay.tableEditOverlayInfo.get()!;
     if (overlayInfo.colNum == null) {
       return result;
@@ -55,29 +56,6 @@ export const TableEditOverlay: Component = () => {
   onMount(() => {
     textElement!.focus();
   });
-
-  const mouseDownListener = async (ev: MouseEvent) => {
-    ev.stopPropagation();
-    CursorEventState.setFromMouseEvent(ev);
-    const desktopPx = CursorEventState.getLatestDesktopPx(store);
-    if (isInside(desktopPx, editBoxBoundsPx())) { return; }
-    if (store.user.getUserMaybe() != null && tableItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(tableItem());
-    }
-    store.overlay.tableEditOverlayInfo.set(null);
-    arrange(store);
-  };
-
-  const mouseMoveListener = (ev: MouseEvent) => {
-    CursorEventState.setFromMouseEvent(ev);
-    ev.stopPropagation();
-  };
-
-  const mouseUpListener = (ev: MouseEvent) => {
-    ev.stopPropagation();
-  };
-
-  const keyDownListener = (_ev: KeyboardEvent): void => { }
 
   const inputMouseDownHandler = (ev: MouseEvent) => {
     ev.stopPropagation();
@@ -102,27 +80,21 @@ export const TableEditOverlay: Component = () => {
     } else {
       tableItem().tableColumns[overlayInfo.colNum!].name = textElement!.value;
     }
-    store.touchToolbar();
+    arrange(store);
   }
 
   return (
-    <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-none"
-         style={`background-color: #00000000; z-index: ${Z_INDEX_TEXT_OVERLAY};`}
-         onmousedown={mouseDownListener}
-         onmousemove={mouseMoveListener}
-         onmouseup={mouseUpListener}
-         onKeyDown={keyDownListener}>
-      <input ref={textElement}
-          class={`rounded overflow-hidden resize-none whitespace-pre-wrap`}
-          style={`position: absolute; ` +
-                 `left: ${editBoxBoundsPx().x}px; ` +
-                 `top: ${editBoxBoundsPx().y}px; ` +
-                 `width: ${editBoxBoundsPx().w}px; ` +
-                 `height: ${editBoxBoundsPx().h}px;`}
-          value={editingValue()}
-          disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != tableItem().ownerId}
-          onMouseDown={inputMouseDownHandler}
-          onInput={inputOnInputHandler} />
-    </div>
+    <input ref={textElement}
+           class={`absolute rounded overflow-hidden resize-none whitespace-pre-wrap`}
+           style={`position: absolute; ` +
+                  `left: ${editBoxBoundsPx().x}px; ` +
+                  `top: ${editBoxBoundsPx().y}px; ` +
+                  `width: ${editBoxBoundsPx().w}px; ` +
+                  `height: ${editBoxBoundsPx().h}px;` +
+                  `z-index: ${Z_INDEX_TEXT_OVERLAY}; `}
+           value={editingValue()}
+           disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != tableItem().ownerId}
+           onMouseDown={inputMouseDownHandler}
+           onInput={inputOnInputHandler} />
   );
 }
