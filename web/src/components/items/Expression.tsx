@@ -27,6 +27,7 @@ import { asPageItem, isPage } from "../../items/page-item";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 
+
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Expression_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -80,6 +81,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const renderDetailed = () =>
     <>
+      {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title}
     </>;
 
   return (

@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { asExpressionItem } from "../items/expression-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { findClosest } from "../layout/find";
 import { VesCache } from "../layout/ves-cache";
@@ -30,8 +31,8 @@ export function evaluateExpressions(virtual: boolean) {
   for (let path of VesCache.getEvaluationRequired()) {
     const ves = virtual ? VesCache.getVirtual(path)! : VesCache.get(path)!;
     const ve = ves.get();
-    const noteItem = asNoteItem(ve.displayItem);
-    const equation = noteItem.title;
+    const expressionItem = asExpressionItem(ve.displayItem);
+    const equation = expressionItem.title;
     ve.evaluatedTitle = evaluateExpression(path, equation).toString();
     ves.set(ve);
   }
@@ -43,7 +44,7 @@ interface Context {
 
 function evaluateExpression(path: VisualElementPath, text: string): string {
   try {
-    const expr = Parser.parse(text.substring(1));
+    const expr = Parser.parse(text);
     const context = { path };
     const r = evaluate(expr, context);
     return "" + r;

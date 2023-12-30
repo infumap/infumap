@@ -19,11 +19,9 @@
 import { Component, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
-import { CursorEventState } from "../../input/state";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
 import { asTableItem } from "../../items/table-item";
-import { isInside } from "../../util/geometry";
 import { server } from "../../server";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { arrange } from "../../layout/arrange";

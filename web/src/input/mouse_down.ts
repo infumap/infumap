@@ -84,7 +84,16 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       server.updateItem(item());
     }
     store.overlay.noteEditOverlayInfo.set(null);
-    arrange(store); // input focus changed.
+    arrange(store);
+  }
+
+  if (store.overlay.expressionEditOverlayInfo.get()) {
+    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
+      server.updateItem(item());
+    }
+    store.overlay.expressionEditOverlayInfo.set(null);
+    arrange(store);
   }
 
   if (store.overlay.tableEditOverlayInfo.get()) {

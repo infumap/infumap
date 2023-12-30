@@ -36,6 +36,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
+import { isExpression } from "../../items/expression-item";
 
 
 export enum ArrangeItemFlags {
@@ -150,11 +151,8 @@ export const arrangeItemNoChildren = (
 
   const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 
-  if (isNote(item)) {
-    const noteItem = asNoteItem(item);
-    if (NoteFns.isExpression(noteItem)) {
-      VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));
-    }
+  if (isExpression(item)) {
+    VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));
   }
 
   return itemVisualElementSignal;
