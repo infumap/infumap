@@ -31,6 +31,7 @@ type ContexMenuProps = {
   hitInfo: HitInfo
 };
 
+
 export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const store = useStore();
 
@@ -43,16 +44,34 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
   const newExpressionInContext = () => newItemInContext(store, "expression", props.hitInfo, props.desktopPosPx);
 
   return (
-    <div class="border rounded w-[110px] h-[205px] bg-slate-50 mb-1">
-      <div class="text-sm pt-[3px]"><InfuIconButton icon="fa fa-sticky-note" highlighted={false} clickHandler={newNoteInContext} /> Note</div>
-      <div class="text-sm"><InfuIconButton icon="fa fa-folder" highlighted={false} clickHandler={newPageInContext} /> Page</div>
-      <div class="text-sm"><InfuIconButton icon="fa fa-table" highlighted={false} clickHandler={newTableInContext} /> Table</div>
-      <div class="text-sm"><InfuIconButton icon="fa fa-star" highlighted={false} clickHandler={newRatingInContext} /> Rating</div>
-      <div class="text-sm"><InfuIconButton icon="expression" highlighted={false} clickHandler={newExpressionInContext} /> Expression</div>
-      <div class="text-sm"><InfuIconButton icon="fa fa-link" highlighted={false} clickHandler={newLinkInContext} /> Link</div>
-      <div class="text-sm"><InfuIconButton icon="fa fa-eye-slash" highlighted={false} clickHandler={newPasswordInContext} /> Password</div>
-      <div class="text-sm text-slate-500"><i class="fa fa-image w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> Image</div>
-      <div class="text-sm text-slate-500"><i class="fa fa-file w-[22px] h-[21px] inline-block text-center ml-[3px] text-[14px] relative" /> File</div>
+    <div class="border rounded w-[115px] h-[242px] bg-slate-50 mb-1 shadow-lg">
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
+        <i class="fa fa-sticky-note" /> Note
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newPageInContext}>
+        <i class="fa fa-folder" /> Page
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newTableInContext}>
+        <i class="fa fa-table" /> Table
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newRatingInContext}>
+        <i class="fa fa-star" /> Rating
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newExpressionInContext}>
+        <span class="w-[16px] h-[16px] inline-block text-center relative">∑</span> Expression
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newLinkInContext}>
+        <i class="fa fa-link" /> Rating
+      </div>
+      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
+        <i class="fa fa-eye-slash" /> Password
+      </div>
+      <div class="text-sm ml-[5px] mr-[5px] p-[3px] text-slate-500">
+        <i class="fa fa-image" /> Image
+      </div>
+      <div class="text-sm ml-[5px] mr-[5px] p-[3px] text-slate-500">
+        <i class="fa fa-file" /> File
+      </div>
     </div>
   );
 }
