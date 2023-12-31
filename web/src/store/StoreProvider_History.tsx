@@ -170,8 +170,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumb.focusPath != null) {
       return breadcrumb.focusPath;
     }
-    console.debug("TODO (LOW): focusPath fallback should never be hit");
-    return VeFns.addVeidToPath(currentPage()!, "");
+    panic("TODO (LOW): focusPath fallback should never be hit");
+    // return VeFns.addVeidToPath(currentPage()!, "");
   }
 
   return ({

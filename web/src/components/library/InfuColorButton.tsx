@@ -17,14 +17,20 @@
 */
 
 import { Component } from "solid-js";
-import { Colors } from "../../style";
+import { Colors, linearGradient } from "../../style";
+import { createInfuSignal } from "../../util/signals";
 
 
 export const InfuColorButton: Component<{ col: number, onClick: (col: number) => void }> = (props: { col: number, onClick: (col: number) => void }) => {
+  let isOver = createInfuSignal<boolean>(false);
   const clickHandler = (_ev: MouseEvent) => { props.onClick(props.col); }
+  const handleMouseEnter = () => { isOver.set(true); }
+  const handleMouseLeave = () => { isOver.set(false); }
   return (
     <div onClick={clickHandler}
-         class="border rounded w-[19px] h-[19px] inline-block text-center cursor-pointer text-[18px]"
-         style={`background-color: ${Colors[props.col]};`}></div>
+         onMouseEnter={handleMouseEnter}
+         onMouseLeave={handleMouseLeave}
+         class="border border-slate-950 rounded w-[19px] h-[19px] inline-block text-center cursor-pointer text-[18px]"
+         style={`background-image: ${isOver.get() ? linearGradient(props.col, 0.2) : linearGradient(props.col, 0.05)};`}></div>
   );
 }

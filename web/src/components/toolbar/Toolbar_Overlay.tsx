@@ -114,13 +114,13 @@ export const Toolbar_Overlay: Component = () => {
       handleTextChange();
       store.touchToolbar();
       arrange(store);
-      server.updateItem(store.history.getFocusItem());
-      setTimeout(() => {
-        store.overlay.toolbarOverlayInfoMaybe.set(null);
-        if (isNote(store.history.getFocusItem())) {
+      if (isNote(store.history.getFocusItem())) {
+        server.updateItem(store.history.getFocusItem());
+        setTimeout(() => {
+          store.overlay.toolbarOverlayInfoMaybe.set(null);
           document.getElementById("noteEditOverlayTextArea")!.focus();
-        }
-      }, 0);
+        }, 0);
+      }
     }
     ev.stopPropagation();
   }
@@ -171,6 +171,9 @@ export const Toolbar_Overlay: Component = () => {
   const handleColorClick = (col: number) => {
     pageItem().backgroundColorIndex = col;
     store.overlay.toolbarOverlayInfoMaybe.set(store.overlay.toolbarOverlayInfoMaybe.get());
+    store.touchToolbar();
+    server.updateItem(store.history.getFocusItem());
+    store.overlay.toolbarOverlayInfoMaybe.set(null);
   }
 
   const textEntryValue = (): string | null => {
