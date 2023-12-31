@@ -228,13 +228,13 @@ export const Main: Component = () => {
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
       </Show>
-      <Show when={store.overlay.noteEditOverlayInfo.get() != null}>
+      <Show when={store.overlay.noteEditOverlayInfo() != null}>
         <NoteEditOverlay />
       </Show>
-      <Show when={store.overlay.expressionEditOverlayInfo.get() != null}>
+      <Show when={store.overlay.expressionEditOverlayInfo() != null}>
         <ExpressionEditOverlay />
       </Show>
-      <Show when={store.overlay.tableEditOverlayInfo.get() != null}>
+      <Show when={store.overlay.tableEditOverlayInfo() != null}>
         <TableEditOverlay />
       </Show>
     </div>

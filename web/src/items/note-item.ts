@@ -247,7 +247,7 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.noteEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
     arrange(store); // input focus changed.
   },
 

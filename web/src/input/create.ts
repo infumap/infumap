@@ -211,9 +211,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
 
   if (type == ItemType.Note) {
-    store.overlay.noteEditOverlayInfo.set({ itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Expression) {
-    store.overlay.expressionEditOverlayInfo.set({ itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Rating) {
     // noop.
   } else {

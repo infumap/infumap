@@ -33,7 +33,7 @@ import { server } from "../../server";
 import { arrange } from "../../layout/arrange";
 
 
-const expressionVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.expressionEditOverlayInfo.get()!.itemPath)!.get();
+const expressionVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.expressionEditOverlayInfo()!.itemPath)!.get();
 const expressionItem = (store: StoreContextModel) => asExpressionItem(expressionVisualElement(store).displayItem);
 
 
@@ -111,7 +111,7 @@ export const ExpressionEditOverlay: Component = () => {
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && expressionItemOnInitialize.ownerId == store.user.getUser().userId) {
         server.updateItem(expressionItem(store));
-        store.overlay.expressionEditOverlayInfo.set(null);
+        store.overlay.setExpressionEditOverlayInfo(store.history, null);
       }
     }
   };
@@ -128,14 +128,14 @@ export const ExpressionEditOverlay: Component = () => {
       <textarea ref={textElement}
                 class={`rounded overflow-hidden resize-none whitespace-pre-wrap`}
                 style={`position: absolute; ` +
-                        `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
-                        `width: ${naturalWidthPx()}px; ` +
-                        `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * 1}px;` +
-                        `font-size: ${style().fontSize}px; ` +
-                        `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
-                        `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                        `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`}
+                       `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `height: ${naturalHeightPx() * heightScale()/widthScale() + HACK_ADJUST_TEXTAREA_HEIGHT * 1}px;` +
+                       `font-size: ${style().fontSize}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`}
                 value={expressionItem(store).title}
                 disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != expressionItem(store).ownerId}
                 onMouseDown={textAreaMouseDownHandler}

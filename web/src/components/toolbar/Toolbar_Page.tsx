@@ -44,7 +44,7 @@ export const Toolbar_Page: Component = () => {
   let justifiedRowAspectDiv: HTMLInputElement | undefined;
   let numColsDiv: HTMLInputElement | undefined;
 
-  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(store.history.getFocusItem());
 
   const handleChangeAlgorithm = () => {
     let newAA;

@@ -17,8 +17,10 @@
 */
 
 import { createSignal } from "solid-js";
-import { Veid, VisualElementPath } from "../layout/visual-element";
+import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
+import { Item } from "../items/base/item";
+import { itemState } from "./ItemState";
 
 
 export enum PopupType {
@@ -35,6 +37,7 @@ export interface PopupSpec {
 
 interface PageBreadcrumb {
   pageVeid: Veid,
+  focusPath: VisualElementPath | null,
   popupBreadcrumbs: Array<PopupSpec>,
 }
 
@@ -50,14 +53,17 @@ export interface HistoryStoreContextModel {
   currentPopupSpecVeid: () => Veid | null,
   setHistoryToSinglePage: (currentPage: Veid) => void,
   clear: () => void,
+  setFocus: (focusPath: VisualElementPath | null) => void,
+  getFocusItem: () => Item,
+  getFocusPath: () => VisualElementPath,
 }
 
 
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
-  const pushPage = (veid: Veid): void => {
-    breadcrumbs().push({ pageVeid: veid, popupBreadcrumbs: [] });
+  const pushPage = (pageVeid: Veid): void => {
+    breadcrumbs().push({ pageVeid, popupBreadcrumbs: [], focusPath: VeFns.addVeidToPath(pageVeid, "") });
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -123,11 +129,43 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const setHistoryToSinglePage = (pageVeid: Veid): void => {
-    setBreadcrumbs([{ pageVeid: pageVeid, popupBreadcrumbs: [] }]);
+    setBreadcrumbs([{ pageVeid, popupBreadcrumbs: [], focusPath: VeFns.addVeidToPath(pageVeid, "") }]);
   };
 
   const clear = (): void => {
     setBreadcrumbs([]);
+  };
+
+  const setFocus = (focusPath: VisualElementPath | null): void => {
+    if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
+    breadcrumbs()[breadcrumbs().length-1].focusPath = focusPath;
+    setBreadcrumbs(breadcrumbs());
+  };
+
+  const getFocusItem = (): Item => {
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    if (breadcrumb.focusPath != null) {
+      return itemState.get(VeFns.veidFromPath(breadcrumb.focusPath!).itemId)!;
+    }
+    if (currentPopupSpec() != null) {
+      if (currentPopupSpec()!.type == PopupType.Page) {
+        return itemState.get(currentPopupSpec()!.actualVeid.itemId)!;
+      }
+    }
+    return itemState.get(currentPage()!.itemId)!;
+  };
+
+  const getFocusPath = (): VisualElementPath => {
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    if (breadcrumb.focusPath != null) {
+      return breadcrumb.focusPath;
+    }
+    if (currentPopupSpec() != null) {
+      if (currentPopupSpec()!.type == PopupType.Page) {
+        return currentPopupSpec()!.vePath!;
+      }
+    }
+    return VeFns.addVeidToPath(currentPage()!, "");
   }
 
   return ({
@@ -142,5 +180,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     currentPopupSpecVeid,
     setHistoryToSinglePage,
     clear,
+    setFocus,
+    getFocusItem,
+    getFocusPath,
   });
 }

@@ -51,10 +51,10 @@ function toolbarOverlayHeight(overlayType: ToolbarOverlayType, isComposite: bool
 export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const overlayType = store.overlay.toolbarOverlayInfoMaybe.get()!.type;
   const compositeVisualElementMaybe = () => {
-    if (!isNote(itemState.get(store.getToolbarFocus()!.itemId))) {
+    if (!isNote(store.history.getFocusItem())) {
       return null;
     }
-    const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
+    const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo()!.itemPath)!.get();
     const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
@@ -87,12 +87,12 @@ export const Toolbar_Overlay: Component = () => {
 
   let textElement: HTMLInputElement | undefined;
 
-  const pageItem = () => asPageItem(itemState.get(store.getToolbarFocus()!.itemId)!);
-  const noteItem = () => asNoteItem(itemState.get(store.getToolbarFocus()!.itemId)!);
+  const pageItem = () => asPageItem(store.history.getFocusItem());
+  const noteItem = () => asNoteItem(store.history.getFocusItem());
 
-  const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo()!.itemPath)!.get();
   const compositeVisualElementMaybe = () => {
-    if (!isNote(itemState.get(store.getToolbarFocus()!.itemId))) {
+    if (!isNote(store.history.getFocusItem())) {
       return null;
     }
     const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
@@ -192,8 +192,8 @@ export const Toolbar_Overlay: Component = () => {
 
   const showAutoButton = (): boolean => overlayType() == ToolbarOverlayType.PageAspect;
 
-  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.getToolbarFocus()!.itemId); }
-  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + store.getToolbarFocus()!.itemId); }
+  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.history.getFocusItem().id); }
+  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + store.history.getFocusItem()!.id); }
 
   const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
   const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
@@ -228,7 +228,7 @@ export const Toolbar_Overlay: Component = () => {
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
             <div class="inline-block text-slate-800 text-xs p-[6px]">
-              <span class="font-mono text-slate-400">{`I: ${store.getToolbarFocus()!.itemId}`}</span>
+              <span class="font-mono text-slate-400">{`I: ${store.history.getFocusItem().id}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
               <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
             </div>

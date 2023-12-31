@@ -27,12 +27,13 @@ import { arrange } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
+
 export const Toolbar_Note: Component = () => {
   const store = useStore();
 
   let beforeFormatElement : HTMLDivElement | undefined;
 
-  const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo.get()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(store.history.getFocusPath())!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
 
   const compositeVisualElementMaybe = () => {

@@ -42,8 +42,6 @@ export interface StoreContextModel {
 
   clear: () => void,
 
-  getToolbarFocus: () => Veid,
-
   getDockWidthPx: () => number,
   setDockWidthPx: (widthPx: number) => void,
 
@@ -130,27 +128,11 @@ export function StoreProvider(props: StoreContextProps) {
     dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
   };
 
-  const getToolbarFocus = (): Veid => {
-    if (overlay.noteEditOverlayInfo.get() != null) {
-      return VeFns.veidFromPath(overlay.noteEditOverlayInfo.get()!.itemPath);
-    }
-    if (overlay.expressionEditOverlayInfo.get() != null) {
-      return VeFns.veidFromPath(overlay.expressionEditOverlayInfo.get()!.itemPath);
-    }
-    if (overlay.tableEditOverlayInfo.get() != null) {
-      return VeFns.veidFromPath(overlay.tableEditOverlayInfo.get()!.itemPath);
-    }
-    if (history.currentPopupSpec() != null) {
-      if (history.currentPopupSpec()!.type == PopupType.Page) {
-        return history.currentPopupSpec()!.actualVeid;
-      }
-    }
-    return history.currentPage()!;
-  };
 
   let touchToolbarSignal = createInfuSignal<boolean>(false);
   const touchToolbar = () => { touchToolbarSignal.set(false); }
   const touchToolbarDependency = () => { if (touchToolbarSignal.get()) { panic("toolbar rerender dependency signal should never be true."); } }
+
 
   const value: StoreContextModel = {
     desktopBoundsPx,
@@ -164,8 +146,6 @@ export function StoreProvider(props: StoreContextProps) {
     topLevelVisualElement,
 
     clear,
-
-    getToolbarFocus,
 
     touchToolbar,
     touchToolbarDependency,

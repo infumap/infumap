@@ -26,7 +26,7 @@ import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
 import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
-import { asPageItem } from "../../items/page-item";
+import { asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
@@ -36,6 +36,9 @@ import { arrange } from '../../layout/arrange';
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
 import { EditPageTitleOverlayInfo } from '../../store/StoreProvider_Overlay';
 import { Toolbar_Expression } from './Toolbar_Expression';
+import { isNote } from '../../items/note-item';
+import { isExpression } from '../../items/expression-item';
+import { isTable } from '../../items/table-item';
 
 
 export const Toolbar: Component = () => {
@@ -143,18 +146,17 @@ export const Toolbar: Component = () => {
 
                 <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
                   <Switch>
-                    <Match when={store.overlay.noteEditOverlayInfo.get() != null}>
+                    <Match when={isPage(store.history.getFocusItem())}>
+                      <Toolbar_Page />
+                    </Match>
+                    <Match when={isNote(store.history.getFocusItem())}>
                       <Toolbar_Note />
                     </Match>
-                    <Match when={store.overlay.expressionEditOverlayInfo.get() != null}>
+                    <Match when={isExpression(store.history.getFocusItem())}>
                       <Toolbar_Expression />
                     </Match>
-                    <Match when={store.overlay.tableEditOverlayInfo.get() != null}>
+                    <Match when={isTable(store.history.getFocusItem())}>
                       <Toolbar_Table />
-                    </Match>
-                    {/* default */}
-                    <Match when={true}>
-                      <Toolbar_Page />
                     </Match>
                   </Switch>
                 </Show>

@@ -228,7 +228,7 @@ export const ExpressionFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.expressionEditOverlayInfo.set({ itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
     arrange(store); // input focus changed.
   },
 

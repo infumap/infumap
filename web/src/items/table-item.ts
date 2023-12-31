@@ -237,7 +237,7 @@ export const TableFns = {
 
   handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.tableEditOverlayInfo.set({
+    store.overlay.setTableEditOverlayInfo(store.history, {
       itemPath: VeFns.veToPath(visualElement),
       colNum: hitboxMeta == null ? null : hitboxMeta.colNum!,
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,

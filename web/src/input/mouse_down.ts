@@ -60,7 +60,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (isInside(CursorEventState.getLatestClientPx(), boundsPx)) {
       return MouseDownActionFlags.None;
     }
-    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    const item = () => store.history.getFocusItem();
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
@@ -69,7 +69,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.overlay.editingTitle.get()) {
     store.overlay.editingTitle.set(null);
-    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    const item = () => store.history.getFocusItem();
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
@@ -77,31 +77,31 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.touchToolbar();
   }
 
-  if (store.overlay.noteEditOverlayInfo.get()) {
+  if (store.overlay.noteEditOverlayInfo()) {
     noteEditOverlay_clearJustCreated();
-    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+    const item = () => store.history.getFocusItem();
     if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
       server.updateItem(item());
     }
-    store.overlay.noteEditOverlayInfo.set(null);
+    store.overlay.setNoteEditOverlayInfo(store.history, null);
     arrange(store);
   }
 
-  if (store.overlay.expressionEditOverlayInfo.get()) {
-    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+  if (store.overlay.expressionEditOverlayInfo()) {
+    const item = () => store.history.getFocusItem();
     if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
       server.updateItem(item());
     }
-    store.overlay.expressionEditOverlayInfo.set(null);
+    store.overlay.setExpressionEditOverlayInfo(store.history, null);
     arrange(store);
   }
 
-  if (store.overlay.tableEditOverlayInfo.get()) {
-    const item = () => itemState.get(store.getToolbarFocus()!.itemId)!;
+  if (store.overlay.tableEditOverlayInfo()) {
+    const item = () => store.history.getFocusItem();
     if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
       server.updateItem(item());
     }
-    store.overlay.tableEditOverlayInfo.set(null);
+    store.overlay.setTableEditOverlayInfo(store.history, null);
     arrange(store);
   }
 

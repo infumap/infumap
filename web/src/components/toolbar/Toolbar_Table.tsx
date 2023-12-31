@@ -33,7 +33,7 @@ export const Toolbar_Table: Component = () => {
 
   let numColsDiv: HTMLInputElement | undefined;
 
-  const tableItem = () => asTableItem(itemState.get(store.getToolbarFocus()!.itemId)!);
+  const tableItem = () => asTableItem(store.history.getFocusItem());
 
   const isSortedByTitle = () => {
     store.touchToolbarDependency();
