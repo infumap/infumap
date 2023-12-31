@@ -200,7 +200,8 @@ export const NoteEditOverlay: Component = () => {
     <div class={`absolute rounded border`}
          style={`left: ${noteVeBoundsPx().x}px; top: ${noteVeBoundsPx().y}px; width: ${noteVeBoundsPx().w}px; height: ${noteVeBoundsPx().h}px; ` +
                 `z-index: ${Z_INDEX_TEXT_OVERLAY}`}>
-      <textarea ref={textElement}
+      <textarea id="noteEditOverlayTextArea"
+                ref={textElement}
                 class={`rounded overflow-hidden resize-none whitespace-pre-wrap ${style().isCode ? 'font-mono' : ''} ${style().alignClass}`}
                 style={`position: absolute; ` +
                        `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +

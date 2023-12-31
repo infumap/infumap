@@ -111,11 +111,15 @@ export const Toolbar_Overlay: Component = () => {
 
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.code == "Enter") {
+      handleTextChange();
       store.touchToolbar();
       arrange(store);
       server.updateItem(store.history.getFocusItem());
       setTimeout(() => {
         store.overlay.toolbarOverlayInfoMaybe.set(null);
+        if (isNote(store.history.getFocusItem())) {
+          document.getElementById("noteEditOverlayTextArea")!.focus();
+        }
       }, 0);
     }
     ev.stopPropagation();
