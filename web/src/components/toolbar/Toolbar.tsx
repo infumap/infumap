@@ -140,7 +140,8 @@ export const Toolbar: Component = () => {
               </div>
               <div class="inline-block flex-nowrap" style="flex-grow: 1;"></div>
 
-              <div class="border-l pl-[8px] flex flex-row"
+              <div id="toolbarItemOptionsDiv"
+                   class="border-l pl-[8px] flex flex-row"
                    style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; ` +
                           `align-items: baseline;`}>
 

@@ -57,49 +57,57 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.overlay.toolbarOverlayInfoMaybe.get() != null) {
     const boundsPx = toolbarBoxBoundsPx(store);
-    if (isInside(CursorEventState.getLatestClientPx(), boundsPx)) {
-      return MouseDownActionFlags.None;
-    }
-    const item = () => store.history.getFocusItem();
+    if (isInside(CursorEventState.getLatestClientPx(), boundsPx)) { return MouseDownActionFlags.None; }
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
-    server.updateItem(item());
+    server.updateItem(store.history.getFocusItem());
   }
 
   if (store.overlay.editingTitle.get()) {
     store.overlay.editingTitle.set(null);
-    const item = () => store.history.getFocusItem();
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
-    server.updateItem(item());
+    server.updateItem(store.history.getFocusItem());
     store.touchToolbar();
   }
 
+  function isInItemOptionsToolbox() {
+    const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
+    const bounds = toolboxDiv.getBoundingClientRect();
+    const boundsPx = {
+      x: bounds.x,
+      y: bounds.y,
+      w: bounds.width,
+      h: bounds.height
+    };
+    return isInside(CursorEventState.getLatestClientPx(), boundsPx);
+  }
+
   if (store.overlay.noteEditOverlayInfo()) {
+    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     noteEditOverlay_clearJustCreated();
-    const item = () => store.history.getFocusItem();
-    if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
-      server.updateItem(item());
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      server.updateItem(store.history.getFocusItem());
     }
     store.overlay.setNoteEditOverlayInfo(store.history, null);
     arrange(store);
   }
 
   if (store.overlay.expressionEditOverlayInfo()) {
-    const item = () => store.history.getFocusItem();
-    if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
-      server.updateItem(item());
+    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      server.updateItem(store.history.getFocusItem());
     }
     store.overlay.setExpressionEditOverlayInfo(store.history, null);
     arrange(store);
   }
 
   if (store.overlay.tableEditOverlayInfo()) {
-    const item = () => store.history.getFocusItem();
-    if (store.user.getUserMaybe() != null && item().ownerId == store.user.getUser().userId) {
-      server.updateItem(item());
+    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      server.updateItem(store.history.getFocusItem());
     }
     store.overlay.setTableEditOverlayInfo(store.history, null);
     arrange(store);
