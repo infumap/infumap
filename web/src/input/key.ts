@@ -39,7 +39,7 @@ const recognizedKeys = [
 ];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
-  if (store.overlay.noteEditOverlayInfo()) {
+  if (store.overlay.noteEditOverlayInfo() && !store.overlay.toolbarOverlayInfoMaybe.get()) {
     noteEditOverlay_keyDownListener(store, ev);
   }
 

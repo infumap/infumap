@@ -28,6 +28,7 @@ import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { VesCache } from "../../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { server } from "../../server";
 
 
 function toolbarOverlayHeight(overlayType: ToolbarOverlayType, isComposite: boolean): number {
@@ -107,6 +108,20 @@ export const Toolbar_Overlay: Component = () => {
 
   const overlayTypeConst = store.overlay.toolbarOverlayInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarOverlayInfoMaybe.get()!.type;
+
+  const handleKeyDown = (ev: KeyboardEvent) => {
+    if (ev.code == "Enter") {
+      store.touchToolbar();
+      arrange(store);
+      server.updateItem(store.history.getFocusItem());
+      setTimeout(() => {
+        store.overlay.toolbarOverlayInfoMaybe.set(null);
+      }, 0);
+    }
+    ev.stopPropagation();
+  }
+  const handleKeyUp = (ev: KeyboardEvent) => { ev.stopPropagation(); }
+  const handleKeyPress = (ev: KeyboardEvent) => { ev.stopPropagation(); }
 
   const handleTextChange = () => {
     if (overlayTypeConst == ToolbarOverlayType.PageWidth) {
@@ -252,7 +267,10 @@ export const Toolbar_Overlay: Component = () => {
                      autocomplete="on"
                      value={textEntryValue()!}
                      type="text"
-                     onChange={handleTextChange} />
+                     onChange={handleTextChange}
+                     onKeyDown={handleKeyDown}
+                     onKeyUp={handleKeyUp}
+                     onKeyPress={handleKeyPress}/>
             </Show>
             <Show when={showAutoButton()}>
               <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px]"
