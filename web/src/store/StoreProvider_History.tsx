@@ -86,28 +86,38 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const pushPopup = (popupSpec: PopupSpec): void => {
     if (breadcrumbs().length == 0) { panic("pushPopup: no breadcrumbs."); }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.push(popupSpec);
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    breadcrumb.popupBreadcrumbs.push(popupSpec);
+    breadcrumb.focusPath = popupSpec.vePath;
     setBreadcrumbs(breadcrumbs());
   };
 
   const replacePopup = (popupSpec: PopupSpec): void => {
     if (breadcrumbs().length == 0) { panic("replacePopup: no breadcrumbs."); }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [popupSpec];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    breadcrumb.popupBreadcrumbs = [popupSpec];
+    breadcrumb.focusPath = popupSpec.vePath;
     setBreadcrumbs(breadcrumbs());
   };
 
   const popPopup = (): void => {
     if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
-      return;
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
+    breadcrumb.popupBreadcrumbs.pop();
+    if (breadcrumb.popupBreadcrumbs.length == 0) {
+      breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, "");
+    } else {
+      breadcrumb.focusPath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
     }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.pop();
     setBreadcrumbs(breadcrumbs());
   };
 
   const popAllPopups = (): void => {
     if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
-    breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs = [];
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    breadcrumb.popupBreadcrumbs = [];
+    breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, "");
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -160,11 +170,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumb.focusPath != null) {
       return breadcrumb.focusPath;
     }
-    if (currentPopupSpec() != null) {
-      if (currentPopupSpec()!.type == PopupType.Page) {
-        return currentPopupSpec()!.vePath!;
-      }
-    }
+    console.debug("TODO (LOW): focusPath fallback should never be hit");
     return VeFns.addVeidToPath(currentPage()!, "");
   }
 
