@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show } from "solid-js";
+import { Component, Match, Show, Switch } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
 import { ExpressionFns, asExpressionItem } from "../../items/expression-item";
@@ -86,22 +86,69 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   return (
     <>
-    {renderShadow()}
-    <div class={`${outerClass(false)}`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
-                `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
-      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        {renderDetailed()}
-      </Show>
-    </div>
-  </>
+      {renderShadow()}
+      <div class={`${outerClass(false)}`}
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
+                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
+        <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
+          {renderDetailed()}
+        </Show>
+      </div>
+    </>
   );
 }
 
 
 export const Expression_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
+  const boundsPx = () => props.visualElement.boundsPx;
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
+  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+    ? boundsPx().x + oneBlockWidthPx() * 0.15
+    : boundsPx().x + oneBlockWidthPx();
+  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
+    ? boundsPx().w - oneBlockWidthPx() * 0.15
+    : boundsPx().w - oneBlockWidthPx();
 
-  return null;
+  const renderHighlightsMaybe = () =>
+    <Switch>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+            style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
+        <div class="absolute"
+            style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
+      </Match>
+    </Switch>;
+
+  const renderIconMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+      <div class="absolute text-center"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                 `transform: scale(${scale()}); transform-origin: top left;`}>
+        <span class="w-[16px] h-[16px] inline-block text-center relative">∑</span>
+      </div>
+    </Show>;
+
+  const renderText = () =>
+    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis`}
+        style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+               `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+               `transform: scale(${scale()}); transform-origin: top left;`}>
+      <span>
+        {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title}
+      </span>
+    </div>;
+
+  return (
+    <>
+      {renderHighlightsMaybe()}
+      {renderIconMaybe()}
+      {renderText()}
+    </>
+  );
 }
