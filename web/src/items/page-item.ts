@@ -492,6 +492,7 @@ export const PageFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    store.history.setFocus(VeFns.veToPath(visualElement));
     switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false);
   },
 

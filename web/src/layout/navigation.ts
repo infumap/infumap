@@ -24,7 +24,7 @@ import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
 import { arrange } from "./arrange";
 import { initiateLoadItemMaybe } from "./load";
-import { Veid } from "./visual-element";
+import { VeFns, Veid } from "./visual-element";
 
 
 export function updateHref(store: StoreContextModel) {
@@ -75,6 +75,9 @@ export function navigateBack(store: StoreContextModel): boolean {
   const changePages = store.history.popPage();
   if (changePages) {
     updateHref(store);
+    if (!store.history.currentPopupSpec()) {
+      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPage()!, ""));
+    }
     arrange(store);
     return true;
   }

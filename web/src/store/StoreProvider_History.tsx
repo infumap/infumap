@@ -41,6 +41,7 @@ interface PageBreadcrumb {
   popupBreadcrumbs: Array<PopupSpec>,
 }
 
+
 export interface HistoryStoreContextModel {
   pushPage: (veid: Veid) => void,
   popPage: () => boolean,
@@ -63,7 +64,11 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
   const pushPage = (pageVeid: Veid): void => {
-    breadcrumbs().push({ pageVeid, popupBreadcrumbs: [], focusPath: VeFns.addVeidToPath(pageVeid, "") });
+    breadcrumbs().push({
+      pageVeid,
+      popupBreadcrumbs: [],
+      focusPath: VeFns.addVeidToPath(pageVeid, "")
+    });
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -81,6 +86,14 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       return null;
     }
     return breadcrumbs()[breadcrumbs().length-1].pageVeid;
+  };
+
+  const setHistoryToSinglePage = (pageVeid: Veid): void => {
+    setBreadcrumbs([{
+      pageVeid,
+      popupBreadcrumbs: [],
+      focusPath: VeFns.addVeidToPath(pageVeid, "")
+    }]);
   };
 
 
@@ -138,13 +151,6 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return currentSpec.actualVeid;
   };
 
-  const setHistoryToSinglePage = (pageVeid: Veid): void => {
-    setBreadcrumbs([{ pageVeid, popupBreadcrumbs: [], focusPath: VeFns.addVeidToPath(pageVeid, "") }]);
-  };
-
-  const clear = (): void => {
-    setBreadcrumbs([]);
-  };
 
   const setFocus = (focusPath: VisualElementPath | null): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
@@ -173,6 +179,12 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     panic("TODO (LOW): focusPath fallback should never be hit");
     // return VeFns.addVeidToPath(currentPage()!, "");
   }
+
+
+  const clear = (): void => {
+    setBreadcrumbs([]);
+  };
+
 
   return ({
     pushPage,
