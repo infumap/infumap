@@ -32,6 +32,7 @@ export const Toolbar_Note: Component = () => {
   const store = useStore();
 
   let beforeFormatElement : HTMLDivElement | undefined;
+  let qrDiv: HTMLDivElement | undefined;
 
   const noteVisualElement = () => VesCache.get(store.history.getFocusPath())!.get();
   const noteItem = () => asNoteItem(noteVisualElement().displayItem);
@@ -62,10 +63,6 @@ export const Toolbar_Note: Component = () => {
   const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(store); };
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(store); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(store); };
-
-  const urlButtonHandler = () => { store.overlay.toolbarOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y }, type: ToolbarOverlayType.NoteUrl }); }
-
-  const formatHandler = () => { store.overlay.toolbarOverlayInfoMaybe.set({ topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y }, type: ToolbarOverlayType.NoteFormat }); }
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -102,7 +99,17 @@ export const Toolbar_Note: Component = () => {
 
   const handleQr = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
+  }
+
+  const urlButtonHandler = () => {
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarOverlayType.NoteUrl });
+  }
+
+  const formatHandler = () => {
+    store.overlay.toolbarOverlayInfoMaybe.set(
+      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarOverlayType.NoteFormat });
   }
 
   const renderSingleNoteToolbox = () =>
@@ -133,7 +140,8 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
-      <div class="pl-[4px] inline-block">
+      <div ref={qrDiv}
+           class="pl-[4px] inline-block">
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>;
@@ -162,7 +170,8 @@ export const Toolbar_Note: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </div>
       </Show>
-      <div class="pl-[4px] inline-block">
+      <div ref={qrDiv}
+           class="pl-[4px] inline-block">
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>;

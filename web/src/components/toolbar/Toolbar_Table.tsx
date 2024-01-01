@@ -19,7 +19,6 @@
 import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
-import { panic } from "../../util/lang";
 import { asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { arrange } from "../../layout/arrange";
@@ -31,7 +30,8 @@ import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 export const Toolbar_Table: Component = () => {
   const store = useStore();
 
-  let numColsDiv: HTMLInputElement | undefined;
+  let numColsDiv: HTMLDivElement | undefined;
+  let qrDiv: HTMLDivElement | undefined;
 
   const tableItem = () => asTableItem(store.history.getFocusItem());
 
@@ -70,7 +70,7 @@ export const Toolbar_Table: Component = () => {
 
   const handleQr = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
   }
 
   const numColsText = () => {
@@ -96,7 +96,8 @@ export const Toolbar_Table: Component = () => {
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
-      <div class="pl-[4px] inline-block">
+      <div ref={qrDiv}
+           class="pl-[4px] inline-block">
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>

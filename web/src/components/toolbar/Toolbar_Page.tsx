@@ -27,8 +27,6 @@ import { arrange } from "../../layout/arrange";
 import { GRID_SIZE } from "../../constants";
 import { server } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { hexToRGBA } from "../../util/color";
-import { Colors } from "../../style";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 import { PageFlags } from "../../items/base/flags-item";
 
@@ -36,13 +34,14 @@ import { PageFlags } from "../../items/base/flags-item";
 export const Toolbar_Page: Component = () => {
   const store = useStore();
 
-  let divBeforeColroSelect: HTMLInputElement | undefined;
-  let widthDiv: HTMLInputElement | undefined;
-  let docWidthDiv: HTMLInputElement | undefined;
-  let aspectDiv: HTMLInputElement | undefined;
-  let cellAspectDiv: HTMLInputElement | undefined;
-  let justifiedRowAspectDiv: HTMLInputElement | undefined;
-  let numColsDiv: HTMLInputElement | undefined;
+  let divBeforeColroSelect: HTMLDivElement | undefined;
+  let widthDiv: HTMLDivElement | undefined;
+  let docWidthDiv: HTMLDivElement | undefined;
+  let aspectDiv: HTMLDivElement | undefined;
+  let cellAspectDiv: HTMLDivElement | undefined;
+  let justifiedRowAspectDiv: HTMLDivElement | undefined;
+  let numColsDiv: HTMLDivElement | undefined;
+  let qrDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
 
@@ -209,50 +208,43 @@ export const Toolbar_Page: Component = () => {
 
   const handleColorClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x, y: divBeforeColroSelect!.getBoundingClientRect().y + 16 }, type: ToolbarOverlayType.PageColor });
+      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x + 8, y: divBeforeColroSelect!.getBoundingClientRect().y + 19 }, type: ToolbarOverlayType.PageColor });
   };
 
   const handleAspectClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageAspect });
+      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageAspect });
   };
 
   const handleCellAspectClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageCellAspect });
+      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageCellAspect });
   };
 
   const handleJustifiedRowAspectClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageJustifiedRowAspect });
+      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageJustifiedRowAspect });
   };
 
   const handleWidthClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageWidth });
+      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageWidth });
   };
 
   const handleDocWidthBlClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageDocWidth });
+      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageDocWidth });
   };
 
   const handleNumColsClick = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 30 }, type: ToolbarOverlayType.PageNumCols });
+      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageNumCols });
   };
 
   const handleQr = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
   }
-
-  const subTitleColor = () => {
-    // item state has no solid-js signals.
-    // as a bit of a hack, change in title/color is signalled by re-setting this instead.
-    store.overlay.toolbarOverlayInfoMaybe.get();
-    return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
-  };
 
   return (
     <div class="flex-grow-0" style="flex-order: 0;">
@@ -347,7 +339,8 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
-      <div class="inline-block">
+      <div ref={qrDiv}
+           class="inline-block">
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>

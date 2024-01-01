@@ -67,10 +67,14 @@ export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
   };
 
   if (overlayType != ToolbarOverlayType.PageColor) {
+    const maxX = store.desktopBoundsPx().w - 335;
+    let x = store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.x;
+    if (x > maxX) { x = maxX; }
     return {
-      x: store.desktopBoundsPx().w - 335,
-      y: store.topToolbarHeight() + 5,
-      w: 330, h: toolbarOverlayHeight(overlayType, compositeItemMaybe() != null)
+      x,
+      y: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.y,
+      w: 330,
+      h: toolbarOverlayHeight(overlayType, compositeItemMaybe() != null)
     }
   }
   else {
