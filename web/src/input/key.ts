@@ -105,11 +105,21 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         // }
       }
     } else {
-      if (store.history.currentPopupSpec() == null) { return; }
+      if (store.history.currentPopupSpec() == null) {
+        const parentVeid = store.history.parentPage()!;
+        if (parentVeid) {
+          arrange(store, parentVeid);
+          const direction = findDirectionFromKeyCode(ev.code);
+          const closest = findClosest(store.history.getParentPageFocusPath()!, direction, false, true)!;
+          switchToPage(store, VeFns.veidFromPath(closest), true, false);
+        }
+        return;
+      }
+
       const path = store.history.currentPopupSpec()!.vePath;
       if (path == null) { return; }
       const direction = findDirectionFromKeyCode(ev.code);
-      const closest = findClosest(path, direction, false)!;
+      const closest = findClosest(path, direction, false, false)!;
       if (closest != null) {
         const closestVeid = VeFns.veidFromPath(closest);
         const closestItem = itemState.get(closestVeid.itemId);

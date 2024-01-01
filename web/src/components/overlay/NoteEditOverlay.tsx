@@ -262,7 +262,7 @@ const keyDown_Left = (store: StoreContextModel, ev: KeyboardEvent): void => {
   if (textElement!.selectionStart != 0) { return; }
 
   const ve = noteVisualElement(store);
-  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true, false);
   if (closest == null) { return; }
 
   ev.preventDefault();
@@ -276,7 +276,7 @@ const keyDown_Right = (store: StoreContextModel, ev: KeyboardEvent): void => {
   if (textElement!.selectionStart != textElement!.value.length) { return; }
 
   const ve = noteVisualElement(store);
-  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
+  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true, false);
   if (closest == null) { return; }
 
   ev.preventDefault();
@@ -292,7 +292,7 @@ const keyDown_Down = (store: StoreContextModel): void => {
   const endCaretCoords = getCaretCoordinates(textElement!, textElement!.value.length);
   const caretCoords = getCaretCoordinates(textElement!, textElement!.selectionStart);
   if (caretCoords.top < endCaretCoords.top) { return; }
-  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true);
+  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Down, true, false);
   if (closest == null) { return; }
   store.overlay.setNoteEditOverlayInfo(store.history, null);
   store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: closest, initialCursorPosition: 0 });
@@ -306,7 +306,7 @@ const keyDown_Up = (store: StoreContextModel): void => {
   const startCaretCoords = getCaretCoordinates(textElement!, 0);
   const caretCoords = getCaretCoordinates(textElement!, textElement!.selectionStart);
   if (caretCoords.top > startCaretCoords.top) { return; }
-  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+  const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true, false);
   if (closest == null) { return; }
   store.overlay.setNoteEditOverlayInfo(store.history, null);
   store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: closest, initialCursorPosition: 0 });
@@ -324,7 +324,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
   if (isPage(parentVe.displayItem) && (asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document)) {
     // ## document page case
 
-    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true, false);
     if (closest == null) { return; }
 
     // definitely delete note item.
@@ -349,7 +349,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
     // maybe delete note item.
     let compositeVe = parentVe;
     if (!isComposite(compositeVe.displayItem)) { return; }
-    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true);
+    const closest = findClosest(VeFns.veToPath(ve), FindDirection.Up, true, false);
     if (closest == null) { return; }
 
     const veid = VeFns.veidFromPath(closest);

@@ -46,6 +46,7 @@ export interface HistoryStoreContextModel {
   pushPage: (veid: Veid) => void,
   popPage: () => boolean,
   currentPage: () => Veid | null,
+  parentPage: () => Veid | null,
   pushPopup: (popupSpec: PopupSpec) => void,
   replacePopup: (popupSpec: PopupSpec) => void,
   popPopup: () => void,
@@ -57,6 +58,7 @@ export interface HistoryStoreContextModel {
   setFocus: (focusPath: VisualElementPath | null) => void,
   getFocusItem: () => Item,
   getFocusPath: () => VisualElementPath,
+  getParentPageFocusPath: () => VisualElementPath | null,
 }
 
 
@@ -86,6 +88,16 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       return null;
     }
     return breadcrumbs()[breadcrumbs().length-1].pageVeid;
+  };
+
+  const parentPage = (): Veid | null => {
+    if (breadcrumbs().length < 2) { return null; }
+    return breadcrumbs()[breadcrumbs().length-2].pageVeid;
+  }
+
+  const getParentPageFocusPath = (): VisualElementPath | null => {
+    if (breadcrumbs().length < 2) { return null; }
+    return breadcrumbs()[breadcrumbs().length-2].focusPath;
   };
 
   const setHistoryToSinglePage = (pageVeid: Veid): void => {
@@ -190,16 +202,21 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     pushPage,
     popPage,
     currentPage,
+    parentPage,
+    setHistoryToSinglePage,
+
     pushPopup,
     replacePopup,
     popPopup,
     popAllPopups,
     currentPopupSpec,
     currentPopupSpecVeid,
-    setHistoryToSinglePage,
-    clear,
+
     setFocus,
     getFocusItem,
     getFocusPath,
+    getParentPageFocusPath,
+
+    clear,
   });
 }

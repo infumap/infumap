@@ -33,7 +33,7 @@ export function evaluateExpressions(virtual: boolean) {
     const ve = ves.get();
     const expressionItem = asExpressionItem(ve.displayItem);
     const equation = expressionItem.title;
-    ve.evaluatedTitle = evaluateExpression(path, equation).toString();
+    ve.evaluatedTitle = evaluateExpression(path, equation, virtual).toString();
     ves.set(ve);
   }
 }
@@ -42,11 +42,11 @@ interface Context {
   path: string,
 }
 
-function evaluateExpression(path: VisualElementPath, text: string): string {
+function evaluateExpression(path: VisualElementPath, text: string, virtual: boolean): string {
   try {
     const expr = Parser.parse(text);
     const context = { path };
-    const r = evaluate(expr, context);
+    const r = evaluate(expr, context, virtual);
     return "" + r;
   } catch (e: any) {
     console.debug(e);
@@ -54,19 +54,19 @@ function evaluateExpression(path: VisualElementPath, text: string): string {
   }
 }
 
-function evaluate(expr: Expression, context: Context): number {
+function evaluate(expr: Expression, context: Context, virtual: boolean): number {
   const exprType = (expr as any).type;
   if (exprType == ExpressionType.Binary) {
     const e = expr as BinaryExpression;
-    if (e.operator == TokenType.Minus) { return evaluate(e.left, context) - evaluate(e.right, context); }
-    if (e.operator == TokenType.Plus) { return evaluate(e.left, context) + evaluate(e.right, context); }
-    if (e.operator == TokenType.Divide) { return evaluate(e.left, context) / evaluate(e.right, context); }
-    if (e.operator == TokenType.Multiply) { return evaluate(e.left, context) * evaluate(e.right, context); }
+    if (e.operator == TokenType.Minus) { return evaluate(e.left, context, virtual) - evaluate(e.right, context, virtual); }
+    if (e.operator == TokenType.Plus) { return evaluate(e.left, context, virtual) + evaluate(e.right, context, virtual); }
+    if (e.operator == TokenType.Divide) { return evaluate(e.left, context, virtual) / evaluate(e.right, context, virtual); }
+    if (e.operator == TokenType.Multiply) { return evaluate(e.left, context, virtual) * evaluate(e.right, context, virtual); }
     throw new Error("unexpected operator: " + e.operator);
   }
   if (exprType == ExpressionType.Unary) {
     const e = expr as UnaryExpression;
-    if (e.operator == TokenType.Minus) { return -evaluate(e.operand, context); }
+    if (e.operator == TokenType.Minus) { return -evaluate(e.operand, context, virtual); }
     throw new Error("unexpected operand: " + e.operator);
   }
   if (exprType == ExpressionType.Value) {
@@ -75,7 +75,7 @@ function evaluate(expr: Expression, context: Context): number {
   }
   if (exprType == ExpressionType.Grouping) {
     const e = expr as GroupingExpression;
-    return evaluate(e.expression, context);
+    return evaluate(e.expression, context, virtual);
   }
   if (exprType == ExpressionType.AbsoluteReference) {
     const e = expr as AbsoluteReferenceExpression;
@@ -88,7 +88,7 @@ function evaluate(expr: Expression, context: Context): number {
     const e = expr as RelativeReferenceExpression;
     let path = context.path;
     for (let i=0; i<e.findOffset; ++i) {
-      const pathMaybe = findClosest(path, e.findDirection, true);
+      const pathMaybe = findClosest(path, e.findDirection, true, virtual);
       if (pathMaybe == null) { return 0; }
       path = pathMaybe;
     }

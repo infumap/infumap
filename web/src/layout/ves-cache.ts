@@ -78,6 +78,17 @@ export let VesCache = {
     return result;
   },
 
+  getSiblingsVirtual: (path: VisualElementPath): Array<VisualElementSignal> => {
+    const commonPath = VeFns.parentPath(path);
+    const result: Array<VisualElementSignal> = [];
+    for (const kv of virtualCache.entries()) {
+      if (VeFns.parentPath(kv[0]) == commonPath && kv[0] != path) {
+        result.push(kv[1]);
+      }
+    }
+    return result;
+  },
+
   initFullArrange: (): void => {
     evaluationRequired = new Set<VisualElementPath>();
   },

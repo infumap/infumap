@@ -48,10 +48,12 @@ export function findDirectionFromKeyCode(code: string): FindDirection {
   panic(`Unexpected direction keycode: ${code}`);
 }
 
-export function findClosest(path: VisualElementPath, direction: FindDirection, allItemTypes: boolean): VisualElementPath | null {
-  const currentBoundsPx = VesCache.get(path)!.get().boundsPx;
+export function findClosest(path: VisualElementPath, direction: FindDirection, allItemTypes: boolean, virtual: boolean): VisualElementPath | null {
+  const currentBoundsPx = virtual
+    ? VesCache.getVirtual(path)!.get().boundsPx
+    : VesCache.get(path)!.get().boundsPx;
 
-  const siblings = VesCache.getSiblings(path)
+  const siblings = (virtual ? VesCache.getSiblingsVirtual(path) : VesCache.getSiblings(path))
     .map(ves => ves.get())
     .filter(ve => !(ve.flags & VisualElementFlags.Popup))
     .filter(ve => allItemTypes ? true : isPage(ve.displayItem) || isImage(ve.displayItem));
