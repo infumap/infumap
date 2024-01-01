@@ -262,7 +262,9 @@ export const TableFns = {
   },
 
   getFingerprint: (tableItem: TableItem): string => {
-    return tableItem.title + "~~~!@#~~~" + tableItem.flags;
+    let tableColText = "";
+    for (let i=0; i<tableItem.tableColumns.length; ++i) { tableColText += tableItem.tableColumns[i].name + "!$!!@"; }
+    return tableItem.title + "~~~!@#~~~" + tableItem.flags + "~~~%@#~~~" + tableColText;
   },
 
   columnWidthBl: (tableItem: TableItem, index: number): number => {
