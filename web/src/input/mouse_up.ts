@@ -99,6 +99,7 @@ export function mouseUpHandler(store: StoreContextModel) {
       break;
 
     case MouseAction.Ambiguous:
+      console.log(MouseActionState.get().longHold);
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
       }

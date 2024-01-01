@@ -129,6 +129,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 }
 
+let longHoldTimeoutId: number | null = null;
 
 export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boolean) {
 
@@ -223,6 +224,15 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
+  if (longHoldTimeoutId) {
+    clearTimeout(longHoldTimeoutId);
+  }
+  setTimeout(() => {
+    if (!MouseActionState.empty()) {
+      MouseActionState.get().longHold = true;
+    }
+  }, 1000);
+
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
@@ -241,6 +251,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     startWidthBl,
     startHeightBl,
     startDockWidthPx: store.getDockWidthPx(),
+    longHold: false,
     startAttachmentsItem,
     startCompositeItem,
     clickOffsetProp,
