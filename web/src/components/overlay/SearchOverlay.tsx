@@ -83,7 +83,7 @@ export const SearchOverlay: Component = () => {
         const selectedPageId = currentSelectedPageId()!;
         store.overlay.searchOverlayVisible.set(false);
         await initiateLoadItemMaybe(store, selectedPageId);
-        switchToPage(store, VeFns.veidFromId(selectedPageId), true, false, true);
+        switchToPage(store, VeFns.veidFromId(selectedPageId), true, false, false);
       } else {
         await handleSearchClick();
       }
@@ -154,7 +154,7 @@ export const SearchOverlay: Component = () => {
     return async (_ev: MouseEvent) => {
       await initiateLoadItemMaybe(store, resultPageId);
       store.overlay.searchOverlayVisible.set(false);
-      switchToPage(store, VeFns.veidFromId(resultPageId), true, false, true);
+      switchToPage(store, VeFns.veidFromId(resultPageId), true, false, false);
     }
   };
 

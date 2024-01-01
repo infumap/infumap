@@ -31,7 +31,7 @@ export const Toolbar_Navigation: Component = () => {
     if (!userMaybe) {
       window.history.pushState(null, "", "/");
     } else {
-      switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false, true);
+      switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false, false);
       if (userMaybe.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
       } else {

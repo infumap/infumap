@@ -113,7 +113,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           const closest = findClosest(store.history.getParentPageFocusPath()!, direction, false, true)!;
           if (closest) {
             store.history.changeParentPageFocusPath(closest);
-            switchToPage(store, VeFns.veidFromPath(closest), true, false, false);
+            switchToPage(store, VeFns.veidFromPath(closest), true, false, true);
           }
         }
         return;
@@ -139,7 +139,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   else if (ev.code == "Enter") {
     const spec = store.history.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
-      switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, true);
+      switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, false);
     }
   }
 

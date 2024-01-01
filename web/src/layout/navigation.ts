@@ -46,16 +46,19 @@ export function updateHref(store: StoreContextModel) {
 }
 
 
-export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, parentPageChanged: boolean) {
+export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean) {
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid);
   } else {
-    store.history.pushPage(pageVeid, parentPageChanged);
+    if (replace) {
+      store.history.popPage();
+    }
+    store.history.pushPage(pageVeid);
   }
 
   arrange(store);
 
-  if (updateHistory) {
+  if (!replace && updateHistory) {
     updateHref(store);
   }
 }
@@ -109,7 +112,7 @@ export async function navigateUp(store: StoreContextModel) {
     const parentPageMaybe = itemState.get(parentId);
     if (parentPageMaybe != null) {
       if (isPage(parentPageMaybe)) {
-        switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, true);
+        switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, false);
         navigateUpInProgress = false;
         return;
       } else {

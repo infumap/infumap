@@ -108,7 +108,7 @@ export const Main: Component = () => {
       });
 
       try {
-        switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false, true);
+        switchToPage(store, { itemId: pageId, linkIdMaybe: null }, false, false, false);
       } catch (e: any) {
         console.error(`Main.onMount switchToPage ${pageId} failed`, e);
         throw e;

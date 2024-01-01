@@ -37,14 +37,13 @@ export interface PopupSpec {
 
 interface PageBreadcrumb {
   pageVeid: Veid,
-  parentPageChanged: boolean,
   focusPath: VisualElementPath | null,
   popupBreadcrumbs: Array<PopupSpec>,
 }
 
 
 export interface HistoryStoreContextModel {
-  pushPage: (veid: Veid, parentPageChanged: boolean) => void,
+  pushPage: (veid: Veid) => void,
   popPage: () => boolean,
   currentPage: () => Veid | null,
   parentPage: () => Veid | null,
@@ -67,10 +66,9 @@ export interface HistoryStoreContextModel {
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
-  const pushPage = (pageVeid: Veid, parentPageChanged: boolean): void => {
+  const pushPage = (pageVeid: Veid): void => {
     breadcrumbs().push({
       pageVeid,
-      parentPageChanged,
       popupBreadcrumbs: [],
       focusPath: VeFns.addVeidToPath(pageVeid, "")
     });
@@ -90,16 +88,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const parentPageBreadcrumb = (): PageBreadcrumb | null => {
-    if (breadcrumbs().length < 1) { return null; }
-    let i = breadcrumbs().length - 1;
-    let currentPage = breadcrumbs()[i];
-    while (!currentPage.parentPageChanged && i > 0) {
-      i -= 1;
-      currentPage = breadcrumbs()[i];
-    }
-    i -= 1;
-    if (i < 0) { return null; }
-    return breadcrumbs()[i];
+    if (breadcrumbs().length < 2) { return null; }
+    return breadcrumbs()[breadcrumbs().length-2];
   };
 
   const parentPage = (): Veid | null => {
