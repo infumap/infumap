@@ -20,7 +20,6 @@ import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Vector } from "../../util/geometry";
 import { HitInfo } from "../../input/hit";
-import { InfuIconButton } from "../library/InfuIconButton";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { newItemInContext } from "../../input/create";
@@ -45,32 +44,32 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
 
   return (
     <div class="border rounded w-[115px] h-[242px] bg-slate-50 mb-1 shadow-lg">
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
-        <i class="fa fa-sticky-note" /> Note
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-sticky-note" /></div> Note
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newPageInContext}>
-        <i class="fa fa-folder" /> Page
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPageInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-folder" /></div> Page
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newTableInContext}>
-        <i class="fa fa-table" /> Table
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newTableInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-table" /></div> Table
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newRatingInContext}>
-        <i class="fa fa-star" /> Rating
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newRatingInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-star" /></div> Rating
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newExpressionInContext}>
-        <span class="w-[16px] h-[16px] inline-block text-center relative">∑</span> Expression
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newExpressionInContext}>
+        <div class="inline-block text-center w-[18px]"><span class="w-[16px] h-[16px] inline-block text-center relative">∑</span></div> Expression
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newLinkInContext}>
-        <i class="fa fa-link" /> Rating
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newLinkInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-link" /></div> Rating
       </div>
-      <div class="text-sm hover:bg-slate-300 ml-[5px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
-        <i class="fa fa-eye-slash" /> Password
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-eye-slash" /></div> Password
       </div>
-      <div class="text-sm ml-[5px] mr-[5px] p-[3px] text-slate-500">
-        <i class="fa fa-image" /> Image
+      <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image
       </div>
-      <div class="text-sm ml-[5px] mr-[5px] p-[3px] text-slate-500">
-        <i class="fa fa-file" /> File
+      <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-file" /></div> File
       </div>
     </div>
   );
