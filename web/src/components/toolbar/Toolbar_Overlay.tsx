@@ -228,6 +228,7 @@ export const Toolbar_Overlay: Component = () => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
     textElement!.value = aspect;
     pageItem().naturalAspect = parseFloat(textElement!.value);
+    arrange(store);
   }
 
   return (
@@ -284,7 +285,7 @@ export const Toolbar_Overlay: Component = () => {
                      onKeyPress={handleKeyPress}/>
             </Show>
             <Show when={showAutoButton()}>
-              <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px]"
+              <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px] hover:bg-slate-300"
                       type="button"
                       onClick={handleAutoClick}>
                 auto

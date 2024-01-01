@@ -62,6 +62,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.touchToolbar();
     arrange(store);
     server.updateItem(store.history.getFocusItem());
+    if (buttonNumber != MOUSE_LEFT) {
+      return MouseDownActionFlags.None;
+    }
   }
 
   if (store.overlay.editingTitle.get()) {
