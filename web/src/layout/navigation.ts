@@ -46,11 +46,11 @@ export function updateHref(store: StoreContextModel) {
 }
 
 
-export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean) {
+export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, parentPageChanged: boolean) {
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid);
   } else {
-    store.history.pushPage(pageVeid);
+    store.history.pushPage(pageVeid, parentPageChanged);
   }
 
   arrange(store);
@@ -109,7 +109,7 @@ export async function navigateUp(store: StoreContextModel) {
     const parentPageMaybe = itemState.get(parentId);
     if (parentPageMaybe != null) {
       if (isPage(parentPageMaybe)) {
-        switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true);
+        switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, true);
         navigateUpInProgress = false;
         return;
       } else {

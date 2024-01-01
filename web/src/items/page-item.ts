@@ -493,7 +493,7 @@ export const PageFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.history.setFocus(VeFns.veToPath(visualElement));
-    switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false);
+    switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false, true);
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -545,7 +545,7 @@ export const PageFns = {
   handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
     const selectedVeid = store.perItem.getSelectedListPageItem(parentVeid);
-    switchToPage(store, selectedVeid, true, false);
+    switchToPage(store, selectedVeid, true, false, true);
   },
 
   cloneMeasurableFields: (page: PageMeasurable): PageMeasurable => {

@@ -105,13 +105,16 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         // }
       }
     } else {
-      if (store.history.currentPopupSpec() == null) {
+      if (!store.history.currentPopupSpec()) {
         const parentVeid = store.history.parentPage()!;
         if (parentVeid) {
           arrange(store, parentVeid);
           const direction = findDirectionFromKeyCode(ev.code);
           const closest = findClosest(store.history.getParentPageFocusPath()!, direction, false, true)!;
-          switchToPage(store, VeFns.veidFromPath(closest), true, false);
+          if (closest) {
+            store.history.changeParentPageFocusPath(closest);
+            switchToPage(store, VeFns.veidFromPath(closest), true, false, false);
+          }
         }
         return;
       }
@@ -136,7 +139,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   else if (ev.code == "Enter") {
     const spec = store.history.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
-      switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false);
+      switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, true);
     }
   }
 

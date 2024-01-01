@@ -37,13 +37,14 @@ export interface PopupSpec {
 
 interface PageBreadcrumb {
   pageVeid: Veid,
+  parentPageChanged: boolean,
   focusPath: VisualElementPath | null,
   popupBreadcrumbs: Array<PopupSpec>,
 }
 
 
 export interface HistoryStoreContextModel {
-  pushPage: (veid: Veid) => void,
+  pushPage: (veid: Veid, parentPageChanged: boolean) => void,
   popPage: () => boolean,
   currentPage: () => Veid | null,
   parentPage: () => Veid | null,
@@ -59,15 +60,17 @@ export interface HistoryStoreContextModel {
   getFocusItem: () => Item,
   getFocusPath: () => VisualElementPath,
   getParentPageFocusPath: () => VisualElementPath | null,
+  changeParentPageFocusPath: (path: VisualElementPath) => void,
 }
 
 
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
-  const pushPage = (pageVeid: Veid): void => {
+  const pushPage = (pageVeid: Veid, parentPageChanged: boolean): void => {
     breadcrumbs().push({
       pageVeid,
+      parentPageChanged,
       popupBreadcrumbs: [],
       focusPath: VeFns.addVeidToPath(pageVeid, "")
     });
@@ -75,34 +78,52 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const popPage = (): boolean => {
-    if (breadcrumbs().length <= 1) {
-      return false;
-    }
+    if (breadcrumbs().length <= 1) { return false; }
     breadcrumbs().pop();
     setBreadcrumbs(breadcrumbs());
     return true;
   };
 
   const currentPage = (): Veid | null => {
-    if (breadcrumbs().length == 0) {
-      return null;
-    }
+    if (breadcrumbs().length == 0) { return null; }
     return breadcrumbs()[breadcrumbs().length-1].pageVeid;
   };
 
+  const parentPageBreadcrumb = (): PageBreadcrumb | null => {
+    if (breadcrumbs().length < 1) { return null; }
+    let i = breadcrumbs().length - 1;
+    let currentPage = breadcrumbs()[i];
+    while (!currentPage.parentPageChanged && i > 0) {
+      i -= 1;
+      currentPage = breadcrumbs()[i];
+    }
+    i -= 1;
+    if (i < 0) { return null; }
+    return breadcrumbs()[i];
+  };
+
   const parentPage = (): Veid | null => {
-    if (breadcrumbs().length < 2) { return null; }
-    return breadcrumbs()[breadcrumbs().length-2].pageVeid;
-  }
+    const parentBc = parentPageBreadcrumb();
+    if (parentBc) { return parentBc.pageVeid; }
+    return null;
+  };
 
   const getParentPageFocusPath = (): VisualElementPath | null => {
-    if (breadcrumbs().length < 2) { return null; }
-    return breadcrumbs()[breadcrumbs().length-2].focusPath;
+    const parentBc = parentPageBreadcrumb();
+    if (parentBc) { return parentBc.focusPath; }
+    return null;
+  };
+
+  const changeParentPageFocusPath = (path: VisualElementPath) => {
+    const parentBc = parentPageBreadcrumb();
+    parentBc!.focusPath = path;
+    setBreadcrumbs(breadcrumbs());
   };
 
   const setHistoryToSinglePage = (pageVeid: Veid): void => {
     setBreadcrumbs([{
       pageVeid,
+      parentPageChanged: true,
       popupBreadcrumbs: [],
       focusPath: VeFns.addVeidToPath(pageVeid, "")
     }]);
@@ -148,9 +169,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const currentPopupSpec = (): PopupSpec | null => {
     if (breadcrumbs().length == 0) { return null; }
-    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) {
-      return null;
-    }
+    if (breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs.length == 0) { return null; }
     const lastBreadcrumbPopups = breadcrumbs()[breadcrumbs().length-1].popupBreadcrumbs;
     return lastBreadcrumbPopups[lastBreadcrumbPopups.length-1];
   };
@@ -188,9 +207,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumb.focusPath != null) {
       return breadcrumb.focusPath;
     }
-    panic("TODO (LOW): focusPath fallback should never be hit");
-    // return VeFns.addVeidToPath(currentPage()!, "");
-  }
+    panic("TODO (HIGH): focusPath fallback should never be hit");
+  };
 
 
   const clear = (): void => {
@@ -216,6 +234,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     getFocusItem,
     getFocusPath,
     getParentPageFocusPath,
+    changeParentPageFocusPath,
 
     clear,
   });
