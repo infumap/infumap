@@ -248,6 +248,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     if (isPage(overDisplayItem)) {
       store.overlay.setPageEditOverlayInfo(store.history, { itemPath: activeElement, initialCursorPosition: CursorPosition.Start });
       MouseActionState.set(null);
+    } else if (isRating(overDisplayItem)) {
+      store.history.setFocus(activeElement);
+      MouseActionState.set(null);
     }
   }, 800);
 

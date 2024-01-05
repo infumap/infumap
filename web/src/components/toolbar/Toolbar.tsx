@@ -39,6 +39,8 @@ import { Toolbar_Expression } from './Toolbar_Expression';
 import { isNote } from '../../items/note-item';
 import { isExpression } from '../../items/expression-item';
 import { isTable } from '../../items/table-item';
+import { isRating } from '../../items/rating-item';
+import { Toolbar_Rating } from './Toolbar_Rating';
 
 
 export const Toolbar: Component = () => {
@@ -158,6 +160,9 @@ export const Toolbar: Component = () => {
                     </Match>
                     <Match when={isTable(store.history.getFocusItem())}>
                       <Toolbar_Table />
+                    </Match>
+                    <Match when={isRating(store.history.getFocusItem())}>
+                      <Toolbar_Rating />
                     </Match>
                   </Switch>
                 </Show>
