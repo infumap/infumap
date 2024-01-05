@@ -209,8 +209,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     panic("cannot create item in context here.");
   }
 
-
-  if (type == ItemType.Note) {
+  if (type == ItemType.Page) {
+    store.overlay.setPageEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+  } else if (type == ItemType.Note) {
     store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Expression) {
     store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });

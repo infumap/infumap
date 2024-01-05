@@ -97,12 +97,14 @@ export interface OverlayStoreContextModel {
   editingTitle: InfuSignal<EditPageTitleOverlayInfo | null>,
 
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
+  pageEditOverlayInfo: () => EditOverlayInfo | null,
   tableEditOverlayInfo: () => TableEditOverlayInfo | null,
   noteEditOverlayInfo: () => EditOverlayInfo | null,
 
+  setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
+  setPageEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setTableEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: TableEditOverlayInfo | null) => void,
   setNoteEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-  setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -113,8 +115,9 @@ export interface OverlayStoreContextModel {
 
 
 export function makeOverlayStore(): OverlayStoreContextModel {
-  const tableEditOverlayInfo_ = createInfuSignal<TableEditOverlayInfo | null>(null);
   const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
+  const pageEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
+  const tableEditOverlayInfo_ = createInfuSignal<TableEditOverlayInfo | null>(null);
   const noteEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
 
   const searchOverlayVisible = createInfuSignal<boolean>(false);
@@ -126,9 +129,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const toolbarOverlayInfoMaybe = createInfuSignal<ToolbarOverlayInfo | null>(null);
 
   function clear() {
+    expressionEditOverlayInfo_.set(null);
+    pageEditOverlayInfo_.set(null);
     tableEditOverlayInfo_.set(null);
     noteEditOverlayInfo_.set(null);
-    expressionEditOverlayInfo_.set(null);
 
     editDialogInfo.set(null);
     editUserSettingsInfo.set(null);
@@ -139,9 +143,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   function anOverlayIsVisible(): boolean {
     return (
+      expressionEditOverlayInfo_.get() != null ||
+      pageEditOverlayInfo_.get() != null ||
       tableEditOverlayInfo_.get() != null ||
       noteEditOverlayInfo_.get() != null ||
-      expressionEditOverlayInfo_.get() != null ||
       searchOverlayVisible.get() ||
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
@@ -151,9 +156,22 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     );
   }
 
-  const noteEditOverlayInfo = (): EditOverlayInfo | null => noteEditOverlayInfo_.get();
-  const tableEditOverlayInfo = (): TableEditOverlayInfo | null => tableEditOverlayInfo_.get();
   const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
+  const pageEditOverlayInfo = (): EditOverlayInfo | null => pageEditOverlayInfo_.get();
+  const tableEditOverlayInfo = (): TableEditOverlayInfo | null => tableEditOverlayInfo_.get();
+  const noteEditOverlayInfo = (): EditOverlayInfo | null => noteEditOverlayInfo_.get();
+
+  const setExpressionEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
+    if (info == null) { historyStore.setFocus(null) }
+    else { historyStore.setFocus(info.itemPath); }
+    expressionEditOverlayInfo_.set(info);
+  }
+
+  const setPageEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
+    if (info == null) { historyStore.setFocus(null) }
+    else { historyStore.setFocus(info.itemPath); }
+    pageEditOverlayInfo_.set(info);
+  }
 
   const setTableEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: TableEditOverlayInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
@@ -167,20 +185,16 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     noteEditOverlayInfo_.set(info);
   }
 
-  const setExpressionEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
-    if (info == null) { historyStore.setFocus(null) }
-    else { historyStore.setFocus(info.itemPath); }
-    expressionEditOverlayInfo_.set(info);
-  }
-
   return ({
+    expressionEditOverlayInfo,
+    pageEditOverlayInfo,
     tableEditOverlayInfo,
     noteEditOverlayInfo,
-    expressionEditOverlayInfo,
 
+    setExpressionEditOverlayInfo,
+    setPageEditOverlayInfo,
     setTableEditOverlayInfo,
     setNoteEditOverlayInfo,
-    setExpressionEditOverlayInfo,
 
     searchOverlayVisible,
     editDialogInfo,

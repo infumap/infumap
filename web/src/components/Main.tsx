@@ -40,6 +40,7 @@ import { Toolbar_EditTitleOverlay } from "./toolbar/Toolbar_EditTitleOverlay";
 import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
 import { TableEditOverlay } from "./overlay/TableEditOverlay";
+import { PageEditOverlay } from "./overlay/PageEditOverlay";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -228,14 +229,18 @@ export const Main: Component = () => {
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
       </Show>
-      <Show when={store.overlay.noteEditOverlayInfo() != null}>
-        <NoteEditOverlay />
-      </Show>
+
       <Show when={store.overlay.expressionEditOverlayInfo() != null}>
         <ExpressionEditOverlay />
       </Show>
+      <Show when={store.overlay.pageEditOverlayInfo() != null}>
+        <PageEditOverlay />
+      </Show>
       <Show when={store.overlay.tableEditOverlayInfo() != null}>
         <TableEditOverlay />
+      </Show>
+      <Show when={store.overlay.noteEditOverlayInfo() != null}>
+        <NoteEditOverlay />
       </Show>
     </div>
   );

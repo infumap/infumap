@@ -88,16 +88,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     return isInside(CursorEventState.getLatestClientPx(), boundsPx);
   }
 
-  if (store.overlay.noteEditOverlayInfo()) {
-    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
-    noteEditOverlay_clearJustCreated();
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.setNoteEditOverlayInfo(store.history, null);
-    arrange(store);
-  }
-
   if (store.overlay.expressionEditOverlayInfo()) {
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
@@ -107,12 +97,31 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     arrange(store);
   }
 
+  if (store.overlay.pageEditOverlayInfo()) {
+    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      server.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.setPageEditOverlayInfo(store.history, null);
+    arrange(store);
+  }
+
   if (store.overlay.tableEditOverlayInfo()) {
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       server.updateItem(store.history.getFocusItem());
     }
     store.overlay.setTableEditOverlayInfo(store.history, null);
+    arrange(store);
+  }
+
+  if (store.overlay.noteEditOverlayInfo()) {
+    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    noteEditOverlay_clearJustCreated();
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      server.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.setNoteEditOverlayInfo(store.history, null);
     arrange(store);
   }
 

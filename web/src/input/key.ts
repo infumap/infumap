@@ -31,6 +31,7 @@ import { CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
 import { newItemInContext } from "./create";
 import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditOverlay";
+import { pageEditOverlay_keyDownListener } from "../components/overlay/PageEditOverlay";
 
 
 const recognizedKeys = [
@@ -39,17 +40,17 @@ const recognizedKeys = [
 ];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+
   if (store.overlay.noteEditOverlayInfo() && !store.overlay.toolbarOverlayInfoMaybe.get()) {
     noteEditOverlay_keyDownListener(store, ev);
   }
 
-  if (store.overlay.anOverlayIsVisible()) {
-    return;
+  if (store.overlay.pageEditOverlayInfo() && !store.overlay.toolbarOverlayInfoMaybe.get()) {
+    pageEditOverlay_keyDownListener(store, ev);
   }
 
-  if (!recognizedKeys.find(a => a == ev.code)) {
-    return;
-  }
+  if (store.overlay.anOverlayIsVisible()) { return; }
+  if (!recognizedKeys.find(a => a == ev.code)) { return; }
 
   const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
 
