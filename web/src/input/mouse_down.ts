@@ -39,6 +39,8 @@ import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL }
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Overlay";
 import { server } from "../server";
 import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
+import { CursorPosition } from "../store/StoreProvider_Overlay";
+import { isRating } from "../items/rating-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -233,19 +235,26 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
+  const activeElement = VeFns.veToPath(hitInfo.overElementVes.get());
+
   if (longHoldTimeoutId) {
     clearTimeout(longHoldTimeoutId);
   }
+
+  const overDisplayItem = hitInfo.overElementVes.get().displayItem;
   setTimeout(() => {
-    if (!MouseActionState.empty()) {
-      MouseActionState.get().longHold = true;
+    if (MouseActionState.empty()) { return; }
+    if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
+    if (isPage(overDisplayItem)) {
+      store.overlay.setPageEditOverlayInfo(store.history, { itemPath: activeElement, initialCursorPosition: CursorPosition.Start });
+      MouseActionState.set(null);
     }
-  }, 1000);
+  }, 800);
 
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
-    activeElement: VeFns.veToPath(hitInfo.overElementVes.get()),
+    activeElement,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(hitInfo.overContainerVe!) : null,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -260,7 +269,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     startWidthBl,
     startHeightBl,
     startDockWidthPx: store.getDockWidthPx(),
-    longHold: false,
     startAttachmentsItem,
     startCompositeItem,
     clickOffsetProp,

@@ -66,8 +66,6 @@ export interface MouseActionStateType {
   startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
   startCompositeItem: CompositeItem | null,         // when taking an item out of a composite item.
 
-  longHold: boolean,
-
   clickOffsetProp: Vector | null,
 
   action: MouseAction,
