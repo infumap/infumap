@@ -20,8 +20,8 @@ import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
+import { isExpression } from "../../items/expression-item";
 import { LinkItem } from "../../items/link-item";
-import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { TableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -138,11 +138,8 @@ export const arrangeTable = (
         const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
         const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
 
-        if (isNote(tableChildAttachmentVeSpec.displayItem)) {
-          const noteItem = asNoteItem(tableChildAttachmentVeSpec.displayItem);
-          if (NoteFns.isExpression(noteItem)) {
-            VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVeSignal.get()));
-          }
+        if (isExpression(tableChildAttachmentVeSpec.displayItem)) {
+          VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVeSignal.get()));
         }
 
         tableItemVeAttachments.push(tableChildAttachmentVeSignal);
@@ -153,11 +150,8 @@ export const arrangeTable = (
     }
     const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
 
-    if (isNote(tableChildVeSpec.displayItem)) {
-      const noteItem = asNoteItem(tableChildVeSpec.displayItem);
-      if (NoteFns.isExpression(noteItem)) {
-        VesCache.markEvaluationRequired(VeFns.veToPath(tableItemVisualElementSignal.get()));
-      }
+    if (isExpression(tableChildVeSpec.displayItem)) {
+      VesCache.markEvaluationRequired(VeFns.veToPath(tableItemVisualElementSignal.get()));
     }
 
     tableVeChildren.push(tableItemVisualElementSignal);

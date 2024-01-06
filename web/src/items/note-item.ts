@@ -270,10 +270,6 @@ export const NoteFns = {
     return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format;
   },
 
-  isExpression: (noteItem: NoteItem): boolean => {
-    return noteItem.title.startsWith("=");
-  },
-
   isStyleNormalText: (noteItem: NoteItem): boolean => {
     return (
       !(noteItem.flags & NoteFlags.Heading1) &&

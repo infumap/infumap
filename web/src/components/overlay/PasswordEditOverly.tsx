@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
@@ -106,6 +106,10 @@ export const PasswordEditOverlay: Component = () => {
 
   const style = () => getTextStyleForNote(NoteFlags.None);
 
+  onMount(() => {
+    textElement!.focus();
+  });
+
   const textAreaMouseDownHandler = async (ev: MouseEvent) => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
@@ -126,7 +130,7 @@ export const PasswordEditOverlay: Component = () => {
          style={`left: ${passwordVeBoundsPx().x}px; top: ${passwordVeBoundsPx().y}px; width: ${passwordVeBoundsPx().w}px; height: ${passwordVeBoundsPx().h}px; ` +
                 `z-index: ${Z_INDEX_TEXT_OVERLAY}`}>
       <textarea ref={textElement}
-                class={`rounded overflow-hidden resize-none whitespace-pre-wrap`}
+                class={`overflow-hidden whitespace-pre-wrap`}
                 style={`position: absolute; ` +
                        `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
                        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4) * textBlockScale()}px; ` +
@@ -135,7 +139,7 @@ export const PasswordEditOverlay: Component = () => {
                        `font-size: ${style().fontSize}px; ` +
                        `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                        `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                       `overflow-wrap: break-word; resize: none; outline: none; border: 0; padding: 0;`}
+                       `overflow-wrap: break-word; resize: none; padding: 0;`}
                 value={passwordItem(store).text}
                 disabled={store.user.getUserMaybe() == null || store.user.getUser().userId != passwordItem(store).ownerId}
                 onMouseDown={textAreaMouseDownHandler}
