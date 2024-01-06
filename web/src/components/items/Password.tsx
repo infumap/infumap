@@ -57,6 +57,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const lineHeightScale = () => heightScale() / widthScale();
   const smallScale = () => textBlockScale() * 0.7;
 
+  const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
+
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
   }
@@ -94,6 +96,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
                     `width: ${oneBlockWidthPx() / smallScale()}px; ` +
                     `height: ${boundsPx().h/smallScale()}px; `+
                     `transform: scale(${smallScale()}); transform-origin: top left;`}
+             onmousedown={eatMouseEvent}
+             onmouseup={eatMouseEvent}
              onclick={copyClickHandler}>
           <i class={`fas fa-copy cursor-pointer`} />
         </div>
@@ -101,6 +105,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
              style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*0.15}px; ` +
                     `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                     `transform: scale(${smallScale()}); transform-origin: top left;`}
+             onmousedown={eatMouseEvent}
+             onmouseup={eatMouseEvent}
              onclick={VisibleClickHandler}>
           <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
         </div>
@@ -135,6 +141,8 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().w - 1.9 * oneBlockWidthPx()
     : boundsPx().w - 2.9 * oneBlockWidthPx();
+
+  const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
@@ -189,6 +197,8 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
          style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
                 `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                 `transform: scale(${smallScale()}); transform-origin: top left;`}
+         onmousedown={eatMouseEvent}
+         onmouseup={eatMouseEvent}
          onclick={copyClickHandler}>
       <i class={`fas fa-copy cursor-pointer`} />
     </div>;
@@ -198,6 +208,8 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
          style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
                 `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                 `transform: scale(${smallScale()}); transform-origin: top left;`}
+         onmousedown={eatMouseEvent}
+         onmouseup={eatMouseEvent}
          onclick={VisibleClickHandler}>
       <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
     </div>;

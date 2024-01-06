@@ -220,8 +220,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
-  const copyMouseDownHandler = (ev: MouseEvent) => { ev.stopPropagation(); }
-  const copyMouseUpHandler = (ev: MouseEvent) => { ev.stopPropagation(); }
+  const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
+
   const copyClickHandler = () => {
     if (noteItem().url == "") {
       navigator.clipboard.writeText(noteItem().title);
@@ -294,9 +294,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
            style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
-          onmousedown={copyMouseDownHandler}
-          onmouseup={copyMouseUpHandler}
-          onclick={copyClickHandler}>
+           onmousedown={eatMouseEvent}
+           onmouseup={eatMouseEvent}
+           onclick={copyClickHandler}>
         <i class={`fas fa-copy cursor-pointer`} />
       </div>
     </Show>;
