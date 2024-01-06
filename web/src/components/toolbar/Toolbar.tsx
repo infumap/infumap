@@ -43,6 +43,12 @@ import { isRating } from '../../items/rating-item';
 import { Toolbar_Rating } from './Toolbar_Rating';
 import { isPassword } from '../../items/password-item';
 import { Toolbar_Password } from './Toolbar_Password';
+import { isImage } from '../../items/image-item';
+import { Toolbar_Image } from './Toolbar_Image';
+import { isFile } from '../../items/file-item';
+import { Toolbar_File } from './Toolbar_File';
+import { isLink } from '../../items/link-item';
+import { Toolbar_Link } from './Toolbar_Link';
 
 
 export const Toolbar: Component = () => {
@@ -168,6 +174,15 @@ export const Toolbar: Component = () => {
                     </Match>
                     <Match when={isPassword(store.history.getFocusItem())}>
                       <Toolbar_Password />
+                    </Match>
+                    <Match when={isImage(store.history.getFocusItem())}>
+                      <Toolbar_Image />
+                    </Match>
+                    <Match when={isFile(store.history.getFocusItem())}>
+                      <Toolbar_File />
+                    </Match>
+                    <Match when={isLink(store.history.getFocusItem())}>
+                      <Toolbar_Link />
                     </Match>
                   </Switch>
                 </Show>
