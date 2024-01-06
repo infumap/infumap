@@ -22,7 +22,7 @@ import { InfuIconButton } from "../library/InfuIconButton";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
 
-export const Toolbar_Expression: Component = () => {
+export const Toolbar_Password: Component = () => {
   const store = useStore();
 
   const handleQr = () => {

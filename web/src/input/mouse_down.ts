@@ -127,6 +127,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     arrange(store);
   }
 
+  if (store.overlay.passwordEditOverlayInfo()) {
+    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      server.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.setPasswordEditOverlayInfo(store.history, null);
+    arrange(store);
+  }
+
   switch(buttonNumber) {
     case MOUSE_LEFT:
       mouseLeftDownHandler(store, viaOverlay);
@@ -252,7 +261,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
       store.history.setFocus(activeElement);
       MouseActionState.set(null);
     }
-  }, 800);
+  }, 750);
 
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),

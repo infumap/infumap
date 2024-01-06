@@ -26,10 +26,12 @@ import { ItemType, ItemTypeMixin } from './base/item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement } from '../layout/visual-element';
+import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
+import { arrange } from '../layout/arrange';
+import { CursorPosition } from '../store/StoreProvider_Overlay';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -227,7 +229,7 @@ export const PasswordFns = {
     });
   },
 
-  debugSummary: (passwordItem: PasswordItem) => {
+  debugSummary: (_passwordItem: PasswordItem) => {
     return "[password] ******";
   },
 
@@ -237,7 +239,10 @@ export const PasswordFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-  }
+    store.overlay.setPasswordEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    arrange(store); // input focus changed.
+  },
+
 };
 
 

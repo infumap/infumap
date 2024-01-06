@@ -215,7 +215,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Expression) {
     store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
-  } else if (type == ItemType.Rating) {
+  } else if (type == ItemType.Password) {
+    store.overlay.setPasswordEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+  }else if (type == ItemType.Rating) {
     // noop.
   } else {
     store.overlay.editDialogInfo.set({

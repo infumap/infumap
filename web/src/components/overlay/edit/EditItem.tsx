@@ -26,9 +26,6 @@ import { EditImage } from "./Panels/EditImage";
 import { EditTable } from "./Panels/EditTable";
 import { asLinkItem, isLink } from "../../../items/link-item";
 import { EditLink } from "./Panels/EditLink";
-import { asPasswordItem, isPassword } from "../../../items/password-item";
-import { EditPassword } from "./Panels/EditPassword";
-import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { useStore } from "../../../store/StoreProvider";
 
 
@@ -63,9 +60,6 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         </Match>
         <Match when={isLink(props.item)}>
           <EditLink linkItem={asLinkItem(props.item)} linkedTo={props.linkedTo} />
-        </Match>
-        <Match when={isPassword(props.item)}>
-          <EditPassword passwordItem={asPasswordItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
       </Switch>
     </div>

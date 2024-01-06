@@ -41,6 +41,8 @@ import { isExpression } from '../../items/expression-item';
 import { isTable } from '../../items/table-item';
 import { isRating } from '../../items/rating-item';
 import { Toolbar_Rating } from './Toolbar_Rating';
+import { isPassword } from '../../items/password-item';
+import { Toolbar_Password } from './Toolbar_Password';
 
 
 export const Toolbar: Component = () => {
@@ -163,6 +165,9 @@ export const Toolbar: Component = () => {
                     </Match>
                     <Match when={isRating(store.history.getFocusItem())}>
                       <Toolbar_Rating />
+                    </Match>
+                    <Match when={isPassword(store.history.getFocusItem())}>
+                      <Toolbar_Password />
                     </Match>
                   </Switch>
                 </Show>

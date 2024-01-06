@@ -100,11 +100,13 @@ export interface OverlayStoreContextModel {
   pageEditOverlayInfo: () => EditOverlayInfo | null,
   tableEditOverlayInfo: () => TableEditOverlayInfo | null,
   noteEditOverlayInfo: () => EditOverlayInfo | null,
+  passwordEditOverlayInfo: () => EditOverlayInfo | null,
 
   setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPageEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setTableEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: TableEditOverlayInfo | null) => void,
   setNoteEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
+  setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -119,6 +121,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const pageEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const tableEditOverlayInfo_ = createInfuSignal<TableEditOverlayInfo | null>(null);
   const noteEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
+  const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
 
   const searchOverlayVisible = createInfuSignal<boolean>(false);
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
@@ -133,6 +136,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     pageEditOverlayInfo_.set(null);
     tableEditOverlayInfo_.set(null);
     noteEditOverlayInfo_.set(null);
+    passwordEditOverlayInfo_.set(null);
 
     editDialogInfo.set(null);
     editUserSettingsInfo.set(null);
@@ -147,6 +151,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       pageEditOverlayInfo_.get() != null ||
       tableEditOverlayInfo_.get() != null ||
       noteEditOverlayInfo_.get() != null ||
+      passwordEditOverlayInfo_.get() != null ||
       searchOverlayVisible.get() ||
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
@@ -160,6 +165,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const pageEditOverlayInfo = (): EditOverlayInfo | null => pageEditOverlayInfo_.get();
   const tableEditOverlayInfo = (): TableEditOverlayInfo | null => tableEditOverlayInfo_.get();
   const noteEditOverlayInfo = (): EditOverlayInfo | null => noteEditOverlayInfo_.get();
+  const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
 
   const setExpressionEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
@@ -185,16 +191,24 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     noteEditOverlayInfo_.set(info);
   }
 
+  const setPasswordEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
+    if (info == null) { historyStore.setFocus(null) }
+    else { historyStore.setFocus(info.itemPath); }
+    passwordEditOverlayInfo_.set(info);
+  }
+
   return ({
     expressionEditOverlayInfo,
     pageEditOverlayInfo,
     tableEditOverlayInfo,
     noteEditOverlayInfo,
+    passwordEditOverlayInfo,
 
     setExpressionEditOverlayInfo,
     setPageEditOverlayInfo,
     setTableEditOverlayInfo,
     setNoteEditOverlayInfo,
+    setPasswordEditOverlayInfo,
 
     searchOverlayVisible,
     editDialogInfo,

@@ -41,6 +41,7 @@ import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
 import { TableEditOverlay } from "./overlay/TableEditOverlay";
 import { PageEditOverlay } from "./overlay/PageEditOverlay";
+import { PasswordEditOverlay } from "./overlay/PasswordEditOverly";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -241,6 +242,9 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.noteEditOverlayInfo() != null}>
         <NoteEditOverlay />
+      </Show>
+      <Show when={store.overlay.passwordEditOverlayInfo() != null}>
+        <PasswordEditOverlay />
       </Show>
     </div>
   );
