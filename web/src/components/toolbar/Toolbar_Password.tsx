@@ -25,15 +25,18 @@ import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 export const Toolbar_Password: Component = () => {
   const store = useStore();
 
+  let qrDiv: HTMLDivElement | undefined;
+
   const handleQr = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
   }
 
   return (
     <div class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div class="pl-[4px] inline-block">
+        <div ref={qrDiv}
+             class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
       </div>
