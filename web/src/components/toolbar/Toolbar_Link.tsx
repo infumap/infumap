@@ -40,6 +40,7 @@ export const Toolbar_Link: Component = () => {
   }
 
   onMount(() => {
+    linkResourceInput!.value = linkItem().linkTo;
     linkResourceInput!.focus();
   });
 
@@ -49,14 +50,20 @@ export const Toolbar_Link: Component = () => {
     server.updateItem(store.history.getFocusItem());
   });
 
+  const keyEventHandler = (_ev: KeyboardEvent) => { }
+
   return (
-    <div class="flex-grow-0" style="flex-order: 0">
+    <div id="toolbarItemOptionsDiv"
+         class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div class="inline-block ml-[8px]">
           <span class="mr-[6px]">link to:</span>
           <input ref={linkResourceInput}
                  class="pl-[4px] w-[300px] text-slate-800"
-                 type="text" />
+                 type="text"
+                 onKeyDown={keyEventHandler}
+                 onKeyUp={keyEventHandler}
+                 onKeyPress={keyEventHandler} />
         </div>
         <div ref={qrDiv}
              class="pl-[4px] inline-block">

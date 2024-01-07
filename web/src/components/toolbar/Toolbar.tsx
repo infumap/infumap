@@ -150,13 +150,12 @@ export const Toolbar: Component = () => {
               </div>
               <div class="inline-block flex-nowrap" style="flex-grow: 1;"></div>
 
-              <div id="toolbarItemOptionsDiv"
-                   class="border-l pl-[4px] flex flex-row"
+              <div class="border-l pl-[4px] flex flex-row"
                    style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; ` +
                           `align-items: baseline;`}>
 
                 <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-                  <Switch>
+                  <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
                     <Match when={isPage(store.history.getFocusItem())}>
                       <Toolbar_Page />
                     </Match>

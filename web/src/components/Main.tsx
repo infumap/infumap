@@ -175,8 +175,8 @@ export const Main: Component = () => {
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
-    ev.preventDefault();
     // More trouble than value.
+    // ev.preventDefault();
     // mouseDoubleClickHandler(store, ev);
   };
 

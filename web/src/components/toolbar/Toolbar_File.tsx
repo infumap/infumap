@@ -33,7 +33,8 @@ export const Toolbar_File: Component = () => {
   }
 
   return (
-    <div class="flex-grow-0" style="flex-order: 0">
+    <div id="toolbarItemOptionsDiv"
+         class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div ref={qrDiv}
              class="pl-[4px] inline-block">

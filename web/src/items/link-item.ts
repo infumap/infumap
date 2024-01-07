@@ -157,6 +157,7 @@ export const LinkFns = {
         viewportBoundsPx: null,
         hitboxes: !emitHitboxes ? [] : [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.LinkSettings, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ],
       }

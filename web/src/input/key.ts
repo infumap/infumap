@@ -32,6 +32,7 @@ import { PopupType } from "../store/StoreProvider_History";
 import { newItemInContext } from "./create";
 import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditOverlay";
 import { pageEditOverlay_keyDownListener } from "../components/overlay/PageEditOverlay";
+import { isLink } from "../items/link-item";
 
 
 const recognizedKeys = [
@@ -48,6 +49,9 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (store.overlay.pageEditOverlayInfo() && !store.overlay.toolbarOverlayInfoMaybe.get()) {
     pageEditOverlay_keyDownListener(store, ev);
   }
+
+  // input box is in toolbar.
+  if (isLink(store.history.getFocusItem())) { return; }
 
   if (store.overlay.anOverlayIsVisible()) { return; }
   if (!recognizedKeys.find(a => a == ev.code)) { return; }

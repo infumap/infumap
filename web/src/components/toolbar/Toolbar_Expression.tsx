@@ -31,7 +31,8 @@ export const Toolbar_Expression: Component = () => {
   }
 
   return (
-    <div class="flex-grow-0" style="flex-order: 0">
+    <div id="toolbarItemOptionsDiv"
+         class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />

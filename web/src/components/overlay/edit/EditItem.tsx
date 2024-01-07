@@ -24,8 +24,6 @@ import { asTableItem, isTable } from "../../../items/table-item";
 import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
 import { EditTable } from "./Panels/EditTable";
-import { asLinkItem, isLink } from "../../../items/link-item";
-import { EditLink } from "./Panels/EditLink";
 import { useStore } from "../../../store/StoreProvider";
 
 
@@ -57,9 +55,6 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
         </Match>
         <Match when={isImage(props.item)}>
           <EditImage imageItem={asImageItem(props.item)} linkedTo={props.linkedTo} />
-        </Match>
-        <Match when={isLink(props.item)}>
-          <EditLink linkItem={asLinkItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
       </Switch>
     </div>

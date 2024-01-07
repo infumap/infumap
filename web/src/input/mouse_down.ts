@@ -41,6 +41,7 @@ import { server } from "../server";
 import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
 import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { isRating } from "../items/rating-item";
+import { isLink } from "../items/link-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -58,8 +59,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.history.currentPage() == null) { return defaultResult; }
 
   if (store.overlay.toolbarOverlayInfoMaybe.get() != null) {
-    const boundsPx = toolbarBoxBoundsPx(store);
-    if (isInside(CursorEventState.getLatestClientPx(), boundsPx)) { return MouseDownActionFlags.None; }
+    if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) { return MouseDownActionFlags.None; }
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
@@ -81,13 +81,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   function isInItemOptionsToolbox() {
     const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
     const bounds = toolboxDiv.getBoundingClientRect();
-    const boundsPx = {
-      x: bounds.x,
-      y: bounds.y,
-      w: bounds.width,
-      h: bounds.height
-    };
+    const boundsPx = { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height };
     return isInside(CursorEventState.getLatestClientPx(), boundsPx);
+  }
+
+  if (isLink(store.history.getFocusItem()) || isRating(store.history.getFocusItem())) {
+    if (buttonNumber != MOUSE_LEFT || !isInItemOptionsToolbox()) {
+      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPage()!, ""));
+    }
+    defaultResult = MouseDownActionFlags.None;
   }
 
   if (store.overlay.expressionEditOverlayInfo()) {

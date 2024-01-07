@@ -247,7 +247,8 @@ export const Toolbar_Page: Component = () => {
   }
 
   return (
-    <div class="flex-grow-0" style="flex-order: 0;">
+    <div id="toolbarItemOptionsDiv"
+         class="flex-grow-0" style="flex-order: 0;">
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
              style={`font-size: 13px;`}
