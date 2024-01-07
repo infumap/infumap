@@ -294,7 +294,11 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
       dirty = true;
     }
     if (oldVals["selectedVes"] && !visualElementOverride["selectedVes"]) {
-      if (debug) {  console.debug("selectedVes has become unset."); }
+      if (debug) { console.debug("selectedVes has become unset."); }
+      dirty = true;
+    }
+    if (oldVals["dockVes"] && !visualElementOverride["dockVes"]) {
+      if (debug) { console.debug("dockVes has become unset."); }
       dirty = true;
     }
 
