@@ -182,6 +182,9 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const getFocusItem = (): Item => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (breadcrumb.focusPath != null) {
+      if (VeFns.veidFromPath(breadcrumb.focusPath!).linkIdMaybe != null) {
+        return itemState.get(VeFns.veidFromPath(breadcrumb.focusPath!).linkIdMaybe!)!;
+      }
       return itemState.get(VeFns.veidFromPath(breadcrumb.focusPath!).itemId)!;
     }
     if (currentPopupSpec() != null) {

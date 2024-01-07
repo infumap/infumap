@@ -32,6 +32,7 @@ export enum HitboxFlags {
   Anchor =           0x0100,
   Expand =           0x0200,
   Settings =         0x0400,
+  LinkSettings =     0x0800,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {

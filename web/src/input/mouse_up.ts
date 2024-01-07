@@ -101,8 +101,13 @@ export function mouseUpHandler(store: StoreContextModel) {
     case MouseAction.Ambiguous:
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
-      }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.LinkSettings) {
+        const focusPath = VeFns.addVeidToPath(
+          { itemId: VeFns.veidFromPath(MouseActionState.get().activeElement).linkIdMaybe!, linkIdMaybe: null },
+          VeFns.parentPath(MouseActionState.get().activeElement)
+        );
+        store.history.setFocus(focusPath);
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
       }

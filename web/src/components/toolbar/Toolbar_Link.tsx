@@ -16,25 +16,48 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, onCleanup, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { asLinkItem } from "../../items/link-item";
+import { arrange } from "../../layout/arrange";
+import { server } from "../../server";
 
 
 export const Toolbar_Link: Component = () => {
   const store = useStore();
 
   let qrDiv: HTMLDivElement | undefined;
+  let linkResourceInput: HTMLInputElement | undefined;
+
+  const linkItem = () => asLinkItem(store.history.getFocusItem());
+  const linkItemOnMount = linkItem();
 
   const handleQr = () => {
     store.overlay.toolbarOverlayInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
   }
 
+  onMount(() => {
+    linkResourceInput!.focus();
+  });
+
+  onCleanup(() => {
+    linkItemOnMount.linkTo = linkResourceInput!.value;
+    arrange(store);
+    server.updateItem(store.history.getFocusItem());
+  });
+
   return (
     <div class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
+        <div class="inline-block ml-[8px]">
+          <span class="mr-[6px]">link to:</span>
+          <input ref={linkResourceInput}
+                 class="pl-[4px] w-[300px] text-slate-800"
+                 type="text" />
+        </div>
         <div ref={qrDiv}
              class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
