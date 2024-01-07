@@ -53,14 +53,6 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     }
   };
 
-  const handleLinkToBaseUrlInput = (v: string) => {
-    if (!deleted) {
-      asLinkItem(itemState.get(linkId)!).linkToResolvedId = null;
-      asLinkItem(itemState.get(linkId)!).linkToBaseUrl = v;
-      arrange(store);
-    }
-  };
-
   const deleteLink = async () => {
     deleted = true;
     await server.deleteItem(linkId); // throws on failure.
@@ -79,10 +71,9 @@ export const EditLink: Component<{linkItem: LinkItem, linkedTo: boolean}> = (pro
     <>
       <div class="m-1">
         <div class="text-slate-800 text-sm">Link To: <InfuTextInput value={props.linkItem.linkTo} onChangeOrCleanup={handleLinkToInput} /></div>
-        <div class="text-slate-800 text-sm">Base Url: <InfuTextInput value={props.linkItem.linkToBaseUrl} onChangeOrCleanup={handleLinkToBaseUrlInput} /></div>
         <div><InfuButton text="delete" onClick={deleteLink} /></div>
       </div>
-      <Show when={linkToItem() != null && props.linkItem.linkToBaseUrl == ""}>
+      <Show when={linkToItem() != null}>
         <EditItem item={linkToItem()!} linkedTo={true} />
       </Show>
     </>

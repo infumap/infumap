@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use log::{info, debug};
+use log::{info, debug, warn};
 use serde_json::{Map, Value, Number};
 use tokio::fs::File;
 use tokio::io::{BufReader, AsyncReadExt};
@@ -32,7 +32,7 @@ use super::kv_store::{KVStore, JsonLogSerializable};
 use super::item::Item;
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 14;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 15;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -830,6 +830,63 @@ pub fn migrate_record_v13_to_v14(kvs: &Map<String, Value>) -> InfuResult<Map<Str
 
     "update" => {
       return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Combine linkTo and linkToBaseUrl
+ */
+pub fn migrate_record_v14_to_v15(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 14);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "link" {
+        let existing = result.remove("linkToBaseUrl");
+        // if not specifid, linkToBaseUrl is "".
+        if existing.is_none() { return Err("link item entry does not have linkToBaseUrl field.".into()); }
+        let existing = existing.unwrap();
+        let existing = existing.as_str().unwrap().to_owned();
+        let existing = if !existing.ends_with("/") { format!("{}/", existing) } else { existing };
+        let link_to = result.remove("linkTo");
+        if link_to.is_none() { return Err("link item entry does not have linkTo field.".into()); }
+        let link_to = link_to.unwrap().as_str().unwrap().to_owned();
+        let new_link_to = format!("{}{}", existing, link_to);
+        result.insert("linkTo".to_owned(), Value::String(new_link_to).into());
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      let mut result = kvs.clone();
+      let existing = result.remove("linkToBaseUrl");
+      if existing.is_some() {
+        let link_to = result.remove("linkTo");
+        if link_to.is_none() {
+          warn!("link item update had linkToBaseUrl and no linkTo - throwing away linkToBaseUrl.");
+        } else {
+          let existing = existing.unwrap();
+          let existing = existing.as_str().unwrap().to_owned();
+          let existing = if !existing.ends_with("/") { format!("{}/", existing) } else { existing };
+          let link_to = link_to.unwrap().as_str().unwrap().to_owned();
+          let new_link_to = format!("{}{}", existing, link_to);
+          result.insert("linkTo".to_owned(), Value::String(new_link_to).into());
+        }
+      }
+      return Ok(result);
     },
 
     "delete" => {

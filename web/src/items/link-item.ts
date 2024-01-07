@@ -36,9 +36,8 @@ import { itemState } from "../store/ItemState";
 // The XSizableItem and YSizableItem may not apply, depending on the item linked to.
 
 export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
-  linkTo: Uid,
+  linkTo: string,
   linkToResolvedId: Uid | null,
-  linkToBaseUrl: string,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin { }
@@ -79,7 +78,6 @@ export const LinkFns = {
 
       linkTo,
       linkToResolvedId: linkTo,
-      linkToBaseUrl: "",
 
       computed_attachments: [],
     };
@@ -104,7 +102,6 @@ export const LinkFns = {
 
       linkTo: o.linkTo,
       linkToResolvedId: null,
-      linkToBaseUrl: o.linkToBaseUrl,
 
       computed_attachments: [],
     });
@@ -126,7 +123,6 @@ export const LinkFns = {
       spatialHeightGr: l.spatialHeightGr,
 
       linkTo: l.linkTo,
-      linkToBaseUrl: l.linkToBaseUrl,
     });
   },
 
@@ -286,7 +282,7 @@ export const LinkFns = {
   },
 
   debugSummary: (linkItem: LinkItem) => {
-    return "[link] " + linkItem.linkTo + (linkItem.linkToBaseUrl == "" ? "" : "[" + linkItem.linkToBaseUrl + "]");
+    return "[link] " + linkItem.linkTo;
   },
 
   getLinkToId: (linkItem: LinkItem): Uid => {

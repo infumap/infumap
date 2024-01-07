@@ -288,7 +288,7 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 39] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 38] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -296,8 +296,8 @@ const ALL_JSON_FIELDS: [&'static str; 39] = ["__recordType",
   "popupAlignmentPoint", "popupWidthGr", "arrangeAlgorithm",
   "url", "originalCreationDate", "spatialHeightGr", "imageSizePx",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
-  "linkTo", "linkToBaseUrl", "gridNumberOfColumns", "orderChildrenBy",
-  "text", "flags", "permissionFlags", "format", "docWidthBl",
+  "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
+  "flags", "permissionFlags", "format", "docWidthBl",
   "gridCellAspect", "justifiedRowAspect"];
 
 
@@ -381,8 +381,7 @@ pub struct Item {
   pub rating: Option<i64>,
 
   // link
-  pub link_to_id: Option<Uid>,
-  pub link_to_base_url: Option<String>,
+  pub link_to: Option<Uid>,
 
   // composite
 
@@ -427,8 +426,7 @@ impl Clone for Item {
       image_size_px: self.image_size_px.clone(),
       thumbnail: self.thumbnail.clone(),
       rating: self.rating.clone(),
-      link_to_id: self.link_to_id.clone(),
-      link_to_base_url: self.link_to_base_url.clone(),
+      link_to: self.link_to.clone(),
       text: self.text.clone(),
     }
   }
@@ -473,8 +471,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     image_size_px: None,
     thumbnail: None,
     rating: None,
-    link_to_id: None,
-    link_to_base_url: None,
+    link_to: None,
     text: None,
   }
 }
@@ -519,8 +516,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     image_size_px: None,
     thumbnail: None,
     rating: None,
-    link_to_id: None,
-    link_to_base_url: None,
+    link_to: None,
     text: None,
   }
 }
@@ -565,8 +561,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     image_size_px: None,
     thumbnail: None,
     rating: None,
-    link_to_id: None,
-    link_to_base_url: None,
+    link_to: None,
     text: None,
   }
 }
@@ -832,16 +827,10 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // link
-    if let Some(new_link_to_id) = &new.link_to_id {
-      if match &old.link_to_id { Some(o) => o != new_link_to_id, None => { true } } {
+    if let Some(new_link_to) = &new.link_to {
+      if match &old.link_to { Some(o) => o != new_link_to, None => { true } } {
         if old.item_type != ItemType::Link { cannot_modify_err("linkTo", &old.id)?; }
-        result.insert(String::from("linkTo"), Value::String(String::from(new_link_to_id)));
-      }
-    }
-    if let Some(new_link_to_base_url) = &new.link_to_base_url {
-      if match &old.link_to_base_url { Some(o) => o != new_link_to_base_url, None => { true } } {
-        if old.item_type != ItemType::Link { cannot_modify_err("linkToBaseUrl", &old.id)?; }
-        result.insert(String::from("linkToBaseUrl"), Value::String(String::from(new_link_to_base_url)));
+        result.insert(String::from("linkTo"), Value::String(String::from(new_link_to)));
       }
     }
 
@@ -1029,11 +1018,7 @@ impl JsonLogSerializable<Item> for Item {
     // link
     if let Some(v) = json::get_string_field(map, "linkTo")? {
       if self.item_type != ItemType::Link { not_applicable_err("linkTo", self.item_type, &self.id)?; }
-      self.link_to_id = Some(v);
-    }
-    if let Some(v) = json::get_string_field(map, "linkToBaseUrl")? {
-      if self.item_type != ItemType::Link { not_applicable_err("linkToBaseUrl", self.item_type, &self.id)?; }
-      self.link_to_base_url = Some(v);
+      self.link_to = Some(v);
     }
 
     // composite
@@ -1213,13 +1198,9 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   }
 
   // link
-  if let Some(link_to_id) = &item.link_to_id {
+  if let Some(link_to) = &item.link_to {
     if item.item_type != ItemType::Link { unexpected_field_err("linkTo", &item.id, item.item_type)? }
-    result.insert(String::from("linkTo"), Value::String(link_to_id.clone()));
-  }
-  if let Some(link_to_base_url) = &item.link_to_base_url {
-    if item.item_type != ItemType::Link { unexpected_field_err("linkToBaseUrl", &item.id, item.item_type)? }
-    result.insert(String::from("linkToBaseUrl"), Value::String(link_to_base_url.clone()));
+    result.insert(String::from("linkTo"), Value::String(link_to.clone()));
   }
 
   // composite
@@ -1425,13 +1406,9 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
 
     // link
-    link_to_id: match json::get_string_field(map, "linkTo")? {
+    link_to: match json::get_string_field(map, "linkTo")? {
       Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkTo", item_type, &id)) } },
       None => { if item_type == ItemType::Link { Err(expected_for_err("linkTo", item_type, &id)) } else { Ok(None) } }
-    }?,
-    link_to_base_url: match json::get_string_field(map, "linkToBaseUrl")? {
-      Some(v) => { if item_type == ItemType::Link { Ok(Some(v)) } else { Err(not_applicable_err("linkToBaseUrl", item_type, &id)) } },
-      None => { if item_type == ItemType::Link { Err(expected_for_err("linkToBaseUrl", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // composite

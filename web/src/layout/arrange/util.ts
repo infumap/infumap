@@ -55,14 +55,22 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
     }
   } else {
     if (linkItemMaybe.linkTo != EMPTY_UID) {
-      if (linkItemMaybe.linkToBaseUrl == "") {
+      if (!linkItemMaybe.linkTo.startsWith("http")) {
         if (linkItemMaybe.origin == null) {
           initiateLoadItemMaybe(store, linkItemMaybe.linkTo);
         } else {
           initiateLoadItemFromRemoteMaybe(store, linkItemMaybe.linkTo, linkItemMaybe.origin, linkItemMaybe.id);
         }
       } else {
-        initiateLoadItemFromRemoteMaybe(store, linkItemMaybe.linkTo, linkItemMaybe.linkToBaseUrl, linkItemMaybe.id);
+        const lastIdx = linkItemMaybe.linkTo.lastIndexOf('/');
+        if (lastIdx != -1) {
+          const baseUrl = linkItemMaybe.linkTo.substring(0, lastIdx);
+          // baseUrl may not be the base URL of the infumap instance because identifiers
+          // in the form {user}/{id} are allowed. however, the server responds to all
+          // urls that end in /command (restricted to the user, if specified, else not).
+          const id = linkItemMaybe.linkTo.substring(lastIdx);
+          initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItemMaybe.id);
+        }
       }
     }
   }
