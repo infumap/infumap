@@ -105,7 +105,6 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
     const imgSizePx = imageSizePx(lockToResizingFromBounds);
     const result = Math.round((boundsPx.w - imgSizePx.w)/2.0);
-    console.log(boundsPx, imgSizePx, result);
     if (result <= 0) { return 0; }
     return result;
   }

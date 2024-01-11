@@ -34,6 +34,7 @@ import { isNumeric } from "../../util/math";
 import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
+import { FEATURE_COLOR } from "../../style";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -92,7 +93,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
-      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
@@ -152,12 +153,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Switch>
           <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
             <a href={""}
-                class={`text-blue-800`}
-                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-                onClick={aHrefClick}
-                onMouseDown={aHrefMouseDown}
-                onMouseUp={aHrefMouseUp}>
-                {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
+               class={`text-blue-800`}
+               style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+               onClick={aHrefClick}
+               onMouseDown={aHrefMouseDown}
+               onMouseUp={aHrefMouseUp}>
+              {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
             </a>
           </Match>
           <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
@@ -170,21 +171,21 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
         <div class={`absolute rounded-sm`}
-            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                    `background-color: #ff0000;`} />
+             style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
       </Show>
       <Show when={props.visualElement.movingItemIsOverAttach.get()}>
         <div class={`absolute rounded-sm`}
-            style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                    `background-color: #ff0000;`} />
+             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
       </Show>
       <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
         <div class={`absolute rounded-sm`}
-            style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                    `background-color: #ff0000;`} />
+             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
       </Show>
     </>;
 

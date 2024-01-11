@@ -32,8 +32,14 @@ export let Colors = [
 
 export function linearGradient(colIndex: number, lightenByAlpha: number): string {
   assert(lightenByAlpha < 0.986, "invalid lightenByAlpha: " + lightenByAlpha);
-  return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`
+  return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`;
 }
+
+export function translucent(colIndex: number, lightenByAlpha: number): string {
+  return `${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}`;
+}
+
+export let FEATURE_COLOR = translucent(0, 0.636);
 
 export let HIGHLIGHT_COLOR = "#0957d0";
 export let HIGHLIGHT_ENTRY_COLOR = "#a8c7fa";
