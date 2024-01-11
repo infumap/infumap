@@ -198,7 +198,7 @@ function changeMouseActionStateMaybe(
 }
 
 
-function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContextModel) {
+function mouseAction_resizingListPageColumn(_deltaPx: Vector, _store: StoreContextModel) {
   const startBl = MouseActionState.get().startWidthBl!;
   // let newDockWidthPx = startPx + deltaPx.x;
   // if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
@@ -211,7 +211,7 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
 
 function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   const startPx = MouseActionState.get().startDockWidthPx!;
-  let newDockWidthPx = startPx + deltaPx.x;
+  let newDockWidthPx = Math.round((startPx + deltaPx.x) / NATURAL_BLOCK_SIZE_PX.w) * NATURAL_BLOCK_SIZE_PX.w;
   if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
   store.setDockWidthPx(newDockWidthPx);

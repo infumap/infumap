@@ -610,7 +610,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const borderStyle = () =>
       isDockItem()
-        ? `border-color: ${Colors[pageItem().backgroundColorIndex]}; ` // border-color: ${Colors[pageItem().backgroundColorIndex]};
+        ? `border-color: ${Colors[pageItem().backgroundColorIndex]}; `
         : `border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; `;
 
     const renderEmbededInteractiveBackgroundMaybe = () =>
