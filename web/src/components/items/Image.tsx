@@ -19,13 +19,14 @@
 import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup, onMount } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
-import { BoundingBox, quantizeBoundingBox } from "../../util/geometry";
+import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { PopupType } from "../../store/StoreProvider_History";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { ImageFlags } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -74,6 +75,41 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
     }
   }
+
+  const noCropWidth = (lockToResizingFromBounds: boolean) => {
+    let boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
+    let boundsAspect = boundsPx.w / boundsPx.h;
+    // reverse of the crop case.
+    if (boundsAspect > imageAspect()) {
+      return Math.round(boundsPx.w / (boundsAspect/imageAspect()));
+    } else {
+      return boundsPx.w;
+    }
+  }
+
+  const imageSizePx = (lockToResizingFromBounds: boolean): Dimensions => {
+    const wPx = noCropWidth(lockToResizingFromBounds);
+    const hPx = wPx / imageAspect();
+    return { w: wPx, h: hPx };
+  }
+
+  const noCropPaddingTopPx = (lockToResizingFromBounds: boolean): number => {
+    const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
+    const imgSizePx = imageSizePx(lockToResizingFromBounds);
+    const result = Math.round((boundsPx.h - imgSizePx.h)/2.0);
+    if (result <= 0) { return 0; }
+    return result;
+  }
+
+  const noCropPaddingLeftPx = (lockToResizingFromBounds: boolean): number => {
+    const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
+    const imgSizePx = imageSizePx(lockToResizingFromBounds);
+    const result = Math.round((boundsPx.w - imgSizePx.w)/2.0);
+    console.log(boundsPx, imgSizePx, result);
+    if (result <= 0) { return 0; }
+    return result;
+  }
+
   const isMainPoppedUp = () =>
     store.history.currentPopupSpecVeid() != null &&
     VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0 &&
@@ -190,23 +226,35 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
     </Show>;
 
+  const renderCroppedImage = (): JSX.Element =>
+    <img ref={imgElement}
+         class="max-w-none absolute pointer-events-none"
+         style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
+                `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;` +
+                `${VeFns.zIndexStyle(props.visualElement)}`}
+         width={imageWidthToRequestPx(false)} />;
+
+  const renderNoCropImage = (): JSX.Element =>
+    <img ref={imgElement}
+         class="max-w-none absolute pointer-events-none"
+         style={`${VeFns.zIndexStyle(props.visualElement)} ` +
+                `left: ${noCropPaddingLeftPx(false)}px; ` +
+                `top: ${noCropPaddingTopPx(false)}px;`}
+         width={noCropWidth(false)} />;
+
   return (
     <Show when={boundsPx().w > 5} fallback={tooSmallFallback()}>
       {renderPopupBaseMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-                  `border border-slate-700 rounded-sm shadow-lg overflow-hidden pointer-events-none`}
+                  `overflow-hidden pointer-events-none border rounded-sm ` +
+                  (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-slate-700 shadow-lg `)}
            style={`left: ${quantizedBoundsPx().x}px; ` +
                   `top: ${quantizedBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `width: ${quantizedBoundsPx().w}px; ` +
                   `height: ${quantizedBoundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)} ${VeFns.opacityStyle(props.visualElement)}`}>
         <Show when={isDetailed()} fallback={notDetailedFallback()}>
-          <img ref={imgElement}
-               class="max-w-none absolute pointer-events-none"
-               style={`left: -${Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w)/2.0) + BORDER_WIDTH_PX}px; ` +
-                      `top: -${Math.round((imageWidthToRequestPx(false)/imageAspect() - quantizedBoundsPx().h)/2.0) + BORDER_WIDTH_PX}px;` +
-                      `${VeFns.zIndexStyle(props.visualElement)}`}
-               width={imageWidthToRequestPx(false)} />
+          {imageItem().flags & ImageFlags.NoCrop ? renderNoCropImage() : renderCroppedImage()}
           <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +

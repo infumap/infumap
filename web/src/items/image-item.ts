@@ -34,13 +34,14 @@ import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-
 import { arrange } from "../layout/arrange";
 import { PopupType } from "../store/StoreProvider_History";
 import { ItemFns } from "./base/item-polymorphism";
+import { FlagsMixin } from "./base/flags-item";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
   thumbnail: string,
 }
 
-export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin {
+export interface ImageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
   imageSizePx: Dimensions,
 }
 
@@ -62,6 +63,8 @@ export const ImageFns = {
       spatialPositionGr: o.spatialPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
+
+      flags: o.flags,
 
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
@@ -88,6 +91,8 @@ export const ImageFns = {
       spatialPositionGr: i.spatialPositionGr,
 
       spatialWidthGr: i.spatialWidthGr,
+
+      flags: i.flags,
 
       originalCreationDate: i.originalCreationDate,
       mimeType: i.mimeType,
@@ -231,6 +236,7 @@ export const ImageFns = {
   cloneMeasurableFields: (image: ImageMeasurable): ImageMeasurable => {
     return ({
       itemType: image.itemType,
+      flags: image.flags,
       spatialPositionGr: image.spatialPositionGr,
       spatialWidthGr: image.spatialWidthGr,
       imageSizePx: image.imageSizePx
@@ -242,7 +248,7 @@ export const ImageFns = {
   },
 
   getFingerprint: (imageItem: ImageItem): string => {
-    return imageItem.title;
+    return imageItem.title + "-~-" + imageItem.flags;
   }  
 };
 

@@ -20,10 +20,18 @@ import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { asImageItem } from "../../items/image-item";
+import { VesCache } from "../../layout/ves-cache";
+import { ImageFlags } from "../../items/base/flags-item";
+import { arrange } from "../../layout/arrange";
+import { server } from "../../server";
 
 
 export const Toolbar_Image: Component = () => {
   const store = useStore();
+
+  const imageVisualElement = () => VesCache.get(store.history.getFocusPath())!.get();
+  const imageItem = () => asImageItem(imageVisualElement().displayItem);
 
   let qrDiv: HTMLDivElement | undefined;
 
@@ -32,10 +40,44 @@ export const Toolbar_Image: Component = () => {
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
   }
 
+  const borderButtonHandler = () => {
+    if (imageItem().flags & ImageFlags.HideBorder) {
+      imageItem().flags &= ~ImageFlags.HideBorder;
+    } else {
+      imageItem().flags |= ImageFlags.HideBorder;
+    }
+    arrange(store);
+    server.updateItem(imageItem());
+  }
+
+  const borderVisible = () => {
+    return (imageItem().flags & ImageFlags.HideBorder) ? false : true;
+  }
+
+  const cropHandler = () => {
+    if (imageItem().flags & ImageFlags.NoCrop) {
+      imageItem().flags &= ~ImageFlags.NoCrop;
+    } else {
+      imageItem().flags |= ImageFlags.NoCrop;
+    }
+    arrange(store);
+    server.updateItem(imageItem());
+  }
+
+  const shouldCropImage = () => {
+    return (imageItem().flags & ImageFlags.NoCrop) ? false : true;
+  }
+
   return (
     <div id="toolbarItemOptionsDiv"
          class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
+        <div class="pl-[4px] inline-block">
+          <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} />
+        </div>
+        <div class="inline-block">
+          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+        </div>
         <div ref={qrDiv}
              class="pl-[4px] inline-block">
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
