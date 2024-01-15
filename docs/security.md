@@ -1,5 +1,7 @@
 # Security and Data 
 
+_TODO: these notes are incomplete / very rough / probably flawed._
+
 Infumap was designed as a place to store all of your information.
 
 You can run Infumap on your local machine, but it's much more useful if you host it remotely to allow access to your information from anywhere, integrate with services such as email and your phone, and to enable automatic replication so you can be confident a system failure won't result in loss of data.
@@ -79,3 +81,6 @@ Implemented.
 ## Browser caching.
 
 - Files left in browser cache allow access to information that extends beyond a logged in session. Rely on security mechanisms on the client.
+
+## VPN
+

@@ -1,47 +1,11 @@
-# Operations
-
-
-## Simple Deployment on Debian 11
-
-### Setup Firewall
-
-Configure `ufw` (Uncomplicated Firewall) to allow HTTPS connections:
-
-```
-ufw allow 443
-```
-
-### Install / Configure Caddy
-
-Install the `caddy` reverse proxy:
-
-```
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install caddy
-```
-
-Edit the Caddyfile: `/etc/caddy/Caddyfile`.
-- change `:80` to your domain name.
-- uncomment the `reverse_proxy` line.
-- comment out the `root` line.
-
-Then reload:
-
-```
-systemctl reload caddy
-```
-
-### TODO ... 
-
 
 ## A Security Conscious Deployment on Vultr.com
 
-Always choose a reputable cloud vendor when hosting sensitive information because you have no option but to trust them. In particular, it is generally possible to take a snapshot of a running instance that includes any data currently in memory. Such a snapshot would likely include sensitive information.
+_TODO: these notes are incomplete / very rough / probably flawed._
 
-Vultr is a well established alternative to AWS / Google Cloud / Azure. I have used them for a long time due to ease of use, familiarity and cost. I host my own Infumap instance with them, and took these notes as I set it up.
+Always choose a reputable cloud vendor when hosting sensitive information because you have no option but to trust them. It is possible to take a snapshot of a running VPS instance, including any data currently in memory, so you need to assume this is a possibility.
+
+Vultr is a well established alternative to AWS / Google Cloud / Azure. I have used them for a long time due to ease of use, familiarity and cost. Before switching to a Raspberry Pi server physically located in my home, I hosted my personal Infumap instance with Vultr, and took these notes as I set it up.
 
 These notes are relevant / may be useful even if you use another provider.
 
@@ -144,14 +108,14 @@ A couple of suggestions:
 
 ### install firewall
 
-- https://www.digitalocean.com/community/tutorials/how-to-set-up-a-firewall-with-ufw-on-debian-11-243261243130246d443771547031794d72784e6b36656d4a326e49732e
-- `sudo apt install net-tools`
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow ssh
-sudo ufw allow https
-sudo ufw allow to <docker_bridge_address>
+https://www.digitalocean.com/community/tutorials/how-to-set-up-a-firewall-with-ufw-on-debian-11-243261243130246d443771547031794d72784e6b36656d4a326e49732e
 
+    sudo apt install net-tools
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw allow ssh
+    sudo ufw allow https
+    sudo ufw allow to <docker_bridge_address>
 
 
 
