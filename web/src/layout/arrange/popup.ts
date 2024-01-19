@@ -56,9 +56,9 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   };
   let geometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, false, false, true, PageFns.popupPositioningHasChanged(currentPage), false, false);
   if (renderAsFixed) {
-    geometry.boundsPx.x += store.getDockWidthPx();
+    geometry.boundsPx.x += store.getCurrentDockWidthPx();
     if (geometry.viewportBoundsPx != null) {
-      geometry.viewportBoundsPx!.x += store.getDockWidthPx();
+      geometry.viewportBoundsPx!.x += store.getCurrentDockWidthPx();
     }
   }
   const item = itemState.get(popupLinkToImageId)!;

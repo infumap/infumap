@@ -55,7 +55,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
 
   const GAP_PX = LIST_PAGE_TOP_PADDING_PX;
 
-  const dockWidthPx = store.getDockWidthPx();
+  const dockWidthPx = store.getCurrentDockWidthPx();
 
   let yCurrentPx = 0;
   const dockChildren = [];
@@ -150,7 +150,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     };
 
     if (dockWidthPx > 25) {
-      const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null},  dockPath);
+      const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null}, dockPath);
       dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
     }
   }

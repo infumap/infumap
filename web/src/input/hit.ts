@@ -242,7 +242,7 @@ function determineTopLevelRoot(
   }
 
   posRelativeToRootVisualElementBoundsPx = cloneVector(posRelativeToRootVisualElementBoundsPx)!;
-  posRelativeToRootVisualElementBoundsPx.x = posRelativeToRootVisualElementBoundsPx.x - store.getDockWidthPx();
+  posRelativeToRootVisualElementBoundsPx.x = posRelativeToRootVisualElementBoundsPx.x - store.getCurrentDockWidthPx();
 
   // TODO (LOW): pretty sure this is never utilized, but it's harmless.
   let hitboxType = HitboxFlags.None;
@@ -280,14 +280,14 @@ function determinePopupOrSelectedRootMaybe(
 
   if (rootVisualElement.popupVes) {
     posOnDesktopPx = cloneVector(posOnDesktopPx)!;
-    posOnDesktopPx.x = posOnDesktopPx.x + store.getDockWidthPx();
+    posOnDesktopPx.x = posOnDesktopPx.x + store.getCurrentDockWidthPx();
 
     const popupRootVesMaybe = rootVisualElement.popupVes!;
     const popupRootVeMaybe = popupRootVesMaybe.get();
 
     const popupPosRelativeToTopLevelVisualElementPx =
       (popupRootVeMaybe.flags & VisualElementFlags.Fixed)
-        ? { x: posOnDesktopPx.x - store.getDockWidthPx(), y: posOnDesktopPx.y }
+        ? { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y }
         : posRelativeToRootVisualElementBoundsPx;
 
     if (isInside(popupPosRelativeToTopLevelVisualElementPx, popupRootVeMaybe.boundsPx)) {

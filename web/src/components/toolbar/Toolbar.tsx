@@ -126,21 +126,23 @@ export const Toolbar: Component = () => {
                     `height: ${store.topToolbarHeight()}px; 0px; ` +
                     `border-color: ${LIGHT_BORDER_COLOR}; `}>
 
-          <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-               style={`width: ${store.getDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
-                      `border-color: ${LIGHT_BORDER_COLOR}; `}>
-            <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
-              <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0;">
-                <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
-              </div>
-              <div class="inline-block" style="flex-grow: 1;" />
-              <div class="inline-block" style="flex-grow: 0; margin-right: 8px;">
-                <Toolbar_Navigation />
+          <Show when={store.dockVisible.get()}>
+            <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
+                style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
+                       `border-color: ${LIGHT_BORDER_COLOR}; `}>
+              <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
+                <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0;">
+                  <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
+                </div>
+                <div class="inline-block" style="flex-grow: 1;" />
+                <div class="inline-block" style="flex-grow: 0; margin-right: 8px;">
+                  <Toolbar_Navigation />
+                </div>
               </div>
             </div>
-          </div>
+          </Show>
 
-          <div class="fixed right-0 top-0" style={`left: ${store.getDockWidthPx()}px; ${pageColor()}`}>
+          <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px; ${pageColor()}`}>
             <div class="flex flex-row">
               <div id="toolbarTitleDiv"
                    class="p-[3px] ml-[6px] inline-block cursor-text"
@@ -216,7 +218,7 @@ export const Toolbar: Component = () => {
         <div class="absolute"
              style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
                     `right: 6px; top: -3px;`} onmousedown={showToolbar}>
-          <i class="fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs text-slate-400"  />
+          <i class="fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs text-slate-400" />
         </div>
       </Show>
     </>

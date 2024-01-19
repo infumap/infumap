@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { Colors, HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -31,6 +31,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
+import { arrange } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -140,23 +141,32 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }</For>
     </Show>;
 
+  const showDock = () => {
+    store.dockVisible.set(true);
+    arrange(store);
+  }
+
   const renderAsDock = () => {
     return (
-      <div class={`absolute border-r`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
-                  `border-color: ${LIGHT_BORDER_COLOR}; `}>
-        <For each={props.visualElement.childrenVes}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} />
-        }</For>
-        <Show when={props.visualElement.childrenVes.length == 0}>
-          <div class="absolute text-slate-400"
-               style={`left: ${boundsPx().w/2-5}px; top: ${boundsPx().h / 2}px; ` +
-                      `font-size: ${10}px;`}>
-            <i class="fa fa-chevron-right" />
+      <>
+        <Show when={store.dockVisible.get()}>
+          <div class={`absolute border-r`}
+               style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                      `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
+                      `border-color: ${LIGHT_BORDER_COLOR}; `}>
+            <For each={props.visualElement.childrenVes}>{childVe =>
+              <VisualElement_Desktop visualElement={childVe.get()} />
+            }</For>
           </div>
         </Show>
-      </div>);
+        <Show when={!store.dockVisible.get()}>
+          <div class={`absolute`}
+               style={`left: ${5}px; top: ${boundsPx().h - 30}px; z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
+               onmousedown={showDock}>
+            <i class="fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs text-slate-400" />
+          </div>
+        </Show>
+      </>);
   }
 
   const renderAsTrash = () => {
@@ -664,9 +674,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }</For>
           </div>
         </div>
-        <Show when={props.visualElement.dockVes != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
-        </Show>
         <For each={desktopVes()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} />
         }</For>
@@ -717,9 +724,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
                     `height: ${childAreaBoundsPx().h}px;`}>
-          <Show when={props.visualElement.dockVes != null}>
-            <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
-          </Show>
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
@@ -767,12 +771,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class={`absolute`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: #ffffff;`}>
-          <Show when={props.visualElement.dockVes != null}>
-            <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
-          </Show>
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
+          <Show when={props.visualElement.dockVes != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
+          </Show>
         </div>
       </>
     );

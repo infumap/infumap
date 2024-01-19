@@ -159,6 +159,7 @@ function changeMouseActionStateMaybe(
     MouseActionState.get().startHeightBl = null;
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
       MouseActionState.get().action = MouseAction.ResizingDock;
+      MouseActionState.get().startWidthBl = store.getCurrentDockWidthPx() / NATURAL_BLOCK_SIZE_PX.w;
     } else if (isPage(activeVisualElement.displayItem)) {
       MouseActionState.get().startWidthBl = store.perItem.getListPageColWidth(activeVisualElement.displayItem.id);
       MouseActionState.get().action = MouseAction.ResizingListPageColumn;
@@ -212,7 +213,6 @@ function mouseAction_resizingListPageColumn(_deltaPx: Vector, _store: StoreConte
 function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   const startPx = MouseActionState.get().startDockWidthPx!;
   let newDockWidthPx = Math.round((startPx + deltaPx.x) / NATURAL_BLOCK_SIZE_PX.w) * NATURAL_BLOCK_SIZE_PX.w;
-  if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
   store.setDockWidthPx(newDockWidthPx);
   arrange(store);

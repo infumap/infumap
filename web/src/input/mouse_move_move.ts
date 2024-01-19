@@ -284,7 +284,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);
-  itemPosInPagePx.x -= store.getDockWidthPx();
+  itemPosInPagePx.x -= store.getCurrentDockWidthPx();
   const tableParentPage = asPageItem(tableParentVe.displayItem);
   const itemPosInPageGr = {
     x: itemPosInPagePx.x / tableParentVe!.viewportBoundsPx!.w * tableParentPage.innerSpatialWidthGr,

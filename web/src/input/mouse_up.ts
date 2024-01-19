@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { asContainerItem } from "../items/base/container-item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -93,6 +93,12 @@ export function mouseUpHandler(store: StoreContextModel) {
       break;
 
     case MouseAction.ResizingDock:
+      if (store.getCurrentDockWidthPx() == 0) {
+        store.dockVisible.set(false);
+        store.setDockWidthPx(MouseActionState.get().startWidthBl! * NATURAL_BLOCK_SIZE_PX.w);
+      } else {
+        store.dockVisible.set(true);
+      }
       break;
 
     case MouseAction.ResizingListPageColumn:
