@@ -36,7 +36,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
 
   const tableId = props.tableItem.id;
   const table = () => props.tableItem;
-  let colCountSignal: NumberSignal = createNumberSignal(table().tableColumns.length);
+  let colCountSignal: NumberSignal = createNumberSignal(table().numberOfVisibleColumns);
 
   let deleted = false;
 
@@ -53,28 +53,35 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
     arrange(store);
   }
 
-  const addCol = () => {
-    if (table().tableColumns.length > 9) { return; }
-    table().tableColumns.push({ name: `col ${table().tableColumns.length}`, widthGr: 120 });
+  const showCol = () => {
+    if (table().numberOfVisibleColumns > 9) { return; }
+    if (table().numberOfVisibleColumns < table().tableColumns.length) {
+      table().numberOfVisibleColumns += 1;
+    } else {
+      table().tableColumns.push({ name: `col ${table().tableColumns.length}`, widthGr: 120 });
+      table().numberOfVisibleColumns += 1;
+    }
     colCountSignal.set(colCountSignal.get() + 1);
     arrange(store);
   }
 
-  const deleteCol = () => {
-    if (table().tableColumns.length == 1) { return; }
-    table().tableColumns.pop();
+  const hideCol = () => {
+    if (table().numberOfVisibleColumns == 1) { return; }
+    table().numberOfVisibleColumns -= 1;
     colCountSignal.set(colCountSignal.get() - 1);
     arrange(store);
   }
 
   const newCol = () => {
     TableFns.insertEmptyColAt(table().id, colCountSignal.get()-1);
+    table().numberOfVisibleColumns += 1;
     arrange(store);
   }
 
-  const removeCol = () => {
+  const deleteCol = () => {
     if (colCountSignal.get() == 1) { return; }
     TableFns.removeColItemsAt(table().id, colCountSignal.get()-2);
+    table().numberOfVisibleColumns -= 1;
     arrange(store);
   }
 
@@ -109,10 +116,10 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
     <div>
       <div class="text-slate-800 text-sm">Title <InfuTextInput value={props.tableItem.title} onInput={handleTitleInput} focus={true} /></div>
       <div>
-        <InfuButton text="show another col" onClick={addCol} />
-        <InfuButton text="hide last col" onClick={deleteCol} />
+        <InfuButton text="show another col" onClick={showCol} />
+        <InfuButton text="hide last col" onClick={hideCol} />
         <InfuButton text="new empty col here" onClick={newCol} />
-        <InfuButton text="remove last col" onClick={removeCol} />
+        <InfuButton text="remove last col" onClick={deleteCol} />
         <div>num cols: {colCountSignal!.get()}</div>
       </div>
       <div>

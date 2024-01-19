@@ -75,7 +75,6 @@ impl Clone for RelationshipToParent {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ArrangeAlgorithm {
   SpatialStretch,
-  // SpatialFit,
   Grid,
   Justified,
   List,
@@ -88,7 +87,6 @@ impl ArrangeAlgorithm {
   pub fn as_str(&self) -> &'static str {
     match self {
       ArrangeAlgorithm::SpatialStretch => "spatial-stretch",
-      // ArrangeAlgorithm::SpatialFit => "spatial-fit",
       ArrangeAlgorithm::Grid => "grid",
       ArrangeAlgorithm::Justified => "justified",
       ArrangeAlgorithm::List => "list",
@@ -101,7 +99,6 @@ impl ArrangeAlgorithm {
   pub fn from_str(s: &str) -> InfuResult<ArrangeAlgorithm> {
     match s {
       "spatial-stretch" => Ok(ArrangeAlgorithm::SpatialStretch),
-      // "spatial-fit" => Ok(ArrangeAlgorithm::SpatialFit),
       "grid" => Ok(ArrangeAlgorithm::Grid),
       "justified" => Ok(ArrangeAlgorithm::Justified),
       "list" => Ok(ArrangeAlgorithm::List),
@@ -288,7 +285,7 @@ pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page
 }
 
-const ALL_JSON_FIELDS: [&'static str; 38] = ["__recordType",
+const ALL_JSON_FIELDS: [&'static str; 39] = ["__recordType",
   "itemType", "ownerId", "id", "parentId", "relationshipToParent",
   "creationDate", "lastModifiedDate", "ordering", "title",
   "spatialPositionGr", "spatialWidthGr", "innerSpatialWidthGr",
@@ -298,7 +295,7 @@ const ALL_JSON_FIELDS: [&'static str; 38] = ["__recordType",
   "thumbnail", "mimeType", "fileSizeBytes", "rating", "tableColumns",
   "linkTo", "gridNumberOfColumns", "orderChildrenBy", "text",
   "flags", "permissionFlags", "format", "docWidthBl",
-  "gridCellAspect", "justifiedRowAspect"];
+  "gridCellAspect", "justifiedRowAspect", "numberOfVisibleColumns"];
 
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -372,6 +369,7 @@ pub struct Item {
 
   // table
   pub table_columns: Option<Vec<TableColumn>>,
+  pub number_of_visible_columns: Option<i64>,
 
   // image
   pub image_size_px: Option<Dimensions<i64>>,
@@ -423,6 +421,7 @@ impl Clone for Item {
       url: self.url.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
+      number_of_visible_columns: self.number_of_visible_columns.clone(),
       image_size_px: self.image_size_px.clone(),
       thumbnail: self.thumbnail.clone(),
       rating: self.rating.clone(),
@@ -468,6 +467,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     url: None,
     format: None,
     table_columns: None,
+    number_of_visible_columns: None,
     image_size_px: None,
     thumbnail: None,
     rating: None,
@@ -513,6 +513,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     url: None,
     format: None,
     table_columns: None,
+    number_of_visible_columns: None,
     image_size_px: None,
     thumbnail: None,
     rating: None,
@@ -558,6 +559,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     url: None,
     format: None,
     table_columns: None,
+    number_of_visible_columns: None,
     image_size_px: None,
     thumbnail: None,
     rating: None,
@@ -803,6 +805,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("tableColumns"), json::table_columns_to_array(&new_table_columns));
       }
     }
+    if let Some(new_number_of_visible_columns) = new.number_of_visible_columns {
+      if match old.number_of_visible_columns { Some(o) => o != new_number_of_visible_columns, None => { true } } {
+        if old.item_type != ItemType::Table { cannot_modify_err("numberOfVisibleColumns", &old.id)?; }
+        result.insert(String::from("numberOfVisibleColumns"), Value::Number(new_number_of_visible_columns.into()));
+      }
+    }
 
     // image
     if let Some(new_image_size_px) = &new.image_size_px {
@@ -998,6 +1006,10 @@ impl JsonLogSerializable<Item> for Item {
       if self.item_type != ItemType::Table { not_applicable_err("tableColumns", self.item_type, &self.id)?; }
       self.table_columns = Some(v);
     }
+    if let Some(v) = json::get_integer_field(map, "numberOfVisibleColumns")? {
+      if self.item_type != ItemType::Table { not_applicable_err("numberOfVisibleColumns", self.item_type, &self.id)?; }
+      self.number_of_visible_columns = Some(v);
+    }
 
     // image
     if let Some(v) = json::get_dimensions_field(map, "imageSizePx")? {
@@ -1179,6 +1191,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(table_columns) = &item.table_columns {
     if item.item_type != ItemType::Table { unexpected_field_err("tableColumns", &item.id, item.item_type)? }
     result.insert(String::from("tableColumns"), json::table_columns_to_array(table_columns));
+  }
+  if let Some(number_of_visible_columns) = item.number_of_visible_columns {
+    if item.item_type != ItemType::Table { unexpected_field_err("numberOfVisibleColumns", &item.id, item.item_type)? }
+    result.insert(String::from("numberOfVisibleColumns"), Value::Number(number_of_visible_columns.into()));
   }
 
   // image
@@ -1387,6 +1403,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     table_columns: match json::get_table_columns_field(map, "tableColumns")? {
       Some(v) => { if item_type == ItemType::Table { Ok(Some(v)) } else { Err(not_applicable_err("tableColumns", item_type, &id)) } }
       None => { if item_type == ItemType::Table { Err(expected_for_err("tableColumns", item_type, &id)) } else { Ok(None) } }
+    }?,
+    number_of_visible_columns: match json::get_integer_field(map, "numberOfVisibleColumns")? {
+      Some(v) => { if item_type == ItemType::Table { Ok(Some(v)) } else { Err(not_applicable_err("numberOfVisibleColumns", item_type, &id)) } },
+      None => { if item_type == ItemType::Table { Err(expected_for_err("numberOfVisibleColumns", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // image

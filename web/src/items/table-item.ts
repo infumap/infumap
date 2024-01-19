@@ -45,6 +45,7 @@ export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, 
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin {
   tableColumns: Array<TableColumn>;
+  numberOfVisibleColumns: number;
 }
 
 export interface TableColumn {
@@ -76,6 +77,7 @@ export const TableFns = {
         name: "Title",
         widthGr: 8 * GRID_SIZE,
       }],
+      numberOfVisibleColumns: 1,
 
       flags: TableFlags.None,
 
@@ -108,6 +110,8 @@ export const TableFns = {
       spatialHeightGr: o.spatialHeightGr,
 
       tableColumns: o.tableColumns,
+      numberOfVisibleColumns: o.numberOfVisibleColumns,
+
       flags: o.flags,
 
       orderChildrenBy: o.orderChildrenBy,
@@ -136,6 +140,8 @@ export const TableFns = {
       spatialHeightGr: t.spatialHeightGr,
 
       tableColumns: t.tableColumns,
+      numberOfVisibleColumns: t.numberOfVisibleColumns,
+
       flags: t.flags,
 
       orderChildrenBy: t.orderChildrenBy,
@@ -253,6 +259,7 @@ export const TableFns = {
       spatialWidthGr: table.spatialWidthGr,
       spatialHeightGr: table.spatialHeightGr,
       tableColumns: table.tableColumns,
+      numberOfVisibleColumns: table.numberOfVisibleColumns,
       flags: table.flags,
     });
   },
@@ -264,13 +271,19 @@ export const TableFns = {
   getFingerprint: (tableItem: TableItem): string => {
     let tableColText = "";
     for (let i=0; i<tableItem.tableColumns.length; ++i) { tableColText += tableItem.tableColumns[i].name + "!$!!@"; }
-    return tableItem.title + "~~~!@#~~~" + tableItem.flags + "~~~%@#~~~" + tableColText;
+    return tableItem.title + "~~~!@#~~~" + tableItem.flags + "~~~%@#~~~" + tableColText + "~~~%^&~~~" + tableItem.numberOfVisibleColumns;
   },
 
+  /**
+   * Determine the block width of the column specified by index.
+   * This may be wider than the tableColumn specification, if it's the last one.
+   */
   columnWidthBl: (tableItem: TableItem, index: number): number => {
-    if (index == tableItem.tableColumns.length - 1) {
+    let colLen = tableItem.tableColumns.length;
+    if (colLen > tableItem.numberOfVisibleColumns) { colLen = tableItem.numberOfVisibleColumns; }
+    if (index >= colLen - 1) {
       let accumBl = 0;
-      for (let i=0; i<tableItem.tableColumns.length - 1; ++i) {
+      for (let i=0; i<colLen - 1; ++i) {
         accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
       }
       let result = tableItem.spatialWidthGr / GRID_SIZE - accumBl;
@@ -280,6 +293,10 @@ export const TableFns = {
     return tableItem.tableColumns[index].widthGr / GRID_SIZE;
   },
 
+  /**
+   * Given a desktop position desktopPx and table visual element, determine the table cell under desktopPx.
+   * This may or not have an existing associated item.
+   */
   tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number} {
     const tableItem = asTableItem(tableVe.displayItem);
     const tableDimensionsBl: Dimensions = {
@@ -289,11 +306,13 @@ export const TableFns = {
     const tableBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableVe);
 
     // col
+    let colLen = tableItem.tableColumns.length;
+    if (colLen > tableItem.numberOfVisibleColumns) { colLen = tableItem.numberOfVisibleColumns; }
     const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
     const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
     let accumBl = 0;
-    let colNumber = tableItem.tableColumns.length - 1;
-    for (let i=0; i<tableItem.tableColumns.length; ++i) {
+    let colNumber = colLen - 1;
+    for (let i=0; i<colLen; ++i) {
       accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
       if (accumBl >= tableDimensionsBl.w) {
         colNumber = i;
@@ -363,6 +382,9 @@ export function asTableItem(item: ItemTypeMixin): TableItem {
 
 
 function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, blockSizePx: Dimensions, emitHitboxes: boolean): ItemGeometry {
+  let colLen = table.tableColumns.length;
+  if (colLen > table.numberOfVisibleColumns) { colLen = table.numberOfVisibleColumns; }
+
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   const titleBoundsPx = {
     x: 0, y: 0,
@@ -373,7 +395,7 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
   let accumBl = 0;
   let colResizeHitboxes = [];
   let colClickHitboxes = [];
-  for (let i=0; i<table.tableColumns.length; ++i) {
+  for (let i=0; i<colLen; ++i) {
     const startBl = accumBl;
     const startXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
     accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
@@ -383,11 +405,11 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
       endXPx = innerBoundsPx.w;
       endBl = table.spatialWidthGr / GRID_SIZE;
     }
-    if (i == table.tableColumns.length-1) {
+    if (i == colLen-1) {
       endXPx = innerBoundsPx.w;
       endBl = endBl = table.spatialWidthGr / GRID_SIZE;
     }
-    if (accumBl < table.spatialWidthGr / GRID_SIZE && i < table.tableColumns.length-1) {
+    if (accumBl < table.spatialWidthGr / GRID_SIZE && i < colLen-1) {
       colResizeHitboxes.push(HitboxFns.create(
         HitboxFlags.HorizontalResize,
         { x: endXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: boundsPx.h - TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h },

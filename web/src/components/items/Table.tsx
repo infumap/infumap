@@ -87,14 +87,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const columnSpecs = () => {
     const specsBl = [];
     let accumBl = 0;
-    for (let i=0; i<tableItem().tableColumns.length; ++i) {
+    for (let i=0; i<tableItem().numberOfVisibleColumns; ++i) {
       let tc = tableItem().tableColumns[i];
       const prevAccumBl = accumBl;
       accumBl += tc.widthGr / GRID_SIZE;
       if (accumBl >= spatialWidthGr() / GRID_SIZE) {
         break;
       }
-      specsBl.push({ prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().tableColumns.length-1 });
+      specsBl.push({ prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().numberOfVisibleColumns-1 });
     }
     return specsBl.map(s => ({
       startPosPx: s.prevAccumBl * blockSizePx().w,

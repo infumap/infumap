@@ -80,7 +80,7 @@ export const arrangeTable = (
       initiateLoadChildItemsMaybe(store, childVeid);
     }
 
-    let widthBl = displayItem_Table.tableColumns.length == 1
+    let widthBl = displayItem_Table.numberOfVisibleColumns == 1
       ? sizeBl.w
       : Math.min(displayItem_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
@@ -106,9 +106,9 @@ export const arrangeTable = (
       let leftBl = displayItem_Table.tableColumns[0].widthGr / GRID_SIZE;
       let i=0;
       for (; i<attachmentsItem.computed_attachments.length; ++i) {
-        if (i >= displayItem_Table.tableColumns.length-1) { break; }
+        if (i >= displayItem_Table.numberOfVisibleColumns-1) { break; }
         if (leftBl >= displayItem_Table.spatialWidthGr / GRID_SIZE) { break; }
-        let widthBl = i == displayItem_Table.tableColumns.length - 2
+        let widthBl = i == displayItem_Table.numberOfVisibleColumns - 2
           ? sizeBl.w - leftBl
           : displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
 
