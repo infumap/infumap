@@ -152,7 +152,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Show when={store.dockVisible.get()}>
           <div class={`absolute border-r`}
                style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                      `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
+                      `background-color: #ffffff; ` +
                       `border-color: ${LIGHT_BORDER_COLOR}; `}>
             <For each={props.visualElement.childrenVes}>{childVe =>
               <VisualElement_Desktop visualElement={childVe.get()} />
@@ -175,7 +175,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
 
     return (
-      <div class={`absolute rounded-sm shadow-lg align-middle text-center`}
+      <div class={`absolute rounded-sm align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
                   `font-size: ${trashFontSizePx()}px;`}>

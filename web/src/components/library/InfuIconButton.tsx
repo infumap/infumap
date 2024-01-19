@@ -48,15 +48,15 @@ export function InfuIconButton(props: { icon: string; highlighted: boolean; clic
 
   const divClass = () => {
     if (props.highlighted) {
-      return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] bg-slate-300 hover:bg-slate-400 relative";
+      return "hover:border font-bold rounded w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] bg-slate-300 hover:bg-slate-400 relative";
     }
-    return "hover:border font-bold rounded w-[22px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-300 relative";
+    return "hover:border font-bold rounded w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-300 relative";
   }
 
   return (
     <div ref={outerDivElement} class={divClass()}>
       <Show when={props.icon == "expression"}>
-        <span class="w-[22px] h-[16px] inline-block text-center relative">∑</span>
+        <span class="w-[21px] h-[16px] inline-block text-center relative">∑</span>
       </Show>
       <Show when={props.icon != "expression"}>
         <i class={`${icon()}`} />

@@ -33,7 +33,7 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
 import { arrange } from '../../layout/arrange';
-import { Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
+import { NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
 import { EditPageTitleOverlayInfo } from '../../store/StoreProvider_Overlay';
 import { Toolbar_Expression } from './Toolbar_Expression';
 import { isNote } from '../../items/note-item';
@@ -131,12 +131,16 @@ export const Toolbar: Component = () => {
                 style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
                        `border-color: ${LIGHT_BORDER_COLOR}; `}>
               <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
-                <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0;">
-                  <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
-                </div>
+                <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
+                  <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
+                    <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
+                  </div>
+                </Show>
                 <div class="inline-block" style="flex-grow: 1;" />
                 <div class="inline-block" style="flex-grow: 0; margin-right: 8px;">
+                  <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w * 2}>
                   <Toolbar_Navigation />
+                  </Show>
                 </div>
               </div>
             </div>

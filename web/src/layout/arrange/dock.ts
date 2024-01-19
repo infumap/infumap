@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -87,7 +87,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       yCurrentPx += geometry.boundsPx.h + GAP_PX;
     }
 
-    if (dockWidthPx > 25) {
+    if (dockWidthPx > NATURAL_BLOCK_SIZE_PX.w * 2 + 1) {
       const ves = arrangeItem(
         store, dockPath, ArrangeAlgorithm.Dock, childItem, actualLinkItemMaybe, geometry,
         ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
