@@ -137,6 +137,20 @@ https://www.digitalocean.com/community/tutorials/how-to-set-up-a-firewall-with-u
  - need to get out of docker using actual ip address
 
 
+### Development
+
+To serve a debug build, which has the advantage of exposing good error messages:
+
+copy `vite.config.ts` to `vite.config.dev.ts` and update the targets in it to `<docker_bridge_address>`.
+
+update `Caddyfile` (in root's ~) to point to port 3000, not 8000.
+
+in a separate tmux session:
+
+```
+node ./node_modules/vite/bin/vite.js --config ./vite.config.dev.ts --host <docker_bridge_address>
+```
+
 ### TODO ...
 
 
