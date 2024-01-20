@@ -163,7 +163,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class={`absolute`}
                style={`left: ${5}px; top: ${boundsPx().h - 30}px; z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
                onmousedown={showDock}>
-            <i class="fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs text-slate-400" />
+            <i class={`fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-slate-400'}`} />
           </div>
         </Show>
       </>);

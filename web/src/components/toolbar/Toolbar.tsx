@@ -222,7 +222,7 @@ export const Toolbar: Component = () => {
         <div class="absolute"
              style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
                     `right: 6px; top: -3px;`} onmousedown={showToolbar}>
-          <i class="fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs text-slate-400" />
+          <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
         </div>
       </Show>
     </>
