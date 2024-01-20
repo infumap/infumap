@@ -1,6 +1,6 @@
 # Infumap
 
-The computer desktop reimagined.
+"Grand Unified Theory of the Computer Desktop"
 
 Infumap provides a powerful collection of graphical building blocks for creating, organizing, and working with all types of information.
 
