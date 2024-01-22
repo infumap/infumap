@@ -33,6 +33,7 @@ import { newItemInContext } from "./create";
 import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditOverlay";
 import { pageEditOverlay_keyDownListener } from "../components/overlay/PageEditOverlay";
 import { isLink } from "../items/link-item";
+import { VesCache } from "../layout/ves-cache";
 
 
 const recognizedKeys = [
@@ -117,8 +118,11 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           const direction = findDirectionFromKeyCode(ev.code);
           const closest = findClosest(store.history.getParentPageFocusPath()!, direction, false, true)!;
           if (closest) {
-            store.history.changeParentPageFocusPath(closest);
-            switchToPage(store, VeFns.veidFromPath(closest), true, false, true);
+            const closestVe = VesCache.getVirtual(closest)!;
+            if (isPage(closestVe.get().displayItem)) {
+              store.history.changeParentPageFocusPath(closest);
+              switchToPage(store, VeFns.veidFromPath(closest), true, false, true);
+            }
           }
         }
         return;
