@@ -78,8 +78,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.touchToolbar();
   }
 
-  function isInItemOptionsToolbox() {
+  function isInItemOptionsToolbox(): boolean {
     const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
+    if (!toolboxDiv) { return false; }
     const bounds = toolboxDiv.getBoundingClientRect();
     const boundsPx = { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height };
     return isInside(CursorEventState.getLatestClientPx(), boundsPx);
