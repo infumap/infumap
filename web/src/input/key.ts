@@ -146,6 +146,17 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   }
 
   else if (ev.code == "Enter") {
+    if (ev.metaKey) {
+      if (!store.dockVisible.get() && !store.topToolbarVisible.get()) {
+        store.dockVisible.set(true);
+        store.topToolbarVisible.set(true);
+      } else {
+        store.dockVisible.set(false);
+        store.topToolbarVisible.set(false);
+      }
+      arrange(store);
+      return;
+    }
     const spec = store.history.currentPopupSpec();
     if (spec && spec.type == PopupType.Page) {
       switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, false);
