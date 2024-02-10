@@ -47,7 +47,7 @@ export const Toolbar_Link: Component = () => {
   onCleanup(() => {
     linkItemOnMount.linkTo = linkResourceInput!.value;
     arrange(store);
-    server.updateItem(store.history.getFocusItem());
+    server.updateItem(linkItemOnMount);
   });
 
   const keyEventHandler = (_ev: KeyboardEvent) => { }
