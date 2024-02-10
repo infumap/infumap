@@ -167,9 +167,12 @@ export const LinkFns = {
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
     const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
-    result.hitboxes.push(
-      HitboxFns.create(HitboxFlags.LinkSettings, { x: 0, y: 0, w: 4, h: 4 })
-    )
+    let insertPos = result.hitboxes.length;
+    if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length-1].type == HitboxFlags.Resize) {
+      insertPos = result.hitboxes.length - 1;
+    }
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.LinkSettings, { x: 0, y: 0, w: 4, h: 4 }))
+
     return result;
   },
 
