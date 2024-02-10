@@ -68,7 +68,7 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
           // baseUrl may not be the base URL of the infumap instance because identifiers
           // in the form {user}/{id} are allowed. however, the server responds to all
           // urls that end in /command (restricted to the user, if specified, else not).
-          const id = linkItemMaybe.linkTo.substring(lastIdx);
+          const id = linkItemMaybe.linkTo.substring(lastIdx + 1);
           initiateLoadItemFromRemoteMaybe(store, id, baseUrl, linkItemMaybe.id);
         }
       }
