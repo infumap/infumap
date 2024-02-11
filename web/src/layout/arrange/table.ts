@@ -107,7 +107,7 @@ export const arrangeTable = (
       let i=0;
       for (; i<attachmentsItem.computed_attachments.length; ++i) {
         if (i >= displayItem_Table.numberOfVisibleColumns-1) { break; }
-        if (leftBl >= displayItem_Table.spatialWidthGr / GRID_SIZE) { break; }
+        if (leftBl >= sizeBl.w) { break; }
         let widthBl = i == displayItem_Table.numberOfVisibleColumns - 2
           ? sizeBl.w - leftBl
           : displayItem_Table.tableColumns[i+1].widthGr / GRID_SIZE;
