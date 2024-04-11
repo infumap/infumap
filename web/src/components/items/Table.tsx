@@ -21,12 +21,13 @@ import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, TABLE_COL_HEADER_HEIGHT
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VisualElementSignal } from "../../util/signals";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -264,6 +265,14 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
 export const Table_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const tableItem = () => asTableItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
+  const highlightBoundsPx = () => {
+    if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child) {
+      let r = cloneBoundingBox(boundsPx())!;
+      r.w = props.visualElement.tableBoundsPx!.w;
+      return r;
+    }
+    return boundsPx();
+  }
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
 
@@ -271,7 +280,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"

@@ -26,6 +26,8 @@ import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { cloneBoundingBox } from "../../util/geometry";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -103,6 +105,14 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 export const Expression_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
+  const highlightBoundsPx = () => {
+    if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child) {
+      let r = cloneBoundingBox(boundsPx())!;
+      r.w = props.visualElement.tableBoundsPx!.w;
+      return r;
+    }
+    return boundsPx();
+  }
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
@@ -116,7 +126,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-            style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+            style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
