@@ -140,6 +140,11 @@ export interface VisualElement {
   childAreaBoundsPx: BoundingBox | null,
 
   /**
+   * The bounds of the table the element is inside, if it's inside a table.
+   */
+  tableBoundsPx: BoundingBox | null,
+
+  /**
    * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
   blockSizePx: Dimensions | null,
@@ -198,6 +203,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
+  tableBoundsPx: null,
   viewportBoundsPx: null,
   blockSizePx: null,
   col: null,
@@ -240,6 +246,7 @@ export interface VisualElementSpec {
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   viewportBoundsPx?: BoundingBox,
+  tableBoundsPx?: BoundingBox,
   blockSizePx?: Dimensions,
   col?: number,
   row?: number,
@@ -270,6 +277,7 @@ export const VeFns = {
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
       viewportBoundsPx: null,
+      tableBoundsPx: null,
       blockSizePx: null,
       col: null,
       row: null,
@@ -305,6 +313,7 @@ export const VeFns = {
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
     if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
+    if (typeof(override.tableBoundsPx) != 'undefined') { result.tableBoundsPx = override.tableBoundsPx; }
     if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }
