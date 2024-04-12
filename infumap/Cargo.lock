@@ -901,6 +901,7 @@ dependencies = [
  "http-body-util",
  "hyper 1.0.0-rc.3",
  "image",
+ "infusdk",
  "kamadak-exif",
  "log",
  "mime_guess",
@@ -915,6 +916,14 @@ dependencies = [
  "sha2",
  "tokio",
  "totp-rs",
+ "uuid",
+]
+
+[[package]]
+name = "infusdk"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "uuid",
 ]
 

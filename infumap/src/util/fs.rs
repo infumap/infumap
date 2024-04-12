@@ -15,10 +15,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::{Path, PathBuf};
+use infusdk::util::uid::uid_chars;
 use log::warn;
 use tokio::fs;
 
-use super::{infu::InfuResult, uid::uid_chars};
+use super::infu::InfuResult;
 
 pub async fn path_exists(path: &PathBuf) -> bool {
   tokio::fs::metadata(path).await.is_ok()

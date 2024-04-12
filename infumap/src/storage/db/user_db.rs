@@ -16,13 +16,13 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use infusdk::util::uid::{is_uid, Uid};
 use log::{warn, debug};
 use tokio::fs::File;
 use tokio::io::{BufReader, AsyncReadExt};
 
 use crate::util::fs::expand_tilde;
 use crate::util::infu::InfuResult;
-use crate::util::uid::{Uid, is_uid};
 use super::user::User;
 use super::kv_store::{KVStore, JsonLogSerializable};
 

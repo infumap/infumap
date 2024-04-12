@@ -18,13 +18,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use infusdk::util::uid::Uid;
 use log::debug;
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
 
 use crate::storage::db::item_db::ItemAndUserId;
 use crate::util::infu::InfuResult;
-use crate::util::uid::Uid;
 
 use super::object::IndividualObjectStore;
 

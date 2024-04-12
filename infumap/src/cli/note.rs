@@ -15,14 +15,15 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::{App, Arg, ArgMatches};
+use infusdk::util::geometry::GRID_SIZE;
+use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
 
 use crate::storage::db::item::ItemType;
-use crate::util::geometry::GRID_SIZE;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
-use crate::{util::{infu::InfuResult, uid::is_uid}, cli::NamedInfuSession};
+use crate::{util::infu::InfuResult, cli::NamedInfuSession};
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {

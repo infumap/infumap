@@ -34,3 +34,5 @@ sha2 = "0.10.6"
 tokio = { version = "1.25.0", features = ["full"] }
 totp-rs = { version = "4.1.0", features = ["qr", "otpauth"] }
 uuid = { version = "1.2.1", features = ["v4"] }
+
+infusdk = { path = "../infusdk/" }

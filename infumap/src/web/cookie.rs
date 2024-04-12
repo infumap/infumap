@@ -16,10 +16,9 @@
 
 use hyper::header::COOKIE;
 use hyper::Request;
+use infusdk::util::uid::Uid;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
-
-use crate::util::uid::Uid;
 
 
 pub const SESSION_COOKIE_NAME: &'static str = "infusession";

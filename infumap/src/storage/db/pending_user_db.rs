@@ -17,12 +17,12 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 
+use infusdk::util::uid::Uid;
 use serde_json::{Map, Value};
 
 use crate::util::fs::expand_tilde;
 use crate::util::infu::InfuResult;
 use crate::util::json;
-use crate::util::uid::Uid;
 use super::kv_store::KVStore;
 use super::user::User;
 use super::kv_store::JsonLogSerializable;

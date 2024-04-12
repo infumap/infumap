@@ -17,6 +17,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
+use infusdk::util::uid::Uid;
 use tokio::fs::{File, OpenOptions};
 
 use serde::ser::SerializeStruct;
@@ -27,7 +28,6 @@ use tokio::io::{BufWriter, BufReader, AsyncBufReadExt};
 use tokio::io::AsyncWriteExt;
 
 use crate::util::infu::{InfuError, InfuResult};
-use crate::util::uid::Uid;
 
 
 pub trait JsonLogSerializable<T> {
