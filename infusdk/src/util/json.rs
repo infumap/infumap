@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use infusdk::util::{geometry::{Dimensions, Vector}, infu::InfuResult};
 use serde_json::{Map, Value};
-use crate::storage::db::item::TableColumn;
+
+use crate::item::TableColumn;
+
+use super::{geometry::{Dimensions, Vector}, infu::InfuResult};
 
 
 pub fn get_string_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<String>> {

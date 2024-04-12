@@ -17,13 +17,13 @@
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use std::collections::HashMap;
+use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{is_uid, new_uid, Uid};
 use log::{warn, info};
 
 use crate::util::fs::{expand_tilde, path_exists};
 use super::session::Session;
-use super::kv_store::KVStore;
 
 pub const CURRENT_SESSIONS_LOG_VERSION: i64 = 1;
 

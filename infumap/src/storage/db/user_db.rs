@@ -16,6 +16,8 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use infusdk::db::kv_store::KVStore;
+use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{is_uid, Uid};
 use log::{warn, debug};
@@ -24,7 +26,6 @@ use tokio::io::{BufReader, AsyncReadExt};
 
 use crate::util::fs::expand_tilde;
 use super::user::User;
-use super::kv_store::{KVStore, JsonLogSerializable};
 
 pub const CURRENT_USER_LOG_VERSION: i64 = 4;
 

@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod crypto;
-pub mod fs;
-pub mod image;
-pub mod lang;
-pub mod ordering;
-pub mod str;
+use serde_json::{Map, Value};
+
+use crate::util::infu::InfuResult;
+
+pub trait WebApiJsonSerializable<T> {
+  fn to_api_json(&self) -> InfuResult<Map<String, Value>>;
+  fn from_api_json(map: &Map<String, Value>) -> InfuResult<T>;
+}

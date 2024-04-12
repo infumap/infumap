@@ -17,8 +17,8 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
-use infusdk::util::infu::{InfuError, InfuResult};
-use infusdk::util::uid::Uid;
+use crate::util::infu::{InfuError, InfuResult};
+use crate::util::uid::Uid;
 use tokio::fs::{File, OpenOptions};
 
 use serde::ser::SerializeStruct;

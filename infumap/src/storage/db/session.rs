@@ -14,11 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use infusdk::util::{infu::InfuResult, uid::Uid};
+use infusdk::{db::kv_store::JsonLogSerializable, util::{infu::InfuResult, json, uid::Uid}};
 use serde_json::{Map, Value};
-
-use crate::util::json;
-use super::kv_store::JsonLogSerializable;
 
 
 const ALL_JSON_FIELDS: [&'static str; 5] = ["__recordType", "id", "userId", "expires", "username"];

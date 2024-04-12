@@ -31,10 +31,10 @@ use totp_rs::{Algorithm, TOTP, Secret};
 use uuid::Uuid;
 
 use crate::storage::db::Db;
-use crate::storage::db::item::{default_home_page, default_trash_page, default_dock_page};
 use crate::storage::db::user::{User, ROOT_USER_NAME};
 use crate::util::crypto::generate_key;
 use crate::web::cookie::get_session_cookie_maybe;
+use crate::web::routes::{default_dock_page, default_home_page, default_trash_page};
 use crate::web::serve::{json_response, not_found_response, incoming_json};
 use crate::web::session::get_and_validate_session;
 

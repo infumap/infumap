@@ -16,4 +16,5 @@
 
 pub mod geometry;
 pub mod infu;
+pub mod json;
 pub mod uid;

@@ -19,12 +19,12 @@ use std::sync::Arc;
 
 use clap::{App, Arg, ArgMatches};
 use config::Config;
+use infusdk::item::is_data_item_type;
 use infusdk::util::infu::InfuResult;
 
 use crate::config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE};
 use crate::setup::get_config;
 use crate::storage::db::Db;
-use crate::storage::db::item::is_data_item_type;
 use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::file as storage_file;
 use crate::storage::object::IndividualObjectStore;

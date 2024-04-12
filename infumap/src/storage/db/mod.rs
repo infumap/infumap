@@ -29,9 +29,7 @@ pub mod user_db;
 pub mod pending_user_db;
 pub mod session;
 pub mod session_db;
-pub mod item;
 pub mod item_db;
-pub mod kv_store;
 
 
 pub struct Db {

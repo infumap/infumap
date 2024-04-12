@@ -14,9 +14,4 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod crypto;
-pub mod fs;
-pub mod image;
-pub mod lang;
-pub mod ordering;
-pub mod str;
+pub mod kv_store;
