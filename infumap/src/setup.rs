@@ -16,10 +16,10 @@
 
 use std::os::unix::prelude::FileExt;
 use config::{Config, FileFormat};
+use infusdk::util::infu::InfuResult;
 use log::{info, warn};
 use crate::{config::*, init_logger};
 use crate::util::crypto::generate_key;
-use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
 
@@ -36,7 +36,7 @@ pub async fn get_config(settings_path_maybe: Option<String>) -> InfuResult<Confi
     None => {
       let env_only_config = match Config::builder()
         .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
-        .set_default(CONFIG_ENV_ONLY, false)?
+        .set_default(CONFIG_ENV_ONLY, false).map_err(|e| e.to_string())?
         .build() {
           Ok(c) => c,
           Err(e) => {
@@ -44,7 +44,7 @@ pub async fn get_config(settings_path_maybe: Option<String>) -> InfuResult<Confi
           }
         };
 
-      if env_only_config.get_bool(CONFIG_ENV_ONLY)? {
+      if env_only_config.get_bool(CONFIG_ENV_ONLY).map_err(|e| e.to_string())? {
         None
 
       } else {
@@ -95,7 +95,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
     None => {
       let env_only_config = match Config::builder()
         .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
-        .set_default(CONFIG_ENV_ONLY, false)?
+        .set_default(CONFIG_ENV_ONLY, false).map_err(|e| e.to_string())?
         .build() {
           Ok(c) => c,
           Err(e) => {
@@ -103,7 +103,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
           }
         };
 
-      if env_only_config.get_bool(CONFIG_ENV_ONLY)? {
+      if env_only_config.get_bool(CONFIG_ENV_ONLY).map_err(|e| e.to_string())? {
         None
 
       } else {
@@ -187,24 +187,24 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
   };
 
   let config = build_config(settings_path_maybe)?;
-  init_logger(Some(config.get_string(CONFIG_LOG_LEVEL)?.to_owned()))?;
+  init_logger(Some(config.get_string(CONFIG_LOG_LEVEL).map_err(|e| e.to_string())?.to_owned()))?;
   for message in info_messages {
     info!("{}", message);
   }
 
-  if !expand_tilde_path_exists(config.get_string(CONFIG_DATA_DIR)?).await {
-    return Err(format!("Data dir '{}' does not exist.", config.get_string(CONFIG_DATA_DIR)?).into());
+  if !expand_tilde_path_exists(config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?).await {
+    return Err(format!("Data dir '{}' does not exist.", config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?).into());
   }
 
-  if !expand_tilde_path_exists(config.get_string(CONFIG_CACHE_DIR)?).await {
-    return Err(format!("Cache dir '{}' does not exist.", config.get_string(CONFIG_CACHE_DIR)?).into());
+  if !expand_tilde_path_exists(config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?).await {
+    return Err(format!("Cache dir '{}' does not exist.", config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?).into());
   }
-  let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR)?).unwrap()).await?;
+  let num_created = ensure_256_subdirs(&expand_tilde(config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?).unwrap()).await?;
   if num_created > 0 {
     warn!("Created {} cache subdirectories.", num_created);
   }
 
-  if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
     match config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY) {
       Err(_) => {
         return Err("Backup encryption key must be set when backup is enabled.".into());
@@ -240,24 +240,24 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
   }
 
   info!("Config:");
-  info!(" {} = {}", CONFIG_LOG_LEVEL, config.get_string(CONFIG_LOG_LEVEL)?);
-  info!(" {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY)?);
-  info!(" {} = '{}'", CONFIG_ADDRESS, config.get_string(CONFIG_ADDRESS)?);
-  info!(" {} = '{}'", CONFIG_PORT, config.get_string(CONFIG_PORT)?);
-  info!(" {} = {}", CONFIG_ENABLE_PROMETHEUS_METRICS, config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)?);
-  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)? {
-    info!("  {} = '{}'", CONFIG_PROMETHEUS_ADDRESS, config.get_string(CONFIG_PROMETHEUS_ADDRESS)?);
-    info!("  {} = '{}'", CONFIG_PROMETHEUS_PORT, config.get_string(CONFIG_PROMETHEUS_PORT)?);
+  info!(" {} = {}", CONFIG_LOG_LEVEL, config.get_string(CONFIG_LOG_LEVEL).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_ENV_ONLY, config.get_bool(CONFIG_ENV_ONLY).map_err(|e| e.to_string())?);
+  info!(" {} = '{}'", CONFIG_ADDRESS, config.get_string(CONFIG_ADDRESS).map_err(|e| e.to_string())?);
+  info!(" {} = '{}'", CONFIG_PORT, config.get_string(CONFIG_PORT).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_ENABLE_PROMETHEUS_METRICS, config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())?);
+  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())? {
+    info!("  {} = '{}'", CONFIG_PROMETHEUS_ADDRESS, config.get_string(CONFIG_PROMETHEUS_ADDRESS).map_err(|e| e.to_string())?);
+    info!("  {} = '{}'", CONFIG_PROMETHEUS_PORT, config.get_string(CONFIG_PROMETHEUS_PORT).map_err(|e| e.to_string())?);
   }
-  info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR)?);
-  info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR)?);
-  info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB)?);
-  info!(" {} = {}", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?);
-  info!(" {} = {}", CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, config.get_int(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT)?);
-  info!(" {} = {}", CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, config.get_int(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT)?);
-  info!(" {} = {}", CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)?);
-  info!(" {} = {}", CONFIG_ENABLE_S3_1_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)?);
-  if config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)? {
+  info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?);
+  info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_CACHE_MAX_MB, config.get_int(CONFIG_CACHE_MAX_MB).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, config.get_int(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, config.get_int(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_ENABLE_S3_1_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE).map_err(|e| e.to_string())?);
+  if config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE).map_err(|e| e.to_string())? {
     match config.get_string(CONFIG_S3_1_REGION) {
       Ok(v) => { info!("  {} = {}", CONFIG_S3_1_REGION, v); },
       Err(_) => { info!("  {} = {}", CONFIG_S3_1_REGION, "<not set>"); }
@@ -279,8 +279,8 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
       Err(_) => { info!("  {} = {}", CONFIG_S3_1_SECRET, "<not set>"); }
     }
   }
-  info!(" {} = {}", CONFIG_ENABLE_S3_2_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)?);
-  if config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)? {
+  info!(" {} = {}", CONFIG_ENABLE_S3_2_OBJECT_STORAGE, config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE).map_err(|e| e.to_string())?);
+  if config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE).map_err(|e| e.to_string())? {
     match config.get_string(CONFIG_S3_2_REGION) {
       Ok(v) => { info!("  {} = {}", CONFIG_S3_2_REGION, v); },
       Err(_) => { info!("  {} = {}", CONFIG_S3_2_REGION, "<not set>"); }
@@ -302,10 +302,10 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
       Err(_) => { info!("  {} = {}", CONFIG_S3_2_SECRET, "<not set>"); }
     }
   }
-  info!(" {} = {}", CONFIG_ENABLE_S3_BACKUP, config.get_bool(CONFIG_ENABLE_S3_BACKUP)?);
-  if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
-    info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)?);
-    info!("  {} = {}", CONFIG_BACKUP_RETENTION_PERIOD_DAYS, config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)?);
+  info!(" {} = {}", CONFIG_ENABLE_S3_BACKUP, config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())?);
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
+    info!("  {} = {}", CONFIG_BACKUP_PERIOD_MINUTES, config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())?);
+    info!("  {} = {}", CONFIG_BACKUP_RETENTION_PERIOD_DAYS, config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())?);
     info!("  {} = {}", CONFIG_BACKUP_ENCRYPTION_KEY, "<redacted>");
     match config.get_string(CONFIG_S3_BACKUP_REGION) {
       Ok(v) => { info!("  {} = {}", CONFIG_S3_BACKUP_REGION, v); },
@@ -343,25 +343,25 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     Config::builder()
   }
     .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
-    .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT)?
-    .set_default(CONFIG_LOG_LEVEL, CONFIG_LOG_LEVEL_DEFAULT)?
-    .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT)?
-    .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)?
-    .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT)?
-    .set_default(CONFIG_PROMETHEUS_ADDRESS, CONFIG_PROMETHEUS_ADDRESS_DEFAULT)?
-    .set_default(CONFIG_PROMETHEUS_PORT, CONFIG_PROMETHEUS_PORT_DEFAULT)?
-    .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)?
-    .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)?
-    .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT)?
-    .set_default(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS_DEFAULT)?
-    .set_default(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT_DEFAULT)?
-    .set_default(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT_DEFAULT)?
-    .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_1_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT)?
-    .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT)?
-    .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT)?
-    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT)?;
+    .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_LOG_LEVEL, CONFIG_LOG_LEVEL_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_PROMETHEUS_ADDRESS, CONFIG_PROMETHEUS_ADDRESS_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_PROMETHEUS_PORT, CONFIG_PROMETHEUS_PORT_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_CACHE_MAX_MB, CONFIG_CACHE_MAX_MB_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_ENABLE_S3_1_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT).map_err(|e| e.to_string())?
+    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT).map_err(|e| e.to_string())?;
 
   let result = match config_builder.build() {
     Ok(c) => c,
@@ -370,7 +370,7 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     }
   };
 
-  if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)? < 0 {
+  if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())? < 0 {
     return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
   }
 

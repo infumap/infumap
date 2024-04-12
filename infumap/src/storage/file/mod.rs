@@ -18,6 +18,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Mutex, Arc};
 use async_trait::async_trait;
+use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{uid_chars, Uid};
 use tokio::fs::{File, OpenOptions, self};
 use tokio::io::AsyncReadExt;
@@ -25,7 +26,6 @@ use tokio::io::AsyncWriteExt;
 
 use log::{info, warn};
 
-use crate::util::infu::InfuResult;
 use crate::util::fs::{expand_tilde, construct_file_subpath, ensure_256_subdirs, path_exists};
 
 use super::db::item_db::ItemAndUserId;

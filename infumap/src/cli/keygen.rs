@@ -15,8 +15,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::{App, ArgMatches};
+use infusdk::util::infu::InfuResult;
 
-use crate::util::{infu::InfuResult, crypto::generate_key};
+use crate::util::crypto::generate_key;
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {

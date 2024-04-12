@@ -17,10 +17,10 @@
 use std::io::{BufRead, Write};
 
 use clap::{App, Arg, ArgMatches};
+use infusdk::util::infu::InfuResult;
 use rpassword::read_password;
 
 use crate::cli::login_url_from_base_url;
-use crate::util::infu::InfuResult;
 use crate::web::cookie::InfuSession;
 use crate::web::routes::account::{LoginRequest, LoginResponse};
 

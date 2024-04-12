@@ -16,6 +16,7 @@
 
 use clap::{App, Arg, ArgMatches};
 use infusdk::util::geometry::GRID_SIZE;
+use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
@@ -23,7 +24,7 @@ use serde_json::Value;
 use crate::storage::db::item::ItemType;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
-use crate::{util::infu::InfuResult, cli::NamedInfuSession};
+use crate::cli::NamedInfuSession;
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {

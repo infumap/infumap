@@ -16,6 +16,7 @@
 
 use std::path::PathBuf;
 
+use infusdk::util::infu::InfuResult;
 use log::debug;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,6 @@ use tokio::io::AsyncWriteExt;
 
 use crate::web::cookie::InfuSession;
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::util::infu::InfuResult;
 
 pub mod keygen;
 pub mod login;

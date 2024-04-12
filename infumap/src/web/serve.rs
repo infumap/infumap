@@ -18,6 +18,7 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::{Request, Response, StatusCode, Method};
+use infusdk::util::infu::InfuResult;
 use log::{error, debug};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -28,7 +29,6 @@ use tokio::sync::Mutex;
 use crate::storage::db::Db;
 use crate::storage::cache::ImageCache;
 use crate::storage::object::ObjectStore;
-use crate::util::infu::InfuResult;
 use crate::web::dist_handlers::serve_index;
 
 use super::dist_handlers::serve_dist_routes;

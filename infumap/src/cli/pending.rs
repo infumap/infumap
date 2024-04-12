@@ -15,8 +15,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::{App, Arg, ArgMatches};
+use infusdk::util::infu::InfuResult;
 
-use crate::{util::infu::InfuResult, web::routes::admin::{ListPendingUsersResponse, ApprovePendingUserRequest, ApprovePendingUserResponse}};
+use crate::web::routes::admin::{ListPendingUsersResponse, ApprovePendingUserRequest, ApprovePendingUserResponse};
 use super::NamedInfuSession;
 
 

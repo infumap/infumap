@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use clap::{App, Arg, ArgMatches};
 use config::Config;
+use infusdk::util::infu::InfuResult;
 
 use crate::config::{CONFIG_DATA_DIR, CONFIG_S3_1_REGION, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_BUCKET, CONFIG_S3_1_KEY, CONFIG_S3_1_SECRET, CONFIG_S3_2_REGION, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_BUCKET, CONFIG_S3_2_KEY, CONFIG_S3_2_SECRET, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE};
 use crate::setup::get_config;
@@ -28,7 +29,6 @@ use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::file as storage_file;
 use crate::storage::object::IndividualObjectStore;
 use crate::storage::s3 as storage_s3;
-use crate::util::infu::InfuResult;
 
 
 enum ObjectStoreName {
@@ -153,8 +153,8 @@ pub async fn execute_missing<'a>(sub_matches: &ArgMatches, config: &Config) -> I
 
   let s3_1_maybe = create_s3_1_data_store_maybe(&config)?;
   let s3_2_maybe = create_s3_2_data_store_maybe(&config)?;
-  let local_maybe = if config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)? {
-    Some(storage_file::new(&config.get_string(CONFIG_DATA_DIR)?)?)
+  let local_maybe = if config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())? {
+    Some(storage_file::new(&config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?)?)
   } else {
     None
   };
@@ -250,8 +250,8 @@ pub async fn execute_orphaned<'a>(sub_matches: &ArgMatches, config: &Config) -> 
 
   let s3_1_maybe = create_s3_1_data_store_maybe(&config)?;
   let s3_2_maybe = create_s3_2_data_store_maybe(&config)?;
-  let local_maybe = if config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)? {
-    Some(storage_file::new(&config.get_string(CONFIG_DATA_DIR)?)?)
+  let local_maybe = if config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())? {
+    Some(storage_file::new(&config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?)?)
   } else {
     None
   };
@@ -322,7 +322,7 @@ fn create_s3_2_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storag
 
 
 async fn create_db(config: &Config) -> InfuResult<Db> {
-  let data_dir = config.get_string(CONFIG_DATA_DIR)?;
+  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db =
     match Db::new(&data_dir).await {
       Ok(db) => db,

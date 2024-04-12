@@ -16,10 +16,9 @@
 
 use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}, collections::HashMap};
 
-use infusdk::util::uid::Uid;
+use infusdk::util::{infu::InfuResult, uid::Uid};
 use s3::Bucket;
 
-use crate::util::infu::InfuResult;
 use super::s3::create_bucket;
 
 

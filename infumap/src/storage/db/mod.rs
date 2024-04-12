@@ -16,9 +16,9 @@
 
 use std::io::Cursor;
 use byteorder::{WriteBytesExt, BigEndian};
+use infusdk::util::infu::InfuResult;
 use log::debug;
 
-use crate::util::infu::InfuResult;
 use self::item_db::ItemDb;
 use self::session_db::SessionDb;
 use self::user_db::UserDb;

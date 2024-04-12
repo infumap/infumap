@@ -17,8 +17,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aead::{Aead, KeyInit, OsRng, rand_core::RngCore, Payload};
+use infusdk::util::infu::InfuResult;
 use std::io::{Read, Write};
-use super::infu::InfuResult;
 use super::str::{encode_hex, decode_hex};
 
 

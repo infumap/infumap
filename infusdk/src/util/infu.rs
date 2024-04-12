@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use config::ConfigError;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::num::{TryFromIntError, ParseIntError};
@@ -67,10 +66,6 @@ impl From<String> for InfuError {
 
 impl From<&str> for InfuError {
   fn from(err: &str) -> Self { Self::new(&err) }
-}
-
-impl From<ConfigError> for InfuError {
-  fn from(err: ConfigError) -> Self { Self::new(&err.to_string()) }
 }
 
 impl From<TryFromIntError> for InfuError {

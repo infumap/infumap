@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use filetime::{set_file_atime, FileTime};
+use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{uid_chars, Uid};
 use log::{warn, info, debug};
 use tokio::fs::{File, OpenOptions};
@@ -28,7 +29,6 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 
 use crate::util::fs::{expand_tilde, ensure_256_subdirs, construct_file_subpath};
-use crate::util::infu::InfuResult;
 
 
 const ONE_MEGABYTE: u64 = 1024*1024;

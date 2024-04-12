@@ -17,7 +17,6 @@
 pub mod crypto;
 pub mod fs;
 pub mod image;
-pub mod infu;
 pub mod json;
 pub mod lang;
 pub mod ordering;

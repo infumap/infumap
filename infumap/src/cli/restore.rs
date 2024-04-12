@@ -18,9 +18,10 @@ use std::{path::PathBuf, io::Cursor};
 
 use byteorder::{ReadBytesExt, BigEndian};
 use clap::{App, Arg, ArgMatches};
+use infusdk::util::infu::InfuResult;
 use tokio::{fs::{File, OpenOptions}, io::AsyncWriteExt};
 
-use crate::util::{infu::InfuResult, crypto::decrypt_file_data};
+use crate::util::crypto::decrypt_file_data;
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {

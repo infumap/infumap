@@ -17,12 +17,12 @@
 use std::time::SystemTime;
 
 use infusdk::util::geometry::{Dimensions, Vector, GRID_SIZE};
+use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::uid::{is_uid, Uid};
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, Map, Number};
 
 use crate::util::json;
-use crate::util::infu::{InfuResult, InfuError};
 use crate::web::routes::WebApiJsonSerializable;
 use crate::storage::db::kv_store::JsonLogSerializable;
 
@@ -852,7 +852,7 @@ impl JsonLogSerializable<Item> for Item {
       Err(format!("An attempt was made to apply an update to the '{}' field of item '{}', but this is not allowed.", field_name, item_id).into())
     }
     fn not_applicable_err(field_name: &str, item_type: ItemType, item_id: &str) -> InfuResult<()> {
-      Err(InfuError::new(&format!("'{}' field is not valid for item type '{}' - cannot update item '{}'.", field_name, item_type, item_id)))
+      Err(format!("'{}' field is not valid for item type '{}' - cannot update item '{}'.", field_name, item_type, item_id).into())
     }
 
     json::validate_map_fields(map, &ALL_JSON_FIELDS)?;
@@ -1045,7 +1045,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     format!("Could not serialize the '{}' field of item '{}' because it is not a number.", field_name, item_id)
   }
   fn unexpected_field_err(field_name: &str, item_id: &str, item_type: ItemType) -> InfuResult<()> {
-    Err(InfuError::new(&format!("'{}' field cannot be set for item '{}' of type {}.", field_name, item_id, item_type)))
+    Err(format!("'{}' field cannot be set for item '{}' of type {}.", field_name, item_id, item_type).into())
   }
 
   let mut result = Map::new();
@@ -1227,10 +1227,10 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
 
 fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Item> {
   fn not_applicable_err(field_name: &str, item_type: ItemType, item_id: &str) -> InfuError {
-    InfuError::new(&format!("'{}' field is not valid for item type '{}' - cannot read entry for item '{}'.", field_name, item_type, item_id))
+    format!("'{}' field is not valid for item type '{}' - cannot read entry for item '{}'.", field_name, item_type, item_id).into()
   }
   fn expected_for_err(field_name: &str, item_type: ItemType, item_id: &str) -> InfuError {
-    InfuError::new(&format!("'{}' field is expected for item type '{}' - cannot read entry for item '{}'.", field_name, item_type, item_id))
+    format!("'{}' field is expected for item type '{}' - cannot read entry for item '{}'.", field_name, item_type, item_id).into()
   }
 
   json::validate_map_fields(map, &ALL_JSON_FIELDS)?;

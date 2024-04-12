@@ -15,12 +15,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::{App, Arg, ArgMatches};
+use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
 
 use crate::storage::db::item::ItemType;
-use crate::{util::infu::InfuResult, web::routes::command::{CommandRequest, CommandResponse}};
+use crate::web::routes::command::{CommandRequest, CommandResponse};
 
 use super::NamedInfuSession;
 

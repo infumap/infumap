@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
 use serde_json::{Map, Value, Number};
 use sha2::{Sha256, Digest};
 
-use crate::util::infu::InfuResult;
 use crate::util::str::encode_hex;
 use crate::util::json;
 use super::kv_store::JsonLogSerializable;

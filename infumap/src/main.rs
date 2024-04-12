@@ -23,8 +23,8 @@ mod setup;
 use std::str::FromStr;
 
 use clap::App;
+use infusdk::util::infu::InfuResult;
 use std::env;
-use util::infu::InfuResult;
 
 
 #[tokio::main]

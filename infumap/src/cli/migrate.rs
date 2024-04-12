@@ -16,6 +16,7 @@
 
 use std::any::Any;
 use std::path::PathBuf;
+use infusdk::util::infu::InfuResult;
 use serde_json::de::IoRead;
 use serde_json::{Map, Value, StreamDeserializer};
 use clap::{ArgMatches, App, Arg};
@@ -26,7 +27,6 @@ use crate::storage::db::kv_store::JsonLogSerializable;
 use crate::storage::db::user::User;
 use crate::storage::db::user_db::CURRENT_USER_LOG_VERSION;
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::util::infu::InfuResult;
 use crate::util::json;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};

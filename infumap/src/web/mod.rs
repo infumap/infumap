@@ -25,6 +25,7 @@ pub mod session;
 use clap::{ArgMatches, App, Arg};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
+use infusdk::util::infu::InfuResult;
 use log::{info, error, debug};
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
@@ -41,7 +42,6 @@ use crate::storage::db::Db;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::crypto::encrypt_file_data;
-use crate::util::infu::InfuResult;
 
 use self::prometheus::spawn_promethues_listener;
 use self::serve::http_serve;
@@ -66,7 +66,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
   let config = init_fs_maybe_and_get_config(
     arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
 
-  let data_dir = config.get_string(CONFIG_DATA_DIR)?;
+  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(tokio::sync::Mutex::new(
     match Db::new(&data_dir).await {
       Ok(db) => db,
@@ -76,15 +76,15 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     }
   ));
 
-  let data_dir = config.get_string(CONFIG_DATA_DIR)?;
-  let enable_local_object_storage = config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE)?;
-  let enable_s3_1_object_storage = config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE)?;
+  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  let enable_local_object_storage = config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?;
+  let enable_s3_1_object_storage = config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE).map_err(|e| e.to_string())?;
   let s3_1_region = config.get_string(CONFIG_S3_1_REGION).ok();
   let s3_1_endpoint = config.get_string(CONFIG_S3_1_ENDPOINT).ok();
   let s3_1_bucket = config.get_string(CONFIG_S3_1_BUCKET).ok();
   let s3_1_key = config.get_string(CONFIG_S3_1_KEY).ok();
   let s3_1_secret = config.get_string(CONFIG_S3_1_SECRET).ok();
-  let enable_s3_2_object_storage = config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE)?;
+  let enable_s3_2_object_storage = config.get_bool(CONFIG_ENABLE_S3_2_OBJECT_STORAGE).map_err(|e| e.to_string())?;
   let s3_2_region = config.get_string(CONFIG_S3_2_REGION).ok();
   let s3_2_endpoint = config.get_string(CONFIG_S3_2_ENDPOINT).ok();
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
@@ -100,12 +100,12 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
       }
     };
 
-  if config.get_bool(CONFIG_ENABLE_S3_BACKUP)? {
+  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
     let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
-    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET)?;
-    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY)?;
-    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET)?;
+    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET).map_err(|e| e.to_string())?;
+    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY).map_err(|e| e.to_string())?;
+    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET).map_err(|e| e.to_string())?;
     let backup_store =
       match storage_backup::new(s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret) {
         Ok(backup_store) => backup_store,
@@ -115,14 +115,14 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
       };
 
     init_db_backup(
-      config.get_int(CONFIG_BACKUP_PERIOD_MINUTES)? as u32,
-      config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS)? as u32,
-      config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY)?.clone(),
+      config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())? as u32,
+      config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())? as u32,
+      config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?.clone(),
       db.clone(), backup_store.clone());
   }
 
-  let cache_dir = config.get_string(CONFIG_CACHE_DIR)?;
-  let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB)?)?;
+  let cache_dir = config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?;
+  let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB).map_err(|e| e.to_string())?)?;
   let image_cache =
     match storage_cache::new(&cache_dir, cache_max_mb).await {
       Ok(image_cache) => image_cache,
@@ -131,7 +131,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
       }
     };
 
-  let addr_str = format!("{}:{}", config.get_string(CONFIG_ADDRESS)?, config.get_int(CONFIG_PORT)?);
+  let addr_str = format!("{}:{}", config.get_string(CONFIG_ADDRESS).map_err(|e| e.to_string())?, config.get_int(CONFIG_PORT).map_err(|e| e.to_string())?);
   let addr: SocketAddr = match addr_str.parse() {
     Ok(addr) => addr,
     Err(e) => {
@@ -141,8 +141,8 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
 
   let config = Arc::new(config);
 
-  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS)? {
-    let prometheus_addr_str = format!("{}:{}", config.get_string(CONFIG_PROMETHEUS_ADDRESS)?, config.get_int(CONFIG_PROMETHEUS_PORT)?);
+  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())? {
+    let prometheus_addr_str = format!("{}:{}", config.get_string(CONFIG_PROMETHEUS_ADDRESS).map_err(|e| e.to_string())?, config.get_int(CONFIG_PROMETHEUS_PORT).map_err(|e| e.to_string())?);
     let prometheus_addr: SocketAddr = match prometheus_addr_str.parse() {
       Ok(addr) => addr,
       Err(e) => {

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use infusdk::util::geometry::GRID_SIZE;
+use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::uid::Uid;
 use log::{info, debug, warn};
 use serde_json::{Map, Value, Number};
@@ -24,7 +25,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use crate::util::fs::{expand_tilde, path_exists};
-use crate::util::infu::{InfuResult, InfuError};
 use crate::util::json;
 
 use super::item::{RelationshipToParent, TableColumn, is_container_item_type, is_attachments_item_type};
@@ -219,7 +219,7 @@ impl ItemDb {
           let relationship_to_parent = match update_json_map.get("relationshipToParent") {
             Some(rtp) => {
               let rtp_str = rtp.as_str()
-                .ok_or(InfuError::from(format!("Expected property relationshipToParent of item '{}' to have type string.", item.id)))?;
+                .ok_or(InfuError::new(&format!("Expected property relationshipToParent of item '{}' to have type string.", item.id)))?;
               RelationshipToParent::from_str(rtp_str)?
             },
             None => {

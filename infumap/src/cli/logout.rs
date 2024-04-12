@@ -15,8 +15,8 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::{App, ArgMatches, Arg};
+use infusdk::util::infu::InfuResult;
 
-use crate::util::infu::InfuResult;
 use crate::web::routes::account::LogoutResponse;
 
 use super::NamedInfuSession;

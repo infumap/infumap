@@ -21,6 +21,7 @@ use hyper::{Request, Response};
 use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
+use infusdk::util::infu::InfuResult;
 use log::debug;
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
@@ -34,7 +35,6 @@ use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageSize, ImageCacheKey};
 use crate::storage::object;
 use crate::util::image::{get_exif_orientation, adjust_image_for_exif_orientation};
-use crate::util::infu::InfuResult;
 use crate::web::serve::{full_body, internal_server_error_response, not_found_response, cors_response};
 use crate::web::session::get_and_validate_session;
 
@@ -116,10 +116,10 @@ async fn get_cached_resized_img(
   // Second part in request name is always a number, though we may respond with '{uid}_original' from the image cache.
   let requested_width = name_parts.get(1).unwrap().to_string().parse::<u32>()?;
 
-  let max_scale_image_down_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT)?;
-  let max_scale_image_up_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT)?;
+  let max_scale_image_down_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT).map_err(|e| e.to_string())?;
+  let max_scale_image_up_percent = config.get_float(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT).map_err(|e| e.to_string())?;
 
-  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
+  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
   let cache_control_value = calc_cache_control(browser_cache_max_age_seconds);
 
   let object_encryption_key;
@@ -304,7 +304,7 @@ async fn get_file(
   // by default, configuration is such that these are cached browser side.
   let data = object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?;
 
-  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS)?;
+  let browser_cache_max_age_seconds = config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
 
   Ok(Response::builder()
     .header(hyper::header::CONTENT_TYPE, mime_type_string)
