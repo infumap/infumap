@@ -24,7 +24,7 @@ use log::{debug, error, info};
 use prometheus::{TextEncoder, Encoder};
 use tokio::{net::TcpListener, task};
 
-use crate::web::serve::{not_found_response, text_response, internal_server_error_response};
+use crate::{tokiort::TokioIo, web::serve::{internal_server_error_response, not_found_response, text_response}};
 
 use super::routes::{files::METRIC_CACHED_IMAGE_REQUESTS_TOTAL, command::METRIC_COMMANDS_HANDLED_TOTAL};
 
@@ -50,18 +50,17 @@ pub async fn spawn_promethues_listener(prometheus_addr: SocketAddr) -> InfuResul
         }
       };
 
+      let io = TokioIo::new(stream);
       tokio::task::spawn(async move {
         if let Err(err) = http1::Builder::new()
-          .serve_connection(
-            stream,
-            service_fn(move |req| prometheus_http_serve(req))
-          ).await
-        {
-          info!("Error serving prometheus connection: {:?}", err);
+            .serve_connection(io,service_fn(move |req| prometheus_http_serve(req)))
+            .await {
+          info!("Error serving connection: {:?}", err);
         }
       });
     }
   });
+
   Ok(())
 }
 

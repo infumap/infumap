@@ -20,6 +20,7 @@ mod util;
 mod web;
 mod cli;
 mod setup;
+mod tokiort;
 use std::str::FromStr;
 
 use clap::App;

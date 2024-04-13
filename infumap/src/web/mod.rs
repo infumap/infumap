@@ -41,6 +41,7 @@ use crate::storage::backup::{self as storage_backup, BackupStore};
 use crate::storage::db::Db;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::object::{self as storage_object, ObjectStore};
+use crate::tokiort::TokioIo;
 use crate::util::crypto::encrypt_file_data;
 
 use self::prometheus::spawn_promethues_listener;
@@ -297,14 +298,12 @@ async fn listen(addr: SocketAddr, db: Arc<Mutex<Db>>, object_store: Arc<ObjectSt
     let object_store = object_store.clone();
     let image_cache = image_cache.clone();
     let config = config.clone();
+
+    let io = TokioIo::new(stream);
     tokio::task::spawn(async move {
       if let Err(err) = http1::Builder::new()
-        .serve_connection(
-          stream,
-          service_fn(move |req|
-            http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), req))
-        ).await
-      {
+          .serve_connection(io, service_fn(move |req| http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), req)))
+          .await {
         info!("Error serving connection: {:?}", err);
       }
     });
