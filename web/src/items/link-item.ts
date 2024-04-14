@@ -227,15 +227,17 @@ export const LinkFns = {
     function noLinkTo(): ItemGeometry {
       const boundsPx = {
         x: blockSizePx.w * col,
-        y: blockSizePx.h * row + LIST_PAGE_TOP_PADDING_PX,
+        y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX : 0),
         w: blockSizePx.w * widthBl,
         h: blockSizePx.h
       };
+      const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
       return {
         boundsPx,
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
+          HitboxFns.create(HitboxFlags.LinkSettings, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx))
         ]
       };
