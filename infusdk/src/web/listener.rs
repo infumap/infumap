@@ -37,9 +37,9 @@ pub async fn listen<D, F1, F2, F3>(
       handle_get_items_item_and_attachments_only: &'static F1,
       handle_get_items_children_and_their_attachments_only: &'static F2,
       handle_update_item: &'static F3) -> InfuResult<()>
-    where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-          for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-          for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
+    where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+          for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+          for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<()>> + Send + Sync,
           for<'a> D: 'a + Send + Sync {
 
   let addr_str = format!("{}:{}", "127.0.0.1", 8005);
@@ -98,9 +98,9 @@ async fn http_serve<D, F1, F2, F3>(
     handle_get_items_children_and_their_attachments_only: &'static F2,
     handle_update_item: &'static F3,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error>
-  where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-        for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-        for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync, {
+  where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+        for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+        for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<()>> + Send + Sync, {
 
   if req.method() == "OPTIONS" {
     debug!("Serving OPTIONS request, assuming CORS query.");
@@ -149,9 +149,9 @@ async fn handle_post<D, F1, F2, F3>(
     handle_get_items_item_and_attachments_only: &'static F1,
     handle_get_items_children_and_their_attachments_only: &'static F2,
     handle_update_item: &'static F3) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>>
-  where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-        for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-        for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync, {
+  where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+        for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+        for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<()>> + Send + Sync, {
 
   let response_data_maybe = match command.command.as_str() {
     "get-items" => handle_get_items(command, data, handle_get_items_item_and_attachments_only, handle_get_items_children_and_their_attachments_only).await,
@@ -177,7 +177,7 @@ async fn handle_update_item_shim<D, F1>(
       command: &CommandRequest,
       data: &Arc<Mutex<D>>,
       handle_update_item: &'static F1) -> InfuResult<Option<CommandResponse>>
-    where for<'a> F1: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync {
+    where for<'a> F1: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<()>> + Send + Sync {
 
   let deserializer = serde_json::Deserializer::from_str(&command.json_data);
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
@@ -196,8 +196,8 @@ async fn handle_get_items<D, F1, F2>(
       data: Arc<Mutex<D>>,
       handle_get_items_item_and_attachments_only: &'static F1,
       handle_get_items_children_and_their_attachments_only: &'static F2) -> InfuResult<Option<CommandResponse>>
-    where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync,
-          for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<Option<CommandResponse>>> + Send + Sync {
+    where for<'a> F1: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync,
+          for<'a> F2: Fn(&'a str, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<CommandResponse>> + Send + Sync {
 
   let request: GetItemsRequest = serde_json::from_str(&command.json_data)?;
 
@@ -205,11 +205,11 @@ async fn handle_get_items<D, F1, F2>(
     "item-and-attachments-only" => { handle_get_items_item_and_attachments_only(&request.id, &data).await },
     "children-and-their-attachments-only" => { handle_get_items_children_and_their_attachments_only(&request.id, &data).await },
     _ => { Err(format!("Unexpected get-items mode '{}'", request.mode).into()) }
-  };
+  }?;
 
   debug!("Executed 'get-items' ({}) command for item '{}'.", request.mode.as_str(), request.id);
 
-  response
+  Ok(Some(response))
 }
 
 
