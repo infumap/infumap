@@ -22,7 +22,7 @@ import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns } from "../../layout/visual-element";
 import { asTableItem } from "../../items/table-item";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { arrange } from "../../layout/arrange";
 
@@ -59,7 +59,7 @@ export const TableEditOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && tableItemOnInitialize.ownerId == store.user.getUser().userId) {
-        server.updateItem(tableItem());
+        serverOrRemote.updateItem(tableItem());
         store.overlay.setTableEditOverlayInfo(store.history, null);
       }
     }

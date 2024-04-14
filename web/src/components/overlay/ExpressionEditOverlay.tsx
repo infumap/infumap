@@ -29,7 +29,7 @@ import { asPageItem, isPage } from "../../items/page-item";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 import { arrange } from "../../layout/arrange";
 
 
@@ -110,7 +110,7 @@ export const ExpressionEditOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && expressionItemOnInitialize.ownerId == store.user.getUser().userId) {
-        server.updateItem(expressionItem(store));
+        serverOrRemote.updateItem(expressionItem(store));
         store.overlay.setExpressionEditOverlayInfo(store.history, null);
       }
     }

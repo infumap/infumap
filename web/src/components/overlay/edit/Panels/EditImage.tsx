@@ -48,7 +48,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.get(imageId)!);
+      serverOrRemote.updateItem(itemState.get(imageId)!);
     }
   });
 

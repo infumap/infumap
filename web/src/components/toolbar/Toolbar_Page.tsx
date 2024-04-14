@@ -25,7 +25,7 @@ import { InfuColorButton } from "../library/InfuColorButton";
 import { panic } from "../../util/lang";
 import { arrange } from "../../layout/arrange";
 import { GRID_SIZE } from "../../constants";
-import { server } from "../../server";
+import { server, serverOrRemote } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 import { PageFlags } from "../../items/base/flags-item";
@@ -57,7 +57,7 @@ export const Toolbar_Page: Component = () => {
     itemState.sortChildren(pageItem().id);
     arrange(store);
     store.touchToolbar();
-    server.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem());
   };
 
   // force rerender when color selector closes.
@@ -174,7 +174,7 @@ export const Toolbar_Page: Component = () => {
     }
     itemState.sortChildren(pageItem().id);
     arrange(store);
-    server.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
@@ -185,7 +185,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
     arrange(store);
-    server.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
@@ -196,7 +196,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     arrange(store);
-    server.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 

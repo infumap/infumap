@@ -37,7 +37,7 @@ import { asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Overlay";
-import { server } from "../server";
+import { serverOrRemote } from "../server";
 import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
 import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { isRating } from "../items/rating-item";
@@ -63,7 +63,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
-    server.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem());
     if (buttonNumber != MOUSE_LEFT) {
       return MouseDownActionFlags.None;
     }
@@ -74,7 +74,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
     arrange(store);
-    server.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem());
     store.touchToolbar();
   }
 
@@ -96,7 +96,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.expressionEditOverlayInfo()) {
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setExpressionEditOverlayInfo(store.history, null);
     arrange(store);
@@ -105,7 +105,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.pageEditOverlayInfo()) {
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setPageEditOverlayInfo(store.history, null);
     arrange(store);
@@ -114,7 +114,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.tableEditOverlayInfo()) {
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setTableEditOverlayInfo(store.history, null);
     arrange(store);
@@ -124,7 +124,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     noteEditOverlay_clearJustCreated();
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setNoteEditOverlayInfo(store.history, null);
     arrange(store);
@@ -133,7 +133,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.passwordEditOverlayInfo()) {
     if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      server.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setPasswordEditOverlayInfo(store.history, null);
     arrange(store);

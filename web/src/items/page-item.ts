@@ -538,7 +538,7 @@ export const PageFns = {
     if (popupParentPage.pendingPopupAlignmentPoint != null) {
       popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
     }
-    server.updateItem(popupParentPage);
+    serverOrRemote.updateItem(popupParentPage);
     arrange(store);
   },
 

@@ -19,7 +19,6 @@
 import { Component, Match, Show, Switch, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
-import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { arrange } from "../../layout/arrange";
@@ -28,7 +27,7 @@ import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { VesCache } from "../../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 
 
 function toolbarOverlayHeight(overlayType: ToolbarOverlayType, isComposite: boolean): number {
@@ -119,7 +118,7 @@ export const Toolbar_Overlay: Component = () => {
       store.touchToolbar();
       arrange(store);
       if (isNote(store.history.getFocusItem())) {
-        server.updateItem(store.history.getFocusItem());
+        serverOrRemote.updateItem(store.history.getFocusItem());
         setTimeout(() => {
           store.overlay.toolbarOverlayInfoMaybe.set(null);
           document.getElementById("noteEditOverlayTextArea")!.focus();
@@ -176,7 +175,7 @@ export const Toolbar_Overlay: Component = () => {
     pageItem().backgroundColorIndex = col;
     store.overlay.toolbarOverlayInfoMaybe.set(store.overlay.toolbarOverlayInfoMaybe.get());
     store.touchToolbar();
-    server.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem());
     store.overlay.toolbarOverlayInfoMaybe.set(null);
   }
 

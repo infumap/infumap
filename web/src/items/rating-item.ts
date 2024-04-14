@@ -206,7 +206,7 @@ export const RatingFns = {
     arrange(store); // TODO (LOW): only need to rearrange the element.
   
     function clickTimerHandler() {
-      server.updateItem(item);
+      serverOrRemote.updateItem(item);
       clickTimer = null;
     }
     if (clickTimer != null) { clearTimeout(clickTimer); }

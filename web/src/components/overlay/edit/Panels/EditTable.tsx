@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../../../server";
+import { server, serverOrRemote } from "../../../../server";
 import { useStore } from "../../../../store/StoreProvider";
 import { asTableItem, TableFns, TableItem } from "../../../../items/table-item";
 import { InfuButton } from "../../../library/InfuButton";
@@ -108,7 +108,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.get(tableId)!);
+      serverOrRemote.updateItem(itemState.get(tableId)!);
     }
   });
 

@@ -28,7 +28,7 @@ import { asPageItem, isPage } from "../../items/page-item";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 import { arrange } from "../../layout/arrange";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 
@@ -114,7 +114,7 @@ export const PasswordEditOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && passwordItemOnInitialize.ownerId == store.user.getUser().userId) {
-        server.updateItem(passwordItem(store));
+        serverOrRemote.updateItem(passwordItem(store));
         store.overlay.setPasswordEditOverlayInfo(store.history, null);
       }
     }

@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../../../server";
+import { server, serverOrRemote } from "../../../../server";
 import { useStore } from "../../../../store/StoreProvider";
 import { asFileItem, FileItem } from "../../../../items/file-item";
 import { InfuButton } from "../../../library/InfuButton";
@@ -48,7 +48,7 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
 
   onCleanup(() => {
     if (!deleted) {
-      server.updateItem(itemState.get(fileId)!);
+      serverOrRemote.updateItem(itemState.get(fileId)!);
     }
   });
 

@@ -20,7 +20,7 @@ import { Component, onCleanup, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
-import { server } from "../../server";
+import { server, serverOrRemote } from "../../server";
 import { VeFns, Veid, VisualElementFlags } from "../../layout/visual-element";
 import { arrange } from "../../layout/arrange";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
@@ -132,9 +132,9 @@ export const NoteEditOverlay: Component = () => {
 
   onCleanup(() => {
     if (!deleted && store.user.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.user.getUser().userId) {
-      server.updateItem(noteItemOnInitialize);
+      serverOrRemote.updateItem(noteItemOnInitialize);
       if (compositeItemOnInitializeMaybe != null) {
-        server.updateItem(compositeItemOnInitializeMaybe);
+        serverOrRemote.updateItem(compositeItemOnInitializeMaybe);
       }
     }
   });
@@ -176,7 +176,7 @@ export const NoteEditOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && noteItemOnInitialize.ownerId == store.user.getUser().userId) {
-        server.updateItem(noteItem(store));
+        serverOrRemote.updateItem(noteItem(store));
         store.overlay.setNoteEditOverlayInfo(store.history, null);
       }
     }
@@ -386,7 +386,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
     setTimeout(() => {
       itemState.moveToNewParent(keepNote, compositePageId, canonicalCompositeItem.relationshipToParent, canonicalCompositeItem.ordering);
       asPositionalItem(keepNote).spatialPositionGr = posGr;
-      server.updateItem(keepNote);
+      serverOrRemote.updateItem(keepNote);
       itemState.delete(compositeVe.displayItem.id);
       server.deleteItem(compositeVe.displayItem.id);
       arrange(store);
@@ -407,16 +407,16 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
   const afterText = textElement!.value.substring(textElement!.selectionEnd);
 
   if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement(store).actualLinkItemMaybe != null) {
-    server.updateItem(ve.displayItem);
+    serverOrRemote.updateItem(ve.displayItem);
     store.overlay.setNoteEditOverlayInfo(store.history, null);
     arrange(store);
 
   } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) { 
 
-    server.updateItem(ve.displayItem);
+    serverOrRemote.updateItem(ve.displayItem);
     const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
     noteItem(store).title = beforeText;
-    server.updateItem(noteItem(store));
+    serverOrRemote.updateItem(noteItem(store));
     const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
     note.title = afterText;
     itemState.add(note);
@@ -435,7 +435,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
         assert(justCreatedCompositeItemMaybe!.computed_children.length == 1, "unexpected number of new composite child elements");
         const originalNote = itemState.get(justCreatedCompositeItemMaybe!.computed_children[0])!;
         itemState.moveToNewParent(originalNote, justCreatedCompositeItemMaybe!.parentId, justCreatedCompositeItemMaybe!.relationshipToParent, justCreatedCompositeItemMaybe!.ordering);
-        server.updateItem(originalNote);
+        serverOrRemote.updateItem(originalNote);
         deleted = true;
         itemState.delete(justCreatedCompositeItemMaybe!.id);
         server.deleteItem(justCreatedCompositeItemMaybe!.id);
@@ -450,7 +450,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     }
 
     noteItem(store).title = beforeText;
-    server.updateItem(noteItem(store));
+    serverOrRemote.updateItem(noteItem(store));
     const ordering = itemState.newOrderingDirectlyAfterChild(parentVe.displayItem.id, VeFns.canonicalItem(ve).id);
     const note = NoteFns.create(ve.displayItem.ownerId, parentVe.displayItem.id, RelationshipToParent.Child, "", ordering);
     note.title = afterText;
@@ -486,7 +486,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     justCreatedCompositeItemMaybe = composite;
     itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
     asNoteItem(ve.displayItem).title = beforeText;
-    server.updateItem(ve.displayItem);
+    serverOrRemote.updateItem(ve.displayItem);
 
     const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
     const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);

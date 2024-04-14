@@ -33,7 +33,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VeFns } from "../layout/visual-element";
-import { server } from "../server";
+import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
@@ -69,7 +69,7 @@ export function mouseUpHandler(store: StoreContextModel) {
       DoubleClickState.preventDoubleClick();
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
           (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
-        server.updateItem(itemState.get(activeItem.id)!);
+        serverOrRemote.updateItem(itemState.get(activeItem.id)!);
       }
 
       // mouseActionState.activeVisualElement.update(ve => {
@@ -88,7 +88,7 @@ export function mouseUpHandler(store: StoreContextModel) {
         ? asTableItem(activeItem).tableColumns[MouseActionState.get().hitMeta!.colNum!].widthGr
         : asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get().hitMeta!.colNum!].widthGr;
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != widthGr) {
-        server.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
       break;
 
@@ -191,7 +191,7 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   // root page
   if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
       MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
-    server.updateItem(itemState.get(activeItem.id)!);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!);
   }
 
   finalizeMouseUp();
@@ -223,7 +223,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(
         activeItem, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, attachToItem.id));
-      server.updateItem(activeItem);
+      serverOrRemote.updateItem(activeItem);
     }
 
     // case #1.2: the moving item is a composite.
@@ -235,7 +235,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
         itemState.moveToNewParent(
           child, destinationCompositeItem.id, RelationshipToParent.Child, itemState.newOrderingDirectlyAfterChild(destinationCompositeItem.id, lastPrevId));
         lastPrevId = child.id;
-        server.updateItem(child);
+        serverOrRemote.updateItem(child);
       }
       itemState.delete(activeItem_composite.id);
       server.deleteItem(activeItem_composite.id);
@@ -255,11 +255,11 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
       attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
-      server.updateItem(attachToItem);
+      serverOrRemote.updateItem(attachToItem);
 
       activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
       itemState.moveToNewParent(activeItem, compositeItem.id, RelationshipToParent.Child);
-      server.updateItem(activeItem);
+      serverOrRemote.updateItem(activeItem);
     }
 
     // case #2.2: the moving item being attached is a composite. 
@@ -268,8 +268,8 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
       const attachToPositionGr = attachToItem.spatialPositionGr;
       activeItem_composite.spatialPositionGr = attachToPositionGr;
       itemState.moveToNewParent(attachToItem, activeItem_composite.id, RelationshipToParent.Child, itemState.newOrderingAtBeginningOfChildren(activeItem_composite.id));
-      server.updateItem(attachToItem);
-      server.updateItem(activeItem_composite);
+      serverOrRemote.updateItem(attachToItem);
+      serverOrRemote.updateItem(activeItem_composite);
     }
 
   }
@@ -292,7 +292,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, attachToVisualElement.displayItem.id, RelationshipToParent.Attachment);
-  server.updateItem(itemState.get(activeItem.id)!);
+  serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(store);
@@ -311,7 +311,7 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child);
-  server.updateItem(itemState.get(activeItem.id)!);
+  serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(store);
@@ -333,7 +333,7 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
 
   const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
-  server.updateItem(itemState.get(activeItem.id)!);
+  serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(store);
@@ -377,7 +377,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   }
 
   itemState.moveToNewParent(activeItem, disaplyedChild.id, RelationshipToParent.Attachment, newOrdering);
-  server.updateItem(itemState.get(activeItem.id)!);
+  serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
   arrange(store);
@@ -410,7 +410,7 @@ async function maybeDeleteComposite() {
   itemState.delete(compositeItem.id);
   itemState.sortChildren(compositeItemParent.id);
 
-  server.updateItem(child);
+  serverOrRemote.updateItem(child);
   server.deleteItem(compositeItem.id);
 }
 

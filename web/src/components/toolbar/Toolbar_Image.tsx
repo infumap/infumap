@@ -24,7 +24,7 @@ import { asImageItem } from "../../items/image-item";
 import { VesCache } from "../../layout/ves-cache";
 import { ImageFlags } from "../../items/base/flags-item";
 import { arrange } from "../../layout/arrange";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 
 
 export const Toolbar_Image: Component = () => {
@@ -47,7 +47,7 @@ export const Toolbar_Image: Component = () => {
       imageItem().flags |= ImageFlags.HideBorder;
     }
     arrange(store);
-    server.updateItem(imageItem());
+    serverOrRemote.updateItem(imageItem());
   }
 
   const borderVisible = () => {
@@ -61,7 +61,7 @@ export const Toolbar_Image: Component = () => {
       imageItem().flags |= ImageFlags.NoCrop;
     }
     arrange(store);
-    server.updateItem(imageItem());
+    serverOrRemote.updateItem(imageItem());
   }
 
   const shouldCropImage = () => {

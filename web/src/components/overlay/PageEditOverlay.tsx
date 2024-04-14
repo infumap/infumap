@@ -23,7 +23,7 @@ import { asPageItem } from "../../items/page-item";
 import { VeFns } from "../../layout/visual-element";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { arrange } from "../../layout/arrange";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 
 
@@ -51,7 +51,7 @@ export const PageEditOverlay: Component = () => {
     ev.stopPropagation();
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && pageItemOnInitialize.ownerId == store.user.getUser().userId) {
-        server.updateItem(pageItem(store));
+        serverOrRemote.updateItem(pageItem(store));
         store.overlay.setPageEditOverlayInfo(store.history, null);
       }
     }
@@ -91,6 +91,6 @@ export const pageEditOverlay_keyDownListener = (store: StoreContextModel, ev: Ke
 const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promise<void> => {
   if (store.user.getUserMaybe() == null || pageItem(store).ownerId != store.user.getUser().userId) { return; }
   ev.preventDefault();
-  server.updateItem(pageItem(store));
+  serverOrRemote.updateItem(pageItem(store));
   store.overlay.setPageEditOverlayInfo(store.history, null);
 }

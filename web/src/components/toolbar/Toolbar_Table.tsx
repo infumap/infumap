@@ -22,7 +22,7 @@ import { InfuIconButton } from "../library/InfuIconButton";
 import { asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { arrange } from "../../layout/arrange";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 import { TableFlags } from "../../items/base/flags-item";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
@@ -49,7 +49,7 @@ export const Toolbar_Table: Component = () => {
     }
     itemState.sortChildren(tableItem().id);
     arrange(store);
-    server.updateItem(tableItem());
+    serverOrRemote.updateItem(tableItem());
     store.touchToolbar();
   }
 

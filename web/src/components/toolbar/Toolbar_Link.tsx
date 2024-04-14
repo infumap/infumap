@@ -22,7 +22,7 @@ import { InfuIconButton } from "../library/InfuIconButton";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 import { asLinkItem } from "../../items/link-item";
 import { arrange } from "../../layout/arrange";
-import { server } from "../../server";
+import { serverOrRemote } from "../../server";
 
 
 export const Toolbar_Link: Component = () => {
@@ -47,7 +47,7 @@ export const Toolbar_Link: Component = () => {
   onCleanup(() => {
     linkItemOnMount.linkTo = linkResourceInput!.value;
     arrange(store);
-    server.updateItem(linkItemOnMount);
+    serverOrRemote.updateItem(linkItemOnMount);
   });
 
   const keyEventHandler = (_ev: KeyboardEvent) => { }
