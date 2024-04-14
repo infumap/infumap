@@ -14,18 +14,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod flags;
+use std::time::SystemTime;
 
-
+use bitflags::bitflags;
 use crate::util::geometry::{Dimensions, Vector};
 use crate::util::infu::{InfuError, InfuResult};
-use crate::util::uid::{is_uid, Uid};
+use crate::util::uid::{is_uid, new_uid, Uid, EMPTY_UID};
 use crate::util::json;
 use crate::web::WebApiJsonSerializable;
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, Map, Number};
 
 use crate::db::kv_store::JsonLogSerializable;
+
+
+bitflags! {
+  pub struct  NoteFlags: i64 {
+    const None =           0x000;
+    const Heading3 =       0x001;
+    const ShowCopyIcon =   0x002;
+    const Heading1 =       0x004;
+    const Heading2 =       0x008;
+    const Bullet1 =        0x010;
+    const AlignCenter =    0x020;
+    const AlignRight =     0x040;
+    const AlignJustify =   0x080;
+    const HideBorder =     0x100;
+    const Code       =     0x200;
+  }
+}
+
+bitflags! {
+  pub struct TableFlags: i64 {
+    const None =           0x000;
+    const ShowColHeader =  0x001;
+  }
+}
 
 
 #[derive(Debug, PartialEq)]
@@ -1300,4 +1324,113 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
   };
 
   Ok(r)
+}
+
+
+impl Item {
+  pub fn new_note(
+      parent_id: &Uid,
+      ordering: Vec<u8>,
+      spatial_position_gr: Option<Vector<i64>>,
+      spatial_width_gr: Option<i64>,
+      relationship: RelationshipToParent,
+      text: &str,
+      flags: NoteFlags,
+      format: Option<&str>,
+      url: Option<String>) -> Item {
+
+    let mut fmt = "";
+    if let Some(f) = format { fmt = f; }
+    Item {
+      item_type: ItemType::Note,
+      owner_id: EMPTY_UID.to_owned(),
+      id: new_uid(),
+      parent_id: Some(parent_id.to_owned()),
+      relationship_to_parent: relationship,
+      creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+      last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+      ordering,
+      flags: Some(flags.bits()),
+      spatial_position_gr,
+      spatial_width_gr,
+      title: Some(text.to_owned()),
+      url,
+      format: Some(fmt.to_owned()),
+      order_children_by: None,
+      spatial_height_gr: None,
+      table_columns: None,
+      number_of_visible_columns: None,
+      link_to: None,
+      original_creation_date: None,
+      mime_type: None,
+      file_size_bytes: None,
+      permission_flags: None,
+      inner_spatial_width_gr: None,
+      natural_aspect: None,
+      background_color_index: None,
+      arrange_algorithm: None,
+      popup_position_gr: None,
+      popup_alignment_point: None,
+      popup_width_gr: None,
+      grid_number_of_columns: None,
+      grid_cell_aspect: None,
+      doc_width_bl: None,
+      justified_row_aspect: None,
+      text: None,
+      image_size_px: None,
+      thumbnail: None,
+      rating: None,
+    }
+  }
+
+  pub fn new_link(
+      parent_id: &Uid,
+      ordering: Vec<u8>,
+      spatial_position_gr: Option<Vector<i64>>,
+      spatial_width_gr: Option<i64>,
+      relationship: RelationshipToParent,
+      link_to: &Uid) -> Item {
+
+    Item {
+      item_type: ItemType::Link,
+      owner_id: EMPTY_UID.to_owned(),
+      id: new_uid(),
+      parent_id: Some(parent_id.to_owned()),
+      relationship_to_parent: relationship,
+      creation_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+      last_modified_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+      ordering,
+      flags: None,
+      spatial_position_gr,
+      spatial_width_gr,
+      title: None,
+      url: None,
+      format: None,
+      order_children_by: None,
+      spatial_height_gr: None,
+      table_columns: None,
+      number_of_visible_columns: None,
+      link_to: Some(link_to.clone()),
+      original_creation_date: None,
+      mime_type: None,
+      file_size_bytes: None,
+      permission_flags: None,
+      inner_spatial_width_gr: None,
+      natural_aspect: None,
+      background_color_index: None,
+      arrange_algorithm: None,
+      popup_position_gr: None,
+      popup_alignment_point: None,
+      popup_width_gr: None,
+      grid_number_of_columns: None,
+      grid_cell_aspect: None,
+      doc_width_bl: None,
+      justified_row_aspect: None,
+      text: None,
+      image_size_px: None,
+      thumbnail: None,
+      rating: None,
+    }
+  }
+
 }
