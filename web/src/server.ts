@@ -160,23 +160,25 @@ export const remote = {
       });
   },
 
+  /**
+   * update an item
+   */
   updateItem: async (host: string, item: Item): Promise<void> => {
-    return constructCommandPromise(null, "update-item", ItemFns.toObject(item), null, false);
+    return constructCommandPromise(host, "update-item", ItemFns.toObject(item), null, false);
   },
-
 }
+
 
 export const serverOrRemote = {
   updateItem: async (item: Item) => {
     if (item.origin == null) {
-      console.log("updating server", item);
       await server.updateItem(item);
     } else {
-      console.log("updating remote", item.origin);
       await remote.updateItem(item.origin, item);
     }
   }
 }
+
 
 /**
  * TODO (HIGH): panic logout on error is to ensure consistent state, but is highly disruptive. do something better.
