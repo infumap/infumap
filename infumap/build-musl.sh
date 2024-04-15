@@ -17,5 +17,5 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pushd "$(dirname "$0")"
-docker run --rm -it -v "$(pwd)":/home/rust/src rust-musl-builder cargo build --release
+docker run --rm -it -v "$(pwd)":/home/rust/src -v "$(pwd)/../infusdk":/home/rust/infusdk rust-musl-builder cargo build --release
 popd
