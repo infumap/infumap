@@ -33,6 +33,7 @@ const REASON_SERVER: &str = "server";
 
 
 pub async fn listen<D, F1, F2, F3>(
+      address: &str,
       data: Arc<Mutex<D>>,
       handle_get_items_item_and_attachments_only: &'static F1,
       handle_get_items_children_and_their_attachments_only: &'static F2,
@@ -42,15 +43,14 @@ pub async fn listen<D, F1, F2, F3>(
           for<'a> F3: Fn(&'a Item, &'a Arc<Mutex<D>>) -> BoxFuture<'a, InfuResult<()>> + Send + Sync,
           for<'a> D: 'a + Send + Sync {
 
-  let addr_str = format!("{}:{}", "127.0.0.1", 8005);
-  let addr: SocketAddr = match addr_str.parse() {
+  let addr: SocketAddr = match address.parse() {
     Ok(addr) => addr,
     Err(e) => {
-      return Err(format!("Invalid socket address: {} ({})", addr_str, e).into());
+      return Err(format!("Invalid socket address: {} ({})", address, e).into());
     }
   };
 
-  info!("Listening on 127.0.0.1:8005");
+  info!("Listening on {}", address);
 
   let listener = TcpListener::bind(addr).await?;
   loop {
