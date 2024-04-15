@@ -54,13 +54,9 @@ export function getVePropertiesForItem(store: StoreContextModel, item: Item): Ve
       spatialWidthGr = linkItemMaybe.spatialWidthGr;
     }
   } else {
-    if (linkItemMaybe.linkTo != EMPTY_UID) {
+    if (linkItemMaybe.linkTo != EMPTY_UID && linkItemMaybe.linkTo != '') {
       if (!linkItemMaybe.linkTo.startsWith("http")) {
-        if (linkItemMaybe.origin == null) {
-          initiateLoadItemMaybe(store, linkItemMaybe.linkTo);
-        } else {
-          initiateLoadItemFromRemoteMaybe(store, linkItemMaybe.linkTo, linkItemMaybe.origin, linkItemMaybe.id);
-        }
+        initiateLoadItemMaybe(store, linkItemMaybe.linkTo);
       } else {
         const lastIdx = linkItemMaybe.linkTo.lastIndexOf('/');
         if (lastIdx != -1) {
