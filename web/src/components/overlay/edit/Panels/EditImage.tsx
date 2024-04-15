@@ -17,7 +17,7 @@
 */
 
 import { Component, Show, onCleanup } from "solid-js";
-import { server } from "../../../../server";
+import { server, serverOrRemote } from "../../../../server";
 import { useStore } from "../../../../store/StoreProvider";
 import { asImageItem, ImageItem } from "../../../../items/image-item";
 import { InfuButton } from "../../../library/InfuButton";

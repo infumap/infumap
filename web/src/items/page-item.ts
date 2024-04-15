@@ -38,7 +38,7 @@ import { arrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
 import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
-import { server } from '../server';
+import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
 import { PopupType } from '../store/StoreProvider_History';
