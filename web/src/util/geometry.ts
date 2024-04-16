@@ -127,6 +127,11 @@ export function cloneDimensions(dimensions: Dimensions | null): Dimensions | nul
   };
 }
 
+export function compareDimensions(a: Dimensions, b: Dimensions): number {
+  if (a.w != b.w) { return 1; }
+  if (a.h != b.h) { return 1; }
+  return 0;
+}
 
 function clientPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
   return { x: ev.clientX, y: ev.clientY };

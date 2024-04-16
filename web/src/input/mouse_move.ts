@@ -23,7 +23,7 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem } from "../items/table-item";
 import { StoreContextModel } from "../store/StoreProvider";
-import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize } from "../util/geometry";
+import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareDimensions, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { editDialogSizePx } from "../components/overlay/edit/EditDialog";
@@ -200,6 +200,7 @@ function changeMouseActionStateMaybe(
 
 
 function mouseAction_resizingListPageColumn(_deltaPx: Vector, _store: StoreContextModel) {
+  let requireArrange = false;
   const startBl = MouseActionState.get().startWidthBl!;
   // let newDockWidthPx = startPx + deltaPx.x;
   // if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
@@ -214,12 +215,16 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   const startPx = MouseActionState.get().startDockWidthPx!;
   let newDockWidthPx = Math.round((startPx + deltaPx.x) / NATURAL_BLOCK_SIZE_PX.w) * NATURAL_BLOCK_SIZE_PX.w;
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
-  store.setDockWidthPx(newDockWidthPx);
-  arrange(store);
+  if (store.getCurrentDockWidthPx() != newDockWidthPx) {
+    store.setDockWidthPx(newDockWidthPx);
+    arrange(store);
+  }
 }
 
 
 function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
+  let requireArrange = false;
+
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -231,21 +236,34 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
   newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
   if (newWidthBl < 1) { newWidthBl = 1.0; }
+  const newWidthGr = newWidthBl * GRID_SIZE;
 
-  asXSizableItem(activeItem).spatialWidthGr = newWidthBl * GRID_SIZE;
+  if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
+    asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
+    requireArrange = true;
+  }
 
   if (isYSizableItem(activeItem) || (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem))) {
     let newHeightBl = MouseActionState.get()!.startHeightBl! + deltaBl.y;
     newHeightBl = Math.round(newHeightBl);
     if (newHeightBl < 1) { newHeightBl = 1.0; }
+    const newHeightGr = newHeightBl * GRID_SIZE;
     if (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
-      asLinkItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
+      if (newHeightGr != asLinkItem(activeItem).spatialHeightGr) {
+        asLinkItem(activeItem).spatialHeightGr = newHeightGr;
+        requireArrange = true;
+      }
     } else {
-      asYSizableItem(activeItem).spatialHeightGr = newHeightBl * GRID_SIZE;
+      if (newHeightGr != asYSizableItem(activeItem).spatialHeightGr) {
+        asYSizableItem(activeItem).spatialHeightGr = newHeightGr;
+        requireArrange = true;
+      }
     }
   }
 
-  arrange(store);
+  if (requireArrange) {
+    arrange(store);
+  }
 }
 
 
@@ -258,11 +276,13 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
   newWidthBl = Math.round(newWidthBl * 2.0) / 2.0;
   if (newWidthBl < 5) { newWidthBl = 5.0; }
+  const newWidthGr = newWidthBl * GRID_SIZE;
 
   const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
-  asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthBl * GRID_SIZE;
-
-  arrange(store);
+  if (newWidthGr != asPageItem(activeRoot.displayItem).pendingPopupWidthGr) {
+    asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthGr;
+    arrange(store);
+  }
 }
 
 
@@ -278,14 +298,19 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
   newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
   if (newWidthBl < 1) { newWidthBl = 1.0; }
+  const newWidthGr = newWidthBl * GRID_SIZE;
 
   if (activeVisualElement.linkItemMaybe != null) {
-    asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthBl * GRID_SIZE;
+    if (newWidthGr != asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
+      asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
+      arrange(store);
+    }
   } else {
-    asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthBl * GRID_SIZE;
+    if (newWidthGr != asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
+      asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
+      arrange(store);
+    }
   }
-
-  arrange(store);
 }
 
 
@@ -299,9 +324,11 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
     y: (MouseActionState.get().startPosBl!.y + deltaBl.y) * GRID_SIZE
   };
   const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
-  asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
 
-  arrange(store);
+  if (compareVector(newPositionGr, asPageItem(activeRoot.displayItem).pendingPopupPositionGr!) != 0) {
+    asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
+    arrange(store);
+  }
 }
 
 

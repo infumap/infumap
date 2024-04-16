@@ -35,7 +35,7 @@ import { VeFns, VisualElement } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
-import { Vector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
+import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
@@ -166,8 +166,11 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
-  activeItem.spatialPositionGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-  arrange(store);
+  const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
+  if (compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
+    activeItem.spatialPositionGr = newPosGr;
+    arrange(store);
+  }
 }
 
 
