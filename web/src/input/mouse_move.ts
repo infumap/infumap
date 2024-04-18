@@ -33,7 +33,7 @@ import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, DialogMoveState, UserSettingsMoveState } from "./state";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
@@ -217,7 +217,7 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
   if (newDockWidthPx > 12 * NATURAL_BLOCK_SIZE_PX.w ) { newDockWidthPx = 12 * NATURAL_BLOCK_SIZE_PX.w; }
   if (store.getCurrentDockWidthPx() != newDockWidthPx) {
     store.setDockWidthPx(newDockWidthPx);
-    arrange(store);
+    fullArrange(store);
   }
 }
 
@@ -262,7 +262,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   }
 
   if (requireArrange) {
-    arrange(store);
+    fullArrange(store);
   }
 }
 
@@ -281,7 +281,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
   if (newWidthGr != asPageItem(activeRoot.displayItem).pendingPopupWidthGr) {
     asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthGr;
-    arrange(store);
+    fullArrange(store);
   }
 }
 
@@ -303,12 +303,12 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   if (activeVisualElement.linkItemMaybe != null) {
     if (newWidthGr != asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
       asTableItem(activeVisualElement.displayItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
-      arrange(store);
+      fullArrange(store);
     }
   } else {
     if (newWidthGr != asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr) {
       asTableItem(activeItem).tableColumns[MouseActionState.get()!.hitMeta!.colNum!].widthGr = newWidthGr;
-      arrange(store);
+      fullArrange(store);
     }
   }
 }
@@ -327,7 +327,7 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
   if (compareVector(newPositionGr, asPageItem(activeRoot.displayItem).pendingPopupPositionGr!) != 0) {
     asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
-    arrange(store);
+    fullArrange(store);
   }
 }
 

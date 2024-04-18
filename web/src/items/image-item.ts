@@ -31,7 +31,7 @@ import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-eleme
 import { StoreContextModel } from "../store/StoreProvider";
 import { VesCache } from "../layout/ves-cache";
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { PopupType } from "../store/StoreProvider_History";
 import { ItemFns } from "./base/item-polymorphism";
 import { FlagsMixin } from "./base/flags-item";
@@ -226,10 +226,10 @@ export const ImageFns = {
       window.open('/files/' + visualElement.displayItem.id, '_blank');
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
       store.history.pushPopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: null });
-      arrange(store);
+      fullArrange(store);
     } else {
       store.history.replacePopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-      arrange(store);
+      fullArrange(store);
     }
   },
 

@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { ItemGeometry } from "../layout/item-geometry";
 import { measureLineCount } from "../layout/text";
@@ -229,7 +229,7 @@ export const ExpressionFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
-    arrange(store); // input focus changed.
+    fullArrange(store); // input focus changed.
   },
 
   cloneMeasurableFields: (expression: ExpressionMeasurable): ExpressionMeasurable => {

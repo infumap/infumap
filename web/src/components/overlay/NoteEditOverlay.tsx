@@ -22,7 +22,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server, serverOrRemote } from "../../server";
 import { VeFns, Veid, VisualElementFlags } from "../../layout/visual-element";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
@@ -184,7 +184,7 @@ export const NoteEditOverlay: Component = () => {
 
   const textAreaOnInputHandler = () => {
     noteItem(store).title = textElement!.value;
-    arrange(store);
+    fullArrange(store);
   };
 
 
@@ -339,7 +339,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
     deleted = true;
     itemState.delete(canonicalId);
     await server.deleteItem(canonicalId);
-    arrange(store);
+    fullArrange(store);
 
     justCreatedNoteItemMaybe = null;
 
@@ -364,7 +364,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
     deleted = true;
     itemState.delete(canonicalId);
     await server.deleteItem(canonicalId);
-    arrange(store);
+    fullArrange(store);
 
     justCreatedCompositeItemMaybe = null;
     justCreatedNoteItemMaybe = null;
@@ -389,7 +389,7 @@ const keyDown_Backspace = async (store: StoreContextModel, ev: KeyboardEvent): P
       serverOrRemote.updateItem(keepNote);
       itemState.delete(compositeVe.displayItem.id);
       server.deleteItem(compositeVe.displayItem.id);
-      arrange(store);
+      fullArrange(store);
       store.overlay.setNoteEditOverlayInfo(store.history, null);
       store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: VeFns.addVeidToPath(VeFns.veidFromId(keepNoteId), compositeVe.parentPath!), initialCursorPosition: nextFocusItem.title.length - textElement!.value.length });
     }, 0);
@@ -409,7 +409,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
   if (ve.flags & VisualElementFlags.InsideTable || noteVisualElement(store).actualLinkItemMaybe != null) {
     serverOrRemote.updateItem(ve.displayItem);
     store.overlay.setNoteEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
 
   } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) { 
 
@@ -421,7 +421,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     note.title = afterText;
     itemState.add(note);
     server.addItem(note, null);
-    arrange(store);
+    fullArrange(store);
     const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
     store.overlay.setNoteEditOverlayInfo(store.history, null);
     store.overlay.setNoteEditOverlayInfo(store.history, { itemPath, initialCursorPosition: CursorPosition.Start });
@@ -443,7 +443,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
         console.log("TODO (HIGH): delete composite.");
       }
       store.overlay.setNoteEditOverlayInfo(store.history, null);
-      arrange(store);
+      fullArrange(store);
       justCreatedCompositeItemMaybe = null;
       justCreatedNoteItemMaybe = null;
       return;
@@ -460,7 +460,7 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     if (parent.computed_children[parent.computed_children.length-1] == note.id) {
       justCreatedNoteItemMaybe = note;
     }
-    arrange(store);
+    fullArrange(store);
     const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(note, null), ve.parentPath!!);
     store.overlay.setNoteEditOverlayInfo(store.history, null);
     store.overlay.setNoteEditOverlayInfo(store.history, { itemPath, initialCursorPosition: CursorPosition.Start });
@@ -496,12 +496,12 @@ const keyDown_Enter = async (store: StoreContextModel, ev: KeyboardEvent): Promi
     justCreatedNoteItemMaybe = note;
 
     store.overlay.setNoteEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
     if (updateSelectedItemOfVeid) {
       store.perItem.setSelectedListPageItem(updateSelectedItemOfVeid, { itemId: composite.id, linkIdMaybe: null });
     }
     // TODO (LOW): probably possible to avoid the double arrange.
-    arrange(store);
+    fullArrange(store);
 
     const veid = { itemId: note.id, linkIdMaybe: null };
     const newVes = VesCache.findSingle(veid);

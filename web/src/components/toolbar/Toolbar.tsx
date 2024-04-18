@@ -32,7 +32,7 @@ import { Colors, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
-import { arrange } from '../../layout/arrange';
+import { fullArrange } from '../../layout/arrange';
 import { NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
 import { EditPageTitleOverlayInfo } from '../../store/StoreProvider_Overlay';
 import { Toolbar_Expression } from './Toolbar_Expression';
@@ -87,13 +87,13 @@ export const Toolbar: Component = () => {
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
     store.resetDesktopSizePx();
-    arrange(store);
+    fullArrange(store);
   }
 
   const showToolbar = () => {
     store.topToolbarVisible.set(true);
     store.resetDesktopSizePx();
-    arrange(store);
+    fullArrange(store);
   }
 
   const handleTitleClick = () => {

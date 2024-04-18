@@ -27,7 +27,7 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { PageFns, asPageItem } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -46,17 +46,17 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   const parentItem = itemState.get(activeItem.parentId)!;
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
     moving_activeItemOutOfTable(store, shouldCreateLink);
-    arrange(store);
+    fullArrange(store);
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
     const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
-    arrange(store);
+    fullArrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
     const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
-    arrange(store);
+    fullArrange(store);
   }
   else {
     MouseActionState.get().startPosBl = {
@@ -86,7 +86,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
-      arrange(store);
+      fullArrange(store);
     }
   }
 
@@ -144,7 +144,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   if (VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem != hitInfo.overPositionableVe!.displayItem) {
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, false);
-    arrange(store);
+    fullArrange(store);
     return;
   }
 
@@ -169,7 +169,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
   if (compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
     activeItem.spatialPositionGr = newPosGr;
-    arrange(store);
+    fullArrange(store);
   }
 }
 
@@ -232,7 +232,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     link.spatialPositionGr = newItemPosGr;
     itemState.add(link);
     server.addItem(link, null);
-    arrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
+    fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic("moving_activeItemToPage: could not find element."); }
     MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
@@ -304,7 +304,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     link.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.add(link);
     server.addItem(link, null);
-    arrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
+    fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic("moving_activeItemOutOfTable: could not find element."); }
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };

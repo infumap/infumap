@@ -18,7 +18,7 @@
 
 import { initialEditDialogBounds } from "../components/overlay/edit/EditDialog";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
 import { switchToPage } from "../layout/navigation";
 import { VeFns } from "../layout/visual-element";
@@ -92,7 +92,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     ev.preventDefault();
     if (store.history.currentPopupSpec()) {
       store.history.popAllPopups();
-      arrange(store);
+      fullArrange(store);
     }
   }
 
@@ -114,7 +114,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       if (!store.history.currentPopupSpec()) {
         const parentVeid = store.history.parentPage()!;
         if (parentVeid) {
-          arrange(store, parentVeid);
+          fullArrange(store, parentVeid);
           const direction = findDirectionFromKeyCode(ev.code);
           const closest = findClosest(store.history.getParentPageFocusPath()!, direction, false, true)!;
           if (closest) {
@@ -140,7 +140,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           vePath: closest,
           actualVeid: closestVeid,
         });
-        arrange(store);
+        fullArrange(store);
       }
     }
   }
@@ -154,7 +154,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         store.dockVisible.set(false);
         store.topToolbarVisible.set(false);
       }
-      arrange(store);
+      fullArrange(store);
       return;
     }
     const spec = store.history.currentPopupSpec();

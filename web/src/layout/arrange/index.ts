@@ -55,7 +55,7 @@ import { createVisualElementSignal } from "../../util/signals";
  *
  * @param virtualPageVeid the page to create the visual element tree for, if not the current page.
  */
-export const arrange = (store: StoreContextModel, virtualPageVeid?: Veid): void => {
+export const fullArrange = (store: StoreContextModel, virtualPageVeid?: Veid): void => {
   if (store.history.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {

@@ -26,7 +26,7 @@ import { newUid } from "./util/uid";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { itemState } from "./store/ItemState";
-import { arrange } from "./layout/arrange";
+import { fullArrange } from "./layout/arrange";
 import { getHitInfo } from "./input/hit";
 
 
@@ -81,7 +81,7 @@ export async function handleUpload(
       const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
       itemState.add(ItemFns.fromObject(returnedItem, null));
-      arrange(store);
+      fullArrange(store);
 
     } else {
       let fileItem: object = {
@@ -99,7 +99,7 @@ export async function handleUpload(
       const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
       // TODO (MEDIUM): immediately put an item in the UI.
       itemState.add(ItemFns.fromObject(returnedItem, null));
-      arrange(store);
+      fullArrange(store);
     }
   }
 }

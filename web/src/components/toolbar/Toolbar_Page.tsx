@@ -23,7 +23,7 @@ import { itemState } from "../../store/ItemState";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { panic } from "../../util/lang";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 import { GRID_SIZE } from "../../constants";
 import { server, serverOrRemote } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
@@ -55,7 +55,7 @@ export const Toolbar_Page: Component = () => {
     else { panic("unexpected arrange algorithm " + pageItem().arrangeAlgorithm); }
     pageItem().arrangeAlgorithm = newAA;
     itemState.sortChildren(pageItem().id);
-    arrange(store);
+    fullArrange(store);
     store.touchToolbar();
     serverOrRemote.updateItem(pageItem());
   };
@@ -173,7 +173,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().orderChildrenBy = "";
     }
     itemState.sortChildren(pageItem().id);
-    arrange(store);
+    fullArrange(store);
     serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
@@ -184,7 +184,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
-    arrange(store);
+    fullArrange(store);
     serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
@@ -195,7 +195,7 @@ export const Toolbar_Page: Component = () => {
     } else {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
-    arrange(store);
+    fullArrange(store);
     serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }

@@ -23,7 +23,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { asLinkItem } from "../items/link-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { itemState } from "../store/ItemState";
-import { arrange } from "./arrange";
+import { fullArrange } from "./arrange";
 import { PageFns } from "../items/page-item";
 import { Veid } from "./visual-element";
 
@@ -54,7 +54,7 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
         });
         asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
         try {
-          arrange(store);
+          fullArrange(store);
         } catch (e: any) {
           throw new Error(`Arrange failed: ${e}`);
         };
@@ -83,7 +83,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Pro
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], null);
         });
         try {
-          arrange(store);
+          fullArrange(store);
         } catch (e: any) {
           throw new Error(`Arrange failed after load item: ${e}`);
         };
@@ -112,7 +112,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], baseUrl);
         });
         try {
-          arrange(store);
+          fullArrange(store);
         } catch (e: any) {
           throw new Error(`Arrange after remote fetch failed: ${e}`);
         };

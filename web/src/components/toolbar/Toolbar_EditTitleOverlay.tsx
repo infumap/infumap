@@ -18,7 +18,7 @@
 
 import { Component, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 
 
 export const Toolbar_EditTitleOverlay: Component = () => {
@@ -33,7 +33,7 @@ export const Toolbar_EditTitleOverlay: Component = () => {
 
   const inputHandler = () => {
     spec().pageItem.title = textElement!.value;
-    arrange(store);
+    fullArrange(store);
   }
 
   return (

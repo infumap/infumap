@@ -28,7 +28,7 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { PageFns } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -120,7 +120,7 @@ export function mouseUpHandler(store: StoreContextModel) {
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();
         handleAttachmentClick(store, activeVisualElement);
-        arrange(store);
+        fullArrange(store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
@@ -196,7 +196,7 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
 
   finalizeMouseUp();
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  arrange(store);
+  fullArrange(store);
 }
 
 
@@ -276,7 +276,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 
   finalizeMouseUp();
   MouseActionState.set(null); // required before arrange to as arrange makes use of move state.
-  arrange(store);
+  fullArrange(store);
 }
 
 
@@ -295,7 +295,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(store);
+  fullArrange(store);
 }
 
 
@@ -314,7 +314,7 @@ function mouseUpHandler_moving_toOpaquePage(store: StoreContextModel, activeItem
   serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(store);
+  fullArrange(store);
 }
 
 
@@ -336,7 +336,7 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(store);
+  fullArrange(store);
 }
 
 
@@ -380,7 +380,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
   finalizeMouseUp();
-  arrange(store);
+  fullArrange(store);
 }
 
 

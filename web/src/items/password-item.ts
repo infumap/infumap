@@ -30,7 +30,7 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { arrange } from '../layout/arrange';
+import { fullArrange } from '../layout/arrange';
 import { CursorPosition } from '../store/StoreProvider_Overlay';
 
 
@@ -240,7 +240,7 @@ export const PasswordFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.overlay.setPasswordEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
-    arrange(store); // input focus changed.
+    fullArrange(store); // input focus changed.
   },
 
 };

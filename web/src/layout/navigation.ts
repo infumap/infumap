@@ -22,7 +22,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { EMPTY_UID } from "../util/uid";
-import { arrange } from "./arrange";
+import { fullArrange } from "./arrange";
 import { initiateLoadItemMaybe } from "./load";
 import { VeFns, Veid } from "./visual-element";
 
@@ -56,7 +56,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     store.history.pushPage(pageVeid);
   }
 
-  arrange(store);
+  fullArrange(store);
 
   if (!replace && updateHistory) {
     updateHref(store);
@@ -71,7 +71,7 @@ export function navigateBack(store: StoreContextModel): boolean {
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
-    arrange(store);
+    fullArrange(store);
     return true;
   }
 
@@ -81,7 +81,7 @@ export function navigateBack(store: StoreContextModel): boolean {
     if (!store.history.currentPopupSpec()) {
       store.history.setFocus(VeFns.addVeidToPath(store.history.currentPage()!, ""));
     }
-    arrange(store);
+    fullArrange(store);
     return true;
   }
 

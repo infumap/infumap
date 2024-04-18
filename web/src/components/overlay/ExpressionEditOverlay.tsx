@@ -30,7 +30,7 @@ import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { serverOrRemote } from "../../server";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 
 
 const expressionVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.expressionEditOverlayInfo()!.itemPath)!.get();
@@ -118,7 +118,7 @@ export const ExpressionEditOverlay: Component = () => {
 
   const textAreaOnInputHandler = () => {
     expressionItem(store).title = textElement!.value;
-    arrange(store);
+    fullArrange(store);
   };
 
   return (

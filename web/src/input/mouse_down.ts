@@ -21,7 +21,7 @@ import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { isTable } from "../items/table-item";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp, switchToPage } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -62,7 +62,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) { return MouseDownActionFlags.None; }
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
-    arrange(store);
+    fullArrange(store);
     serverOrRemote.updateItem(store.history.getFocusItem());
     if (buttonNumber != MOUSE_LEFT) {
       return MouseDownActionFlags.None;
@@ -73,7 +73,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.overlay.editingTitle.set(null);
     store.overlay.toolbarOverlayInfoMaybe.set(null);
     store.touchToolbar();
-    arrange(store);
+    fullArrange(store);
     serverOrRemote.updateItem(store.history.getFocusItem());
     store.touchToolbar();
   }
@@ -99,7 +99,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setExpressionEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
   }
 
   if (store.overlay.pageEditOverlayInfo()) {
@@ -108,7 +108,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setPageEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
   }
 
   if (store.overlay.tableEditOverlayInfo()) {
@@ -117,7 +117,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setTableEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
   }
 
   if (store.overlay.noteEditOverlayInfo()) {
@@ -127,7 +127,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setNoteEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
   }
 
   if (store.overlay.passwordEditOverlayInfo()) {
@@ -136,7 +136,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setPasswordEditOverlayInfo(store.history, null);
-    arrange(store);
+    fullArrange(store);
   }
 
   switch(buttonNumber) {
@@ -199,7 +199,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
       store.history.setFocus(VeFns.veToPath(hitInfo.overElementVes.get()));
       switchToPage(store, VeFns.actualVeidFromVe(hitInfo.overElementVes.get()), true, false, false);
     } else {
-      arrange(store);
+      fullArrange(store);
     }
     MouseActionState.set(null);
     return;

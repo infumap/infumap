@@ -33,7 +33,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
-import { arrange } from '../layout/arrange';
+import { fullArrange } from '../layout/arrange';
 import { CursorPosition } from '../store/StoreProvider_Overlay';
 
 
@@ -248,7 +248,7 @@ export const NoteFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
-    arrange(store); // input focus changed.
+    fullArrange(store); // input focus changed.
   },
 
   cloneMeasurableFields: (note: NoteMeasurable): NoteMeasurable => {

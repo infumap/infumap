@@ -23,7 +23,7 @@ import { asImageItem, ImageItem } from "../../../../items/image-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { itemState } from "../../../../store/ItemState";
-import { arrange } from "../../../../layout/arrange";
+import { fullArrange } from "../../../../layout/arrange";
 
 
 export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: { imageItem: ImageItem, linkedTo: boolean }) => {
@@ -35,7 +35,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
   const handleTitleChange = (v: string) => {
     asImageItem(itemState.get(imageId)!).title = v;
     // rearrangeVisualElementsWithItemId(store, imageId); TODO (MEDIUM): use VesCache for this now.
-    arrange(store);
+    fullArrange(store);
   };
 
   const deleteImage = async () => {
@@ -43,7 +43,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
     await server.deleteItem(imageId); // throws on failure.
     itemState.delete(imageId);
     store.overlay.editDialogInfo.set(null);
-    arrange(store);
+    fullArrange(store);
   }
 
   onCleanup(() => {

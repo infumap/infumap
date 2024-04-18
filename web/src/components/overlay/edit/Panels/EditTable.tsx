@@ -25,7 +25,7 @@ import { InfuTextInput } from "../../../library/InfuTextInput";
 import { NumberSignal, createNumberSignal } from "../../../../util/signals";
 import { itemState } from "../../../../store/ItemState";
 import { TableFlags } from "../../../../items/base/flags-item";
-import { arrange } from "../../../../layout/arrange";
+import { fullArrange } from "../../../../layout/arrange";
 
 
 export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (props: { tableItem: TableItem, linkedTo: boolean }) => {
@@ -42,7 +42,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
 
   const handleTitleInput = (v: string) => {
     asTableItem(itemState.get(tableId)!).title = v;
-    arrange(store);
+    fullArrange(store);
   };
 
   const deleteTable = async () => {
@@ -50,7 +50,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
     await server.deleteItem(tableId); // throws on failure.
     itemState.delete(tableId);
     store.overlay.editDialogInfo.set(null);
-    arrange(store);
+    fullArrange(store);
   }
 
   const showCol = () => {
@@ -62,27 +62,27 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
       table().numberOfVisibleColumns += 1;
     }
     colCountSignal.set(colCountSignal.get() + 1);
-    arrange(store);
+    fullArrange(store);
   }
 
   const hideCol = () => {
     if (table().numberOfVisibleColumns == 1) { return; }
     table().numberOfVisibleColumns -= 1;
     colCountSignal.set(colCountSignal.get() - 1);
-    arrange(store);
+    fullArrange(store);
   }
 
   const newCol = () => {
     TableFns.insertEmptyColAt(table().id, colCountSignal.get()-1);
     table().numberOfVisibleColumns += 1;
-    arrange(store);
+    fullArrange(store);
   }
 
   const deleteCol = () => {
     if (colCountSignal.get() == 1) { return; }
     TableFns.removeColItemsAt(table().id, colCountSignal.get()-2);
     table().numberOfVisibleColumns -= 1;
-    arrange(store);
+    fullArrange(store);
   }
 
   const changeOrderChildrenBy = async () => {
@@ -93,7 +93,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
       asTableItem(itemState.get(tableId)!).orderChildrenBy = "";
     }
     itemState.sortChildren(tableId);
-    arrange(store);
+    fullArrange(store);
   }
 
   const changeShowHeader = async () => {
@@ -103,7 +103,7 @@ export const EditTable: Component<{tableItem: TableItem, linkedTo: boolean}> = (
       asTableItem(itemState.get(tableId)!).flags &= ~TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableId);
-    arrange(store);
+    fullArrange(store);
   }
 
   onCleanup(() => {

@@ -29,7 +29,7 @@ import { PasswordFns } from "../items/password-item";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
-import { arrange } from "../layout/arrange";
+import { fullArrange } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElementFlags } from "../layout/visual-element";
@@ -86,7 +86,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     server.addItem(newItem, null);
 
     store.overlay.contextMenuInfo.set(null);
-    arrange(store);
+    fullArrange(store);
 
     newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
   }
@@ -124,7 +124,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     itemState.add(newItem);
 
     store.overlay.contextMenuInfo.set(null);
-    arrange(store);
+    fullArrange(store);
 
     newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
   }
@@ -144,7 +144,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         server.addItem(newItem, null);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);
-        arrange(store);
+        fullArrange(store);
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
       } else {
@@ -171,7 +171,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         server.addItem(newItem, null);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);
-        arrange(store);
+        fullArrange(store);
 
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.addVeidToPath(VeFns.veidFromId(childId), VeFns.veToPath(overElementVe)));
       }
@@ -199,7 +199,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       itemState.add(newItem);
 
       store.overlay.contextMenuInfo.set(null);
-      arrange(store);
+      fullArrange(store);
 
       newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(parentVe));
     }

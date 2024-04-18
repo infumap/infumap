@@ -17,7 +17,7 @@
 */
 
 import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 import { HitboxFns, HitboxFlags } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
 import { VesCache } from "../../layout/ves-cache";
@@ -35,7 +35,7 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
     store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
-    arrange(store);
+    fullArrange(store);
     return true;
   }
   return false;

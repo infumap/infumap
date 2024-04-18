@@ -21,7 +21,7 @@ import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
@@ -116,7 +116,7 @@ export const Toolbar_Overlay: Component = () => {
     if (ev.code == "Enter") {
       handleTextChange();
       store.touchToolbar();
-      arrange(store);
+      fullArrange(store);
       if (isNote(store.history.getFocusItem())) {
         serverOrRemote.updateItem(store.history.getFocusItem());
         setTimeout(() => {
@@ -148,7 +148,7 @@ export const Toolbar_Overlay: Component = () => {
     } else if (overlayTypeConst == ToolbarOverlayType.PageDocWidth) {
       pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
     }
-    arrange(store);
+    fullArrange(store);
   };
 
   const inputWidthPx = (): number => {
@@ -227,7 +227,7 @@ export const Toolbar_Overlay: Component = () => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
     textElement!.value = aspect;
     pageItem().naturalAspect = parseFloat(textElement!.value);
-    arrange(store);
+    fullArrange(store);
   }
 
   return (

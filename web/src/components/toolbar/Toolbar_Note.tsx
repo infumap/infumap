@@ -23,7 +23,7 @@ import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns } from "../../layout/visual-element";
-import { arrange } from "../../layout/arrange";
+import { fullArrange } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
@@ -52,17 +52,17 @@ export const Toolbar_Note: Component = () => {
     return VeFns.isInTable(noteVisualElement());
   }
 
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); arrange(store); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; arrange(store); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; arrange(store); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; arrange(store); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; arrange(store); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; arrange(store); };
+  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); fullArrange(store); };
+  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; fullArrange(store); };
+  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; fullArrange(store); };
+  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; fullArrange(store); };
+  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; fullArrange(store); };
+  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; fullArrange(store); };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); arrange(store); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; arrange(store); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; arrange(store); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; arrange(store); };
+  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); fullArrange(store); };
+  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; fullArrange(store); };
+  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; fullArrange(store); };
+  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; fullArrange(store); };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -77,7 +77,7 @@ export const Toolbar_Note: Component = () => {
     } else {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
-    arrange(store);
+    fullArrange(store);
   };
 
   const borderButtonHandler = (): void => {
@@ -94,7 +94,7 @@ export const Toolbar_Note: Component = () => {
         noteItem().flags |= NoteFlags.HideBorder;
       }
     }
-    arrange(store);
+    fullArrange(store);
   };
 
   const handleQr = () => {

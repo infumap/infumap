@@ -34,7 +34,7 @@ import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
-import { arrange } from '../layout/arrange';
+import { fullArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { InfuTextStyle, getTextStyleForNote, measureWidthBl } from '../layout/text';
 import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
@@ -508,7 +508,7 @@ export const PageFns = {
         isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
       store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
-      arrange(store);
+      fullArrange(store);
       return;
     }
 
@@ -520,13 +520,13 @@ export const PageFns = {
     }
     if (insidePopup) {
       store.history.pushPopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: null });
-      arrange(store);
+      fullArrange(store);
       return;
     }
 
     // not inside popup.
     store.history.replacePopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-    arrange(store);
+    fullArrange(store);
   },
 
   handleAnchorClick: (visualElement: VisualElement, store: StoreContextModel): void => {
@@ -541,7 +541,7 @@ export const PageFns = {
       popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
     }
     serverOrRemote.updateItem(popupParentPage);
-    arrange(store);
+    fullArrange(store);
   },
 
   handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
