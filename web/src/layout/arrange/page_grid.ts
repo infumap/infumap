@@ -166,20 +166,18 @@ export function arrange_grid_page(
       scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
     }
 
-    const topLevelVisualElement = store.topLevelVisualElement.get();
-    const topLevelBoundsPx = topLevelVisualElement.childAreaBoundsPx!;
+    const umbrellaVisualElement = store.umbrellaVisualElement.get();
+    const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
     const desktopSizePx = store.desktopBoundsPx();
     const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPage()!);
-    const pageYScrollPx = pageYScrollProp * (topLevelBoundsPx.h - desktopSizePx.h);
-    const pageXScrollProp = store.perItem.getPageScrollXProp(store.history.currentPage()!);
-    const pageXScrollPx = pageXScrollProp * (topLevelBoundsPx.w - desktopSizePx.w);
+    const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
 
     const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
     const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
     const cellBoundsPx = {
-      x: mouseDestkopPosPx.x - geometry.boundsPx.x + xOffsetPx + pageXScrollPx,
+      x: mouseDestkopPosPx.x - geometry.boundsPx.x + xOffsetPx,
       y: mouseDestkopPosPx.y - geometry.boundsPx.y + yOffsetPx + pageYScrollPx,
       w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,

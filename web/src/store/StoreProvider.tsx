@@ -36,7 +36,7 @@ export interface StoreContextModel {
   desktopMainAreaBoundsPx: () => BoundingBox,
   resetDesktopSizePx: () => void,
 
-  topLevelVisualElement: InfuSignal<VisualElement>,
+  umbrellaVisualElement: InfuSignal<VisualElement>,
 
   currentVisiblePassword: InfuSignal<Uid | null>,
 
@@ -88,7 +88,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
 
-  const topLevelVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
+  const umbrellaVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
@@ -134,7 +134,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const clear = (): void => {
     currentVisiblePassword.set(null);
-    topLevelVisualElement.set(NONE_VISUAL_ELEMENT);
+    umbrellaVisualElement.set(NONE_VISUAL_ELEMENT);
     history.clear();
     overlay.clear();
     perItem.clear();
@@ -158,7 +158,7 @@ export function StoreProvider(props: StoreContextProps) {
     topToolbarVisible,
     topToolbarHeight,
 
-    topLevelVisualElement,
+    umbrellaVisualElement,
 
     clear,
 

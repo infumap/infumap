@@ -33,7 +33,9 @@ import { createVisualElementSignal } from "../../util/signals";
 
 
 /**
- * Create the visual element tree for the current page.
+ * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
+ * visual element tree for other than the current page is required for keyboard navigation where that requires
+ * knowledge of the layout of the parent page.
  * 
  * Design note: Initially, this was implemented such that the visual element state was a function of the item
  * state (arrange was never called imperatively). The arrange function in that implementation did produce (nested)
@@ -50,6 +52,8 @@ import { createVisualElementSignal } from "../../util/signals";
  * 3. The functional represenation was not straightforward (compared to the current approach) to reason about -
  *    you need to be very congisant of functional dependencies, what is being captured etc. Even though the direct
  *    approach is more ad-hoc / less "automated", the code is simpler to work on due to this.
+ *
+ * @param virtualPageVeid the page to create the visual element tree for, if not the current page.
  */
 export const arrange = (store: StoreContextModel, virtualPageVeid?: Veid): void => {
   if (store.history.currentPage() == null) { return; }
@@ -67,22 +71,22 @@ export const arrange = (store: StoreContextModel, virtualPageVeid?: Veid): void 
   const actualLinkItemMaybe = currentPageVeid.linkIdMaybe
     ? asLinkItem(itemState.get(currentPageVeid.linkIdMaybe!)!)
     : null;
-  const pageItem = PageFns.topLevelPage();
-  const currentPath = pageItem.id;
+  const umbrellaPageItem = PageFns.umbrellaPage();
+  const umbrellaPath = umbrellaPageItem.id;
 
-  const visualElementSpec: VisualElementSpec = {
-    displayItem: pageItem,
+  const umbrellaVeSpec: VisualElementSpec = {
+    displayItem: umbrellaPageItem,
     linkItemMaybe: null,
     actualLinkItemMaybe: null,
-    flags: VisualElementFlags.TopLevelPage,
+    flags: VisualElementFlags.UmbrellaPage,
     boundsPx: store.desktopBoundsPx(),
     childAreaBoundsPx: store.desktopBoundsPx(),
     viewportBoundsPx: store.desktopBoundsPx(),
   };
 
-  const dockVesMaybe = renderDockMaybe(store, currentPath);
+  const dockVesMaybe = renderDockMaybe(store, umbrellaPath);
   if (dockVesMaybe) {
-    visualElementSpec.dockVes = dockVesMaybe;
+    umbrellaVeSpec.dockVes = dockVesMaybe;
   }
 
   const childrenVes = [];
@@ -93,18 +97,18 @@ export const arrange = (store: StoreContextModel, virtualPageVeid?: Veid): void 
     hitboxes: []
   };
 
-  const pageVes = arrangeItem(
-    store, currentPath, ArrangeAlgorithm.SpatialStretch, currentPage, actualLinkItemMaybe, itemGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot);
+  const parentArrangeAlgorithm = ArrangeAlgorithm.None;
+  const flags = ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot;
+  const pageVes = arrangeItem(store, umbrellaPath, parentArrangeAlgorithm, currentPage, actualLinkItemMaybe, itemGeometry, flags);
   childrenVes.push(pageVes);
-  visualElementSpec.childrenVes = childrenVes;
+  umbrellaVeSpec.childrenVes = childrenVes;
 
   if (virtualPageVeid) {
-    const topLevelVes = createVisualElementSignal(VeFns.create(visualElementSpec));
-    VesCache.finalizeFullArrange(store, visualElementSpec, currentPath, topLevelVes);
+    const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaVeSpec));
+    VesCache.finalizeFullArrange(store, umbrellaVeSpec, umbrellaPath, umbrellaVes);
     evaluateExpressions(true);
   } else {
-    VesCache.finalizeFullArrange(store, visualElementSpec, currentPath);
+    VesCache.finalizeFullArrange(store, umbrellaVeSpec, umbrellaPath);
     evaluateExpressions(false);
   }
 

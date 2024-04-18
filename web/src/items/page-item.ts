@@ -20,7 +20,7 @@ import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, COMPOSI
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
-import { EMPTY_UID, newUid, TOP_LEVEL_PAGE_UID, Uid } from '../util/uid';
+import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid } from '../util/uid';
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { ContainerItem } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
@@ -47,6 +47,7 @@ import { newOrdering } from '../util/ordering';
 
 
 export const ArrangeAlgorithm = {
+  None: "none",
   SpatialStretch: "spatial-stretch",
   Grid: "grid",
   Justified: "justified",
@@ -88,7 +89,8 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 
 export const PageFns = {
-  topLevelPage: () => topLevelPage(),
+  // The absolute top level page.
+  umbrellaPage: () => umbrellaPage(),
 
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): PageItem => {
     return ({
@@ -633,8 +635,8 @@ export function asPageItem(item: ItemTypeMixin): PageItem {
   panic(`item (id: ${id}) is a '${item.itemType}', not a page.`);
 }
 
-const topLevelPage = () => {
+const umbrellaPage = () => {
   const result = PageFns.create(EMPTY_UID, EMPTY_UID, RelationshipToParent.NoParent, "", newOrdering());
-  result.id = TOP_LEVEL_PAGE_UID;
+  result.id = UMBRELLA_PAGE_UID;
   return result;
 }

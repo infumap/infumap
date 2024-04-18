@@ -93,16 +93,16 @@ export let VesCache = {
     evaluationRequired = new Set<VisualElementPath>();
   },
 
-  finalizeFullArrange: (store: StoreContextModel, topLevelVisualElementSpec: VisualElementSpec, topLevelPath: VisualElementPath, virtualTopLevelVes?: VisualElementSignal): void => {
-    if (topLevelVisualElementSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
-    topLevelVisualElementSpec.displayItemFingerprint = ItemFns.getFingerprint(topLevelVisualElementSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
+  finalizeFullArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
+    if (umbrellaVeSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
+    umbrellaVeSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaVeSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
 
-    if (virtualTopLevelVes) {
-      constructingCache.set(topLevelPath, virtualTopLevelVes);
+    if (virtualUmbrellaVes) {
+      constructingCache.set(umbrellaPath, virtualUmbrellaVes);
       virtualCache = constructingCache;
     } else {
-      constructingCache.set(topLevelPath, store.topLevelVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
-      store.topLevelVisualElement.set(VeFns.create(topLevelVisualElementSpec));
+      constructingCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
+      store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
       currentVesCache = constructingCache;
     }
 

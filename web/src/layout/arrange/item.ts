@@ -31,7 +31,6 @@ import { ItemGeometry } from "../item-geometry";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
-import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
@@ -88,13 +87,15 @@ export const arrangeItem = (
     if (!isPage(displayItem)) { return false; }
     if (arrangeFlagIsRoot(flags)) { return true; }
     if (flags & ArrangeItemFlags.IsPopupRoot) { return true; }
+    if (flags & ArrangeItemFlags.IsTopRoot) { return true; }
     if (!(flags & ArrangeItemFlags.RenderChildrenAsFull)) { return false; }
     if (parentArrangeAlgorithm == ArrangeAlgorithm.Dock) { return true; }
-    return (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch
-      ? // This test does not depend on pixel size, so is invariant over display devices.
-        (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL)
-      : // However, this test does.
-        itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL);
+    if (parentArrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      // This test does not depend on pixel size, so is invariant over display devices.
+      return (spatialWidthGr / GRID_SIZE >= CHILD_ITEMS_VISIBLE_WIDTH_BL);
+    }
+    // However, this test does.
+    return itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL;
   })();
 
   if (renderWithChildren) {

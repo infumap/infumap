@@ -29,12 +29,12 @@ import { VeFns, VisualElementFlags, VisualElementSpec } from "../visual-element"
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeItemAttachments } from "./attachments";
-import { POPUP_LINK_UID, TOP_LEVEL_PAGE_UID } from "../../util/uid";
+import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 
 
 export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal {
   const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
-  const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), TOP_LEVEL_PAGE_UID);
+  const currentPath = VeFns.addVeidToPath(VeFns.veidFromItems(currentPage, null), UMBRELLA_PAGE_UID);
   const currentPopupSpec = store.history.currentPopupSpec()!;
 
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||

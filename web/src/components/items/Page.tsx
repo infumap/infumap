@@ -30,7 +30,7 @@ import { itemState } from "../../store/ItemState";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { TOP_LEVEL_PAGE_UID } from "../../util/uid";
+import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { arrange } from "../../layout/arrange";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 
@@ -695,7 +695,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       let veid = store.history.currentPage()!;
       if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
         veid = VeFns.actualVeidFromVe(props.visualElement);
-      } else if (props.visualElement.parentPath != TOP_LEVEL_PAGE_UID) {
+      } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
         const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
         veid = store.perItem.getSelectedListPageItem(parentVeid);
       }
@@ -766,7 +766,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   // # Top Level
 
-  const renderAsTopLevel = () => {
+  const renderAsUmbrella = () => {
     return (
       <>
         <div class={`absolute`}
@@ -786,8 +786,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   return (
     <Switch>
-      <Match when={props.visualElement.flags & VisualElementFlags.TopLevelPage}>
-        {renderAsTopLevel()}
+      <Match when={props.visualElement.flags & VisualElementFlags.UmbrellaPage}>
+        {renderAsUmbrella()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
         {renderAsDock()}

@@ -83,11 +83,11 @@ export function getHitInfo(
     ignoreAttachments: boolean,
     canHitEmbeddedInteractive: boolean): HitInfo {
 
-  const topLevelVisualElement: VisualElement = store.topLevelVisualElement.get();
-  assert(topLevelVisualElement.childrenVes.length == 1, "expecting top level visual element to have exactly one child");
+  const umbrellaVisualElement: VisualElement = store.umbrellaVisualElement.get();
+  assert(umbrellaVisualElement.childrenVes.length == 1, "expecting top level visual element to have exactly one child");
 
   const currentPageVeid = store.history.currentPage()!;
-  const currentPageVe = topLevelVisualElement.childrenVes[0].get();
+  const currentPageVe = umbrellaVisualElement.childrenVes[0].get();
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {
       x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
@@ -95,7 +95,7 @@ export function getHitInfo(
     });
 
   // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
-  let topLevelRoot = determineTopLevelRoot(store, topLevelVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx, canHitEmbeddedInteractive);
+  let topLevelRoot = determineTopLevelRoot(store, umbrellaVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx, canHitEmbeddedInteractive);
   if (topLevelRoot.hitMaybe) {
     if (!ignoreItems.find(a => a == topLevelRoot.hitMaybe?.overElementVes.get().displayItem.id)) {
       return topLevelRoot.hitMaybe!;
@@ -211,20 +211,20 @@ interface RootInfo {
 
 function determineTopLevelRoot(
     store: StoreContextModel,
-    topLevelVisualElement: VisualElement,
+    umbrellaVisualElement: VisualElement,
     // this may be scrolled, so not be the same as posOnDesktopPx.
     posRelativeToTopLevelVisualElementPx: Vector,
     // does not incorporate page scroll.
     posOnDesktopPx: Vector,
     canHitEmbeddedInteractive: boolean): RootInfo {
 
-  if (topLevelVisualElement.childrenVes.length != 1) {
-    panic("expected topLevelVisualElement to have a child");
+  if (umbrellaVisualElement.childrenVes.length != 1) {
+    panic("expected umbrellaVisualElement to have a child");
   }
 
-  let rootVisualElement = topLevelVisualElement.childrenVes[0].get();
+  let rootVisualElement = umbrellaVisualElement.childrenVes[0].get();
   let posRelativeToRootVisualElementBoundsPx = posRelativeToTopLevelVisualElementPx;
-  let rootVisualElementSignal = topLevelVisualElement.childrenVes[0];
+  let rootVisualElementSignal = umbrellaVisualElement.childrenVes[0];
 
   if (rootVisualElement.childrenVes.length == 0) {
     return ({
@@ -236,7 +236,7 @@ function determineTopLevelRoot(
     });
   }
 
-  const dockRootMaybe = determineIfDockRoot(topLevelVisualElement, posOnDesktopPx);
+  const dockRootMaybe = determineIfDockRoot(umbrellaVisualElement, posOnDesktopPx);
   if (dockRootMaybe != null) {
     return dockRootMaybe!;
   }
@@ -456,10 +456,10 @@ function determineEmbeddedRootMaybe(
 }
 
 
-function determineIfDockRoot(topLevelVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
-  if (topLevelVisualElement.dockVes == null) { return null; }
+function determineIfDockRoot(umbrellaVisualElement: VisualElement, posOnDesktopPx: Vector): RootInfo | null {
+  if (umbrellaVisualElement.dockVes == null) { return null; }
 
-  let dockVes = topLevelVisualElement.dockVes;
+  let dockVes = umbrellaVisualElement.dockVes;
   const dockVe = dockVes.get();
   if (!isInside(posOnDesktopPx, dockVe.boundsPx)) { return null; }
 
@@ -654,7 +654,7 @@ function finalize(
     canHitEmbeddedInteractive: boolean): HitInfo {
 
   const overVe = overElementVes.get();
-  if (overVe.displayItem.id == PageFns.topLevelPage().id) {
+  if (overVe.displayItem.id == PageFns.umbrellaPage().id) {
     return {
       hitboxType: HitboxFlags.None,
       compositeHitboxTypeMaybe: HitboxFlags.None,

@@ -76,7 +76,7 @@ export enum VisualElementFlags {
   Moving                  = 0x00400, // Render the visual element partially transparent and on top of everything else.
   IsDock                  = 0x00800, // render the page as the dock.
   IsTrash                 = 0x01000, // render the page as the trash icon.
-  TopLevelPage            = 0x02000, // the top level page.
+  UmbrellaPage            = 0x02000, // the very top level page.
   Popup                   = 0x04000, // Is a popped up something (page or image or anything).
   TopLevelRoot            = 0x08000, // The top most page root element.
   ListPageRoot            = 0x10000, // Is the root item in a list page.
@@ -254,6 +254,7 @@ export interface VisualElementSpec {
   numRows?: number,
   hitboxes?: Array<Hitbox>,
   parentPath?: VisualElementPath,
+
   childrenVes?: Array<VisualElementSignal>,
   attachmentsVes?: Array<VisualElementSignal>,
   popupVes?: VisualElementSignal | null,
@@ -512,7 +513,7 @@ export const VeFns = {
   },
 
   desktopPxToTopLevelPagePx: (store: StoreContextModel, desktopPosPx: Vector): Vector => {
-    const ve = store.topLevelVisualElement.get();
+    const ve = store.umbrellaVisualElement.get();
     const adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(VeFns.veidFromVe(ve));
     const adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(VeFns.veidFromVe(ve));
     return ({
@@ -522,7 +523,7 @@ export const VeFns = {
   },
 
   printCurrentVisualElementTree: (store: StoreContextModel) => {
-    printRecursive(store.topLevelVisualElement.get(), 0, "c");
+    printRecursive(store.umbrellaVisualElement.get(), 0, "c");
   },
 
   isInTable: (visualElement: VisualElement): boolean => {

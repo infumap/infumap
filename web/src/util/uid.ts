@@ -25,5 +25,5 @@ export function newUid(): Uid {
 }
 
 export const EMPTY_UID: string =           "00000000000000000000000000000000";
-export const TOP_LEVEL_PAGE_UID: string =  "00000000000000000000000000000001";
+export const UMBRELLA_PAGE_UID: string =   "00000000000000000000000000000001";
 export const POPUP_LINK_UID: string =      "00000000000000000000000000000002";

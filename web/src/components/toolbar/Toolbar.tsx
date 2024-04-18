@@ -160,7 +160,7 @@ export const Toolbar: Component = () => {
                    style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; ` +
                           `align-items: baseline;`}>
 
-                <Show when={store.topLevelVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+                <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
                   <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
                     <Match when={isPage(store.history.getFocusItem())}>
                       <Toolbar_Page />
