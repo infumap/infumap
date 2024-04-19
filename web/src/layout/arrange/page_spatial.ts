@@ -86,6 +86,7 @@ export function arrange_spatial_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (isEmbeddedInteractive ? VisualElementFlags.EmbededInteractiveRoot : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+    arrangeFlags: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes: geometry.hitboxes,

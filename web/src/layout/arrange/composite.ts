@@ -57,6 +57,7 @@ export const arrangeComposite = (
     flags: VisualElementFlags.Detailed |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
+    arrangeFlags: ArrangeItemFlags.None,
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
     viewportBoundsPx,
@@ -90,6 +91,7 @@ export const arrangeComposite = (
       linkItemMaybe: linkItemMaybe_childItem,
       actualLinkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed,
+      arrangeFlags: ArrangeItemFlags.None,
       boundsPx: {
         x: geometry.boundsPx.x,
         y: geometry.boundsPx.y,

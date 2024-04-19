@@ -60,6 +60,7 @@ export const arrangeTable = (
     flags: VisualElementFlags.Detailed |
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
+    arrangeFlags: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
     childAreaBoundsPx,
@@ -91,6 +92,7 @@ export const arrangeTable = (
       linkItemMaybe: linkItemMaybe_childItem,
       actualLinkItemMaybe: linkItemMaybe_childItem,
       flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
+      arrangeFlags: ArrangeItemFlags.None,
       boundsPx: geometry.boundsPx,
       tableBoundsPx: tableGeometry.boundsPx,
       hitboxes: geometry.hitboxes,
@@ -129,6 +131,7 @@ export const arrangeTable = (
           linkItemMaybe: linkItemMaybe_attachment,
           actualLinkItemMaybe: linkItemMaybe_attachment,
           flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
+          arrangeFlags: ArrangeItemFlags.None,
           boundsPx: geometry.boundsPx,
           tableBoundsPx: tableGeometry.boundsPx,
           hitboxes: geometry.hitboxes,

@@ -40,7 +40,7 @@ export function arrange_justified_page(
     linkItemMaybe_pageWithChildren: LinkItem | null,
     actualLinkItemMaybe_pageWithChildren: LinkItem | null,
     geometry: ItemGeometry,
-    flags :ArrangeItemFlags): VisualElementSpec {
+    flags: ArrangeItemFlags): VisualElementSpec {
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
@@ -104,6 +104,7 @@ export function arrange_justified_page(
            (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+    arrangeFlags: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes: geometry.hitboxes,

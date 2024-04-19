@@ -116,6 +116,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     displayItem: dockPage,
     linkItemMaybe: null,
     flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
+    arrangeFlags: ArrangeItemFlags.None,
     boundsPx: dockBoundsPx,
     viewportBoundsPx: dockBoundsPx,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(dockBoundsPx),
@@ -141,6 +142,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
       displayItem: trashPage,
       linkItemMaybe: null,
       flags: VisualElementFlags.IsTrash,
+      arrangeItem: ArrangeItemFlags.None,
       boundsPx: trashBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),

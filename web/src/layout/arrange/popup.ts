@@ -80,6 +80,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
       flags: VisualElementFlags.Popup |
              VisualElementFlags.Detailed |
              (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None),
+      arrangeFlags: ArrangeItemFlags.None,
       boundsPx: geometry.boundsPx,
       childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
       hitboxes: geometry.hitboxes,

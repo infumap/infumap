@@ -16,11 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
 import { compareBoundingBox, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
+import { Uid } from "../util/uid";
 import { HitboxFns } from "./hitbox";
 import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-element";
 
@@ -43,8 +45,11 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 */
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
+let currentVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
-let constructingCache = new Map<VisualElementPath, VisualElementSignal>();
+let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
+let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
+
 let evaluationRequired = new Set<VisualElementPath>();
 
 export let VesCache = {
@@ -54,8 +59,10 @@ export let VesCache = {
    */
   clear: (): void => {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
+    currentVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
-    constructingCache = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
     evaluationRequired = new Set<VisualElementPath>();
   },
 
@@ -89,6 +96,10 @@ export let VesCache = {
     return result;
   },
 
+  getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
+    return currentVesVsDisplayItemId.get(displayId)!;
+  },
+
   initFullArrange: (): void => {
     evaluationRequired = new Set<VisualElementPath>();
   },
@@ -98,15 +109,17 @@ export let VesCache = {
     umbrellaVeSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaVeSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
 
     if (virtualUmbrellaVes) {
-      constructingCache.set(umbrellaPath, virtualUmbrellaVes);
-      virtualCache = constructingCache;
+      underConstructionCache.set(umbrellaPath, virtualUmbrellaVes);
+      virtualCache = underConstructionCache;
     } else {
-      constructingCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
+      underConstructionCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
-      currentVesCache = constructingCache;
+      currentVesCache = underConstructionCache;
+      currentVesVsDisplayItemId = underConstructionVesVsDisplayItemId;
     }
 
-    constructingCache = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
+    underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
   },
 
   /**
@@ -140,7 +153,7 @@ export let VesCache = {
       }
     }
     const result: Array<VisualElementSignal> = [];
-    findImpl(constructingCache, result);
+    findImpl(underConstructionCache, result);
     findImpl(currentVesCache, result);
     return result;
   },
@@ -165,7 +178,7 @@ export let VesCache = {
       }
       return result;
     }
-    let resultMaybe = findSingleImpl(constructingCache);
+    let resultMaybe = findSingleImpl(underConstructionCache);
     if (resultMaybe != null) { return resultMaybe; }
     resultMaybe = findSingleImpl(currentVesCache);
     if (resultMaybe == null) {
@@ -224,12 +237,21 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
     return 0;
   }
 
+  function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath) {
+    const existing = underConstructionVesVsDisplayItemId.get(displayItemId);
+    if (!existing) {
+      underConstructionVesVsDisplayItemId.set(displayItemId, []);
+    }
+    underConstructionVesVsDisplayItemId.get(displayItemId)!.push(path);
+  }
+
   const existing = currentVesCache.get(path);
   if (existing) {
     if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
-      constructingCache.set(path, existing);
+      underConstructionCache.set(path, existing);
+      addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
 
@@ -304,17 +326,20 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
 
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
-      constructingCache.set(path, existing);
+      underConstructionCache.set(path, existing);
+      addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
     existing.set(VeFns.create(visualElementOverride));
-    constructingCache.set(path, existing);
+    underConstructionCache.set(path, existing);
+    addVesVsDisplayItem(existing.get().displayItem.id, path);
     return existing;
   }
 
   if (debug) { console.debug("creating:", path); }
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-  constructingCache.set(path, newElement);
+  underConstructionCache.set(path, newElement);
+  addVesVsDisplayItem(newElement.get().displayItem.id, path);
   return newElement;
 }

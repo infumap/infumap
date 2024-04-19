@@ -96,6 +96,7 @@ export function arrange_list_page(
            (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+    arrangeFlags: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
@@ -127,6 +128,7 @@ export function arrange_list_page(
       actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem |
             (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
+      arrangeFlags: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
       parentPath: pageWithChildrenVePath,
@@ -240,6 +242,7 @@ export function arrange_dock_list_page(
             VisualElementFlags.EmbededInteractiveRoot |
             (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
             (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+    arrangeFlags: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
@@ -266,6 +269,7 @@ export function arrange_dock_list_page(
       linkItemMaybe,
       actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem,
+      arrangeFlags: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
       parentPath: pageWithChildrenVePath,

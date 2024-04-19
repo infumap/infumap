@@ -31,6 +31,7 @@ import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
 import { isPage } from "../items/page-item";
 import { PopupType } from "../store/StoreProvider_History";
+import { ArrangeItemFlags } from "./arrange/item";
 
 
 /**
@@ -119,6 +120,13 @@ export interface VisualElement {
   flags: VisualElementFlags,
 
   /**
+   * The flags used during arrangement when creating the visual element. This gives context to allow for
+   * easy rearrangement. TODO: it's a bit messy to have this here. Maybe the visual element flags and
+   * arrangement flags would be better combined.
+   */
+  arrangeFlags: ArrangeItemFlags,
+
+  /**
    * If set, the element is currently being resized, and these were the original bounds.
    */
   resizingFromBoundsPx: BoundingBox | null,
@@ -200,6 +208,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   linkItemMaybe: null,
   actualLinkItemMaybe: null,
   flags: VisualElementFlags.None,
+  arrangeFlags: ArrangeItemFlags.None,
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
@@ -243,6 +252,7 @@ export interface VisualElementSpec {
   linkItemMaybe?: LinkItem | null,
   actualLinkItemMaybe?: LinkItem | null,
   flags?: VisualElementFlags,
+  arrangeFlags?: ArrangeItemFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   viewportBoundsPx?: BoundingBox,
@@ -274,6 +284,7 @@ export const VeFns = {
       linkItemMaybe: null,
       actualLinkItemMaybe: null,
       flags: VisualElementFlags.None,
+      arrangeFlags: ArrangeItemFlags.None,
       resizingFromBoundsPx: null,
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
@@ -311,6 +322,7 @@ export const VeFns = {
     if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
     if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
     if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
+    if (typeof(override.arrangeFlags) != 'undefined') { result.arrangeFlags = override.arrangeFlags; }
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
     if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }

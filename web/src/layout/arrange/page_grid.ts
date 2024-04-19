@@ -111,6 +111,7 @@ export function arrange_grid_page(
            (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id ==  pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
+    arrangeFlags: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes: geometry.hitboxes,

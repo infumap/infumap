@@ -16,11 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { getPanickedMessage } from "../../util/lang";
+import { getPanickedMessage, panic } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
@@ -29,14 +29,18 @@ import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
 import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { asLinkItem } from "../../items/link-item";
-import { createVisualElementSignal } from "../../util/signals";
+import { VisualElementSignal, createVisualElementSignal } from "../../util/signals";
+import { isComposite } from "../../items/composite-item";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { Uid } from "../../util/uid";
 
 
 /**
  * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
  * visual element tree for other than the current page is required for keyboard navigation where that requires
  * knowledge of the layout of the parent page.
- * 
+ *
  * Design note: Initially, this was implemented such that the visual element state was a function of the item
  * state (arrange was never called imperatively). The arrange function in that implementation did produce (nested)
  * visual element signals though, which had dependencies on the relevant part of the item state. In that
@@ -55,7 +59,7 @@ import { createVisualElementSignal } from "../../util/signals";
  *
  * @param virtualPageVeid the page to create the visual element tree for, if not the current page.
  */
-export const fullArrange = (store: StoreContextModel, virtualPageVeid?: Veid): void => {
+export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): void {
   if (store.history.currentPage() == null) { return; }
 
   if (getPanickedMessage() != null) {
@@ -114,4 +118,85 @@ export const fullArrange = (store: StoreContextModel, virtualPageVeid?: Veid): v
 
   const hasUser = store.user.getUserMaybe() != null;
   mouseMove_handleNoButtonDown(store, hasUser);
+}
+
+/**
+ * Update all VisualElements impacted by a change to @argument displayItemId.
+ */
+export function rearrange(store: StoreContextModel, displayItemId: Uid): void {
+  const paths = VesCache.getPathsForDisplayId(displayItemId);
+  let requireFullArrange = false;
+  for (let i=0; i<paths.length; ++i) {
+    const p = paths[i];
+    const ves = VesCache.get(p)!;
+    const ve = ves.get();
+    if (ve.flags & VisualElementFlags.InsideTable) {
+      rearrangeInsideTable(store, ves);
+      continue;
+    }
+
+    const parentPath = ves.get().parentPath!;
+    const parentVes = VesCache.get(parentPath)!;
+    const parentVe = parentVes.get();
+    const parentItem = parentVe.displayItem;
+
+    if (isPage(parentItem)) {
+      rearrangeInsidePage(store, ves);
+      continue;
+    }
+
+    if (isComposite(parentItem)) {
+      rearrangeInsideComposite(store, ves);
+      continue;
+    }
+
+    requireFullArrange = true;
+  }
+
+  if (requireFullArrange) {
+    // TODO (MEDIUM): will never be required when implementation complete.
+    console.warn("fell back to full arrange (main)");
+    fullArrange(store);
+  }
+}
+
+function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal): void {
+  const ve = ves.get();
+  const parentPath = ve.parentPath!;
+  const parentVes = VesCache.get(parentPath)!;
+  const parentVe = parentVes.get();
+  const parentItem = asPageItem(parentVe.displayItem);
+
+  let itemGeometry = null;
+  if (parentItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    const parentIsPopup = (parentVe.flags & VisualElementFlags.Popup) ? true : false;
+    const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentItem);
+    itemGeometry = ItemFns.calcGeometry_Spatial(
+      ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
+      zeroBoundingBoxTopLeft(parentVe.childAreaBoundsPx!),
+      parentPageInnerDimensionsBl,
+      parentIsPopup,
+      true,
+      false,
+      false);
+  } else {
+    console.error("fell back to full arrange (unsupported arrange algorithm)");
+    fullArrange(store);
+    return;
+  }
+  let arrangedVes = arrangeItem(
+    store, parentPath, parentItem.arrangeAlgorithm,
+    ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
+    ve.linkItemMaybe, itemGeometry, ve.arrangeFlags);
+  ves.set(arrangedVes.get());
+}
+
+function rearrangeInsideComposite(store: StoreContextModel, ves: VisualElementSignal): void {
+  console.log("fell back to full arrange (inside composite)");
+  fullArrange(store);
+}
+
+function rearrangeInsideTable(store: StoreContextModel, ves: VisualElementSignal): void {
+  console.log("fell back to full arrange (inside table)");
+  fullArrange(store);
 }

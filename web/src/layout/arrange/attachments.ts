@@ -27,6 +27,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
+import { ArrangeItemFlags } from "./item";
 
 
 export function arrangeItemAttachments(
@@ -76,6 +77,7 @@ export function arrangeItemAttachments(
       flags: VisualElementFlags.Attachment |
              (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None) |
              (isSelected ? VisualElementFlags.ZAbove : VisualElementFlags.None),
+      arrangeFlags: ArrangeItemFlags.None,
     };
     const attachmentVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
     attachments.push(attachmentVisualElementSignal);
