@@ -92,7 +92,9 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     ev.preventDefault();
     if (store.history.currentPopupSpec()) {
       store.history.popAllPopups();
-      fullArrange(store);
+      const topRootVes = store.umbrellaVisualElement.get().childrenVes[0];
+      topRootVes.get().popupVes = null;
+      topRootVes.set(topRootVes.get());
     }
   }
 

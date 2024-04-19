@@ -24,7 +24,7 @@ import { VeFns } from "../../layout/visual-element";
 import { asTableItem } from "../../items/table-item";
 import { serverOrRemote } from "../../server";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { fullArrange } from "../../layout/arrange";
+import { rearrange } from "../../layout/arrange";
 
 
 export const TableEditOverlay: Component = () => {
@@ -78,7 +78,7 @@ export const TableEditOverlay: Component = () => {
     } else {
       tableItem().tableColumns[overlayInfo.colNum!].name = textElement!.value;
     }
-    fullArrange(store);
+    rearrange(store, tableItem().id);
   }
 
   return (

@@ -125,6 +125,8 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
  * Update all VisualElements impacted by a change to @argument displayItemId.
  */
 export function rearrange(store: StoreContextModel, displayItemId: Uid): void {
+  console.log("rearrange");
+
   const paths = VesCache.getPathsForDisplayId(displayItemId);
   let requireFullArrange = false;
   for (let i=0; i<paths.length; ++i) {

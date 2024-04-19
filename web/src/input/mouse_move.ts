@@ -33,7 +33,7 @@ import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, DialogMoveState, UserSettingsMoveState } from "./state";
-import { fullArrange } from "../layout/arrange";
+import { fullArrange, rearrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
@@ -262,7 +262,7 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   }
 
   if (requireArrange) {
-    fullArrange(store);
+    rearrange(store, activeItem.id);
   }
 }
 

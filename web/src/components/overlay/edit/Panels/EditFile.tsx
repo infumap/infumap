@@ -23,7 +23,7 @@ import { asFileItem, FileItem } from "../../../../items/file-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { itemState } from "../../../../store/ItemState";
-import { fullArrange } from "../../../../layout/arrange";
+import { fullArrange, rearrange } from "../../../../layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (props: { fileItem: FileItem, linkedTo: boolean }) => {
@@ -34,8 +34,7 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
 
   const handleTextInput = (v: string) => {
     asFileItem(itemState.get(fileId)!).title = v;
-    // rearrangeVisualElementsWithItemId(store, fileId); TODO (MEDIUM): use VesCache for this now.
-    fullArrange(store);
+    rearrange(store, props.fileItem.id);
   };
 
   const deleteFile = async () => {

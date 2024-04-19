@@ -23,7 +23,7 @@ import { asImageItem, ImageItem } from "../../../../items/image-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { itemState } from "../../../../store/ItemState";
-import { fullArrange } from "../../../../layout/arrange";
+import { fullArrange, rearrange } from "../../../../layout/arrange";
 
 
 export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (props: { imageItem: ImageItem, linkedTo: boolean }) => {
@@ -34,8 +34,7 @@ export const EditImage: Component<{imageItem: ImageItem, linkedTo: boolean}> = (
 
   const handleTitleChange = (v: string) => {
     asImageItem(itemState.get(imageId)!).title = v;
-    // rearrangeVisualElementsWithItemId(store, imageId); TODO (MEDIUM): use VesCache for this now.
-    fullArrange(store);
+    rearrange(store, props.imageItem.id);
   };
 
   const deleteImage = async () => {
