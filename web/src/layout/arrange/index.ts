@@ -34,6 +34,7 @@ import { isComposite } from "../../items/composite-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { Uid } from "../../util/uid";
+import { arrangeCellPopup } from "./popup";
 
 
 /**
@@ -171,14 +172,20 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
   if (parentItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     const parentIsPopup = (parentVe.flags & VisualElementFlags.Popup) ? true : false;
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentItem);
-    itemGeometry = ItemFns.calcGeometry_Spatial(
-      ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
-      zeroBoundingBoxTopLeft(parentVe.childAreaBoundsPx!),
-      parentPageInnerDimensionsBl,
-      parentIsPopup,
-      true,
-      false,
-      false);
+    if (ve.flags & VisualElementFlags.Popup && !isPage(ve.displayItem)) {
+      let arrangedVes = arrangeCellPopup(store);
+      ves.set(arrangedVes.get());
+      return;
+    } else {
+      itemGeometry = ItemFns.calcGeometry_Spatial(
+        ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
+        zeroBoundingBoxTopLeft(parentVe.childAreaBoundsPx!),
+        parentPageInnerDimensionsBl,
+        parentIsPopup,
+        true,
+        false,
+        false);
+    }
   } else {
     console.error("fell back to full arrange (unsupported arrange algorithm)");
     fullArrange(store);
@@ -187,7 +194,7 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
   let arrangedVes = arrangeItem(
     store, parentPath, parentItem.arrangeAlgorithm,
     ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
-    ve.linkItemMaybe, itemGeometry, ve.arrangeFlags);
+    ve.actualLinkItemMaybe, itemGeometry, ve.arrangeFlags);
   ves.set(arrangedVes.get());
 }
 

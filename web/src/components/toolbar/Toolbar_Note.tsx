@@ -23,7 +23,7 @@ import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
 import { VesCache } from "../../layout/ves-cache";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns } from "../../layout/visual-element";
-import { rearrange, fullArrange } from "../../layout/arrange";
+import { rearrange } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 
@@ -78,7 +78,7 @@ export const Toolbar_Note: Component = () => {
     } else {
       noteItem().flags |= NoteFlags.ShowCopyIcon;
     }
-    fullArrange(store);
+    rearrange(store, noteItem().id);
   };
 
   const borderButtonHandler = (): void => {
@@ -95,7 +95,7 @@ export const Toolbar_Note: Component = () => {
         noteItem().flags |= NoteFlags.HideBorder;
       }
     }
-    fullArrange(store);
+    rearrange(store, noteItem().id);
   };
 
   const handleQr = () => {
