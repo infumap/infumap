@@ -35,7 +35,7 @@ import { mouseMoveHandler } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, MouseDownActionFlags, mouseDownHandler } from "../input/mouse_down";
 import { keyHandler } from "../input/key";
-import { fullArrange } from "../layout/arrange";
+import { fArrange } from "../layout/arrange";
 import { Toolbar_EditTitleOverlay } from "./toolbar/Toolbar_EditTitleOverlay";
 import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
@@ -145,7 +145,7 @@ export const Main: Component = () => {
 
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
-    fullArrange(store);
+    fArrange(store);
   };
 
   const windowPopStateListener = () => {
@@ -153,7 +153,7 @@ export const Main: Component = () => {
     store.overlay.editDialogInfo.set(null);
     store.overlay.editUserSettingsInfo.set(null);
     store.history.popPage();
-    fullArrange(store);
+    fArrange(store);
   };
 
   const contextMenuListener = (ev: Event) => {

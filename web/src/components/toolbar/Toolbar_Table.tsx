@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
-import { fullArrange } from "../../layout/arrange";
+import { rearrange } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
 import { TableFlags } from "../../items/base/flags-item";
 import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
@@ -48,7 +48,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().orderChildrenBy = "";
     }
     itemState.sortChildren(tableItem().id);
-    fullArrange(store);
+    rearrange(store, tableItem().id);
     serverOrRemote.updateItem(tableItem());
     store.touchToolbar();
   }
@@ -65,7 +65,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().flags |= TableFlags.ShowColHeader;
     }
     itemState.sortChildren(tableItem().id);
-    fullArrange(store);
+    rearrange(store,tableItem().id);
   }
 
   const handleQr = () => {

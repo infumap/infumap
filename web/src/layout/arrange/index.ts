@@ -38,6 +38,14 @@ import { arrangeCellPopup } from "./popup";
 
 
 /**
+ * temporary function used during the arrange -> rearrange refactor, which if called, indicates fullArrange
+ * does not need to be replaced by a call to rearrange.
+ */
+export function fArrange(store: StoreContextModel): void {
+  fullArrange(store);
+}
+
+/**
  * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
  * visual element tree for other than the current page is required for keyboard navigation where that requires
  * knowledge of the layout of the parent page.

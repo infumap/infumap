@@ -60,7 +60,6 @@ export const PageEditOverlay: Component = () => {
   const textAreaOnInputHandler = (ev: InputEvent) => {
     pageItem(store).title = textElement!.value;
     rearrange(store, pageItem(store).id);
-    console.log("rearrange ...");
     ev.preventDefault();
   };
 

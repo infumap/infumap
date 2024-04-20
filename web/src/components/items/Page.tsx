@@ -31,7 +31,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
-import { fullArrange } from "../../layout/arrange";
+import { fArrange } from "../../layout/arrange";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 
 
@@ -144,7 +144,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const showDock = () => {
     store.dockVisible.set(true);
-    fullArrange(store);
+    fArrange(store);
   }
 
   const renderAsDock = () => {
