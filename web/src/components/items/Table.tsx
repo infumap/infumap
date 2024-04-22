@@ -28,6 +28,7 @@ import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -198,9 +199,11 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   let scrollDoneTimer: number | null = null;
   function scrollDoneHandler() {
     const row = Math.round(store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)));
+    const prevScrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), row);
     (outerDiv!)!.scrollTop = row * blockHeightPx();
     scrollDoneTimer = null;
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
   }
 
   const blockHeightPx = () => props.visualElement.blockSizePx!.h;
@@ -209,7 +212,9 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   const scrollHandler = (_ev: Event) => {
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
     scrollDoneTimer = setTimeout(scrollDoneHandler, QUANTIZE_SCROLL_TIMEOUT_MS);
+    const prevScrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), (outerDiv!)!.scrollTop / blockHeightPx());
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
   }
 
   onMount(() => {
@@ -219,10 +224,8 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   const drawVisibleItems = () => {
     const children = props.visualElement.childrenVes;
     const visibleChildrenIds = [];
-    const yScrollProp = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
-    const firstItemIdx = Math.floor(yScrollProp);
-    let lastItemIdx = Math.ceil((yScrollProp * blockHeightPx() + props.visualElement.viewportBoundsPx!.h) / blockHeightPx());
-    if (lastItemIdx > children.length - 1) { lastItemIdx = children.length - 1; }
+    const firstItemIdx = 0;
+    let lastItemIdx = children.length - 1;
     for (let i=firstItemIdx; i<=lastItemIdx; ++i) {
       visibleChildrenIds.push(children[i]);
     }

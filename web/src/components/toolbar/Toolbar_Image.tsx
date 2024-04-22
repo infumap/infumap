@@ -23,7 +23,7 @@ import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
 import { asImageItem } from "../../items/image-item";
 import { VesCache } from "../../layout/ves-cache";
 import { ImageFlags } from "../../items/base/flags-item";
-import { rearrange } from "../../layout/arrange";
+import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
 
 
@@ -46,7 +46,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.HideBorder;
     }
-    rearrange(store, imageItem().id);
+    rearrangeWithDisplayId(store, imageItem().id);
     serverOrRemote.updateItem(imageItem());
   }
 
@@ -60,7 +60,7 @@ export const Toolbar_Image: Component = () => {
     } else {
       imageItem().flags |= ImageFlags.NoCrop;
     }
-    rearrange(store, imageItem().id);
+    rearrangeWithDisplayId(store, imageItem().id);
     serverOrRemote.updateItem(imageItem());
   }
 

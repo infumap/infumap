@@ -39,7 +39,7 @@ import { Expression_LineItem } from "./items/Expression";
 import { Page_LineItem } from "./items/Page";
 import { Rating_LineItem } from "./items/Rating";
 import { Table_LineItem } from "./items/Table";
-import { EMPTY_ITEM } from "../items/base/item";
+import { EMPTY_ITEM, isEmptyItem } from "../items/base/item";
 import { isPlaceholder } from "../items/placeholder-item";
 import { Placeholder_LineItem } from "./items/Placeholder";
 import { LinkDefault_Desktop, LinkDefault_LineItem } from "./items/LinkDefault";
@@ -58,6 +58,7 @@ export interface VisualElementProps {
 export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   return (
     <Switch fallback={<div>VisualElementOnDesktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+      <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
       <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
@@ -76,6 +77,7 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
 export const VisualElement_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   return (
     <Switch fallback={<div>VisualElementInTable: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
+      <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_LineItem {...props} /></Match>

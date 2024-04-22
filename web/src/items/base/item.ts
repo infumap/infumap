@@ -17,11 +17,11 @@
 */
 
 import { RelationshipToParent } from '../../layout/relationship-to-parent';
-import { EMPTY_UID, Uid } from '../../util/uid';
+import { EMPTY_UID, Uid, newUid } from '../../util/uid';
 
 
 export const ItemType = {
-  None: "none",
+  Empty: "empty",
   Page: "page",
   Table: "table",
   Composite: "composite",
@@ -55,7 +55,7 @@ export interface Item extends ItemTypeMixin {
 
 export const EMPTY_ITEM = () => ({
   origin: null,
-  itemType: ItemType.None,
+  itemType: ItemType.Empty,
   ownerId: EMPTY_UID,
   id: EMPTY_UID,
   parentId: EMPTY_UID,
@@ -64,3 +64,20 @@ export const EMPTY_ITEM = () => ({
   lastModifiedDate: 0,
   ordering: Uint8Array.from([]),
 });
+
+export const uniqueEmptyItem = () => ({
+  origin: null,
+  itemType: ItemType.Empty,
+  ownerId: EMPTY_UID,
+  id: newUid(),
+  parentId: EMPTY_UID,
+  relationshipToParent: RelationshipToParent.Child,
+  creationDate: 0,
+  lastModifiedDate: 0,
+  ordering: Uint8Array.from([]),
+});
+
+export function isEmptyItem(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return true; }
+  return item.itemType == ItemType.Empty;
+}

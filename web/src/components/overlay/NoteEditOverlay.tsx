@@ -22,7 +22,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { NoteFns, NoteItem, asNoteItem } from "../../items/note-item";
 import { server, serverOrRemote } from "../../server";
 import { VeFns, Veid, VisualElementFlags } from "../../layout/visual-element";
-import { fullArrange, rearrange } from "../../layout/arrange";
+import { fullArrange, rearrangeWithDisplayId } from "../../layout/arrange";
 import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_OVERLAY } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
@@ -184,7 +184,7 @@ export const NoteEditOverlay: Component = () => {
 
   const textAreaOnInputHandler = () => {
     noteItem(store).title = textElement!.value;
-    rearrange(store, noteItem(store).id);
+    rearrangeWithDisplayId(store, noteItem(store).id);
   };
 
 

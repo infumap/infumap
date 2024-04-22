@@ -214,7 +214,7 @@ export const Main: Component = () => {
          ondblclick={mouseDoubleClickListener}
          onmouseup={mouseUpListener}>
 
-      <Show when={store.umbrellaVisualElement.get().displayItem.itemType != ItemType.None}>
+      <Show when={store.umbrellaVisualElement.get().displayItem.itemType != ItemType.Empty}>
         <Desktop visualElement={store.umbrellaVisualElement.get()} />
       </Show>
 

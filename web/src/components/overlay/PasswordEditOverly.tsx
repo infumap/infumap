@@ -29,7 +29,7 @@ import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_TEXT_
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { serverOrRemote } from "../../server";
-import { rearrange } from "../../layout/arrange";
+import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 
 
@@ -122,7 +122,7 @@ export const PasswordEditOverlay: Component = () => {
 
   const textAreaOnInputHandler = () => {
     passwordItem(store).text = textElement!.value;
-    rearrange(store, passwordItem(store).id);
+    rearrangeWithDisplayId(store, passwordItem(store).id);
   };
 
   return (

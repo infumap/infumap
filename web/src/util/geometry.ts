@@ -55,6 +55,8 @@ export function quantizeBoundingBox(boundingBox: BoundingBox): BoundingBox {
   });
 }
 
+export let EMPTY_BOUNDING_BOX = { x: 0, y: 0, w: 0, h: 0 };
+
 export function getBoundingBoxSize(boundingBox: BoundingBox): Dimensions {
   return ({ w: boundingBox.w, h: boundingBox.h });
 }

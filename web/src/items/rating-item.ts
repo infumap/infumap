@@ -29,7 +29,7 @@ import { serverOrRemote } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
-import { rearrange } from '../layout/arrange';
+import { rearrangeWithDisplayId } from '../layout/arrange';
 
 
 export interface RatingItem extends RatingMeasurable, Item {
@@ -203,7 +203,7 @@ export const RatingFns = {
     const item = asRatingItem(visualElementSignal.get().displayItem);
     item.rating += 1;
     if (item.rating == 6) { item.rating = 0; }
-    rearrange(store, item.id);
+    rearrangeWithDisplayId(store, item.id);
   
     function clickTimerHandler() {
       serverOrRemote.updateItem(item);

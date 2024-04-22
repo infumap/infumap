@@ -23,7 +23,7 @@ import { asFileItem, FileItem } from "../../../../items/file-item";
 import { InfuButton } from "../../../library/InfuButton";
 import { InfuTextInput } from "../../../library/InfuTextInput";
 import { itemState } from "../../../../store/ItemState";
-import { fullArrange, rearrange } from "../../../../layout/arrange";
+import { fullArrange, rearrangeWithDisplayId } from "../../../../layout/arrange";
 
 
 export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (props: { fileItem: FileItem, linkedTo: boolean }) => {
@@ -34,7 +34,7 @@ export const EditFile: Component<{fileItem: FileItem, linkedTo: boolean}> = (pro
 
   const handleTextInput = (v: string) => {
     asFileItem(itemState.get(fileId)!).title = v;
-    rearrange(store, props.fileItem.id);
+    rearrangeWithDisplayId(store, props.fileItem.id);
   };
 
   const deleteFile = async () => {

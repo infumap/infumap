@@ -29,7 +29,7 @@ import { asNoteItem, isNote, NoteFns } from '../note-item';
 import { asPageItem, isPage, PageFns } from '../page-item';
 import { asRatingItem, isRating, RatingFns } from '../rating-item';
 import { asTableItem, isTable, TableFns } from '../table-item';
-import { EMPTY_ITEM, Item, Measurable } from './item';
+import { EMPTY_ITEM, Item, Measurable, isEmptyItem } from './item';
 import { asPlaceholderItem, isPlaceholder, PlaceholderFns } from '../placeholder-item';
 import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
@@ -141,6 +141,7 @@ export const ItemFns = {
    * impacts properties of the visual element itself (i.e. the geometry).
    */
   getFingerprint: (item: Item): string => {
+    if (isEmptyItem(item)) { return ""; }
     if (isPage(item)) { return PageFns.getFingerprint(asPageItem(item)); }
     if (isTable(item)) { return TableFns.getFingerprint(asTableItem(item)); }
     if (isComposite(item)) { return CompositeFns.getFingerprint(asCompositeItem(item)); }

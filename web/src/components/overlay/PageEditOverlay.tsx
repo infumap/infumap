@@ -22,7 +22,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { asPageItem } from "../../items/page-item";
 import { VeFns } from "../../layout/visual-element";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
-import { rearrange } from "../../layout/arrange";
+import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 
@@ -59,7 +59,7 @@ export const PageEditOverlay: Component = () => {
 
   const textAreaOnInputHandler = (ev: InputEvent) => {
     pageItem(store).title = textElement!.value;
-    rearrange(store, pageItem(store).id);
+    rearrangeWithDisplayId(store, pageItem(store).id);
     ev.preventDefault();
   };
 

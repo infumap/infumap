@@ -23,7 +23,7 @@ import { itemState } from "../../store/ItemState";
 import { getPanickedMessage, panic } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { renderDockMaybe } from "./dock";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { ItemGeometry } from "../item-geometry";
@@ -36,14 +36,14 @@ import { zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { Uid } from "../../util/uid";
 import { arrangeCellPopup } from "./popup";
 
-
 /**
  * temporary function used during the arrange -> rearrange refactor, which if called, indicates fullArrange
- * does not need to be replaced by a call to rearrange.
+ * should not be replaced by a call to rearrange.
  */
 export function fArrange(store: StoreContextModel): void {
   fullArrange(store);
 }
+
 
 /**
  * Create a visual element tree for the current page, or if virtualPageVeid is specified, that page instead. A
@@ -129,39 +129,53 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
   mouseMove_handleNoButtonDown(store, hasUser);
 }
 
+
+export function rearrangeVisualElement(store: StoreContextModel, vePath: VisualElementPath): void {
+  console.log("rearrange visual element");
+  const ves = VesCache.get(vePath)!;
+  rearrangeVisualElementSignal(store, ves);
+}
+
+function rearrangeVisualElementSignal(store: StoreContextModel, ves: VisualElementSignal): boolean {
+  const ve = ves.get();
+  if (ve.flags & VisualElementFlags.InsideTable) {
+    rearrangeInsideTable(store, ves);
+    return true;
+  }
+
+  const parentPath = ves.get().parentPath!;
+  const parentVes = VesCache.get(parentPath)!;
+  const parentVe = parentVes.get();
+  const parentItem = parentVe.displayItem;
+
+  if (isPage(parentItem)) {
+    rearrangeInsidePage(store, ves);
+    return true;
+  }
+
+  if (isComposite(parentItem)) {
+    rearrangeInsideComposite(store, ves);
+    return true;
+  }
+
+  return false;
+}
+
+
 /**
  * Update all VisualElements impacted by a change to @argument displayItemId.
  */
-export function rearrange(store: StoreContextModel, displayItemId: Uid): void {
-  console.log("rearrange");
+export function rearrangeWithDisplayId(store: StoreContextModel, displayItemId: Uid): void {
+  console.log("rearrange all with display id");
 
   const paths = VesCache.getPathsForDisplayId(displayItemId);
   let requireFullArrange = false;
   for (let i=0; i<paths.length; ++i) {
     const p = paths[i];
     const ves = VesCache.get(p)!;
-    const ve = ves.get();
-    if (ve.flags & VisualElementFlags.InsideTable) {
-      rearrangeInsideTable(store, ves);
-      continue;
+    if (!rearrangeVisualElementSignal(store, ves)) {
+      requireFullArrange = true;
     }
-
-    const parentPath = ves.get().parentPath!;
-    const parentVes = VesCache.get(parentPath)!;
-    const parentVe = parentVes.get();
-    const parentItem = parentVe.displayItem;
-
-    if (isPage(parentItem)) {
-      rearrangeInsidePage(store, ves);
-      continue;
-    }
-
-    if (isComposite(parentItem)) {
-      rearrangeInsideComposite(store, ves);
-      continue;
-    }
-
-    requireFullArrange = true;
   }
 
   if (requireFullArrange) {
@@ -170,6 +184,7 @@ export function rearrange(store: StoreContextModel, displayItemId: Uid): void {
     fullArrange(store);
   }
 }
+
 
 function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal): void {
   const ve = ves.get();
