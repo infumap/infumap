@@ -28,6 +28,7 @@ import { TableItem, asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -73,7 +74,9 @@ export const arrangeTable = (
   };
   const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);
 
-  tableVisualElementSpec.childrenVes = arrangeTableChildren(store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags);
+  const [childrenVes, tableVesRows] = arrangeTableChildren(store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags);
+  tableVisualElementSpec.childrenVes = childrenVes;
+  tableVisualElementSpec.tableVesRows = tableVesRows;
 
   const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachmentsVes = attachments;
@@ -90,7 +93,7 @@ export function arrangeTableChildren(
     linkItemMaybe_Table: LinkItem | null,
     tableGeometry: ItemGeometry,
     tableVePath: VisualElementPath,
-    flags: ArrangeItemFlags): Array<VisualElementSignal> {
+    flags: ArrangeItemFlags): [Array<VisualElementSignal>, Array<number>] {
 
   const sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
@@ -106,12 +109,14 @@ export function arrangeTableChildren(
   const outCount = lastItemIdx - firstItemIdx + 1;
 
   let tableVeChildren: Array<VisualElementSignal> = [];
+  let tableVesRows: Array<number> = [];
   for (let outIdx=0; outIdx<outCount; ++outIdx) {
     const rowIdx = (outIdx + firstItemIdx) % outCount + firstItemIdx;
     tableVeChildren.push(createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, tableGeometry.boundsPx));
+    tableVesRows.push(rowIdx);
   };
 
-  return tableVeChildren;
+  return [tableVeChildren, tableVesRows];
 }
 
 
@@ -244,13 +249,17 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
   const tableVe = VesCache.get(tableVePath)!.get();
   const childrenVes = tableVe.childrenVes;
+  const tableVesRows = tableVe.tableVesRows;
+  if (tableVesRows == null || tableVesRows!.length != childrenVes.length) { panic("rearrangeTableAfterScroll: invalid tableVesRows"); }
+
   const tableRowCount = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
                             - 1
                             - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
+  if (childrenVes.length != tableRowCount) { panic("unexpected table row count"); }
 
   const yScrollProp = store.perItem.getTableScrollYPos(tableVeid);
   const firstItemIdx = Math.floor(yScrollProp);
-  let lastItemIdx = firstItemIdx + tableRowCount - 1;
+  const lastItemIdx = firstItemIdx + tableRowCount - 1;
   const outCount = lastItemIdx - firstItemIdx + 1;
 
   const sizeBl = tableVeid.linkIdMaybe
@@ -258,22 +267,13 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
 
-  let toAddIdx;
-  if (numToAdd > 0) {
-    toAddIdx = Math.floor(yScrollProp) + tableRowCount
-  } else {
-    toAddIdx = Math.ceil(yScrollProp);
+  for (let i=0; i<outCount; ++i) {
+    const rowIdx = Math.floor(yScrollProp) + i;
+    const outIdx = (Math.floor(yScrollProp) + i) % outCount;
+    if (tableVesRows[outIdx] != rowIdx) {
+      const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, tableVe.boundsPx);
+      childrenVes[outIdx].set(newChild.get());
+      tableVesRows[outIdx] = rowIdx;
+    }
   }
-
-  let outIdx = toAddIdx % outCount;
-  let rowIdx = toAddIdx;
-
-  if (rowIdx > asTableItem(tableVe.displayItem).computed_children.length - 1) {
-    console.log("too long");
-  }
-
-  const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, tableVe.boundsPx);
-  childrenVes[outIdx].set(newChild.get());
-  // console.log("rowIdx", rowIdx);
-  // console.log("outIdx", outIdx);
 }

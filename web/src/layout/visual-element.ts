@@ -188,6 +188,11 @@ export interface VisualElement {
   selectedVes: VisualElementSignal | null,
   dockVes: VisualElementSignal | null,
 
+  /**
+   * The table row number corresponding to the childrenVes with the same index.
+   */
+  tableVesRows: Array<number> | null,
+
   mouseIsOver: BooleanSignal,
   mouseIsOverOpenPopup: BooleanSignal,
 
@@ -226,6 +231,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   popupVes: null,
   selectedVes: null,
   dockVes: null,
+
+  tableVesRows: null,
 
   parentPath: null,
   evaluatedTitle: null,
@@ -266,6 +273,7 @@ export interface VisualElementSpec {
   parentPath?: VisualElementPath,
 
   childrenVes?: Array<VisualElementSignal>,
+  tableVesRows?: Array<number>,
   attachmentsVes?: Array<VisualElementSignal>,
   popupVes?: VisualElementSignal | null,
   selectedVes?: VisualElementSignal | null,
@@ -301,6 +309,7 @@ export const VeFns = {
       popupVes: null,
       selectedVes: null,
       dockVes: null,
+      tableVesRows: null,
 
       parentPath: null,
       evaluatedTitle: null,
@@ -336,6 +345,7 @@ export const VeFns = {
     if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
     if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
     if (typeof(override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
+    if (typeof(override.tableVesRows) != 'undefined') { result.tableVesRows = override.tableVesRows; }
     if (typeof(override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
     if (typeof(override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
     if (typeof(override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
