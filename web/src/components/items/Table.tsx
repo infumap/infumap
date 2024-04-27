@@ -20,9 +20,7 @@ import { Component, For, Match, onMount, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { VisualElementSignal } from "../../util/signals";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
-import { panic } from "../../util/lang";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
@@ -221,33 +219,15 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
     outerDiv!.scrollTop = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) * blockHeightPx();
   });
 
-  const drawVisibleItems = () => {
-    const children = props.visualElement.childrenVes;
-    const visibleChildrenIds = [];
-    const firstItemIdx = 0;
-    let lastItemIdx = children.length - 1;
-    for (let i=firstItemIdx; i<=lastItemIdx; ++i) {
-      visibleChildrenIds.push(children[i]);
-    }
-
-    const drawChild = (child: VisualElementSignal) => {
-      if (!(child.get().flags & VisualElementFlags.LineItem)) { panic("drawChild: table child is not a line item."); }
-      return (
-        <>
-          <VisualElement_LineItem visualElement={child.get()} />
-          <For each={child.get().attachmentsVes}>{attachment =>
-            <VisualElement_LineItem visualElement={attachment.get()} />
-          }</For>
-        </>
-      );
-    }
-
-    return (
-      <For each={visibleChildrenIds}>
-        {child => drawChild(child)}
-      </For>
-    );
-  }
+  const renderVisibleItems = () =>
+    <For each={props.visualElement.childrenVes}>{childVes =>
+      <>
+        <VisualElement_LineItem visualElement={childVes.get()} />
+        <For each={childVes.get().attachmentsVes}>{attachment =>
+          <VisualElement_LineItem visualElement={attachment.get()} />
+        }</For>
+      </>
+    }</For>;
 
   return (
     <div ref={outerDiv}
@@ -258,7 +238,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
                 onscroll={scrollHandler}>
       <div class='absolute' style={`width: ${viewportBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-        {drawVisibleItems()}
+        {renderVisibleItems()}
       </div>
     </div>
   );

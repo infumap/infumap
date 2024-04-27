@@ -342,8 +342,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="absolute"
              style={`left: ${0}px; top: ${0}px; ` +
                     `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
-          <For each={props.visualElement.childrenVes}>{childVe =>
-            <VisualElement_Desktop visualElement={childVe.get()} />
+          <For each={props.visualElement.childrenVes}>{childVes =>
+            <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
         </div>
       </div>;
