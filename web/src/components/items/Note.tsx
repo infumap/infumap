@@ -159,11 +159,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                onClick={aHrefClick}
                onMouseDown={aHrefMouseDown}
                onMouseUp={aHrefMouseUp}>
-              {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
+              {formatMaybe(noteItem().title, noteItem().format)}
             </a>
           </Match>
           <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-            <span>{formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}</span>
+            <span>{formatMaybe(noteItem().title, noteItem().format)}</span>
           </Match>
         </Switch>
       </div>
@@ -212,7 +212,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const highlightBoundsPx = () => {
     if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child) {
       let r = cloneBoundingBox(boundsPx())!;
-      r.w = props.visualElement.tableBoundsPx!.w;
+      r.w = props.visualElement.tableDimensionsPx!.w;
       return r;
     }
     return boundsPx();
@@ -286,13 +286,13 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
              onClick={aHrefClick}
              onMouseDown={aHrefMouseDown}
              onMouseUp={aHrefMouseUp}>
-            {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
+            {formatMaybe(noteItem().title, noteItem().format)}
           </a>
         </Match>
         <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
           <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
                 style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-            {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : noteItem().title, noteItem().format)}
+            {formatMaybe(noteItem().title, noteItem().format)}
           </span>
         </Match>
       </Switch>

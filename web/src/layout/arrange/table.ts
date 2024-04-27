@@ -27,7 +27,7 @@ import { LinkItem } from "../../items/link-item";
 import { TableItem, asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
@@ -112,7 +112,7 @@ export function arrangeTableChildren(
   let tableVesRows: Array<number> = [];
   for (let outIdx=0; outIdx<outCount; ++outIdx) {
     const rowIdx = (outIdx + firstItemIdx) % outCount + firstItemIdx;
-    tableVeChildren.push(createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, tableGeometry.boundsPx));
+    tableVeChildren.push(createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx)));
     tableVesRows.push(rowIdx);
   };
 
@@ -128,7 +128,7 @@ function createRow(
   rowIdx: number,
   sizeBl: Dimensions,
   blockSizePx: Dimensions,
-  tableBoundsPx: BoundingBox): VisualElementSignal {
+  tableDimensionsPx: Dimensions): VisualElementSignal {
 
   if (rowIdx > displayItem_Table.computed_children.length - 1) {
     const uniqueNoneItem = uniqueEmptyItem();
@@ -166,7 +166,7 @@ function createRow(
     flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
     arrangeFlags: ArrangeItemFlags.None,
     boundsPx: geometry.boundsPx,
-    tableBoundsPx: tableBoundsPx,
+    tableDimensionsPx,
     hitboxes: geometry.hitboxes,
     parentPath: tableVePath,
     col: 0,
@@ -206,7 +206,7 @@ function createRow(
         flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
         arrangeFlags: ArrangeItemFlags.None,
         boundsPx: geometry.boundsPx,
-        tableBoundsPx: tableBoundsPx,
+        tableDimensionsPx,
         hitboxes: geometry.hitboxes,
         col: i + 1,
         row: rowIdx,
@@ -271,7 +271,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     const rowIdx = Math.floor(yScrollProp) + i;
     const outIdx = (Math.floor(yScrollProp) + i) % outCount;
     if (tableVesRows[outIdx] != rowIdx) {
-      const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, tableVe.boundsPx);
+      const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx));
       childrenVes[outIdx].set(newChild.get());
       tableVesRows[outIdx] = rowIdx;
     }

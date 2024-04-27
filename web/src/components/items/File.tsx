@@ -119,7 +119,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                 onClick={aHrefClick}
                 onMouseDown={aHrefMouseDown}
                 onMouseUp={aHrefMouseUp}>
-                  {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : fileItem().title}
+                  {fileItem().title}
           </a>
         </div>
         <For each={props.visualElement.attachmentsVes}>{attachment =>
@@ -150,7 +150,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const highlightBoundsPx = () => {
     if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child) {
       let r = cloneBoundingBox(boundsPx())!;
-      r.w = props.visualElement.tableBoundsPx!.w;
+      r.w = props.visualElement.tableDimensionsPx!.w;
       return r;
     }
     return boundsPx();
@@ -200,7 +200,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
          onClick={aHrefClick}
          onMouseDown={aHrefMouseDown}
          onMouseUp={aHrefMouseUp}>
-          {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : fileItem().title}
+          {fileItem().title}
       </a>
     </div>;
 

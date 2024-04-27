@@ -105,7 +105,7 @@ export interface VisualElement {
   /**
    * If the visual element corresponds to a link item, a reference to that. If the visual element is a popup
    * or selected item in a list page, this will be the popup or selection link item (not the actually selected
-   * link item, if there is one).
+   * user link item, if there is one).
    */
   linkItemMaybe: LinkItem | null,
 
@@ -150,20 +150,20 @@ export interface VisualElement {
   /**
    * The bounds of the table the element is inside, if it's inside a table.
    */
-  tableBoundsPx: BoundingBox | null,
+  tableDimensionsPx: Dimensions | null,
 
   /**
    * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
   blockSizePx: Dimensions | null,
 
-  row: number | null,  // Set only if inside table. the actual row number - i.e. not necessarily the visible row number.
-  col: number | null,  // Set only if inside table.
-
   /**
    * Size of one grid cell. Set only in the case of grid pages.
    */
   cellSizePx: Dimensions | null,
+
+  row: number | null,  // Set only if inside table. the actual row number - i.e. not necessarily the visible row number.
+  col: number | null,  // Set only if inside table.
 
   /**
    * The number of grid rows. Set only in the case of grid pages.
@@ -217,7 +217,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
-  tableBoundsPx: null,
+  tableDimensionsPx: null,
   viewportBoundsPx: null,
   blockSizePx: null,
   col: null,
@@ -263,7 +263,7 @@ export interface VisualElementSpec {
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   viewportBoundsPx?: BoundingBox,
-  tableBoundsPx?: BoundingBox,
+  tableDimensionsPx?: Dimensions,
   blockSizePx?: Dimensions,
   col?: number,
   row?: number,
@@ -297,7 +297,7 @@ export const VeFns = {
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
       viewportBoundsPx: null,
-      tableBoundsPx: null,
+      tableDimensionsPx: null,
       blockSizePx: null,
       col: null,
       row: null,
@@ -335,7 +335,7 @@ export const VeFns = {
     if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
     if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
     if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
-    if (typeof(override.tableBoundsPx) != 'undefined') { result.tableBoundsPx = override.tableBoundsPx; }
+    if (typeof(override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
     if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
     if (typeof(override.col) != 'undefined') { result.col = override.col; }
     if (typeof(override.row) != 'undefined') { result.row = override.row; }

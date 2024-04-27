@@ -19,7 +19,7 @@
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
-import { compareBoundingBox, compareVector } from "../util/geometry";
+import { compareBoundingBox, compareDimensions, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
@@ -225,7 +225,7 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
   if (visualElementOverride.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
   visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
 
-  function compareVesArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
+  function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
     if (oldArray.length != newArray.length) {
       return 1;
     }
@@ -263,49 +263,84 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
     for (let i=0; i<newProps.length; ++i) {
       if (debug) { console.debug("considering", newProps[i]); }
       if (typeof(oldVals[newProps[i]]) == 'undefined') {
-        if (debug) { console.debug('prop does not exist:', newProps[i]); }
+        if (debug) { console.debug('no current ve property for:', newProps[i]); }
         dirty = true;
         break;
       }
       const oldVal = oldVals[newProps[i]];
       const newVal = newVals[newProps[i]];
-      if (oldVal != newVal) {
-        if (newProps[i] == "boundsPx" || newProps[i] == "childAreaBoundsPx" || newProps[i] == "viewportBoundsPx") {
-          if (compareBoundingBox(oldVal, newVal) != 0) {
-            if (debug) { console.debug("visual element property changed: ", newProps[i]); }
-            dirty = true;
-            break;
-          } else {
-            if (debug) { console.debug("boundsPx didn't change."); }
-          }
-        } else if (newProps[i] == "childrenVes" || newProps[i] == "attachmentsVes") {
-          // TODO (MEDIUM): better reconciliation.
-          if (compareVesArrays(oldVal, newVal) != 0) {
-            if (debug) { console.debug("visual element property changed: ", newProps[i]); }
-            dirty = true;
-            break;
-          }
-        } else if (newProps[i] == "blockSizePx") {
-          if (compareVector(oldVal, newVal) != 0) {
-            if (debug) { console.debug("visual element property changed: ", newProps[i]); }
-            dirty = true;
-            break;
-          } else {
-            if (debug) { console.debug("blockSizePx didn't change."); }
-          }
-        } else if (newProps[i] == "hitboxes") {
-          if (HitboxFns.ArrayCompare(oldVal, newVal) != 0) {
-            if (debug) { console.debug("visual element property changed: ", newProps[i]); }
-            dirty = true;
-            break;
-          }
-        } else if (newProps[i] == "linkItemMaybe" || newProps[i] == "actualLinkItemMaybe") {
-          // object ref might have changed.
-        } else {
-          if (debug) { console.debug("visual element property changed: ", newProps[i], oldVal, newVal); }
+
+      if (newProps[i] == "resizingFromBoundsPx" ||
+          newProps[i] == "boundsPx" ||
+          newProps[i] == "viewportBoundsPx" ||
+          newProps[i] == "childAreaBoundsPx") {
+        if (compareBoundingBox(oldVal, newVal) != 0) {
+          if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;
           break;
+        } else {
+          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
         }
+      } else if (newProps[i] == "tableDimensionsPx" ||
+                 newProps[i] == "blockSizePx" ||
+                 newProps[i] == "cellSizePx") {
+        if (compareDimensions(oldVal, newVal) != 0) {
+          if (debug) { console.debug("ve property changed: ", newProps[i]); }
+          dirty = true;
+          break;
+        } else {
+          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
+        }
+      } else if (newProps[i] == "hitboxes") {
+        if (HitboxFns.ArrayCompare(oldVal, newVal) != 0) {
+          if (debug) { console.debug("ve property changed: ", newProps[i]); }
+          dirty = true;
+          break;
+        } else {
+          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
+        }
+      } else if (newProps[i] == "childrenVes" || newProps[i] == "attachmentsVes" || newProps[i] == "tableVesRows") {
+        if (compareArrays(oldVal, newVal) != 0) {
+          if (debug) { console.debug("ve property changed: ", newProps[i]); }
+          dirty = true;
+          break;
+        } else {
+          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
+        }
+      } else if (newProps[i] == "linkItemMaybe") {
+        // If this is an infumap-generated link, object ref might have changed, and it doesn't matter.
+        // TODO (MEDIUM): rethink this through.
+      } else if (newProps[i] == "displayItem" ||
+                 newProps[i] == "actualLinkItemMaybe" ||
+                 newProps[i] == "flags" ||
+                 newProps[i] == "arrangeFlags" ||
+                 newProps[i] == "row" ||
+                 newProps[i] == "col" ||
+                 newProps[i] == "numRows" ||
+                 newProps[i] == "parentPath" ||
+                 newProps[i] == "evaluatedTitle" ||
+                 newProps[i] == "displayItemFingerprint" ||
+                 newProps[i] == "popupVes" ||
+                 newProps[i] == "selectedVes" ||
+                 newProps[i] == "dockVes" ||
+                 newProps[i] == "mouseIsOver" ||
+                 newProps[i] == "mouseIsOverOpenPopup" ||
+                 newProps[i] == "movingItemIsOver" ||
+                 newProps[i] == "movingItemIsOverAttach" ||
+                 newProps[i] == "movingItemIsOverAttachComposite" ||
+                 newProps[i] == "moveOverRowNumber" ||
+                 newProps[i] == "moveOverColAttachmentNumber") {
+        if (oldVal != newVal) {
+          if (debug) { console.debug("ve property changed: ", newProps[i]); }
+          dirty = true;
+          break;
+        } else {
+          if (debug) { console.debug("ve property didn't change: ", newProps[i]); }
+        }
+      } else {
+        if (debug) { console.debug("ve property changed: ", newProps[i], oldVal, newVal); }
+        dirty = true;
+        break;
       }
     }
 

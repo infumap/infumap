@@ -823,7 +823,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const highlightBoundsPx = () => {
     if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child) {
       let r = cloneBoundingBox(boundsPx())!;
-      r.w = props.visualElement.tableBoundsPx!.w;
+      r.w = props.visualElement.tableDimensionsPx!.w;
       return r;
     }
     return boundsPx();
