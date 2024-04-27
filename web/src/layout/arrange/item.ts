@@ -151,7 +151,7 @@ export const arrangeItemNoChildren = (
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
   itemVisualElement.attachmentsVes = arrangeItemAttachments(store, displayItem, linkItemMaybe, itemGeometry.boundsPx, currentVePath);
 
-  const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
+  const itemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(itemVisualElement, currentVePath, true);
 
   if (isExpression(item)) {
     VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));

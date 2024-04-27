@@ -153,9 +153,9 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
 
     if (dockWidthPx > 25) {
       const trashPath = VeFns.addVeidToPath( {itemId: trashPage.id, linkIdMaybe: null}, dockPath);
-      dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath));
+      dockChildren.push(VesCache.createOrRecycleVisualElementSignal(trashVisualElementSpec, trashPath, true));
     }
   }
 
-  return VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath);
+  return VesCache.createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath, true);
 }

@@ -130,8 +130,12 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 }
 
 
+/**
+ * Update the ve specified by vePath for updates to it's display/link item.
+ */
 export function rearrangeVisualElement(store: StoreContextModel, vePath: VisualElementPath): void {
   console.log("rearrange visual element");
+
   const ves = VesCache.get(vePath)!;
   rearrangeVisualElementSignal(store, ves);
 }

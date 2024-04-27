@@ -81,7 +81,7 @@ export const arrangeTable = (
   const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachmentsVes = attachments;
 
-  const tableVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
+  const tableVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath, true);
 
   return tableVisualElementSignal;
 }
@@ -112,7 +112,7 @@ export function arrangeTableChildren(
   let tableVesRows: Array<number> = [];
   for (let outIdx=0; outIdx<outCount; ++outIdx) {
     const rowIdx = (outIdx + firstItemIdx) % outCount + firstItemIdx;
-    tableVeChildren.push(createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx)));
+    tableVeChildren.push(createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), true));
     tableVesRows.push(rowIdx);
   };
 
@@ -128,7 +128,8 @@ function createRow(
   rowIdx: number,
   sizeBl: Dimensions,
   blockSizePx: Dimensions,
-  tableDimensionsPx: Dimensions): VisualElementSignal {
+  tableDimensionsPx: Dimensions,
+  fullArrange: boolean): VisualElementSignal {
 
   if (rowIdx > displayItem_Table.computed_children.length - 1) {
     const uniqueNoneItem = uniqueEmptyItem();
@@ -140,7 +141,7 @@ function createRow(
     uniqueNoneItem.parentId = displayItem_Table.id;
     uniqueNoneItem.relationshipToParent = RelationshipToParent.Child;
     const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(uniqueNoneItem, null), tableVePath);
-    const tableChildVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+    const tableChildVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath, fullArrange);
     return tableChildVeSignal;
   }
 
@@ -214,7 +215,7 @@ function createRow(
         blockSizePx
       };
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
-      const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+      const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath, fullArrange);
 
       if (isExpression(tableChildAttachmentVeSpec.displayItem)) {
         VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVeSignal.get()));
@@ -227,7 +228,7 @@ function createRow(
 
     tableChildVeSpec.attachmentsVes = tableItemVeAttachments;
   }
-  const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+  const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath, fullArrange);
 
   if (isExpression(tableChildVeSpec.displayItem)) {
     VesCache.markEvaluationRequired(VeFns.veToPath(tableItemVisualElementSignal.get()));
@@ -271,7 +272,13 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     const rowIdx = Math.floor(yScrollProp) + i;
     const outIdx = (Math.floor(yScrollProp) + i) % outCount;
     if (tableVesRows[outIdx] != rowIdx) {
-      const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx));
+      const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx), false);
+      const existing = childrenVes[outIdx].get();
+      VesCache.remove(VeFns.veidFromVe(existing));
+      for (let i=0; i<existing.attachmentsVes.length; ++i) {
+        const a = existing.attachmentsVes[i].get();
+        VesCache.remove(VeFns.veidFromVe(a));
+      }
       childrenVes[outIdx].set(newChild.get());
       tableVesRows[outIdx] = rowIdx;
     }

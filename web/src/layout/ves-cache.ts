@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
 import { compareBoundingBox, compareDimensions, compareVector } from "../util/geometry";
@@ -130,9 +129,11 @@ export let VesCache = {
    * I think the above strategy should always work in practice, but a more comprehensive (and expensive) comparison may be required in some instances.
    * The entire cache should cleared on page change (since there will be little or no overlap anyway).
    * This is achieved using initFullArrange and finalizeFullArange methods.
+   *
+   * fullArrange == false supports creation only.
    */
-  createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
-    return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
+  createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath, fullArrange: boolean): VisualElementSignal => {
+    return createOrRecycleVisualElementSignalImpl(visualElementOverride, path, fullArrange);
   },
 
   /**
@@ -218,7 +219,7 @@ export let VesCache = {
 }
 
 
-function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal {
+function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualElementSpec, path: VisualElementPath, fullArrange: boolean): VisualElementSignal {
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
@@ -237,21 +238,30 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
     return 0;
   }
 
-  function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath) {
-    const existing = underConstructionVesVsDisplayItemId.get(displayItemId);
-    if (!existing) {
-      underConstructionVesVsDisplayItemId.set(displayItemId, []);
+  function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath, fullArrange: boolean) {
+    if (fullArrange) {
+      const existing = underConstructionVesVsDisplayItemId.get(displayItemId);
+      if (!existing) {
+        underConstructionVesVsDisplayItemId.set(displayItemId, []);
+      }
+      underConstructionVesVsDisplayItemId.get(displayItemId)!.push(path);
+    } else {
+      const existing = currentVesVsDisplayItemId.get(displayItemId);
+      if (!existing) {
+        currentVesVsDisplayItemId.set(displayItemId, []);
+      }
+      currentVesVsDisplayItemId.get(displayItemId)!.push(path);
     }
-    underConstructionVesVsDisplayItemId.get(displayItemId)!.push(path);
   }
 
   const existing = currentVesCache.get(path);
   if (existing) {
+    if (!fullArrange) { panic("ves already exists."); }
     if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       underConstructionCache.set(path, existing);
-      addVesVsDisplayItem(existing.get().displayItem.id, path);
+      addVesVsDisplayItem(existing.get().displayItem.id, path, true);
       return existing;
     }
 
@@ -362,19 +372,24 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       underConstructionCache.set(path, existing);
-      addVesVsDisplayItem(existing.get().displayItem.id, path);
+      addVesVsDisplayItem(existing.get().displayItem.id, path, true);
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
     existing.set(VeFns.create(visualElementOverride));
     underConstructionCache.set(path, existing);
-    addVesVsDisplayItem(existing.get().displayItem.id, path);
+    addVesVsDisplayItem(existing.get().displayItem.id, path, true);
     return existing;
   }
 
   if (debug) { console.debug("creating:", path); }
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-  underConstructionCache.set(path, newElement);
-  addVesVsDisplayItem(newElement.get().displayItem.id, path);
+  if (fullArrange) {
+    underConstructionCache.set(path, newElement);
+    addVesVsDisplayItem(newElement.get().displayItem.id, path, true);
+  } else {
+    currentVesCache.set(path, newElement);
+    addVesVsDisplayItem(newElement.get().displayItem.id, path, false);
+  }
   return newElement;
 }
