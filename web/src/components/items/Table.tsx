@@ -196,12 +196,11 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
 
   let scrollDoneTimer: number | null = null;
   function scrollDoneHandler() {
-    const row = Math.round(store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)));
-    const prevScrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
-    store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), row);
-    (outerDiv!)!.scrollTop = row * blockHeightPx();
+    const newScrollYPos = Math.round(store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)));
+    store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), newScrollYPos);
+    (outerDiv!)!.scrollTop = newScrollYPos * blockHeightPx();
     scrollDoneTimer = null;
-    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), prevScrollYPos);
+    rearrangeTableAfterScroll(store, props.visualElement.parentPath!, VeFns.veidFromVe(props.visualElement), newScrollYPos);
   }
 
   const blockHeightPx = () => props.visualElement.blockSizePx!.h;

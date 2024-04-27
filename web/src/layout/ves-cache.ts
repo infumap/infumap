@@ -18,7 +18,7 @@
 
 import { ItemFns } from "../items/base/item-polymorphism";
 import { StoreContextModel } from "../store/StoreProvider";
-import { compareBoundingBox, compareDimensions, compareVector } from "../util/geometry";
+import { compareBoundingBox, compareDimensions } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementSignal, createVisualElementSignal } from "../util/signals";
 import { Uid } from "../util/uid";
@@ -256,7 +256,10 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
 
   const existing = currentVesCache.get(path);
   if (existing) {
-    if (!fullArrange) { panic("ves already exists."); }
+    if (!fullArrange) {
+      console.error(existing.get().displayItem);
+      panic("ves already exists");
+    }
     if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }

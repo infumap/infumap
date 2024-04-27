@@ -27,7 +27,7 @@ import { LinkItem } from "../../items/link-item";
 import { TableItem, asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
@@ -100,21 +100,21 @@ export function arrangeTableChildren(
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
 
-  const yScrollProp = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table));
-  const firstItemIdx = Math.floor(yScrollProp);
-  const numRows = (linkItemMaybe_Table ? linkItemMaybe_Table.spatialHeightGr / GRID_SIZE : displayItem_Table.spatialHeightGr / GRID_SIZE)
-                    - 1
-                    - (displayItem_Table.flags & TableFlags.ShowColHeader ? 1 : 0);
-  let lastItemIdx = firstItemIdx + numRows - 1;
+  const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table));
+  const firstItemIdx = Math.floor(scrollYPos);
+  const numVisibleRows = (linkItemMaybe_Table ? linkItemMaybe_Table.spatialHeightGr / GRID_SIZE : displayItem_Table.spatialHeightGr / GRID_SIZE)
+                          - 1
+                          - (displayItem_Table.flags & TableFlags.ShowColHeader ? 1 : 0);
+  let lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
 
   let tableVeChildren: Array<VisualElementSignal> = [];
   let tableVesRows: Array<number> = [];
-  for (let outIdx=0; outIdx<outCount; ++outIdx) {
-    const rowIdx = (outIdx + firstItemIdx) % outCount + firstItemIdx;
-    tableVeChildren.push(createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), true));
-    tableVesRows.push(rowIdx);
-  };
+  for (let rowIdx=firstItemIdx; rowIdx<=lastItemIdx; ++rowIdx) {
+    let outIdx = rowIdx % outCount;
+    tableVeChildren[outIdx] = createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), true);
+    tableVesRows[outIdx] = rowIdx;
+  }
 
   return [tableVeChildren, tableVesRows];
 }
@@ -239,13 +239,12 @@ function createRow(
 
 
 export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
-  let numToAdd = (() => {
-    let prevStart = Math.ceil(prevScrollYPos);
-    const yScrollProp = store.perItem.getTableScrollYPos(tableVeid);
-    let newStart = Math.ceil(yScrollProp);
-    return newStart - prevStart; // positive number means add to end, negative number means add to beginning.
-  })();
-  if (numToAdd == 0) { return; }
+  let needToRearrange = () => {
+    const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
+    if (Math.round(prevScrollYPos) != Math.round(scrollYPos)) { return true; }
+    return false;
+  };
+  if (!needToRearrange()) { return; }
 
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
   const tableVe = VesCache.get(tableVePath)!.get();
@@ -253,32 +252,31 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const tableVesRows = tableVe.tableVesRows;
   if (tableVesRows == null || tableVesRows!.length != childrenVes.length) { panic("rearrangeTableAfterScroll: invalid tableVesRows"); }
 
-  const tableRowCount = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
-                            - 1
-                            - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
-  if (childrenVes.length != tableRowCount) { panic("unexpected table row count"); }
+  const numVisibleRows = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
+                         - 1
+                         - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
 
-  const yScrollProp = store.perItem.getTableScrollYPos(tableVeid);
-  const firstItemIdx = Math.floor(yScrollProp);
-  const lastItemIdx = firstItemIdx + tableRowCount - 1;
+  const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
+  const firstItemIdx = Math.floor(scrollYPos);
+  const lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
+  if (childrenVes.length != outCount) { panic("unexpected number of child ves rows."); }
 
   const sizeBl = tableVeid.linkIdMaybe
     ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
     : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
 
-  for (let i=0; i<outCount; ++i) {
-    const rowIdx = Math.floor(yScrollProp) + i;
-    const outIdx = (Math.floor(yScrollProp) + i) % outCount;
+  for (let rowIdx=firstItemIdx; rowIdx<=lastItemIdx; ++rowIdx) {
+    const outIdx = rowIdx % outCount;
     if (tableVesRows[outIdx] != rowIdx) {
       const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx), false);
       const existing = childrenVes[outIdx].get();
-      VesCache.remove(VeFns.veidFromVe(existing));
       for (let i=0; i<existing.attachmentsVes.length; ++i) {
         const a = existing.attachmentsVes[i].get();
         VesCache.remove(VeFns.veidFromVe(a));
       }
+      VesCache.remove(VeFns.veidFromVe(existing));
       childrenVes[outIdx].set(newChild.get());
       tableVesRows[outIdx] = rowIdx;
     }
