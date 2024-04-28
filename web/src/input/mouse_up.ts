@@ -107,7 +107,7 @@ export function mouseUpHandler(store: StoreContextModel) {
     case MouseAction.Ambiguous:
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
-      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.LinkSettings) {
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {
         const focusPath = VeFns.addVeidToPath(
           { itemId: VeFns.veidFromPath(MouseActionState.get().activeElement).linkIdMaybe!, linkIdMaybe: null },
           VeFns.parentPath(MouseActionState.get().activeElement)

@@ -16,8 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LINK_TRIANGLE_SIZE_PX } from "../../constants";
+
 
 export const InfuLinkTriangle = () =>
   <div style={"width: 0px; height: 0px; " +
-              "border-bottom-width: 10px; border-bottom-style: solid; border-bottom-color: transparent; " +
-              "border-left-width: 10px; border-left-style: solid; border-left-color: #c008;"} />;
+              `border-bottom-width: ${LINK_TRIANGLE_SIZE_PX}px; border-bottom-style: solid; border-bottom-color: transparent; ` +
+              `border-left-width: ${LINK_TRIANGLE_SIZE_PX}px; border-left-style: solid; border-left-color: #5005;`} />;

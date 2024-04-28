@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
@@ -157,7 +157,7 @@ export const LinkFns = {
         viewportBoundsPx: null,
         hitboxes: !emitHitboxes ? [] : [
           HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.LinkSettings, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
         ],
       }
@@ -166,12 +166,14 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
+
     const result = ItemFns.calcGeometry_Spatial(measurableMaybe, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasPendingChanges);
+
     let insertPos = result.hitboxes.length;
     if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length-1].type == HitboxFlags.Resize) {
       insertPos = result.hitboxes.length - 1;
     }
-    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.LinkSettings, { x: 0, y: 0, w: 4, h: 4 }))
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }))
 
     return result;
   },
@@ -237,7 +239,7 @@ export const LinkFns = {
         blockSizePx,
         viewportBoundsPx: null,
         hitboxes: [
-          HitboxFns.create(HitboxFlags.LinkSettings, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.TriangleLinkSettings, innerBoundsPx),
           HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(boundsPx))
         ]
       };
@@ -246,7 +248,13 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl, parentIsPopup, padTop);
+
+    const result = ItemFns.calcGeometry_ListItem(measurableMaybe!, blockSizePx, row, col, widthBl, parentIsPopup, padTop);
+
+    let insertPos = result.hitboxes.length;
+    result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX, h: LINK_TRIANGLE_SIZE_PX }))
+
+    return result;
   },
 
   calcGeometry_InCell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean): ItemGeometry => {

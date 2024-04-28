@@ -20,19 +20,19 @@ import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geome
 
 
 export enum HitboxFlags {
-  None =             0x0000,
-  Click =            0x0001,
-  Move =             0x0002,
-  Resize =           0x0004,
-  OpenPopup =        0x0008,
-  Attach =           0x0010,
-  HorizontalResize = 0x0020,
-  OpenAttachment =   0x0040,
-  AttachComposite =  0x0080,
-  Anchor =           0x0100,
-  Expand =           0x0200,
-  Settings =         0x0400,
-  LinkSettings =     0x0800,
+  None =                 0x0000,
+  Click =                0x0001,
+  Move =                 0x0002,
+  Resize =               0x0004,
+  OpenPopup =            0x0008,
+  Attach =               0x0010,
+  HorizontalResize =     0x0020,
+  OpenAttachment =       0x0040,
+  AttachComposite =      0x0080,
+  Anchor =               0x0100,
+  Expand =               0x0200,
+  Settings =             0x0400,
+  TriangleLinkSettings = 0x0800,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -48,6 +48,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.Anchor) { result += "Anchor "; }
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.Settings) { result += "Settings "; }
+  if (flags & HitboxFlags.TriangleLinkSettings ) { result += "TriangleLinkSettings "; }
   return result;
 }
 
@@ -111,5 +112,4 @@ export const HitboxFns = {
   hitboxFlagsToString: (flags: HitboxFlags): string => {
     return hitboxFlagsToString(flags);
   },
-
 }
