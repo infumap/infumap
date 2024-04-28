@@ -67,11 +67,11 @@ export function mouseUpHandler(store: StoreContextModel) {
 
     case MouseAction.Resizing:
       DoubleClickState.preventDoubleClick();
-      if (MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr ||
-          (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr)) {
+      if ((MouseActionState.get().startWidthBl! * GRID_SIZE != asXSizableItem(activeItem).spatialWidthGr) ||
+          (isYSizableItem(activeItem) && MouseActionState.get().startHeightBl! * GRID_SIZE != asYSizableItem(activeItem).spatialHeightGr) ||
+          (isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem))) {
         serverOrRemote.updateItem(itemState.get(activeItem.id)!);
       }
-
       // mouseActionState.activeVisualElement.update(ve => {
       //   ve.resizingFromBoundsPx = null;
       // });
