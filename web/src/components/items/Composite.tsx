@@ -75,7 +75,8 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = () => {
-    if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child) {
+    if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child &&
+        props.visualElement.tableDimensionsPx) { // not set if not in table.
       let r = cloneBoundingBox(boundsPx())!;
       r.w = props.visualElement.tableDimensionsPx!.w;
       return r;
