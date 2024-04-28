@@ -30,6 +30,7 @@ import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -126,7 +127,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+          <InfuLinkTriangle />
         </Show>
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
@@ -204,11 +205,22 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
       </a>
     </div>;
 
+  const renderLinkMarkingMaybe = () =>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <div class="absolute text-center text-slate-600"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>
+
   return (
     <>
       {renderHighlightsMaybe()}
       {renderIcon()}
       {renderText()}
+      {renderLinkMarkingMaybe()}
     </>
   );
 }

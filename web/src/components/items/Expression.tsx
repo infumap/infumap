@@ -28,6 +28,8 @@ import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADO
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { cloneBoundingBox } from "../../util/geometry";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -65,8 +67,8 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
-  const textBlockScale = () => widthScale();
-  const lineHeightScale = () => heightScale() / widthScale();
+  const _textBlockScale = () => widthScale();
+  const _lineHeightScale = () => heightScale() / widthScale();
 
   const outerClass = (shadow: boolean) => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -83,7 +85,10 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const renderDetailed = () =>
     <>
-      {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title}
+      <div class="absolute">{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title}</div>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+        <InfuLinkTriangle />
+      </Show>
     </>;
 
   return (
@@ -154,11 +159,22 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
       </span>
     </div>;
 
+  const renderLinkMarkingMaybe = () =>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <div class="absolute text-center text-slate-600"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>
+
   return (
     <>
       {renderHighlightsMaybe()}
       {renderIconMaybe()}
       {renderText()}
+      {renderLinkMarkingMaybe()}
     </>
   );
 }

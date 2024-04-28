@@ -33,6 +33,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { fArrange } from "../../layout/arrange";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -398,7 +399,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderIsLinkMaybe = () =>
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-        <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+        <InfuLinkTriangle />
       </Show>;
 
     const backgroundStyle = () => parentPage().arrangeAlgorithm == ArrangeAlgorithm.List
@@ -902,11 +903,22 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {pageItem().title}
     </div>;
 
+  const renderLinkMarkingMaybe = () =>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <div class="absolute text-center text-slate-600"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>
+
   return (
     <>
       {renderHighlightsMaybe()}
       {renderThumbnail()}
       {renderText()}
+      {renderLinkMarkingMaybe()}
     </>
   );
 }

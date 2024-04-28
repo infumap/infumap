@@ -27,6 +27,7 @@ import { CompositeFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -63,7 +64,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                      `background-color: #ff0000;`} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-        <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+        <InfuLinkTriangle />
       </Show>
     </div>
   );
@@ -125,11 +126,22 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
       <span>{titleText()}</span>
     </div>;
 
+  const renderLinkMarkingMaybe = () =>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <div class="absolute text-center text-slate-600"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>
+
   return (
     <>
       {renderHighlightsMaybe()}
       {renderIcon()}
       {renderText()}
+      {renderLinkMarkingMaybe()}
     </>
   )
 }

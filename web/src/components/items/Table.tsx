@@ -27,6 +27,7 @@ import { TableFlags } from "../../items/base/flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -138,7 +139,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-          <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+          <InfuLinkTriangle />
         </Show>
       </div>
       <TableChildArea visualElement={props.visualElement} />
@@ -287,11 +288,22 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       <span>{tableItem().title}</span>
     </div>;
 
+  const renderLinkMarkingMaybe = () =>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <div class="absolute text-center text-slate-600"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>
+
   return (
     <>
       {renderHighlightsMaybe()}
       {renderIcon()}
       {renderText()}
+      {renderLinkMarkingMaybe()}
     </>
   );
 }

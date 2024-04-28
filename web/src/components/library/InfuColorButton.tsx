@@ -17,7 +17,7 @@
 */
 
 import { Component } from "solid-js";
-import { Colors, linearGradient } from "../../style";
+import { linearGradient } from "../../style";
 import { createInfuSignal } from "../../util/signals";
 
 
