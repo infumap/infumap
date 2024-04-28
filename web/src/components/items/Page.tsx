@@ -234,7 +234,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderIsLinkMaybe = () =>
       <Show when={props.visualElement.linkItemMaybe != null}>
-        <div style={`position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background-color: #800;`} />
+        <InfuLinkTriangle />
       </Show>;
 
     return (

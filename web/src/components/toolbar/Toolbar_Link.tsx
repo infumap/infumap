@@ -59,8 +59,9 @@ export const Toolbar_Link: Component = () => {
         <div class="inline-block ml-[8px]">
           <span class="mr-[6px]">link to:</span>
           <input ref={linkResourceInput}
-                 class="pl-[4px] w-[300px] text-slate-800"
+                 class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm"
                  type="text"
+                 spellcheck={false}
                  onKeyDown={keyEventHandler}
                  onKeyUp={keyEventHandler}
                  onKeyPress={keyEventHandler} />
