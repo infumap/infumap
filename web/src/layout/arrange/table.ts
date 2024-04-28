@@ -274,9 +274,9 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       const existing = childrenVes[outIdx].get();
       for (let i=0; i<existing.attachmentsVes.length; ++i) {
         const a = existing.attachmentsVes[i].get();
-        VesCache.remove(VeFns.veidFromVe(a));
+        VesCache.removeByPath(VeFns.veToPath(a));
       }
-      VesCache.remove(VeFns.veidFromVe(existing));
+      VesCache.removeByPath(VeFns.veToPath(existing));
       childrenVes[outIdx].set(newChild.get());
       tableVesRows[outIdx] = rowIdx;
     }
