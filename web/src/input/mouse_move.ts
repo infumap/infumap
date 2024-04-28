@@ -325,7 +325,8 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   };
   const activeRoot = VesCache.get(MouseActionState.get().activeRoot)!.get();
 
-  if (compareVector(newPositionGr, asPageItem(activeRoot.displayItem).pendingPopupPositionGr!) != 0) {
+  if (asPageItem(activeRoot.displayItem).pendingPopupPositionGr == null ||
+      compareVector(newPositionGr, asPageItem(activeRoot.displayItem).pendingPopupPositionGr!) != 0) {
     asPageItem(activeRoot.displayItem).pendingPopupPositionGr = newPositionGr;
     fullArrange(store);
   }
