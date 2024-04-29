@@ -24,7 +24,7 @@ import { itemState } from "../../store/ItemState";
 import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
 import { TableFlags } from "../../items/base/flags-item";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Table: Component = () => {
@@ -69,8 +69,8 @@ export const Toolbar_Table: Component = () => {
   }
 
   const handleQr = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
 
   const numColsText = () => {

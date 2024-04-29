@@ -22,7 +22,7 @@ import { asPageItem } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { fullArrange } from "../../layout/arrange";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 import { asNoteItem, isNote } from "../../items/note-item";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { VesCache } from "../../layout/ves-cache";
@@ -30,16 +30,16 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
 
 
-function toolbarOverlayHeight(overlayType: ToolbarOverlayType, isComposite: boolean): number {
-  if (overlayType == ToolbarOverlayType.NoteFormat) { return 105; }
-  if (overlayType == ToolbarOverlayType.NoteUrl) { return 38; }
-  if (overlayType == ToolbarOverlayType.PageWidth) { return 74; }
-  if (overlayType == ToolbarOverlayType.PageAspect) { return 92; }
-  if (overlayType == ToolbarOverlayType.PageNumCols) { return 38; }
-  if (overlayType == ToolbarOverlayType.PageDocWidth) { return 74; }
-  if (overlayType == ToolbarOverlayType.PageCellAspect) { return 60; }
-  if (overlayType == ToolbarOverlayType.PageJustifiedRowAspect) { return 60; }
-  if (overlayType == ToolbarOverlayType.Ids) {
+function toolbarOverlayHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
+  if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
+  if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
+  if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
+  if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
+  if (overlayType == ToolbarPopupType.PageNumCols) { return 38; }
+  if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
+  if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
+  if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
+  if (overlayType == ToolbarPopupType.Ids) {
     if (isComposite) {
       return 60;
     }
@@ -49,7 +49,7 @@ function toolbarOverlayHeight(overlayType: ToolbarOverlayType, isComposite: bool
 }
 
 export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
-  const overlayType = store.overlay.toolbarOverlayInfoMaybe.get()!.type;
+  const overlayType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeVisualElementMaybe = () => {
     if (!isNote(store.history.getFocusItem())) {
       return null;
@@ -65,21 +65,21 @@ export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
 
-  if (overlayType != ToolbarOverlayType.PageColor) {
+  if (overlayType != ToolbarPopupType.PageColor) {
     const maxX = store.desktopBoundsPx().w - 335;
-    let x = store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.x;
+    let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
     return {
       x,
-      y: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.y,
+      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 330,
       h: toolbarOverlayHeight(overlayType, compositeItemMaybe() != null)
     }
   }
   else {
     return {
-      x: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarOverlayInfoMaybe.get()!.topLeftPx.y,
+      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
+      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96, h: 56
     }
   }
@@ -109,8 +109,8 @@ export const Toolbar_Overlay: Component = () => {
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
 
-  const overlayTypeConst = store.overlay.toolbarOverlayInfoMaybe.get()!.type;
-  const overlayType = () => store.overlay.toolbarOverlayInfoMaybe.get()!.type;
+  const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
+  const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()!.type;
 
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.code == "Enter") {
@@ -120,7 +120,7 @@ export const Toolbar_Overlay: Component = () => {
       if (isNote(store.history.getFocusItem())) {
         serverOrRemote.updateItem(store.history.getFocusItem());
         setTimeout(() => {
-          store.overlay.toolbarOverlayInfoMaybe.set(null);
+          store.overlay.toolbarPopupInfoMaybe.set(null);
           document.getElementById("noteEditOverlayTextArea")!.focus();
         }, 0);
       }
@@ -131,91 +131,91 @@ export const Toolbar_Overlay: Component = () => {
   const handleKeyPress = (ev: KeyboardEvent) => { ev.stopPropagation(); }
 
   const handleTextChange = () => {
-    if (overlayTypeConst == ToolbarOverlayType.PageWidth) {
+    if (overlayTypeConst == ToolbarPopupType.PageWidth) {
       pageItem().innerSpatialWidthGr = Math.round(parseFloat(textElement!.value)) * GRID_SIZE;
-    } else if (overlayTypeConst == ToolbarOverlayType.PageAspect) {
+    } else if (overlayTypeConst == ToolbarPopupType.PageAspect) {
       pageItem().naturalAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarOverlayType.PageCellAspect) {
+    } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarOverlayType.PageJustifiedRowAspect) {
+    } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
       pageItem().justifiedRowAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarOverlayType.NoteUrl) {
+    } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
       noteItem().url = textElement!.value;
-    } else if (overlayTypeConst == ToolbarOverlayType.NoteFormat) {
+    } else if (overlayTypeConst == ToolbarPopupType.NoteFormat) {
       noteItem().format = textElement!.value;
-    } else if (overlayTypeConst == ToolbarOverlayType.PageNumCols) {
+    } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
       pageItem().gridNumberOfColumns = Math.round(parseFloat(textElement!.value));
-    } else if (overlayTypeConst == ToolbarOverlayType.PageDocWidth) {
+    } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
     }
     fullArrange(store);
   };
 
   const inputWidthPx = (): number => {
-    if (overlayType() == ToolbarOverlayType.NoteFormat) { return 264; }
-    if (overlayType() == ToolbarOverlayType.NoteUrl) { return 292; }
-    if (overlayType() == ToolbarOverlayType.PageWidth) { return 196; }
-    if (overlayType() == ToolbarOverlayType.PageAspect) { return 180; }
-    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return 238; }
-    if (overlayType() == ToolbarOverlayType.PageNumCols) { return 250; }
-    if (overlayType() == ToolbarOverlayType.PageJustifiedRowAspect) { return 230; }
-    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return 162; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return 264; }
+    if (overlayType() == ToolbarPopupType.NoteUrl) { return 292; }
+    if (overlayType() == ToolbarPopupType.PageWidth) { return 196; }
+    if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
+    if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
+    if (overlayType() == ToolbarPopupType.PageNumCols) { return 250; }
+    if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
+    if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     return 200;
   }
 
   const boxBoundsPx = () => toolbarBoxBoundsPx(store);
 
   onMount(() => {
-    if (overlayType() != ToolbarOverlayType.PageColor && overlayType() != ToolbarOverlayType.Ids) {
+    if (overlayType() != ToolbarPopupType.PageColor && overlayType() != ToolbarPopupType.Ids) {
       textElement!.focus();
     }
   });
 
   const handleColorClick = (col: number) => {
     pageItem().backgroundColorIndex = col;
-    store.overlay.toolbarOverlayInfoMaybe.set(store.overlay.toolbarOverlayInfoMaybe.get());
+    store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
     store.touchToolbar();
     serverOrRemote.updateItem(store.history.getFocusItem());
-    store.overlay.toolbarOverlayInfoMaybe.set(null);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
   }
 
   const textEntryValue = (): string | null => {
-    if (overlayType() == ToolbarOverlayType.NoteFormat) { return noteItem().format; }
-    if (overlayType() == ToolbarOverlayType.NoteUrl) { return noteItem().url; }
-    if (overlayType() == ToolbarOverlayType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
-    if (overlayType() == ToolbarOverlayType.PageAspect) { return "" + pageItem().naturalAspect; }
-    if (overlayType() == ToolbarOverlayType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
-    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "" + pageItem().docWidthBl; }
-    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
-    if (overlayType() == ToolbarOverlayType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
-    if (overlayType() == ToolbarOverlayType.Ids) { return null; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return noteItem().format; }
+    if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
+    if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
+    if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
+    if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
+    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
+    if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
+    if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
+    if (overlayType() == ToolbarPopupType.Ids) { return null; }
     return "[unknown]";
   }
 
   const label = (): string | null => {
-    if (overlayType() == ToolbarOverlayType.NoteFormat) { return "Format"; }
-    if (overlayType() == ToolbarOverlayType.NoteUrl) { return "Url"; }
-    if (overlayType() == ToolbarOverlayType.PageWidth) { return "Inner Block Width"; }
-    if (overlayType() == ToolbarOverlayType.PageAspect) { return "Page Aspect"; }
-    if (overlayType() == ToolbarOverlayType.PageNumCols) { return "Num Cols"; }
-    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "Document Block Width"; }
-    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return "Cell Aspect"; }
-    if (overlayType() == ToolbarOverlayType.PageJustifiedRowAspect) { return "Row Aspect"; }
-    if (overlayType() == ToolbarOverlayType.Ids) { return null; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return "Format"; }
+    if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
+    if (overlayType() == ToolbarPopupType.PageWidth) { return "Inner Block Width"; }
+    if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
+    if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
+    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
+    if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
+    if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }
+    if (overlayType() == ToolbarPopupType.Ids) { return null; }
     return "[unknown]";
   }
 
   const tooltip = (): string | null => {
-    if (overlayType() == ToolbarOverlayType.NoteFormat) { return "If the note text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0 or empty"; }
-    if (overlayType() == ToolbarOverlayType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
-    if (overlayType() == ToolbarOverlayType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
-    if (overlayType() == ToolbarOverlayType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
-    if (overlayType() == ToolbarOverlayType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
-    if (overlayType() == ToolbarOverlayType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the note text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0 or empty"; }
+    if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
+    if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
+    if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
+    if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
+    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
     return null;
   }
 
-  const showAutoButton = (): boolean => overlayType() == ToolbarOverlayType.PageAspect;
+  const showAutoButton = (): boolean => overlayType() == ToolbarPopupType.PageAspect;
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.history.getFocusItem().id); }
   const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + store.history.getFocusItem()!.id); }
@@ -233,7 +233,7 @@ export const Toolbar_Overlay: Component = () => {
   return (
     <>
       <Switch>
-        <Match when={overlayType() == ToolbarOverlayType.PageColor}>
+        <Match when={overlayType() == ToolbarPopupType.PageColor}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
             <div class="pt-[6px] pl-[4px]">
@@ -250,7 +250,7 @@ export const Toolbar_Overlay: Component = () => {
             </div>
           </div>
         </Match>
-        <Match when={overlayType() == ToolbarOverlayType.Ids}>
+        <Match when={overlayType() == ToolbarPopupType.Ids}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
             <div class="inline-block text-slate-800 text-xs p-[6px]">

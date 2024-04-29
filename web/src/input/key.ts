@@ -43,11 +43,11 @@ const recognizedKeys = [
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
-  if (store.overlay.noteEditOverlayInfo() && !store.overlay.toolbarOverlayInfoMaybe.get()) {
+  if (store.overlay.noteEditOverlayInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     noteEditOverlay_keyDownListener(store, ev);
   }
 
-  if (store.overlay.pageEditOverlayInfo() && !store.overlay.toolbarOverlayInfoMaybe.get()) {
+  if (store.overlay.pageEditOverlayInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     pageEditOverlay_keyDownListener(store, ev);
   }
 

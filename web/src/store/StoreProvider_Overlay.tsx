@@ -25,7 +25,7 @@ import { InfuSignal, createInfuSignal } from "../util/signals";
 import { HistoryStoreContextModel } from "./StoreProvider_History";
 
 
-export enum ToolbarOverlayType {
+export enum ToolbarPopupType {
   NoteUrl = "url",
   NoteFormat = "format",
   PageColor = "color",
@@ -39,8 +39,8 @@ export enum ToolbarOverlayType {
   Ids = "ids",
 }
 
-export interface ToolbarOverlayInfo {
-  type: ToolbarOverlayType,
+export interface ToolbarPopupInfo {
+  type: ToolbarPopupType,
   topLeftPx: Vector
 }
 
@@ -93,8 +93,8 @@ export interface OverlayStoreContextModel {
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
 
   // Main overlays
-  toolbarOverlayInfoMaybe: InfuSignal<ToolbarOverlayInfo | null>,
-  editingTitle: InfuSignal<EditPageTitleOverlayInfo | null>,
+  toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
+  toolbarEditingTitle: InfuSignal<EditPageTitleOverlayInfo | null>,
 
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
   pageEditOverlayInfo: () => EditOverlayInfo | null,
@@ -127,9 +127,9 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
-  const editingTitle = createInfuSignal<EditPageTitleOverlayInfo | null>(null);
+  const toolbarEditingTitle = createInfuSignal<EditPageTitleOverlayInfo | null>(null);
 
-  const toolbarOverlayInfoMaybe = createInfuSignal<ToolbarOverlayInfo | null>(null);
+  const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
 
   function clear() {
     expressionEditOverlayInfo_.set(null);
@@ -142,7 +142,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     searchOverlayVisible.set(false);
-    editingTitle.set(null);
+    toolbarEditingTitle.set(null);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -156,8 +156,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
-      toolbarOverlayInfoMaybe.get() != null ||
-      editingTitle.get() != null
+      toolbarPopupInfoMaybe.get() != null ||
+      toolbarEditingTitle.get() != null
     );
   }
 
@@ -217,8 +217,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
     isPanicked: createInfuSignal<boolean>(false),
 
-    toolbarOverlayInfoMaybe,
-    editingTitle,
+    toolbarPopupInfoMaybe,
+    toolbarEditingTitle,
 
     clear,
     anOverlayIsVisible,

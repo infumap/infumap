@@ -19,15 +19,15 @@
 import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Expression: Component = () => {
   const store = useStore();
 
   const handleQr = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: 0, y: 0 }, type: ToolbarOverlayType.Ids });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: 0, y: 0 }, type: ToolbarPopupType.Ids });
   }
 
   return (

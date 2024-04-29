@@ -221,10 +221,10 @@ export const Main: Component = () => {
       <Toolbar />
 
       {/* global overlays */}
-      <Show when={store.overlay.toolbarOverlayInfoMaybe.get() != null}>
+      <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
         <Toolbar_Overlay />
       </Show>
-      <Show when={store.overlay.editingTitle.get()}>
+      <Show when={store.overlay.toolbarEditingTitle.get()}>
         <Toolbar_EditTitleOverlay />
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>

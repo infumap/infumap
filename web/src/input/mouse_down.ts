@@ -29,7 +29,7 @@ import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
-import { isInside } from "../util/geometry";
+import { BoundingBox, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
@@ -58,85 +58,94 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.history.currentPage() == null) { return defaultResult; }
 
-  if (store.overlay.toolbarOverlayInfoMaybe.get() != null) {
-    if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) { return MouseDownActionFlags.None; }
-    store.overlay.toolbarOverlayInfoMaybe.set(null);
-    store.touchToolbar();
-    fullArrange(store);
-    serverOrRemote.updateItem(store.history.getFocusItem());
-    if (buttonNumber != MOUSE_LEFT) {
+  if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
+    if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
+      // if mouse down is inside popup bounds, this is not handled by the global handler.
       return MouseDownActionFlags.None;
     }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.touchToolbar();
+    fullArrange(store);
+    serverOrRemote.updateItem(store.history.getFocusItem());
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  if (store.overlay.editingTitle.get()) {
-    store.overlay.editingTitle.set(null);
-    store.overlay.toolbarOverlayInfoMaybe.set(null);
+  if (store.overlay.toolbarEditingTitle.get()) {
+    store.overlay.toolbarEditingTitle.set(null);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     fullArrange(store);
     serverOrRemote.updateItem(store.history.getFocusItem());
     store.touchToolbar();
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  function isInItemOptionsToolbox(): boolean {
+  function isInsideItemOptionsToolbox(): boolean {
     const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
     if (!toolboxDiv) { return false; }
     const bounds = toolboxDiv.getBoundingClientRect();
-    const boundsPx = { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height };
+    const boundsPx: BoundingBox = { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height };
     return isInside(CursorEventState.getLatestClientPx(), boundsPx);
   }
 
   if (isLink(store.history.getFocusItem()) || isRating(store.history.getFocusItem())) {
-    if (buttonNumber != MOUSE_LEFT || !isInItemOptionsToolbox()) {
+    if (buttonNumber != MOUSE_LEFT ||
+        !isInsideItemOptionsToolbox()) {
       store.history.setFocus(VeFns.addVeidToPath(store.history.currentPage()!, ""));
     }
     defaultResult = MouseDownActionFlags.None;
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   if (store.overlay.expressionEditOverlayInfo()) {
-    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setExpressionEditOverlayInfo(store.history, null);
     fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   if (store.overlay.pageEditOverlayInfo()) {
-    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setPageEditOverlayInfo(store.history, null);
     fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   if (store.overlay.tableEditOverlayInfo()) {
-    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setTableEditOverlayInfo(store.history, null);
     fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   if (store.overlay.noteEditOverlayInfo()) {
-    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     noteEditOverlay_clearJustCreated();
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setNoteEditOverlayInfo(store.history, null);
     fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   if (store.overlay.passwordEditOverlayInfo()) {
-    if (isInItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setPasswordEditOverlayInfo(store.history, null);
     fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   switch(buttonNumber) {
@@ -320,6 +329,8 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
+  // TODO (LOW): abstract all this somehow.
+
   if (store.overlay.contextMenuInfo.get()) {
     store.overlay.contextMenuInfo.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
@@ -334,6 +345,24 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (store.overlay.editUserSettingsInfo.get() != null) {
     store.overlay.editUserSettingsInfo.set(null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+    return;
+  }
+
+  if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+    return;
+  }
+
+  if (store.overlay.toolbarEditingTitle.get() != null) {
+    store.overlay.toolbarEditingTitle.set(null);
+    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+    return;
+  }
+
+  if (store.overlay.searchOverlayVisible.get()) {
+    store.overlay.searchOverlayVisible.set(false);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }

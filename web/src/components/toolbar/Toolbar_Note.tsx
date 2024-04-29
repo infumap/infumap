@@ -25,7 +25,7 @@ import { useStore } from "../../store/StoreProvider";
 import { VeFns } from "../../layout/visual-element";
 import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Note: Component = () => {
@@ -99,18 +99,18 @@ export const Toolbar_Note: Component = () => {
   };
 
   const handleQr = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
 
   const urlButtonHandler = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarOverlayType.NoteUrl });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteUrl });
   }
 
   const formatHandler = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarOverlayType.NoteFormat });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteFormat });
   }
 
   const renderSingleNoteToolbox = () =>

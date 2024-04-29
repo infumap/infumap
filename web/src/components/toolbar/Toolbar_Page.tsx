@@ -27,7 +27,7 @@ import { fullArrange } from "../../layout/arrange";
 import { GRID_SIZE } from "../../constants";
 import { server, serverOrRemote } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 import { PageFlags } from "../../items/base/flags-item";
 
 
@@ -207,43 +207,43 @@ export const Toolbar_Page: Component = () => {
   };
 
   const handleColorClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x + 8, y: divBeforeColroSelect!.getBoundingClientRect().y + 19 }, type: ToolbarOverlayType.PageColor });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x + 8, y: divBeforeColroSelect!.getBoundingClientRect().y + 19 }, type: ToolbarPopupType.PageColor });
   };
 
   const handleAspectClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageAspect });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageAspect });
   };
 
   const handleCellAspectClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageCellAspect });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCellAspect });
   };
 
   const handleJustifiedRowAspectClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageJustifiedRowAspect });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageJustifiedRowAspect });
   };
 
   const handleWidthClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageWidth });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageWidth });
   };
 
   const handleDocWidthBlClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageDocWidth });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageDocWidth });
   };
 
   const handleNumColsClick = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarOverlayType.PageNumCols });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageNumCols });
   };
 
   const handleQr = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
 
   return (

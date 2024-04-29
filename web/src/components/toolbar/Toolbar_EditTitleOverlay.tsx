@@ -29,7 +29,7 @@ export const Toolbar_EditTitleOverlay: Component = () => {
     textElement?.focus();
   });
 
-  const spec = () => store.overlay.editingTitle.get()!;
+  const spec = () => store.overlay.toolbarEditingTitle.get()!;
 
   const inputHandler = () => {
     spec().pageItem.title = textElement!.value;

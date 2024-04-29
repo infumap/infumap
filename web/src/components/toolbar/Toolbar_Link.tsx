@@ -19,7 +19,7 @@
 import { Component, onCleanup, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 import { asLinkItem } from "../../items/link-item";
 import { fullArrange } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
@@ -35,8 +35,8 @@ export const Toolbar_Link: Component = () => {
   const linkItemOnMount = linkItem();
 
   const handleQr = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
 
   onMount(() => {

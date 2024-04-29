@@ -19,7 +19,7 @@
 import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
-import { ToolbarOverlayType } from "../../store/StoreProvider_Overlay";
+import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 import { asImageItem } from "../../items/image-item";
 import { VesCache } from "../../layout/ves-cache";
 import { ImageFlags } from "../../items/base/flags-item";
@@ -36,8 +36,8 @@ export const Toolbar_Image: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const handleQr = () => {
-    store.overlay.toolbarOverlayInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarOverlayType.Ids });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
 
   const borderButtonHandler = () => {

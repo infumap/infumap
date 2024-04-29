@@ -74,12 +74,12 @@ export const Toolbar: Component = () => {
   const mainTitleColor = () => {
     // item state is not solid-js signals.
     // as a bit of a hack, change in color is signalled by re-setting this instead.
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.overlay.toolbarPopupInfoMaybe.get();
     return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
   };
 
   const pageColor = () => {
-    store.overlay.toolbarOverlayInfoMaybe.get();
+    store.overlay.toolbarPopupInfoMaybe.get();
     if (currentPageMaybe() == null) { return ''; }
     return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
   }
@@ -115,7 +115,7 @@ export const Toolbar: Component = () => {
       initialValue: titleDiv.innerText
     };
 
-    store.overlay.editingTitle.set(spec);
+    store.overlay.toolbarEditingTitle.set(spec);
   }
 
   return (
