@@ -47,7 +47,11 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
   fetchPromise
     .then(result => {
       if (result != null) {
-        itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
+        try {
+          itemState.setChildItemsFromServerObjects(containerVeid.itemId, result.children, origin);
+        } catch (e: any) {
+          throw new Error(`itemState.setChildItems failed: ${e}`);
+        }
         PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);

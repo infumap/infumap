@@ -58,6 +58,7 @@ export interface HistoryStoreContextModel {
   setFocus: (focusPath: VisualElementPath | null) => void,
   getFocusItem: () => Item,
   getFocusPath: () => VisualElementPath,
+  getFocusIsCurrentPage: () => boolean,
   getParentPageFocusPath: () => VisualElementPath | null,
   changeParentPageFocusPath: (path: VisualElementPath) => void,
 }
@@ -200,6 +201,14 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     panic("TODO (HIGH): focusPath fallback should never be hit");
   };
 
+  const getFocusIsCurrentPage = (): boolean => {
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    if (breadcrumb.focusPath != null) {
+      const currentPagePath = VeFns.addVeidToPath(currentPage()!, "");
+      return currentPagePath == getFocusPath();
+    }
+    return true;
+  };
 
   const clear = (): void => {
     setBreadcrumbs([]);
@@ -223,6 +232,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     setFocus,
     getFocusItem,
     getFocusPath,
+    getFocusIsCurrentPage,
     getParentPageFocusPath,
     changeParentPageFocusPath,
 

@@ -28,7 +28,7 @@ import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
-import { Colors, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
+import { Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, translucent } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
@@ -81,7 +81,10 @@ export const Toolbar: Component = () => {
   const pageColor = () => {
     store.overlay.toolbarPopupInfoMaybe.get();
     if (currentPageMaybe() == null) { return ''; }
-    return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
+    if (store.history.getFocusIsCurrentPage()) {
+      return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
+    }
+    return 'background-color: #fafafa;';
   }
 
   const hideToolbar = () => {
@@ -121,15 +124,14 @@ export const Toolbar: Component = () => {
   return (
     <>
       <Show when={store.topToolbarVisible.get()}>
-        <div class="fixed right-0 top-0 border-b"
+        <div class="fixed right-0 top-0"
              style={`left: 0px; ` +
-                    `height: ${store.topToolbarHeight()}px; 0px; ` +
-                    `border-color: ${LIGHT_BORDER_COLOR}; `}>
+                    `height: ${store.topToolbarHeight()}px; 0px; `}>
 
           <Show when={store.dockVisible.get()}>
             <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
                 style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
-                       `border-color: ${LIGHT_BORDER_COLOR}; `}>
+                       `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)};`}>
               <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
                 <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
                   <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
@@ -148,16 +150,17 @@ export const Toolbar: Component = () => {
 
           <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px; ${pageColor()}`}>
             <div class="flex flex-row">
+              <div class="border-b" style={`width: 6px; border-bottom-color: ${LIGHT_BORDER_COLOR};`}></div>
               <div id="toolbarTitleDiv"
-                   class="p-[3px] ml-[6px] inline-block cursor-text"
-                   style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700;`}
+                   class="p-[3px] inline-block cursor-text border-b"
+                   style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR};`}
                    onClick={handleTitleClick}>
                 {title()}
               </div>
-              <div class="inline-block flex-nowrap" style="flex-grow: 1;"></div>
+              <div class="inline-block flex-nowrap border-b" style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};`}></div>
 
-              <div class="border-l pl-[4px] flex flex-row"
-                   style={`border-color: ${LIGHT_BORDER_COLOR}; background-color: #fafafa; ` +
+              <div class="border-l border-b pl-[4px] flex flex-row"
+                   style={`border-color: ${mainPageBorderColor(store, itemState.get)}; background-color: #fafafa; ` +
                           `align-items: baseline;`}>
 
                 <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>

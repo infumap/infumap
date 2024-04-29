@@ -20,7 +20,7 @@ import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch 
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { Colors, HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, linearGradient } from "../../style";
+import { Colors, HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, translucent } from "../../style";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -155,7 +155,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class={`absolute border-r`}
                style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                       `background-color: #ffffff; ` +
-                      `border-color: ${LIGHT_BORDER_COLOR}; `}>
+                      `border-color: ${mainPageBorderColor(store, itemState.get)}; `}>
             <For each={props.visualElement.childrenVes}>{childVe =>
               <VisualElement_Desktop visualElement={childVe.get()} />
             }</For>

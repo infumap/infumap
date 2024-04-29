@@ -16,8 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { Item } from "./items/base/item";
+import { asPageItem } from "./items/page-item";
+import { StoreContextModel } from "./store/StoreProvider";
 import { hexToRGBA } from "./util/color";
 import { assert } from "./util/lang";
+import { Uid } from "./util/uid";
 
 export let Colors = [
   "#395176", // blue [default]
@@ -37,6 +41,14 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
 
 export function translucent(colIndex: number, lightenByAlpha: number): string {
   return `${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}`;
+}
+
+export const mainPageBorderColor = (store: StoreContextModel, getItem: (id: Uid) => Item | null ) => {
+  const cp = store.history.currentPage();
+  if (cp == null) { return LIGHT_BORDER_COLOR; }
+  return store.history.getFocusIsCurrentPage()
+    ? translucent(asPageItem(getItem(cp.itemId)!).backgroundColorIndex, 0.6)
+    : LIGHT_BORDER_COLOR;
 }
 
 export let FEATURE_COLOR = translucent(0, 0.636);
