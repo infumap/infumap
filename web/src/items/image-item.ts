@@ -225,7 +225,7 @@ export const ImageFns = {
     if (visualElement.flags & VisualElementFlags.Popup) {
       window.open('/files/' + visualElement.displayItem.id, '_blank');
     } else if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      store.history.pushPopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: null });
+      store.history.pushPopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     } else {
       store.history.replacePopup({ type: PopupType.Image, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
