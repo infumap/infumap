@@ -32,14 +32,14 @@ import { itemState } from "../store/ItemState";
 import { BoundingBox, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState } from "./state";
+import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Overlay";
 import { serverOrRemote } from "../server";
 import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
-import { CursorPosition } from "../store/StoreProvider_Overlay";
+import { CursorPosition, ToolbarPopupType } from "../store/StoreProvider_Overlay";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 
@@ -61,6 +61,13 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
       // if mouse down is inside popup bounds, this is not handled by the global handler.
+      return MouseDownActionFlags.None;
+    }
+    if (ClickState.getButtonClickBoundsPx()! != null &&
+        isInside(CursorEventState.getLatestClientPx(), ClickState.getButtonClickBoundsPx()!) &&
+        buttonNumber == MOUSE_LEFT) {
+      // if mouse down is inside button of opened popup, this is handled in the relevant button click handler.
+      ClickState.setButtonClickBoundsPx(null);
       return MouseDownActionFlags.None;
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);

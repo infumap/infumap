@@ -25,6 +25,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { ImageFlags } from "../../items/base/flags-item";
 import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
+import { ClickState } from "../../input/state";
 
 
 export const Toolbar_Image: Component = () => {
@@ -36,9 +37,16 @@ export const Toolbar_Image: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const handleQr = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
+  const handleQrDown = () => {
+    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
+  };
 
   const borderButtonHandler = () => {
     if (imageItem().flags & ImageFlags.HideBorder) {
@@ -79,7 +87,8 @@ export const Toolbar_Image: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </div>
         <div ref={qrDiv}
-             class="pl-[4px] inline-block">
+             class="pl-[4px] inline-block"
+             onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
       </div>

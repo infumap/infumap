@@ -20,6 +20,7 @@ import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { InfuIconButton } from "../library/InfuIconButton";
 import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
+import { ClickState } from "../../input/state";
 
 
 export const Toolbar_Rating: Component = () => {
@@ -28,16 +29,24 @@ export const Toolbar_Rating: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const handleQr = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
+  const handleQrDown = () => {
+    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
+  };
 
   return (
     <div id="toolbarItemOptionsDiv"
          class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
         <div ref={qrDiv}
-             class="pl-[4px] inline-block">
+             class="pl-[4px] inline-block"
+             onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
       </div>

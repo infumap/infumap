@@ -23,6 +23,7 @@ import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 import { asLinkItem } from "../../items/link-item";
 import { fullArrange } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
+import { ClickState } from "../../input/state";
 
 
 export const Toolbar_Link: Component = () => {
@@ -35,9 +36,16 @@ export const Toolbar_Link: Component = () => {
   const linkItemOnMount = linkItem();
 
   const handleQr = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
+  const handleQrDown = () => {
+    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
+  };
 
   onMount(() => {
     linkResourceInput!.value = linkItem().linkTo;
@@ -67,7 +75,8 @@ export const Toolbar_Link: Component = () => {
                  onKeyPress={keyEventHandler} />
         </div>
         <div ref={qrDiv}
-             class="pl-[4px] inline-block">
+             class="pl-[4px] inline-block"
+             onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
       </div>

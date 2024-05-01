@@ -26,6 +26,7 @@ import { VeFns } from "../../layout/visual-element";
 import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
+import { ClickState } from "../../input/state";
 
 
 export const Toolbar_Note: Component = () => {
@@ -33,6 +34,8 @@ export const Toolbar_Note: Component = () => {
 
   let beforeFormatElement : HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
+  let formatDiv: HTMLDivElement | undefined;
+  let urlDiv: HTMLDivElement | undefined;
 
   const noteVisualElementSignal = () => VesCache.get(store.history.getFocusPath())!;
   const noteVisualElement = () => noteVisualElementSignal().get();
@@ -98,20 +101,44 @@ export const Toolbar_Note: Component = () => {
     rearrangeWithDisplayId(store, noteItem().id);
   };
 
+  // QR
   const handleQr = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
+  const handleQrDown = () => {
+    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
+  };
 
+  // URL
   const urlButtonHandler = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteUrl) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteUrl });
   }
+  const handleUrlDown = () => {
+    ClickState.setButtonClickBoundsPx(urlDiv!.getBoundingClientRect());
+  };
 
+  // Format
   const formatHandler = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteFormat) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteFormat });
   }
+  const handleFormatDown = () => {
+    ClickState.setButtonClickBoundsPx(formatDiv!.getBoundingClientRect());
+  };
 
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
@@ -162,8 +189,14 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
         <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
         <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
-        <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+        <div ref={formatDiv} class="inline-block"
+             onMouseDown={handleFormatDown}>
+          <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
+        </div>
+        <div ref={urlDiv} class="inline-block"
+             onMouseDown={handleUrlDown}>
+          <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+        </div>
         <Show when={isInTable()}>
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>
@@ -172,7 +205,8 @@ export const Toolbar_Note: Component = () => {
         </div>
       </Show>
       <div ref={qrDiv}
-           class="pl-[4px] inline-block">
+           class="pl-[4px] inline-block"
+           onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>;

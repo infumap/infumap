@@ -22,7 +22,8 @@ import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VisualElementPath } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Vector, desktopPxFromMouseEvent } from "../util/geometry";
+import { ToolbarPopupType } from "../store/StoreProvider_Overlay";
+import { BoundingBox, Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
 
 
@@ -198,6 +199,7 @@ export const DoubleClickState = {
 
 // ### Click State
 
+let buttonClickBounds: BoundingBox | null = null;
 let linkWasClicked: boolean = false;
 export const ClickState = {
   setLinkWasClicked: (clickState: boolean): void => {
@@ -206,5 +208,22 @@ export const ClickState = {
 
   getLinkWasClicked: (): boolean => {
     return linkWasClicked;
+  },
+
+  setButtonClickBoundsPx: (bounds: DOMRect | null): void => {
+    if (bounds == null) {
+      buttonClickBounds = null;
+      return;
+    }
+    buttonClickBounds = {
+      x: bounds.x,
+      y: bounds.y,
+      w: bounds.width,
+      h: bounds.height
+    };
+  },
+
+  getButtonClickBoundsPx: (): BoundingBox | null => {
+    return buttonClickBounds;
   }
 }

@@ -29,12 +29,14 @@ import { server, serverOrRemote } from "../../server";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
 import { PageFlags } from "../../items/base/flags-item";
+import { ClickState } from "../../input/state";
 
 
 export const Toolbar_Page: Component = () => {
   const store = useStore();
 
-  let divBeforeColroSelect: HTMLDivElement | undefined;
+  let divBeforeColorSelect: HTMLDivElement | undefined;
+  let colorSelectDiv: HTMLDivElement | undefined;
   let widthDiv: HTMLDivElement | undefined;
   let docWidthDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
@@ -206,45 +208,109 @@ export const Toolbar_Page: Component = () => {
     })
   };
 
+  // Color
   const handleColorClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageColor) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: divBeforeColroSelect!.getBoundingClientRect().x + 8, y: divBeforeColroSelect!.getBoundingClientRect().y + 19 }, type: ToolbarPopupType.PageColor });
+      { topLeftPx: { x: divBeforeColorSelect!.getBoundingClientRect().x + 8, y: divBeforeColorSelect!.getBoundingClientRect().y + 19 }, type: ToolbarPopupType.PageColor });
+  };
+  const handleColorDown = () => {
+    ClickState.setButtonClickBoundsPx(colorSelectDiv!.getBoundingClientRect());
   };
 
+  // Aspect
   const handleAspectClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageAspect) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageAspect });
   };
+  const handleAspectDown = () => {
+    ClickState.setButtonClickBoundsPx(aspectDiv!.getBoundingClientRect());
+  };
 
+  // Cell Aspect
   const handleCellAspectClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCellAspect) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCellAspect });
   };
+  const handleCellAspectDown = () => {
+    ClickState.setButtonClickBoundsPx(cellAspectDiv!.getBoundingClientRect());
+  };
 
+  // Justified Row Aspect
   const handleJustifiedRowAspectClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageJustifiedRowAspect) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageJustifiedRowAspect });
   };
+  const handleJustifiedRowAspectDown = () => {
+    ClickState.setButtonClickBoundsPx(justifiedRowAspectDiv!.getBoundingClientRect());
+  };
 
+  // Width
   const handleWidthClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageWidth) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageWidth });
   };
+  const handleWidthDown = () => {
+    ClickState.setButtonClickBoundsPx(widthDiv!.getBoundingClientRect());
+  };
 
+  // Doc Width Bl
   const handleDocWidthBlClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageDocWidth) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageDocWidth });
   };
+  const handlePageDocWidthDown = () => {
+    ClickState.setButtonClickBoundsPx(docWidthDiv!.getBoundingClientRect());
+  };
 
+  // Num Cols
   const handleNumColsClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageNumCols) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageNumCols });
   };
+  const handleNumColsDown = () => {
+    ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
+  };
 
+  // QR
   const handleQr = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
+  const handleQrDown = () => {
+    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
+  };
 
   return (
     <div id="toolbarItemOptionsDiv"
@@ -260,7 +326,8 @@ export const Toolbar_Page: Component = () => {
         <div ref={widthDiv}
              class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
              style={`font-size: 13px;`}
-             onClick={handleWidthClick}>
+             onClick={handleWidthClick}
+             onMouseDown={handleWidthDown}>
           <i class="bi-arrows ml-[4px]" />
           <div class="inline-block w-[30px] pl-[6px] text-right">
             {widthText()}
@@ -270,7 +337,8 @@ export const Toolbar_Page: Component = () => {
       <div ref={aspectDiv}
            class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
            style={`font-size: 13px;`}
-           onClick={handleAspectClick}>
+           onClick={handleAspectClick}
+           onMouseDown={handleAspectDown}>
         <i class="bi-aspect-ratio ml-[4px]" />
         <div class="inline-block w-[40px] pl-[6px] text-right">
           {aspectText()}
@@ -280,7 +348,8 @@ export const Toolbar_Page: Component = () => {
         <div ref={cellAspectDiv}
              class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
              style={`font-size: 13px;`}
-             onClick={handleCellAspectClick}>
+             onClick={handleCellAspectClick}
+             onMouseDown={handleCellAspectDown}>
           <i class="bi-aspect-ratio ml-[4px]" />
           <div class="inline-block w-[40px] pl-[6px] text-right">
             {cellAspectText()}
@@ -289,7 +358,8 @@ export const Toolbar_Page: Component = () => {
         <div ref={numColsDiv}
              class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
              style={`font-size: 13px;`}
-             onClick={handleNumColsClick}>
+             onClick={handleNumColsClick}
+             onMouseDown={handleNumColsDown}>
           <i class="bi-layout-three-columns ml-[4px]" />
           <div class="inline-block w-[20px] pl-[6px] text-right">
             {numColsText()}
@@ -300,7 +370,8 @@ export const Toolbar_Page: Component = () => {
         <div ref={justifiedRowAspectDiv}
              class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
              style={`font-size: 13px;`}
-             onClick={handleJustifiedRowAspectClick}>
+             onClick={handleJustifiedRowAspectClick}
+             onMouseDown={handleJustifiedRowAspectDown}>
           <i class="bi-aspect-ratio ml-[4px]" />
           <div class="inline-block w-[25px] pl-[6px] text-right">
             {justifiedAspectText()}
@@ -311,7 +382,8 @@ export const Toolbar_Page: Component = () => {
         <div ref={docWidthDiv}
              class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
              style={`font-size: 13px;`}
-             onClick={handleDocWidthBlClick}>
+             onClick={handleDocWidthBlClick}
+             onMouseDown={handlePageDocWidthDown}>
           <i class="bi-arrows ml-[4px]" />
           <div class="inline-block w-[30px] pl-[6px] text-right">
             {docWidthBlText()}
@@ -332,8 +404,8 @@ export const Toolbar_Page: Component = () => {
         <i class="fa fa-refresh ml-[4px]" />
         {/* <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} /> */}
       </div>
-      <div ref={divBeforeColroSelect} class="inline-block ml-[0px]" />
-      <div class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle">
+      <div ref={divBeforeColorSelect} class="inline-block ml-[0px]" />
+      <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
         <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
       </div>
       <Show when={showMakePublicButton()}>
@@ -341,7 +413,8 @@ export const Toolbar_Page: Component = () => {
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
       <div ref={qrDiv}
-           class="inline-block">
+           class="inline-block"
+           onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>

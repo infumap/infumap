@@ -25,6 +25,7 @@ import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
 import { TableFlags } from "../../items/base/flags-item";
 import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
+import { ClickState } from "../../input/state";
 
 
 export const Toolbar_Table: Component = () => {
@@ -69,9 +70,16 @@ export const Toolbar_Table: Component = () => {
   }
 
   const handleQr = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
     store.overlay.toolbarPopupInfoMaybe.set(
       { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
   }
+  const handleQrDown = () => {
+    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
+  };
 
   const numColsText = () => {
     store.touchToolbarDependency();
@@ -98,7 +106,8 @@ export const Toolbar_Table: Component = () => {
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
       <div ref={qrDiv}
-           class="pl-[4px] inline-block">
+           class="pl-[4px] inline-block"
+           onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
     </div>
