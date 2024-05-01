@@ -519,7 +519,7 @@ export const PageFns = {
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
-      store.history.pushPopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: null });
+      store.history.pushPopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
       return;
     }
