@@ -20,7 +20,7 @@ import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch 
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { Colors, HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth, translucent } from "../../style";
+import { borderColorForColorIdx, BorderType, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth, translucent } from "../../style";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -466,9 +466,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderAsPopup = () => {
     const borderColorVal = () => {
       if (props.visualElement.flags & VisualElementFlags.HasToolbarFocus) {
-        return HIGHLIGHT_COLOR;
+        return `${borderColorForColorIdx(pageItem().backgroundColorIndex, BorderType.Popup)}; `
       }
-      return `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)}; `
+      return LIGHT_BORDER_COLOR;
     };
 
     const titleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
@@ -492,7 +492,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
            style={`left: ${boundsPx().x - 10}px; ` +
                   `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
-                  `background-color: #303030d0;` +
+                  `background-color: #505050e0;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
       </div>;
 
@@ -585,9 +585,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderBorder = () =>
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border pointer-events-none`}
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} pointer-events-none`}
            style={`left: ${boundsPx().x}px; ` +
                   `top: ${boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
+                  `border-width: 2px;` +
                   `border-color: ${borderColorVal()}; ` +
                   `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}`} />;
