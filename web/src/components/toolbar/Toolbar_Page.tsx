@@ -41,13 +41,14 @@ export const Toolbar_Page: Component = () => {
   let docWidthDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
   let cellAspectDiv: HTMLDivElement | undefined;
+  let arrangeAlgoDiv: HTMLDivElement | undefined;
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
 
-  const handleChangeAlgorithm = () => {
+  const handleRotateArrangeAlgo = () => {
     let newAA;
     if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) { newAA = ArrangeAlgorithm.Grid; }
     else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) { newAA = ArrangeAlgorithm.Justified; }
@@ -60,6 +61,19 @@ export const Toolbar_Page: Component = () => {
     fullArrange(store);
     store.touchToolbar();
     serverOrRemote.updateItem(pageItem());
+  };
+
+  // Arrange Algorithm
+  const handleArrangeAlgoClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageArrangeAlgorithm) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: arrangeAlgoDiv!.getBoundingClientRect().x, y: arrangeAlgoDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageArrangeAlgorithm });
+  };
+  const handleArrangeAlgoDown = () => {
+    ClickState.setButtonClickBoundsPx(arrangeAlgoDiv!.getBoundingClientRect());
   };
 
   // force rerender when color selector closes.
@@ -395,13 +409,16 @@ export const Toolbar_Page: Component = () => {
           <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
         </div>
       </Show>
-      <div class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-           style={`font-size: 13px;`}
-           onClick={handleChangeAlgorithm}>
-        <div class="inline-block w-[70px] pl-[6px]">
+      <div ref={arrangeAlgoDiv}
+           class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+           style={`font-size: 13px;`}>
+        <div class="inline-block w-[70px] pl-[6px]"
+             onClick={handleArrangeAlgoClick}
+             onMouseDown={handleArrangeAlgoDown}>
           {arrangeAlgoText()}
         </div>
-        <i class="fa fa-refresh ml-[4px]" />
+        <i class="fa fa-refresh ml-[4px]"
+           onClick={handleRotateArrangeAlgo} />
         {/* <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} /> */}
       </div>
       <div ref={divBeforeColorSelect} class="inline-block ml-[0px]" />

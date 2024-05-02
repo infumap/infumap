@@ -29,7 +29,7 @@ import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
 import { SearchOverlay } from "./overlay/SearchOverlay";
-import { Toolbar_Overlay } from "./toolbar/Toolbar_Overlay";
+import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
@@ -222,7 +222,7 @@ export const Main: Component = () => {
 
       {/* global overlays */}
       <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
-        <Toolbar_Overlay />
+        <Toolbar_Popup />
       </Show>
       <Show when={store.overlay.toolbarEditingTitle.get()}>
         <Toolbar_EditTitleOverlay />

@@ -18,7 +18,7 @@
 
 import { Component, Match, Show, Switch, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
-import { asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_TOOLBAR_OVERLAY } from "../../constants";
 import { fullArrange } from "../../layout/arrange";
@@ -28,9 +28,12 @@ import { InfuColorButton } from "../library/InfuColorButton";
 import { VesCache } from "../../layout/ves-cache";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
+import { panic } from "../../util/lang";
+import { itemState } from "../../store/ItemState";
+import { MOUSE_RIGHT } from "../../input/mouse_down";
 
 
-function toolbarOverlayHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
+function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
   if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
@@ -49,7 +52,7 @@ function toolbarOverlayHeight(overlayType: ToolbarPopupType, isComposite: boolea
 }
 
 export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
-  const overlayType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
+  const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeVisualElementMaybe = () => {
     if (!isNote(store.history.getFocusItem())) {
       return null;
@@ -65,7 +68,8 @@ export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
 
-  if (overlayType != ToolbarPopupType.PageColor) {
+  if (popupType != ToolbarPopupType.PageColor &&
+      popupType != ToolbarPopupType.PageArrangeAlgorithm) {
     const maxX = store.desktopBoundsPx().w - 335;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -73,20 +77,27 @@ export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 330,
-      h: toolbarOverlayHeight(overlayType, compositeItemMaybe() != null)
+      h: toolbarPopupHeight(popupType, compositeItemMaybe() != null)
     }
-  }
-  else {
+  } else if (popupType == ToolbarPopupType.PageColor) {
     return {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96, h: 56
     }
+  } else if (popupType == ToolbarPopupType.PageArrangeAlgorithm) {
+    return {
+      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
+      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      w: 96, h: 140
+    }
+  } else {
+    panic("unexpected popup type: " + popupType);
   }
 }
 
 
-export const Toolbar_Overlay: Component = () => {
+export const Toolbar_Popup: Component = () => {
   const store = useStore();
 
   let textElement: HTMLInputElement | undefined;
@@ -166,7 +177,9 @@ export const Toolbar_Overlay: Component = () => {
   const boxBoundsPx = () => toolbarBoxBoundsPx(store);
 
   onMount(() => {
-    if (overlayType() != ToolbarPopupType.PageColor && overlayType() != ToolbarPopupType.Ids) {
+    if (overlayType() != ToolbarPopupType.PageColor &&
+        overlayType() != ToolbarPopupType.Ids &&
+        overlayType() != ToolbarPopupType.PageArrangeAlgorithm) {
       textElement!.focus();
     }
   });
@@ -230,6 +243,21 @@ export const Toolbar_Overlay: Component = () => {
     fullArrange(store);
   }
 
+  const finalizeAAChange = () => {
+    itemState.sortChildren(pageItem().id);
+    fullArrange(store);
+    store.touchToolbar();
+    serverOrRemote.updateItem(pageItem());
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+  }
+
+  const aaMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
+  const aaSpatialClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.SpatialStretch; finalizeAAChange(); }
+  const aaGridClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Grid; finalizeAAChange(); }
+  const aaJustifiedClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Justified; finalizeAAChange(); }
+  const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
+  const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
+
   return (
     <>
       <Switch>
@@ -247,6 +275,27 @@ export const Toolbar_Overlay: Component = () => {
               <div class="inline-block pl-[2px]"><InfuColorButton col={5} onClick={handleColorClick} /></div>
               <div class="inline-block pl-[2px]"><InfuColorButton col={6} onClick={handleColorClick} /></div>
               <div class="inline-block pl-[2px]"><InfuColorButton col={7} onClick={handleColorClick} /></div>
+            </div>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageArrangeAlgorithm}>
+          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
+               onMouseDown={aaMouseDown}>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={aaSpatialClick}>
+              Spatial
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaGridClick}>
+              Grid
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]"  onClick={aaJustifiedClick}>
+              Justified
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaListClick}>
+              List
+            </div>
+            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
+              Document
             </div>
           </div>
         </Match>

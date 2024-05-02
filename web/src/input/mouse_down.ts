@@ -36,7 +36,7 @@ import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, Mouse
 import { asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
-import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Overlay";
+import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
 import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
 import { CursorPosition, ToolbarPopupType } from "../store/StoreProvider_Overlay";
