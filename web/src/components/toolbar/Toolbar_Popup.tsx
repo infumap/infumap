@@ -251,19 +251,21 @@ export const Toolbar_Popup: Component = () => {
     store.overlay.toolbarPopupInfoMaybe.set(null);
   }
 
-  const aaMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
   const aaSpatialClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.SpatialStretch; finalizeAAChange(); }
   const aaGridClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Grid; finalizeAAChange(); }
   const aaJustifiedClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Justified; finalizeAAChange(); }
   const aaListClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.List; finalizeAAChange(); }
   const aaDocumentClick = () => { pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document; finalizeAAChange(); }
 
+  const handleMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
+
   return (
     <>
       <Switch>
         <Match when={overlayType() == ToolbarPopupType.PageColor}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
+               onMouseDown={handleMouseDown}>
             <div class="pt-[6px] pl-[4px]">
               <div class="inline-block pl-[2px]"><InfuColorButton col={0} onClick={handleColorClick} /></div>
               <div class="inline-block pl-[2px]"><InfuColorButton col={1} onClick={handleColorClick} /></div>
@@ -281,7 +283,7 @@ export const Toolbar_Popup: Component = () => {
         <Match when={overlayType() == ToolbarPopupType.PageArrangeAlgorithm}>
           <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
-               onMouseDown={aaMouseDown}>
+               onMouseDown={handleMouseDown}>
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={aaSpatialClick}>
               Spatial
             </div>
@@ -301,7 +303,8 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={overlayType() == ToolbarPopupType.Ids}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
+               onMouseDown={handleMouseDown}>
             <div class="inline-block text-slate-800 text-xs p-[6px]">
               <span class="font-mono text-slate-400">{`I: ${store.history.getFocusItem().id}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
@@ -318,7 +321,8 @@ export const Toolbar_Popup: Component = () => {
         </Match>
         <Match when={true}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
-               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}>
+               style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
+               onMouseDown={handleMouseDown}>
             <Show when={label() != null}>
               <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
               <input ref={textElement}
