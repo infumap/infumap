@@ -19,3 +19,11 @@
 export function hexToRGBA(hex: string, alpha: number) {
   return "rgba(" + parseInt(hex.slice(1, 3), 16) + ", " + parseInt(hex.slice(3, 5), 16) + ", " + parseInt(hex.slice(5, 7), 16) + ", " + alpha + ")";
 }
+
+export function rgbHexToArray(hex: string) {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+}
+
+export function rgbArrayToRgbaFunc(color: Array<number>) {
+  return "rgba(" + color[0] + ", " + color[1] + ", " + color[2] + ", " + 1.0 + ")";
+}
