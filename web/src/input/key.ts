@@ -76,7 +76,7 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           if (poppedUp && overVe.displayItem.id == poppedUp!.actualVeid.itemId) {
             return overVe.displayItem;
           }
-          const selected = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
+          const selected = store.perItem.getSelectedListPageItem(store.history.currentPageVeid()!);
           if (selected && overVe.displayItem.id == selected.itemId) {
             return overVe.displayItem;
           }
@@ -100,21 +100,24 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
 
   else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
     ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
-    const currentPage = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
+    const currentPage = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
     if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
       if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
-        const selectedItem = store.perItem.getSelectedListPageItem(store.history.currentPage()!);
+        const selectedVeid = store.perItem.getSelectedListPageItem(store.history.currentPageVeid()!);
         const direction = findDirectionFromKeyCode(ev.code);
-        console.log("TODO: make this work again.");
-        // const closest = findClosest(selectedItem, direction, true)!;
-        // if (closest != null) {
-        //   store.perItem.setSelectedListPageItem(store.history.currentPage()!, closest);
-        //   arrange(store);
-        // }
+        const umbrellaPath = store.umbrellaVisualElement.get().displayItem.id;
+        const currentPagePath = VeFns.addVeidToPath(store.history.currentPageVeid()!, umbrellaPath);
+        const selectedItemPath = VeFns.addVeidToPath(selectedVeid, currentPagePath);
+        const closest = findClosest(selectedItemPath, direction, true, false);
+        if (closest != null) {
+          const closestVeid = VeFns.veidFromPath(closest);
+          store.perItem.setSelectedListPageItem(store.history.currentPageVeid()!, closestVeid);
+          fullArrange(store);
+        }
       }
     } else {
       if (!store.history.currentPopupSpec()) {
-        const parentVeid = store.history.parentPage()!;
+        const parentVeid = store.history.parentPageVeid()!;
         if (parentVeid) {
           fullArrange(store, parentVeid);
           const direction = findDirectionFromKeyCode(ev.code);

@@ -61,8 +61,8 @@ export const Toolbar: Component = () => {
   const showUserSettings = () => { store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
 
   const currentPageMaybe = () => {
-    if (store.history.currentPage() == null) { return null; }
-    return asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
+    if (store.history.currentPageVeid() == null) { return null; }
+    return asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
   }
 
   const title = () => {

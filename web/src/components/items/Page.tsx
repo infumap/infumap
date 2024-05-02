@@ -492,7 +492,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
            style={`left: ${boundsPx().x - 10}px; ` +
                   `top: ${boundsPx().y-10 + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; ` +
                   `width: ${boundsPx().w+20}px; height: ${boundsPx().h+20}px; ` +
-                  `background-color: #505050e0;` +
+                  `background-color: #606060e8;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
       </div>;
 
@@ -694,7 +694,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
       const desktopSizePx = props.visualElement.boundsPx;
 
-      let veid = store.history.currentPage()!;
+      let veid = store.history.currentPageVeid()!;
       if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
         veid = VeFns.actualVeidFromVe(props.visualElement);
       } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {

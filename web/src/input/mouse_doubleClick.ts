@@ -25,7 +25,7 @@ import { DoubleClickState, CursorEventState } from "./state";
 
 export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent) {
   if (!DoubleClickState.canDoubleClick()) { return; }
-  if (store.history.currentPage() == null) { return; }
+  if (store.history.currentPageVeid() == null) { return; }
   if (store.overlay.contextMenuInfo.get() != null || store.overlay.editDialogInfo.get() != null) { return; }
   if (store.overlay.noteEditOverlayInfo() != null) { return; }
   if (store.overlay.expressionEditOverlayInfo() != null) { return; }

@@ -104,7 +104,7 @@ export const arrangeItem = (
       store, parentPath, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
-  if (isTable(displayItem) && (item.parentId == store.history.currentPage()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
+  if (isTable(displayItem) && (item.parentId == store.history.currentPageVeid()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeTable(
       store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);

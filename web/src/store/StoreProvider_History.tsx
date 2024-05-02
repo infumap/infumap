@@ -43,10 +43,10 @@ interface PageBreadcrumb {
 
 
 export interface HistoryStoreContextModel {
-  pushPage: (veid: Veid) => void,
+  pushPageVeid: (veid: Veid) => void,
   popPage: () => boolean,
-  currentPage: () => Veid | null,
-  parentPage: () => Veid | null,
+  currentPageVeid: () => Veid | null,
+  parentPageVeid: () => Veid | null,
   pushPopup: (popupSpec: PopupSpec) => void,
   replacePopup: (popupSpec: PopupSpec) => void,
   popPopup: () => void,
@@ -67,7 +67,7 @@ export interface HistoryStoreContextModel {
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
 
-  const pushPage = (pageVeid: Veid): void => {
+  const pushPageVeid = (pageVeid: Veid): void => {
     breadcrumbs().push({
       pageVeid,
       popupBreadcrumbs: [],
@@ -83,7 +83,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return true;
   };
 
-  const currentPage = (): Veid | null => {
+  const currentPageVeid = (): Veid | null => {
     if (breadcrumbs().length == 0) { return null; }
     return breadcrumbs()[breadcrumbs().length-1].pageVeid;
   };
@@ -93,7 +93,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return breadcrumbs()[breadcrumbs().length-2];
   };
 
-  const parentPage = (): Veid | null => {
+  const parentPageVeid = (): Veid | null => {
     const parentBc = parentPageBreadcrumb();
     if (parentBc) { return parentBc.pageVeid; }
     return null;
@@ -190,7 +190,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         return itemState.get(currentPopupSpec()!.actualVeid.itemId)!;
       }
     }
-    return itemState.get(currentPage()!.itemId)!;
+    return itemState.get(currentPageVeid()!.itemId)!;
   };
 
   const getFocusPath = (): VisualElementPath => {
@@ -204,7 +204,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const getFocusIsCurrentPage = (): boolean => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (breadcrumb.focusPath != null) {
-      const currentPagePath = VeFns.addVeidToPath(currentPage()!, "");
+      const currentPagePath = VeFns.addVeidToPath(currentPageVeid()!, "");
       return currentPagePath == getFocusPath();
     }
     return true;
@@ -216,10 +216,10 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
 
   return ({
-    pushPage,
+    pushPageVeid,
     popPage,
-    currentPage,
-    parentPage,
+    currentPageVeid,
+    parentPageVeid,
     setHistoryToSinglePage,
 
     pushPopup,

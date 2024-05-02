@@ -69,7 +69,7 @@ export function fArrange(store: StoreContextModel): void {
  * @param virtualPageVeid the page to create the visual element tree for, if not the current page.
  */
 export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): void {
-  if (store.history.currentPage() == null) { return; }
+  if (store.history.currentPageVeid() == null) { return; }
 
   if (getPanickedMessage() != null) {
     store.overlay.isPanicked.set(true);
@@ -78,7 +78,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   VesCache.initFullArrange();
 
-  let currentPageVeid = virtualPageVeid ? virtualPageVeid : store.history.currentPage()!;
+  let currentPageVeid = virtualPageVeid ? virtualPageVeid : store.history.currentPageVeid()!;
 
   const currentPage = itemState.get(currentPageVeid.itemId)!;
   const actualLinkItemMaybe = currentPageVeid.linkIdMaybe

@@ -30,11 +30,11 @@ import { VeFns, Veid } from "./visual-element";
 export function updateHref(store: StoreContextModel) {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
-    window.history.pushState(null, "", `/${store.history.currentPage()!.itemId}`);
+    window.history.pushState(null, "", `/${store.history.currentPageVeid()!.itemId}`);
   } else {
     const user = userMaybe;
-    if (store.history.currentPage()!.itemId != user.homePageId) {
-      window.history.pushState(null, "", `/${store.history.currentPage()!.itemId}`);
+    if (store.history.currentPageVeid()!.itemId != user.homePageId) {
+      window.history.pushState(null, "", `/${store.history.currentPageVeid()!.itemId}`);
     } else {
       if (user.username == ROOT_USERNAME) {
         window.history.pushState(null, "", "/");
@@ -53,7 +53,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     if (replace) {
       store.history.popPage();
     }
-    store.history.pushPage(pageVeid);
+    store.history.pushPageVeid(pageVeid);
   }
 
   fArrange(store);
@@ -67,7 +67,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 export function navigateBack(store: StoreContextModel): boolean {
   if (store.history.currentPopupSpec() != null) {
     store.history.popPopup();
-    const page = asPageItem(itemState.get(store.history.currentPage()!.itemId)!);
+    const page = asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
     page.pendingPopupAlignmentPoint = null;
     page.pendingPopupPositionGr = null;
     page.pendingPopupWidthGr = null;
@@ -79,7 +79,7 @@ export function navigateBack(store: StoreContextModel): boolean {
   if (changePages) {
     updateHref(store);
     if (!store.history.currentPopupSpec()) {
-      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPage()!, ""));
+      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
     }
     fArrange(store);
     return true;
@@ -91,7 +91,7 @@ export function navigateBack(store: StoreContextModel): boolean {
 
 let navigateUpInProgress = false;
 export async function navigateUp(store: StoreContextModel) {
-  const currentPageVeid = store.history.currentPage();
+  const currentPageVeid = store.history.currentPageVeid();
   if (currentPageVeid == null) { return; }
 
   if (navigateUpInProgress) { return; }

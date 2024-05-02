@@ -39,7 +39,7 @@ import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL }
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
 import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
-import { CursorPosition, ToolbarPopupType } from "../store/StoreProvider_Overlay";
+import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 
@@ -56,7 +56,7 @@ export enum MouseDownActionFlags {
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number, viaOverlay: boolean): Promise<MouseDownActionFlags> {
   let defaultResult = MouseDownActionFlags.PreventDefault;
 
-  if (store.history.currentPage() == null) { return defaultResult; }
+  if (store.history.currentPageVeid() == null) { return defaultResult; }
 
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
@@ -98,7 +98,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (isLink(store.history.getFocusItem()) || isRating(store.history.getFocusItem())) {
     if (buttonNumber != MOUSE_LEFT ||
         !isInsideItemOptionsToolbox()) {
-      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPage()!, ""));
+      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
     }
     defaultResult = MouseDownActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.

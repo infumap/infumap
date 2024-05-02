@@ -86,7 +86,7 @@ export function getHitInfo(
   const umbrellaVisualElement: VisualElement = store.umbrellaVisualElement.get();
   assert(umbrellaVisualElement.childrenVes.length == 1, "expecting top level visual element to have exactly one child");
 
-  const currentPageVeid = store.history.currentPage()!;
+  const currentPageVeid = store.history.currentPageVeid()!;
   const currentPageVe = umbrellaVisualElement.childrenVes[0].get();
   const posRelativeToTopLevelVisualElementPx = vectorAdd(
     posOnDesktopPx, {

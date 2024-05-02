@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { EMPTY_VEID, Veid, VisualElementPath } from "../layout/visual-element";
+import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { InfuSignal, NumberSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import { Uid } from "../util/uid";
 

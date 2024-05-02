@@ -170,7 +170,7 @@ export function arrange_grid_page(
     const umbrellaVisualElement = store.umbrellaVisualElement.get();
     const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
     const desktopSizePx = store.desktopBoundsPx();
-    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPage()!);
+    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
     const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
 
     const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);

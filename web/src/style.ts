@@ -72,8 +72,8 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
     c3[1] = 0.07;
     c3[2] = 220;
   } else {
-    c3[1] = 0.2;
-    c3[2] = 170;
+    c3[1] = 0.25;
+    c3[2] = 150;
   }
   let c4 = hsv2rgb(c3[0], c3[1], c3[2]);
   let c5 = rgbArrayToRgbaFunc(c4);
@@ -81,17 +81,15 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
 }
 
 export const mainPageBorderColor = (store: StoreContextModel, getItem: (id: Uid) => Item | null) => {
-  const cp = store.history.currentPage();
-  if (cp == null) { return LIGHT_BORDER_COLOR; }
+  if (store.history.currentPageVeid() == null) { return LIGHT_BORDER_COLOR; }
   if (store.history.getFocusIsCurrentPage()) {
-    return borderColorForColorIdx(asPageItem(getItem(cp.itemId)!).backgroundColorIndex, BorderType.MainPage);
+    return borderColorForColorIdx(asPageItem(getItem(store.history.currentPageVeid()!.itemId)!).backgroundColorIndex, BorderType.MainPage);
   }
   return LIGHT_BORDER_COLOR;
 }
 
 export const mainPageBorderWidth = (store: StoreContextModel) => {
-  const cp = store.history.currentPage();
-  if (cp == null) { return 1; }
+  if (store.history.currentPageVeid() == null) { return 1; }
   return store.history.getFocusIsCurrentPage()
     ? 2
     : 1;
