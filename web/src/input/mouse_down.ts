@@ -54,6 +54,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
 
+  // Content editables.
+
   let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
   if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
     return MouseEventActionFlags.None;
@@ -68,6 +70,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
+
+
+  // Toolbar popups.
 
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
@@ -88,6 +93,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
+
+  // The area of the toolbar specific to an item type.
+
   function isInsideItemOptionsToolbox(): boolean {
     const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
     if (!toolboxDiv) { return false; }
@@ -104,6 +112,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
+
+
+  // Text edit overlays.
 
   if (store.overlay.expressionEditOverlayInfo()) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
@@ -156,6 +167,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
+
+  // Desktop handlers.
+
   switch(buttonNumber) {
     case MOUSE_LEFT:
       mouseLeftDownHandler(store, viaOverlay);
@@ -168,6 +182,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       return defaultResult;
   }
 }
+
 
 let longHoldTimeoutId: number | null = null;
 
