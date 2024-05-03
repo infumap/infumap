@@ -34,7 +34,6 @@ import { Toolbar_Page } from './Toolbar_Page';
 import { Toolbar_Table } from './Toolbar_Table';
 import { fullArrange } from '../../layout/arrange';
 import { NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
-import { EditPageTitleOverlayInfo } from '../../store/StoreProvider_Overlay';
 import { Toolbar_Expression } from './Toolbar_Expression';
 import { isNote } from '../../items/note-item';
 import { isExpression } from '../../items/expression-item';
@@ -100,25 +99,7 @@ export const Toolbar: Component = () => {
   }
 
   const handleTitleClick = () => {
-    const titleDiv = document.getElementById("toolbarTitleDiv")!;
-    const bounds = titleDiv.getBoundingClientRect();
-    const style = titleDiv.style;
-
-    const spec: EditPageTitleOverlayInfo = {
-      pageItem: currentPageMaybe()!,
-      color: style.color,
-      fontSize: style.fontSize,
-      fontWeight: style.fontWeight,
-      boundsPx: {
-        x: bounds.x,
-        y: bounds.y,
-        w: 200,
-        h: bounds.height
-      },
-      initialValue: titleDiv.innerText
-    };
-
-    store.overlay.toolbarEditingTitle.set(spec);
+    return;
   }
 
   return (
@@ -164,6 +145,7 @@ export const Toolbar: Component = () => {
                           `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
               <div id="toolbarTitleDiv"
                    class="p-[3px] inline-block cursor-text border-b"
+                   contentEditable={true}
                    style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                           `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                           `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +

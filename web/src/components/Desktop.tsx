@@ -76,7 +76,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
   return (
     <div id="desktop"
          ref={desktopDiv}
-         class="absolute left-0 bottom-0 right-0 select-none outline-none"
+         class="absolute left-0 bottom-0 right-0"
          style={`top: ${store.topToolbarHeight()}px; `}>
 
       <Page_Desktop visualElement={props.visualElement} />

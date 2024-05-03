@@ -46,6 +46,10 @@ let lastMouseOverOpenPopupVes: VisualElementSignal | null = null;
 export function mouseMoveHandler(store: StoreContextModel) {
   if (store.history.currentPageVeid() == null) { return; }
 
+  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
+    return;
+  }
+
   const hasUser = store.user.getUserMaybe() != null;
 
   const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx(store);

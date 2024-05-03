@@ -34,6 +34,7 @@ import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditO
 import { pageEditOverlay_keyDownListener } from "../components/overlay/PageEditOverlay";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
+import { serverOrRemote } from "../server";
 
 
 const recognizedKeys = [
@@ -42,13 +43,28 @@ const recognizedKeys = [
 ];
 
 export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
+    if (ev.code == "Enter") {
+      (document.activeElement! as HTMLElement).blur();
+      let selection = window.getSelection();
+      if (selection != null) { selection.removeAllRanges(); }
+      const newTitleText = document.getElementById("toolbarTitleDiv")!.innerText;
+      asPageItem(store.history.getFocusItem()).title = newTitleText;
+      fullArrange(store);
+      serverOrRemote.updateItem(store.history.getFocusItem());
+      ev.preventDefault();
+    }
+    return;
+  }
 
   if (store.overlay.noteEditOverlayInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     noteEditOverlay_keyDownListener(store, ev);
+    return;
   }
 
   if (store.overlay.pageEditOverlayInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     pageEditOverlay_keyDownListener(store, ev);
+    return;
   }
 
   // input box is in toolbar.

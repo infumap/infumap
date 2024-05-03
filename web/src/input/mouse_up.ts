@@ -37,18 +37,27 @@ import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
-import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
+import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
+import { MouseEventActionFlags } from "./enums";
+import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 
 
-export function mouseUpHandler(store: StoreContextModel) {
+export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
+
+  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
+    let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
+    if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
+      return MouseEventActionFlags.None;
+    }
+  }
 
   store.anItemIsMoving.set(false);
 
   DialogMoveState.set(null);
   UserSettingsMoveState.set(null);
 
-  if (MouseActionState.empty()) { return; }
+  if (MouseActionState.empty()) { return MouseEventActionFlags.PreventDefault; }
 
   const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
   const activeVisualElement = activeVisualElementSignal.get();
@@ -145,6 +154,8 @@ export function mouseUpHandler(store: StoreContextModel) {
 
   ClickState.setLinkWasClicked(false);
   MouseActionState.set(null);
+
+  return MouseEventActionFlags.PreventDefault;
 }
 
 

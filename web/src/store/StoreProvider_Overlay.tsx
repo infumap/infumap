@@ -77,15 +77,6 @@ export interface EditUserSettingsInfo {
   desktopBoundsPx: BoundingBox,
 }
 
-export interface EditPageTitleOverlayInfo {
-  pageItem: PageItem,
-  color: string,
-  fontSize: string,
-  fontWeight: string,
-  boundsPx: BoundingBox,
-  initialValue: string,
-};
-
 export interface OverlayStoreContextModel {
   // Desktop overlays. TODO (MEDIUM): move all these to Main.
   searchOverlayVisible: InfuSignal<boolean>,
@@ -95,7 +86,6 @@ export interface OverlayStoreContextModel {
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
-  toolbarEditingTitle: InfuSignal<EditPageTitleOverlayInfo | null>,
 
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
   pageEditOverlayInfo: () => EditOverlayInfo | null,
@@ -128,7 +118,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
-  const toolbarEditingTitle = createInfuSignal<EditPageTitleOverlayInfo | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
 
@@ -143,7 +132,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
     searchOverlayVisible.set(false);
-    toolbarEditingTitle.set(null);
   }
 
   function anOverlayIsVisible(): boolean {
@@ -157,8 +145,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
-      toolbarPopupInfoMaybe.get() != null ||
-      toolbarEditingTitle.get() != null
+      toolbarPopupInfoMaybe.get() != null
     );
   }
 
@@ -219,7 +206,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     isPanicked: createInfuSignal<boolean>(false),
 
     toolbarPopupInfoMaybe,
-    toolbarEditingTitle,
 
     clear,
     anOverlayIsVisible,

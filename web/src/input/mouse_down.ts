@@ -29,7 +29,7 @@ import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
-import { BoundingBox, isInside } from "../util/geometry";
+import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
@@ -42,48 +42,49 @@ import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEdit
 import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
+import { MouseEventActionFlags } from "./enums";
 
 
 export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
 
 
-export enum MouseDownActionFlags {
-  None =           0x00,
-  PreventDefault = 0x01,
-}
-
-export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number, viaOverlay: boolean): Promise<MouseDownActionFlags> {
-  let defaultResult = MouseDownActionFlags.PreventDefault;
+export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number, viaOverlay: boolean): Promise<MouseEventActionFlags> {
+  let defaultResult = MouseEventActionFlags.PreventDefault;
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
+
+  let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
+  if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
+    return MouseEventActionFlags.None;
+  }
+  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
+    let selection = window.getSelection();
+    if (selection != null) { selection.removeAllRanges(); }
+    const newTitleText = document.getElementById("toolbarTitleDiv")!.innerText;
+    asPageItem(store.history.getFocusItem()).title = newTitleText;
+    fullArrange(store);
+    serverOrRemote.updateItem(store.history.getFocusItem());
+    defaultResult = MouseEventActionFlags.None;
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+  }
 
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
       // if mouse down is inside popup bounds, this is not handled by the global handler.
-      return MouseDownActionFlags.None;
+      return MouseEventActionFlags.None;
     }
     if (ClickState.getButtonClickBoundsPx()! != null &&
         isInside(CursorEventState.getLatestClientPx(), ClickState.getButtonClickBoundsPx()!) &&
         buttonNumber == MOUSE_LEFT) {
       // if mouse down is inside button of opened popup, this is handled in the relevant button click handler.
       ClickState.setButtonClickBoundsPx(null);
-      return MouseDownActionFlags.None;
+      return MouseEventActionFlags.None;
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     fullArrange(store);
     serverOrRemote.updateItem(store.history.getFocusItem());
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
-
-  if (store.overlay.toolbarEditingTitle.get()) {
-    store.overlay.toolbarEditingTitle.set(null);
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.touchToolbar();
-    fullArrange(store);
-    serverOrRemote.updateItem(store.history.getFocusItem());
-    store.touchToolbar();
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
@@ -100,12 +101,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         !isInsideItemOptionsToolbox()) {
       store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
     }
-    defaultResult = MouseDownActionFlags.None;
+    defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
   if (store.overlay.expressionEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
@@ -115,7 +116,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (store.overlay.pageEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
@@ -125,7 +126,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (store.overlay.tableEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
@@ -135,7 +136,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (store.overlay.noteEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     noteEditOverlay_clearJustCreated();
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
@@ -146,7 +147,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (store.overlay.passwordEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseDownActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
@@ -358,12 +359,6 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
-    return;
-  }
-
-  if (store.overlay.toolbarEditingTitle.get() != null) {
-    store.overlay.toolbarEditingTitle.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }

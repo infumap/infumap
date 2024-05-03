@@ -33,15 +33,16 @@ import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
-import { MOUSE_RIGHT, MouseDownActionFlags, mouseDownHandler } from "../input/mouse_down";
+import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyHandler } from "../input/key";
 import { fArrange } from "../layout/arrange";
-import { Toolbar_EditTitleOverlay } from "./toolbar/Toolbar_EditTitleOverlay";
 import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
 import { TableEditOverlay } from "./overlay/TableEditOverlay";
 import { PageEditOverlay } from "./overlay/PageEditOverlay";
 import { PasswordEditOverlay } from "./overlay/PasswordEditOverly";
+import { MouseEventActionFlags } from "../input/enums";
+import { pasteHandler } from "../input/paste";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -176,13 +177,11 @@ export const Main: Component = () => {
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
     // More trouble than value.
-    // ev.preventDefault();
-    // mouseDoubleClickHandler(store, ev);
   };
 
   const mouseDownListener = async (ev: MouseEvent) => {
     let flags = await mouseDownHandler(store, ev.button, false);
-    if (flags & MouseDownActionFlags.PreventDefault) {
+    if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();
     }
   };
@@ -201,8 +200,14 @@ export const Main: Component = () => {
   };
 
   const mouseUpListener = (ev: MouseEvent) => {
-    ev.preventDefault();
-    mouseUpHandler(store);
+    let flags = mouseUpHandler(store);
+    if (flags & MouseEventActionFlags.PreventDefault) {
+      ev.preventDefault();
+    }
+  };
+
+  const pasteListener = (ev: ClipboardEvent) => {
+    pasteHandler(store, ev);
   };
 
   return (
@@ -211,6 +216,7 @@ export const Main: Component = () => {
          ontouchstart={touchListener}
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
+         onpaste={pasteListener}
          ondblclick={mouseDoubleClickListener}
          onmouseup={mouseUpListener}>
 
@@ -223,9 +229,6 @@ export const Main: Component = () => {
       {/* global overlays */}
       <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
         <Toolbar_Popup />
-      </Show>
-      <Show when={store.overlay.toolbarEditingTitle.get()}>
-        <Toolbar_EditTitleOverlay />
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />
