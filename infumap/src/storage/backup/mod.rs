@@ -19,7 +19,7 @@ use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}, collections::HashMap};
 use infusdk::util::{infu::InfuResult, uid::Uid};
 use s3::Bucket;
 
-use super::s3::create_bucket;
+use super::s3::init_bucket;
 
 
 pub struct BackupStore {
@@ -30,7 +30,7 @@ impl BackupStore {
   fn new(
       s3_region: Option<String>, s3_endpoint: Option<String>, s3_bucket: String,
       s3_key: String, s3_secret: String) -> InfuResult<BackupStore> {
-    Ok(BackupStore { bucket: create_bucket(&s3_region, &s3_endpoint, &s3_bucket, &s3_key, &s3_secret)? })
+    Ok(BackupStore { bucket: init_bucket(&s3_region, &s3_endpoint, &s3_bucket, &s3_key, &s3_secret)? })
   }
 }
 

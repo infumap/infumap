@@ -29,7 +29,7 @@ use crate::storage::db::item_db::ItemAndUserId;
 use super::object::IndividualObjectStore;
 
 
-pub fn create_bucket(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
+pub fn init_bucket(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<Bucket> {
   let credentials = Credentials::new(Some(key), Some(secret), None, None, None)
     .map_err(|e| format!("Could not initialize S3 credentials: {}", e))?;
   let mut bucket = Bucket::new(
@@ -58,7 +58,7 @@ pub struct S3Store {
 
 impl S3Store {
   fn new(region: &Option<String>, endpoint: &Option<String>, bucket: &str, key: &str, secret: &str) -> InfuResult<S3Store> {
-    Ok(S3Store { bucket: create_bucket(region, endpoint, bucket, key, secret)? })
+    Ok(S3Store { bucket: init_bucket(region, endpoint, bucket, key, secret)? })
   }
 }
 
