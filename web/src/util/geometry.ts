@@ -83,11 +83,14 @@ export function boundingBoxCenter(boundingBox: BoundingBox): Vector {
   return ({ x: boundingBox.x + boundingBox.w / 2.0, y: boundingBox.y + boundingBox.h / 2.0 });
 }
 
-export function compareBoundingBox(a: BoundingBox, b: BoundingBox): number {
-  if (a.x != b.x) { return 1; }
-  if (a.y != b.y) { return 1; }
-  if (a.w != b.w) { return 1; }
-  if (a.h != b.h) { return 1; }
+export function compareBoundingBox(a: BoundingBox | null, b: BoundingBox | null): number {
+  if (a == null && b != null) { return 1; }
+  if (a != null && b == null) { return 1; }
+  if (a == null && b == null) { return 0; }
+  if (a!.x != b!.x) { return 1; }
+  if (a!.y != b!.y) { return 1; }
+  if (a!.w != b!.w) { return 1; }
+  if (a!.h != b!.h) { return 1; }
   return 0;
 }
 
