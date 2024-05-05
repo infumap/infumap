@@ -303,7 +303,13 @@ pub fn is_link_item(item: &Item) -> bool {
 }
 
 pub fn is_flags_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table || item_type == ItemType::Note || item_type == ItemType::Composite || item_type == ItemType::Page || item_type == ItemType::Image
+  item_type == ItemType::Table || item_type == ItemType::Note ||
+  item_type == ItemType::Composite || item_type == ItemType::Page ||
+  item_type == ItemType::Image || item_type == ItemType::Expression
+}
+
+pub fn is_format_item_type(item_type: ItemType) -> bool {
+  item_type == ItemType::Note || item_type == ItemType::Expression
 }
 
 pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
@@ -367,6 +373,9 @@ pub struct Item {
   // flags
   pub flags: Option<i64>,
 
+  // format
+  pub format: Option<String>,
+
   // permission flags
   pub permission_flags: Option<i64>,
 
@@ -385,7 +394,6 @@ pub struct Item {
 
   // note
   pub url: Option<String>,
-  pub format: Option<String>,
 
   // file
 
@@ -586,6 +594,14 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
+    // format
+    if let Some(new_format) = &new.format {
+      if match &old.format { Some(o) => o != new_format, None => { true } } {
+        if !is_format_item_type(old.item_type) { cannot_modify_err("format", &old.id)?; }
+        result.insert(String::from("format"), Value::String(new_format.clone()));
+      }
+    }
+
     // permission flags
     if let Some(new_permission_flags) = new.permission_flags {
       if match old.permission_flags { Some(o) => o != new_permission_flags, None => { true } } {
@@ -667,12 +683,6 @@ impl JsonLogSerializable<Item> for Item {
       if match &old.url { Some(o) => o != new_url, None => { true } } {
         if old.item_type != ItemType::Note { cannot_modify_err("url", &old.id)?; }
         result.insert(String::from("url"), Value::String(new_url.clone()));
-      }
-    }
-    if let Some(new_format) = &new.format {
-      if match &old.format { Some(o) => o != new_format, None => { true } } {
-        if old.item_type != ItemType::Note { cannot_modify_err("format", &old.id)?; }
-        result.insert(String::from("format"), Value::String(new_format.clone()));
       }
     }
 
@@ -813,6 +823,12 @@ impl JsonLogSerializable<Item> for Item {
       self.flags = Some(v);
     }
 
+    // format
+    if let Some(v) = json::get_string_field(map, "format")? {
+      if !is_format_item_type(self.item_type) { not_applicable_err("format", self.item_type, &self.id)?; }
+      self.format = Some(v);
+    }
+
     // permission flags
     if let Some(v) = json::get_integer_field(map, "permissionFlags")? {
       if !is_permission_flags_item_type(self.item_type) { not_applicable_err("permissionFlags", self.item_type, &self.id)?; }
@@ -875,10 +891,6 @@ impl JsonLogSerializable<Item> for Item {
     if let Some(v) = json::get_string_field(map, "url")? {
       if self.item_type == ItemType::Note { self.url = Some(v); }
       else { not_applicable_err("url", self.item_type, &self.id)?; }
-    }
-    if let Some(v) = json::get_string_field(map, "format")? {
-      if self.item_type == ItemType::Note { self.format = Some(v); }
-      else { not_applicable_err("format", self.item_type, &self.id)?; }
     }
 
     // file
@@ -999,6 +1011,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("flags"), Value::Number(flags.into()));
   }
 
+  // format
+  if let Some(format) = &item.format {
+    if !is_format_item_type(item.item_type) { unexpected_field_err("format", &item.id, item.item_type)? }
+    result.insert(String::from("format"), Value::String(format.clone()));
+  }
+
   // permission flags
   if let Some(permission_flags) = item.permission_flags {
     if !is_permission_flags_item_type(item.item_type) { unexpected_field_err("permissionFlags", &item.id, item.item_type)? }
@@ -1061,10 +1079,6 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   if let Some(url) = &item.url {
     if item.item_type != ItemType::Note { unexpected_field_err("url", &item.id, item.item_type)? }
     result.insert(String::from("url"), Value::String(url.clone()));
-  }
-  if let Some(format) = &item.format {
-    if item.item_type != ItemType::Note { unexpected_field_err("format", &item.id, item.item_type)? }
-    result.insert(String::from("format"), Value::String(format.clone()));
   }
 
   // file
@@ -1213,6 +1227,12 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       None => { if is_flags_item_type(item_type) { Err(expected_for_err("flags", item_type, &id)) } else { Ok(None) } }
     }?,
 
+    // format
+    format: match json::get_string_field(map, "format")? {
+      Some(v) => { if is_format_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("format", item_type, &id)) } },
+      None => { if is_format_item_type(item_type) { Err(expected_for_err("format", item_type, &id)) } else { Ok(None) } }
+    }?,
+
     // permission flags
     permission_flags: match json::get_integer_field(map, "permissionFlags")? {
       Some(v) => { if is_permission_flags_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("permissionFlags", item_type, &id)) } },
@@ -1273,10 +1293,6 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     url: match json::get_string_field(map, "url")? {
       Some(v) => { if item_type == ItemType::Note { Ok(Some(v)) } else { Err(not_applicable_err("url", item_type, &id)) } },
       None => { if item_type == ItemType::Note { Err(expected_for_err("url", item_type, &id)) } else { Ok(None) } }
-    }?,
-    format: match json::get_string_field(map, "format")? {
-      Some(v) => { if item_type == ItemType::Note { Ok(Some(v)) } else { Err(not_applicable_err("format", item_type, &id)) } },
-      None => { if item_type == ItemType::Note { Err(expected_for_err("format", item_type, &id)) } else { Ok(None) } }
     }?,
 
     // file

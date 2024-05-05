@@ -150,7 +150,8 @@ export const Toolbar: Component = () => {
                           `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                           `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +
                           `padding-top: ${2-(mainPageBorderWidth(store)-1)}px; ` +
-                          `height: ${store.topToolbarHeight()}px;`}
+                          `height: ${store.topToolbarHeight()}px; ` + 
+                          "outline: 0px solid transparent;"}
                    onClick={handleTitleClick}>
                 {title()}
               </div>

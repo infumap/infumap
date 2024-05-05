@@ -31,6 +31,7 @@ import { serverOrRemote } from "../../server";
 import { panic } from "../../util/lang";
 import { itemState } from "../../store/ItemState";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
+import { asFormatItem } from "../../items/base/format-item";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -104,6 +105,7 @@ export const Toolbar_Popup: Component = () => {
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
+  const formatItem = () => asFormatItem(store.history.getFocusItem());
 
   const noteVisualElement = () => VesCache.get(store.overlay.noteEditOverlayInfo()!.itemPath)!.get();
   const compositeVisualElementMaybe = () => {
@@ -153,7 +155,7 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
       noteItem().url = textElement!.value;
     } else if (overlayTypeConst == ToolbarPopupType.NoteFormat) {
-      noteItem().format = textElement!.value;
+      formatItem().format = textElement!.value;
     } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
       pageItem().gridNumberOfColumns = Math.round(parseFloat(textElement!.value));
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
@@ -193,7 +195,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const textEntryValue = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return noteItem().format; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return formatItem().format; }
     if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
@@ -219,7 +221,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const tooltip = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the note text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0 or empty"; }
+    if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0 or empty"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }

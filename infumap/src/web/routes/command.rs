@@ -21,7 +21,7 @@ use hyper::{Request, Response};
 use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
-use infusdk::item::{is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item, Item, ItemType, PermissionFlags, RelationshipToParent};
+use infusdk::item::{is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item, Item, ItemType, PermissionFlags, RelationshipToParent};
 use infusdk::util::geometry::{Dimensions, Vector};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
@@ -524,16 +524,16 @@ async fn handle_add_item(
     }
   }
 
-  if item_type == ItemType::Note.as_str() && !item_map.contains_key("format") {
-    item_map.insert("format".to_owned(), Value::String("".to_owned()));
-  }
-
   if item_type == ItemType::Image.as_str() && !item_map.contains_key("imageSizePx") {
     item_map.insert("imageSizePx".to_owned(), json::dimensions_to_object(&Dimensions { w: -1, h: -1 }));
   }
 
   if item_type == ItemType::Image.as_str() && !item_map.contains_key("thumbnail") {
     item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
+  }
+
+  if is_format_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("format") {
+    item_map.insert("format".to_owned(), Value::String("".to_owned()));
   }
 
   if is_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("flags") {

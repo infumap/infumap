@@ -16,20 +16,25 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch } from "solid-js";
-import { VisualElementProps } from "../VisualElement";
+import { Component, For, Match, Show, Switch } from "solid-js";
+import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
 import { ExpressionFns, asExpressionItem } from "../../items/expression-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
-import { FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { getTextStyleForNote } from "../../layout/text";
+import { isNumeric } from "../../util/math";
+import { FEATURE_COLOR } from "../../style";
+import { isComposite } from "../../items/composite-item";
+import { NoteFlags } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -67,27 +72,97 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX*2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
-  const _textBlockScale = () => widthScale();
-  const _lineHeightScale = () => heightScale() / widthScale();
+  const textBlockScale = () => widthScale();
+  const lineHeightScale = () => heightScale() / widthScale();
+
+  const attachBoundsPx = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - ATTACH_AREA_SIZE_PX-2,
+      y: 0,
+      w: ATTACH_AREA_SIZE_PX,
+      h: ATTACH_AREA_SIZE_PX,
+    });
+  };
+  const attachCompositeBoundsPx = (): BoundingBox => {
+    return ({
+      x: boundsPx().w / 4.0,
+      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
+      w: boundsPx().w / 2.0,
+      h: ATTACH_AREA_SIZE_PX,
+    });
+  };
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    });
+  };
 
   const outerClass = (shadow: boolean) => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm bg-white';
     } else {
+      if ((expressionItem().flags & NoteFlags.HideBorder)) {
+        if (props.visualElement.mouseIsOver.get()) {
+          return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""}`;
+        } else {
+          return 'absolute border border-transparent rounded-sm';
+        }
+      }
       return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""} bg-white`;
     }
   };
 
+  const infuTextStyle = () => getTextStyleForNote(expressionItem().flags);
+
+  const showMoveOutOfCompositeArea = () =>
+    store.user.getUserMaybe() != null &&
+    props.visualElement.mouseIsOver.get() &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.expressionEditOverlayInfo() == null &&
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
   const renderShadow = () =>
-  <div class={`${outerClass(true)}`}
-       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-              `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />;
+    <div class={`${outerClass(true)}`}
+         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />;
 
   const renderDetailed = () =>
     <>
-      <div class="absolute">{props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title}</div>
+      <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
+           style={`position: absolute; ` +
+                  `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                  `width: ${naturalWidthPx()}px; ` +
+                  `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
+                  `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                  `font-size: ${infuTextStyle().fontSize}px; ` +
+                  `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+          <span>{formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format)}</span>
+      </div>
+      <For each={props.visualElement.attachmentsVes}>{attachment =>
+        <VisualElement_Desktop visualElement={attachment.get()} />
+      }</For>
+      <Show when={showMoveOutOfCompositeArea()}>
+        <div class={`absolute rounded-sm`}
+            style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
+      </Show>
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <InfuLinkTriangle />
+      </Show>
+      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+        <div class={`absolute rounded-sm`}
+            style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
+      </Show>
+      <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+        <div class={`absolute rounded-sm`}
+            style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
       </Show>
     </>;
 
@@ -95,9 +170,9 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     <>
       {renderShadow()}
       <div class={`${outerClass(false)}`}
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
-                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
+                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>
@@ -128,6 +203,8 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     ? boundsPx().w - oneBlockWidthPx() * 0.15
     : boundsPx().w - oneBlockWidthPx();
 
+  const infuTextStyle = () => getTextStyleForNote(expressionItem().flags);
+
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
@@ -143,20 +220,24 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
   const renderIconMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
       <div class="absolute text-center"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                 `transform: scale(${scale()}); transform-origin: top left;`}>
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                  `transform: scale(${scale()}); transform-origin: top left; ` +
+                  'background-color: #fff1e4;'}>
         <span class="w-[16px] h-[16px] inline-block text-center relative">∑</span>
       </div>
     </Show>;
 
   const renderText = () =>
-    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis`}
-        style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis ` + 
+                `${infuTextStyle().alignClass} `}
+         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-               `transform: scale(${scale()}); transform-origin: top left;`}>
-      <span>
-        {props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title}
+               `transform: scale(${scale()}); transform-origin: top left; ` +
+               'background-color: #fff1e4;'}>
+      <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+        {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format)}
       </span>
     </div>;
 
@@ -178,4 +259,16 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
       {renderLinkMarkingMaybe()}
     </>
   );
+}
+
+
+// TODO (HIGH): something not naive.
+function formatMaybe(text: string, format: string): string {
+  if (format == "") { return text; }
+  if (!isNumeric(text)) { return text; }
+  if (format == "0.0") { return parseFloat(text).toFixed(1); }
+  if (format == "0.00") { return parseFloat(text).toFixed(2); }
+  if (format == "0.000") { return parseFloat(text).toFixed(3); }
+  if (format == "0.0000") { return parseFloat(text).toFixed(4); }
+  return text;
 }

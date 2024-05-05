@@ -34,7 +34,7 @@ use std::path::PathBuf;
 use crate::util::fs::{expand_tilde, path_exists};
 
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 17;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 19;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct ItemAndUserId {
@@ -967,6 +967,72 @@ pub fn migrate_record_v16_to_v17(kvs: &Map<String, Value>) -> InfuResult<Map<Str
         }
       }
       return Ok(result);
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add flags field to expression items.
+ */
+pub fn migrate_record_v17_to_v18(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 17);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "expression" {
+        let existing = result.insert(String::from("flags"), Value::Number(0.into()));
+        if existing.is_some() { return Err("flags field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
+    },
+
+    "delete" => {
+      return Ok(kvs.clone());
+    },
+
+    unexpected_record_type => {
+      return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+    }
+  }
+}
+
+/**
+ * Add format field to expression items.
+ */
+pub fn migrate_record_v18_to_v19(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str() {
+    "descriptor" => {
+      return migrate_descriptor(kvs, 18);
+    },
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "expression" {
+        let existing = result.insert(String::from("format"), Value::String(("").into()));
+        if existing.is_some() { return Err("format field already exists.".into()); }
+      }
+      return Ok(result);
+    },
+
+    "update" => {
+      return Ok(kvs.clone());
     },
 
     "delete" => {

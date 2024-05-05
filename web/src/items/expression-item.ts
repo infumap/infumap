@@ -28,7 +28,8 @@ import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { AttachmentsItem, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { NoteFlags } from "./base/flags-item";
+import { FlagsMixin, NoteFlags } from "./base/flags-item";
+import { FormatMixin } from "./base/format-item";
 import { ItemType, ItemTypeMixin } from "./base/item";
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { ItemFns } from "./base/item-polymorphism";
@@ -39,7 +40,7 @@ import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
 
 export interface ExpressionItem extends ExpressionMeasurable, XSizableItem, AttachmentsItem, TitledItem { }
 
-export interface ExpressionMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin { }
+export interface ExpressionMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, FormatMixin { }
 
 
 export const ExpressionFns = {
@@ -59,6 +60,10 @@ export const ExpressionFns = {
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 10.0 * GRID_SIZE,
+
+      flags: NoteFlags.None,
+
+      format: "",
 
       computed_attachments: [],
     };
@@ -82,6 +87,10 @@ export const ExpressionFns = {
 
       spatialWidthGr: o.spatialWidthGr,
 
+      flags: o.flags,
+
+      format: o.format,
+
       computed_attachments: [],
     });
   },
@@ -98,6 +107,8 @@ export const ExpressionFns = {
       ordering: Array.from(e.ordering),
       title: e.title,
       spatialPositionGr: e.spatialPositionGr,
+      flags: e.flags,
+      format: e.format,
 
       spatialWidthGr: e.spatialWidthGr,
     });
@@ -238,6 +249,8 @@ export const ExpressionFns = {
       spatialPositionGr: expression.spatialPositionGr,
       spatialWidthGr: expression.spatialWidthGr,
       title: expression.title,
+      flags: expression.flags,
+      format: expression.format,
     });
   },
 
@@ -246,7 +259,7 @@ export const ExpressionFns = {
   },
 
   getFingerprint: (expressionItem: ExpressionItem): string => {
-    return expressionItem.title + "~~~!@#~~~";
+    return expressionItem.title + "~~~!@#~~~" + expressionItem.flags + "~~~!@#~~~" + expressionItem.format;
   },
 }
 

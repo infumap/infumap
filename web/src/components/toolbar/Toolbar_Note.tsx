@@ -52,9 +52,7 @@ export const Toolbar_Note: Component = () => {
     return asCompositeItem(compositeVeMaybe.displayItem);
   };
 
-  const isInTable = (): boolean => {
-    return VeFns.isInTable(noteVisualElement());
-  }
+  const isInTable = (): boolean => VeFns.isInTable(noteVisualElement());
 
   const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); rearrangeWithDisplayId(store, noteItem().id); };
   const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; rearrangeWithDisplayId(store, noteItem().id); };
@@ -159,8 +157,14 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
         <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
         <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
-        <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+        <div ref={formatDiv} class="inline-block"
+             onMouseDown={handleFormatDown}>
+          <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
+        </div>
+        <div ref={urlDiv} class="inline-block"
+             onMouseDown={handleUrlDown}>
+          <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+        </div>
         <Show when={isInTable()}>
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
         </Show>

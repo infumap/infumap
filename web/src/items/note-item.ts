@@ -27,7 +27,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { FlagsMixin, NoteFlags } from './base/flags-item';
+import { FlagsItem, FlagsMixin, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
@@ -35,14 +35,14 @@ import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { fullArrange } from '../layout/arrange';
 import { CursorPosition } from '../store/StoreProvider_Overlay';
+import { FormatMixin } from './base/format-item';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin {
-  format: string,
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, FormatMixin {
 }
 
 
@@ -66,8 +66,9 @@ export const NoteFns = {
 
       flags: NoteFlags.None,
 
-      url: "",
       format: "",
+
+      url: "",
 
       computed_attachments: [],
     };
@@ -270,36 +271,36 @@ export const NoteFns = {
     return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format;
   },
 
-  isStyleNormalText: (noteItem: NoteItem): boolean => {
+  isStyleNormalText: (flagsItem: FlagsItem): boolean => {
     return (
-      !(noteItem.flags & NoteFlags.Heading1) &&
-      !(noteItem.flags & NoteFlags.Heading2) &&
-      !(noteItem.flags & NoteFlags.Heading3) &&
-      !(noteItem.flags & NoteFlags.Bullet1) &&
-      !(noteItem.flags & NoteFlags.Code)
+      !(flagsItem.flags & NoteFlags.Heading1) &&
+      !(flagsItem.flags & NoteFlags.Heading2) &&
+      !(flagsItem.flags & NoteFlags.Heading3) &&
+      !(flagsItem.flags & NoteFlags.Bullet1) &&
+      !(flagsItem.flags & NoteFlags.Code)
     );
   },
 
-  isAlignedLeft: (noteItem: NoteItem): boolean => {
+  isAlignedLeft: (flagsItem: FlagsItem): boolean => {
     return (
-      !(noteItem.flags & NoteFlags.AlignCenter) &&
-      !(noteItem.flags & NoteFlags.AlignJustify) &&
-      !(noteItem.flags & NoteFlags.AlignRight)
+      !(flagsItem.flags & NoteFlags.AlignCenter) &&
+      !(flagsItem.flags & NoteFlags.AlignJustify) &&
+      !(flagsItem.flags & NoteFlags.AlignRight)
     );
   },
 
-  clearTextStyleFlags: (noteItem: NoteItem): void => {
-    noteItem.flags &= ~NoteFlags.Heading1;
-    noteItem.flags &= ~NoteFlags.Heading2;
-    noteItem.flags &= ~NoteFlags.Heading3;
-    noteItem.flags &= ~NoteFlags.Bullet1;
-    noteItem.flags &= ~NoteFlags.Code;
+  clearTextStyleFlags: (flagsItem: FlagsItem): void => {
+    flagsItem.flags &= ~NoteFlags.Heading1;
+    flagsItem.flags &= ~NoteFlags.Heading2;
+    flagsItem.flags &= ~NoteFlags.Heading3;
+    flagsItem.flags &= ~NoteFlags.Bullet1;
+    flagsItem.flags &= ~NoteFlags.Code;
   },
 
-  clearAlignmentFlags: (noteItem: NoteItem): void => {
-    noteItem.flags &= ~NoteFlags.AlignCenter;
-    noteItem.flags &= ~NoteFlags.AlignRight;
-    noteItem.flags &= ~NoteFlags.AlignJustify;
+  clearAlignmentFlags: (flagsItem: FlagsItem): void => {
+    flagsItem.flags &= ~NoteFlags.AlignCenter;
+    flagsItem.flags &= ~NoteFlags.AlignRight;
+    flagsItem.flags &= ~NoteFlags.AlignJustify;
   },
 };
 
