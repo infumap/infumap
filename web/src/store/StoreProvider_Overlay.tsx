@@ -56,7 +56,7 @@ export interface EditOverlayInfo {
   initialCursorPosition: CursorPosition | number
 }
 
-export interface TableEditOverlayInfo {
+export interface TableEditInfo {
   itemPath: VisualElementPath,
   colNum: number | null,
   startBl: number | null,
@@ -89,13 +89,13 @@ export interface OverlayStoreContextModel {
 
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
   pageEditOverlayInfo: () => EditOverlayInfo | null,
-  tableEditOverlayInfo: () => TableEditOverlayInfo | null,
+  tableEditInfo: () => TableEditInfo | null,
   noteEditOverlayInfo: () => EditOverlayInfo | null,
   passwordEditOverlayInfo: () => EditOverlayInfo | null,
 
   setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPageEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-  setTableEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: TableEditOverlayInfo | null) => void,
+  setTableEditInfo: (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => void,
   setNoteEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
 
@@ -110,7 +110,7 @@ export interface OverlayStoreContextModel {
 export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const pageEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
-  const tableEditOverlayInfo_ = createInfuSignal<TableEditOverlayInfo | null>(null);
+  const tableEditInfo_ = createInfuSignal<TableEditInfo | null>(null);
   const noteEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
 
@@ -124,7 +124,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   function clear() {
     expressionEditOverlayInfo_.set(null);
     pageEditOverlayInfo_.set(null);
-    tableEditOverlayInfo_.set(null);
+    tableEditInfo_.set(null);
     noteEditOverlayInfo_.set(null);
     passwordEditOverlayInfo_.set(null);
 
@@ -138,7 +138,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     return (
       expressionEditOverlayInfo_.get() != null ||
       pageEditOverlayInfo_.get() != null ||
-      tableEditOverlayInfo_.get() != null ||
+      tableEditInfo_.get() != null ||
       noteEditOverlayInfo_.get() != null ||
       passwordEditOverlayInfo_.get() != null ||
       searchOverlayVisible.get() ||
@@ -151,7 +151,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
   const pageEditOverlayInfo = (): EditOverlayInfo | null => pageEditOverlayInfo_.get();
-  const tableEditOverlayInfo = (): TableEditOverlayInfo | null => tableEditOverlayInfo_.get();
+  const tableEditInfo = (): TableEditInfo | null => tableEditInfo_.get();
   const noteEditOverlayInfo = (): EditOverlayInfo | null => noteEditOverlayInfo_.get();
   const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
 
@@ -167,10 +167,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     pageEditOverlayInfo_.set(info);
   }
 
-  const setTableEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: TableEditOverlayInfo | null) => {
+  const setTableEditInfo = (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
     else { historyStore.setFocus(info.itemPath); }
-    tableEditOverlayInfo_.set(info);
+    tableEditInfo_.set(info);
   }
 
   const setNoteEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
@@ -188,13 +188,13 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   return ({
     expressionEditOverlayInfo,
     pageEditOverlayInfo,
-    tableEditOverlayInfo,
+    tableEditInfo,
     noteEditOverlayInfo,
     passwordEditOverlayInfo,
 
     setExpressionEditOverlayInfo,
     setPageEditOverlayInfo,
-    setTableEditOverlayInfo,
+    setTableEditInfo,
     setNoteEditOverlayInfo,
     setPasswordEditOverlayInfo,
 

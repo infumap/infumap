@@ -38,7 +38,6 @@ import { keyHandler } from "../input/key";
 import { fArrange } from "../layout/arrange";
 import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
-import { TableEditOverlay } from "./overlay/TableEditOverlay";
 import { PageEditOverlay } from "./overlay/PageEditOverlay";
 import { PasswordEditOverlay } from "./overlay/PasswordEditOverly";
 import { MouseEventActionFlags } from "../input/enums";
@@ -239,9 +238,6 @@ export const Main: Component = () => {
       </Show>
       <Show when={store.overlay.pageEditOverlayInfo() != null}>
         <PageEditOverlay />
-      </Show>
-      <Show when={store.overlay.tableEditOverlayInfo() != null}>
-        <TableEditOverlay />
       </Show>
       <Show when={store.overlay.noteEditOverlayInfo() != null}>
         <NoteEditOverlay />
