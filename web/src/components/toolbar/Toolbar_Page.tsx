@@ -410,16 +410,17 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <div ref={arrangeAlgoDiv}
-           class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+           class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
            style={`font-size: 13px;`}>
-        <div class="inline-block w-[70px] pl-[6px]"
+        <div class="inline-block w-[70px] pl-[6px] hover:bg-slate-300"
              onClick={handleArrangeAlgoClick}
              onMouseDown={handleArrangeAlgoDown}>
           {arrangeAlgoText()}
         </div>
-        <i class="fa fa-refresh ml-[4px]"
-           onClick={handleRotateArrangeAlgo} />
-        {/* <InfuIconButton icon="fa fa-refresh" highlighted={false} clickHandler={handleChangeAlgorithm} /> */}
+        <div class="inline-block hover:bg-slate-300 w-[23px] pl-[4px] pr-[4px]">
+          <i class="fa fa-refresh"
+             onClick={handleRotateArrangeAlgo} />
+        </div>
       </div>
       <div ref={divBeforeColorSelect} class="inline-block ml-[0px]" />
       <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
