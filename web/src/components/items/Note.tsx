@@ -135,10 +135,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.overlay.noteEditOverlayInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
-  const renderShadow = () =>
-    <div class={`${outerClass(true)}`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />;
+  const renderShadowMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+      <div class={`${outerClass(true)}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
 
   const renderDetailed = () =>
     <>
@@ -193,7 +195,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   return (
     <>
-      {renderShadow()}
+      {renderShadowMaybe()}
       <div class={`${outerClass(false)}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
