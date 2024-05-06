@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, onMount, Show, Switch } from "solid-js";
+import { Component, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -85,7 +85,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       h: ATTACH_AREA_SIZE_PX,
     }
   }
-  const columnSpecs = () => {
+  const columnSpecs = createMemo(() => {
+    // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
     const specsBl = [];
     let accumBl = 0;
     for (let i=0; i<tableItem().numberOfVisibleColumns; ++i) {
@@ -104,7 +105,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       name: s.name,
       isLast: s.isLast
     }));
-  };
+  });
 
   const renderNotDetailed = () =>
     <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
@@ -151,31 +152,36 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <TableChildArea visualElement={props.visualElement} />
-      <div class='absolute'
+      <Show when={showColHeader()}>
+        <div class='absolute'
+            style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h}px; ` +
+                    `width: ${viewportBoundsPx()!.w}px; height: ${blockSizePx().h}px; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          <For each={columnSpecs()}>{spec =>
+            <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
+                class={`absolute whitespace-nowrap overflow-hidden ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
+                style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; ` +
+                       `width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                       `transform: scale(${scale()}); transform-origin: top left;` +
+                       `outline: 0px solid transparent; ` +
+                       `${store.overlay.tableEditInfo() == null ? 'caret-color: transparent' : ''}`}
+                contentEditable={true}
+                spellcheck={store.overlay.tableEditInfo() != null}>
+              {spec.name}
+            </div>
+          }</For>
+        </div>
+      </Show>
+      <div class='absolute pointer-events-none'
            style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <For each={columnSpecs()}>{spec =>
-          <>
-            <Show when={!spec.isLast}>
-              <div class="absolute bg-slate-700"
-                   style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
-            </Show>
-            <Show when={showColHeader()}>
-              <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
-                   class={`absolute whitespace-nowrap overflow-hidden ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
-                   style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; ` +
-                          `width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                          `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
-                          `transform: scale(${scale()}); transform-origin: top left;` +
-                          `outline: 0px solid transparent; ` +
-                          `${store.overlay.tableEditInfo() == null ? 'caret-color: transparent' : ''}`}
-                   contentEditable={true}
-                   spellcheck={store.overlay.tableEditInfo() != null}>
-                {spec.name}
-              </div>
-            </Show>
-          </>
+          <Show when={!spec.isLast}>
+            <div class="absolute bg-slate-700"
+                  style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+          </Show>
         }</For>
       </div>
       <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
