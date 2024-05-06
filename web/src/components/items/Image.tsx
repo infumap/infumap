@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup, onMount } from "solid-js";
+import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, cloneBoundingBox, quantizeBoundingBox } from "../../util/geometry";

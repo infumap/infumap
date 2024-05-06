@@ -126,9 +126,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                     `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
                     `transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; ` +
-                    "outline: 0px solid transparent;" +
+                    `outline: 0px solid transparent; ` +
                     `${store.overlay.tableEditInfo() == null ? 'caret-color: transparent' : ''}`}
-              contentEditable={true}>
+              contentEditable={true}
+              spellcheck={store.overlay.tableEditInfo() != null}>
           {tableItem().title}
         </div>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
@@ -150,7 +151,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <TableChildArea visualElement={props.visualElement} />
-      <div class="absolute" /*pointer-events-none*/
+      <div class='absolute'
            style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -167,9 +168,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                           `width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                           `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
                           `transform: scale(${scale()}); transform-origin: top left;` +
-                          "outline: 0px solid transparent;" +
+                          `outline: 0px solid transparent; ` +
                           `${store.overlay.tableEditInfo() == null ? 'caret-color: transparent' : ''}`}
-                   contentEditable={true}>
+                   contentEditable={true}
+                   spellcheck={store.overlay.tableEditInfo() != null}>
                 {spec.name}
               </div>
             </Show>

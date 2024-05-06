@@ -97,6 +97,26 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     defaultResult = MouseEventActionFlags.None;
   }
 
+  if (store.overlay.pageEditInfo()) {
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      let editingPath = store.overlay.pageEditInfo()!.itemPath + ":title";
+      let el = document.getElementById(editingPath);
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
+          buttonNumber == MOUSE_LEFT) {
+        return MouseEventActionFlags.None;
+      }
+      let newText = el!.innerText;
+      let item = asPageItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+      item.title = newText;
+      serverOrRemote.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.setPageEditInfo(store.history, null);
+    fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+    defaultResult = MouseEventActionFlags.None;
+  }
+
 
   // Toolbar popups.
 
@@ -148,16 +168,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setExpressionEditOverlayInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
-
-  if (store.overlay.pageEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.setPageEditOverlayInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
@@ -305,7 +315,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     if (MouseActionState.empty()) { return; }
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
     if (isPage(overDisplayItem)) {
-      store.overlay.setPageEditOverlayInfo(store.history, { itemPath: activeElementPath, initialCursorPosition: CursorPosition.Start });
+      store.overlay.setPageEditInfo(store.history, { itemPath: activeElementPath, initialCursorPosition: CursorPosition.Start });
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);

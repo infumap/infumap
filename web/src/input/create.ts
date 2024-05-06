@@ -210,7 +210,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   if (type == ItemType.Page) {
-    store.overlay.setPageEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setPageEditInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Note) {
     store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Expression) {

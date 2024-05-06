@@ -20,7 +20,7 @@ import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch 
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { borderColorForColorIdx, BorderType, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth, translucent } from "../../style";
+import { borderColorForColorIdx, BorderType, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -185,27 +185,35 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>);
   }
 
+
   // ## Opaque
 
   const renderAsOpaque = () => {
     const opaqueTitleInBoxScale = createMemo((): number => calcTitleInBoxScale("xs"));
 
     const renderBoxTitle = () =>
-      <div class='flex items-center justify-center'
-           style={`width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <div class='flex items-center text-center text-xs font-bold text-white'
-             style={`transform: scale(${opaqueTitleInBoxScale()}); transform-origin: center center;`}>
-          {pageItem().title}
-        </div>
+      <div id={VeFns.veToPath(props.visualElement) + ":title"}
+           class={`flex font-bold text-white ${store.overlay.pageEditInfo() == null ? 'hidden-selection' : ''}`}
+           style={`left: ${boundsPx().x}px; ` +
+                  `top: ${boundsPx().y}px; ` +
+                  `width: ${boundsPx().w}px; ` +
+                  `height: ${boundsPx().h}px;` +
+                  `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
+                  `justify-content: center; align-items: center; text-align: center;` +
+                  `outline: 0px solid transparent; ` +
+                  `${store.overlay.pageEditInfo() == null ? 'caret-color: transparent' : ''}`}
+           contentEditable={true}
+           spellcheck={store.overlay.pageEditInfo() != null}>
+        {pageItem().title}
       </div>;
 
     const renderHoverOverMaybe = () =>
       <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
-        <div class={'absolute rounded-sm'}
+        <div class={'absolute rounded-sm pointer-events-none'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     'background-color: #ffffff33;'} />
         <Show when={hasPopupClickBoundsPx()}>
-          <div class={'absolute rounded-sm'}
+          <div class={'absolute rounded-sm pointer-events-none'}
                style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
                       'background-color: #ffffff55;'} />
         </Show>
@@ -221,15 +229,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderMovingOverAttachMaybe = () =>
       <Show when={props.visualElement.movingItemIsOverAttach.get()}>
         <div class={'absolute rounded-sm'}
-              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                     'background-color: #ff0000;'} />
+             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                    'background-color: #ff0000;'} />
       </Show>;
 
     const renderPopupSelectedOverlayMaybe = () =>
       <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
         <div class='absolute'
-              style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; ` +
-                     'background-color: #dddddd88;'} />
+             style={`left: ${innerBoundsPx().x}px; top: ${innerBoundsPx().y}px; width: ${innerBoundsPx().w}px; height: ${innerBoundsPx().h}px; ` +
+                    'background-color: #dddddd88;'} />
       </Show>;
 
     const renderIsLinkMaybe = () =>
@@ -239,7 +247,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     return (
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)}; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
@@ -351,26 +360,30 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderBoxTitleMaybe = () =>
       <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
-        <div class="absolute flex items-center justify-center pointer-events-none"
-            style={`left: ${boundsPx().x}px; ` +
-                   `top: ${boundsPx().y}px; ` +
-                   `width: ${boundsPx().w}px; ` +
-                   `height: ${boundsPx().h}px;` +
-                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none"
-              style={`transform: scale(${translucentTitleInBoxScale()}); transform-origin: center center;`}>
+        <div id={VeFns.veToPath(props.visualElement) + ":title"}
+             class={`absolute flex font-bold text-white ${store.overlay.pageEditInfo() == null ? 'hidden-selection' : ''}`}
+             style={`left: ${boundsPx().x}px; ` +
+                    `top: ${boundsPx().y}px; ` +
+                    `width: ${boundsPx().w}px; ` +
+                    `height: ${boundsPx().h}px;` +
+                    `font-size: ${20 * translucentTitleInBoxScale()}px; ` +
+                    `justify-content: center; align-items: center; text-align: center; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+                    `outline: 0px solid transparent; ` +
+                    `${store.overlay.pageEditInfo() == null ? 'caret-color: transparent' : ''}`}
+             spellcheck={store.overlay.pageEditInfo() != null}
+             contentEditable={true}>
             {pageItem().title}
-          </div>
         </div>
       </Show>;
 
     const renderHoverOverMaybe = () =>
       <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
-        <div class={`absolute rounded-sm pointer-events-none`}
+        <div class={`absolute rounded-sm`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     `background-color: #ffffff33;`} />
         <Show when={hasPopupClickBoundsPx()}>
-          <div class={`absolute rounded-sm pointer-events-none`}
+          <div class={`absolute rounded-sm`}
                style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
                       `background-color: #ffffff55;`} />
         </Show>
@@ -420,7 +433,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             {renderPage()}
           </Match>
         </Switch>
-        <div class={`absolute ${borderClass()} rounded-sm pointer-events-none`}
+        <div class={`absolute ${borderClass()} rounded-sm`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     backgroundStyle() +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>

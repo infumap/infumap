@@ -31,7 +31,6 @@ import { CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
 import { newItemInContext } from "./create";
 import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditOverlay";
-import { pageEditOverlay_keyDownListener } from "../components/overlay/PageEditOverlay";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
@@ -62,8 +61,8 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
-  if (store.overlay.pageEditOverlayInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-    pageEditOverlay_keyDownListener(store, ev);
+  if (store.overlay.pageEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+    // pageEdit_keyDownListener(store, ev);
     return;
   }
 

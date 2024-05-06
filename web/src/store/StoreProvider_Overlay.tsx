@@ -88,13 +88,13 @@ export interface OverlayStoreContextModel {
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
 
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
-  pageEditOverlayInfo: () => EditOverlayInfo | null,
+  pageEditInfo: () => EditOverlayInfo | null,
   tableEditInfo: () => TableEditInfo | null,
   noteEditOverlayInfo: () => EditOverlayInfo | null,
   passwordEditOverlayInfo: () => EditOverlayInfo | null,
 
   setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-  setPageEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
+  setPageEditInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setTableEditInfo: (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => void,
   setNoteEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
@@ -109,7 +109,7 @@ export interface OverlayStoreContextModel {
 
 export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
-  const pageEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
+  const pageEditInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const tableEditInfo_ = createInfuSignal<TableEditInfo | null>(null);
   const noteEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
@@ -123,7 +123,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   function clear() {
     expressionEditOverlayInfo_.set(null);
-    pageEditOverlayInfo_.set(null);
+    pageEditInfo_.set(null);
     tableEditInfo_.set(null);
     noteEditOverlayInfo_.set(null);
     passwordEditOverlayInfo_.set(null);
@@ -137,7 +137,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   function anOverlayIsVisible(): boolean {
     return (
       expressionEditOverlayInfo_.get() != null ||
-      pageEditOverlayInfo_.get() != null ||
+      pageEditInfo_.get() != null ||
       tableEditInfo_.get() != null ||
       noteEditOverlayInfo_.get() != null ||
       passwordEditOverlayInfo_.get() != null ||
@@ -150,7 +150,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   }
 
   const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
-  const pageEditOverlayInfo = (): EditOverlayInfo | null => pageEditOverlayInfo_.get();
+  const pageEditInfo = (): EditOverlayInfo | null => pageEditInfo_.get();
   const tableEditInfo = (): TableEditInfo | null => tableEditInfo_.get();
   const noteEditOverlayInfo = (): EditOverlayInfo | null => noteEditOverlayInfo_.get();
   const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
@@ -161,10 +161,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     expressionEditOverlayInfo_.set(info);
   }
 
-  const setPageEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
+  const setPageEditInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
     else { historyStore.setFocus(info.itemPath); }
-    pageEditOverlayInfo_.set(info);
+    pageEditInfo_.set(info);
   }
 
   const setTableEditInfo = (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => {
@@ -187,13 +187,13 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   return ({
     expressionEditOverlayInfo,
-    pageEditOverlayInfo,
+    pageEditInfo,
     tableEditInfo,
     noteEditOverlayInfo,
     passwordEditOverlayInfo,
 
     setExpressionEditOverlayInfo,
-    setPageEditOverlayInfo,
+    setPageEditInfo,
     setTableEditInfo,
     setNoteEditOverlayInfo,
     setPasswordEditOverlayInfo,
