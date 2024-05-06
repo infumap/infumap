@@ -54,7 +54,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
 
-
   // Content editables.
 
   let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
@@ -75,14 +74,21 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.tableEditInfo()) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingPath = store.overlay.tableEditInfo()!.itemPath;
+      let editingPath = store.overlay.tableEditInfo()!.colNum != null
+        ? store.overlay.tableEditInfo()!.itemPath + ":col" + store.overlay.tableEditInfo()!.colNum
+        : store.overlay.tableEditInfo()!.itemPath + ":title";
       let el = document.getElementById(editingPath);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!)) {
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
+          buttonNumber == MOUSE_LEFT) {
         return MouseEventActionFlags.None;
       }
-      let newTitle = el!.innerText;
+      let newText = el!.innerText;
       let item = asTableItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
-      item.title = newTitle;
+      if (store.overlay.tableEditInfo()!.colNum == null) {
+        item.title = newText;
+      } else {
+        item.tableColumns[store.overlay.tableEditInfo()!.colNum!].name = newText;
+      }
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setTableEditInfo(store.history, null);
@@ -197,7 +203,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 let longHoldTimeoutId: number | null = null;
 
 export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boolean, defaultResult: MouseEventActionFlags): MouseEventActionFlags {
-
   const desktopPosPx = CursorEventState.getLatestDesktopPx(store);
 
   if (store.overlay.contextMenuInfo.get() != null) {

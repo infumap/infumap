@@ -249,7 +249,6 @@ export const TableFns = {
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
       endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,
     });
-    fullArrange(store); // input focus changed.
   },
 
   cloneMeasurableFields: (table: TableMeasurable): TableMeasurable => {

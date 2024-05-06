@@ -95,9 +95,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       if (accumBl >= spatialWidthGr() / GRID_SIZE) {
         break;
       }
-      specsBl.push({ prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().numberOfVisibleColumns-1 });
+      specsBl.push({ idx: i, prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().numberOfVisibleColumns-1 });
     }
     return specsBl.map(s => ({
+      idx: s.idx,
       startPosPx: s.prevAccumBl * blockSizePx().w,
       endPosPx: s.isLast ? boundsPx().w : s.accumBl * blockSizePx().w,
       name: s.name,
@@ -118,7 +119,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class='absolute'
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div id={VeFns.veToPath(props.visualElement)}
+        <div id={VeFns.veToPath(props.visualElement) + ":title"}
              class={`absolute font-bold ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
              style={`left: 0px; top: 0px; ` +
                     `width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
@@ -149,7 +150,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <TableChildArea visualElement={props.visualElement} />
-      <div class="absolute pointer-events-none"
+      <div class="absolute" /*pointer-events-none*/
            style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -160,9 +161,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                    style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
             </Show>
             <Show when={showColHeader()}>
-              <div class="absolute whitespace-nowrap overflow-hidden"
-                   style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                          `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left;`}>
+              <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
+                   class={`absolute whitespace-nowrap overflow-hidden ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
+                   style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; ` +
+                          `width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                          `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                          `transform: scale(${scale()}); transform-origin: top left;` +
+                          "outline: 0px solid transparent;" +
+                          `${store.overlay.tableEditInfo() == null ? 'caret-color: transparent' : ''}`}
+                   contentEditable={true}>
                 {spec.name}
               </div>
             </Show>
