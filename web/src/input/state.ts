@@ -22,7 +22,6 @@ import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
 import { VisualElementPath } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { ToolbarPopupType } from "../store/StoreProvider_Overlay";
 import { BoundingBox, Vector, desktopPxFromMouseEvent } from "../util/geometry";
 import { panic } from "../util/lang";
 
@@ -48,7 +47,7 @@ export interface MouseActionStateType {
   hitMeta: HitboxMeta | null,
 
   startActiveElementParent: VisualElementPath,
-  activeElement: VisualElementPath,
+  activeElementPath: VisualElementPath,
   activeCompositeElementMaybe: VisualElementPath | null,
 
   activeRoot: VisualElementPath,

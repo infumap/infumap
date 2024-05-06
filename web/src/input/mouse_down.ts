@@ -20,7 +20,7 @@ import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-it
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
-import { isTable } from "../items/table-item";
+import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp, switchToPage } from "../layout/navigation";
@@ -54,6 +54,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
 
+
   // Content editables.
 
   let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
@@ -69,6 +70,25 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     serverOrRemote.updateItem(store.history.getFocusItem());
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+  }
+
+  if (store.overlay.tableEditInfo()) {
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      let editingPath = store.overlay.tableEditInfo()!.itemPath;
+      let el = document.getElementById(editingPath);
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!)) {
+        return MouseEventActionFlags.None;
+      }
+      let newTitle = el!.innerText;
+      let item = asTableItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+      item.title = newTitle;
+      serverOrRemote.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.setTableEditInfo(store.history, null);
+    fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+    defaultResult = MouseEventActionFlags.None;
   }
 
 
@@ -113,17 +133,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  // Content editable
-
-  if (store.overlay.tableEditInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.setTableEditInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
 
   // Text edit overlays.
 
@@ -173,7 +182,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   switch(buttonNumber) {
     case MOUSE_LEFT:
-      mouseLeftDownHandler(store, viaOverlay);
+      defaultResult = mouseLeftDownHandler(store, viaOverlay, defaultResult);
       return defaultResult;
     case MOUSE_RIGHT:
       await mouseRightDownHandler(store);
@@ -187,14 +196,14 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
 let longHoldTimeoutId: number | null = null;
 
-export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boolean) {
+export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boolean, defaultResult: MouseEventActionFlags): MouseEventActionFlags {
 
   const desktopPosPx = CursorEventState.getLatestDesktopPx(store);
 
   if (store.overlay.contextMenuInfo.get() != null) {
     DoubleClickState.preventDoubleClick();
     store.overlay.contextMenuInfo.set(null);
-    return;
+    return defaultResult;
   }
 
   let dialogInfo = store.overlay.editDialogInfo.get();
@@ -202,11 +211,11 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
       DialogMoveState.set({ lastMousePosPx: desktopPosPx });
-      return;
+      return defaultResult;
     }
 
     store.overlay.editDialogInfo.set(null);
-    return;
+    return defaultResult;
   }
 
   let userSettingsInfo = store.overlay.editUserSettingsInfo.get();
@@ -214,11 +223,11 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     DoubleClickState.preventDoubleClick();
     if (isInside(desktopPosPx, userSettingsInfo!.desktopBoundsPx)) {
       UserSettingsMoveState.set({ lastMousePosPx: desktopPosPx });
-      return;
+      return defaultResult;
     }
 
     store.overlay.editUserSettingsInfo.set(null);
-    return;
+    return defaultResult;
   }
 
   const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
@@ -235,7 +244,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
       fullArrange(store);
     }
     MouseActionState.set(null);
-    return;
+    return defaultResult;
   }
 
   const startPosBl = null;
@@ -280,7 +289,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
-  const activeElement = VeFns.veToPath(hitInfo.overElementVes.get());
+  const activeElementPath = VeFns.veToPath(hitInfo.overElementVes.get());
 
   if (longHoldTimeoutId) {
     clearTimeout(longHoldTimeoutId);
@@ -291,10 +300,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     if (MouseActionState.empty()) { return; }
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
     if (isPage(overDisplayItem)) {
-      store.overlay.setPageEditOverlayInfo(store.history, { itemPath: activeElement, initialCursorPosition: CursorPosition.Start });
+      store.overlay.setPageEditOverlayInfo(store.history, { itemPath: activeElementPath, initialCursorPosition: CursorPosition.Start });
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
-      store.history.setFocus(activeElement);
+      store.history.setFocus(activeElementPath);
       MouseActionState.set(null);
     }
   }, 750);
@@ -302,7 +311,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   MouseActionState.set({
     activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
     startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
-    activeElement,
+    activeElementPath,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(hitInfo.overContainerVe!) : null,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
@@ -325,6 +334,12 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     newPlaceholderItem: null,
     hitEmbeddedInteractive: canHitEmbeddedInteractive
   });
+
+  if (hitInfo.hitboxType & HitboxFlags.ContentEditable) {
+    return MouseEventActionFlags.None;
+  }
+
+  return defaultResult;
 }
 
 

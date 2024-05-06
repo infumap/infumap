@@ -59,7 +59,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
   if (MouseActionState.empty()) { return MouseEventActionFlags.PreventDefault; }
 
-  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
+  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -118,8 +118,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         ItemFns.handleLinkClick(activeVisualElement);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {
         const focusPath = VeFns.addVeidToPath(
-          { itemId: VeFns.veidFromPath(MouseActionState.get().activeElement).linkIdMaybe!, linkIdMaybe: null },
-          VeFns.parentPath(MouseActionState.get().activeElement)
+          { itemId: VeFns.veidFromPath(MouseActionState.get().activeElementPath).linkIdMaybe!, linkIdMaybe: null },
+          VeFns.parentPath(MouseActionState.get().activeElementPath)
         );
         store.history.setFocus(focusPath);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {

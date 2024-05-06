@@ -33,6 +33,7 @@ export enum HitboxFlags {
   Expand =               0x0200,
   Settings =             0x0400,
   TriangleLinkSettings = 0x0800,
+  ContentEditable      = 0x1000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {

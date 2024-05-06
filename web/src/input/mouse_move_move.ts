@@ -80,13 +80,18 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       server.addItem(link, null);
 
       store.anItemIsMoving.set(true);
-      const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElement);
+      const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
       const newLinkVeid = VeFns.veidFromId(link.id);
-      MouseActionState.get().activeElement = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
+      MouseActionState.get().activeElementPath = VeFns.addVeidToPath(newLinkVeid, activeParentPath);
       MouseActionState.get().action = MouseAction.Moving; // page arrange depends on this in the grid case.
       MouseActionState.get().linkCreatedOnMoveStart = true;
 
       fullArrange(store);
+    }
+    if (MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.ContentEditable) {
+      let selection = window.getSelection();
+      if (selection != null) { selection.removeAllRanges(); }
+      (document.activeElement! as HTMLElement).blur();
     }
   }
 
@@ -96,7 +101,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
 
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
-  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElement)!;
+  const activeVisualElementSignal = VesCache.get(MouseActionState.get().activeElementPath)!;
   const activeVisualElement = activeVisualElementSignal.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -190,7 +195,7 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 
 function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
   console.log("moving_activeItemToPage: ", moveToVe.displayItem.id, "TODO: check for move into child.");
-  const activeElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
+  const activeElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
   const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
@@ -235,7 +240,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.find({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic("moving_activeItemToPage: could not find element."); }
-    MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
+    MouseActionState.get().activeElementPath = VeFns.veToPath(ve[0].get());
     MouseActionState.get().linkCreatedOnMoveStart = true;
 
   } else {
@@ -254,7 +259,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     canonicalActiveItem.spatialPositionGr = newItemPosGr;
     itemState.moveToNewParent(canonicalActiveItem, moveToPage.id, RelationshipToParent.Child);
 
-    MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeElement), moveToPath);
   }
 
   MouseActionState.get().onePxSizeBl = {
@@ -266,7 +271,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
 
 
 function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink: boolean) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement!)!.get();
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
   const tableVisualElement = VesCache.get(activeVisualElement.parentPath!)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
@@ -308,7 +313,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     let ve = VesCache.find({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id});
     if (ve.length != 1) { panic("moving_activeItemOutOfTable: could not find element."); }
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };
-    MouseActionState.get().activeElement = VeFns.veToPath(ve[0].get());
+    MouseActionState.get().activeElementPath = VeFns.veToPath(ve[0].get());
     MouseActionState.get().onePxSizeBl = {
       x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
       y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
@@ -317,7 +322,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.moveToNewParent(activeItem, tableParentPage.id, RelationshipToParent.Child);
-    MouseActionState.get().activeElement = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), tableVe.parentPath!);
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), tableVe.parentPath!);
     MouseActionState.get().onePxSizeBl = {
       x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
       y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h

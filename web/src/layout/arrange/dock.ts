@@ -50,7 +50,7 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
 
   let movingItem = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
+    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
   }
 
   const GAP_PX = LIST_PAGE_TOP_PADDING_PX;

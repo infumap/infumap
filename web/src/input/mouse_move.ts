@@ -137,7 +137,7 @@ function changeMouseActionStateMaybe(
     return;
   }
 
-  let activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  let activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
   let activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Resize) > 0) {
@@ -183,9 +183,9 @@ function changeMouseActionStateMaybe(
         (MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move)) {
       // if the composite move hitbox is hit, but not the child, then swap out the active element.
       MouseActionState.get().hitboxTypeOnMouseDown = MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown!;
-      MouseActionState.get().activeElement = MouseActionState.get().activeCompositeElementMaybe!;
+      MouseActionState.get().activeElementPath = MouseActionState.get().activeCompositeElementMaybe!;
       MouseActionState.get().startActiveElementParent = VeFns.parentPath(MouseActionState.get().activeCompositeElementMaybe!);
-      activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+      activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
       activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
     }
     MouseActionState.get().startWidthBl = null;
@@ -229,7 +229,7 @@ function mouseAction_resizingDock(deltaPx: Vector, store: StoreContextModel) {
 function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   let requireArrange = false;
 
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   const deltaBl = {
@@ -291,7 +291,7 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 
 function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
-  const activeVisualElement = VesCache.get(MouseActionState.get().activeElement)!.get();
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
   const activeItem = asPositionalItem(VeFns.canonicalItem(activeVisualElement));
 
   const deltaBl = {

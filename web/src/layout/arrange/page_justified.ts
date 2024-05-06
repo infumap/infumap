@@ -51,7 +51,7 @@ export function arrange_justified_page(
       
   let movingItem = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElement);
+    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
   }
 
   // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't

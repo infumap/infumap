@@ -75,7 +75,7 @@ export const arrangeItem = (
 
   let isMoving = false;
   if (!MouseActionState.empty() && MouseActionState.get().action == MouseAction.Moving) {
-    const activeElementPath = MouseActionState.get().activeElement;
+    const activeElementPath = MouseActionState.get().activeElementPath;
     if (activeElementPath == VeFns.addVeidToPath(itemVeid, parentPath)) {
       isMoving = true;
     }

@@ -118,10 +118,16 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class='absolute'
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div class="absolute font-bold"
-             style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word;`}>
+        <div id={VeFns.veToPath(props.visualElement)}
+             class={`absolute font-bold ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                    `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                    `transform: scale(${scale()}); transform-origin: top left; ` +
+                    `overflow-wrap: break-word; ` +
+                    "outline: 0px solid transparent;" +
+                    `${store.overlay.tableEditInfo() == null ? 'caret-color: transparent' : ''}`}
+              contentEditable={true}>
           {tableItem().title}
         </div>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}

@@ -418,7 +418,7 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
     }
     if (table.flags & TableFlags.ShowColHeader) {
       colClickHitboxes.push(HitboxFns.create(
-        HitboxFlags.Click,
+        HitboxFlags.Click | HitboxFlags.ContentEditable,
         { x: startXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: endXPx - startXPx, h: colHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i, startBl, endBl })
       ));
@@ -437,7 +437,7 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
       HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
       ...colResizeHitboxes,
       ...colClickHitboxes,
-      HitboxFns.create(HitboxFlags.Click, titleBoundsPx),
+      HitboxFns.create(HitboxFlags.Click | HitboxFlags.ContentEditable, titleBoundsPx),
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   };
