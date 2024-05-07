@@ -91,6 +91,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       }
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
     store.overlay.setTableEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
@@ -111,6 +112,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       item.title = newText;
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
     store.overlay.setPageEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
@@ -132,6 +134,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       item.title = newText;
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
     store.overlay.setNoteEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.

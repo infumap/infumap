@@ -27,7 +27,7 @@ export const setCursorPosition = (el: any, targetPosition: number) => {
     range.setEnd(node, node.childNodes.length);
     return range;
   };
-  
+
   const range = createRange(el, targetPosition);
   range.setStart(range.endContainer, range.endOffset);
   const sel = window.getSelection()!;
