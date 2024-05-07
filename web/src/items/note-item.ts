@@ -149,6 +149,7 @@ export const NoteFns = {
       hitboxes: !emitHitboxes ? [] : [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.ContentEditable, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: innerBoundsPx.w / 4,
@@ -248,7 +249,7 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
     fullArrange(store); // input focus changed.
   },
 

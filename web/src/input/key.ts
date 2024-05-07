@@ -30,7 +30,6 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
 import { PopupType } from "../store/StoreProvider_History";
 import { newItemInContext } from "./create";
-import { noteEditOverlay_keyDownListener } from "../components/overlay/NoteEditOverlay";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
@@ -41,7 +40,7 @@ const recognizedKeys = [
   "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE"
 ];
 
-export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
+export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
     if (ev.code == "Enter") {
       (document.activeElement! as HTMLElement).blur();
@@ -56,13 +55,13 @@ export function keyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
-  if (store.overlay.noteEditOverlayInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-    noteEditOverlay_keyDownListener(store, ev);
-    return;
+  if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+    // TODO (HIGH)
+    // event is fired before content is updated.
   }
 
   if (store.overlay.pageEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-    // pageEdit_keyDownListener(store, ev);
+    // TODO (HIGH)
     return;
   }
 

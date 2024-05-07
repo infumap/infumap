@@ -18,7 +18,6 @@
 
 import { HitInfo } from "../input/hit";
 import { Item } from "../items/base/item";
-import { PageItem } from "../items/page-item";
 import { VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
@@ -90,13 +89,13 @@ export interface OverlayStoreContextModel {
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
   pageEditInfo: () => EditOverlayInfo | null,
   tableEditInfo: () => TableEditInfo | null,
-  noteEditOverlayInfo: () => EditOverlayInfo | null,
+  noteEditInfo: () => EditOverlayInfo | null,
   passwordEditOverlayInfo: () => EditOverlayInfo | null,
 
   setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPageEditInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setTableEditInfo: (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => void,
-  setNoteEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
+  setNoteEditInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
 
   isPanicked: InfuSignal<boolean>,
@@ -111,7 +110,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const pageEditInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const tableEditInfo_ = createInfuSignal<TableEditInfo | null>(null);
-  const noteEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
+  const noteEditInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
 
   const searchOverlayVisible = createInfuSignal<boolean>(false);
@@ -125,7 +124,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     expressionEditOverlayInfo_.set(null);
     pageEditInfo_.set(null);
     tableEditInfo_.set(null);
-    noteEditOverlayInfo_.set(null);
+    noteEditInfo_.set(null);
     passwordEditOverlayInfo_.set(null);
 
     editDialogInfo.set(null);
@@ -139,7 +138,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
       expressionEditOverlayInfo_.get() != null ||
       pageEditInfo_.get() != null ||
       tableEditInfo_.get() != null ||
-      noteEditOverlayInfo_.get() != null ||
+      noteEditInfo_.get() != null ||
       passwordEditOverlayInfo_.get() != null ||
       searchOverlayVisible.get() ||
       editDialogInfo.get() != null ||
@@ -152,7 +151,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
   const pageEditInfo = (): EditOverlayInfo | null => pageEditInfo_.get();
   const tableEditInfo = (): TableEditInfo | null => tableEditInfo_.get();
-  const noteEditOverlayInfo = (): EditOverlayInfo | null => noteEditOverlayInfo_.get();
+  const noteEditInfo = (): EditOverlayInfo | null => noteEditInfo_.get();
   const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
 
   const setExpressionEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
@@ -173,10 +172,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     tableEditInfo_.set(info);
   }
 
-  const setNoteEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
+  const setNoteEditInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
     else { historyStore.setFocus(info.itemPath); }
-    noteEditOverlayInfo_.set(info);
+    noteEditInfo_.set(info);
   }
 
   const setPasswordEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
@@ -189,13 +188,13 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     expressionEditOverlayInfo,
     pageEditInfo,
     tableEditInfo,
-    noteEditOverlayInfo,
+    noteEditInfo,
     passwordEditOverlayInfo,
 
     setExpressionEditOverlayInfo,
     setPageEditInfo,
     setTableEditInfo,
-    setNoteEditOverlayInfo,
+    setNoteEditInfo,
     setPasswordEditOverlayInfo,
 
     searchOverlayVisible,

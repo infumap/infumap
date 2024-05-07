@@ -34,9 +34,8 @@ import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
-import { keyHandler } from "../input/key";
+import { keyDownHandler } from "../input/key";
 import { fArrange } from "../layout/arrange";
-import { NoteEditOverlay } from "./overlay/NoteEditOverlay";
 import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
 import { PasswordEditOverlay } from "./overlay/PasswordEditOverly";
 import { MouseEventActionFlags } from "../input/enums";
@@ -126,20 +125,20 @@ export const Main: Component = () => {
     }
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
-    document.addEventListener('keydown', keyListener);
+    document.addEventListener('keydown', keyDownListener);
     window.addEventListener('resize', windowResizeListener);
     window.addEventListener('popstate', windowPopStateListener);
   });
 
   onCleanup(() => {
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);
-    document.removeEventListener('keydown', keyListener);
+    document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('resize', windowResizeListener);
     window.removeEventListener('popstate', windowPopStateListener);
   });
 
-  const keyListener = (ev: KeyboardEvent) => {
-    keyHandler(store, ev);
+  const keyDownListener = (ev: KeyboardEvent) => {
+    keyDownHandler(store, ev);
   };
 
   const windowResizeListener = () => {
@@ -234,9 +233,6 @@ export const Main: Component = () => {
 
       <Show when={store.overlay.expressionEditOverlayInfo() != null}>
         <ExpressionEditOverlay />
-      </Show>
-      <Show when={store.overlay.noteEditOverlayInfo() != null}>
-        <NoteEditOverlay />
       </Show>
       <Show when={store.overlay.passwordEditOverlayInfo() != null}>
         <PasswordEditOverlay />

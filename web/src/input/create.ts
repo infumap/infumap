@@ -212,7 +212,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   if (type == ItemType.Page) {
     store.overlay.setPageEditInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Note) {
-    store.overlay.setNoteEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setNoteEditInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Expression) {
     store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Password) {

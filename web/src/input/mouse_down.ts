@@ -38,11 +38,11 @@ import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
-import { noteEditOverlay_clearJustCreated } from "../components/overlay/NoteEditOverlay";
 import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
+import { asNoteItem } from "../items/note-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -117,6 +117,27 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     defaultResult = MouseEventActionFlags.None;
   }
 
+  if (store.overlay.noteEditInfo()) {
+    console.log("mouseDownHandler: noteEditInfo != null, closing.");
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+      let el = document.getElementById(editingPath);
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
+          buttonNumber == MOUSE_LEFT) {
+        return MouseEventActionFlags.None;
+      }
+      let newText = el!.innerText;
+      let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+      item.title = newText;
+      serverOrRemote.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.setNoteEditInfo(store.history, null);
+    fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+    defaultResult = MouseEventActionFlags.None;
+  }
+
 
   // Toolbar popups.
 
@@ -168,17 +189,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.setExpressionEditOverlayInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
-
-  if (store.overlay.noteEditOverlayInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    noteEditOverlay_clearJustCreated();
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.setNoteEditOverlayInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }

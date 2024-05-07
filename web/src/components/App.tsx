@@ -19,7 +19,7 @@
 import { Component, onMount, Show } from 'solid-js';
 import { SignUp } from './SignUp';
 import { Login } from './Login';
-import { Navigate, Route, Routes } from '@solidjs/router';
+import { Navigate, Route, Router } from '@solidjs/router';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 
@@ -70,7 +70,7 @@ const App: Component = () => {
 
   // Reminder: When adding a route here, also update generate_dist_handlers.py or serve.rs
   return (
-    <Routes>
+    <Router>
       <Route path="/login" component={LoginPath} />
       <Route path="/signup" component={SignUpPath} />
       <Route path="/setup" component={SetupPath} />
@@ -78,7 +78,7 @@ const App: Component = () => {
       <Route path="/:username/:itemLabel" component={MainPath} />
       <Route path="/" component={MainPath} />
       <Route path="*" component={UnknownPath} />
-    </Routes>
+    </Router>
   );
 };
 

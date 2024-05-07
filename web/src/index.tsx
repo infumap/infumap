@@ -18,7 +18,6 @@
 */
 
 import { render } from 'solid-js/web';
-import { Router } from "@solidjs/router";
 import App from './components/App';
 import "tailwindcss/tailwind.css";
 import './index.css';
@@ -29,8 +28,6 @@ import { StoreProvider } from './store/StoreProvider';
 
 render(() => (
   <StoreProvider>
-    <Router>
-      <App />
-    </Router>
+    <App />
   </StoreProvider>
 ), document.getElementById("rootDiv") as HTMLElement);

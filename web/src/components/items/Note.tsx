@@ -37,9 +37,13 @@ import { itemState } from "../../store/ItemState";
 import { FEATURE_COLOR } from "../../style";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { fullArrange } from "../../layout/arrange";
+import { createSelection } from "@solid-primitives/selection";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
+const [selection, setSelection] = createSelection();
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -119,12 +123,27 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   // Link click events are handled in the global mouse up handler. However, calculating the text
   // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
-  const aHrefMouseDown = (ev: MouseEvent) => {
+  const aHrefMouseDownListener = (ev: MouseEvent) => {
     if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(noteItem().url != null && noteItem().url != ""); }
     ev.preventDefault();
   };
-  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
-  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefClickListener = (ev: MouseEvent) => { ev.preventDefault(); };
+  const aHrefMouseUpListener = (ev: MouseEvent) => { ev.preventDefault(); };
+
+  const inputListener = (ev: InputEvent) => {
+    setTimeout(() => {
+      if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+        let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+        let el = document.getElementById(editingPath);
+        let newText = el!.innerText;
+        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+        item.title = newText;
+        const selected = selection();
+        fullArrange(store);
+        setSelection(selected);
+      }
+    }, 0);
+  }
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
@@ -132,7 +151,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.user.getUserMaybe() != null &&
     props.visualElement.mouseIsOver.get() &&
     !store.anItemIsMoving.get() &&
-    store.overlay.noteEditOverlayInfo() == null &&
+    store.overlay.noteEditInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
   const renderShadowMaybe = () =>
@@ -144,7 +163,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderDetailed = () =>
     <>
-      <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
+      <div id={VeFns.veToPath(props.visualElement) + ":title"}
+           class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
            style={`position: absolute; ` +
                   `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                   `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
@@ -153,15 +173,19 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                   `font-size: ${infuTextStyle().fontSize}px; ` +
                   `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                  `outline: 0px solid transparent; `}
+           contentEditable={true}
+           spellcheck={store.overlay.noteEditInfo() != null}
+           onInput={inputListener}>
         <Switch>
           <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
             <a href={""}
                class={`text-blue-800`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-               onClick={aHrefClick}
-               onMouseDown={aHrefMouseDown}
-               onMouseUp={aHrefMouseUp}>
+               onClick={aHrefClickListener}
+               onMouseDown={aHrefMouseDownListener}
+               onMouseUp={aHrefMouseUpListener}>
               {formatMaybe(noteItem().title, noteItem().format)}
             </a>
           </Match>
