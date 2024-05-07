@@ -128,7 +128,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const aHrefClickListener = (ev: MouseEvent) => { ev.preventDefault(); };
   const aHrefMouseUpListener = (ev: MouseEvent) => { ev.preventDefault(); };
 
-  const inputListener = (ev: InputEvent) => {
+  const inputListener = (_ev: InputEvent) => {
     setTimeout(() => {
       if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
         let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
@@ -174,11 +174,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `overflow-wrap: break-word; white-space: pre-wrap; ` +
                   `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                   `outline: 0px solid transparent; `}
-           contentEditable={true}
+           contentEditable={store.overlay.noteEditInfo() != null || !NoteFns.hasUrl(noteItem())}
            spellcheck={store.overlay.noteEditInfo() != null}
            onInput={inputListener}>
         <Switch>
-          <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
+          <Match when={NoteFns.hasUrl(noteItem()) && store.overlay.noteEditInfo() == null}>
             <a href={""}
                class={`text-blue-800`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
@@ -188,8 +188,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               {formatMaybe(noteItem().title, noteItem().format)}
             </a>
           </Match>
-          <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-            <span>{formatMaybe(noteItem().title, noteItem().format)}</span>
+          <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.noteEditInfo() != null}>
+            <span class={`${NoteFns.hasUrl(noteItem()) ? 'text-blue-400' : ''}`}>{formatMaybe(noteItem().title, noteItem().format)}</span>
           </Match>
         </Switch>
       </div>

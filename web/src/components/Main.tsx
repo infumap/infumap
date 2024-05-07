@@ -68,7 +68,8 @@ export const Main: Component = () => {
         result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
       } catch (e: any) {
         console.error(`Main.onMount fetchItems failed ${id}`, e);
-        throw e;
+        // TODO (HIGH): something better.
+        return;
       }
 
       const pageObject = result.item as any;
