@@ -58,6 +58,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     // TODO (HIGH)
     // event is fired before content is updated.
+    return;
   }
 
   if (store.overlay.pageEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {

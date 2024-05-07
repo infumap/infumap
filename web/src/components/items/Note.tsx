@@ -38,12 +38,10 @@ import { FEATURE_COLOR } from "../../style";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { fullArrange } from "../../layout/arrange";
-import { createSelection } from "@solid-primitives/selection";
+import { getCursorPosition, setCursorPosition } from "../../util/cursor";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
-
-const [selection, setSelection] = createSelection();
 
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -138,9 +136,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         let newText = el!.innerText;
         let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
         item.title = newText;
-        const selected = selection();
+
+        const cursorPosition = getCursorPosition(el);
         fullArrange(store);
-        setSelection(selected);
+        setCursorPosition(el, cursorPosition);
       }
     }, 0);
   }

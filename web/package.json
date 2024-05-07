@@ -22,7 +22,6 @@
   "dependencies": {
     "justified-layout": "^4.1.0",
     "solid-js": "^1.8.17",
-    "@solidjs/router": "^0.13.3",
-    "@solid-primitives/selection": "0.0.8"
+    "@solidjs/router": "^0.13.3"
   }
 }
