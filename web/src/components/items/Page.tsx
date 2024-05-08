@@ -34,6 +34,7 @@ import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { fArrange } from "../../layout/arrange";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -261,6 +262,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
           {renderIsLinkMaybe()}
+          <InfuResizeTriangle />
         </Show>
       </div>
     );
@@ -356,6 +358,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
         </div>
+        <InfuResizeTriangle />
       </div>;
 
     const renderBoxTitleMaybe = () =>
@@ -374,6 +377,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              spellcheck={store.overlay.pageEditInfo() != null}
              contentEditable={true}>
             {pageItem().title}
+            <InfuResizeTriangle />
         </div>
       </Show>;
 

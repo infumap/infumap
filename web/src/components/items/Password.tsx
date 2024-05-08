@@ -27,6 +27,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -118,6 +119,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <InfuLinkTriangle />
         </Show>
+        <InfuResizeTriangle />
         <Show when={props.visualElement.movingItemIsOverAttach.get()}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +

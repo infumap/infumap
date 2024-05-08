@@ -35,6 +35,7 @@ import { isNumeric } from "../../util/math";
 import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { NoteFlags } from "../../items/base/flags-item";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -175,6 +176,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
+          <InfuResizeTriangle />
         </Show>
       </div>
     </>
