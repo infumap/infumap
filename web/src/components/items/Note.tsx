@@ -38,7 +38,7 @@ import { FEATURE_COLOR } from "../../style";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { fullArrange } from "../../layout/arrange";
-import { getCursorPosition, setCursorPosition } from "../../util/cursor";
+import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
 
@@ -139,9 +139,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
         item.title = newText;
 
-        const cursorPosition = getCursorPosition(el);
+        const cursorPosition = getCaretPosition(el!);
         fullArrange(store);
-        setCursorPosition(el, cursorPosition);
+        setCaretPosition(el!, cursorPosition);
       }
     }, 0);
   }
@@ -191,7 +191,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.noteEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                       `${NoteFns.hasUrl(noteItem()) ? 'text-blue-400' : ''}` +
+                       `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}` +
                        `${store.overlay.noteEditInfo() == null ? 'hidden-selection' : ''}`}
                 style={`position: absolute; ` +
                        `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +

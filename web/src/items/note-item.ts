@@ -36,6 +36,8 @@ import { measureLineCount } from '../layout/text';
 import { fullArrange } from '../layout/arrange';
 import { CursorPosition } from '../store/StoreProvider_Overlay';
 import { FormatMixin } from './base/format-item';
+import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
+import { CursorEventState } from '../input/state';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -252,9 +254,11 @@ export const NoteFns = {
     store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.Unused });
     const hu = NoteFns.hasUrl(asNoteItem(visualElement.displayItem));
     if (hu) {
-      let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-      let el = document.getElementById(editingPath);
-      el!.focus();
+      const editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+      const el = document.getElementById(editingPath)!;
+      el.focus();
+      const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+      setCaretPosition(el, closestIdx);
     }
     fullArrange(store); // input focus changed.
   },
