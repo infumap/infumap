@@ -47,6 +47,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 export const Note_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => {
@@ -163,23 +164,20 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderDetailed = () =>
     <>
-      <div id={VeFns.veToPath(props.visualElement) + ":title"}
-           class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
-           style={`position: absolute; ` +
-                  `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                  `width: ${naturalWidthPx()}px; ` +
-                  `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
-                  `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                  `font-size: ${infuTextStyle().fontSize}px; ` +
-                  `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                  `outline: 0px solid transparent; `}
-           contentEditable={store.overlay.noteEditInfo() != null || !NoteFns.hasUrl(noteItem())}
-           spellcheck={store.overlay.noteEditInfo() != null}
-           onInput={inputListener}>
-        <Switch>
-          <Match when={NoteFns.hasUrl(noteItem()) && store.overlay.noteEditInfo() == null}>
+      <Switch>
+        <Match when={NoteFns.hasUrl(noteItem()) &&
+                     (store.overlay.noteEditInfo() == null || store.overlay.noteEditInfo()!.itemPath != vePath())}>
+          <div id={VeFns.veToPath(props.visualElement) + ":title"}
+               class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
+               style={`position: absolute; ` +
+                      `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                      `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                      `width: ${naturalWidthPx()}px; ` +
+                      `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
+                      `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                      `font-size: ${infuTextStyle().fontSize}px; ` +
+                      `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                      `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
             <a href={""}
                class={`text-blue-800`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
@@ -188,12 +186,31 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                onMouseUp={aHrefMouseUpListener}>
               {formatMaybe(noteItem().title, noteItem().format)}
             </a>
-          </Match>
-          <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.noteEditInfo() != null}>
-            <span class={`${NoteFns.hasUrl(noteItem()) ? 'text-blue-400' : ''}`}>{formatMaybe(noteItem().title, noteItem().format)}</span>
-          </Match>
-        </Switch>
-      </div>
+          </div>
+        </Match>
+        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.noteEditInfo() != null}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+                       `${NoteFns.hasUrl(noteItem()) ? 'text-blue-400' : ''}` +
+                       `${store.overlay.noteEditInfo() == null ? 'hidden-selection' : ''}`}
+                style={`position: absolute; ` +
+                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `font-size: ${infuTextStyle().fontSize}px; ` +
+                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                       `outline: 0px solid transparent; ` +
+                       `${store.overlay.noteEditInfo() == null ? 'caret-color: transparent' : ''}`}
+                contentEditable={true}
+                spellcheck={store.overlay.noteEditInfo() != null}
+                onInput={inputListener}>
+            {formatMaybe(noteItem().title, noteItem().format)}
+          </span>
+        </Match>
+      </Switch>
       <For each={props.visualElement.attachmentsVes}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
