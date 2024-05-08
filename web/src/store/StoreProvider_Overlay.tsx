@@ -45,6 +45,7 @@ export interface ToolbarPopupInfo {
 }
 
 export enum CursorPosition {
+  Unused = "UNUSED",
   Start = "START",
   End = "END",
   UnderMouse = "UNDER_MOUSE",

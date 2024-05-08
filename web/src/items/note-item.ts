@@ -249,7 +249,7 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.Unused });
     const hu = NoteFns.hasUrl(asNoteItem(visualElement.displayItem));
     if (hu) {
       let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
