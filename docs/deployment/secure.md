@@ -20,14 +20,13 @@ General notes:
 ### Deploy A New Server Instance
 
   - Select "Cloud Compute".
-  - Select an instance type. Suggest not using "Regular Cloud Compute" - you will find the marginal extra cost for higher CPU performance has good ROI for faster image operations.
+  - Select a server type and plan. Infumap will work (and scale) adequately on the lowest tier plans. However usability improves significantly with more resources. I found that Shared CPU / High frequency / 2 VCPU / 4Gb works very well ($24/mo), and I recommend this for optimal experience.
   - Select a location close to you. https://wondernetwork.com/pings is a good resource for checking ping times.
   - Select "Debian 12", or for the extra paranoid "Upload ISO".
     - Two reasons you may want to use the Debian installation ISO directly from the Debain website rather than an image supplied by Vultr:
       - You can be more sure it is more trustworthy.
       - There won't be any unexpected non-standard configuration.
     - Paste in the URL to the latest debian net install ISO. You can find a link to that on this page: https://www.debian.org/distrib/netinst . At the time of writing, this was: https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.1.0-amd64-netinst.iso
-  - Select the server size. Suggest $6/mo is good enough for most personal use.
   - Disable auto-backup (Infumap manages backups for you).
   - Disable IPv6.
   - Enter a host name to align with the domain you will use. This may include a subdomain.
@@ -122,7 +121,7 @@ https://www.digitalocean.com/community/tutorials/how-to-set-up-a-firewall-with-u
 
 
 ### Caddy in docker using Gvisor
- - Install docker by following the instructions here: https://docs.docker.com/engine/install/debian/
+ - Install docker by following the instructions here: https://docs.docker.com/engine/install/debian/ or `apt install docker.io`
  - Install gvisor by following the instructions here: https://gvisor.dev/docs/user_guide/install/
  - Setup docker to use gvisor by following the instructions here: https://gvisor.dev/docs/user_guide/quick_start/docker/
    > sudo runsc install

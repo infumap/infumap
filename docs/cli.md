@@ -93,6 +93,30 @@ Options:
 - **-k --key (required):** The encryption key used to encrypt the data, specified in the configuration for the instance that created the backup file.
 
 
+### emergency
+
+Automates pulling the latest backup file for a specific user and bringing up a temporary local Infumap instance
+based on this. Use this command in the event there is a problem with your server that you can't resolve quickly
+and you need to urgently access information in Infumap. This command is also useful as simple a disaster
+recovery test. Since there are a lot of parameters, it's a good idea to have a one-command shell script set up
+so that you can act quickly if/when the time comes.
+
+- **--s3-backup-endpoint:** As per your Infumap settings.
+- **--s3-backup-region:** As per your Infumap settings.
+- **--s3-backup-bucket:** As per your Infumap settings.
+- **--s3-backup-key:** As per your Infumap settings.
+- **--s3-backup-secret:** As per your Infumap settings.
+- **--s3-endpoint (optional):** As per your Infumap settings.
+- **--s3-region (optional):** As per your Infumap settings.
+- **--s3-bucket (optional):** As per your Infumap settings.
+- **--s3-key (optional):** As per your Infumap settings.
+- **--s3-secret (optional):** As per your Infumap settings.
+- **--user-id:** The user id to retrieve the backup file for.
+- **--encryption-key:** As per your Infumap settings.
+- **--keep:** If specified, the data files are not deleted on exit.
+
+
+
 ## API Commands
 
 ### login

@@ -29,7 +29,7 @@ use crate::web::start_server;
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("emergency")
-    .about("Automates pulling the latest backup file for a specific infumap user and bringing up a temporary local infumap instance based on this.")
+    .about("Automates pulling the latest backup file for a specific Infumap user and bringing up a temporary local infumap instance based on this.")
 
     .arg(Arg::new("s3_backup_endpoint")
       .long("s3-backup-endpoint")
