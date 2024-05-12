@@ -21,54 +21,85 @@ use config::Config;
 use infusdk::util::infu::InfuResult;
 use log::{error, info, warn};
 
-use crate::{cli::restore::process_backup, setup::add_config_defaults, util::fs::ensure_256_subdirs, web::start_server};
+use crate::cli::restore::process_backup;
+use crate::setup::add_config_defaults;
+use crate::util::fs::ensure_256_subdirs;
+use crate::web::start_server;
 
 
 pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
   App::new("emergency")
     .about("Automates pulling the latest backup file for a specific infumap user and bringing up a temporary local infumap instance based on this.")
+
+    .arg(Arg::new("s3_backup_endpoint")
+      .long("s3-backup-endpoint")
+      .help("The s3 endpoint for the backup object store (if required by your provider).")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(false))
+    .arg(Arg::new("s3_backup_region")
+      .long("s3-backup-region")
+      .help("The s3 region for the backup object store (if required by your provider).")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(false))
+    .arg(Arg::new("s3_backup_bucket")
+      .long("s3-backup-bucket")
+      .help("The s3 bucket name of the backup object store.")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(true))
+    .arg(Arg::new("s3_backup_key")
+      .long("s3-backup-key")
+      .help("The s3 key for accessing the backup object store.")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(true))
+    .arg(Arg::new("s3_backup_secret")
+      .long("s3-backup-secret")
+      .help("The s3 secret for accessing the backup object store.")
+      .takes_value(true)
+      .multiple_values(false)
+      .required(true))
+
     .arg(Arg::new("s3_endpoint")
-      .short('e')
       .long("s3-endpoint")
-      .help(".")
+      .help("The s3 endpoint for the infumap data object store (if required by your provider).")
       .takes_value(true)
       .multiple_values(false)
       .required(false))
     .arg(Arg::new("s3_region")
-      .short('r')
       .long("s3-region")
-      .help(".")
+      .help("The s3 region for the infumap data object store (if required by your provider).")
       .takes_value(true)
       .multiple_values(false)
       .required(false))
     .arg(Arg::new("s3_bucket")
-      .short('b')
       .long("s3-bucket")
-      .help(".")
+      .help("The s3 bucket name of the infumap data object store.")
       .takes_value(true)
       .multiple_values(false)
-      .required(true))
+      .required(false))
     .arg(Arg::new("s3_key")
       .long("s3-key")
-      .help("Your s3 key.")
+      .help("The s3 key for the infumap data object store.")
       .takes_value(true)
       .multiple_values(false)
-      .required(true))
+      .required(false))
     .arg(Arg::new("s3_secret")
       .long("s3-secret")
-      .help("Your s3 secret.")
+      .help("The s3 secret for the infumap data object store.")
       .takes_value(true)
       .multiple_values(false)
-      .required(true))
+      .required(false))
+
     .arg(Arg::new("user_id")
-    .short('u')
       .long("user-id")
       .help("The infumap user id.")
       .takes_value(true)
       .multiple_values(false)
       .required(true))
     .arg(Arg::new("encryption_key")
-      .short('k')
       .long("encryption-key")
       .help("The 32 byte hex encoded encryption key (64 chars) that was used to encrypt the backup.")
       .takes_value(true)
@@ -84,20 +115,27 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let s3_backup_endpoint = sub_matches.value_of("s3_backup_endpoint").map(|a| a.to_string());
+  let s3_backup_region = sub_matches.value_of("s3_backup_region").map(|a| a.to_string());
+  let s3_backup_bucket = match sub_matches.value_of("s3_backup_bucket").map(|a| a.to_string()) {
+    Some(p) => p,
+    None => { return Err("backup s3 bucket name must be specified.".into()); }
+  };
+  let s3_backup_key = match sub_matches.value_of("s3_backup_key").map(|a| a.to_string()) {
+    Some(p) => p,
+    None => { return Err("backup s3 key must be specified.".into()); }
+  };
+  let s3_backup_secret = match sub_matches.value_of("s3_backup_secret").map(|a| a.to_string()) {
+    Some(p) => p,
+    None => { return Err("backup s3 secret must be specified.".into()); }
+  };
+
   let s3_endpoint = sub_matches.value_of("s3_endpoint").map(|a| a.to_string());
   let s3_region = sub_matches.value_of("s3_region").map(|a| a.to_string());
-  let s3_bucket = match sub_matches.value_of("s3_bucket").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("s3 bucket name must be specified.".into()); }
-  };
-  let s3_key = match sub_matches.value_of("s3_key").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("s3 key must be specified.".into()); }
-  };
-  let s3_secret = match sub_matches.value_of("s3_secret").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("s3 secret must be specified.".into()); }
-  };
+  let s3_bucket = sub_matches.value_of("s3_bucket").map(|a| a.to_string());
+  let s3_key = sub_matches.value_of("s3_key").map(|a| a.to_string());
+  let s3_secret = sub_matches.value_of("s3_secret").map(|a| a.to_string());
+
   let user_id = match sub_matches.value_of("user_id").map(|a| a.to_string()) {
     Some(p) => p,
     None => { return Err("infumap user_id must be specified.".into()); }
@@ -109,7 +147,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let keep_files = sub_matches.is_present("keep");
   
   info!("fetching list of backup files.");
-  let bs = crate::storage::backup::new(s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret)?;
+  let bs = crate::storage::backup::new(s3_backup_region, s3_backup_endpoint, s3_backup_bucket, s3_backup_key, s3_backup_secret)?;
   let mut files = crate::storage::backup::list(bs.clone()).await?;
   info!("found {} backup files for {} users.", files.iter().map(|kv| kv.1.len()).fold(0, |acc, x| acc + x), files.len());
   let timestamps_for_user = match files.get_mut(&user_id) {
@@ -170,22 +208,35 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   info!("configuring.");
   let mut config_builder = Config::builder();
   config_builder = add_config_defaults(config_builder)?
-    .set_override("log_level", "debug").unwrap()
-    .set_override("data_dir", infumap_data_dir.to_str().unwrap()).unwrap()
-    .set_override("cache_dir", infumap_cache_dir.to_str().unwrap()).unwrap();
+    .set_override("log_level", "debug").map_err(|_| "failed to override log_level config")?
+    .set_override("data_dir", infumap_data_dir.to_str().ok_or("can't interpret data dir pathbuf")?).map_err(|_| "failed to override data_dir config")?
+    .set_override("cache_dir", infumap_cache_dir.to_str().ok_or("can't interpret cache dir pathbuf")?).map_err(|_| "failed to override cache_dir config")?
+    .set_override("enable_local_object_storage", "false").map_err(|_| "failed to override enable_local_object_storage config")?;
+  if s3_region.is_some() || s3_endpoint.is_some() {
+    config_builder = config_builder.set_override("enable_s3_1_object_storage", "true").map_err(|_| "failed to override enable_s1_1_object_storage config")?;
+  }
+  if let Some(s3_region) = s3_region {
+    config_builder = config_builder.set_override("s3_1_region", s3_region).map_err(|_| "failed to override s3_1_region config")?;
+  }
+  if let Some(s3_endpoint) = s3_endpoint {
+    config_builder = config_builder.set_override("s3_1_endpoint", s3_endpoint).map_err(|_| "failed to override s3_1_endpoint config")?;
+  }
+  if let Some(s3_bucket) = s3_bucket {
+    config_builder = config_builder.set_override("s3_1_bucket", s3_bucket).map_err(|_| "failed to override s3_1_bucket config")?;
+  }
+  if let Some(s3_key) = s3_key {
+    config_builder = config_builder.set_override("s3_1_key", s3_key).map_err(|_| "failed to override s3_1_key config")?;
+  }
+  if let Some(s3_secret) = s3_secret {
+    config_builder = config_builder.set_override("s3_1_secret", s3_secret).map_err(|_| "failed to override s3_1_secret config")?;
+  }
+
   let config = match config_builder.build() {
     Ok(c) => c,
     Err(e) => {
-      return Err(format!("An error occurred constructing configuration: '{e}'").into());
+      return Err(format!("an error occurred constructing configuration: '{e}'").into());
     }
   };
-
-  // #enable_s3_1_object_storage = false
-// #s3_1_region =
-// #s3_1_endpoint =
-// #s3_1_bucket =
-// #s3_1_key =
-// #s3_1_secret =
 
   info!("starting webserver on localhost:8000");
   start_server(config).await?;
