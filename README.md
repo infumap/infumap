@@ -5,8 +5,7 @@ Infumap:
 1. Is the perfect place to hoard all of your information safely (you aren't going to loose it) and securely (no one else is going to be able to access it).
 2. Provides a powerful set of graphical building blocks for progressively adding structure/organizing/working with this information as the need arises.
 
-It's the computer deskop I always wanted. I built it as a tool to run my life off of, have been doing so for a long time now (this is a re-write/think of the original project I started in 2016), and wouldn't have it any other way. Prioritization of work has been completely driven by what I get the most value out of. This often means being expansionary (continually adding features in a very basic/buggy way) rather than making something polished. I'm getting sick of the rough edges though, and have been polishing it up a bit more recently.
-
+It's the computer deskop I always wanted. I run my life off of it, and have been doing so for a long time now (this repo is a complete re-write/re-think of the original project I started in 2016). Prioritization of work has been completely driven by what I get the most value out of. This often means being expansionary (continually adding features in a very basic/buggy way) rather than making something polished, however current focus is on polish for general use.
 
 **Status:** Now useful in a very basic way, if you know what you're doing ([docs](/docs) are a work-in-progress), and if you avoid the quirks and bugs. No release yet.
 

@@ -12,7 +12,7 @@ These notes are relevant / may be useful even if you use another provider.
 
 ### Vultr Account
 
-A couple of suggestions:
+General notes:
 - Make sure you have 2 factor authentication configured and enabled.
 - Maintain pre-payment of funds well in advance of expected usage to guard against possible problems with credit card payments.
 
@@ -20,14 +20,14 @@ A couple of suggestions:
 ### Deploy A New Server Instance
 
   - Select "Cloud Compute".
-  - Select "AMD High performance" (you will find the extra cost over the lower end CPU has good ROI for faster image operations).
-  - Select a location close to you.
-  - Select "Upload ISO".
-    - Use the Debian installation ISO directly from the Debain website rather than an image supplied by Vultr. Two reasons:
-      - We can be more sure it is more trustworthy.
+  - Select an instance type. Suggest not using "Regular Cloud Compute" - you will find the marginal extra cost for higher CPU performance has good ROI for faster image operations.
+  - Select a location close to you. https://wondernetwork.com/pings is a good resource for checking ping times.
+  - Select "Debian 12", or for the extra paranoid "Upload ISO".
+    - Two reasons you may want to use the Debian installation ISO directly from the Debain website rather than an image supplied by Vultr:
+      - You can be more sure it is more trustworthy.
       - There won't be any unexpected non-standard configuration.
-    - Past in the URL to the latest debian net install ISO. You can find a link to that on this page: https://www.debian.org/distrib/netinst . At the time of writing, this was: https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.1.0-amd64-netinst.iso
-  - Select the $6/mo server size.
+    - Paste in the URL to the latest debian net install ISO. You can find a link to that on this page: https://www.debian.org/distrib/netinst . At the time of writing, this was: https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.1.0-amd64-netinst.iso
+  - Select the server size. Suggest $6/mo is good enough for most personal use.
   - Disable auto-backup (Infumap manages backups for you).
   - Disable IPv6.
   - Enter a host name to align with the domain you will use. This may include a subdomain.
@@ -37,6 +37,7 @@ A couple of suggestions:
 
 ### Install Debian
 
+If installing from the Debian ISO:
   - When you see the instance is running, select "view console" from the instance "..." menu.
   - If you do this quickly you will see a graphical menu with an "Install" option. If you aren't quick enough, execution will default to a text based install, which is not ideal because you can't scroll the console window. If you see this, it is best to restart the server to get the BIOS menu back.
   - Follow the prompts to install. Some specific notes:
@@ -101,6 +102,7 @@ A couple of suggestions:
 - Roughly follow these instructions: https://www.digitalocean.com/community/tutorials/how-to-create-an-encrypted-file-system-on-a-digitalocean-block-storage-volume
 - `sudo cryptsetup luksOpen /dev/disk/by-id/<mount_id> secure-volume`
 - `sudo /sbin/mkfs.ext4 /dev/mapper/secure-volume`
+- `sudo mkdir /mnt/secure`
 - `sudo chmod a+rwx secure`
 - `sudo mount /dev/mapper/secure-volume /mnt/secure`
 
