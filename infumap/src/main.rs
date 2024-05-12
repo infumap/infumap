@@ -32,6 +32,7 @@ use std::env;
 async fn main() {
   let arg_matches = App::new("Infumap")
     .version("0.1.0")
+    .subcommand(cli::emergency::make_clap_subcommand())
     .subcommand(cli::keygen::make_clap_subcommand())
     .subcommand(cli::login::make_clap_subcommand())
     .subcommand(cli::logout::make_clap_subcommand())
@@ -55,6 +56,9 @@ async fn main() {
         Err(e) => Err(e),
         Ok(()) => {
           match command {
+            "emergency" => {
+              cli::emergency::execute(arg_sub_matches).await
+            },
             "keygen" => {
               cli::keygen::execute(arg_sub_matches)
             },

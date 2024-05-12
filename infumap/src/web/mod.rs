@@ -23,6 +23,7 @@ pub mod routes;
 pub mod session;
 
 use clap::{ArgMatches, App, Arg};
+use config::Config;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use infusdk::util::infu::InfuResult;
@@ -64,9 +65,12 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
 
 
 pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
-  let config = init_fs_maybe_and_get_config(
-    arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
+  let config = init_fs_maybe_and_get_config(arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
+  start_server(config).await
+}
 
+
+pub async fn start_server(config: Config) -> InfuResult<()> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(tokio::sync::Mutex::new(
     match Db::new(&data_dir).await {
@@ -128,7 +132,7 @@ pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
     match storage_cache::new(&cache_dir, cache_max_mb).await {
       Ok(image_cache) => image_cache,
       Err(e) => {
-        return Err(format!("Failed to initialize config: {}", e).into());
+        return Err(format!("Failed to initialize cache: {}", e).into());
       }
     };
 

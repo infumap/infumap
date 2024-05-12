@@ -15,7 +15,8 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::os::unix::prelude::FileExt;
-use config::{Config, FileFormat};
+use config::builder::DefaultState;
+use config::{Config, ConfigBuilder, FileFormat};
 use infusdk::util::infu::InfuResult;
 use log::{info, warn};
 use crate::{config::*, init_logger};
@@ -333,7 +334,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -
 
 
 fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
-  let config_builder =
+  let mut config_builder =
   if let Some(path) = &settings_path_maybe {
     info!("Reading config from: {} + overriding with env vars where set.", path);
     Config::builder().add_source(
@@ -342,7 +343,26 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     info!("Not using settings file - taking all settings from env vars.");
     Config::builder()
   }
-    .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX))
+    .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX));
+  config_builder = add_config_defaults(config_builder)?;
+
+  let result = match config_builder.build() {
+    Ok(c) => c,
+    Err(e) => {
+      return Err(format!("An error occurred loading configuration: '{e}'").into());
+    }
+  };
+
+  if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())? < 0 {
+    return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
+  }
+
+  return Ok(result)
+}
+
+
+pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<ConfigBuilder<DefaultState>> {
+  Ok(builder
     .set_default(CONFIG_ENV_ONLY, CONFIG_ENV_ONLY_DEFAULT).map_err(|e| e.to_string())?
     .set_default(CONFIG_LOG_LEVEL, CONFIG_LOG_LEVEL_DEFAULT).map_err(|e| e.to_string())?
     .set_default(CONFIG_ADDRESS, CONFIG_ADDRESS_DEFAULT).map_err(|e| e.to_string())?
@@ -361,18 +381,5 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     .set_default(CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_ENABLE_S3_2_OBJECT_STORAGE_DEFAULT).map_err(|e| e.to_string())?
     .set_default(CONFIG_ENABLE_S3_BACKUP, CONFIG_ENABLE_S3_BACKUP_DEFAULT).map_err(|e| e.to_string())?
     .set_default(CONFIG_BACKUP_PERIOD_MINUTES, CONFIG_BACKUP_PERIOD_MINUTES_DEFAULT).map_err(|e| e.to_string())?
-    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT).map_err(|e| e.to_string())?;
-
-  let result = match config_builder.build() {
-    Ok(c) => c,
-    Err(e) => {
-      return Err(format!("An error occurred loading configuration: '{e}'").into());
-    }
-  };
-
-  if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())? < 0 {
-    return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
-  }
-
-  return Ok(result)
+    .set_default(CONFIG_BACKUP_RETENTION_PERIOD_DAYS, CONFIG_BACKUP_RETENTION_PERDIO_DAYS_DEFAULT).map_err(|e| e.to_string())?)
 }

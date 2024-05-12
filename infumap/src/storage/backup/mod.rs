@@ -51,6 +51,15 @@ pub async fn put(backup_store: Arc<BackupStore>, user_id: &str, backup_bytes: Ve
   Ok(s3_path)
 }
 
+pub async fn get(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<Vec<u8>> {
+  let s3_path = format!("{}_{}", user_id, timestamp);
+  let result = backup_store.bucket.get_object(s3_path.clone()).await
+    .map_err(|e| format!("Error occured getting backup from S3: {}", e))?;
+  if result.status_code() != 200 {
+    return Err(format!("Unexpected status code getting backup from S3: {}", result.status_code()).into());
+  }
+  Ok(result.bytes().to_vec())
+}
 
 pub async fn delete(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<()> {
   let s3_path = format!("{}_{}", user_id, timestamp);

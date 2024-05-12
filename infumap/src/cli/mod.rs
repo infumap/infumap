@@ -28,6 +28,7 @@ use tokio::io::AsyncWriteExt;
 use crate::web::cookie::InfuSession;
 use crate::util::fs::{expand_tilde, path_exists};
 
+pub mod emergency;
 pub mod keygen;
 pub mod login;
 pub mod logout;

@@ -63,6 +63,11 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];
   tokio::io::AsyncReadExt::read_exact(&mut f, &mut buffer).await?;
 
+  process_backup(&buffer, "items.json", "user.json", encryption_key, user_id).await
+}
+
+
+pub async fn process_backup(buffer: &Vec<u8>, items_path: &str, user_path: &str, encryption_key: &str, user_id: &str) -> InfuResult<()> {
   let unencrypted = decrypt_file_data(&encryption_key, &buffer, user_id)?;
 
   let mut u_cursor = Cursor::new(unencrypted);
@@ -78,14 +83,14 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut file = OpenOptions::new()
     .create_new(true)
     .write(true)
-    .open("items.json").await?;
+    .open(items_path).await?;
   file.write_all(&uncompressed[8..(8+isize)]).await?;
   file.flush().await?;
 
   let mut file = OpenOptions::new()
     .create_new(true)
     .write(true)
-    .open("user.json").await?;
+    .open(user_path).await?;
   file.write_all(&uncompressed[(16+isize)..(16+isize+usize)]).await?;
   file.flush().await?;
 
