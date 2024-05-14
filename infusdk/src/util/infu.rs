@@ -24,7 +24,7 @@ use std::time::SystemTimeError;
 pub type InfuResult<T> = Result<T, InfuError>;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfuError {
   message: String
 }
@@ -32,6 +32,9 @@ pub struct InfuError {
 impl InfuError {
   pub fn new(message: &str) -> InfuError {
     InfuError { message: message.to_string() }
+  }
+  pub fn message(&self) -> &str {
+    return &self.message;
   }
 }
 
