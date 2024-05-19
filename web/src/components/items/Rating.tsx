@@ -23,6 +23,7 @@ import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { createLineHighlightBoundsPxFn } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -67,6 +68,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
     result.w = oneBlockWidthPx();
     return result;
   }
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
 
   const renderHighlightsMaybe = () =>
@@ -74,6 +76,10 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+        <Show when={lineHighlightBoundsPx() != null}>
+          <div class="absolute border border-slate-300 rounded-sm"
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+        </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"

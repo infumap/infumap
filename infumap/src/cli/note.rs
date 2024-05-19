@@ -105,7 +105,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   item.insert("url".to_owned(), Value::String("".to_owned()));
 
   let add_item_request = serde_json::to_string(&item)?;
-  let send_reqest = CommandRequest {
+  let send_request = CommandRequest {
     command: "add-item".to_owned(),
     json_data: add_item_request,
     base64_data: None,
@@ -114,7 +114,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let add_item_response: CommandResponse = reqwest::ClientBuilder::new()
     .default_headers(request_headers.clone()).build().unwrap()
     .post(named_session.command_url()?.clone())
-    .json(&send_reqest)
+    .json(&send_request)
     .send()
     .await.map_err(|e| format!("{}", e))?
     .json()

@@ -26,8 +26,7 @@ import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { getTextStyleForNote } from "../../layout/text";
@@ -36,6 +35,7 @@ import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -187,15 +187,8 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 export const Expression_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = () => {
-    if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child &&
-        props.visualElement.tableDimensionsPx) { // not set if not in table.
-      let r = cloneBoundingBox(boundsPx())!;
-      r.w = props.visualElement.tableDimensionsPx!.w;
-      return r;
-    }
-    return boundsPx();
-  }
+  const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
@@ -211,7 +204,11 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-            style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+        <Show when={lineHighlightBoundsPx() != null}>
+          <div class="absolute border border-slate-300 rounded-sm"
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+        </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"

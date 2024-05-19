@@ -16,10 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Switch } from "solid-js";
+import { Component, Match, Show, Switch } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { createLineHighlightBoundsPxFn } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -45,12 +46,17 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
     result.w = result.w - 6;
     return result;
   };
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
 
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+        <Show when={lineHighlightBoundsPx() != null}>
+          <div class="absolute border border-slate-300 rounded-sm"
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+        </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"

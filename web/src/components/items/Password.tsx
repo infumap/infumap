@@ -19,15 +19,15 @@
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -136,15 +136,8 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
   const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = () => {
-    if (props.visualElement.displayItem.relationshipToParent == RelationshipToParent.Child &&
-        props.visualElement.tableDimensionsPx) { // not set if not in table.
-      let r = cloneBoundingBox(boundsPx())!;
-      r.w = props.visualElement.tableDimensionsPx!.w;
-      return r;
-    }
-    return boundsPx();
-  }
+  const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
@@ -175,6 +168,10 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+        <Show when={lineHighlightBoundsPx() != null}>
+          <div class="absolute border border-slate-300 rounded-sm"
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+        </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
