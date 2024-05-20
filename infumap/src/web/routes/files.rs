@@ -18,7 +18,7 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use image::ImageOutputFormat;
+use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use image::io::Reader;
 use infusdk::util::infu::InfuResult;
@@ -253,7 +253,8 @@ async fn get_cached_resized_img(
 
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
-      img.write_to(&mut cursor, ImageOutputFormat::Jpeg(JPEG_QUALITY))
+      let encoder = JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
+      img.write_with_encoder(encoder)
         .map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
 
       debug!("Inserting image '{}' into cache and using as response.", name);

@@ -18,9 +18,9 @@ use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use image::ImageOutputFormat;
 use image::imageops::FilterType;
 use image::io::Reader;
+use image::ImageFormat;
 use infusdk::item::{is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item, Item, ItemType, PermissionFlags, RelationshipToParent};
 use infusdk::util::geometry::{Dimensions, Vector};
 use infusdk::util::infu::InfuResult;
@@ -634,7 +634,7 @@ async fn handle_add_item(
       let img = img.resize_exact(8, 8, FilterType::Nearest);
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
-      img.write_to(&mut cursor, ImageOutputFormat::Png)
+      img.write_to(&mut cursor, ImageFormat::Png)
         .map_err(|e| format!("An error occured creating the thumbnail png for new image '{}': {}.", item.id, e))?;
       let thumbnail_data = cursor.get_ref().to_vec();
       let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
