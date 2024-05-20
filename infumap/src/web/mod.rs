@@ -22,7 +22,7 @@ pub mod cookie;
 pub mod routes;
 pub mod session;
 
-use clap::{ArgMatches, App, Arg};
+use clap::{Arg, ArgMatches, Command};
 use config::Config;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -49,8 +49,8 @@ use self::prometheus::spawn_promethues_listener;
 use self::serve::http_serve;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("web")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("web")
     .about("Starts the Infumap web server.")
     .arg(Arg::new("settings_path")
     .short('s')
@@ -58,14 +58,13 @@ pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
     .help(concat!("Path to a toml settings configuration file. If not specified and the env_only config is not defined ",
                   "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with default ",
                   "values. On-disk data directories will also be created in ~/.infumap."))
-    .takes_value(true)
-    .multiple_values(false)
+    .num_args(1)
     .required(false))
 }
 
 
-pub async fn execute<'a>(arg_matches: &ArgMatches) -> InfuResult<()> {
-  let config = init_fs_maybe_and_get_config(arg_matches.value_of("settings_path").map(|a| a.to_string())).await?;
+pub async fn execute(arg_matches: &ArgMatches) -> InfuResult<()> {
+  let config = init_fs_maybe_and_get_config(arg_matches.get_one::<String>("settings_path")).await?;
   start_server(config).await
 }
 
@@ -112,7 +111,7 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
     let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY).map_err(|e| e.to_string())?;
     let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET).map_err(|e| e.to_string())?;
     let backup_store =
-      match storage_backup::new(s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret) {
+      match storage_backup::new(s3_region.as_ref(), s3_endpoint.as_ref(), &s3_bucket, &s3_key, &s3_secret) {
         Ok(backup_store) => backup_store,
         Err(e) => {
           return Err(format!("Failed to initialize backup store: {}", e).into());

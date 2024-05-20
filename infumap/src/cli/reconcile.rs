@@ -17,7 +17,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
 use infusdk::item::is_data_item_type;
 use infusdk::util::infu::InfuResult;
@@ -57,67 +57,62 @@ impl ObjectStoreName {
 }
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("reconcile")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("reconcile")
     .about("Check / reconcile the contents of the configured object stores and item database.")
     .subcommand(make_missing_subcommand())
     .subcommand(make_orphaned_subcommand())
 }
 
 
-fn make_missing_subcommand<'a, 'b>() -> App<'a> {
-  App::new("missing")
+fn make_missing_subcommand() -> Command {
+  Command::new("missing")
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")
       .help(concat!("Path to a toml settings configuration file. If not specified, the default will be assumed."))
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("a")
       .short('a')
       .long("a")
       .help("The source object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("b")
       .short('b')
       .long("b")
       .help("The destination object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("copy")
       .short('c')
       .long("copy")
       .help("If specified, missing items will be copied to the destination, else they will just be listed.")
-      .takes_value(false)
-      .multiple_values(false)
+      .num_args(0)
+      .action(ArgAction::SetTrue)
       .required(true)) // TODO: with other commands implemented, this will be false.
 }
 
 
-fn make_orphaned_subcommand<'a, 'b>() -> App<'a> {
-  App::new("orphaned")
+fn make_orphaned_subcommand() -> Command {
+  Command::new("orphaned")
     .arg(Arg::new("settings_path")
       .short('s')
       .long("settings")
       .help(concat!("Path to a toml settings configuration file. If not specified, the default will be assumed."))
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("o")
       .short('o')
       .long("o")
       .help("The object store to check for orphaned files.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
 }
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let config = get_config(sub_matches.value_of("settings_path").map(|a| a.to_string())).await?;
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let config = get_config(sub_matches.get_one::<String>("settings_path")).await?;
 
   match sub_matches.subcommand() {
     Some(("missing", arg_sub_matches)) => {
@@ -131,11 +126,11 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 }
 
 
-pub async fn execute_missing<'a>(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
+pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
 
-  let copying = sub_matches.is_present("copy");
+  let copying = sub_matches.get_flag("copy");
 
-  let a = match sub_matches.value_of("a") {
+  let a = match sub_matches.get_one::<String>("a") {
     Some(a) => match ObjectStoreName::from_str(a) {
       Ok(v) => v,
       Err(_e) => return Err(format!("Unknown source object store name '{}'.", a).into())
@@ -143,7 +138,7 @@ pub async fn execute_missing<'a>(sub_matches: &ArgMatches, config: &Config) -> I
     None => return Err("Source object store ('a') was not specified.".into())
   };
 
-  let b = match sub_matches.value_of("b") {
+  let b = match sub_matches.get_one::<String>("b") {
     Some(b) => match ObjectStoreName::from_str(b) {
       Ok(v) => v,
       Err(_e) => return Err(format!("Unknown destination object store name '{}'.", b).into())
@@ -235,12 +230,12 @@ pub async fn execute_missing<'a>(sub_matches: &ArgMatches, config: &Config) -> I
 }
 
 
-pub async fn execute_orphaned<'a>(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
-  if sub_matches.is_present("copy") {
+pub async fn execute_orphaned(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
+  if sub_matches.get_flag("copy") {
     return Err("--copy flag is not valid for use with the \"orphaned\" command".into());
   }
   
-  let o = match sub_matches.value_of("o") {
+  let o = match sub_matches.get_one::<String>("o") {
     Some(a) => match ObjectStoreName::from_str(a) {
       Ok(v) => v,
       Err(_e) => return Err(format!("Unknown object store name '{}'.", a).into())
@@ -306,7 +301,7 @@ fn create_s3_1_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storag
   let s3_1_key = config.get_string(CONFIG_S3_1_KEY).ok();
   let s3_1_secret = config.get_string(CONFIG_S3_1_SECRET).ok();
   if s3_1_key.is_none() { return Ok(None); }
-  Ok(Some(storage_s3::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
+  Ok(Some(storage_s3::new(s3_1_region.as_ref(), s3_1_endpoint.as_ref(), &s3_1_bucket.unwrap(), &s3_1_key.unwrap(), &s3_1_secret.unwrap())?))
 }
 
 
@@ -317,7 +312,7 @@ fn create_s3_2_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storag
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
   if s3_2_key.is_none() { return Ok(None); }
-  Ok(Some(storage_s3::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
+  Ok(Some(storage_s3::new(s3_2_region.as_ref(), s3_2_endpoint.as_ref(), &s3_2_bucket.unwrap(), &s3_2_key.unwrap(), &s3_2_secret.unwrap())?))
 }
 
 

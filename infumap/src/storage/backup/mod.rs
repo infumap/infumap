@@ -28,14 +28,14 @@ pub struct BackupStore {
 
 impl BackupStore {
   fn new(
-      s3_region: Option<String>, s3_endpoint: Option<String>, s3_bucket: String,
-      s3_key: String, s3_secret: String) -> InfuResult<BackupStore> {
-    Ok(BackupStore { bucket: init_bucket(&s3_region, &s3_endpoint, &s3_bucket, &s3_key, &s3_secret)? })
+      s3_region: Option<&String>, s3_endpoint: Option<&String>, s3_bucket: &String,
+      s3_key: &String, s3_secret: &String) -> InfuResult<BackupStore> {
+    Ok(BackupStore { bucket: init_bucket(s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret)? })
   }
 }
 
 
-pub fn new(s3_region: Option<String>, s3_endpoint: Option<String>, s3_bucket: String, s3_key: String, s3_secret: String) -> InfuResult<Arc<BackupStore>> {
+pub fn new(s3_region: Option<&String>, s3_endpoint: Option<&String>, s3_bucket: &String, s3_key: &String, s3_secret: &String) -> InfuResult<Arc<BackupStore>> {
   Ok(Arc::new(BackupStore::new(s3_region, s3_endpoint, s3_bucket, s3_key, s3_secret)?))
 }
 

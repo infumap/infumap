@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Command, Arg, ArgMatches};
 use infusdk::item::ItemType;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::InfuResult;
@@ -27,56 +27,40 @@ use crate::web::routes::command::CommandResponse;
 use crate::cli::NamedInfuSession;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("note")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("note")
     .about("Add a note to an Infumap container.")
     .arg(Arg::new("container_id")
       .short('c')
       .long("container-id")
       .help("The id of the container to add the note to. If omitted, the note will be added to the root container of the session user.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("session")
       .short('s')
       .long("session")
       .help("The name of the Infumap session to use. 'default' will be used if not specified.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
+      .default_value("default")
       .required(false))
     .arg(Arg::new("note")
       .short('n')
       .long("note")
       .help("The note.")
-      .takes_value(true)
+      .num_args(1)
       .required(true))
 }
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let note = match sub_matches.value_of("note") {
-    None => { return Err("Note text was not present.".into()) },
-    Some(n) => n
-  };
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let note = sub_matches.get_one::<String>("note").unwrap();
+  let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let session_name = match sub_matches.value_of("session") {
-    Some(name) => name,
-    None => "default"
-  };
-
-  let named_session = match NamedInfuSession::get(session_name).await {
-    Ok(s) => {
-      match s {
-        Some(s) => s,
-        None => {
-          return Err("Session does not exist - use the login CLI command to create one.".into());
-        }
-      }
-    },
-    Err(e) => { return Err(format!("A problem occurred getting session '{}': {}.", session_name, e).into()); }
-  };
+  let named_session = NamedInfuSession::get(session_name).await
+    .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
+    .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
   // validate container.
-  let container_id_maybe = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
+  let container_id_maybe = match sub_matches.get_one::<String>("container_id") {
     Some(uid_maybe) => {
       if !is_uid(&uid_maybe) {
         return Err(format!("Invalid container id: '{}'.", uid_maybe).into());

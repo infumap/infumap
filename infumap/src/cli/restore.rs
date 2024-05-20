@@ -17,37 +17,32 @@
 use std::{path::PathBuf, io::Cursor};
 
 use byteorder::{ReadBytesExt, BigEndian};
-use clap::{App, Arg, ArgMatches};
+use clap::{Command, Arg, ArgMatches};
 use infusdk::util::infu::InfuResult;
 use tokio::{fs::{File, OpenOptions}, io::AsyncWriteExt};
 
 use crate::util::crypto::decrypt_file_data;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("restore")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("restore")
     .about("Restore user database logs from a backup file.")
     .arg(Arg::new("backup_file")
       .short('b')
       .long("backup-file")
       .help("Backup file taken from S3 compatible backup object store. File should not be renamed.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("encryption_key")
       .short('k')
       .long("key")
       .help("The 32 byte hex encoded encryption key (64 chars) that was used to encrypt the backup.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
 }
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let path = match sub_matches.value_of("backup_file").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("Backup file must be specified.".into()); }
-  };
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let path = sub_matches.get_one::<String>("backup_file").ok_or("Backup file must be specified.")?;
   let path = PathBuf::from(path);
   let filename = path.file_name().ok_or("No filename present.")?.to_str().ok_or("Filename is empty.")?;
   let parts = filename.split("_").into_iter().map(|s| String::from(s)).collect::<Vec<String>>();
@@ -57,7 +52,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let user_id = parts.iter().nth(0).unwrap();
   let _timestamp = parts.iter().nth(1).unwrap();
 
-  let encryption_key = sub_matches.value_of("encryption_key").unwrap();
+  let encryption_key = sub_matches.get_one::<String>("encryption_key").unwrap();
 
   let mut f = File::open(&path).await?;
   let mut buffer = vec![0; tokio::fs::metadata(&path).await?.len() as usize];

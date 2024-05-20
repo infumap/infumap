@@ -60,7 +60,7 @@ impl ObjectStore {
       let s3_1_key = s3_1_key.as_ref().ok_or("s3_1_key field is required when primary s3 store is enabled.")?.clone();
       let s3_1_secret = s3_1_secret.as_ref().ok_or("s3_1_secret field is required when primary s3 store is enabled.")?.clone();
       let s3_1_bucket = s3_1_bucket.ok_or("s3_1_bucket field is required when primary s3 store is enabled.")?;
-      Some(match storage_s3::new(&s3_1_region, &s3_1_endpoint, &s3_1_bucket, &s3_1_key, &s3_1_secret) {
+      Some(match storage_s3::new(s3_1_region.as_ref(), s3_1_endpoint.as_ref(), &s3_1_bucket, &s3_1_key, &s3_1_secret) {
         Ok(s3_store) => s3_store,
         Err(e) => { return Err(e); }
       })
@@ -72,7 +72,7 @@ impl ObjectStore {
       let s3_2_key = s3_2_key.as_ref().ok_or("s3_2_key field is required when secondary s3 store is enabled.")?.clone();
       let s3_2_secret = s3_2_secret.as_ref().ok_or("s3_2_secret field is required when secondary s3 store is enabled.")?.clone();
       let s3_2_bucket = s3_2_bucket.ok_or("s3_2_bucket field is required when secondary s3 store is enabled.")?;
-      Some(match storage_s3::new(&s3_2_region, &s3_2_endpoint, &s3_2_bucket, &s3_2_key, &s3_2_secret) {
+      Some(match storage_s3::new(s3_2_region.as_ref(), s3_2_endpoint.as_ref(), &s3_2_bucket, &s3_2_key, &s3_2_secret) {
         Ok(s3_store) => s3_store,
         Err(e) => { return Err(e); }
       })

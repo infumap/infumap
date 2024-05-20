@@ -23,14 +23,14 @@ mod setup;
 mod tokiort;
 use std::str::FromStr;
 
-use clap::App;
+use clap::Command;
 use infusdk::util::infu::InfuResult;
 use std::env;
 
 
 #[tokio::main]
 async fn main() {
-  let arg_matches = App::new("Infumap")
+  let arg_matches = Command::new("Infumap")
     .version("0.1.0")
     .subcommand(cli::emergency::make_clap_subcommand())
     .subcommand(cli::keygen::make_clap_subcommand())

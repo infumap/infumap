@@ -16,7 +16,7 @@
 
 use std::io::{BufRead, Write};
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Command, Arg, ArgMatches};
 use infusdk::util::infu::InfuResult;
 use rpassword::read_password;
 
@@ -28,24 +28,21 @@ use super::NamedInfuSession;
 use super::logout::logout;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("login")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("login")
     .about("Create a new Infumap session. If session name is not specified, '\"default\"' will be assumed. If there is an existing session with the same name, this will be closed/removed before creating the new session.")
     .arg(Arg::new("session")
       .short('s')
       .long("session")
       .help("The session name.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
+      .default_value("default")
       .required(false))
 }
 
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let session_name = match sub_matches.value_of("session") {
-    Some(name) => name,
-    None => "default"
-  };
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let session_name = sub_matches.get_one::<String>("session").unwrap().as_str();
 
   let sessions = match NamedInfuSession::read_sessions().await {
     Ok(s) => s,

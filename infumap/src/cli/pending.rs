@@ -14,60 +14,48 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Command, Arg, ArgMatches};
 use infusdk::util::infu::InfuResult;
 
 use crate::web::routes::admin::{ListPendingUsersResponse, ApprovePendingUserRequest, ApprovePendingUserResponse};
 use super::NamedInfuSession;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("pending")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("pending")
     .about("List / approve pending users.")
     .arg(Arg::new("session")
       .short('s')
       .long("session")
       .help("The name of the Infumap session to use. 'default' will be used if not specified.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
+      .default_value("default")
       .required(false))
     .subcommand(make_list_subcommand())
     .subcommand(make_approve_subcommand())
 }
 
-fn make_list_subcommand<'a, 'b>() -> App<'a> {
-  App::new("list")
+fn make_list_subcommand() -> Command {
+  Command::new("list")
 }
 
-fn make_approve_subcommand<'a, 'b>() -> App<'a> {
-  App::new("approve")
+fn make_approve_subcommand() -> Command {
+  Command::new("approve")
     .arg(Arg::new("username")
       .short('u')
       .long("username")
       .help(concat!("The pending username to approve."))
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
 }
 
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let session_name = match sub_matches.value_of("session") {
-    Some(name) => name,
-    None => "default"
-  };
+  let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = match NamedInfuSession::get(session_name).await {
-    Ok(s) => {
-      match s {
-        Some(s) => s,
-        None => {
-          return Err("Session does not exist - use the login CLI command to create one.".into());
-        }
-      }
-    },
-    Err(e) => { return Err(format!("A problem occurred getting session '{}': {}.", session_name, e).into()); }
-  };
+  let named_session = NamedInfuSession::get(session_name).await
+    .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
+    .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
   match sub_matches.subcommand() {
     Some(("list", arg_sub_matches)) => {
@@ -121,7 +109,7 @@ pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &Named
     reqwest::header::COOKIE,
     reqwest::header::HeaderValue::from_str(&format!("infusession={}", session_cookie_value)).unwrap());
 
-  let username = match sub_matches.value_of("username") {
+  let username = match sub_matches.get_one::<String>("username") {
     Some(u) => u,
     None => return Err("Username was not specified.".into())
   };

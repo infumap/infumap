@@ -22,7 +22,7 @@ use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use serde_json::de::IoRead;
 use serde_json::{Map, Value, StreamDeserializer};
-use clap::{ArgMatches, App, Arg};
+use clap::{ArgMatches, Command, Arg};
 use tokio::fs::rename;
 use crate::storage::db::item_db::CURRENT_ITEM_LOG_VERSION;
 use crate::storage::db::user::User;
@@ -33,21 +33,20 @@ use std::io::{BufReader, BufWriter, Write};
 use serde_json::Value::Object;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("migrate")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("migrate")
     .about("Migrates a single user or item log file to the next version, if it is not already at the latest. The existing log is retained with a postfix .vX where X is the existing version number. Note that generally it should not be necessary to migrate log files by hand, because this is done automatically on web server startup (TODO).")
     .arg(Arg::new("log_path")
       .short('p')
       .long("log-path")
       .help(concat!("Path to the user or item log file to migrate."))
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
 }
 
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let log_path = sub_matches.value_of("log_path").map(|a| a.to_string()).ok_or("log path not specified.")?;
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let log_path = sub_matches.get_one::<String>("log_path").unwrap();
   migrate_log(&log_path).await
 }
 

@@ -14,67 +14,57 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Command, Arg, ArgMatches};
 use infusdk::item::ItemType;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::is_uid;
 use serde_json::Map;
 use serde_json::Value;
 
+use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::{CommandRequest, CommandResponse};
 
 use super::NamedInfuSession;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("ls")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("ls")
     .about("List the children and/or attachments of an item.")
     .arg(Arg::new("item_id")
       .short('i')
       .long("id")
       .help("The id of the item. If omitted, children of root container of the session user will be listed.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("session")
       .short('s')
       .long("session")
       .help("The name of the Infumap session to use. 'default' will be used if not specified.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
+      .default_value("default")
       .required(false))
 }
 
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let session_name = match sub_matches.value_of("session") {
-    Some(name) => name,
-    None => "default"
-  };
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let session_name = sub_matches.get_one::<String>("session").unwrap().as_str();
 
-  let named_session = match NamedInfuSession::get(session_name).await {
-    Ok(s) => {
-      match s {
-        Some(s) => s,
-        None => {
-          return Err("Session does not exist - use the login CLI command to create one.".into());
-        }
-      }
-    },
-    Err(e) => { return Err(format!("A problem occurred getting session '{}': {}.", session_name, e).into()); }
-  };
+  let named_session = NamedInfuSession::get(session_name).await
+    .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
+    .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
   let mut request_data: Map<String, Value> = Map::new();
-  let _item_id_maybe = match sub_matches.value_of("item_id").map(|v| v.to_string()) {
+  let _item_id_maybe = match sub_matches.get_one::<String>("item_id") {
     Some(uid_maybe) => {
       if !is_uid(&uid_maybe) {
         return Err(format!("Invalid item id: '{}'.", uid_maybe).into());
       }
-      request_data.insert("parentId".to_owned(), Value::String(uid_maybe.to_owned()));
-      request_data.insert("childrenAndTheirAttachmentsOnly".to_owned(), Value::Bool(true));
+      request_data.insert("id".to_owned(), Value::String(uid_maybe.to_owned()));
+      request_data.insert("mode".to_owned(), Value::String(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str().to_owned()));
       Some(uid_maybe)
     },
     None => {
+      request_data.insert("mode".to_owned(), Value::String(GetItemsMode::ChildrenAndTheirAttachmentsOnly.as_str().to_owned()));
       None
     }
   };

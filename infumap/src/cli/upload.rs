@@ -21,7 +21,8 @@ use std::time::Duration;
 use std::time::UNIX_EPOCH;
 
 use base64::{Engine as _, engine::general_purpose};
-use clap::{App, Arg, ArgMatches};
+use clap::ArgAction;
+use clap::{Command, Arg, ArgMatches};
 use image::io::Reader;
 use infusdk::item::ItemType;
 use infusdk::util::json;
@@ -47,53 +48,53 @@ use crate::web::routes::command::CommandResponse;
 use super::NamedInfuSession;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("upload")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("upload")
     .about("Bulk upload all files in a local directory to an Infumap container.")
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
       .help("The id of the container to upload files to.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("directory")
       .short('d')
       .long("directory")
       .help("The path of the directory to upload all files from. This directory must only contain regular files (no links or directories).")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("session")
       .short('s')
       .long("session")
       .help("The name of the Infumap session to use. 'default' will be used if not specified.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
+      .default_value("default")
       .required(false))
     .arg(Arg::new("resume")
       .short('r')
       .long("resume")
       .help(concat!("By default, if the Infumap container has a file or image with the same name as a file in the local directory, ",
                     "the bulk upload operation will not start. If this flag is set, these files will be skipped instead."))
-      .takes_value(false)
+      .num_args(0)
+      .action(ArgAction::SetTrue)
       .required(false))
     .arg(Arg::new("additional")
       .short('a')
       .long("additional")
       .help(concat!("By default, an attempt to upload files to an Infumap container that contains files with names other than those ",
                     "in the local directory will fail. Setting this flag disables this check."))
-      .takes_value(false)
+      .num_args(0)
+      .action(ArgAction::SetTrue)
       .required(false))
 }
 
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let resuming = sub_matches.is_present("resume");
-  let additional = sub_matches.is_present("additional");
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let resuming = sub_matches.get_flag("resume");
+  let additional = sub_matches.get_flag("additional");
 
   // Validate directory.
-  let local_path = match sub_matches.value_of("directory").map(|v| v.to_string()) {
+  let local_path = match sub_matches.get_one::<String>("directory") {
     Some(path) => path,
     None => { return Err("Path to directory to upload contents of must be specified.".into()); }
   };
@@ -119,7 +120,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   // Validate container.
-  let container_id = match sub_matches.value_of("container_id").map(|v| v.to_string()) {
+  let container_id = match sub_matches.get_one::<String>("container_id") {
     Some(uid_maybe) => {
       if !is_uid(&uid_maybe) {
         return Err(format!("Invalid container id: '{}'.", uid_maybe).into());
@@ -129,22 +130,11 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     None => { return Err("Id of container to upload files into must be specified.".into()); }
   };
 
-  let session_name = match sub_matches.value_of("session") {
-    Some(name) => name,
-    None => "default"
-  };
+  let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = match NamedInfuSession::get(session_name).await {
-    Ok(s) => {
-      match s {
-        Some(s) => s,
-        None => {
-          return Err("Session does not exist - use the login CLI command to create one.".into());
-        }
-      }
-    },
-    Err(e) => { return Err(format!("A problem occurred getting session '{}': {}.", session_name, e).into()); }
-  };
+  let named_session = NamedInfuSession::get(session_name).await
+    .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
+    .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
   let session_cookie_value = serde_json::to_string(&named_session.session)?;
   let mut request_headers = reqwest::header::HeaderMap::new();

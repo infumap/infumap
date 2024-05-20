@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{App, ArgMatches, Arg};
+use clap::{Command, ArgMatches, Arg};
 use infusdk::util::infu::InfuResult;
 
 use crate::web::routes::account::LogoutResponse;
@@ -22,23 +22,20 @@ use crate::web::routes::account::LogoutResponse;
 use super::NamedInfuSession;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("logout")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("logout")
     .about("Logout of an Infumap session. If a session name is not specified, '\"default\"' will be assumed.")
     .arg(Arg::new("session")
       .short('s')
       .long("session")
       .help("The session name.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
+      .default_value("default")
       .required(false))
 }
 
-pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let session_name = match sub_matches.value_of("session") {
-    Some(name) => name,
-    None => "default"
-  };
+pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  let session_name = sub_matches.get_one::<String>("session").unwrap().as_str();
 
   match logout(session_name).await {
     Err(e) => {

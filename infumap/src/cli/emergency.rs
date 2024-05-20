@@ -16,7 +16,7 @@
 
 use std::env::temp_dir;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
 use infusdk::util::infu::InfuResult;
 use log::{error, info, warn};
@@ -27,130 +27,103 @@ use crate::util::fs::ensure_256_subdirs;
 use crate::web::start_server;
 
 
-pub fn make_clap_subcommand<'a, 'b>() -> App<'a> {
-  App::new("emergency")
+pub fn make_clap_subcommand() -> Command {
+  Command::new("emergency")
     .about("Automates pulling the latest backup file for a specific Infumap user and bringing up a temporary local infumap instance based on this.")
 
     .arg(Arg::new("s3_backup_endpoint")
       .long("s3-backup-endpoint")
       .help("The s3 endpoint for the backup object store (if required by your provider).")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("s3_backup_region")
       .long("s3-backup-region")
       .help("The s3 region for the backup object store (if required by your provider).")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("s3_backup_bucket")
       .long("s3-backup-bucket")
       .help("The s3 bucket name of the backup object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("s3_backup_key")
       .long("s3-backup-key")
       .help("The s3 key for accessing the backup object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("s3_backup_secret")
       .long("s3-backup-secret")
       .help("The s3 secret for accessing the backup object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
 
     .arg(Arg::new("s3_endpoint")
       .long("s3-endpoint")
       .help("The s3 endpoint for the infumap data object store (if required by your provider).")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("s3_region")
       .long("s3-region")
       .help("The s3 region for the infumap data object store (if required by your provider).")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("s3_bucket")
       .long("s3-bucket")
       .help("The s3 bucket name of the infumap data object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("s3_key")
       .long("s3-key")
       .help("The s3 key for the infumap data object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
     .arg(Arg::new("s3_secret")
       .long("s3-secret")
       .help("The s3 secret for the infumap data object store.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(false))
 
     .arg(Arg::new("user_id")
       .long("user-id")
       .help("The infumap user id.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("encryption_key")
       .long("encryption-key")
       .help("The 32 byte hex encoded encryption key (64 chars) that was used to encrypt the backup.")
-      .takes_value(true)
-      .multiple_values(false)
+      .num_args(1)
       .required(true))
     .arg(Arg::new("keep")
       .long("keep")
       .help("keep the generated settings and data directories around after exit (otherwise delete them on exit).")
-      .takes_value(false)
-      .multiple_values(false)
+      .num_args(0)
+      .action(ArgAction::SetTrue)
       .required(false))
 }
 
 
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
-  let s3_backup_endpoint = sub_matches.value_of("s3_backup_endpoint").map(|a| a.to_string());
-  let s3_backup_region = sub_matches.value_of("s3_backup_region").map(|a| a.to_string());
-  let s3_backup_bucket = match sub_matches.value_of("s3_backup_bucket").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("backup s3 bucket name must be specified.".into()); }
-  };
-  let s3_backup_key = match sub_matches.value_of("s3_backup_key").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("backup s3 key must be specified.".into()); }
-  };
-  let s3_backup_secret = match sub_matches.value_of("s3_backup_secret").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("backup s3 secret must be specified.".into()); }
-  };
+  let s3_backup_endpoint = sub_matches.get_one::<String>("s3_backup_endpoint");
+  let s3_backup_region = sub_matches.get_one::<String>("s3_backup_region");
+  let s3_backup_bucket = sub_matches.get_one::<String>("s3_backup_bucket").unwrap();
+  let s3_backup_key = sub_matches.get_one::<String>("s3_backup_key").unwrap();
+  let s3_backup_secret = sub_matches.get_one("s3_backup_secret").unwrap();
 
-  let s3_endpoint = sub_matches.value_of("s3_endpoint").map(|a| a.to_string());
-  let s3_region = sub_matches.value_of("s3_region").map(|a| a.to_string());
-  let s3_bucket = sub_matches.value_of("s3_bucket").map(|a| a.to_string());
-  let s3_key = sub_matches.value_of("s3_key").map(|a| a.to_string());
-  let s3_secret = sub_matches.value_of("s3_secret").map(|a| a.to_string());
+  let s3_endpoint = sub_matches.get_one::<String>("s3_endpoint");
+  let s3_region = sub_matches.get_one::<String>("s3_region");
+  let s3_bucket = sub_matches.get_one::<String>("s3_bucket");
+  let s3_key = sub_matches.get_one::<String>("s3_key");
+  let s3_secret = sub_matches.get_one::<String>("s3_secret");
 
-  let user_id = match sub_matches.value_of("user_id").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("infumap user_id must be specified.".into()); }
-  };
-  let encryption_key = match sub_matches.value_of("encryption_key").map(|a| a.to_string()) {
-    Some(p) => p,
-    None => { return Err("encryption key must be specified.".into()); }
-  };
-  let keep_files = sub_matches.is_present("keep");
+  let user_id = sub_matches.get_one::<String>("user_id").unwrap();
+  let encryption_key = sub_matches.get_one::<String>("encryption_key").unwrap();
+  let keep_files = sub_matches.get_flag("keep");
   
   info!("fetching list of backup files.");
   let bs = crate::storage::backup::new(s3_backup_region, s3_backup_endpoint, s3_backup_bucket, s3_backup_key, s3_backup_secret)?;
   let mut files = crate::storage::backup::list(bs.clone()).await?;
   info!("found {} backup files for {} users.", files.iter().map(|kv| kv.1.len()).fold(0, |acc, x| acc + x), files.len());
-  let timestamps_for_user = match files.get_mut(&user_id) {
+  let timestamps_for_user = match files.get_mut(user_id) {
     Some(r) => {
       if r.len() == 0 {
         error!("no backup files for user {}.", user_id);
@@ -192,7 +165,6 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   std::fs::create_dir(infumap_user_data_dir.clone())?;
   std::fs::create_dir(infumap_cache_dir.clone())?;
 
-
   info!("unpacking items/user json files from backup file.");
   process_backup(
     &backup_bytes,
@@ -216,19 +188,19 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
     config_builder = config_builder.set_override("enable_s3_1_object_storage", "true").map_err(|_| "failed to override enable_s1_1_object_storage config")?;
   }
   if let Some(s3_region) = s3_region {
-    config_builder = config_builder.set_override("s3_1_region", s3_region).map_err(|_| "failed to override s3_1_region config")?;
+    config_builder = config_builder.set_override("s3_1_region", s3_region.clone()).map_err(|_| "failed to override s3_1_region config")?;
   }
   if let Some(s3_endpoint) = s3_endpoint {
-    config_builder = config_builder.set_override("s3_1_endpoint", s3_endpoint).map_err(|_| "failed to override s3_1_endpoint config")?;
+    config_builder = config_builder.set_override("s3_1_endpoint", s3_endpoint.clone()).map_err(|_| "failed to override s3_1_endpoint config")?;
   }
   if let Some(s3_bucket) = s3_bucket {
-    config_builder = config_builder.set_override("s3_1_bucket", s3_bucket).map_err(|_| "failed to override s3_1_bucket config")?;
+    config_builder = config_builder.set_override("s3_1_bucket", s3_bucket.clone()).map_err(|_| "failed to override s3_1_bucket config")?;
   }
   if let Some(s3_key) = s3_key {
-    config_builder = config_builder.set_override("s3_1_key", s3_key).map_err(|_| "failed to override s3_1_key config")?;
+    config_builder = config_builder.set_override("s3_1_key", s3_key.clone()).map_err(|_| "failed to override s3_1_key config")?;
   }
   if let Some(s3_secret) = s3_secret {
-    config_builder = config_builder.set_override("s3_1_secret", s3_secret).map_err(|_| "failed to override s3_1_secret config")?;
+    config_builder = config_builder.set_override("s3_1_secret", s3_secret.clone()).map_err(|_| "failed to override s3_1_secret config")?;
   }
 
   let config = match config_builder.build() {

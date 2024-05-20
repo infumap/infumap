@@ -24,7 +24,7 @@ use crate::util::crypto::generate_key;
 use crate::util::fs::{expand_tilde_path_exists, ensure_256_subdirs, expand_tilde, path_exists};
 
 
-pub async fn get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+pub async fn get_config(settings_path_maybe: Option<&String>) -> InfuResult<Config> {
   let settings_path_maybe = match settings_path_maybe {
     Some(path) => {
       let path = expand_tilde(&path).ok_or("Could not expand settings path.")?;
@@ -79,7 +79,7 @@ pub async fn get_config(settings_path_maybe: Option<String>) -> InfuResult<Confi
 }
 
 
-pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
+pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) -> InfuResult<Config> {
 
   // logger has not been initialized yet. cache log messages.
   let mut info_messages = vec![];
