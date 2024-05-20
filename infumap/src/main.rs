@@ -57,37 +57,37 @@ async fn main() {
         Ok(()) => {
           match command {
             "emergency" => {
-              cli::emergency::execute(arg_sub_matches).await
+              cli::emergency::execute(&arg_sub_matches).await
             },
             "keygen" => {
-              cli::keygen::execute(arg_sub_matches)
+              cli::keygen::execute(&arg_sub_matches)
             },
             "login" => {
-              cli::login::execute(arg_sub_matches).await
+              cli::login::execute(&arg_sub_matches).await
             },
             "logout" => {
-              cli::logout::execute(arg_sub_matches).await
+              cli::logout::execute(&arg_sub_matches).await
             },
             "ls" => {
-              cli::ls::execute(arg_sub_matches).await
+              cli::ls::execute(&arg_sub_matches).await
             },
             "migrate" => {
-              cli::migrate::execute(arg_sub_matches).await
+              cli::migrate::execute(&arg_sub_matches).await
             },
             "note" => {
-              cli::note::execute(arg_sub_matches).await
+              cli::note::execute(&arg_sub_matches).await
             },
             "pending" => {
-              cli::pending::execute(arg_sub_matches).await
+              cli::pending::execute(&arg_sub_matches).await
             },
             "reconcile" => {
-              cli::reconcile::execute(arg_sub_matches).await
+              cli::reconcile::execute(&arg_sub_matches).await
             },
             "restore" => {
-              cli::restore::execute(arg_sub_matches).await
+              cli::restore::execute(&arg_sub_matches).await
             },
             "upload" => {
-              cli::upload::execute(arg_sub_matches).await
+              cli::upload::execute(&arg_sub_matches).await
             },
             _ => {
               println!(".. --help for help.");

@@ -65,7 +65,7 @@ impl UserDb {
         }
 
         let mut log_path = expanded_data_path.clone();
-        log_path.push(dirname.clone());
+        log_path.push(dirname);
         log_path.push("user.json");
         let log_path_str = log_path.as_path().to_str().unwrap();
         let store: KVStore<User> = KVStore::init(&log_path_str, CURRENT_USER_LOG_VERSION).await?;

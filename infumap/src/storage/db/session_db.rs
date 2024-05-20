@@ -63,7 +63,7 @@ impl SessionDb {
         }
 
         let mut log_path = expanded_data_path.clone();
-        log_path.push(dirname.clone());
+        log_path.push(dirname);
         log_path.push("sessions.json");
         let log_path_str = log_path.as_path().to_str().unwrap();
         let store: KVStore<Session> = KVStore::init(&log_path_str, CURRENT_SESSIONS_LOG_VERSION).await?;

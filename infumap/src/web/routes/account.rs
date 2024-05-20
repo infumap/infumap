@@ -463,7 +463,7 @@ pub fn create_totp() -> Response<BoxBody<Bytes, hyper::Error>> {
 
   json_response(&TotpResponse {
     success: true,
-    qr: Some(totp.get_qr().unwrap()),
+    qr: Some(totp.get_qr_base64().unwrap()),
     url: Some(totp.get_url()),
     secret: Some(Secret::Raw(secret_bytes).to_encoded().to_string())
   })
