@@ -50,7 +50,7 @@ pub async fn listen<D, F1, F2, F3>(
     }
   };
 
-  info!("Listening on {}", address);
+  info!("Infumap API listening on {}", address);
 
   let listener = TcpListener::bind(addr).await?;
   loop {
