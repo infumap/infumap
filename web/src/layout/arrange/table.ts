@@ -132,6 +132,7 @@ function createRow(
     vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
 
   if (rowIdx > displayItem_Table.computed_children.length - 1) {
+    if (vesToOverwrite) { panic("not expecting ves override on initial table row creation."); }
     const uniqueNoneItem = uniqueEmptyItem();
     const tableChildVeSpec: VisualElementSpec = {
       displayItem: uniqueNoneItem,
@@ -221,7 +222,7 @@ function createRow(
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
       let tableChildAttachmentVeSignal;
       if (vesToOverwrite != null) {
-        // TODO (HIGH): re-use these.
+        // TODO (MEDIUM): re-use these.
         tableChildAttachmentVeSignal = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
       } else {
         tableChildAttachmentVeSignal = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
