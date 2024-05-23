@@ -326,38 +326,46 @@ export const VeFns = {
       moveOverColAttachmentNumber: createNumberSignal(-1),
     };
 
-    result.displayItem = override.displayItem;
-
-    if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
-    if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
-    if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
-    if (typeof(override.arrangeFlags) != 'undefined') { result.arrangeFlags = override.arrangeFlags; }
-    if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
-    if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
-    if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
-    if (typeof(override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
-    if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
-    if (typeof(override.col) != 'undefined') { result.col = override.col; }
-    if (typeof(override.row) != 'undefined') { result.row = override.row; }
-    if (typeof(override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
-    if (typeof(override.numRows) != 'undefined') { result.numRows = override.numRows; }
-    if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
-    if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
-    if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
-    if (typeof(override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
-    if (typeof(override.tableVesRows) != 'undefined') { result.tableVesRows = override.tableVesRows; }
-    if (typeof(override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
-    if (typeof(override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
-    if (typeof(override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
-    if (typeof(override.dockVes) != 'undefined') { result.dockVes = override.dockVes; }
-
-    if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
-      console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
-      console.trace();
-    }
-    // TODO (LOW): some additional sanity checking here would help catch arrange bugs.
+    overrideVeFields(result, override);
 
     return result;
+  },
+
+  /**
+   * Sets all properties of the provided ve to the default, then overwrites with the
+   * provided override. Retains the existing sub-signals - mouseIsOver etc.
+   */
+  clearAndOverwrite: (ve: VisualElement, override: VisualElementSpec) => {
+    ve.displayItem = EMPTY_ITEM();
+    ve.linkItemMaybe = null;
+    ve.actualLinkItemMaybe = null;
+    ve.flags = VisualElementFlags.None;
+    ve.arrangeFlags = ArrangeItemFlags.None;
+    ve.resizingFromBoundsPx = null;
+    ve.boundsPx = { x: 0, y: 0, w: 0, h: 0 };
+    ve.childAreaBoundsPx = null;
+    ve.viewportBoundsPx = null;
+    ve.tableDimensionsPx = null;
+    ve.blockSizePx = null;
+    ve.col = null;
+    ve.row = null;
+    ve.cellSizePx = null;
+    ve.numRows = null;
+    ve.hitboxes = [];
+    ve.childrenVes = [];
+    ve.attachmentsVes = [];
+    ve.popupVes = null;
+    ve.selectedVes = null;
+    ve.dockVes = null;
+    ve.tableVesRows = null;
+
+    ve.parentPath = null;
+    ve.evaluatedTitle = null;
+
+    ve.displayItemFingerprint = "";
+
+    overrideVeFields(ve, override);
+    return ve;
   },
 
   veidFromItems: (item: Item, linkMaybe: LinkItem | null) => {
@@ -592,4 +600,38 @@ function printRecursive(visualElement: VisualElement, level: number, relationshi
   for (let i=0; i<visualElement.attachmentsVes.length; ++i) {
     printRecursive(visualElement.attachmentsVes[i].get(), level + 1, "a");
   }
+}
+
+
+function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
+  result.displayItem = override.displayItem;
+
+  if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
+  if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
+  if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
+  if (typeof(override.arrangeFlags) != 'undefined') { result.arrangeFlags = override.arrangeFlags; }
+  if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
+  if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+  if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
+  if (typeof(override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
+  if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
+  if (typeof(override.col) != 'undefined') { result.col = override.col; }
+  if (typeof(override.row) != 'undefined') { result.row = override.row; }
+  if (typeof(override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
+  if (typeof(override.numRows) != 'undefined') { result.numRows = override.numRows; }
+  if (typeof(override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
+  if (typeof(override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
+  if (typeof(override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
+  if (typeof(override.childrenVes) != 'undefined') { result.childrenVes = override.childrenVes; }
+  if (typeof(override.tableVesRows) != 'undefined') { result.tableVesRows = override.tableVesRows; }
+  if (typeof(override.attachmentsVes) != 'undefined') { result.attachmentsVes = override.attachmentsVes; }
+  if (typeof(override.popupVes) != 'undefined') { result.popupVes = override.popupVes; }
+  if (typeof(override.selectedVes) != 'undefined') { result.selectedVes = override.selectedVes; }
+  if (typeof(override.dockVes) != 'undefined') { result.dockVes = override.dockVes; }
+
+  if (isTable(result.displayItem) && (result.flags & VisualElementFlags.Detailed) && result.childAreaBoundsPx == null) {
+    console.error("A detailed table visual element was created without childAreaBoundsPx set.", result);
+    console.trace();
+  }
+  // TODO (LOW): some additional sanity checking here would help catch arrange bugs.
 }

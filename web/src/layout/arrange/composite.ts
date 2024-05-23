@@ -109,12 +109,12 @@ export const arrangeComposite = (
     compositeChildVeSpec.attachmentsVes = attachments;
 
     const compositeChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), compositeVePath);
-    const compositeChildVeSignal = VesCache.createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath, true);
+    const compositeChildVeSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeChildVeSpec, compositeChildVePath);
     compositeVeChildren.push(compositeChildVeSignal);
   }
   compositeVisualElementSpec.childrenVes = compositeVeChildren;
 
-  const compositeVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath, true);
+  const compositeVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(compositeVisualElementSpec, compositeVePath);
 
   return compositeVisualElementSignal;
 }

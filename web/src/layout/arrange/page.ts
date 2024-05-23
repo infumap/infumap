@@ -72,6 +72,6 @@ export const arrangePageWithChildren = (
     pageWithChildrenVisualElementSpec.attachmentsVes = attachments;
   }
 
-  const pageWithChildrenVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath, true);
+  const pageWithChildrenVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(pageWithChildrenVisualElementSpec, pageWithChildrenVePath);
   return pageWithChildrenVisualElementSignal;
 }

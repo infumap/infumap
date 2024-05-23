@@ -165,7 +165,7 @@ function handleAttachmentClick(store: StoreContextModel, visualElement: VisualEl
     type: PopupType.Attachment,
     actualVeid: VeFns.actualVeidFromVe(visualElement),
     vePath: VeFns.veToPath(visualElement),
-  })
+  });
 }
 
 

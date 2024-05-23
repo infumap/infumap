@@ -81,7 +81,7 @@ export const arrangeTable = (
   const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachmentsVes = attachments;
 
-  const tableVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath, true);
+  const tableVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableVisualElementSpec, tableVePath);
 
   return tableVisualElementSignal;
 }
@@ -112,7 +112,7 @@ export function arrangeTableChildren(
   let tableVesRows: Array<number> = [];
   for (let rowIdx=firstItemIdx; rowIdx<=lastItemIdx; ++rowIdx) {
     let outIdx = rowIdx % outCount;
-    tableVeChildren[outIdx] = createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), true);
+    tableVeChildren[outIdx] = createRow(store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), null);
     tableVesRows[outIdx] = rowIdx;
   }
 
@@ -121,15 +121,15 @@ export function arrangeTableChildren(
 
 
 function createRow(
-  store: StoreContextModel,
-  displayItem_Table: TableItem,
-  tableVePath: VisualElementPath,
-  flags: ArrangeItemFlags,
-  rowIdx: number,
-  sizeBl: Dimensions,
-  blockSizePx: Dimensions,
-  tableDimensionsPx: Dimensions,
-  fullArrange: boolean): VisualElementSignal {
+    store: StoreContextModel,
+    displayItem_Table: TableItem,
+    tableVePath: VisualElementPath,
+    flags: ArrangeItemFlags,
+    rowIdx: number,
+    sizeBl: Dimensions,
+    blockSizePx: Dimensions,
+    tableDimensionsPx: Dimensions,
+    vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
 
   if (rowIdx > displayItem_Table.computed_children.length - 1) {
     const uniqueNoneItem = uniqueEmptyItem();
@@ -141,8 +141,12 @@ function createRow(
     uniqueNoneItem.parentId = displayItem_Table.id;
     uniqueNoneItem.relationshipToParent = RelationshipToParent.Child;
     const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(uniqueNoneItem, null), tableVePath);
-    const tableChildVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath, fullArrange);
-    return tableChildVeSignal;
+    if (vesToOverwrite != null) {
+      VesCache.partial_overwriteVisualElementSignal(tableChildVeSpec, tableChildVePath, vesToOverwrite);
+      return vesToOverwrite;
+    } else {
+      return VesCache.full_createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+    }
   }
 
   const childId = displayItem_Table.computed_children[rowIdx];
@@ -215,7 +219,13 @@ function createRow(
         blockSizePx
       };
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
-      const tableChildAttachmentVeSignal = VesCache.createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath, fullArrange);
+      let tableChildAttachmentVeSignal;
+      if (vesToOverwrite != null) {
+        // TODO (HIGH): re-use these.
+        tableChildAttachmentVeSignal = VesCache.partial_create(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+      } else {
+        tableChildAttachmentVeSignal = VesCache.full_createOrRecycleVisualElementSignal(tableChildAttachmentVeSpec, tableChildAttachmentVePath);
+      }
 
       if (isExpression(tableChildAttachmentVeSpec.displayItem)) {
         VesCache.markEvaluationRequired(VeFns.veToPath(tableChildAttachmentVeSignal.get()));
@@ -228,7 +238,15 @@ function createRow(
 
     tableChildVeSpec.attachmentsVes = tableItemVeAttachments;
   }
-  const tableItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath, fullArrange);
+
+  let tableItemVisualElementSignal;
+
+  if (vesToOverwrite != null) {
+    VesCache.partial_overwriteVisualElementSignal(tableChildVeSpec, tableChildVePath, vesToOverwrite)
+    tableItemVisualElementSignal = vesToOverwrite;
+  } else {
+    tableItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
+  }
 
   if (isExpression(tableChildVeSpec.displayItem)) {
     VesCache.markEvaluationRequired(VeFns.veToPath(tableItemVisualElementSignal.get()));
@@ -270,14 +288,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   for (let rowIdx=firstItemIdx; rowIdx<=lastItemIdx; ++rowIdx) {
     const outIdx = rowIdx % outCount;
     if (tableVesRows[outIdx] != rowIdx) {
-      const newChild = createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx), false);
-      const existing = childrenVes[outIdx].get();
-      for (let i=0; i<existing.attachmentsVes.length; ++i) {
-        const a = existing.attachmentsVes[i].get();
-        VesCache.removeByPath(VeFns.veToPath(a));
-      }
-      VesCache.removeByPath(VeFns.veToPath(existing));
-      childrenVes[outIdx].set(newChild.get());
+      const vesToOverwrite = childrenVes[outIdx];
+      createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
       tableVesRows[outIdx] = rowIdx;
     }
   }

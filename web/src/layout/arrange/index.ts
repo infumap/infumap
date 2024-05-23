@@ -76,7 +76,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     return;
   }
 
-  VesCache.initFullArrange();
+  VesCache.full_initArrange();
 
   let currentPageVeid = virtualPageVeid ? virtualPageVeid : store.history.currentPageVeid()!;
 
@@ -118,10 +118,10 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   if (virtualPageVeid) {
     const umbrellaVes = createVisualElementSignal(VeFns.create(umbrellaVeSpec));
-    VesCache.finalizeFullArrange(store, umbrellaVeSpec, umbrellaPath, umbrellaVes);
+    VesCache.full_finalizeArrange(store, umbrellaVeSpec, umbrellaPath, umbrellaVes);
     evaluateExpressions(true);
   } else {
-    VesCache.finalizeFullArrange(store, umbrellaVeSpec, umbrellaPath);
+    VesCache.full_finalizeArrange(store, umbrellaVeSpec, umbrellaPath);
     evaluateExpressions(false);
   }
 

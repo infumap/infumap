@@ -137,7 +137,7 @@ export function arrange_list_page(
       blockSizePx,
     };
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
-    const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath, true);
+    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
 
     if (isExpression(childItem)) {
@@ -278,7 +278,7 @@ export function arrange_dock_list_page(
       blockSizePx,
     };
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
-    const listItemVisualElementSignal = VesCache.createOrRecycleVisualElementSignal(listItemVeSpec, childPath, true);
+    const listItemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(listItemVeSpec, childPath);
     listVeChildren.push(listItemVisualElementSignal);
   }
   pageWithChildrenVisualElementSpec.childrenVes = listVeChildren;

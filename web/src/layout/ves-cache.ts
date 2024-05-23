@@ -44,7 +44,7 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 */
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-let currentVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
+let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
@@ -58,7 +58,7 @@ export let VesCache = {
    */
   clear: (): void => {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
-    currentVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
+    currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
@@ -96,14 +96,14 @@ export let VesCache = {
   },
 
   getPathsForDisplayId: (displayId: Uid): Array<VisualElementPath> => {
-    return currentVesVsDisplayItemId.get(displayId)!;
+    return currentVessVsDisplayId.get(displayId)!;
   },
 
-  initFullArrange: (): void => {
+  full_initArrange: (): void => {
     evaluationRequired = new Set<VisualElementPath>();
   },
 
-  finalizeFullArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
+  full_finalizeArrange: (store: StoreContextModel, umbrellaVeSpec: VisualElementSpec, umbrellaPath: VisualElementPath, virtualUmbrellaVes?: VisualElementSignal): void => {
     if (umbrellaVeSpec.displayItemFingerprint) { panic("displayItemFingerprint is already set."); }
     umbrellaVeSpec.displayItemFingerprint = ItemFns.getFingerprint(umbrellaVeSpec.displayItem); // TODO (LOW): Modifying the input object is a bit nasty.
 
@@ -114,7 +114,7 @@ export let VesCache = {
       underConstructionCache.set(umbrellaPath, store.umbrellaVisualElement);  // TODO (MEDIUM): full property reconciliation, to avoid this update.
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
       currentVesCache = underConstructionCache;
-      currentVesVsDisplayItemId = underConstructionVesVsDisplayItemId;
+      currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
@@ -129,11 +129,51 @@ export let VesCache = {
    * I think the above strategy should always work in practice, but a more comprehensive (and expensive) comparison may be required in some instances.
    * The entire cache should cleared on page change (since there will be little or no overlap anyway).
    * This is achieved using initFullArrange and finalizeFullArange methods.
-   *
-   * fullArrange == false supports creation only.
    */
-  createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath, fullArrange: boolean): VisualElementSignal => {
-    return createOrRecycleVisualElementSignalImpl(visualElementOverride, path, fullArrange);
+  full_createOrRecycleVisualElementSignal: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
+    return createOrRecycleVisualElementSignalImpl(visualElementOverride, path);
+  },
+
+  /**
+   * Create a new VisualElementSignal and insert it into the current cache.
+   */
+  partial_create: (visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal => {
+    const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
+    currentVesCache.set(path, newElement);
+    const displayItemId = newElement.get().displayItem.id;
+
+    const existing = currentVessVsDisplayId.get(displayItemId);
+    if (!existing) { currentVessVsDisplayId.set(displayItemId, []); }
+    currentVessVsDisplayId.get(displayItemId)!.push(path);
+
+    return newElement;
+  },
+
+  /**
+   * Overwrites the provided ves with the provided override (which is generally expected to be for a new path).
+   * Deletes any attachments of the existing ves.
+   * TODO (HIGH): should also delete children..., though this is never used
+   */
+  partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementSpec, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
+    const veToOverwrite = vesToOverwrite.get();
+    const existingPath = VeFns.veToPath(veToOverwrite);
+
+    for (let i=0; i<veToOverwrite.attachmentsVes.length; ++i) {
+      const attachmentVe = veToOverwrite.attachmentsVes[i].get();
+      const attachmentVePath = VeFns.veToPath(attachmentVe);
+      VesCache.removeByPath(attachmentVePath);
+    }
+
+    if (!currentVesCache.delete(existingPath)) { panic("vesToOverwrite did not exist"); }
+    deleteFromVessVsDisplayIdLookup(existingPath);
+    VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
+    vesToOverwrite.set(veToOverwrite);
+    currentVesCache.set(newPath, vesToOverwrite);
+
+    const displayItemId = VeFns.itemIdFromPath(newPath);
+    const existing = currentVessVsDisplayId.get(displayItemId);
+    if (!existing) { currentVessVsDisplayId.set(displayItemId, []); }
+    currentVessVsDisplayId.get(displayItemId)!.push(newPath);
   },
 
   /**
@@ -189,9 +229,8 @@ export let VesCache = {
   },
 
   removeByPath: (path: VisualElementPath): void => {
-    if (!currentVesCache.delete(path)) {
-      panic(`item ${path} is not in ves cache.`);
-    }
+    if (!currentVesCache.delete(path)) { panic(`item ${path} is not in ves cache.`); }
+    deleteFromVessVsDisplayIdLookup(path);
   },
 
   markEvaluationRequired: (path: VisualElementPath): void => {
@@ -212,7 +251,7 @@ export let VesCache = {
 }
 
 
-function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualElementSpec, path: VisualElementPath, fullArrange: boolean): VisualElementSignal {
+function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualElementSpec, path: VisualElementPath): VisualElementSignal {
 
   const debug = false; // VeFns.veidFromPath(path).itemId == "<id of item of interest here>";
 
@@ -220,44 +259,26 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
   visualElementOverride.displayItemFingerprint = ItemFns.getFingerprint(visualElementOverride.displayItem); // TODO (LOW): Modifying the input object is a bit dirty.
 
   function compareArrays(oldArray: Array<VisualElementSignal>, newArray: Array<VisualElementSignal>): number {
-    if (oldArray.length != newArray.length) {
-      return 1;
-    }
+    if (oldArray.length != newArray.length) { return 1; }
     for (let i=0; i<oldArray.length; ++i) {
-      if (oldArray[i] != newArray[i]) {
-        return 1;
-      }
+      if (oldArray[i] != newArray[i]) { return 1; }
     }
     return 0;
   }
 
-  function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath, fullArrange: boolean) {
-    if (fullArrange) {
-      const existing = underConstructionVesVsDisplayItemId.get(displayItemId);
-      if (!existing) {
-        underConstructionVesVsDisplayItemId.set(displayItemId, []);
-      }
-      underConstructionVesVsDisplayItemId.get(displayItemId)!.push(path);
-    } else {
-      const existing = currentVesVsDisplayItemId.get(displayItemId);
-      if (!existing) {
-        currentVesVsDisplayItemId.set(displayItemId, []);
-      }
-      currentVesVsDisplayItemId.get(displayItemId)!.push(path);
-    }
+  function addVesVsDisplayItem(displayItemId: Uid, path: VisualElementPath) {
+    const existing = underConstructionVesVsDisplayItemId.get(displayItemId);
+    if (!existing) { underConstructionVesVsDisplayItemId.set(displayItemId, []); }
+    underConstructionVesVsDisplayItemId.get(displayItemId)!.push(path);
   }
 
   const existing = currentVesCache.get(path);
   if (existing) {
-    if (!fullArrange) {
-      console.error(existing.get().displayItem);
-      panic("ves already exists");
-    }
     if (existing.get().displayItemFingerprint != visualElementOverride.displayItemFingerprint) {
       existing.set(VeFns.create(visualElementOverride));
       if (debug) { console.debug("display item fingerprint changed", existing.get().displayItemFingerprint, visualElementOverride.displayItemFingerprint); }
       underConstructionCache.set(path, existing);
-      addVesVsDisplayItem(existing.get().displayItem.id, path, true);
+      addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
 
@@ -368,24 +389,31 @@ function createOrRecycleVisualElementSignalImpl (visualElementOverride: VisualEl
     if (!dirty) {
       if (debug) { console.debug("not dirty:", path); }
       underConstructionCache.set(path, existing);
-      addVesVsDisplayItem(existing.get().displayItem.id, path, true);
+      addVesVsDisplayItem(existing.get().displayItem.id, path);
       return existing;
     }
     if (debug) { console.debug("dirty:", path); }
     existing.set(VeFns.create(visualElementOverride));
     underConstructionCache.set(path, existing);
-    addVesVsDisplayItem(existing.get().displayItem.id, path, true);
+    addVesVsDisplayItem(existing.get().displayItem.id, path);
     return existing;
   }
 
   if (debug) { console.debug("creating:", path); }
   const newElement = createVisualElementSignal(VeFns.create(visualElementOverride));
-  if (fullArrange) {
-    underConstructionCache.set(path, newElement);
-    addVesVsDisplayItem(newElement.get().displayItem.id, path, true);
-  } else {
-    currentVesCache.set(path, newElement);
-    addVesVsDisplayItem(newElement.get().displayItem.id, path, false);
-  }
+  underConstructionCache.set(path, newElement);
+  addVesVsDisplayItem(newElement.get().displayItem.id, path);
   return newElement;
+}
+
+function deleteFromVessVsDisplayIdLookup(path: string) {
+  const displayItemId = VeFns.itemIdFromPath(path);
+  let ves = currentVessVsDisplayId.get(displayItemId);
+  if (!ves) { panic(`displayItemId ${displayItemId} is not in the displayItemId -> vesPath cache.`); }
+  let foundIdx = ves.findIndex((v) => { return v == path });
+  if (foundIdx == -1) { panic(`path ${path} was not in the displayItemId -> vesPath cache.`); }
+  ves.splice(foundIdx, 1);
+  if (ves.length == 0) {
+    if (!currentVessVsDisplayId.delete(displayItemId)) { panic!("logic error deleting displayItemId."); }
+  }
 }
