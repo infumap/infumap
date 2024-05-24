@@ -28,6 +28,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { useStore } from "../../store/StoreProvider";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -72,7 +73,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
 
 export const Composite_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
@@ -93,7 +97,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

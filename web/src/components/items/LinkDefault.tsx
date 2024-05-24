@@ -21,6 +21,7 @@ import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createLineHighlightBoundsPxFn } from "./helper";
+import { useStore } from "../../store/StoreProvider";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -38,6 +39,10 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
 
 
 export const LinkDefault_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
+  const vePath = () => VeFns.veToPath(props.visualElement);
+
   const boundsPx = () => {
     let result = cloneBoundingBox(props.visualElement.boundsPx)!;
     result.y = result.y + 2;
@@ -50,7 +55,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

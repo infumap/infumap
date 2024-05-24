@@ -111,7 +111,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       return 'absolute rounded-sm bg-white';
     } else {
       if ((noteItem().flags & NoteFlags.HideBorder)) {
-        if (props.visualElement.mouseIsOver.get()) {
+        if (store.perVe.getMouseIsOver(vePath())) {
           return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""}`;
         } else {
           return 'absolute border border-transparent rounded-sm';
@@ -150,7 +150,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
-    props.visualElement.mouseIsOver.get() &&
+    store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.noteEditInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
@@ -252,7 +252,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
@@ -290,7 +293,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

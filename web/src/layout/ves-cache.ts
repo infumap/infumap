@@ -350,7 +350,6 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
                  newProps[i] == "popupVes" ||
                  newProps[i] == "selectedVes" ||
                  newProps[i] == "dockVes" ||
-                 newProps[i] == "mouseIsOver" ||
                  newProps[i] == "mouseIsOverOpenPopup" ||
                  newProps[i] == "movingItemIsOver" ||
                  newProps[i] == "movingItemIsOverAttach" ||

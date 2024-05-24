@@ -193,7 +193,6 @@ export interface VisualElement {
    */
   tableVesRows: Array<number> | null,
 
-  mouseIsOver: BooleanSignal,
   mouseIsOverOpenPopup: BooleanSignal,
 
   movingItemIsOver: BooleanSignal,                // for containers only.
@@ -239,7 +238,6 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
   displayItemFingerprint: "",
 
-  mouseIsOver: createBooleanSignal(false),
   mouseIsOverOpenPopup: createBooleanSignal(false),
 
   movingItemIsOver: createBooleanSignal(false),
@@ -316,7 +314,6 @@ export const VeFns = {
 
       displayItemFingerprint: "",
 
-      mouseIsOver: createBooleanSignal(false),
       mouseIsOverOpenPopup: createBooleanSignal(false),
 
       movingItemIsOver: createBooleanSignal(false),

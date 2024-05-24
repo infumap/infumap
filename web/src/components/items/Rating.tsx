@@ -24,6 +24,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createLineHighlightBoundsPxFn } from "./helper";
+import { useStore } from "../../store/StoreProvider";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -60,7 +61,10 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
 
 
 export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const boundsPx = () => {
@@ -73,7 +77,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

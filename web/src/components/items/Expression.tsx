@@ -44,6 +44,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const store = useStore();
 
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -106,7 +107,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       return 'absolute rounded-sm bg-white';
     } else {
       if ((expressionItem().flags & NoteFlags.HideBorder)) {
-        if (props.visualElement.mouseIsOver.get()) {
+        if (store.perVe.getMouseIsOver(vePath())) {
           return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""}`;
         } else {
           return 'absolute border border-transparent rounded-sm';
@@ -120,7 +121,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
-    props.visualElement.mouseIsOver.get() &&
+    store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.expressionEditOverlayInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
@@ -185,7 +186,10 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
 
 export const Expression_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const expressionItem = () => asExpressionItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
@@ -202,7 +206,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

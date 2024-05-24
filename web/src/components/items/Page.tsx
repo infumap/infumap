@@ -77,6 +77,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   });
 
   const pageItem = () => asPageItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const parentPage = () => {
     const parentId = VeFns.itemIdFromPath(props.visualElement.parentPath!);
     return asPageItem(itemState.get(parentId)!);
@@ -180,7 +181,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute rounded-sm align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (props.visualElement.mouseIsOver.get() ? "#eeeeee" : "#ffffff")}; ` +
+                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (store.perVe.getMouseIsOver(vePath()) ? "#eeeeee" : "#ffffff")}; ` +
                   `font-size: ${trashFontSizePx()}px;`}>
         <i class="fa fa-trash" />
       </div>);
@@ -209,7 +210,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>;
 
     const renderHoverOverMaybe = () =>
-      <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
+      <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
         <div class={'absolute rounded-sm pointer-events-none'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     'background-color: #ffffff33;'} />
@@ -382,7 +383,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderHoverOverMaybe = () =>
-      <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
+      <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
         <div class={`absolute rounded-sm`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     `background-color: #ffffff33;`} />
@@ -838,6 +839,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const store = useStore();
 
   const pageItem = () => asPageItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
@@ -888,7 +890,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
       </Match>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

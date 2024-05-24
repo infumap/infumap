@@ -349,7 +349,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const overElementVes = hitInfo.overElementVes;
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
-      lastMouseOverVes.get().mouseIsOver.set(false);
+      store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
       lastMouseOverVes = null;
     }
   }
@@ -362,9 +362,9 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
-      !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOver.get() &&
+      !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOver(VeFns.veToPath(overElementVes.get())) &&
       !hasModal) {
-    overElementVes!.get().mouseIsOver.set(true);
+    store.perVe.setMouseIsOver(VeFns.veToPath(overElementVes.get()), true);
     lastMouseOverVes = overElementVes;
   }
 

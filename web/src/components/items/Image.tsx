@@ -39,6 +39,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let imgElement: HTMLImageElement | undefined;
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
   const attachBoundsPx = (): BoundingBox => {
@@ -265,7 +266,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
-          <Show when={props.visualElement.mouseIsOver.get() && !store.anItemIsMoving.get()}>
+          <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #ffffff33; ${VeFns.zIndexStyle(props.visualElement)}`} />
@@ -280,7 +281,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
 
 export const Image_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const imageItem = () => asImageItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
@@ -289,7 +293,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
 
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && props.visualElement.mouseIsOver.get()}>
+      <Match when={!props.visualElement.mouseIsOverOpenPopup.get() && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
         <Show when={lineHighlightBoundsPx() != null}>

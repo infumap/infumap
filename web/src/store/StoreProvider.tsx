@@ -29,6 +29,7 @@ import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
 import { makeHistoryStore, HistoryStoreContextModel, PopupType } from "./StoreProvider_History";
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
+import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
 
 
 export interface StoreContextModel {
@@ -56,6 +57,7 @@ export interface StoreContextModel {
   touchToolbar: () => void,  
   touchToolbarDependency: () => void,
 
+  perVe: PerVeStoreContextModel,
   perItem: PerItemStoreContextModel,
   overlay: OverlayStoreContextModel,
   history: HistoryStoreContextModel,
@@ -128,6 +130,7 @@ export function StoreProvider(props: StoreContextProps) {
     return result;
   }
 
+  const perVe = makePerVeStore();
   const perItem = makePerItemStore();
   const overlay = makeOverlayStore();
   const history = makeHistoryStore();
@@ -138,6 +141,7 @@ export function StoreProvider(props: StoreContextProps) {
     history.clear();
     overlay.clear();
     perItem.clear();
+    perVe.clear();
     dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);
   };
 
@@ -169,6 +173,7 @@ export function StoreProvider(props: StoreContextProps) {
 
     anItemIsMoving: createInfuSignal<boolean>(false),
 
+    perVe,
     perItem,
     overlay,
     history,
