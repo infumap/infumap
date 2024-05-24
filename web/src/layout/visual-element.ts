@@ -193,8 +193,6 @@ export interface VisualElement {
    */
   tableVesRows: Array<number> | null,
 
-  mouseIsOverOpenPopup: BooleanSignal,
-
   movingItemIsOver: BooleanSignal,                // for containers only.
   movingItemIsOverAttach: BooleanSignal,          // for attachment items only.
   movingItemIsOverAttachComposite: BooleanSignal, //
@@ -237,8 +235,6 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   evaluatedTitle: null,
 
   displayItemFingerprint: "",
-
-  mouseIsOverOpenPopup: createBooleanSignal(false),
 
   movingItemIsOver: createBooleanSignal(false),
   movingItemIsOverAttach: createBooleanSignal(false),
@@ -313,8 +309,6 @@ export const VeFns = {
       evaluatedTitle: null,
 
       displayItemFingerprint: "",
-
-      mouseIsOverOpenPopup: createBooleanSignal(false),
 
       movingItemIsOver: createBooleanSignal(false),
       movingItemIsOverAttach: createBooleanSignal(false),

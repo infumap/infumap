@@ -356,7 +356,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal) {
     if (lastMouseOverOpenPopupVes != null) {
-      lastMouseOverOpenPopupVes.get().mouseIsOverOpenPopup.set(false);
+      store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(lastMouseOverOpenPopupVes.get()), false);
       lastMouseOverOpenPopupVes = null;
     }
   }
@@ -369,13 +369,13 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
-      !(overElementVes.get().flags & VisualElementFlags.Popup) && !overElementVes.get().mouseIsOverOpenPopup.get() &&
+      !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get())) &&
       !hasModal) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
-      overElementVes!.get().mouseIsOverOpenPopup.set(true);
+      store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), true);
       lastMouseOverOpenPopupVes = overElementVes;
     } else {
-      overElementVes!.get().mouseIsOverOpenPopup.set(false);
+      store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), false);
     }
   }
 

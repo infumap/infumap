@@ -24,6 +24,9 @@ export interface PerVeStoreContextModel {
   getMouseIsOver: (vePath: VisualElementPath) => boolean,
   setMouseIsOver: (vePath: VisualElementPath, isOver: boolean) => void,
 
+  getMouseIsOverOpenPopup: (vePath: VisualElementPath) => boolean,
+  setMouseIsOverOpenPopup: (vePath: VisualElementPath, isOver: boolean) => void,
+
   clear: () => void,
 }
 
@@ -32,6 +35,7 @@ function clear() {
 
 export function makePerVeStore(): PerVeStoreContextModel {
   const mouseIsOver = new Map<string, BooleanSignal>();
+  const mouseIsOverOpenPopup = new Map<string, BooleanSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -48,9 +52,26 @@ export function makePerVeStore(): PerVeStoreContextModel {
     mouseIsOver.get(vePath)!.set(isOver);
   };
 
+  const getMouseIsOverOpenPopup = (vePath: VisualElementPath): boolean => {
+    if (!mouseIsOverOpenPopup.get(vePath)) {
+      mouseIsOverOpenPopup.set(vePath, createBooleanSignal(false));
+    }
+    return mouseIsOver.get(vePath)!.get();
+  };
+
+  const setMouseIsOverOpenPopup = (vePath: VisualElementPath, isOver: boolean): void => {
+    if (!mouseIsOverOpenPopup.get(vePath)) {
+      mouseIsOverOpenPopup.set(vePath, createBooleanSignal(isOver));
+      return;
+    }
+    mouseIsOver.get(vePath)!.set(isOver);
+  };
+
   return ({
     getMouseIsOver,
     setMouseIsOver,
+    getMouseIsOverOpenPopup,
+    setMouseIsOverOpenPopup,
 
     clear
   });
