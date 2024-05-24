@@ -40,6 +40,8 @@ import { fullArrange } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { VesCache } from "../../layout/ves-cache";
+import { asTitledItem } from "../../items/base/titled-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -257,8 +259,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
+  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;

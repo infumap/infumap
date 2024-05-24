@@ -21,25 +21,25 @@ import { VisualElement } from "../../layout/visual-element";
 import { cloneBoundingBox } from "../../util/geometry";
 
 
-export const createHighlightBoundsPxFn = (ve: VisualElement) => {
+export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
   return (() => {
-    if (ve.displayItem.relationshipToParent == RelationshipToParent.Child &&
-        ve.tableDimensionsPx) { // not set if not in table.
-      let r = cloneBoundingBox(ve.boundsPx)!;
-      r.w = ve.tableDimensionsPx!.w;
+    if (veFn().displayItem.relationshipToParent == RelationshipToParent.Child &&
+        veFn().tableDimensionsPx) { // not set if not in table.
+      let r = cloneBoundingBox(veFn().boundsPx)!;
+      r.w = veFn().tableDimensionsPx!.w;
       return r;
     }
-    return ve.boundsPx;
+    return veFn().boundsPx;
   })
 }
 
-export const createLineHighlightBoundsPxFn = (ve: VisualElement) => {
+export const createLineHighlightBoundsPxFn = (veFn: () => VisualElement) => {
   return (() => {
-    if (ve.displayItem.relationshipToParent == RelationshipToParent.Attachment &&
-        ve.tableDimensionsPx) { // not set if not in table.
-      let r = cloneBoundingBox(ve.boundsPx)!;
+    if (veFn().displayItem.relationshipToParent == RelationshipToParent.Attachment &&
+        veFn().tableDimensionsPx) { // not set if not in table.
+      let r = cloneBoundingBox(veFn().boundsPx)!;
       r.x = 0;
-      r.w = ve.tableDimensionsPx!.w;
+      r.w = veFn().tableDimensionsPx!.w;
       return r;
     }
     return null;

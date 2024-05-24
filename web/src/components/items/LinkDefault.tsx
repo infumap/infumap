@@ -51,7 +51,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
     result.w = result.w - 6;
     return result;
   };
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
 
   const renderHighlightsMaybe = () =>
     <Switch>

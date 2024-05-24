@@ -72,7 +72,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
     result.w = oneBlockWidthPx();
     return result;
   }
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
 
   const renderHighlightsMaybe = () =>

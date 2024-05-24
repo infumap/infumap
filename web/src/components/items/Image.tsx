@@ -286,8 +286,8 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = createHighlightBoundsPxFn(props.visualElement);
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(props.visualElement);
+  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
 
