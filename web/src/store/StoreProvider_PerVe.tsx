@@ -17,7 +17,7 @@
 */
 
 import { VisualElementPath } from "../layout/visual-element";
-import { BooleanSignal, createBooleanSignal } from "../util/signals";
+import { BooleanSignal, NumberSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
 
 
 export interface PerVeStoreContextModel {
@@ -26,6 +26,21 @@ export interface PerVeStoreContextModel {
 
   getMouseIsOverOpenPopup: (vePath: VisualElementPath) => boolean,
   setMouseIsOverOpenPopup: (vePath: VisualElementPath, isOver: boolean) => void,
+
+  getMovingItemIsOver: (vePath: VisualElementPath) => boolean,  // for containers only.
+  setMovingItemIsOver: (vePath: VisualElementPath, isOver: boolean) => void,
+
+  getMovingItemIsOverAttach: (vePath: VisualElementPath) => boolean,  // for attachment items only.
+  setMovingItemIsOverAttach: (vePath: VisualElementPath, isOver: boolean) => void,
+
+  getMovingItemIsOverAttachComposite: (vePath: VisualElementPath) => boolean,
+  setMovingItemIsOverAttachComposite: (vePath: VisualElementPath, isOver: boolean) => void,
+
+  getMoveOverRowNumber: (vePath: VisualElementPath) => number,  // for tables only
+  setMoveOverRowNumber: (vePath: VisualElementPath, rowNumber: number) => void,
+
+  getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
+  setMoveOverColAttachmentNumber: (vePath: VisualElementPath, colNumber: number) => void,
 
   clear: () => void,
 }
@@ -36,6 +51,11 @@ function clear() {
 export function makePerVeStore(): PerVeStoreContextModel {
   const mouseIsOver = new Map<string, BooleanSignal>();
   const mouseIsOverOpenPopup = new Map<string, BooleanSignal>();
+  const movingItemIsOver = new Map<string, BooleanSignal>();
+  const movingItemIsOverAttach = new Map<string, BooleanSignal>();
+  const movingItemIsOverAttachComposite = new Map<string, BooleanSignal>();
+  const moveOverRowNumber = new Map<string, NumberSignal>();
+  const moveOverColAttachmentNumber = new Map<string, NumberSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -56,7 +76,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
     if (!mouseIsOverOpenPopup.get(vePath)) {
       mouseIsOverOpenPopup.set(vePath, createBooleanSignal(false));
     }
-    return mouseIsOver.get(vePath)!.get();
+    return mouseIsOverOpenPopup.get(vePath)!.get();
   };
 
   const setMouseIsOverOpenPopup = (vePath: VisualElementPath, isOver: boolean): void => {
@@ -64,14 +84,105 @@ export function makePerVeStore(): PerVeStoreContextModel {
       mouseIsOverOpenPopup.set(vePath, createBooleanSignal(isOver));
       return;
     }
-    mouseIsOver.get(vePath)!.set(isOver);
+    mouseIsOverOpenPopup.get(vePath)!.set(isOver);
+  };
+
+  const getMovingItemIsOver = (vePath: VisualElementPath): boolean => {
+    if (!movingItemIsOver.get(vePath)) {
+      movingItemIsOver.set(vePath, createBooleanSignal(false));
+    }
+    return movingItemIsOver.get(vePath)!.get();
+  };
+
+  const setMovingItemIsOver = (vePath: VisualElementPath, isOver: boolean): void => {
+    if (!movingItemIsOver.get(vePath)) {
+      movingItemIsOver.set(vePath, createBooleanSignal(isOver));
+      return;
+    }
+    movingItemIsOver.get(vePath)!.set(isOver);
+  };
+
+  const getMovingItemIsOverAttach = (vePath: VisualElementPath): boolean => {
+    if (!movingItemIsOverAttach.get(vePath)) {
+      movingItemIsOverAttach.set(vePath, createBooleanSignal(false));
+    }
+    return movingItemIsOverAttach.get(vePath)!.get();
+  };
+
+  const setMovingItemIsOverAttach = (vePath: VisualElementPath, isOver: boolean): void => {
+    if (!movingItemIsOverAttach.get(vePath)) {
+      movingItemIsOverAttach.set(vePath, createBooleanSignal(isOver));
+      return;
+    }
+    movingItemIsOverAttach.get(vePath)!.set(isOver);
+  };
+
+  const getMovingItemIsOverAttachComposite = (vePath: VisualElementPath): boolean => {
+    if (!movingItemIsOverAttachComposite.get(vePath)) {
+      movingItemIsOverAttachComposite.set(vePath, createBooleanSignal(false));
+    }
+    return movingItemIsOverAttachComposite.get(vePath)!.get();
+  };
+
+  const setMovingItemIsOverAttachComposite = (vePath: VisualElementPath, isOver: boolean): void => {
+    if (!movingItemIsOverAttachComposite.get(vePath)) {
+      movingItemIsOverAttachComposite.set(vePath, createBooleanSignal(isOver));
+      return;
+    }
+    movingItemIsOverAttachComposite.get(vePath)!.set(isOver);
+  };
+
+  const getMoveOverRowNumber = (vePath: VisualElementPath): number => {
+    if (!moveOverRowNumber.get(vePath)) {
+      moveOverRowNumber.set(vePath, createNumberSignal(-1));
+    }
+    return moveOverRowNumber.get(vePath)!.get();
+  };
+
+  const setMoveOverRowNumber = (vePath: VisualElementPath, rowNumber: number): void => {
+    if (!moveOverRowNumber.get(vePath)) {
+      moveOverRowNumber.set(vePath, createNumberSignal(-1));
+      return;
+    }
+    moveOverRowNumber.get(vePath)!.set(rowNumber);
+  };
+
+  const getMoveOverColAttachmentNumber = (vePath: VisualElementPath): number => {
+    if (!moveOverColAttachmentNumber.get(vePath)) {
+      moveOverColAttachmentNumber.set(vePath, createNumberSignal(-1));
+    }
+    return moveOverColAttachmentNumber.get(vePath)!.get();
+  };
+
+  const setMoveOverColAttachmentNumber = (vePath: VisualElementPath, colNumber: number): void => {
+    if (!moveOverColAttachmentNumber.get(vePath)) {
+      moveOverColAttachmentNumber.set(vePath, createNumberSignal(-1));
+      return;
+    }
+    moveOverColAttachmentNumber.get(vePath)!.set(colNumber);
   };
 
   return ({
     getMouseIsOver,
     setMouseIsOver,
+
     getMouseIsOverOpenPopup,
     setMouseIsOverOpenPopup,
+
+    getMovingItemIsOver,
+    setMovingItemIsOver,
+
+    getMovingItemIsOverAttach,
+    setMovingItemIsOverAttach,
+
+    getMovingItemIsOverAttachComposite,
+    setMovingItemIsOverAttachComposite,
+
+    getMoveOverRowNumber,
+    setMoveOverRowNumber,
+
+    getMoveOverColAttachmentNumber,
+    setMoveOverColAttachmentNumber,
 
     clear
   });

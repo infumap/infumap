@@ -156,12 +156,12 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+      <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={`absolute rounded-sm`}
             style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute rounded-sm`}
             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />

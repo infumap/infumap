@@ -172,8 +172,8 @@ function handleAttachmentClick(store: StoreContextModel, visualElement: VisualEl
 function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalItem) {
 
   if (MouseActionState.get().moveOver_containerElement != null) {
-    VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get()
-      .movingItemIsOver.set(false);
+    const ve = VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get();
+    store.perVe.setMovingItemIsOver(VeFns.veToPath(ve), false);
   }
 
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
@@ -214,7 +214,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
   const prevParentId = activeItem.parentId;
 
   const attachToVisualElement = VesCache.get(MouseActionState.get()!.moveOver_attachCompositeHitboxElement!)!.get();
-  attachToVisualElement.movingItemIsOverAttach.set(false);
+  store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(attachToVisualElement), false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
 
   const attachToItem = asPositionalItem(VeFns.canonicalItem(attachToVisualElement));
@@ -297,7 +297,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
     panic("mouseUpHandler_moving_hitboxAttachTo: Attempt was made to attach an item to itself.");
   }
 
-  attachToVisualElement.movingItemIsOverAttach.set(false);
+  store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(attachToVisualElement), false);
   MouseActionState.get().moveOver_attachHitboxElement = null;
 
   activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
@@ -336,12 +336,12 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
     panic("mouseUpHandler_moving_toTable: Attempt was made to move an item into itself.");
   }
 
-  if (overContainerVe.moveOverColAttachmentNumber.get() >= 0) {
+  if (store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe)) >= 0) {
     mouseUpHandler_moving_toTable_attachmentCell(store, activeItem, overContainerVe);
     return;
   }
 
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, overContainerVe.moveOverRowNumber.get());
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe)));
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!);
 
@@ -352,7 +352,7 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
 
 function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, activeItem: PositionalItem, overContainerVe: VisualElement) {
   const tableItem = asTableItem(overContainerVe.displayItem);
-  let rowNumber = overContainerVe.moveOverRowNumber.get();
+  let rowNumber = store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe));
   const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(overContainerVe));
   if (rowNumber < yScrollPos) { rowNumber = yScrollPos; }
 
@@ -362,7 +362,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   const disaplyedChild = asAttachmentsItem(isLink(child)
     ? itemState.get(LinkFns.getLinkToId(asLinkItem(child)))!
     : child);
-  const insertPosition = overContainerVe.moveOverColAttachmentNumber.get();
+  const insertPosition = store.perVe.getMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe));
 
   const numPlaceholdersToCreate = insertPosition > disaplyedChild.computed_attachments.length ? insertPosition - disaplyedChild.computed_attachments.length : 0;
   for (let i=0; i<numPlaceholdersToCreate; ++i) {

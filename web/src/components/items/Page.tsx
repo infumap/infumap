@@ -181,7 +181,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return (
       <div class={`absolute rounded-sm align-middle text-center`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-color: ${props.visualElement.movingItemIsOver.get() ? "#dddddd" : (store.perVe.getMouseIsOver(vePath()) ? "#eeeeee" : "#ffffff")}; ` +
+                  `background-color: ${store.perVe.getMovingItemIsOver(vePath()) ? "#dddddd" : (store.perVe.getMouseIsOver(vePath()) ? "#eeeeee" : "#ffffff")}; ` +
                   `font-size: ${trashFontSizePx()}px;`}>
         <i class="fa fa-trash" />
       </div>);
@@ -222,14 +222,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderMovingOverMaybe = () =>
-      <Show when={props.visualElement.movingItemIsOver.get()}>
+      <Show when={store.perVe.getMovingItemIsOver(vePath())}>
         <div class={'absolute rounded-sm'}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     'background-color: #ffffff33;'} />
       </Show>;
 
     const renderMovingOverAttachMaybe = () =>
-      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+      <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={'absolute rounded-sm'}
              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                     'background-color: #ff0000;'} />
@@ -395,14 +395,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderMovingOverMaybe = () =>
-      <Show when={props.visualElement.movingItemIsOver.get()}>
+      <Show when={store.perVe.getMovingItemIsOver(vePath())}>
         <div class={`absolute rounded-sm pointer-events-none`}
              style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                     `background-color: #ffffff33;`} />
       </Show>;
 
     const renderMovingOverAttachMaybe = () =>
-      <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+      <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={`absolute rounded-sm pointer-events-none`}
              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                     `background-color: #ff0000;`} />

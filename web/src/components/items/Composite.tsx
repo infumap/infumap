@@ -34,7 +34,10 @@ import { useStore } from "../../store/StoreProvider";
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Composite_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const boundsPx = () => props.visualElement.boundsPx;
+  const vePath = () => VeFns.veToPath(props.visualElement);
 
   const attachCompositeBoundsPx = (): BoundingBox => {
     return {
@@ -59,7 +62,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       <For each={props.visualElement.childrenVes}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>
-      <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute rounded-sm`}
              style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                     `background-color: #ff0000;`} />

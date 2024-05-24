@@ -36,6 +36,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const store = useStore();
 
   const passwordItem = () => asPasswordItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
     return {
@@ -120,7 +121,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
           <InfuLinkTriangle />
         </Show>
         <InfuResizeTriangle />
-        <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+        <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />

@@ -192,12 +192,6 @@ export interface VisualElement {
    * The table row number corresponding to the childrenVes with the same index.
    */
   tableVesRows: Array<number> | null,
-
-  movingItemIsOver: BooleanSignal,                // for containers only.
-  movingItemIsOverAttach: BooleanSignal,          // for attachment items only.
-  movingItemIsOverAttachComposite: BooleanSignal, //
-  moveOverRowNumber: NumberSignal,                // for tables only.
-  moveOverColAttachmentNumber: NumberSignal,      // for tables only.
 }
 
 
@@ -235,12 +229,6 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   evaluatedTitle: null,
 
   displayItemFingerprint: "",
-
-  movingItemIsOver: createBooleanSignal(false),
-  movingItemIsOverAttach: createBooleanSignal(false),
-  movingItemIsOverAttachComposite: createBooleanSignal(false),
-  moveOverRowNumber: createNumberSignal(-1),
-  moveOverColAttachmentNumber: createNumberSignal(-1),
 };
 
 
@@ -309,12 +297,6 @@ export const VeFns = {
       evaluatedTitle: null,
 
       displayItemFingerprint: "",
-
-      movingItemIsOver: createBooleanSignal(false),
-      movingItemIsOverAttach: createBooleanSignal(false),
-      movingItemIsOverAttachComposite: createBooleanSignal(false),
-      moveOverRowNumber: createNumberSignal(-1),
-      moveOverColAttachmentNumber: createNumberSignal(-1),
     };
 
     overrideVeFields(result, override);

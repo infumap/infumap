@@ -36,6 +36,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const store = useStore();
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
   const boundsPx = () => props.visualElement.boundsPx;
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx;
@@ -60,12 +61,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const overPosRowPx = (): number => {
     const heightBl = spatialHeightGr() / GRID_SIZE;
     const rowHeightPx = boundsPx().h / heightBl;
-    const rowNumber = props.visualElement.moveOverRowNumber.get() - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + TABLE_TITLE_HEADER_HEIGHT_BL + (showColHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
+    const rowNumber = store.perVe.getMoveOverRowNumber(vePath()) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + TABLE_TITLE_HEADER_HEIGHT_BL + (showColHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
     const rowPx = rowNumber * rowHeightPx + boundsPx().y;
     return rowPx;
   };
   const insertBoundsPx = (): BoundingBox => {
-    const colNum = props.visualElement.moveOverColAttachmentNumber.get();
+    const colNum = store.perVe.getMoveOverColAttachmentNumber(vePath());
     let offsetBl = 0;
     for (let i=0; i<=colNum; ++i) {
       offsetBl += tableItem().tableColumns[i].widthGr / GRID_SIZE;
@@ -139,7 +140,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
                style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
         </Show>
-        <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+        <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />
@@ -184,12 +185,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Show>
         }</For>
       </div>
-      <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverRowNumber.get() > -1 && props.visualElement.moveOverColAttachmentNumber.get() < 0}>
+      <Show when={store.perVe.getMovingItemIsOver(vePath()) && store.perVe.getMoveOverRowNumber(vePath()) > -1 && store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0}>
         <div class={`absolute border border-black`}
              style={`left: ${boundsPx().x}px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />
       </Show>
-      <Show when={props.visualElement.movingItemIsOver.get() && props.visualElement.moveOverColAttachmentNumber.get() >= 0}>
+      <Show when={store.perVe.getMovingItemIsOver(vePath()) && store.perVe.getMoveOverColAttachmentNumber(vePath()) >= 0}>
         <div class={`absolute border border-black bg-black`}
              style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px;` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />

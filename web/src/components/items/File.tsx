@@ -37,7 +37,10 @@ import { useStore } from "../../store/StoreProvider";
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const File: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+
   const fileItem = () => asFileItem(props.visualElement.displayItem);
+  const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
   const attachBoundsPx = (): BoundingBox => {
     return {
@@ -130,12 +133,12 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <InfuLinkTriangle />
         </Show>
-        <Show when={props.visualElement.movingItemIsOverAttach.get()}>
+        <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />
         </Show>
-        <Show when={props.visualElement.movingItemIsOverAttachComposite.get()}>
+        <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
           <div class={`absolute rounded-sm`}
                style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
                       `background-color: #ff0000;`} />

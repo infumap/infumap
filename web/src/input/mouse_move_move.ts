@@ -118,19 +118,21 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     if (MouseActionState.get().moveOver_containerElement != null) {
       const veMaybe = VesCache.get(MouseActionState.get().moveOver_containerElement!);
       if (veMaybe) {
-        veMaybe!.get().movingItemIsOver.set(false);
+        store.perVe.setMovingItemIsOver(VeFns.veToPath(veMaybe!.get()), false);
       }
     }
-    hitInfo.overContainerVe!.movingItemIsOver.set(true);
+
+    store.perVe.setMovingItemIsOver(VeFns.veToPath(hitInfo.overContainerVe!), true);
     MouseActionState.get().moveOver_containerElement = VeFns.veToPath(hitInfo.overContainerVe!);
   }
 
   // update move over attach state.
   if (MouseActionState.get().moveOver_attachHitboxElement != null) {
-    VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get().movingItemIsOverAttach.set(false);
+    const ve = VesCache.get(MouseActionState.get().moveOver_attachHitboxElement!)!.get();
+    store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.Attach) {
-    hitInfo.overElementVes.get().movingItemIsOverAttach.set(true);
+    store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(hitInfo.overElementVes.get()), true);
     MouseActionState.get().moveOver_attachHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
   } else {
     MouseActionState.get().moveOver_attachHitboxElement = null;
@@ -138,10 +140,11 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   // update move over attach composite state.
   if (MouseActionState.get().moveOver_attachCompositeHitboxElement != null) {
-    VesCache.get(MouseActionState.get().moveOver_attachCompositeHitboxElement!)!.get().movingItemIsOverAttachComposite.set(false);
+    const ve = VesCache.get(MouseActionState.get().moveOver_attachCompositeHitboxElement!)!.get();
+    store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.AttachComposite) {
-    hitInfo.overElementVes.get().movingItemIsOverAttachComposite.set(true);
+    store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(hitInfo.overElementVes.get()), true);
     MouseActionState.get().moveOver_attachCompositeHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
   } else {
     MouseActionState.get().moveOver_attachCompositeHitboxElement = null;
@@ -181,14 +184,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
 function moving_handleOverTable(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
   const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overContainerVe, desktopPx);
-  overContainerVe.moveOverRowNumber.set(insertRow);
+  store.perVe.setMoveOverRowNumber(VeFns.veToPath(overContainerVe), insertRow);
 
   const tableItem = asTableItem(overContainerVe.displayItem);
   const childItem = itemState.get(tableItem.computed_children[insertRow]);
   if (isAttachmentsItem(childItem) || (isLink(childItem) && isAttachmentsItem(itemState.get(LinkFns.getLinkToId(asLinkItem(childItem!))!)))) {
-    overContainerVe.moveOverColAttachmentNumber.set(attachmentPos);
+    store.perVe.setMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe), attachmentPos);
   } else {
-    overContainerVe.moveOverColAttachmentNumber.set(-1);
+    store.perVe.setMoveOverColAttachmentNumber(VeFns.veToPath(overContainerVe), -1);
   }
 }
 
