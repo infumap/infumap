@@ -385,6 +385,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 function formatMaybe(text: string, format: string): string {
   if (format == "") { return text; }
   if (!isNumeric(text)) { return text; }
+  if (format == "0") { return parseFloat(text).toFixed(0); }
   if (format == "0.0") { return parseFloat(text).toFixed(1); }
   if (format == "0.00") { return parseFloat(text).toFixed(2); }
   if (format == "0.000") { return parseFloat(text).toFixed(3); }

@@ -37,8 +37,6 @@ import { fullArrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
-import { itemState } from "../store/ItemState";
-import { asTitledItem } from "../items/base/titled-item";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
