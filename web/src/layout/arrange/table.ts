@@ -149,12 +149,12 @@ export function arrangeTableChildren(
     numRows += 1;
 
     // 2. increment iterator.
-    if (isContainer(item) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
-    if (isContainer(item) && asContainerItem(item).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
+    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       // either step into expanded container
       iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
       iterIndices.push(0);
-      iterContainers.push(asContainerItem(item));
+      iterContainers.push(asContainerItem(displayItem_childItem));
     }
     else {
       // or move through current container childern by one.
@@ -273,12 +273,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     }
 
     // 2. increment iterator.
-    if (isContainer(item) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
-    if (isContainer(item) && asContainerItem(item).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
+    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       // either step into expanded container
       iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
       iterIndices.push(0);
-      iterContainers.push(asContainerItem(item));
+      iterContainers.push(asContainerItem(displayItem_childItem));
     }
     else {
       // or move through current container childern by one.
