@@ -152,6 +152,7 @@ export let VesCache = {
   /**
    * Overwrites the provided ves with the provided override (which is generally expected to be for a new path).
    * Deletes any attachments of the existing ves.
+   *
    * TODO (HIGH): should also delete children..., though this is never used
    */
   partial_overwriteVisualElementSignal: (visualElementOverride: VisualElementSpec, newPath: VisualElementPath, vesToOverwrite: VisualElementSignal) => {
@@ -164,7 +165,7 @@ export let VesCache = {
       VesCache.removeByPath(attachmentVePath);
     }
 
-    if (!currentVesCache.delete(existingPath)) { panic("vesToOverwrite did not exist"); }
+    if (!currentVesCache.delete(existingPath)) { throw "vesToOverwrite did not exist"; }
     deleteFromVessVsDisplayIdLookup(existingPath);
     VeFns.clearAndOverwrite(veToOverwrite, visualElementOverride);
     vesToOverwrite.set(veToOverwrite);

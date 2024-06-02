@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { fullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
@@ -243,8 +244,15 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       if (tableVesRows[outIdx] != rowIdx) {
         const indentBl = iterIndices.length - 1;
         const vesToOverwrite = childrenVes[outIdx];
-        tableVeChildren[outIdx] = createRow(
-          store, item, displayItem_table, tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
+        try {
+          tableVeChildren[outIdx] = createRow(
+            store, item, displayItem_table, tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
+        } catch (e: any) {
+          // TODO (MEDIUM): should really implement correct logic to prevent this happening in all cases, and not rely on this clumsy catch-all.
+          console.debug("rearrangeTableAfterScroll failed, resorting to fullArrange.");
+          fullArrange(store);
+          return;
+        }
         tableVesRows[outIdx] = rowIdx;
       }
     }
