@@ -208,7 +208,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const displayItem_table = asTableItem(tableVe.displayItem);
   const childrenVes = tableVe.childrenVes;
   const tableVesRows = tableVe.tableVesRows;
-  if (tableVesRows == null || tableVesRows!.length != childrenVes.length) { panic("rearrangeTableAfterScroll: invalid tableVesRows"); }
+  if (tableVesRows == null || tableVesRows!.length != childrenVes.length) {
+    // TODO (LOW): should really implement logic such that this never happens. This is lazy.
+    console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");
+    fullArrange(store);
+    return;
+  }
 
   const numVisibleRows = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
                          - 1
@@ -218,7 +223,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const firstItemIdx = Math.floor(scrollYPos);
   const lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
-  if (childrenVes.length != outCount) { panic("unexpected number of child ves rows."); }
+  if (childrenVes.length != outCount) {
+    // TODO (LOW): should really implement logic such that this never happens. This is lazy.
+    console.debug("rearrangeTableAfterScroll: unexpected number of child ves rows.");
+    fullArrange(store);
+    return;
+  }
 
   const sizeBl = tableVeid.linkIdMaybe
     ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
@@ -248,8 +258,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
           tableVeChildren[outIdx] = createRow(
             store, item, displayItem_table, tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
         } catch (e: any) {
-          // TODO (MEDIUM): should really implement correct logic to prevent this happening in all cases, and not rely on this clumsy catch-all.
-          console.debug("rearrangeTableAfterScroll failed, resorting to fullArrange.");
+          // TODO (LOW): should really implement logic such that this never happens. This clumsy catch-all is lazy.
+          console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
           fullArrange(store);
           return;
         }
@@ -290,7 +300,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
       }
     }
   }
-
 }
 
 
