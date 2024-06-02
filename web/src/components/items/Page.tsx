@@ -886,25 +886,26 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         return r;
       }
     };
-    return <Switch>
-      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
-      </Match>
-      <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
-      </Match>
-    </Switch>;
+    return (
+      <Switch>
+        <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
+          <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+              style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+        </Match>
+        <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
+          <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+          <Show when={lineHighlightBoundsPx() != null}>
+            <div class="absolute border border-slate-300 rounded-sm"
+                style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+          </Show>
+        </Match>
+        <Match when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
+          <div class="absolute"
+              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+                      `background-color: #dddddd88;`} />
+        </Match>
+      </Switch>);
   };
 
   const renderThumbnail = () =>

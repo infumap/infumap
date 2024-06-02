@@ -129,6 +129,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         );
         fullArrange(store);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
+        console.log("open popup");
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
       }

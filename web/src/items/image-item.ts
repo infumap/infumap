@@ -190,12 +190,20 @@ export const ImageFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    const clickAreaBoundsPx = {
+      x: blockSizePx.w,
+      y: 0.0,
+      w: blockSizePx.w * (widthBl - 1),
+      h: blockSizePx.h
+    };
+    const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
       ]
     };

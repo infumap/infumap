@@ -219,13 +219,14 @@ export const ItemFns = {
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    console.log("handleOpenPopupClick");
     const item = visualElement.displayItem;
     if (isPage(item)) { PageFns.handleOpenPopupClick(visualElement, store); }
     else if (isTable(item)) { }
     else if (isComposite(item)) { }
     else if (isNote(item)) { }
     else if (isExpression(item)) { }
-    else if (isImage(item)) { }
+    else if (isImage(item)) { ImageFns.handleClick(visualElement, store); }
     else if (isFile(item)) { }
     else if (isPassword(item)) { }
     else if (isRating(item)) { }

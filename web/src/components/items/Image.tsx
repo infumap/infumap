@@ -19,7 +19,7 @@
 import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { asImageItem } from "../../items/image-item";
-import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
+import { BoundingBox, Dimensions, cloneBoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -290,9 +290,18 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
+  const openPopupBoundsPx = () => {
+    const r = cloneBoundingBox(boundsPx())!;
+    r.w = oneBlockWidthPx();
+    return r;
+  };
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+      </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
