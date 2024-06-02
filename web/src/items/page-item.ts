@@ -333,10 +333,10 @@ export const PageFns = {
 
       if (expandable) {
         const hitboxes = [
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-          HitboxFns.create(HitboxFlags.Expand, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
-          HitboxFns.create(HitboxFlags.Expand, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.ShiftLeft, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+          HitboxFns.create(HitboxFlags.ShiftLeft, { x: 0, y: 0, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+          HitboxFns.create(HitboxFlags.ShiftLeft, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
+          HitboxFns.create(HitboxFlags.ShiftLeft, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
         ];
         return ({
           boundsPx: cloneBoundingBox(boundsPx)!,
@@ -476,6 +476,12 @@ export const PageFns = {
     const popupClickAreaBoundsPx = parentIsPopup
       ? { x: 0.0, y: 0.0, w: boundsPx.w, h: boundsPx.h }
       : { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
+    const expandAreaBoundsPx = {
+      x: boundsPx.w - blockSizePx.w,
+      y: 0.0,
+      w: blockSizePx.w,
+      h: blockSizePx.h
+    };
     return ({
       boundsPx,
       blockSizePx,
@@ -483,7 +489,8 @@ export const PageFns = {
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx),
       ]
     });
   },
@@ -545,7 +552,7 @@ export const PageFns = {
     fullArrange(store);
   },
 
-  handleExpandClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleShiftLeftClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
     const selectedVeid = store.perItem.getSelectedListPageItem(parentVeid);
     switchToPage(store, selectedVeid, true, false, false);

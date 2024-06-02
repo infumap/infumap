@@ -154,9 +154,9 @@ export function arrange_list_page(
       h: geometry.viewportBoundsPx!.h
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);
-    const isExpandable = selectedIsRoot;
+    const canShiftLeft = selectedIsRoot;
     pageWithChildrenVisualElementSpec.selectedVes =
-      arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, isExpandable, selectedIsRoot);
+      arrangeSelectedListItem(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsRoot);
   }
 
   if (flags & ArrangeItemFlags.IsTopRoot) {
@@ -172,7 +172,7 @@ export function arrange_list_page(
 
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
-export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, isExpandable: boolean, isRoot: boolean): VisualElementSignal {
+export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, canShiftLeft: boolean, isRoot: boolean): VisualElementSignal {
   const item = itemState.get(veid.itemId)!;
   const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
   const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
@@ -194,9 +194,9 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
 
   if (isPage(item)) {
     let hitboxes: Array<Hitbox> = [];
-    if (isExpandable) {
+    if (canShiftLeft) {
       hitboxes = [
-        HitboxFns.create(HitboxFlags.Expand, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.ShiftLeft, { x: 0, y: 0, h: boundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       ];
     }
     cellGeometry = {
@@ -206,7 +206,7 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
       blockSizePx: NATURAL_BLOCK_SIZE_PX,
     };
   } else {
-    cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, isExpandable, false, false, false, false, false);
+    cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, canShiftLeft, false, false, false, false, false);
   }
 
   const result = arrangeItem(

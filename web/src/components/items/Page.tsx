@@ -844,6 +844,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const dimensionsBl = () => ItemFns.calcSpatialDimensionsBl(pageItem());
   const aspect = () => dimensionsBl().w / dimensionsBl().h;
@@ -911,6 +912,14 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
          style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
                 bgOpaqueVal()} />;
 
+  const renderExpandIcon = () =>
+    <div class="absolute text-center text-slate-600"
+        style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                `transform: scale(${smallScale()}); transform-origin: top left;`}>
+      <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-chevron-down' : 'fa-chevron-up'}`} />
+    </div>;
+
   const renderText = () =>
     <div class="absolute overflow-hidden"
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
@@ -936,6 +945,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       {renderHighlightsMaybe()}
       {renderThumbnail()}
       {renderText()}
+      {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
     </>
   );

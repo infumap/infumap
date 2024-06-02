@@ -30,10 +30,11 @@ export enum HitboxFlags {
   OpenAttachment =       0x0040,
   AttachComposite =      0x0080,
   Anchor =               0x0100,
-  Expand =               0x0200,
+  ShiftLeft =            0x0200,
   Settings =             0x0400,
   TriangleLinkSettings = 0x0800,
-  ContentEditable      = 0x1000,
+  ContentEditable =      0x1000,
+  Expand =               0x2000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -47,9 +48,10 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.OpenAttachment) { result += "OpenAttachment "; }
   if (flags & HitboxFlags.AttachComposite) { result += "AttachComposite "; }
   if (flags & HitboxFlags.Anchor) { result += "Anchor "; }
-  if (flags & HitboxFlags.Expand) { result += "Expand "; }
+  if (flags & HitboxFlags.ShiftLeft) { result += "ShiftLeft "; }
   if (flags & HitboxFlags.Settings) { result += "Settings "; }
   if (flags & HitboxFlags.TriangleLinkSettings ) { result += "TriangleLinkSettings "; }
+  if (flags & HitboxFlags.Expand) { result += "Expand"; }
   return result;
 }
 

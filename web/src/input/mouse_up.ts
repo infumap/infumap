@@ -122,6 +122,13 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           VeFns.parentPath(MouseActionState.get().activeElementPath)
         );
         store.history.setFocus(focusPath);
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
+        store.perVe.setIsExpanded(
+          MouseActionState.get().activeElementPath,
+          !store.perVe.getIsExpanded(MouseActionState.get().activeElementPath)
+        );
+        // console.log("expanding:", MouseActionState.get().activeElementPath);
+        fullArrange(store);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
@@ -139,9 +146,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         DoubleClickState.preventDoubleClick();
         PageFns.handleAnchorClick(activeVisualElement, store);
       }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
+      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
         DoubleClickState.preventDoubleClick();
-        PageFns.handleExpandClick(activeVisualElement, store);
+        PageFns.handleShiftLeftClick(activeVisualElement, store);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         console.debug("no action taken");

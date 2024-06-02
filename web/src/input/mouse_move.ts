@@ -16,14 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem } from "../items/table-item";
 import { StoreContextModel } from "../store/StoreProvider";
-import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareDimensions, compareVector } from "../util/geometry";
+import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { editDialogSizePx } from "../components/overlay/edit/EditDialog";
@@ -388,8 +388,10 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(hitInfo.overElementVes.get().displayItem)) &&
                ((hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) || (asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.EmbeddedInteractive))) {
       document.body.style.cursor = "move";
-    } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
+    } else if (hitInfo.hitboxType & HitboxFlags.ShiftLeft) {
       document.body.style.cursor = "zoom-in";
+    } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
+      document.body.style.cursor = "pointer";
     } else {
       document.body.style.cursor = "default";
     }

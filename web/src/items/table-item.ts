@@ -215,13 +215,20 @@ export const TableFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    const expandAreaBoundsPx = {
+      x: boundsPx.w - blockSizePx.w,
+      y: 0.0,
+      w: blockSizePx.w,
+      h: blockSizePx.h
+    };
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx),
       ]
     };
   },

@@ -84,6 +84,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => boundsPx().x + oneBlockWidthPx();
   const widthPx = () => boundsPx().w - oneBlockWidthPx();
@@ -131,6 +132,14 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
       <span>{titleText()}</span>
     </div>;
 
+  const renderExpandIcon = () =>
+    <div class="absolute text-center text-slate-600"
+        style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                `transform: scale(${smallScale()}); transform-origin: top left;`}>
+      <i class={`fas fa-chevron-up`} />
+    </div>;
+
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
       <div class="absolute text-center text-slate-600"
@@ -146,6 +155,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
       {renderHighlightsMaybe()}
       {renderIcon()}
       {renderText()}
+      {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
     </>
   )

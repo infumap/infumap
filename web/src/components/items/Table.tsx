@@ -276,6 +276,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
 
   const renderHighlightsMaybe = () =>
@@ -303,6 +304,14 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       <i class={`fas fa-table`} />
     </div>;
 
+  const renderExpandIcon = () =>
+    <div class="absolute text-center text-slate-600"
+        style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+                `transform: scale(${smallScale()}); transform-origin: top left;`}>
+      <i class={`fas fa-chevron-up`} />
+    </div>;
+
   const renderText = () =>
     <div class="absolute overflow-hidden"
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
@@ -326,6 +335,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       {renderHighlightsMaybe()}
       {renderIcon()}
       {renderText()}
+      {renderExpandIcon()}
       {renderLinkMarkingMaybe()}
     </>
   );

@@ -42,6 +42,9 @@ export interface PerVeStoreContextModel {
   getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
   setMoveOverColAttachmentNumber: (vePath: VisualElementPath, colNumber: number) => void,
 
+  getIsExpanded: (vePath: VisualElementPath) => boolean,
+  setIsExpanded: (vePath: VisualElementPath, isExpanded: boolean) => void,
+
   clear: () => void,
 }
 
@@ -56,6 +59,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const movingItemIsOverAttachComposite = new Map<string, BooleanSignal>();
   const moveOverRowNumber = new Map<string, NumberSignal>();
   const moveOverColAttachmentNumber = new Map<string, NumberSignal>();
+  const isExpanded = new Map<string, BooleanSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
     if (!mouseIsOver.get(vePath)) {
@@ -162,6 +166,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     moveOverColAttachmentNumber.get(vePath)!.set(colNumber);
   };
 
+  const getIsExpanded = (vePath: VisualElementPath): boolean => {
+    if (!isExpanded.get(vePath)) {
+      isExpanded.set(vePath, createBooleanSignal(false));
+    }
+    return isExpanded.get(vePath)!.get();
+  };
+
+  const setIsExpanded = (vePath: VisualElementPath, isExp: boolean): void => {
+    if (!isExpanded.get(vePath)) {
+      isExpanded.set(vePath, createBooleanSignal(isExp));
+      return;
+    }
+    isExpanded.get(vePath)!.set(isExp);
+  };
+
   return ({
     getMouseIsOver,
     setMouseIsOver,
@@ -183,6 +202,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMoveOverColAttachmentNumber,
     setMoveOverColAttachmentNumber,
+
+    getIsExpanded,
+    setIsExpanded,
 
     clear
   });
