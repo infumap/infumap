@@ -428,6 +428,14 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     return;
   }
 
+  // compact expanded list item.
+  let hi = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], true, false);
+  if (hi.hitboxType & HitboxFlags.Expand) {
+    const itemPath = VeFns.veToPath(hi.overElementVes.get());
+    store.perVe.setIsExpanded(itemPath, !store.perVe.getIsExpanded(itemPath));
+    fullArrange(store);
+  }
+
   const changedPages = navigateBack(store);
   if (!changedPages) {
     await navigateUp(store);

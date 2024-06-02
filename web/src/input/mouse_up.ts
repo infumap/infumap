@@ -127,7 +127,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           MouseActionState.get().activeElementPath,
           !store.perVe.getIsExpanded(MouseActionState.get().activeElementPath)
         );
-        // console.log("expanding:", MouseActionState.get().activeElementPath);
         fullArrange(store);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
