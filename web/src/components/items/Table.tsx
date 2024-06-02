@@ -305,11 +305,11 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
     </div>;
 
   const renderExpandIcon = () =>
-    <div class="absolute text-center text-slate-600"
-        style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
-                `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
+    <div class="absolute text-center text-slate-400"
+         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                `width: ${oneBlockWidthPx() * smallScale()}px; height: ${boundsPx().h * smallScale()}px; `+
                 `transform: scale(${smallScale()}); transform-origin: top left;`}>
-      <i class={`fas fa-chevron-up`} />
+      <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />
     </div>;
 
   const renderText = () =>
