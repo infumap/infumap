@@ -201,7 +201,7 @@ export const TableFns = {
     return calcGeometryOfAttachmentItemImpl(table, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_table: TableMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean): ItemGeometry => {
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -224,7 +224,7 @@ export const TableFns = {
       HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
     ];
-    if (col == 0) {
+    if (expandable) {
       hitboxes.push(HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx));
     }
     return {

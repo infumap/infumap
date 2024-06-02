@@ -202,7 +202,7 @@ export const NoteFns = {
     return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
     const boundsPx = {
       x: blockSizePx.w * col,
       y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX : 0),

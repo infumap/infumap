@@ -199,7 +199,7 @@ export const CompositeFns = {
     return calcGeometryOfAttachmentItemImpl(composite, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_composite: CompositeMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_composite: CompositeMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean): ItemGeometry => {
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -228,7 +228,7 @@ export const CompositeFns = {
       HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
     ];
-    if (col == 0) {
+    if (expandable) {
       hitboxes.push(HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx));
     }
     return ({

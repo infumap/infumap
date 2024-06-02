@@ -177,7 +177,7 @@ export const ImageFns = {
     return calcGeometryOfAttachmentItemImpl(image, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (_image: ImageMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry => {
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,

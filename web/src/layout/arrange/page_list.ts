@@ -120,7 +120,7 @@ export function arrange_list_page(
     const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup, true);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup, true, true);
 
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
@@ -262,7 +262,7 @@ export function arrange_dock_list_page(
 
     const blockSizePx = NATURAL_BLOCK_SIZE_PX;
     const widthBl = geometry.boundsPx.w / blockSizePx.w;
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false, false);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, false, false, false);
 
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
