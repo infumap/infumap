@@ -482,16 +482,19 @@ export const PageFns = {
       w: blockSizePx.w,
       h: blockSizePx.h
     };
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
+    ];
+    if (col == 0) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx));
+    }
     return ({
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Expand, expandAreaBoundsPx),
-      ]
+      hitboxes
     });
   },
 

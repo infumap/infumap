@@ -133,12 +133,14 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     </div>;
 
   const renderExpandIcon = () =>
-    <div class="absolute text-center text-slate-400"
-         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
-                `width: ${oneBlockWidthPx() * smallScale()}px; height: ${boundsPx().h * smallScale()}px; `+
-                `transform: scale(${smallScale()}); transform-origin: top left;`}>
-      <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />
-    </div>;
+    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
+      <div class="absolute text-center text-slate-400"
+          style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+                  `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; `+
+                  `transform: scale(${smallScale()}); transform-origin: top left;`}>
+        <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />
+      </div>
+    </Show>;
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
