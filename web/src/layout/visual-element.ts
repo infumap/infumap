@@ -153,6 +153,11 @@ export interface VisualElement {
   tableDimensionsPx: Dimensions | null,
 
   /**
+   * The indentation of the row of the element (due to expansion of child containers), if it's inside a table.
+   */
+  indentBl: number | null,
+
+  /**
    * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
   blockSizePx: Dimensions | null,
@@ -209,6 +214,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
   tableDimensionsPx: null,
+  indentBl: null,
   viewportBoundsPx: null,
   blockSizePx: null,
   col: null,
@@ -246,6 +252,7 @@ export interface VisualElementSpec {
   childAreaBoundsPx?: BoundingBox,
   viewportBoundsPx?: BoundingBox,
   tableDimensionsPx?: Dimensions,
+  indentBl?: number,
   blockSizePx?: Dimensions,
   col?: number,
   row?: number,
@@ -280,6 +287,7 @@ export const VeFns = {
       childAreaBoundsPx: null,
       viewportBoundsPx: null,
       tableDimensionsPx: null,
+      indentBl: null,
       blockSizePx: null,
       col: null,
       row: null,
@@ -319,6 +327,7 @@ export const VeFns = {
     ve.childAreaBoundsPx = null;
     ve.viewportBoundsPx = null;
     ve.tableDimensionsPx = null;
+    ve.indentBl = null;
     ve.blockSizePx = null;
     ve.col = null;
     ve.row = null;
@@ -587,6 +596,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
   if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
   if (typeof(override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
+  if (typeof(override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
   if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
   if (typeof(override.col) != 'undefined') { result.col = override.col; }
   if (typeof(override.row) != 'undefined') { result.row = override.row; }

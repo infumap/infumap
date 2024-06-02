@@ -26,7 +26,7 @@ export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
     if (veFn().displayItem.relationshipToParent == RelationshipToParent.Child &&
         veFn().tableDimensionsPx) { // not set if not in table.
       let r = cloneBoundingBox(veFn().boundsPx)!;
-      r.w = veFn().tableDimensionsPx!.w;
+      r.w = veFn().tableDimensionsPx!.w - veFn().indentBl! * veFn().blockSizePx!.w;
       return r;
     }
     return veFn().boundsPx;

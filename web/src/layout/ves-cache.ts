@@ -345,6 +345,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
                  newProps[i] == "row" ||
                  newProps[i] == "col" ||
                  newProps[i] == "numRows" ||
+                 newProps[i] == "indentBl" ||
                  newProps[i] == "parentPath" ||
                  newProps[i] == "evaluatedTitle" ||
                  newProps[i] == "displayItemFingerprint" ||
