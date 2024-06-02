@@ -42,31 +42,6 @@ import { ArrangeItemFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
-function calcNumRows(
-    store: StoreContextModel,
-    tableVePath: VisualElementPath,
-    displayItem_Table: TableItem) {
-  let numRows = 0;
-  for (let tableChildIdx=0; tableChildIdx<displayItem_Table.computed_children.length; ++tableChildIdx) {
-    numRows += 1;
-    let childId = displayItem_Table.computed_children[tableChildIdx];
-    const childItem = itemState.get(childId)!;
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
-    if (isContainer(displayItem_childItem)) {
-      const childVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
-      const childPath = VeFns.addVeidToPath(childVeid, tableVePath);
-      if (store.perVe.getIsExpanded(childPath)) {
-        initiateLoadChildItemsMaybe(store, childVeid);
-        // TODO (if expanded, load children maybe).
-        let childContainer = asContainerItem(childItem);
-        numRows += childContainer.computed_children.length;
-        console.log("IS expanded:", childPath, childContainer.computed_children.length);
-      }
-    }
-  }
-  return numRows;
-}
-
 export const arrangeTable = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
@@ -82,11 +57,6 @@ export const arrangeTable = (
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
 
   const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);
-  let numRows = calcNumRows(store, tableVePath, displayItem_Table);
-  // console.log("num rows", numRows);
-
-  const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
-  childAreaBoundsPx.h = numRows * tableGeometry.blockSizePx.h;
 
   const tableVisualElementSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
@@ -98,15 +68,18 @@ export const arrangeTable = (
     arrangeFlags: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
-    childAreaBoundsPx,
     hitboxes: tableGeometry.hitboxes,
     blockSizePx,
     parentPath,
   };
 
-  const [childrenVes, tableVesRows] = arrangeTableChildren(store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags);
+  const [childrenVes, tableVesRows, numRows] = arrangeTableChildren(store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags);
   tableVisualElementSpec.childrenVes = childrenVes;
   tableVisualElementSpec.tableVesRows = tableVesRows;
+
+  const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
+  childAreaBoundsPx.h = numRows * tableGeometry.blockSizePx.h
+  tableVisualElementSpec.childAreaBoundsPx = childAreaBoundsPx;
 
   const attachments = arrangeItemAttachments(store, displayItem_Table, linkItemMaybe_Table, tableGeometry.boundsPx, tableVePath);
   tableVisualElementSpec.attachmentsVes = attachments;
@@ -119,22 +92,22 @@ export const arrangeTable = (
 
 export function arrangeTableChildren(
     store: StoreContextModel,
-    displayItem_Table: TableItem,
-    linkItemMaybe_Table: LinkItem | null,
+    displayItem_table: TableItem,
+    linkItemMaybe_table: LinkItem | null,
     tableGeometry: ItemGeometry,
     tableVePath: VisualElementPath,
-    flags: ArrangeItemFlags): [Array<VisualElementSignal>, Array<number>] {
+    flags: ArrangeItemFlags): [Array<VisualElementSignal>, Array<number>, number] {
 
-  const sizeBl = linkItemMaybe_Table
-    ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
-    : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
+  const sizeBl = linkItemMaybe_table
+    ? { w: linkItemMaybe_table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_table!.spatialHeightGr / GRID_SIZE }
+    : { w: displayItem_table.spatialWidthGr / GRID_SIZE, h: displayItem_table.spatialHeightGr / GRID_SIZE };
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
 
-  const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table));
+  const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
-  const numVisibleRows = (linkItemMaybe_Table ? linkItemMaybe_Table.spatialHeightGr / GRID_SIZE : displayItem_Table.spatialHeightGr / GRID_SIZE)
+  const numVisibleRows = (linkItemMaybe_table ? linkItemMaybe_table.spatialHeightGr / GRID_SIZE : displayItem_table.spatialHeightGr / GRID_SIZE)
                           - 1
-                          - (displayItem_Table.flags & TableFlags.ShowColHeader ? 1 : 0);
+                          - (displayItem_table.flags & TableFlags.ShowColHeader ? 1 : 0);
   let lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
 
@@ -149,81 +122,62 @@ export function arrangeTableChildren(
   let tableVeChildren: Array<VisualElementSignal> = [];
   let tableVesRows: Array<number> = [];
   let iterIndices = [0];
-  let iterContainers: Array<ContainerItem> = [displayItem_Table];
+  let iterContainers: Array<ContainerItem> = [displayItem_table];
   let rowIdx = 0;
-  let finished = displayItem_Table.computed_children.length == 0;
   let currentParentPath = tableVePath;
+  let numRows = 0;
 
-  console.log("---", firstItemIdx, lastItemIdx);
-  while (!finished) {
-    if (iterContainers[iterContainers.length-1].computed_children.length > 0) {
-      console.log("no children");
-    }
+  if (displayItem_table.computed_children.length == 0) { return [tableVeChildren, tableVesRows, 0]; }
 
+  while (true) {
     let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
     const item = itemState.get(itemId)!;
-    const title = isTitledItem(item) ? asTitledItem(item).title : "N/A";
+
     // 1. make row.
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
     let itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
     let itemPath = VeFns.addVeidToPath(itemVeid, currentParentPath);
-    if (rowIdx >= firstItemIdx) {
-      console.log(rowIdx, "drawing", title);
+    if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
+      const indentBl = iterIndices.length - 1;
       let outIdx = rowIdx % outCount;
       tableVeChildren[outIdx] = createRow(
-        store, item, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), null);
+        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableGeometry.boundsPx), null);
       tableVesRows[outIdx] = rowIdx;
-    } else {
-      console.log(rowIdx, "skipping", title);
     }
     rowIdx = rowIdx + 1;
-    if (rowIdx > lastItemIdx) {
-      finished = true;
-      break;
-    }
+    numRows += 1;
 
     // 2. increment iterator.
-    if (isContainer(item) && store.perVe.getIsExpanded(itemPath)) {
+    if (isContainer(item) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
+    if (isContainer(item) && asContainerItem(item).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       // either step into expanded container
-      // console.log("incrementing iter: stepping in.");
       iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
       iterIndices.push(0);
       iterContainers.push(asContainerItem(item));
     }
     else {
-      // console.log("incrementing iter: not expanded container.");
       // or move through current container childern by one.
       iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
       while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
-        // console.log("step up");
         iterIndices.pop();
         iterContainers.pop();
       }
       if (iterIndices.length == 0) {
         while (rowIdx <= lastItemIdx) {
-          console.log(rowIdx, "draw filler");
-          createFillerRow(store, displayItem_Table, tableVePath);
+          let outIdx = rowIdx % outCount;
+          tableVeChildren[outIdx] = createFillerRow(displayItem_table, tableVePath);
           rowIdx = rowIdx + 1;
         }
-        finished = true;
         break;
       }
     }
   }
 
-  // for (let rowIdx=firstItemIdx; rowIdx<=lastItemIdx; ++rowIdx) {
-  //   let outIdx = rowIdx % outCount;
-  //   tableVeChildren[outIdx] = createRow(
-  //     store, displayItem_Table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableGeometry.boundsPx), null);
-  //   tableVesRows[outIdx] = rowIdx;
-  // }
-
-  return [tableVeChildren, tableVesRows];
+  return [tableVeChildren, tableVesRows, numRows];
 }
 
 
 function createFillerRow(
-    store: StoreContextModel,
     di_Table: TableItem,
     tableVePath: VisualElementPath,
   ) {
@@ -239,6 +193,99 @@ function createFillerRow(
   return VesCache.full_createOrRecycleVisualElementSignal(tableChildVeSpec, tableChildVePath);
 }
 
+
+export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
+  let needToRearrange = () => {
+    const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
+    if (Math.round(prevScrollYPos) != Math.round(scrollYPos)) { return true; }
+    return false;
+  };
+  if (!needToRearrange()) { return; }
+
+  const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
+  const tableVe = VesCache.get(tableVePath)!.get();
+  const displayItem_table = asTableItem(tableVe.displayItem);
+  const childrenVes = tableVe.childrenVes;
+  const tableVesRows = tableVe.tableVesRows;
+  if (tableVesRows == null || tableVesRows!.length != childrenVes.length) { panic("rearrangeTableAfterScroll: invalid tableVesRows"); }
+
+  const numVisibleRows = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
+                         - 1
+                         - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
+
+  const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
+  const firstItemIdx = Math.floor(scrollYPos);
+  const lastItemIdx = firstItemIdx + numVisibleRows;
+  const outCount = lastItemIdx - firstItemIdx + 1;
+  if (childrenVes.length != outCount) { panic("unexpected number of child ves rows."); }
+
+  const sizeBl = tableVeid.linkIdMaybe
+    ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
+    : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
+  const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
+
+  let tableVeChildren: Array<VisualElementSignal> = [];
+  let iterIndices = [0];
+  let iterContainers: Array<ContainerItem> = [displayItem_table];
+  let rowIdx = 0;
+  let finished = displayItem_table.computed_children.length == 0;
+  let currentParentPath = tableVePath;
+
+  while (!finished) {
+    let itemId = iterContainers[iterContainers.length-1].computed_children[iterIndices[iterIndices.length-1]];
+    const item = itemState.get(itemId)!;
+    // 1. make row.
+    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
+    let itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
+    let itemPath = VeFns.addVeidToPath(itemVeid, currentParentPath);
+    if (rowIdx >= firstItemIdx) {
+      let outIdx = rowIdx % outCount;
+      if (tableVesRows[outIdx] != rowIdx) {
+        const indentBl = iterIndices.length - 1;
+        const vesToOverwrite = childrenVes[outIdx];
+        tableVeChildren[outIdx] = createRow(
+          store, item, displayItem_table, tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
+        tableVesRows[outIdx] = rowIdx;
+      }
+    }
+    rowIdx = rowIdx + 1;
+    if (rowIdx > lastItemIdx) {
+      finished = true;
+      break;
+    }
+
+    // 2. increment iterator.
+    if (isContainer(item) && store.perVe.getIsExpanded(itemPath)) { initiateLoadChildItemsMaybe(store, itemVeid); }
+    if (isContainer(item) && asContainerItem(item).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+      // either step into expanded container
+      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
+      iterIndices.push(0);
+      iterContainers.push(asContainerItem(item));
+    }
+    else {
+      // or move through current container childern by one.
+      iterIndices[iterIndices.length-1] = iterIndices[iterIndices.length-1] + 1;
+      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length-1].computed_children.length) {
+        iterIndices.pop();
+        iterContainers.pop();
+      }
+      if (iterIndices.length == 0) {
+        while (rowIdx <= lastItemIdx) {
+          let outIdx = rowIdx % outCount;
+          if (tableVesRows[outIdx] != rowIdx) {
+            createFillerRow(displayItem_table, tableVePath);
+            rowIdx = rowIdx + 1;
+          }
+        }
+        finished = true;
+        break;
+      }
+    }
+  }
+
+}
+
+
 function createRow(
     store: StoreContextModel,
     childItem: Item,
@@ -248,6 +295,7 @@ function createRow(
     rowIdx: number,
     sizeBl: Dimensions,
     blockSizePx: Dimensions,
+    indentBl: number,
     tableDimensionsPx: Dimensions,
     vesToOverwrite: VisualElementSignal | null): VisualElementSignal {
 
@@ -262,7 +310,7 @@ function createRow(
     ? sizeBl.w
     : Math.min(di_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
-  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, 0, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false);
+  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false);
 
   const tableChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
@@ -353,44 +401,4 @@ function createRow(
   }
 
   return tableItemVisualElementSignal;
-}
-
-
-export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: VisualElementPath, tableVeid: Veid, prevScrollYPos: number) {
-  // let needToRearrange = () => {
-  //   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-  //   if (Math.round(prevScrollYPos) != Math.round(scrollYPos)) { return true; }
-  //   return false;
-  // };
-  // if (!needToRearrange()) { return; }
-
-  // const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
-  // const tableVe = VesCache.get(tableVePath)!.get();
-  // const childrenVes = tableVe.childrenVes;
-  // const tableVesRows = tableVe.tableVesRows;
-  // if (tableVesRows == null || tableVesRows!.length != childrenVes.length) { panic("rearrangeTableAfterScroll: invalid tableVesRows"); }
-
-  // const numVisibleRows = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
-  //                        - 1
-  //                        - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
-
-  // const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-  // const firstItemIdx = Math.floor(scrollYPos);
-  // const lastItemIdx = firstItemIdx + numVisibleRows;
-  // const outCount = lastItemIdx - firstItemIdx + 1;
-  // if (childrenVes.length != outCount) { panic("unexpected number of child ves rows."); }
-
-  // const sizeBl = tableVeid.linkIdMaybe
-  //   ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
-  //   : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
-  // const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
-
-  // for (let rowIdx=firstItemIdx; rowIdx<=lastItemIdx; ++rowIdx) {
-  //   const outIdx = rowIdx % outCount;
-  //   if (tableVesRows[outIdx] != rowIdx) {
-  //     const vesToOverwrite = childrenVes[outIdx];
-  //     createRow(store, asTableItem(tableVe.displayItem), tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
-  //     tableVesRows[outIdx] = rowIdx;
-  //   }
-  // }
 }

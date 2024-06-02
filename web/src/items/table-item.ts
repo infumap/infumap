@@ -38,7 +38,6 @@ import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
-import { fullArrange } from "../layout/arrange";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
