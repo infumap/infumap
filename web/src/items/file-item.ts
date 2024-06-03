@@ -28,11 +28,13 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { StoreContextModel } from '../store/StoreProvider';
-import { VisualElement } from '../layout/visual-element';
+import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { NoteFlags } from './base/flags-item';
+import { VesCache } from '../layout/ves-cache';
+import { fullArrange } from '../layout/arrange';
 
 
 export interface FileItem extends FileMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
@@ -224,6 +226,17 @@ export const FileFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+  },
+
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    }
   },
 
   cloneMeasurableFields: (file: FileMeasurable): FileMeasurable => {

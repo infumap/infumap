@@ -226,7 +226,7 @@ export const ItemFns = {
     else if (isNote(item)) { NoteFns.handlePopupClick(visualElement, store); }
     else if (isExpression(item)) { }
     else if (isImage(item)) { ImageFns.handleClick(visualElement, store); }
-    else if (isFile(item)) { }
+    else if (isFile(item)) { FileFns.handlePopupClick(visualElement, store); }
     else if (isPassword(item)) { }
     else if (isRating(item)) { }
     else if (isLink(item)) { }
