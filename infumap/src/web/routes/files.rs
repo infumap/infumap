@@ -250,6 +250,8 @@ async fn get_cached_resized_img(
 
       // Using Langczos3 for downscaling, as recommended by: https://crates.io/crates/resize
       img = img.resize(requested_width, requested_height, FilterType::Lanczos3);
+      // Throw away alpha channel, if it exists.
+      let img = img.to_rgb8();
 
       let buf = Vec::new();
       let mut cursor = Cursor::new(buf);
