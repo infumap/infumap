@@ -55,15 +55,7 @@ export function arrangeItemAttachments(
     };
     const attachmentVePath = VeFns.addVeidToPath(attachmentVeid, parentItemVePath);
 
-    const popupSpec = store.history.currentPopupSpec();
     let isSelected = false;
-
-    // TODO: redo this for actualVeid change.
-    // if (popupSpec != null && popupSpec.type == PopupType.Attachment) {
-    //   if (attachmentVePath == popupSpec.vePath) {
-    //     isSelected = true;
-    //   }
-    // }
 
     const attachmentGeometry = ItemFns.calcGeometry_Attachment(attachmentItem, parentItemBoundsPx, parentItemSizeBl, i, isSelected);
 

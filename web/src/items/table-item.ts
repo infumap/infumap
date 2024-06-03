@@ -30,7 +30,7 @@ import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { itemState } from "../store/ItemState";
@@ -38,6 +38,9 @@ import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
+import { VesCache } from "../layout/ves-cache";
+import { PopupType } from "../store/StoreProvider_History";
+import { fullArrange } from "../layout/arrange";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -214,6 +217,13 @@ export const TableFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    const clickAreaBoundsPx = {
+      x: blockSizePx.w,
+      y: 0.0,
+      w: blockSizePx.w * (widthBl - 1),
+      h: blockSizePx.h
+    };
+    const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     const expandAreaBoundsPx = {
       x: boundsPx.w - blockSizePx.w,
       y: 0.0,
@@ -221,7 +231,8 @@ export const TableFns = {
       h: blockSizePx.h
     };
     const hitboxes = [
-      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
     ];
     if (expandable) {
@@ -258,6 +269,18 @@ export const TableFns = {
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
       endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,
     });
+  },
+
+
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+      store.history.pushPopup({ type: PopupType.Table, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      store.history.replacePopup({ type: PopupType.Table, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    }
   },
 
   cloneMeasurableFields: (table: TableMeasurable): TableMeasurable => {

@@ -161,12 +161,8 @@ export function arrange_spatial_page(
           store, pageWithChildrenVePath, ArrangeAlgorithm.SpatialStretch, li, actualLinkItemMaybe, itemGeometry,
           ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot);
 
-      } else if (currentPopupSpec.type == PopupType.Attachment) {
-        // Ves are created inline.
-      } else if (currentPopupSpec.type == PopupType.Image) {
-        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
       } else {
-        panic(`arrange_spatialStretch: unknown popup type: ${currentPopupSpec.type}.`);
+        pageWithChildrenVisualElementSpec.popupVes = arrangeCellPopup(store);
       }
     }
   }

@@ -129,14 +129,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         );
         fullArrange(store);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
-        console.log("open popup");
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();
-        handleAttachmentClick(store, activeVisualElement);
-        fullArrange(store);
+        ItemFns.handleOpenPopupClick(activeVisualElement, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
@@ -167,12 +165,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
 
 function handleAttachmentClick(store: StoreContextModel, visualElement: VisualElement) {
-  VesCache.removeByPath(VeFns.veToPath(visualElement));
-  store.history.replacePopup({
-    type: PopupType.Attachment,
-    actualVeid: VeFns.actualVeidFromVe(visualElement),
-    vePath: VeFns.veToPath(visualElement),
-  });
+  console.log("handle attachment click", visualElement);
 }
 
 

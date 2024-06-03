@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { ItemFns} from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
@@ -161,6 +161,11 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => boundsPx().x + oneBlockWidthPx();
   const widthPx = () => boundsPx().w - oneBlockWidthPx();
+  const openPopupBoundsPx = () => {
+    const r = cloneBoundingBox(boundsPx())!;
+    r.w = oneBlockWidthPx();
+    return r;
+  };
 
   // Link click events are handled in the global mouse up handler. However, calculating the text
   // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
@@ -173,6 +178,10 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+      </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />

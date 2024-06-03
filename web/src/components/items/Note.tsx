@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
@@ -271,6 +271,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
     ? boundsPx().w - oneBlockWidthPx() * 0.15 - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
+  const openPopupBoundsPx = () => {
+    const r = cloneBoundingBox(boundsPx())!;
+    r.w = oneBlockWidthPx();
+    return r;
+  };
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
@@ -295,6 +300,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+      </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />

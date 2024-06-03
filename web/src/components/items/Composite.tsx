@@ -19,7 +19,7 @@
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
@@ -98,9 +98,18 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     }
     return "[no title]";
   }
+  const openPopupBoundsPx = () => {
+    const r = cloneBoundingBox(boundsPx())!;
+    r.w = oneBlockWidthPx();
+    return r;
+  };
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+      </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />

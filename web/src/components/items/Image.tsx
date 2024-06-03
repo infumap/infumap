@@ -114,8 +114,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const isMainPoppedUp = () =>
     store.history.currentPopupSpecVeid() != null &&
-    VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0 &&
-    store.history.currentPopupSpec()!.type != PopupType.Attachment;
+    VeFns.compareVeids(VeFns.actualVeidFromVe(props.visualElement), store.history.currentPopupSpecVeid()!) == 0;
 
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no

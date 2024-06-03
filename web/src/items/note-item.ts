@@ -28,7 +28,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { FlagsItem, FlagsMixin, NoteFlags } from './base/flags-item';
-import { VeFns, VisualElement } from '../layout/visual-element';
+import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
@@ -38,6 +38,8 @@ import { CursorPosition } from '../store/StoreProvider_Overlay';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
+import { VesCache } from '../layout/ves-cache';
+import { PopupType } from '../store/StoreProvider_History';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -209,13 +211,21 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    const clickAreaBoundsPx = {
+      x: blockSizePx.w,
+      y: 0.0,
+      w: blockSizePx.w * (widthBl - 1),
+      h: blockSizePx.h
+    };
+    const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     return {
       boundsPx,
       viewportBoundsPx: null,
       blockSizePx,
       hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+        HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
       ]
     };
@@ -261,6 +271,17 @@ export const NoteFns = {
       setCaretPosition(el, closestIdx);
     }
     fullArrange(store); // input focus changed.
+  },
+
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+      store.history.pushPopup({ type: PopupType.Note, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      store.history.replacePopup({ type: PopupType.Note, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    }
   },
 
   cloneMeasurableFields: (note: NoteMeasurable): NoteMeasurable => {

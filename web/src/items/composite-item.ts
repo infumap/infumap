@@ -31,8 +31,11 @@ import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin } from './base/flags-item';
-import { VisualElement } from '../layout/visual-element';
+import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
+import { VesCache } from '../layout/ves-cache';
+import { PopupType } from '../store/StoreProvider_History';
+import { fullArrange } from '../layout/arrange';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -218,6 +221,7 @@ export const CompositeFns = {
       w: blockSizePx.w * (widthBl - 1),
       h: blockSizePx.h
     };
+    const popupClickAreaBoundsPx = { x: 0.0, y: 0.0, w: blockSizePx.w, h: blockSizePx.h };
     const expandAreaBoundsPx = {
       x: boundsPx.w - blockSizePx.w,
       y: 0.0,
@@ -226,6 +230,7 @@ export const CompositeFns = {
     };
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
       HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
     ];
     if (expandable) {
@@ -278,6 +283,17 @@ export const CompositeFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+  },
+
+  handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
+      store.history.pushPopup({ type: PopupType.Composite, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    } else {
+      store.history.replacePopup({ type: PopupType.Composite, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      fullArrange(store);
+    }
   },
 
   debugSummary: (_compositeItem: CompositeItem) => {

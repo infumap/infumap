@@ -20,7 +20,7 @@ import { Component, createMemo, For, Match, onMount, Show, Switch } from "solid-
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { BoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { TableFlags } from "../../items/base/flags-item";
@@ -278,9 +278,18 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
+  const openPopupBoundsPx = () => {
+    const r = cloneBoundingBox(boundsPx())!;
+    r.w = oneBlockWidthPx();
+    return r;
+  };
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
+        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+      </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />

@@ -25,8 +25,10 @@ import { itemState } from "./ItemState";
 
 export enum PopupType {
   Page,
-  Attachment,
-  Image
+  Image,
+  Note,
+  Table,
+  Composite,
 }
 
 export interface PopupSpec {

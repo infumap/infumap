@@ -19,16 +19,14 @@
 import { batch } from "solid-js";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, asLinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { VeFns, VisualElementFlags, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
-import { VesCache } from "../ves-cache";
-import { arrangeItemAttachments } from "./attachments";
 import { POPUP_LINK_UID, UMBRELLA_PAGE_UID } from "../../util/uid";
 
 
@@ -63,32 +61,12 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   }
   const item = itemState.get(popupLinkToImageId)!;
 
-  if (isPage(item)) {
-    let ves: VisualElementSignal;
-    batch(() => {
-      ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot);
-      let ve = ves.get();
-      ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
-      ves.set(ve);
-    });
-    return ves!;
-  } else {
-    const itemVisualElement: VisualElementSpec = {
-      displayItem: item,
-      linkItemMaybe: li,
-      actualLinkItemMaybe: actualLinkItemMaybe,
-      flags: VisualElementFlags.Popup |
-             VisualElementFlags.Detailed |
-             (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None),
-      arrangeFlags: ArrangeItemFlags.None,
-      boundsPx: geometry.boundsPx,
-      childAreaBoundsPx: isPage(item) ? geometry.boundsPx : undefined,
-      hitboxes: geometry.hitboxes,
-      parentPath: currentPath,
-    };
-
-    const itemPath = VeFns.addVeidToPath(VeFns.veidFromItems(item, li), currentPath);
-    itemVisualElement.attachmentsVes = arrangeItemAttachments(store, item, li, geometry.boundsPx, itemPath);
-    return VesCache.full_createOrRecycleVisualElementSignal(itemVisualElement, itemPath);
-  }
+  let ves: VisualElementSignal;
+  batch(() => {
+    ves = arrangeItem(store, currentPath, currentPage.arrangeAlgorithm, li, actualLinkItemMaybe, geometry, ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.RenderChildrenAsFull);
+    let ve = ves.get();
+    ve.flags |= (renderAsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
+    ves.set(ve);
+  });
+  return ves!;
 }
