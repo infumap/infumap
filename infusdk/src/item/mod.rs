@@ -1503,4 +1503,49 @@ impl Item {
       rating: None,
     }
   }
+
+  pub fn new_placeholder(
+      parent_id: &Uid,
+      ordering: Vec<u8>) -> Item {
+    Item {
+      item_type: ItemType::Placeholder,
+      owner_id: EMPTY_UID.to_owned(),
+      id: new_uid(),
+      parent_id: Some(parent_id.to_owned()),
+      relationship_to_parent: RelationshipToParent::Attachment,
+      creation_date: 0,
+      last_modified_date: 0,
+      ordering,
+      flags: None,
+      spatial_position_gr: None,
+      order_children_by: None,
+      spatial_width_gr: None,
+      spatial_height_gr: None,
+      title: None,
+      url: None,
+      format: None,
+      link_to: None,
+      table_columns: None,
+      number_of_visible_columns: None,
+      original_creation_date: None,
+      mime_type: None,
+      file_size_bytes: None,
+      permission_flags: None,
+      inner_spatial_width_gr: None,
+      natural_aspect: None,
+      background_color_index: None,
+      arrange_algorithm: None,
+      popup_position_gr: None,
+      popup_alignment_point: None,
+      popup_width_gr: None,
+      grid_number_of_columns: None,
+      grid_cell_aspect: None,
+      doc_width_bl: None,
+      justified_row_aspect: None,
+      text: None,
+      image_size_px: None,
+      thumbnail: None,
+      rating: None,
+    }
+  }
 }
