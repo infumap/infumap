@@ -19,20 +19,11 @@
 import { createSignal } from "solid-js";
 import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
-import { Item } from "../items/base/item";
+import { Item, ItemType } from "../items/base/item";
 import { itemState } from "./ItemState";
 
 
-export enum PopupType {
-  Page,
-  Image,
-  Note,
-  Table,
-  Composite,
-}
-
 export interface PopupSpec {
-  type: PopupType,
   actualVeid: Veid,
   vePath: VisualElementPath | null,
 };
@@ -188,7 +179,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       return itemState.get(VeFns.veidFromPath(breadcrumb.focusPath!).itemId)!;
     }
     if (currentPopupSpec() != null) {
-      if (currentPopupSpec()!.type == PopupType.Page) {
+      if (itemState.get(currentPopupSpec()!.actualVeid.itemId)!.itemType == ItemType.Page) {
         return itemState.get(currentPopupSpec()!.actualVeid.itemId)!;
       }
     }

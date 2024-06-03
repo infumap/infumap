@@ -39,7 +39,6 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
 import { VesCache } from "../layout/ves-cache";
-import { PopupType } from "../store/StoreProvider_History";
 import { fullArrange } from "../layout/arrange";
 
 
@@ -275,10 +274,10 @@ export const TableFns = {
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      store.history.pushPopup({ type: PopupType.Table, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     } else {
-      store.history.replacePopup({ type: PopupType.Table, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     }
   },

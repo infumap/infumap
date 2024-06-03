@@ -28,11 +28,11 @@ import { panic } from "../util/lang";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
-import { PopupType } from "../store/StoreProvider_History";
 import { newItemInContext } from "./create";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
+import { ItemType } from "../items/base/item";
 
 
 const recognizedKeys = [
@@ -156,7 +156,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         const closestVeid = VeFns.veidFromPath(closest);
         const closestItem = itemState.get(closestVeid.itemId);
         store.history.replacePopup({
-          type: isPage(closestItem) ? PopupType.Page : PopupType.Image,
           vePath: closest,
           actualVeid: closestVeid,
         });
@@ -178,7 +177,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
     const spec = store.history.currentPopupSpec();
-    if (spec && spec.type == PopupType.Page) {
+    if (spec && itemState.get(spec.actualVeid.itemId)!.itemType == ItemType.Page) {
       switchToPage(store, store.history.currentPopupSpec()!.actualVeid, true, false, false);
     }
   }

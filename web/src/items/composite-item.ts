@@ -34,7 +34,6 @@ import { CompositeFlags, FlagsMixin } from './base/flags-item';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { VesCache } from '../layout/ves-cache';
-import { PopupType } from '../store/StoreProvider_History';
 import { fullArrange } from '../layout/arrange';
 
 
@@ -288,10 +287,10 @@ export const CompositeFns = {
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      store.history.pushPopup({ type: PopupType.Composite, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     } else {
-      store.history.replacePopup({ type: PopupType.Composite, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     }
   },

@@ -41,7 +41,6 @@ import { FlagsMixin, NoteFlags, PageFlags } from './base/flags-item';
 import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
-import { PopupType } from '../store/StoreProvider_History';
 import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { newOrdering } from '../util/ordering';
 
@@ -530,13 +529,13 @@ export const PageFns = {
       if (parentParentVe.flags & VisualElementFlags.Popup) { insidePopup = true; }
     }
     if (insidePopup) {
-      store.history.pushPopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
       return;
     }
 
     // not inside popup.
-    store.history.replacePopup({ type: PopupType.Page, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+    store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
     fullArrange(store);
   },
 

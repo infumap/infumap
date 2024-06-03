@@ -24,7 +24,6 @@ import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { PopupType } from "../../store/StoreProvider_History";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { ImageFlags } from "../../items/base/flags-item";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";

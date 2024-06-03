@@ -18,8 +18,8 @@
 
 import { BoundingBox, vectorAdd, getBoundingBoxTopLeft, Vector, Dimensions, cloneBoundingBox } from "../util/geometry";
 import { Hitbox } from "./hitbox";
-import { Item, EMPTY_ITEM } from "../items/base/item";
-import { BooleanSignal, NumberSignal, VisualElementSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
+import { Item, EMPTY_ITEM, ItemType } from "../items/base/item";
+import { VisualElementSignal } from "../util/signals";
 import { LinkItem, asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, Uid } from "../util/uid";
@@ -30,7 +30,6 @@ import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
 import { isPage } from "../items/page-item";
-import { PopupType } from "../store/StoreProvider_History";
 import { ArrangeItemFlags } from "./arrange/item";
 
 
@@ -506,7 +505,7 @@ export const VeFns = {
         let adjX = 0.0;
         if (ve.flags & VisualElementFlags.Popup) {
           const popupSpec = store.history.currentPopupSpec()!;
-          assert(popupSpec.type == PopupType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
+          assert(itemState.get(popupSpec.actualVeid.itemId)!.itemType == ItemType.Page, "veBoundsRelativeToDesktopPx: popup spec type not page.");
           adjY = (ve.childAreaBoundsPx!.h - ve.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid);
           adjX = (ve.childAreaBoundsPx!.w - ve.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid);
         } else {

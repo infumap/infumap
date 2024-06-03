@@ -39,7 +39,6 @@ import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
-import { PopupType } from '../store/StoreProvider_History';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, AttachmentsItem, TitledItem {
@@ -276,10 +275,10 @@ export const NoteFns = {
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (VesCache.get(visualElement.parentPath!)!.get().flags & VisualElementFlags.Popup) {
-      store.history.pushPopup({ type: PopupType.Note, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     } else {
-      store.history.replacePopup({ type: PopupType.Note, actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       fullArrange(store);
     }
   },

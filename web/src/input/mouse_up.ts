@@ -38,7 +38,6 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
-import { PopupType } from "../store/StoreProvider_History";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 

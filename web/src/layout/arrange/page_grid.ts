@@ -19,12 +19,12 @@
 import { LINE_HEIGHT_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
+import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { PopupType } from "../../store/StoreProvider_History";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
@@ -159,7 +159,7 @@ export function arrange_grid_page(
     let scrollPropX;
     if (flags & ArrangeItemFlags.IsPopupRoot) {
       const popupSpec = store.history.currentPopupSpec();
-      assert(popupSpec!.type == PopupType.Page, "popup spec does not have type page.");
+      assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
       scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
       scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
     } else {

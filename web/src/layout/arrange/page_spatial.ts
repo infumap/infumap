@@ -18,14 +18,13 @@
 
 import { GRID_SIZE } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
+import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { PopupType } from "../../store/StoreProvider_History";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { panic } from "../../util/lang";
 import { newOrdering } from "../../util/ordering";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { ItemGeometry } from "../item-geometry";
@@ -135,7 +134,7 @@ export function arrange_spatial_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      if (currentPopupSpec.type == PopupType.Page) {
+      if (itemState.get(currentPopupSpec.actualVeid.itemId)!.itemType == ItemType.Page) {
         // Position of page popup in spatial pages is user defined.
         const popupVeid = currentPopupSpec.actualVeid;
         const popupLinkToPageId = popupVeid.itemId;
