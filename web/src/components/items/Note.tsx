@@ -40,8 +40,7 @@ import { fullArrange } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { VesCache } from "../../layout/ves-cache";
-import { asTitledItem } from "../../items/base/titled-item";
+import { keyDownHandler } from "../../input/key";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -148,6 +147,14 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }, 0);
   }
 
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.key == "Enter") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      return;
+    }
+  }
+
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
   const showMoveOutOfCompositeArea = () =>
@@ -207,6 +214,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                        `outline: 0px solid transparent;`}
                 contentEditable={store.overlay.noteEditInfo() != null}
                 spellcheck={store.overlay.noteEditInfo() != null}
+                onKeyDown={keyDownHandler}
                 onInput={inputListener}>
             {formatMaybe(noteItem().title, noteItem().format)}
           </span>
