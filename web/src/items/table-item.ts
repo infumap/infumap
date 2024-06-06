@@ -40,6 +40,8 @@ import { server } from "../server";
 import { ItemFns } from "./base/item-polymorphism";
 import { VesCache } from "../layout/ves-cache";
 import { fullArrange } from "../layout/arrange";
+import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
+import { CursorEventState } from "../input/state";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -262,12 +264,18 @@ export const TableFns = {
 
   handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    const itemPath = VeFns.veToPath(visualElement);
     store.overlay.setTableEditInfo(store.history, {
-      itemPath: VeFns.veToPath(visualElement),
+      itemPath,
       colNum: hitboxMeta == null ? null : hitboxMeta.colNum!,
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
       endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,
     });
+    const editingPath = hitboxMeta == null ? itemPath + ":title" : itemPath + ":col" + hitboxMeta.colNum!;
+    const el = document.getElementById(editingPath)!;
+    el.focus();
+    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    setCaretPosition(el, closestIdx);
   },
 
 

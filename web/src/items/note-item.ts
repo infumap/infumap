@@ -266,7 +266,6 @@ export const NoteFns = {
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     setCaretPosition(el, closestIdx);
-    fullArrange(store); // input focus changed.
   },
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
