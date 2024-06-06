@@ -81,6 +81,7 @@ export const getCaretPosition = (el: HTMLElement) => {
  */
 export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector): number => {
   const textNode: ChildNode = el.childNodes[0];
+  if (!textNode) { return 0; }
   if (textNode.nodeType != Node.TEXT_NODE) {
     panic("closestCaretPositionToClientPx: expecting TEXT_NODE");
   }
@@ -88,9 +89,13 @@ export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector
   let closestDistSq = 10000000.0;
   let closestPos = 0;
   let foundSameLine = false;
-  for (let i=0; i<textNode.textContent!.length; ++i) {
+  for (let i=0; i<=textNode.textContent!.length; ++i) {
     range.setStart(textNode, i);
-    range.setEnd(textNode, i+1);
+    if (i == textNode.textContent!.length) {
+      range.setEnd(textNode, i);
+    } else {
+      range.setEnd(textNode, i+1);
+    }
     const bounds = range.getBoundingClientRect();
     const centerPx = { x: bounds.left, y: bounds.top + bounds.height / 2.0 };
     const distSq =

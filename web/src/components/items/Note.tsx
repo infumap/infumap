@@ -204,9 +204,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                        `font-size: ${infuTextStyle().fontSize}px; ` +
                        `overflow-wrap: break-word; white-space: pre-wrap; ` +
                        `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent; ` +
-                       `${store.overlay.noteEditInfo() == null ? 'caret-color: transparent' : ''}`}
-                contentEditable={true}
+                       `outline: 0px solid transparent;`}
+                contentEditable={store.overlay.noteEditInfo() != null}
                 spellcheck={store.overlay.noteEditInfo() != null}
                 onInput={inputListener}>
             {formatMaybe(noteItem().title, noteItem().format)}
