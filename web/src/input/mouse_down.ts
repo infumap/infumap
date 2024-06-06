@@ -33,7 +33,7 @@ import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry"
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
-import { asPageItem, isPage } from "../items/page-item";
+import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
@@ -328,7 +328,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     if (MouseActionState.empty()) { return; }
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
     if (isPage(overDisplayItem)) {
-      store.overlay.setPageEditInfo(store.history, { itemPath: activeElementPath, initialCursorPosition: CursorPosition.Start });
+      PageFns.handleLongClick(hitInfo.overElementVes.get(), store);
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);

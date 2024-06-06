@@ -43,6 +43,9 @@ import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
 import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { newOrdering } from '../util/ordering';
+import { CursorPosition } from '../store/StoreProvider_Overlay';
+import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
+import { CursorEventState } from '../input/state';
 
 
 export const ArrangeAlgorithm = {
@@ -506,6 +509,17 @@ export const PageFns = {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.history.setFocus(VeFns.veToPath(visualElement));
     switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false, false);
+  },
+
+  handleLongClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    let itemPath = VeFns.veToPath(visualElement);
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    store.overlay.setPageEditInfo(store.history, { itemPath, initialCursorPosition: CursorPosition.Start });
+    const editingPath = itemPath + ":title";
+    const el = document.getElementById(editingPath)!;
+    el.focus();
+    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    setCaretPosition(el, closestIdx);
   },
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel): void => {
