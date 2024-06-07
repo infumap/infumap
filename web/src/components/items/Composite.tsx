@@ -29,6 +29,10 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
+import { currentCaretElement } from "../../util/caret";
+import { panic } from "../../util/lang";
+import { CursorPosition } from "../../store/StoreProvider_Overlay";
+import { serverOrRemote } from "../../server";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -50,6 +54,34 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
+  const keyUpHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "ArrowDown":
+        keyDown_Arrow();
+        break;
+      case "ArrowUp":
+        keyDown_Arrow();
+        break;
+      case "ArrowLeft":
+        keyDown_Arrow();
+        break;
+      case "ArrowRight":
+        keyDown_Arrow();
+        break;
+    }
+  }
+
+  const keyDown_Arrow = () => {
+    let currentCaretElementId = currentCaretElement()!.id;
+    if (!currentCaretElementId.endsWith(":title")) { panic("HTML element with caret has id that does not end with :title"); }
+    let currentCaretItemPath = currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length);
+    let currentEditingPath = store.overlay.noteEditInfo()!.itemPath;
+    if (currentEditingPath != currentCaretItemPath) {
+      serverOrRemote.updateItem(store.history.getFocusItem());
+      store.overlay.setNoteEditInfo(store.history,  { itemPath: currentCaretItemPath, initialCursorPosition: CursorPosition.Unused })
+    }
+  }
+
   return (
     <div class={`absolute border ` +
                 `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
@@ -58,7 +90,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                 `bg-white overflow-hidden`}
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
-                `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}`}>
+                `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
+                `outline: 0px solid transparent;`}
+         contentEditable={store.overlay.noteEditInfo() != null}
+         onKeyUp={keyUpHandler}>
       <For each={props.visualElement.childrenVes}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>

@@ -40,7 +40,6 @@ import { fullArrange } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { keyDownHandler } from "../../input/key";
 import { VesCache } from "../../layout/ves-cache";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { server, serverOrRemote } from "../../server";
@@ -207,19 +206,22 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
       let textElement = document.getElementById(editingPath);
-      textElement!.focus();
       setCaretPosition(textElement!, 0);
+      textElement!.focus();
     }
   }
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
+
+  const isInComposite = () =>
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.noteEditInfo() == null &&
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+    isInComposite();
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
@@ -269,7 +271,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                        `overflow-wrap: break-word; white-space: pre-wrap; ` +
                        `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                        `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.noteEditInfo() != null}
+                contentEditable={!isInComposite() && store.overlay.noteEditInfo() != null ? true : undefined}
                 spellcheck={store.overlay.noteEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
@@ -288,7 +290,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <InfuLinkTriangle />
       </Show>
-      <InfuResizeTriangle />
+      <Show when={!isInComposite()}>
+        <InfuResizeTriangle />
+      </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
         <div class={`absolute rounded-sm`}
              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
