@@ -27,11 +27,11 @@ import { NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { getTextStyleForNote } from "../../layout/text";
 import { useStore } from "../../store/StoreProvider";
-import { isComposite } from "../../items/composite-item";
+import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
-import { asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
 import { FEATURE_COLOR } from "../../style";
@@ -41,6 +41,12 @@ import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { keyDownHandler } from "../../input/key";
+import { VesCache } from "../../layout/ves-cache";
+import { asPositionalItem } from "../../items/base/positional-item";
+import { server, serverOrRemote } from "../../server";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { newOrdering } from "../../util/ordering";
+import { CursorPosition } from "../../store/StoreProvider_Overlay";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -151,7 +157,58 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (ev.key == "Enter") {
       ev.preventDefault();
       ev.stopPropagation();
+      enterKeyHandler();
       return;
+    }
+  }
+
+  const enterKeyHandler = () => {
+    if (store.user.getUserMaybe() == null || noteItem().ownerId != store.user.getUser().userId) { return; }
+    const ve = props.visualElement;
+    const parentVe = VesCache.get(ve.parentPath!)!.get();
+
+    let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+    let textElement = document.getElementById(editingPath);
+    let cp = getCaretPosition(textElement!);
+
+    const beforeText = textElement!.innerText.substring(0, cp);
+    const afterText = textElement!.innerText.substring(cp);
+
+    if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
+      console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
+    } else if (isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
+      console.log("isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document")
+    } else if (isComposite(parentVe.displayItem)) {
+      // inside composite
+      console.log("inside composite");
+    } else {
+      // note on page.
+      const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
+      const spatialWidthGr = asXSizableItem(ve.displayItem).spatialWidthGr;
+      const composite = CompositeFns.create(ve.displayItem.ownerId, ve.displayItem.parentId, ve.displayItem.relationshipToParent, ve.displayItem.ordering);
+      composite.spatialPositionGr = spatialPositionGr;
+      composite.spatialWidthGr = spatialWidthGr;
+      itemState.add(composite);
+      server.addItem(composite, null);
+      itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
+      asNoteItem(ve.displayItem).title = beforeText;
+      serverOrRemote.updateItem(ve.displayItem);
+
+      const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
+      const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
+      note.title = afterText;
+      itemState.add(note);
+      server.addItem(note, null);
+
+      fullArrange(store);
+      const veid = { itemId: note.id, linkIdMaybe: null };
+      const newVes = VesCache.findSingle(veid);
+      store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), initialCursorPosition: CursorPosition.Unused });
+
+      let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+      let textElement = document.getElementById(editingPath);
+      textElement!.focus();
+      setCaretPosition(textElement!, 0);
     }
   }
 
