@@ -238,8 +238,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Switch>
         <Match when={NoteFns.hasUrl(noteItem()) &&
                      (store.overlay.noteEditInfo() == null || store.overlay.noteEditInfo()!.itemPath != vePath())}>
-          <div id={VeFns.veToPath(props.visualElement) + ":title"}
-               class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
+          <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
                style={`position: absolute; ` +
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
@@ -249,7 +248,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `font-size: ${infuTextStyle().fontSize}px; ` +
                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
                       `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-            <a href={""}
+            <a id={VeFns.veToPath(props.visualElement) + ":title"}
+               href={""}
                class={`text-blue-800`}
                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
                onClick={aHrefClickListener}

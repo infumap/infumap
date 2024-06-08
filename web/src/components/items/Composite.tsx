@@ -82,7 +82,17 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     const currentEditingPath = store.overlay.noteEditInfo()!.itemPath;
     if (currentEditingPath != currentCaretItemPath) {
       serverOrRemote.updateItem(store.history.getFocusItem());
-      store.overlay.setNoteEditInfo(store.history,  { itemPath: currentCaretItemPath, initialCursorPosition: CursorPosition.Unused })
+
+      const newEditingDomId = currentCaretItemPath + ":title";
+      let newEditingTextElement = document.getElementById(newEditingDomId);
+      let caretPosition = getCaretPosition(newEditingTextElement!);
+
+      store.overlay.setNoteEditInfo(store.history, { itemPath: currentCaretItemPath, initialCursorPosition: CursorPosition.Unused });
+
+      // after setting the note edit info, the <a /> (if this is a link) is turned into a <span />
+      newEditingTextElement = document.getElementById(newEditingDomId);
+      setCaretPosition(newEditingTextElement!, caretPosition);
+      newEditingTextElement!.focus();
     }
   }
 
