@@ -38,7 +38,7 @@ import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
-import { CursorPosition } from "../store/StoreProvider_Overlay";
+import { trimNewline } from "../util/string";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
@@ -85,7 +85,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       let newText = el!.innerText;
       let item = asTableItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
       if (store.overlay.tableEditInfo()!.colNum == null) {
-        item.title = newText;
+        item.title = trimNewline(newText);
       } else {
         item.tableColumns[store.overlay.tableEditInfo()!.colNum!].name = newText;
       }
@@ -109,7 +109,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       }
       let newText = el!.innerText;
       let item = asPageItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
-      item.title = newText;
+      item.title = trimNewline(newText);
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -131,7 +131,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       }
       let newText = el!.innerText;
       let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
-      item.title = newText;
+      item.title = trimNewline(newText);
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);

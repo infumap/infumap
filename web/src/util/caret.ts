@@ -80,11 +80,17 @@ export const getCaretPosition = (el: HTMLElement) => {
  * of type TEXT_NODE) to the specified clientPx position.
  */
 export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector): number => {
-  const textNode: ChildNode = el.childNodes[0];
-  if (!textNode) { return 0; }
-  if (textNode.nodeType != Node.TEXT_NODE) {
-    panic("closestCaretPositionToClientPx: expecting TEXT_NODE");
+  let textNode = null
+  for (let i=0; i<el.childNodes.length; ++i) {
+    if (el.childNodes[i].nodeType == Node.TEXT_NODE) {
+      textNode = el.childNodes[i];
+      break;
+    }
+    if (el.childNodes[i].nodeName != "BR") {
+      panic("closestCaretPositionToClientPx: expecting node of type TEXT_NODE or BR element");
+    }
   }
+  if (!textNode) { return 0; }
   const range = document.createRange();
   let closestDistSq = 10000000.0;
   let closestPos = 0;

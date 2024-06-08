@@ -31,6 +31,7 @@ import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { isNumeric } from "../../util/math";
+import { trimNewline } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
@@ -143,7 +144,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         let el = document.getElementById(editingPath);
         let newText = el!.innerText;
         let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
-        item.title = newText;
+        item.title = trimNewline(newText);
 
         const cursorPosition = getCaretPosition(el!);
         fullArrange(store);
@@ -171,7 +172,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     let cp = getCaretPosition(textElement!);
 
     const beforeText = textElement!.innerText.substring(0, cp);
-    const afterText = textElement!.innerText.substring(cp);
+    let afterText = textElement!.innerText.substring(cp);
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
@@ -275,7 +276,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 spellcheck={store.overlay.noteEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {formatMaybe(noteItem().title, noteItem().format)}
+            {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}
           </span>
         </Match>
       </Switch>
@@ -467,5 +468,18 @@ function formatMaybe(text: string, format: string): string {
   if (format == "0.00") { return parseFloat(text).toFixed(2); }
   if (format == "0.000") { return parseFloat(text).toFixed(3); }
   if (format == "0.0000") { return parseFloat(text).toFixed(4); }
+  return text;
+}
+
+
+/**
+ * Used to force creation of a TEXT_NODE inside the note span element
+ * which is required to make contenteditable behave as desired.
+ *
+ * the \n should be detected and removed prior to persistence of the
+ * note item text.
+ */
+function appendNewlineIfEmpty(text: string): string {
+  if (text == "") { return "\n"; }
   return text;
 }
