@@ -169,8 +169,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const ve = props.visualElement;
     const parentVe = VesCache.get(ve.parentPath!)!.get();
 
-    const editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-    const textElement = document.getElementById(editingPath);
+    const editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
 
     const beforeText = textElement!.innerText.substring(0, caretPosition);

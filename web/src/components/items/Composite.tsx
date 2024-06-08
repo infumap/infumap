@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
-import { asCompositeItem } from "../../items/composite-item";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -37,6 +37,8 @@ import { trimNewline } from "../../util/string";
 import { fullArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
+import { panic } from "../../util/lang";
+import { FindDirection, findClosest } from "../../layout/find";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -92,6 +94,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         if (position > 0) { return; }
         ev.preventDefault();
         ev.stopPropagation();
+        joinItemsMaybeHandler();
         return;
       case "Enter":
         enterKeyHandler()
@@ -101,15 +104,43 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     }
   }
 
+  const joinItemsMaybeHandler = () => {
+    const editingVe = VesCache.get(store.overlay.noteEditInfo()!.itemPath)!.get();
+    const canonicalItem = VeFns.canonicalItem(editingVe);
+
+    // maybe delete note item.
+    let compositeVe = props.visualElement;
+    if (!isComposite(compositeVe.displayItem)) { panic("composite item is not a composite!") }
+    const closestPath = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
+    if (closestPath == null) { return; }
+
+    const veid = VeFns.veidFromPath(closestPath);
+    const nextFocusItem = asTitledItem(itemState.get(veid.itemId)!);
+    const prevTextLength = nextFocusItem.title.length;
+    nextFocusItem.title = nextFocusItem.title + asTitledItem(editingVe.displayItem).title;
+    fullArrange(store);
+
+    store.overlay.setNoteEditInfo(store.history, { itemPath: closestPath, initialCursorPosition: CursorPosition.Unused });
+    server.updateItem(nextFocusItem);
+    itemState.delete(canonicalItem.id);
+    server.deleteItem(canonicalItem.id);
+    fullArrange(store);
+
+    const editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const textElement = document.getElementById(editingDomId);
+    setCaretPosition(textElement!, prevTextLength);
+    textElement!.focus();
+  }
+
   const enterKeyHandler = () => {
-    const editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-    const textElement = document.getElementById(editingPath);
+    const editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
 
     const beforeText = textElement!.innerText.substring(0, caretPosition);
     const afterText = textElement!.innerText.substring(caretPosition);
 
-    const noteVeid = VeFns.veidFromPath(editingPath);
+    const noteVeid = VeFns.veidFromPath(store.overlay.noteEditInfo()!.itemPath);
     const noteItem = asNoteItem(itemState.get(noteVeid.itemId)!);
     noteItem.title = beforeText;
 
