@@ -57,21 +57,21 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const keyUpHandler = (ev: KeyboardEvent) => {
     switch (ev.key) {
       case "ArrowDown":
-        keyDown_Arrow();
+        keyUp_Arrow();
         break;
       case "ArrowUp":
-        keyDown_Arrow();
+        keyUp_Arrow();
         break;
       case "ArrowLeft":
-        keyDown_Arrow();
+        keyUp_Arrow();
         break;
       case "ArrowRight":
-        keyDown_Arrow();
+        keyUp_Arrow();
         break;
     }
   }
 
-  const keyDown_Arrow = () => {
+  const keyUp_Arrow = () => {
     let currentCaretElementId = currentCaretElement()!.id;
     if (!currentCaretElementId.endsWith(":title")) { panic("HTML element with caret has id that does not end with :title"); }
     let currentCaretItemPath = currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length);
