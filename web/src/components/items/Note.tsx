@@ -47,6 +47,7 @@ import { server, serverOrRemote } from "../../server";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { CursorPosition } from "../../store/StoreProvider_Overlay";
+import { panic } from "../../util/lang";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -168,12 +169,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const ve = props.visualElement;
     const parentVe = VesCache.get(ve.parentPath!)!.get();
 
-    let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-    let textElement = document.getElementById(editingPath);
-    let cp = getCaretPosition(textElement!);
+    const editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const textElement = document.getElementById(editingPath);
+    const caretPosition = getCaretPosition(textElement!);
 
-    const beforeText = textElement!.innerText.substring(0, cp);
-    let afterText = textElement!.innerText.substring(cp);
+    const beforeText = textElement!.innerText.substring(0, caretPosition);
+    const afterText = textElement!.innerText.substring(caretPosition);
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
@@ -181,9 +182,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       console.log("isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document")
     } else if (isComposite(parentVe.displayItem)) {
       // inside composite
-      console.log("inside composite");
+      panic("Note.enterKeyHandler called for note in composite");
     } else {
-      // note on page.
+      // single note on a page.
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
       const spatialWidthGr = asXSizableItem(ve.displayItem).spatialWidthGr;
       const composite = CompositeFns.create(ve.displayItem.ownerId, ve.displayItem.parentId, ve.displayItem.relationshipToParent, ve.displayItem.ordering);

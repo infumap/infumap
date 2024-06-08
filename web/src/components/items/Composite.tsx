@@ -31,10 +31,12 @@ import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./help
 import { useStore } from "../../store/StoreProvider";
 import { currentCaretElement, currentCaretVePath_title, getCaretPosition, setCaretPosition } from "../../util/caret";
 import { CursorPosition } from "../../store/StoreProvider_Overlay";
-import { serverOrRemote } from "../../server";
-import { asNoteItem } from "../../items/note-item";
+import { server, serverOrRemote } from "../../server";
+import { NoteFns, asNoteItem } from "../../items/note-item";
 import { trimNewline } from "../../util/string";
 import { fullArrange } from "../../layout/arrange";
+import { VesCache } from "../../layout/ves-cache";
+import { RelationshipToParent } from "../../layout/relationship-to-parent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -92,10 +94,42 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         ev.stopPropagation();
         return;
       case "Enter":
+        enterKeyHandler()
         ev.preventDefault();
         ev.stopPropagation();
         return;
     }
+  }
+
+  const enterKeyHandler = () => {
+    const editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const textElement = document.getElementById(editingPath);
+    const caretPosition = getCaretPosition(textElement!);
+
+    const beforeText = textElement!.innerText.substring(0, caretPosition);
+    const afterText = textElement!.innerText.substring(caretPosition);
+
+    const noteVeid = VeFns.veidFromPath(editingPath);
+    const noteItem = asNoteItem(itemState.get(noteVeid.itemId)!);
+    noteItem.title = beforeText;
+
+    serverOrRemote.updateItem(noteItem);
+
+    const ordering = itemState.newOrderingDirectlyAfterChild(props.visualElement.displayItem.id, VeFns.canonicalItemFromVeid(noteVeid)!.id);
+    const note = NoteFns.create(noteItem.ownerId, props.visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
+    note.title = afterText;
+    itemState.add(note);
+    server.addItem(note, null);
+    fullArrange(store);
+
+    const veid = { itemId: note.id, linkIdMaybe: null };
+    const newVes = VesCache.findSingle(veid);
+    store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), initialCursorPosition: CursorPosition.Unused });
+
+    const newEditingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const newEditingTextElement = document.getElementById(newEditingPath);
+    setCaretPosition(newEditingTextElement!, 0);
+    textElement!.focus();
   }
 
   const inputListener = (_ev: InputEvent) => {
