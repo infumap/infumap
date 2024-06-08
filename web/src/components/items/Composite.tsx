@@ -29,10 +29,12 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
-import { currentCaretElement } from "../../util/caret";
-import { panic } from "../../util/lang";
+import { currentCaretElement, currentCaretVePath_title, getCaretPosition, setCaretPosition } from "../../util/caret";
 import { CursorPosition } from "../../store/StoreProvider_Overlay";
 import { serverOrRemote } from "../../server";
+import { asNoteItem } from "../../items/note-item";
+import { trimNewline } from "../../util/string";
+import { fullArrange } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -72,14 +74,44 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const keyUp_Arrow = () => {
-    let currentCaretElementId = currentCaretElement()!.id;
-    if (!currentCaretElementId.endsWith(":title")) { panic("HTML element with caret has id that does not end with :title"); }
-    let currentCaretItemPath = currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length);
-    let currentEditingPath = store.overlay.noteEditInfo()!.itemPath;
+    const currentCaretItemPath = currentCaretVePath_title();
+    const currentEditingPath = store.overlay.noteEditInfo()!.itemPath;
     if (currentEditingPath != currentCaretItemPath) {
       serverOrRemote.updateItem(store.history.getFocusItem());
       store.overlay.setNoteEditInfo(store.history,  { itemPath: currentCaretItemPath, initialCursorPosition: CursorPosition.Unused })
     }
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Backspace":
+        const el = currentCaretElement();
+        const position = getCaretPosition(el!);
+        if (position > 0) { return; }
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
+  const inputListener = (_ev: InputEvent) => {
+    setTimeout(() => {
+      if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+        let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+        let el = document.getElementById(editingPath);
+        let newText = el!.innerText;
+        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+        item.title = trimNewline(newText);
+
+        const caretPosition = getCaretPosition(el!);
+        fullArrange(store);
+        setCaretPosition(el!, caretPosition);
+      }
+    }, 0);
   }
 
   return (
@@ -93,7 +125,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                 `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
                 `outline: 0px solid transparent;`}
          contentEditable={store.overlay.noteEditInfo() != null}
-         onKeyUp={keyUpHandler}>
+         onKeyUp={keyUpHandler}
+         onKeyDown={keyDownHandler}
+         onInput={inputListener}>
       <For each={props.visualElement.childrenVes}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} />
       }</For>

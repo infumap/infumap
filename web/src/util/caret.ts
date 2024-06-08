@@ -117,6 +117,7 @@ export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector
   return closestPos;
 }
 
+
 /**
  * Determine the HTMLElement the caret is currently in.
  */
@@ -124,4 +125,18 @@ export const currentCaretElement = (): HTMLElement | null => {
   const selection = window.getSelection();
   if (selection == null) { return null; }
   return selection.anchorNode!.parentElement;
+}
+
+
+/**
+ * Determine the VisualElementPath of the item whose title is currently being edited.
+ *
+ * Panics if there is no such item.
+ */
+export const currentCaretVePath_title = () => {
+  let currentCaretElementId = currentCaretElement()!.id;
+  if (!currentCaretElementId.endsWith(":title")) {
+    panic("HTML element with caret has id that does not end with :title");
+  }
+  return currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length);
 }

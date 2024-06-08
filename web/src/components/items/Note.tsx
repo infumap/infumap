@@ -146,19 +146,20 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
         item.title = trimNewline(newText);
 
-        const cursorPosition = getCaretPosition(el!);
+        const caretPosition = getCaretPosition(el!);
         fullArrange(store);
-        setCaretPosition(el!, cursorPosition);
+        setCaretPosition(el!, caretPosition);
       }
     }, 0);
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
-    if (ev.key == "Enter") {
-      ev.preventDefault();
-      ev.stopPropagation();
-      enterKeyHandler();
-      return;
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        enterKeyHandler();
+        return;
     }
   }
 
