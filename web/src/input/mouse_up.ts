@@ -213,7 +213,8 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
   const prevParentId = activeItem.parentId;
 
   const attachToVisualElement = VesCache.get(MouseActionState.get()!.moveOver_attachCompositeHitboxElement!)!.get();
-  store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(attachToVisualElement), false);
+  const attachToVisualElementPath = VeFns.veToPath(attachToVisualElement);
+  store.perVe.setMovingItemIsOverAttachComposite(attachToVisualElementPath, false);
   MouseActionState.get()!.moveOver_attachCompositeHitboxElement = null;
 
   const attachToItem = asPositionalItem(VeFns.canonicalItem(attachToVisualElement));
