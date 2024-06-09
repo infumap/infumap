@@ -43,6 +43,7 @@ import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
 import { asNoteItem } from "../items/note-item";
+import { setCaretPosition } from "../util/caret";
 
 
 export const MOUSE_LEFT = 0;
@@ -120,16 +121,16 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (store.overlay.noteEditInfo()) {
-    console.log("mouseDownHandler: noteEditInfo != null, closing.");
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-      let el = document.getElementById(editingPath);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
+      let editingDomEl = document.getElementById(editingPath);
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
           buttonNumber == MOUSE_LEFT) {
         return MouseEventActionFlags.None;
       }
-      let newText = el!.innerText;
+      editingDomEl!.parentElement!.scrollLeft = 0;
+      let newText = editingDomEl!.innerText;
       let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
       item.title = trimNewline(newText);
       serverOrRemote.updateItem(store.history.getFocusItem());

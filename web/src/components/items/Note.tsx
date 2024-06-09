@@ -399,15 +399,30 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       </div>
     </Show>;
 
+  const inputListener = (_ev: InputEvent) => {
+    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
   const renderText = () =>
-    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis ` +
+    <div class={`absolute overflow-hidden whitespace-nowrap ` +
+                ((store.overlay.noteEditInfo() != null && store.overlay.noteEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
                 `${infuTextStyle().alignClass} `}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
-          <a href={""}
+          <a id={VeFns.veToPath(props.visualElement) + ":title"}
+             href={""}
              class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
                     `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
@@ -418,9 +433,15 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
           </a>
         </Match>
         <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
-          <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-            {formatMaybe(noteItem().title, noteItem().format)}
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                       `outline: 0px solid transparent;`}
+                contentEditable={store.overlay.noteEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.noteEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}
           </span>
         </Match>
       </Switch>
