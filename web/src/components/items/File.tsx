@@ -118,13 +118,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                     `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
                     `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; white-space: pre-wrap; `}>
-          <a href={""}
-                class={`text-green-800`}
-                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-                onClick={aHrefClick}
-                onMouseDown={aHrefMouseDown}
-                onMouseUp={aHrefMouseUp}>
-                  {fileItem().title}
+          <a id={VeFns.veToPath(props.visualElement) + ":title"}
+             href={""}
+             class={`text-green-800`}
+             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+             onClick={aHrefClick}
+             onMouseDown={aHrefMouseDown}
+             onMouseUp={aHrefMouseUp}>
+              {fileItem().title}
           </a>
         </div>
         <For each={props.visualElement.attachmentsVes}>{attachment =>
