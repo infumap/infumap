@@ -210,7 +210,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   if (type == ItemType.Page) {
-    store.overlay.setPageEditInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Page });
   } else if (type == ItemType.Note) {
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Note });
     const elId = newItemPath + ":title";

@@ -514,7 +514,7 @@ export const PageFns = {
   handleLongClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     let itemPath = VeFns.veToPath(visualElement);
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setPageEditInfo(store.history, { itemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
     const editingPath = itemPath + ":title";
     const el = document.getElementById(editingPath)!;
     el.focus();

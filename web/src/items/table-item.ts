@@ -265,8 +265,9 @@ export const TableFns = {
   handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    store.overlay.setTableEditInfo(store.history, {
+    store.overlay.setTextEditInfo(store.history, {
       itemPath,
+      itemType: ItemType.Table,
       colNum: hitboxMeta == null ? null : hitboxMeta.colNum!,
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
       endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,

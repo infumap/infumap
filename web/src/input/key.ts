@@ -61,11 +61,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     return;
   }
 
-  if (store.overlay.pageEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-    // TODO (HIGH)
-    return;
-  }
-
   // input box is in toolbar.
   if (isLink(store.history.getFocusItem())) { return; }
 

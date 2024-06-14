@@ -54,19 +54,15 @@ export enum CursorPosition {
 export interface TextEditInfo {
   itemType: string, // redundant, can be determined via itemPath.
   itemPath: VisualElementPath,
+  colNum?: number | null,
+  startBl?: number | null,
+  endBl?: number | null,
 }
 
 // TODO: convert all these over to TextEditInfo.
 export interface EditOverlayInfo {
   itemPath: VisualElementPath,
   initialCursorPosition: CursorPosition | number
-}
-
-export interface TableEditInfo {
-  itemPath: VisualElementPath,
-  colNum: number | null,
-  startBl: number | null,
-  endBl: number | null,
 }
 
 export interface ContextMenuInfo {
@@ -94,14 +90,11 @@ export interface OverlayStoreContextModel {
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
 
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
-  pageEditInfo: () => EditOverlayInfo | null,
-  tableEditInfo: () => TableEditInfo | null,
-  textEditInfo: () => TextEditInfo | null,
   passwordEditOverlayInfo: () => EditOverlayInfo | null,
 
+  textEditInfo: () => TextEditInfo | null,
+
   setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-  setPageEditInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-  setTableEditInfo: (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => void,
   setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
 
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
@@ -116,8 +109,6 @@ export interface OverlayStoreContextModel {
 
 export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
-  const pageEditInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
-  const tableEditInfo_ = createInfuSignal<TableEditInfo | null>(null);
   const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
 
   const textEditInfo_ = createInfuSignal<TextEditInfo | null>(null);
@@ -131,8 +122,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   function clear() {
     expressionEditOverlayInfo_.set(null);
-    pageEditInfo_.set(null);
-    tableEditInfo_.set(null);
     textEditInfo_.set(null);
     passwordEditOverlayInfo_.set(null);
 
@@ -145,8 +134,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   function anOverlayIsVisible(): boolean {
     return (
       expressionEditOverlayInfo_.get() != null ||
-      pageEditInfo_.get() != null ||
-      tableEditInfo_.get() != null ||
       textEditInfo_.get() != null ||
       passwordEditOverlayInfo_.get() != null ||
       searchOverlayVisible.get() ||
@@ -158,8 +145,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   }
 
   const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
-  const pageEditInfo = (): EditOverlayInfo | null => pageEditInfo_.get();
-  const tableEditInfo = (): TableEditInfo | null => tableEditInfo_.get();
   const textEditInfo = (): TextEditInfo | null => textEditInfo_.get();
   const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
 
@@ -167,18 +152,6 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     if (info == null) { historyStore.setFocus(null) }
     else { historyStore.setFocus(info.itemPath); }
     expressionEditOverlayInfo_.set(info);
-  }
-
-  const setPageEditInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
-    if (info == null) { historyStore.setFocus(null) }
-    else { historyStore.setFocus(info.itemPath); }
-    pageEditInfo_.set(info);
-  }
-
-  const setTableEditInfo = (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => {
-    if (info == null) { historyStore.setFocus(null) }
-    else { historyStore.setFocus(info.itemPath); }
-    tableEditInfo_.set(info);
   }
 
   const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => {
@@ -195,15 +168,11 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   return ({
     expressionEditOverlayInfo,
-    pageEditInfo,
-    tableEditInfo,
     passwordEditOverlayInfo,
 
     textEditInfo,
 
     setExpressionEditOverlayInfo,
-    setPageEditInfo,
-    setTableEditInfo,
     setPasswordEditOverlayInfo,
 
     setTextEditInfo,

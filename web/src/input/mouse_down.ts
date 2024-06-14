@@ -72,12 +72,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  if (store.overlay.tableEditInfo()) {
+  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Table) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingItemPath = store.overlay.tableEditInfo()!.itemPath;
-      let editingDomId = store.overlay.tableEditInfo()!.colNum != null
-        ? editingItemPath + ":col" + store.overlay.tableEditInfo()!.colNum
+      let editingItemPath = store.overlay.textEditInfo()!.itemPath;
+      let editingDomId = store.overlay.textEditInfo()!.colNum != null
+        ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
         : editingItemPath + ":title";
       let el = document.getElementById(editingDomId);
       if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
@@ -86,24 +86,24 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       }
       let newText = el!.innerText;
       let item = asTableItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-      if (store.overlay.tableEditInfo()!.colNum == null) {
+      if (store.overlay.textEditInfo()!.colNum == null) {
         item.title = trimNewline(newText);
       } else {
-        item.tableColumns[store.overlay.tableEditInfo()!.colNum!].name = newText;
+        item.tableColumns[store.overlay.textEditInfo()!.colNum!].name = newText;
       }
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.setTableEditInfo(store.history, null);
+    store.overlay.setTextEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
     defaultResult = MouseEventActionFlags.None;
   }
 
-  if (store.overlay.pageEditInfo()) {
+  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Page) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingItemPath = store.overlay.pageEditInfo()!.itemPath;
+      let editingItemPath = store.overlay.textEditInfo()!.itemPath;
       let editingDomId = editingItemPath + ":title";
       let el = document.getElementById(editingDomId);
       if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
@@ -116,7 +116,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.setPageEditInfo(store.history, null);
+    store.overlay.setTextEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
     defaultResult = MouseEventActionFlags.None;

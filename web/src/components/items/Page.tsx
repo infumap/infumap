@@ -203,8 +203,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
                   `justify-content: center; align-items: center; text-align: center;` +
                   `outline: 0px solid transparent;`}
-           contentEditable={store.overlay.pageEditInfo() != null}
-           spellcheck={store.overlay.pageEditInfo() != null}>
+           contentEditable={store.overlay.textEditInfo() != null}
+           spellcheck={store.overlay.textEditInfo() != null}>
         {pageItem().title}
       </div>;
 
@@ -373,8 +373,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `justify-content: center; align-items: center; text-align: center; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
                     `outline: 0px solid transparent;`}
-             spellcheck={store.overlay.pageEditInfo() != null}
-             contentEditable={store.overlay.pageEditInfo() != null}>
+             spellcheck={store.overlay.textEditInfo() != null}
+             contentEditable={store.overlay.textEditInfo() != null}>
             {pageItem().title}
             <InfuResizeTriangle />
         </div>

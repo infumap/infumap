@@ -129,8 +129,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                     `transform: scale(${scale()}); transform-origin: top left; ` +
                     `overflow-wrap: break-word; ` +
                     `outline: 0px solid transparent;`}
-              contentEditable={store.overlay.tableEditInfo() != null}
-              spellcheck={store.overlay.tableEditInfo() != null}>
+              contentEditable={store.overlay.textEditInfo() != null}
+              spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
         <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
@@ -165,8 +165,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                        `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
                        `transform: scale(${scale()}); transform-origin: top left;` +
                        `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.tableEditInfo() != null}
-                spellcheck={store.overlay.tableEditInfo() != null}>
+                contentEditable={store.overlay.textEditInfo() != null}
+                spellcheck={store.overlay.textEditInfo() != null}>
               {spec.name}
             </div>
           }</For>
