@@ -206,8 +206,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const newVes = VesCache.findSingle(veid);
       store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()) });
 
-      let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-      let textElement = document.getElementById(editingPath);
+      let editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+      let textElement = document.getElementById(editingDomId);
       setCaretPosition(textElement!, 0);
       textElement!.focus();
     }
