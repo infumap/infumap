@@ -56,6 +56,14 @@ export interface EditOverlayInfo {
   initialCursorPosition: CursorPosition | number
 }
 
+export interface NoteEditOverlayInfo {
+  itemPath: VisualElementPath,
+}
+
+export interface FileEditOverlayInfo {
+  itemPath: VisualElementPath,
+}
+
 export interface TableEditInfo {
   itemPath: VisualElementPath,
   colNum: number | null,
@@ -90,13 +98,15 @@ export interface OverlayStoreContextModel {
   expressionEditOverlayInfo: () => EditOverlayInfo | null,
   pageEditInfo: () => EditOverlayInfo | null,
   tableEditInfo: () => TableEditInfo | null,
-  noteEditInfo: () => EditOverlayInfo | null,
+  noteEditInfo: () => NoteEditOverlayInfo | null,
+  fileEditInfo: () => NoteEditOverlayInfo | null,
   passwordEditOverlayInfo: () => EditOverlayInfo | null,
 
   setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setPageEditInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
   setTableEditInfo: (historyStore: HistoryStoreContextModel, info: TableEditInfo | null) => void,
-  setNoteEditInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
+  setNoteEditInfo: (historyStore: HistoryStoreContextModel, info: NoteEditOverlayInfo | null) => void,
+  setFileEditInfo: (historyStore: HistoryStoreContextModel, info: NoteEditOverlayInfo | null) => void,
   setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
 
   isPanicked: InfuSignal<boolean>,
@@ -111,7 +121,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const pageEditInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
   const tableEditInfo_ = createInfuSignal<TableEditInfo | null>(null);
-  const noteEditInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
+  const noteEditInfo_ = createInfuSignal<NoteEditOverlayInfo | null>(null);
+  const fileEditInfo_ = createInfuSignal<FileEditOverlayInfo | null>(null);
   const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
 
   const searchOverlayVisible = createInfuSignal<boolean>(false);
@@ -152,7 +163,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
   const pageEditInfo = (): EditOverlayInfo | null => pageEditInfo_.get();
   const tableEditInfo = (): TableEditInfo | null => tableEditInfo_.get();
-  const noteEditInfo = (): EditOverlayInfo | null => noteEditInfo_.get();
+  const noteEditInfo = (): NoteEditOverlayInfo | null => noteEditInfo_.get();
+  const fileEditInfo = (): FileEditOverlayInfo | null => fileEditInfo_.get();
   const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
 
   const setExpressionEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
@@ -173,10 +185,16 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     tableEditInfo_.set(info);
   }
 
-  const setNoteEditInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
+  const setNoteEditInfo = (historyStore: HistoryStoreContextModel, info: NoteEditOverlayInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
     else { historyStore.setFocus(info.itemPath); }
     noteEditInfo_.set(info);
+  }
+
+  const setFileEditInfo = (historyStore: HistoryStoreContextModel, info: FileEditOverlayInfo | null) => {
+    if (info == null) { historyStore.setFocus(null) }
+    else { historyStore.setFocus(info.itemPath); }
+    fileEditInfo_.set(info);
   }
 
   const setPasswordEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
@@ -190,12 +208,14 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     pageEditInfo,
     tableEditInfo,
     noteEditInfo,
+    fileEditInfo,
     passwordEditOverlayInfo,
 
     setExpressionEditOverlayInfo,
     setPageEditInfo,
     setTableEditInfo,
     setNoteEditInfo,
+    setFileEditInfo,
     setPasswordEditOverlayInfo,
 
     searchOverlayVisible,

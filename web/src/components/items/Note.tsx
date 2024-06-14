@@ -46,7 +46,6 @@ import { asPositionalItem } from "../../items/base/positional-item";
 import { server, serverOrRemote } from "../../server";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
-import { CursorPosition } from "../../store/StoreProvider_Overlay";
 import { panic } from "../../util/lang";
 
 
@@ -120,12 +119,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     } else {
       if ((noteItem().flags & NoteFlags.HideBorder)) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""}`;
+          return `absolute border border-slate-700 rounded-sm${shadow ? " shadow-lg" : ""}`;
         } else {
           return 'absolute border border-transparent rounded-sm';
         }
       }
-      return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""} bg-white`;
+      return `absolute border border-slate-700 rounded-sm${shadow ? " shadow-lg " : " "}bg-white`;
     }
   };
 
@@ -141,12 +140,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const inputListener = (_ev: InputEvent) => {
     setTimeout(() => {
       if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-        let el = document.getElementById(editingPath);
+        const editingItemPath = store.overlay.noteEditInfo()!.itemPath;
+        let editingDomId = editingItemPath + ":title";
+        let el = document.getElementById(editingDomId);
         let newText = el!.innerText;
-        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
         item.title = trimNewline(newText);
-
         const caretPosition = getCaretPosition(el!);
         fullArrange(store);
         setCaretPosition(el!, caretPosition);
@@ -205,7 +204,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       fullArrange(store);
       const veid = { itemId: note.id, linkIdMaybe: null };
       const newVes = VesCache.findSingle(veid);
-      store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), initialCursorPosition: CursorPosition.Unused });
+      store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()) });
 
       let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
       let textElement = document.getElementById(editingPath);
@@ -262,8 +261,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.noteEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                       `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}` +
-                       `${store.overlay.noteEditInfo() == null ? 'hidden-selection' : ''}`}
+                       `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
                 style={`position: absolute; ` +
                        `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +

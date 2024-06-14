@@ -195,7 +195,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderBoxTitle = () =>
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
-           class={`flex font-bold text-white ${store.overlay.pageEditInfo() == null ? 'hidden-selection' : ''}`}
+           class={`flex font-bold text-white`}
            style={`left: ${boundsPx().x}px; ` +
                   `top: ${boundsPx().y}px; ` +
                   `width: ${boundsPx().w}px; ` +
@@ -364,7 +364,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     const renderBoxTitleMaybe = () =>
       <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
-             class={`absolute flex font-bold text-white ${store.overlay.pageEditInfo() == null ? 'hidden-selection' : ''}`}
+             class={`absolute flex font-bold text-white`}
              style={`left: ${boundsPx().x}px; ` +
                     `top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; ` +

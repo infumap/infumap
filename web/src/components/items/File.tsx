@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
-import { ATTACH_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { ItemFns} from "../../items/base/item-polymorphism";
@@ -32,6 +32,12 @@ import { itemState } from "../../store/ItemState";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { isComposite } from "../../items/composite-item";
+import { FEATURE_COLOR } from "../../style";
+import { getCaretPosition, setCaretPosition } from "../../util/caret";
+import { fullArrange } from "../../layout/arrange";
+import { trimNewline } from "../../util/string";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -57,6 +63,14 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       w: boundsPx().w / 2.0,
       h: ATTACH_AREA_SIZE_PX,
     }
+  };
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    });
   };
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
@@ -98,54 +112,133 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
   const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
 
-  const outerClass = () => {
+  const inputListener = (_ev: InputEvent) => {
+    setTimeout(() => {
+      if (store.overlay.fileEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+        const editingItemPath = store.overlay.fileEditInfo()!.itemPath;
+        let editingDomId = editingItemPath + ":title";
+        let el = document.getElementById(editingDomId);
+        let newText = el!.innerText;
+        let item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+        item.title = trimNewline(newText);
+        const caretPosition = getCaretPosition(el!);
+        fullArrange(store);
+        setCaretPosition(el!, caretPosition);
+      }
+    }, 0);
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
+  const isInComposite = () =>
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
+  const showMoveOutOfCompositeArea = () =>
+    store.user.getUserMaybe() != null &&
+    store.perVe.getMouseIsOver(vePath()) &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.fileEditInfo() == null &&
+    isInComposite();
+
+  const outerClass = (shadow: boolean) => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm bg-white';
     } else {
-      return 'absolute border border-slate-700 rounded-sm shadow-lg bg-white';
+      return `absolute border border-slate-700 rounded-sm${shadow ? " shadow-lg " : " "}bg-white`;
     }
   };
 
-  return (
-    <div class={outerClass()}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-      <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        <div style={`position: absolute; ` +
-                    `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                    `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                    `width: ${naturalWidthPx()}px; ` +
-                    `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
-                    `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                    `overflow-wrap: break-word; white-space: pre-wrap; `}>
-          <a id={VeFns.veToPath(props.visualElement) + ":title"}
-             href={""}
-             class={`text-green-800`}
-             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-             onClick={aHrefClick}
-             onMouseDown={aHrefMouseDown}
-             onMouseUp={aHrefMouseUp}>
-              {fileItem().title}
-          </a>
-        </div>
-        <For each={props.visualElement.attachmentsVes}>{attachment =>
-          <VisualElement_Desktop visualElement={attachment.get()} />
-        }</For>
-        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-          <InfuLinkTriangle />
-        </Show>
-        <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-          <div class={`absolute rounded-sm`}
-               style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`} />
-        </Show>
-        <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-          <div class={`absolute rounded-sm`}
-               style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                      `background-color: #ff0000;`} />
-        </Show>
+  const renderShadowMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+      <div class={`${outerClass(true)}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
+  const renderDetailed = () =>
+    <>
+      <Switch>
+        <Match when={store.overlay.fileEditInfo() == null || store.overlay.fileEditInfo()!.itemPath != vePath()}>
+          <div style={`position: absolute; ` +
+                      `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                      `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                      `width: ${naturalWidthPx()}px; ` +
+                      `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
+                      `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                      `overflow-wrap: break-word; white-space: pre-wrap; `}>
+            <a id={VeFns.veToPath(props.visualElement) + ":title"}
+                href={""}
+                class={`text-green-800`}
+                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+                onClick={aHrefClick}
+                onMouseDown={aHrefMouseDown}
+                onMouseUp={aHrefMouseUp}>
+              {appendNewlineIfEmpty(fileItem().title)}
+            </a>
+          </div>
+        </Match>
+        <Match when={store.overlay.fileEditInfo() != null}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                style={`position: absolute; ` +
+                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                       `outline: 0px solid transparent;`}
+                contentEditable={!isInComposite() && store.overlay.fileEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.fileEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(fileItem().title)}
+          </span>
+        </Match>
+      </Switch>
+      <For each={props.visualElement.attachmentsVes}>{attachment =>
+        <VisualElement_Desktop visualElement={attachment.get()} />
+      }</For>
+      <Show when={showMoveOutOfCompositeArea()}>
+        <div class={`absolute rounded-sm`}
+              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
       </Show>
-    </div>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+        <InfuLinkTriangle />
+      </Show>
+      <Show when={!isInComposite()}>
+        <InfuResizeTriangle />
+      </Show>
+      <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
+        <div class={`absolute rounded-sm`}
+              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
+      </Show>
+      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
+        <div class={`absolute rounded-sm`}
+              style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
+      </Show>
+    </>;
+
+  return (
+    <>
+      {renderShadowMaybe()}
+      <div class={outerClass(false)}
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
+          {renderDetailed()}
+        </Show>
+      </div>
+    </>
   );
 }
 
@@ -238,4 +331,17 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
       {renderLinkMarkingMaybe()}
     </>
   );
+}
+
+
+/**
+ * Used to force creation of a TEXT_NODE inside the note span element
+ * which is required to make contenteditable behave as desired.
+ *
+ * the \n should be detected and removed prior to persistence of the
+ * note item text.
+ */
+function appendNewlineIfEmpty(text: string): string {
+  if (text == "") { return "\n"; }
+  return text;
 }

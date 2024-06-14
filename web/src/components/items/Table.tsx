@@ -122,7 +122,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
-             class={`absolute font-bold ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
+             class={`absolute font-bold`}
              style={`left: 0px; top: 0px; ` +
                     `width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                     `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
@@ -159,7 +159,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           <For each={columnSpecs()}>{spec =>
             <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
-                class={`absolute whitespace-nowrap overflow-hidden ${store.overlay.tableEditInfo() == null ? 'hidden-selection' : ''}`}
+                class={`absolute whitespace-nowrap overflow-hidden`}
                 style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; ` +
                        `width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                        `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +

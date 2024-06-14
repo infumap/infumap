@@ -18,10 +18,8 @@
 
 import { Component, Match, Switch } from "solid-js";
 import { Item } from "../../../items/base/item";
-import { asFileItem, isFile } from "../../../items/file-item";
 import { asImageItem, isImage } from "../../../items/image-item";
 import { asTableItem, isTable } from "../../../items/table-item";
-import { EditFile } from "./Panels/EditFile";
 import { EditImage } from "./Panels/EditImage";
 import { EditTable } from "./Panels/EditTable";
 import { useStore } from "../../../store/StoreProvider";
@@ -49,9 +47,6 @@ export const EditItem: Component<{item: Item, linkedTo: boolean}> = (props: {ite
       <Switch fallback={<div>Unknown item type: '{props.item.itemType}'</div>}>
         <Match when={isTable(props.item)}>
           <EditTable tableItem={asTableItem(props.item)} linkedTo={props.linkedTo} />
-        </Match>
-        <Match when={isFile(props.item)}>
-          <EditFile fileItem={asFileItem(props.item)} linkedTo={props.linkedTo} />
         </Match>
         <Match when={isImage(props.item)}>
           <EditImage imageItem={asImageItem(props.item)} linkedTo={props.linkedTo} />

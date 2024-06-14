@@ -43,7 +43,7 @@ import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
 import { asNoteItem } from "../items/note-item";
-import { setCaretPosition } from "../util/caret";
+import { asFileItem } from "../items/file-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -75,16 +75,17 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.tableEditInfo()) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingPath = store.overlay.tableEditInfo()!.colNum != null
-        ? store.overlay.tableEditInfo()!.itemPath + ":col" + store.overlay.tableEditInfo()!.colNum
-        : store.overlay.tableEditInfo()!.itemPath + ":title";
-      let el = document.getElementById(editingPath);
+      let editingItemPath = store.overlay.tableEditInfo()!.itemPath;
+      let editingDomId = store.overlay.tableEditInfo()!.colNum != null
+        ? editingItemPath + ":col" + store.overlay.tableEditInfo()!.colNum
+        : editingItemPath + ":title";
+      let el = document.getElementById(editingDomId);
       if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
           buttonNumber == MOUSE_LEFT) {
         return MouseEventActionFlags.None;
       }
       let newText = el!.innerText;
-      let item = asTableItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+      let item = asTableItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
       if (store.overlay.tableEditInfo()!.colNum == null) {
         item.title = trimNewline(newText);
       } else {
@@ -102,14 +103,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.pageEditInfo()) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingPath = store.overlay.pageEditInfo()!.itemPath + ":title";
-      let el = document.getElementById(editingPath);
+      let editingItemPath = store.overlay.pageEditInfo()!.itemPath;
+      let editingDomId = editingItemPath + ":title";
+      let el = document.getElementById(editingDomId);
       if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
           buttonNumber == MOUSE_LEFT) {
         return MouseEventActionFlags.None;
       }
       let newText = el!.innerText;
-      let item = asPageItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+      let item = asPageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
       item.title = trimNewline(newText);
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
@@ -123,20 +125,44 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.noteEditInfo()) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-      let editingDomEl = document.getElementById(editingPath);
+      let editingItemPath = store.overlay.noteEditInfo()!.itemPath;
+      let editingDomId = editingItemPath + ":title";
+      let editingDomEl = document.getElementById(editingDomId);
       if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
           buttonNumber == MOUSE_LEFT) {
         return MouseEventActionFlags.None;
       }
       editingDomEl!.parentElement!.scrollLeft = 0;
       let newText = editingDomEl!.innerText;
-      let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingPath).itemId)!);
+      let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
       item.title = trimNewline(newText);
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.overlay.setNoteEditInfo(store.history, null);
+    fullArrange(store);
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+    defaultResult = MouseEventActionFlags.None;
+  }
+
+  if (store.overlay.fileEditInfo()) {
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
+    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
+      const editingItemPath = store.overlay.fileEditInfo()!.itemPath;
+      const editingDomId = editingItemPath + ":title";
+      const editingDomEl = document.getElementById(editingDomId);
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
+          buttonNumber == MOUSE_LEFT) {
+        return MouseEventActionFlags.None;
+      }
+      editingDomEl!.parentElement!.scrollLeft = 0;
+      const newText = editingDomEl!.innerText;
+      const item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+      item.title = trimNewline(newText);
+      serverOrRemote.updateItem(store.history.getFocusItem());
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.overlay.setFileEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
     defaultResult = MouseEventActionFlags.None;

@@ -260,9 +260,10 @@ export const NoteFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.Unused });
-    const editingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
-    const el = document.getElementById(editingPath)!;
+    const itemPath = VeFns.veToPath(visualElement);
+    store.overlay.setNoteEditInfo(store.history, { itemPath });
+    const editingDomId = itemPath + ":title";
+    const el = document.getElementById(editingDomId)!;
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     setCaretPosition(el, closestIdx);

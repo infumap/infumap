@@ -212,7 +212,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   if (type == ItemType.Page) {
     store.overlay.setPageEditInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
   } else if (type == ItemType.Note) {
-    store.overlay.setNoteEditInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Unused });
+    store.overlay.setNoteEditInfo(store.history, { itemPath: newItemPath });
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);
     el!.focus();
