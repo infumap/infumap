@@ -47,6 +47,7 @@ import { server, serverOrRemote } from "../../server";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { panic } from "../../util/lang";
+import { ItemType } from "../../items/base/item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -139,8 +140,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const inputListener = (_ev: InputEvent) => {
     setTimeout(() => {
-      if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        const editingItemPath = store.overlay.noteEditInfo()!.itemPath;
+      if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
         let editingDomId = editingItemPath + ":title";
         let el = document.getElementById(editingDomId);
         let newText = el!.innerText;
@@ -168,7 +169,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const ve = props.visualElement;
     const parentVe = VesCache.get(ve.parentPath!)!.get();
 
-    const editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
 
@@ -204,9 +205,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       fullArrange(store);
       const veid = { itemId: note.id, linkIdMaybe: null };
       const newVes = VesCache.findSingle(veid);
-      store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()) });
+      store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
 
-      let editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+      let editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
       let textElement = document.getElementById(editingDomId);
       setCaretPosition(textElement!, 0);
       textElement!.focus();
@@ -222,8 +223,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
-    store.overlay.noteEditInfo() == null &&
-    store.overlay.fileEditInfo() == null &&
+    store.overlay.textEditInfo() == null &&
     isInComposite();
 
   const renderShadowMaybe = () =>
@@ -237,7 +237,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     <>
       <Switch>
         <Match when={NoteFns.hasUrl(noteItem()) &&
-                     (store.overlay.noteEditInfo() == null || store.overlay.noteEditInfo()!.itemPath != vePath())}>
+                     (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
                style={`position: absolute; ` +
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
@@ -259,7 +259,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             </a>
           </div>
         </Match>
-        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.noteEditInfo() != null}>
+        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
                        `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
@@ -273,8 +273,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                        `overflow-wrap: break-word; white-space: pre-wrap; ` +
                        `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                        `outline: 0px solid transparent;`}
-                contentEditable={!isInComposite() && store.overlay.noteEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.noteEditInfo() != null}
+                contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
             {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}
@@ -413,7 +413,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderText = () =>
     <div class={`absolute overflow-hidden whitespace-nowrap ` +
-                ((store.overlay.noteEditInfo() != null && store.overlay.noteEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
+                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
                 `${infuTextStyle().alignClass} `}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
@@ -436,8 +436,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
                 class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
                 style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                        `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.noteEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.noteEditInfo() != null}
+                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
             {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}

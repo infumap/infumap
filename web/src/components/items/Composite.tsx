@@ -39,6 +39,7 @@ import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { panic } from "../../util/lang";
 import { FindDirection, findClosest } from "../../layout/find";
 import { asFileItem, isFile } from "../../items/file-item";
+import { ItemType } from "../../items/base/item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -96,16 +97,14 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       let newVes = VesCache.get(currentCaretItemPath)!;
       let newVe = newVes.get();
       if (isNote(newVe.displayItem)) {
-        store.overlay.setFileEditInfo(store.history, null);
-        store.overlay.setNoteEditInfo(store.history, { itemPath: currentCaretItemPath });
+        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Note });
 
         // after setting the note edit info, the <a /> (if this is a link) is turned into a <span />
         newEditingTextElement = document.getElementById(newEditingDomId);
         setCaretPosition(newEditingTextElement!, caretPosition);
         newEditingTextElement!.focus();
       } else if (isFile(newVe.displayItem)) {
-        store.overlay.setNoteEditInfo(store.history, null);
-        store.overlay.setFileEditInfo(store.history, { itemPath: currentCaretItemPath });
+        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.File });
 
         // after setting the note edit info, the <a /> (if this is a link) is turned into a <span />
         newEditingTextElement = document.getElementById(newEditingDomId);
@@ -134,7 +133,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const joinItemsMaybeHandler = () => {
-    const editingVe = VesCache.get(store.overlay.noteEditInfo()!.itemPath)!.get();
+    const editingVe = VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
     const canonicalItem = VeFns.canonicalItem(editingVe);
 
     // maybe delete note item.
@@ -149,27 +148,27 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     nextFocusItem.title = nextFocusItem.title + asTitledItem(editingVe.displayItem).title;
     fullArrange(store);
 
-    store.overlay.setNoteEditInfo(store.history, { itemPath: closestPath });
+    store.overlay.setTextEditInfo(store.history, { itemPath: closestPath, itemType: ItemType.Note });
     server.updateItem(nextFocusItem);
     itemState.delete(canonicalItem.id);
     server.deleteItem(canonicalItem.id);
     fullArrange(store);
 
-    const editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     setCaretPosition(textElement!, prevTextLength);
     textElement!.focus();
   }
 
   const enterKeyHandler = () => {
-    const editingDomId = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
 
     const beforeText = textElement!.innerText.substring(0, caretPosition);
     const afterText = textElement!.innerText.substring(caretPosition);
 
-    const noteVeid = VeFns.veidFromPath(store.overlay.noteEditInfo()!.itemPath);
+    const noteVeid = VeFns.veidFromPath(store.overlay.textEditInfo()!.itemPath);
     const noteItem = asNoteItem(itemState.get(noteVeid.itemId)!);
     noteItem.title = beforeText;
 
@@ -184,9 +183,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
     const veid = { itemId: note.id, linkIdMaybe: null };
     const newVes = VesCache.findSingle(veid);
-    store.overlay.setNoteEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()) });
+    store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
 
-    const newEditingPath = store.overlay.noteEditInfo()!.itemPath + ":title";
+    const newEditingPath = store.overlay.textEditInfo()!.itemPath + ":title";
     const newEditingTextElement = document.getElementById(newEditingPath);
     setCaretPosition(newEditingTextElement!, 0);
     textElement!.focus();
@@ -197,20 +196,22 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       const focusItemPath = store.history.getFocusPath();
       const focusItemDomId = focusItemPath + ":title";
       let el = document.getElementById(focusItemDomId);
-      if (store.overlay.noteEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        let newText = el!.innerText;
-        let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-        item.title = trimNewline(newText);
-        const caretPosition = getCaretPosition(el!);
-        fullArrange(store);
-        setCaretPosition(el!, caretPosition);
-      } else if (store.overlay.fileEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        let newText = el!.innerText;
-        let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-        item.title = trimNewline(newText);
-        const caretPosition = getCaretPosition(el!);
-        fullArrange(store);
-        setCaretPosition(el!, caretPosition);
+      if (store.overlay.textEditInfo()) {
+        if (store.overlay.textEditInfo()!.itemType == ItemType.Note && !store.overlay.toolbarPopupInfoMaybe.get()) {
+          let newText = el!.innerText;
+          let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          item.title = trimNewline(newText);
+          const caretPosition = getCaretPosition(el!);
+          fullArrange(store);
+          setCaretPosition(el!, caretPosition);
+        } else if (store.overlay.textEditInfo()!.itemType == ItemType.File && !store.overlay.toolbarPopupInfoMaybe.get()) {
+          let newText = el!.innerText;
+          let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          item.title = trimNewline(newText);
+          const caretPosition = getCaretPosition(el!);
+          fullArrange(store);
+          setCaretPosition(el!, caretPosition);
+        }
       }
     }, 0);
   }
@@ -225,7 +226,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                 `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
                 `outline: 0px solid transparent;`}
-         contentEditable={store.overlay.noteEditInfo() != null || store.overlay.fileEditInfo() != null}
+         contentEditable={store.overlay.textEditInfo() != null}
          onKeyUp={keyUpHandler}
          onKeyDown={keyDownHandler}
          onInput={inputListener}>

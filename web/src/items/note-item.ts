@@ -261,7 +261,7 @@ export const NoteFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    store.overlay.setNoteEditInfo(store.history, { itemPath });
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Note });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
     el.focus();

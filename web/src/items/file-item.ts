@@ -231,7 +231,7 @@ export const FileFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
-    store.overlay.setFileEditInfo(store.history, { itemPath });
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.File });
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
     el.focus();

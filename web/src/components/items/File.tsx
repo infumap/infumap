@@ -114,8 +114,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const inputListener = (_ev: InputEvent) => {
     setTimeout(() => {
-      if (store.overlay.fileEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        const editingItemPath = store.overlay.fileEditInfo()!.itemPath;
+      if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
         let editingDomId = editingItemPath + ":title";
         let el = document.getElementById(editingDomId);
         let newText = el!.innerText;
@@ -144,8 +144,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
-    store.overlay.fileEditInfo() == null &&
-    store.overlay.noteEditInfo() == null &&
+    store.overlay.textEditInfo() == null &&
     isInComposite();
 
   const outerClass = (shadow: boolean) => {
@@ -166,7 +165,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const renderDetailed = () =>
     <>
       <Switch>
-        <Match when={store.overlay.fileEditInfo() == null || store.overlay.fileEditInfo()!.itemPath != vePath()}>
+        <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <div class={"text-left"}
                style={`position: absolute; ` +
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
@@ -186,7 +185,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
             </a>
           </div>
         </Match>
-        <Match when={store.overlay.fileEditInfo() != null}>
+        <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={"text-left"}
                 style={`position: absolute; ` +
@@ -197,8 +196,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
                        `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                        `overflow-wrap: break-word; white-space: pre-wrap; ` +
                        `outline: 0px solid transparent;`}
-                contentEditable={!isInComposite() && store.overlay.fileEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.fileEditInfo() != null}
+                contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
             {appendNewlineIfEmpty(fileItem().title)}
