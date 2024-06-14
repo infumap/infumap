@@ -58,7 +58,7 @@ export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
     if (!isNote(store.history.getFocusItem())) {
       return null;
     }
-    const noteVisualElement = () => VesCache.get(store.overlay.noteEditInfo()!.itemPath)!.get();
+    const noteVisualElement = () => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
     const parentVe = VesCache.get(noteVisualElement().parentPath!)!.get();
     if (!isComposite(parentVe.displayItem)) { return null; }
     return parentVe;
@@ -107,7 +107,7 @@ export const Toolbar_Popup: Component = () => {
   const noteItem = () => asNoteItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
 
-  const noteVisualElement = () => VesCache.get(store.overlay.noteEditInfo()!.itemPath)!.get();
+  const noteVisualElement = () => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
   const compositeVisualElementMaybe = () => {
     if (!isNote(store.history.getFocusItem())) {
       return null;

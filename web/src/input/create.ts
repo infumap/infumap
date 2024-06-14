@@ -36,7 +36,6 @@ import { VeFns, VisualElementFlags } from "../layout/visual-element";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { Vector, isInside } from "../util/geometry";
 import { panic } from "../util/lang";
 import { EMPTY_UID, Uid } from "../util/uid";
@@ -217,9 +216,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     const el = document.getElementById(elId);
     el!.focus();
   } else if (type == ItemType.Expression) {
-    store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Expression });
   } else if (type == ItemType.Password) {
-    store.overlay.setPasswordEditOverlayInfo(store.history, { itemPath: newItemPath, initialCursorPosition: CursorPosition.Start });
+    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Password });
   }else if (type == ItemType.Rating) {
     // noop.
   } else {

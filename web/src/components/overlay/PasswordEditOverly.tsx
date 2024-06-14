@@ -33,7 +33,7 @@ import { rearrangeWithDisplayId } from "../../layout/arrange";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 
 
-const passwordVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.passwordEditOverlayInfo()!.itemPath)!.get();
+const passwordVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
 const passwordItem = (store: StoreContextModel) => asPasswordItem(passwordVisualElement(store).displayItem);
 
 
@@ -115,7 +115,7 @@ export const PasswordEditOverlay: Component = () => {
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && passwordItemOnInitialize.ownerId == store.user.getUser().userId) {
         serverOrRemote.updateItem(passwordItem(store));
-        store.overlay.setPasswordEditOverlayInfo(store.history, null);
+        store.overlay.setTextEditInfo(store.history, null);
       }
     }
   };

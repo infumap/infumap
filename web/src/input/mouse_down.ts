@@ -213,22 +213,22 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Text edit overlays.
 
-  if (store.overlay.expressionEditOverlayInfo()) {
+  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Expression) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
-    store.overlay.setExpressionEditOverlayInfo(store.history, null);
+    store.overlay.setTextEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  if (store.overlay.passwordEditOverlayInfo()) {
+  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Password) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
     if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
       serverOrRemote.updateItem(store.history.getFocusItem());
     }
-    store.overlay.setPasswordEditOverlayInfo(store.history, null);
+    store.overlay.setTextEditInfo(store.history, null);
     fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }

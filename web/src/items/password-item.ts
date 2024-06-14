@@ -31,7 +31,6 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { fullArrange } from '../layout/arrange';
-import { CursorPosition } from '../store/StoreProvider_Overlay';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -239,7 +238,7 @@ export const PasswordFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setPasswordEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), itemType: ItemType.Password });
     fullArrange(store); // input focus changed.
   },
 

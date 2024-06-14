@@ -44,25 +44,12 @@ export interface ToolbarPopupInfo {
   topLeftPx: Vector
 }
 
-export enum CursorPosition {
-  Unused = "UNUSED",
-  Start = "START",
-  End = "END",
-  UnderMouse = "UNDER_MOUSE",
-}
-
 export interface TextEditInfo {
   itemType: string, // redundant, can be determined via itemPath.
   itemPath: VisualElementPath,
   colNum?: number | null,
   startBl?: number | null,
   endBl?: number | null,
-}
-
-// TODO: convert all these over to TextEditInfo.
-export interface EditOverlayInfo {
-  itemPath: VisualElementPath,
-  initialCursorPosition: CursorPosition | number
 }
 
 export interface ContextMenuInfo {
@@ -89,14 +76,7 @@ export interface OverlayStoreContextModel {
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
 
-  expressionEditOverlayInfo: () => EditOverlayInfo | null,
-  passwordEditOverlayInfo: () => EditOverlayInfo | null,
-
   textEditInfo: () => TextEditInfo | null,
-
-  setExpressionEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-  setPasswordEditOverlayInfo: (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => void,
-
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
 
   isPanicked: InfuSignal<boolean>,
@@ -108,9 +88,6 @@ export interface OverlayStoreContextModel {
 
 
 export function makeOverlayStore(): OverlayStoreContextModel {
-  const expressionEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
-  const passwordEditOverlayInfo_ = createInfuSignal<EditOverlayInfo | null>(null);
-
   const textEditInfo_ = createInfuSignal<TextEditInfo | null>(null);
 
   const searchOverlayVisible = createInfuSignal<boolean>(false);
@@ -121,9 +98,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
 
   function clear() {
-    expressionEditOverlayInfo_.set(null);
     textEditInfo_.set(null);
-    passwordEditOverlayInfo_.set(null);
 
     editDialogInfo.set(null);
     editUserSettingsInfo.set(null);
@@ -133,9 +108,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   function anOverlayIsVisible(): boolean {
     return (
-      expressionEditOverlayInfo_.get() != null ||
       textEditInfo_.get() != null ||
-      passwordEditOverlayInfo_.get() != null ||
       searchOverlayVisible.get() ||
       editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
@@ -144,15 +117,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     );
   }
 
-  const expressionEditOverlayInfo = (): EditOverlayInfo | null => expressionEditOverlayInfo_.get();
   const textEditInfo = (): TextEditInfo | null => textEditInfo_.get();
-  const passwordEditOverlayInfo = (): EditOverlayInfo | null => passwordEditOverlayInfo_.get();
-
-  const setExpressionEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
-    if (info == null) { historyStore.setFocus(null) }
-    else { historyStore.setFocus(info.itemPath); }
-    expressionEditOverlayInfo_.set(info);
-  }
 
   const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => {
     if (info == null) { historyStore.setFocus(null) }
@@ -160,21 +125,8 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     textEditInfo_.set(info);
   }
 
-  const setPasswordEditOverlayInfo = (historyStore: HistoryStoreContextModel, info: EditOverlayInfo | null) => {
-    if (info == null) { historyStore.setFocus(null) }
-    else { historyStore.setFocus(info.itemPath); }
-    passwordEditOverlayInfo_.set(info);
-  }
-
   return ({
-    expressionEditOverlayInfo,
-    passwordEditOverlayInfo,
-
     textEditInfo,
-
-    setExpressionEditOverlayInfo,
-    setPasswordEditOverlayInfo,
-
     setTextEditInfo,
 
     searchOverlayVisible,

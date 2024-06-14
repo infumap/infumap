@@ -34,7 +34,6 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { measureLineCount } from '../layout/text';
 import { fullArrange } from '../layout/arrange';
-import { CursorPosition } from '../store/StoreProvider_Overlay';
 import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';

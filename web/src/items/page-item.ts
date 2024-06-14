@@ -43,7 +43,6 @@ import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
 import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { newOrdering } from '../util/ordering';
-import { CursorPosition } from '../store/StoreProvider_Overlay';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 

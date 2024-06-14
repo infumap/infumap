@@ -23,7 +23,6 @@ import { ItemGeometry } from "../layout/item-geometry";
 import { measureLineCount } from "../layout/text";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { CursorPosition } from "../store/StoreProvider_Overlay";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
@@ -239,7 +238,7 @@ export const ExpressionFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setExpressionEditOverlayInfo(store.history, { itemPath: VeFns.veToPath(visualElement), initialCursorPosition: CursorPosition.UnderMouse });
+    store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), itemType: ItemType.Expression });
     fullArrange(store); // input focus changed.
   },
 

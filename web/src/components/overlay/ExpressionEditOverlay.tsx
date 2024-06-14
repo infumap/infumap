@@ -33,7 +33,7 @@ import { serverOrRemote } from "../../server";
 import { fullArrange } from "../../layout/arrange";
 
 
-const expressionVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.expressionEditOverlayInfo()!.itemPath)!.get();
+const expressionVisualElement = (store: StoreContextModel) => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
 const expressionItem = (store: StoreContextModel) => asExpressionItem(expressionVisualElement(store).displayItem);
 
 
@@ -111,7 +111,7 @@ export const ExpressionEditOverlay: Component = () => {
     if (ev.button == MOUSE_RIGHT) {
       if (store.user.getUserMaybe() != null && expressionItemOnInitialize.ownerId == store.user.getUser().userId) {
         serverOrRemote.updateItem(expressionItem(store));
-        store.overlay.setExpressionEditOverlayInfo(store.history, null);
+        store.overlay.setTextEditInfo(store.history, null);
       }
     }
   };

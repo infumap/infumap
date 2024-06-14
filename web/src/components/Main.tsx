@@ -232,10 +232,10 @@ export const Main: Component = () => {
         <SearchOverlay />
       </Show>
 
-      <Show when={store.overlay.expressionEditOverlayInfo() != null}>
+      <Show when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemType == ItemType.Expression}>
         <ExpressionEditOverlay />
       </Show>
-      <Show when={store.overlay.passwordEditOverlayInfo() != null}>
+      <Show when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemType == ItemType.Password}>
         <PasswordEditOverlay />
       </Show>
     </div>

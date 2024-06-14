@@ -123,7 +123,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
-    store.overlay.expressionEditOverlayInfo() == null &&
+    store.overlay.textEditInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
   const renderShadow = () =>
