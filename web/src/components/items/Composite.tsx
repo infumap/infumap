@@ -29,7 +29,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
-import { currentCaretElement, currentCaretVePath_title, getCaretPosition, setCaretPosition } from "../../util/caret";
+import { currentCaretElement, getCurrentCaretVePath_title, getCaretPosition, setCaretPosition } from "../../util/caret";
 import { server, serverOrRemote } from "../../server";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { trimNewline } from "../../util/string";
@@ -78,7 +78,13 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const keyUp_Arrow = () => {
-    const currentCaretItemPath = currentCaretVePath_title();
+    let currentCaretItemPath;
+    try {
+      currentCaretItemPath = getCurrentCaretVePath_title();
+    } catch (e) {
+      console.log("bad current caret ve path", e);
+      return;
+    }
     const currentEditingPath = store.history.getFocusPath();
     if (currentEditingPath != currentCaretItemPath) {
       serverOrRemote.updateItem(store.history.getFocusItem());

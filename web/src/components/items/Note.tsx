@@ -223,6 +223,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.noteEditInfo() == null &&
+    store.overlay.fileEditInfo() == null &&
     isInComposite();
 
   const renderShadowMaybe = () =>

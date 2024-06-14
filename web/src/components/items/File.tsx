@@ -145,6 +145,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.fileEditInfo() == null &&
+    store.overlay.noteEditInfo() == null &&
     isInComposite();
 
   const outerClass = (shadow: boolean) => {
@@ -166,7 +167,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     <>
       <Switch>
         <Match when={store.overlay.fileEditInfo() == null || store.overlay.fileEditInfo()!.itemPath != vePath()}>
-          <div style={`position: absolute; ` +
+          <div class={"text-left"}
+               style={`position: absolute; ` +
                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
                       `width: ${naturalWidthPx()}px; ` +
@@ -186,6 +188,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         </Match>
         <Match when={store.overlay.fileEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={"text-left"}
                 style={`position: absolute; ` +
                        `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
                        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +

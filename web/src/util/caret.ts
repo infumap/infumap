@@ -133,10 +133,10 @@ export const currentCaretElement = (): HTMLElement | null => {
  *
  * Panics if there is no such item.
  */
-export const currentCaretVePath_title = () => {
+export const getCurrentCaretVePath_title = () => {
   let currentCaretElementId = currentCaretElement()!.id;
   if (!currentCaretElementId.endsWith(":title")) {
-    panic("HTML element with caret has id that does not end with :title");
+    throw("HTML element with caret has id that does not end with :title");
   }
   return currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length);
 }
