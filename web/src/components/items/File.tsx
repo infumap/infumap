@@ -37,7 +37,7 @@ import { isComposite } from "../../items/composite-item";
 import { FEATURE_COLOR } from "../../style";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { fullArrange } from "../../layout/arrange";
-import { trimNewline } from "../../util/string";
+import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -361,17 +361,4 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
       {renderLinkMarkingMaybe()}
     </>
   );
-}
-
-
-/**
- * Used to force creation of a TEXT_NODE inside the note span element
- * which is required to make contenteditable behave as desired.
- *
- * the \n should be detected and removed prior to persistence of the
- * note item text.
- */
-function appendNewlineIfEmpty(text: string): string {
-  if (text == "") { return "\n"; }
-  return text;
 }

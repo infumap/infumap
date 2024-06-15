@@ -25,3 +25,16 @@ export function trimNewline(text: string): string {
   }
   return text;
 }
+
+
+/**
+ * Used to force creation of a TEXT_NODE inside the note span element
+ * which is required to make contenteditable behave as desired.
+ *
+ * the \n should be detected and removed prior to persistence of the
+ * note item text.
+ */
+export function appendNewlineIfEmpty(text: string): string {
+  if (text == "") { return "\n"; }
+  return text;
+}
