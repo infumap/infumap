@@ -32,7 +32,7 @@ import { itemState } from "../store/ItemState";
 import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { DoubleClickState, DialogMoveState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
+import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
@@ -216,15 +216,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     return defaultResult;
   }
 
-  let dialogInfo = store.overlay.editDialogInfo.get();
-  if (dialogInfo != null) {
+  if (store.overlay.tableColumnContextMenuInfo.get() != null) {
     DoubleClickState.preventDoubleClick();
-    if (isInside(desktopPosPx, dialogInfo!.desktopBoundsPx)) {
-      DialogMoveState.set({ lastMousePosPx: desktopPosPx });
-      return defaultResult;
-    }
-
-    store.overlay.editDialogInfo.set(null);
+    store.overlay.tableColumnContextMenuInfo.set(null);
     return defaultResult;
   }
 
@@ -386,8 +380,8 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     return;
   }
 
-  if (store.overlay.editDialogInfo.get() != null) {
-    store.overlay.editDialogInfo.set(null);
+  if (store.overlay.tableColumnContextMenuInfo.get()) {
+    store.overlay.tableColumnContextMenuInfo.set(null);
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
     return;
   }

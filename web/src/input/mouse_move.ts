@@ -26,13 +26,12 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
-import { editDialogSizePx } from "../components/overlay/edit/EditDialog";
 import { VisualElementSignal } from "../util/signals";
 import { getHitInfo } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
-import { MouseAction, MouseActionState, CursorEventState, DialogMoveState, UserSettingsMoveState } from "./state";
+import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { fullArrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
@@ -56,21 +55,6 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.
-  if (store.overlay.editDialogInfo.get() != null) {
-    if (DialogMoveState.get() != null) {
-      let changePx = vectorSubtract(currentMouseDesktopPx, DialogMoveState.get()!.lastMousePosPx!);
-      store.overlay.editDialogInfo.set(({
-        item: store.overlay.editDialogInfo.get()!.item,
-        desktopBoundsPx: boundingBoxFromPosSize(vectorAdd(getBoundingBoxTopLeft(store.overlay.editDialogInfo.get()!.desktopBoundsPx), changePx), { ...editDialogSizePx })
-      }));
-      DialogMoveState.get()!.lastMousePosPx = currentMouseDesktopPx;
-      return;
-    }
-    if (isInside(currentMouseDesktopPx, store.overlay.editDialogInfo.get()!.desktopBoundsPx)) {
-      mouseMove_handleNoButtonDown(store, hasUser);
-      return;
-    }
-  }
   if (store.overlay.editUserSettingsInfo.get() != null) {
     if (UserSettingsMoveState.get() != null) {
       let changePx = vectorSubtract(currentMouseDesktopPx, UserSettingsMoveState.get()!.lastMousePosPx!);
@@ -338,10 +322,9 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
-  const dialogInfo = store.overlay.editDialogInfo.get();
   const userSettingsInfo = store.overlay.editUserSettingsInfo.get();
   const cmi = store.overlay.contextMenuInfo.get();
-  const hasModal = dialogInfo != null || cmi != null || userSettingsInfo != null;
+  const hasModal = cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
   const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev, store), [], false, true);

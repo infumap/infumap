@@ -93,25 +93,6 @@ export let MouseActionState = {
 
 
 
-// ### Dialog State
-
-export interface DialogMoveStateType {
-  lastMousePosPx: Vector,
-}
-
-
-export let dialogMoveState: DialogMoveStateType | null = null;
-
-export let DialogMoveState = {
-  set: (state: DialogMoveStateType | null): void => { dialogMoveState = state; },
-
-  empty: (): boolean => dialogMoveState == null,
-
-  get: (): DialogMoveStateType | null => dialogMoveState
-}
-
-
-
 // ### User Settings State
 
 export interface UserSettingsMoveStateType {

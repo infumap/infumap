@@ -22,13 +22,13 @@ import { ContextMenu } from "./overlay/ContextMenu";
 import { handleUpload } from "../upload";
 import { HitboxFlags } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
-import { EditDialog } from "./overlay/edit/EditDialog";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { getHitInfo } from "../input/hit";
 import { CursorEventState } from "../input/state";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
+import { TableColumnContextMenu } from "./overlay/TableColumnContextMenu";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -82,14 +82,14 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       <Page_Desktop visualElement={props.visualElement} />
 
       {/* desktop overlays */}
-      <Show when={store.overlay.editDialogInfo.get() != null}>
-        <EditDialog />
-      </Show>
       <Show when={store.overlay.editUserSettingsInfo.get() != null}>
         <EditUserSettings />
       </Show>
       <Show when={store.overlay.contextMenuInfo.get() != null}>
         <ContextMenu />
+      </Show>
+      <Show when={store.overlay.tableColumnContextMenuInfo.get() != null}>
+        <TableColumnContextMenu />
       </Show>
       <Show when={store.overlay.isPanicked.get()}>
         <Panic />

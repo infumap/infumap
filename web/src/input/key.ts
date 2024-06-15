@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { initialEditDialogBounds } from "../components/overlay/edit/EditDialog";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { fullArrange } from "../layout/arrange";
 import { findClosest, findDirectionFromKeyCode } from "../layout/find";
@@ -72,29 +71,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (ev.code == "Slash") {
     ev.preventDefault();
     store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(store), hitInfo });
-    mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
-  }
-
-  else if (ev.code == "Backslash") {
-    ev.preventDefault();
-    store.overlay.editDialogInfo.set({
-      desktopBoundsPx: initialEditDialogBounds(store),
-      item: (() => {
-        const overVe = hitInfo.overElementVes.get();
-        if (overVe.linkItemMaybe != null) {
-          const poppedUp = store.history.currentPopupSpec();
-          if (poppedUp && overVe.displayItem.id == poppedUp!.actualVeid.itemId) {
-            return overVe.displayItem;
-          }
-          const selected = store.perItem.getSelectedListPageItem(store.history.currentPageVeid()!);
-          if (selected && overVe.displayItem.id == selected.itemId) {
-            return overVe.displayItem;
-          }
-          return overVe.linkItemMaybe!;
-        }
-        return overVe.displayItem;
-      })()
-    });
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
   }
 

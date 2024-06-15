@@ -105,19 +105,16 @@ export const Login: Component = () => {
       </div>
       <div class="m-auto w-96 mt-10 p-3">
         <div class="mb-3">
-          <b>Quick Help</b>
+          <b>Essential Usage</b>
         </div>
         <div class="mb-3">
-          "/" → create new item at current location using context menu.
+          "/" → create a new item at current location using context menu.
         </div>
         <div class="mb-3">
-          "n", "p", "t", "r", "w", "l", "e" → create specific item (note, page, table, rating, password, link, expression) at current location.
+          "n", "p", "t", "r", "w", "l", "e" → create a specific item (note, page, table, rating, password, link, expression) at the current location.
         </div>
         <div class="mb-3">
-          "\\" → edit item under cursor (being phased out).
-        </div>
-        <div class="mb-3">
-          mouse right button → navigate back in history.
+          right mouse button → navigate back in history one step.
         </div>
       </div>
     </>

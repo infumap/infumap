@@ -149,7 +149,7 @@ export const Main: Component = () => {
 
   const windowPopStateListener = () => {
     store.overlay.contextMenuInfo.set(null);
-    store.overlay.editDialogInfo.set(null);
+    store.overlay.tableColumnContextMenuInfo.set(null);
     store.overlay.editUserSettingsInfo.set(null);
     store.history.popPage();
     fArrange(store);

@@ -57,9 +57,10 @@ export interface ContextMenuInfo {
   hitInfo: HitInfo
 }
 
-export interface EditDialogInfo {
-  desktopBoundsPx: BoundingBox,
-  item: Item
+export interface TableColumnContextMenuInfo {
+  posPx: Vector,
+  tablePath: VisualElementPath,
+  colNum: number,
 }
 
 export interface EditUserSettingsInfo {
@@ -69,9 +70,9 @@ export interface EditUserSettingsInfo {
 export interface OverlayStoreContextModel {
   // Desktop overlays. TODO (MEDIUM): move all these to Main.
   searchOverlayVisible: InfuSignal<boolean>,
-  editDialogInfo: InfuSignal<EditDialogInfo | null>,
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
+  tableColumnContextMenuInfo: InfuSignal<TableColumnContextMenuInfo | null>,
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
@@ -91,18 +92,18 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const textEditInfo_ = createInfuSignal<TextEditInfo | null>(null);
 
   const searchOverlayVisible = createInfuSignal<boolean>(false);
-  const editDialogInfo = createInfuSignal<EditDialogInfo | null>(null);
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
+  const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
 
   function clear() {
     textEditInfo_.set(null);
 
-    editDialogInfo.set(null);
     editUserSettingsInfo.set(null);
     contextMenuInfo.set(null);
+    tableColumnContextMenuInfo.set(null);
     searchOverlayVisible.set(false);
   }
 
@@ -110,9 +111,9 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     return (
       textEditInfo_.get() != null ||
       searchOverlayVisible.get() ||
-      editDialogInfo.get() != null ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
+      tableColumnContextMenuInfo.get() != null ||
       toolbarPopupInfoMaybe.get() != null
     );
   }
@@ -130,9 +131,9 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     setTextEditInfo,
 
     searchOverlayVisible,
-    editDialogInfo,
     editUserSettingsInfo,
     contextMenuInfo,
+    tableColumnContextMenuInfo,
 
     isPanicked: createInfuSignal<boolean>(false),
 

@@ -37,7 +37,7 @@ import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
-import { DoubleClickState, DialogMoveState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
+import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 
@@ -52,8 +52,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   }
 
   store.anItemIsMoving.set(false);
-
-  DialogMoveState.set(null);
   UserSettingsMoveState.set(null);
 
   if (MouseActionState.empty()) { return MouseEventActionFlags.PreventDefault; }
@@ -122,7 +120,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         );
         store.history.setFocus(focusPath);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
-        console.log("handle table context menu click")
+        store.overlay.tableColumnContextMenuInfo.set({
+          posPx: CursorEventState.getLatestDesktopPx(store),
+          tablePath: MouseActionState.get().activeElementPath,
+          colNum: MouseActionState.get().hitMeta?.colNum ? MouseActionState.get().hitMeta?.colNum! : 0,
+        });
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
         store.perVe.setIsExpanded(
           MouseActionState.get().activeElementPath,

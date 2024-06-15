@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { initialEditDialogBounds } from "../components/overlay/edit/EditDialog";
 import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { ItemType } from "../items/base/item";
@@ -219,12 +218,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Expression });
   } else if (type == ItemType.Password) {
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Password });
-  }else if (type == ItemType.Rating) {
+  } else if (type == ItemType.Rating) {
     // noop.
   } else {
-    store.overlay.editDialogInfo.set({
-      desktopBoundsPx: initialEditDialogBounds(store),
-      item: newItem
-    });
+    // noop.
   }
 }
