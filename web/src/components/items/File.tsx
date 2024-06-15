@@ -300,19 +300,47 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
       <i class={`fas fa-file`} />
     </div>;
 
+  const inputListener = (_ev: InputEvent) => {
+    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
   const renderText = () =>
     <div class="absolute overflow-hidden whitespace-nowrap"
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      <a href={""}
-         class={`text-green-800`}
-         style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-         onClick={aHrefClick}
-         onMouseDown={aHrefMouseDown}
-         onMouseUp={aHrefMouseUp}>
-          {fileItem().title}
-      </a>
+      <Switch>
+        <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
+          <a id={VeFns.veToPath(props.visualElement) + ":title"}
+             href={""}
+             class={`text-green-800`}
+             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
+             onClick={aHrefClick}
+             onMouseDown={aHrefMouseDown}
+             onMouseUp={aHrefMouseUp}>
+           {fileItem().title}
+          </a>
+        </Match>
+        <Match when={store.overlay.textEditInfo() != null}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                style={`outline: 0px solid transparent;`}
+                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(fileItem().title)}
+          </span>
+        </Match>
+      </Switch>
     </div>;
 
   const renderLinkMarkingMaybe = () =>
