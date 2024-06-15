@@ -105,65 +105,35 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
 
     else {
+      const editingItemPath = store.overlay.textEditInfo()!.itemPath;
+      const editingDomId = store.overlay.textEditInfo()!.colNum != null
+        ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
+        : editingItemPath + ":title";
+      const editingDomEl = document.getElementById(editingDomId);
+      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
+          buttonNumber == MOUSE_LEFT) {
+        return MouseEventActionFlags.None;
+      }
+      const newText = editingDomEl!.innerText;
+      const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
 
       if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
-        let editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        let editingDomId = store.overlay.textEditInfo()!.colNum != null
-          ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
-          : editingItemPath + ":title";
-        let el = document.getElementById(editingDomId);
-        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
-            buttonNumber == MOUSE_LEFT) {
-          return MouseEventActionFlags.None;
-        }
-        let newText = el!.innerText;
-        let item = asTableItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
         if (store.overlay.textEditInfo()!.colNum == null) {
-          item.title = trimNewline(newText);
+          asTableItem(item).title = trimNewline(newText);
         } else {
-          item.tableColumns[store.overlay.textEditInfo()!.colNum!].name = newText;
+          asTableItem(item).tableColumns[store.overlay.textEditInfo()!.colNum!].name = trimNewline(newText);
         }
       }
-
       else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
-        let editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        let editingDomId = editingItemPath + ":title";
-        let el = document.getElementById(editingDomId);
-        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
-            buttonNumber == MOUSE_LEFT) {
-          return MouseEventActionFlags.None;
-        }
-        let newText = el!.innerText;
-        let item = asPageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-        item.title = trimNewline(newText);
+        asPageItem(item).title = trimNewline(newText);
       }
-
       else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
-        let editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        let editingDomId = editingItemPath + ":title";
-        let editingDomEl = document.getElementById(editingDomId);
-        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
-            buttonNumber == MOUSE_LEFT) {
-          return MouseEventActionFlags.None;
-        }
         editingDomEl!.parentElement!.scrollLeft = 0;
-        let newText = editingDomEl!.innerText;
-        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-        item.title = trimNewline(newText);
+        asNoteItem(item).title = trimNewline(newText);
       }
-
       else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
-        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        const editingDomId = editingItemPath + ":title";
-        const editingDomEl = document.getElementById(editingDomId);
-        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
-            buttonNumber == MOUSE_LEFT) {
-          return MouseEventActionFlags.None;
-        }
         editingDomEl!.parentElement!.scrollLeft = 0;
-        const newText = editingDomEl!.innerText;
-        const item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-        item.title = trimNewline(newText);
+        asFileItem(item).title = trimNewline(newText);
       }
 
       serverOrRemote.updateItem(store.history.getFocusItem());
