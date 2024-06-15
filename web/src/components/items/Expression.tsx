@@ -198,17 +198,6 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
           </span>
         </Match>
       </Switch>
-      <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
-           style={`position: absolute; ` +
-                  `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-                  `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-                  `width: ${naturalWidthPx()}px; ` +
-                  `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; `+
-                  `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                  `font-size: ${infuTextStyle().fontSize}px; ` +
-                  `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-      </div>
       <For each={props.visualElement.attachmentsVes}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
       }</For>
