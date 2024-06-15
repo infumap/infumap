@@ -351,13 +351,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
                  newProps[i] == "displayItemFingerprint" ||
                  newProps[i] == "popupVes" ||
                  newProps[i] == "selectedVes" ||
-                 newProps[i] == "dockVes" ||
-                 newProps[i] == "mouseIsOverOpenPopup" ||
-                 newProps[i] == "movingItemIsOver" ||
-                 newProps[i] == "movingItemIsOverAttach" ||
-                 newProps[i] == "movingItemIsOverAttachComposite" ||
-                 newProps[i] == "moveOverRowNumber" ||
-                 newProps[i] == "moveOverColAttachmentNumber") {
+                 newProps[i] == "dockVes") {
         if (oldVal != newVal) {
           if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;
