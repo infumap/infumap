@@ -144,7 +144,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
       defaultResult = MouseEventActionFlags.None;
     }
-
   }
 
 

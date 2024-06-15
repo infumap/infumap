@@ -168,6 +168,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 contentEditable={store.overlay.textEditInfo() != null}
                 spellcheck={store.overlay.textEditInfo() != null}>
               {spec.name}
+              <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableColumnNumber.get() == spec.idx}>
+                <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
+                  <i class="fas fa-chevron-down" />
+                </div>
+              </Show>
             </div>
           }</For>
         </div>

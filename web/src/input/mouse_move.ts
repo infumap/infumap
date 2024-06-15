@@ -337,7 +337,6 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 }
 
 
-
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
   const dialogInfo = store.overlay.editDialogInfo.get();
   const userSettingsInfo = store.overlay.editUserSettingsInfo.get();
@@ -346,6 +345,16 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   const ev = CursorEventState.get();
   const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev, store), [], false, true);
+  if (hitInfo.overElementMeta) {
+    if (hitInfo.overElementMeta!.colNum) {
+      store.mouseOverTableColumnNumber.set(hitInfo.overElementMeta!.colNum);
+    } else {
+      store.mouseOverTableColumnNumber.set(0);
+    }
+  } else {
+    store.mouseOverTableColumnNumber.set(null);
+  }
+
   const overElementVes = hitInfo.overElementVes;
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
@@ -378,7 +387,6 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), false);
     }
   }
-
 
   if (hasUser) {
     if (hitInfo.hitboxType & HitboxFlags.Resize) {
