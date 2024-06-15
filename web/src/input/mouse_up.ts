@@ -121,6 +121,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           VeFns.parentPath(MouseActionState.get().activeElementPath)
         );
         store.history.setFocus(focusPath);
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
+        console.log("handle table context menu click")
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
         store.perVe.setIsExpanded(
           MouseActionState.get().activeElementPath,

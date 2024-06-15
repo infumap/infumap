@@ -20,21 +20,22 @@ import { BoundingBox, cloneBoundingBox, compareBoundingBox } from "../util/geome
 
 
 export enum HitboxFlags {
-  None =                 0x0000,
-  Click =                0x0001,
-  Move =                 0x0002,
-  Resize =               0x0004,
-  OpenPopup =            0x0008,
-  Attach =               0x0010,
-  HorizontalResize =     0x0020,
-  OpenAttachment =       0x0040,
-  AttachComposite =      0x0080,
-  Anchor =               0x0100,
-  ShiftLeft =            0x0200,
-  Settings =             0x0400,
-  TriangleLinkSettings = 0x0800,
-  ContentEditable =      0x1000,
-  Expand =               0x2000,
+  None =                    0x00000,
+  Click =                   0x00001,
+  Move =                    0x00002,
+  Resize =                  0x00004,
+  OpenPopup =               0x00008,
+  Attach =                  0x00010,
+  HorizontalResize =        0x00020,
+  OpenAttachment =          0x00040,
+  AttachComposite =         0x00080,
+  Anchor =                  0x00100,
+  ShiftLeft =               0x00200,
+  Settings =                0x00400,
+  TriangleLinkSettings =    0x00800,
+  ContentEditable =         0x01000,
+  Expand =                  0x02000,
+  TableColumnContextMenu =  0x04000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -52,6 +53,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.Settings) { result += "Settings "; }
   if (flags & HitboxFlags.TriangleLinkSettings ) { result += "TriangleLinkSettings "; }
   if (flags & HitboxFlags.Expand) { result += "Expand"; }
+  if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu"; }
   return result;
 }
 

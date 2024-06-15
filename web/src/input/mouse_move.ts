@@ -400,7 +400,9 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "zoom-in";
     } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
       document.body.style.cursor = "pointer";
-    } else {
+    } else if (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) {
+      document.body.style.cursor = "pointer";
+    }else {
       document.body.style.cursor = "default";
     }
   }

@@ -461,6 +461,11 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
         { x: startXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: endXPx - startXPx, h: colHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i, startBl, endBl })
       ));
+      colClickHitboxes.push(HitboxFns.create(
+        HitboxFlags.TableColumnContextMenu,
+        { x: startXPx + (endBl-startBl-1) * blockSizePx.w, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: blockSizePx.w, h: colHeaderHeightPxOrZero },
+        HitboxFns.createMeta({ colNum: i })
+      ));
     }
     if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
   }

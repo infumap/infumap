@@ -75,7 +75,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-
   // Page title edit via toolbar.
   let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
   if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
