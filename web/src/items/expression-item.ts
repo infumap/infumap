@@ -17,12 +17,14 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { CursorEventState } from "../input/state";
 import { fullArrange } from "../layout/arrange";
 import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { ItemGeometry } from "../layout/item-geometry";
 import { measureLineCount } from "../layout/text";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
+import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
@@ -238,8 +240,13 @@ export const ExpressionFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), itemType: ItemType.Expression });
-    fullArrange(store); // input focus changed.
+    const itemPath = VeFns.veToPath(visualElement);
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Expression });
+    const editingDomId = itemPath + ":title";
+    const el = document.getElementById(editingDomId)!;
+    el.focus();
+    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    setCaretPosition(el, closestIdx);
   },
 
   cloneMeasurableFields: (expression: ExpressionMeasurable): ExpressionMeasurable => {

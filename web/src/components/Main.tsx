@@ -36,8 +36,6 @@ import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler } from "../input/key";
 import { fArrange } from "../layout/arrange";
-import { ExpressionEditOverlay } from "./overlay/ExpressionEditOverlay";
-import { PasswordEditOverlay } from "./overlay/PasswordEditOverly";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 
@@ -232,12 +230,6 @@ export const Main: Component = () => {
         <SearchOverlay />
       </Show>
 
-      <Show when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemType == ItemType.Expression}>
-        <ExpressionEditOverlay />
-      </Show>
-      <Show when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemType == ItemType.Password}>
-        <PasswordEditOverlay />
-      </Show>
     </div>
   );
 }

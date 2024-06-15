@@ -31,6 +31,8 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { fullArrange } from '../layout/arrange';
+import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
+import { CursorEventState } from '../input/state';
 
 
 export interface PasswordItem extends PasswordMeasurable, XSizableItem, AttachmentsItem { }
@@ -238,8 +240,13 @@ export const PasswordFns = {
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(visualElement), itemType: ItemType.Password });
-    fullArrange(store); // input focus changed.
+    const itemPath = VeFns.veToPath(visualElement);
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Password });
+    const editingDomId = itemPath + ":title";
+    const el = document.getElementById(editingDomId)!;
+    el.focus();
+    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    setCaretPosition(el, closestIdx);
   },
 
 };

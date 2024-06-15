@@ -36,6 +36,9 @@ import { isComposite } from "../../items/composite-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
+import { getCaretPosition, setCaretPosition } from "../../util/caret";
+import { fullArrange } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -117,6 +120,9 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     }
   };
 
+  const isInComposite = () =>
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
   const infuTextStyle = () => getTextStyleForNote(expressionItem().flags);
 
   const showMoveOutOfCompositeArea = () =>
@@ -131,8 +137,67 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                 `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />;
 
+  const inputListener = (_ev: InputEvent) => {
+    setTimeout(() => {
+      if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
+        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
+        let editingDomId = editingItemPath + ":title";
+        let el = document.getElementById(editingDomId);
+        let newText = el!.innerText;
+        let item = asExpressionItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+        item.title = trimNewline(newText);
+        const caretPosition = getCaretPosition(el!);
+        fullArrange(store);
+        setCaretPosition(el!, caretPosition);
+      }
+    }, 0);
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
   const renderDetailed = () =>
     <>
+      <Switch>
+        <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={"text-left"}
+                style={`position: absolute; ` +
+                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                       `outline: 0px solid transparent;`}>
+            {appendNewlineIfEmpty(formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format))}
+          </span>
+        </Match>
+        <Match when={store.overlay.textEditInfo() != null}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={"text-left"}
+                style={`position: absolute; ` +
+                       `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
+                       `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
+                       `width: ${naturalWidthPx()}px; ` +
+                       `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; `+
+                       `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+                       `overflow-wrap: break-word; white-space: pre-wrap; ` +
+                       `outline: 0px solid transparent;`}
+                contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
+                onKeyDown={keyDownHandler}
+                onInput={inputListener}>
+            {appendNewlineIfEmpty(expressionItem().title)}
+          </span>
+        </Match>
+      </Switch>
       <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
            style={`position: absolute; ` +
                   `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
@@ -143,7 +208,6 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
                   `font-size: ${infuTextStyle().fontSize}px; ` +
                   `overflow-wrap: break-word; white-space: pre-wrap; ` +
                   `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-          <span>{formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format)}</span>
       </div>
       <For each={props.visualElement.attachmentsVes}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} />
