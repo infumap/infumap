@@ -419,7 +419,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
-        <Match when={noteItem().url != null && noteItem().url != "" && noteItem().title != ""}>
+        <Match when={NoteFns.hasUrl(noteItem()) &&
+                     (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
              href={""}
              class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
@@ -431,7 +432,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             {formatMaybe(noteItem().title, noteItem().format)}
           </a>
         </Match>
-        <Match when={noteItem().url == null || noteItem().url == "" || noteItem().title == ""}>
+        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
                 style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
