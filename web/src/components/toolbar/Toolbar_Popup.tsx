@@ -32,6 +32,7 @@ import { panic } from "../../util/lang";
 import { itemState } from "../../store/ItemState";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asFormatItem } from "../../items/base/format-item";
+import { asTableItem } from "../../items/table-item";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -40,6 +41,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageNumCols) { return 38; }
+  if (overlayType == ToolbarPopupType.TableNumCols) { return 38; }
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
@@ -105,6 +107,7 @@ export const Toolbar_Popup: Component = () => {
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
   const noteItem = () => asNoteItem(store.history.getFocusItem());
+  const tableItem = () => asTableItem(store.history.getFocusItem());
   const formatItem = () => asFormatItem(store.history.getFocusItem());
 
   const noteVisualElement = () => VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
@@ -160,6 +163,14 @@ export const Toolbar_Popup: Component = () => {
       pageItem().gridNumberOfColumns = Math.round(parseFloat(textElement!.value));
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
+    } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
+      let newNumCols = Math.round(parseFloat(textElement!.value));
+      if (newNumCols > 9) { newNumCols = 9; }
+      if (newNumCols < 1) { newNumCols = 1; }
+      while (tableItem().tableColumns.length < newNumCols) {
+        tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
+      }
+      tableItem().numberOfVisibleColumns = newNumCols;
     }
     fullArrange(store);
   };
@@ -171,6 +182,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return 250; }
+    if (overlayType() == ToolbarPopupType.TableNumCols) { return 150; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     return 200;
@@ -200,6 +212,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
+    if (overlayType() == ToolbarPopupType.TableNumCols) { return "" + tableItem().numberOfVisibleColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
@@ -213,6 +226,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageWidth) { return "Inner Block Width"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
+    if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }

@@ -55,122 +55,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
 
-  // Content editables.
-
-  let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
-  if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
-    return MouseEventActionFlags.None;
-  }
-  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
-    let selection = window.getSelection();
-    if (selection != null) { selection.removeAllRanges(); }
-    const newTitleText = document.getElementById("toolbarTitleDiv")!.innerText;
-    asPageItem(store.history.getFocusItem()).title = newTitleText;
-    fullArrange(store);
-    serverOrRemote.updateItem(store.history.getFocusItem());
-    defaultResult = MouseEventActionFlags.None;
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
-
-  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Table) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingItemPath = store.overlay.textEditInfo()!.itemPath;
-      let editingDomId = store.overlay.textEditInfo()!.colNum != null
-        ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
-        : editingItemPath + ":title";
-      let el = document.getElementById(editingDomId);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
-          buttonNumber == MOUSE_LEFT) {
-        return MouseEventActionFlags.None;
-      }
-      let newText = el!.innerText;
-      let item = asTableItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-      if (store.overlay.textEditInfo()!.colNum == null) {
-        item.title = trimNewline(newText);
-      } else {
-        item.tableColumns[store.overlay.textEditInfo()!.colNum!].name = newText;
-      }
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-    defaultResult = MouseEventActionFlags.None;
-  }
-
-  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Page) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingItemPath = store.overlay.textEditInfo()!.itemPath;
-      let editingDomId = editingItemPath + ":title";
-      let el = document.getElementById(editingDomId);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
-          buttonNumber == MOUSE_LEFT) {
-        return MouseEventActionFlags.None;
-      }
-      let newText = el!.innerText;
-      let item = asPageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-      item.title = trimNewline(newText);
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-    defaultResult = MouseEventActionFlags.None;
-  }
-
-  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Note) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      let editingItemPath = store.overlay.textEditInfo()!.itemPath;
-      let editingDomId = editingItemPath + ":title";
-      let editingDomEl = document.getElementById(editingDomId);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
-          buttonNumber == MOUSE_LEFT) {
-        return MouseEventActionFlags.None;
-      }
-      editingDomEl!.parentElement!.scrollLeft = 0;
-      let newText = editingDomEl!.innerText;
-      let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-      item.title = trimNewline(newText);
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-    defaultResult = MouseEventActionFlags.None;
-  }
-
-  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.File) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      const editingItemPath = store.overlay.textEditInfo()!.itemPath;
-      const editingDomId = editingItemPath + ":title";
-      const editingDomEl = document.getElementById(editingDomId);
-      if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
-          buttonNumber == MOUSE_LEFT) {
-        return MouseEventActionFlags.None;
-      }
-      editingDomEl!.parentElement!.scrollLeft = 0;
-      const newText = editingDomEl!.innerText;
-      const item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-      item.title = trimNewline(newText);
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-    defaultResult = MouseEventActionFlags.None;
-  }
-
-
   // Toolbar popups.
-
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
       // if mouse down is inside popup bounds, this is not handled by the global handler.
@@ -188,6 +73,108 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     fullArrange(store);
     serverOrRemote.updateItem(store.history.getFocusItem());
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+  }
+
+
+  // Page title edit via toolbar.
+  let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
+  if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
+    return MouseEventActionFlags.None;
+  }
+  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
+    let selection = window.getSelection();
+    if (selection != null) { selection.removeAllRanges(); }
+    const newTitleText = document.getElementById("toolbarTitleDiv")!.innerText;
+    asPageItem(store.history.getFocusItem()).title = newTitleText;
+    fullArrange(store);
+    serverOrRemote.updateItem(store.history.getFocusItem());
+    defaultResult = MouseEventActionFlags.None;
+    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+  }
+
+  // In text edit mode.
+  if (store.overlay.textEditInfo()) {
+    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
+
+    if (store.user.getUserMaybe() == null || store.history.getFocusItem().ownerId != store.user.getUser().userId) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      store.overlay.setTextEditInfo(store.history, null);
+      fullArrange(store);
+      if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+      defaultResult = MouseEventActionFlags.None;
+    }
+
+    else {
+
+      if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
+        let editingItemPath = store.overlay.textEditInfo()!.itemPath;
+        let editingDomId = store.overlay.textEditInfo()!.colNum != null
+          ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
+          : editingItemPath + ":title";
+        let el = document.getElementById(editingDomId);
+        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
+            buttonNumber == MOUSE_LEFT) {
+          return MouseEventActionFlags.None;
+        }
+        let newText = el!.innerText;
+        let item = asTableItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+        if (store.overlay.textEditInfo()!.colNum == null) {
+          item.title = trimNewline(newText);
+        } else {
+          item.tableColumns[store.overlay.textEditInfo()!.colNum!].name = newText;
+        }
+      }
+
+      else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
+        let editingItemPath = store.overlay.textEditInfo()!.itemPath;
+        let editingDomId = editingItemPath + ":title";
+        let el = document.getElementById(editingDomId);
+        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(el!.getBoundingClientRect())!) &&
+            buttonNumber == MOUSE_LEFT) {
+          return MouseEventActionFlags.None;
+        }
+        let newText = el!.innerText;
+        let item = asPageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+        item.title = trimNewline(newText);
+      }
+
+      else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
+        let editingItemPath = store.overlay.textEditInfo()!.itemPath;
+        let editingDomId = editingItemPath + ":title";
+        let editingDomEl = document.getElementById(editingDomId);
+        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
+            buttonNumber == MOUSE_LEFT) {
+          return MouseEventActionFlags.None;
+        }
+        editingDomEl!.parentElement!.scrollLeft = 0;
+        let newText = editingDomEl!.innerText;
+        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+        item.title = trimNewline(newText);
+      }
+
+      else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
+        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
+        const editingDomId = editingItemPath + ":title";
+        const editingDomEl = document.getElementById(editingDomId);
+        if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
+            buttonNumber == MOUSE_LEFT) {
+          return MouseEventActionFlags.None;
+        }
+        editingDomEl!.parentElement!.scrollLeft = 0;
+        const newText = editingDomEl!.innerText;
+        const item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
+        item.title = trimNewline(newText);
+      }
+
+      serverOrRemote.updateItem(store.history.getFocusItem());
+
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      store.overlay.setTextEditInfo(store.history, null);
+      fullArrange(store);
+      if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
+      defaultResult = MouseEventActionFlags.None;
+    }
+
   }
 
 

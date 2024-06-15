@@ -83,21 +83,30 @@ export const Toolbar_Table: Component = () => {
 
   const numColsText = () => {
     store.touchToolbarDependency();
-    return tableItem().tableColumns.length;
+    return tableItem().numberOfVisibleColumns;
   }
 
+  // Num Cols
   const handleNumColsClick = () => {
-    // unsure exactly what behavior is best here.
-    console.log("TODO");
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.TableNumCols) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.TableNumCols });
+  };
+  const handleNumColsDown = () => {
+    ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
   };
 
   return (
     <div id="toolbarItemOptionsDiv"
          class="flex-grow-0" style="flex-order: 0;">
       <div ref={numColsDiv}
-            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-            style={`font-size: 13px;`}
-            onClick={handleNumColsClick}>
+           class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] mr-[10px] hover:bg-slate-300 cursor-pointer"
+           style={`font-size: 13px;`}
+           onClick={handleNumColsClick}
+           onMouseDown={handleNumColsDown}>
         <i class="bi-layout-three-columns ml-[4px]" />
         <div class="inline-block w-[20px] pl-[6px] text-right">
           {numColsText()}

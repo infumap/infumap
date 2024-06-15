@@ -110,30 +110,30 @@ export const Toolbar: Component = () => {
 
           <Show when={store.dockVisible.get()}>
             <>
-            <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-                style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
-                       `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                       `border-right-width: ${mainPageBorderWidth(store)}px`}>
-              <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
-                <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
-                  <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
-                    <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
-                  </div>
-                </Show>
-                <div class="inline-block" style="flex-grow: 1;" />
-                <div class="inline-block"
-                     style={"flex-grow: 0; margin-right: 8px;" +
-                            `padding-right: ${2-(mainPageBorderWidth(store)-1)}px; `}>
-                  <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w * 2}>
-                    <Toolbar_Navigation />
+              <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
+                   style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
+                         `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
+                         `border-right-width: ${mainPageBorderWidth(store)}px`}>
+                <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
+                  <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
+                    <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
+                      <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
+                    </div>
                   </Show>
+                  <div class="inline-block" style="flex-grow: 1;" />
+                  <div class="inline-block"
+                      style={"flex-grow: 0; margin-right: 8px;" +
+                             `padding-right: ${2-(mainPageBorderWidth(store)-1)}px; `}>
+                    <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w * 2}>
+                      <Toolbar_Navigation />
+                    </Show>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="absolute"
-                 style={`width: ${mainPageBorderWidth(store)}px; height: 10px; ` +
-                        `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; top: ${store.topToolbarHeight() - 5}px; ` +
-                        `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
+              <div class="absolute"
+                  style={`width: ${mainPageBorderWidth(store)}px; height: 10px; ` +
+                         `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; top: ${store.topToolbarHeight() - 5}px; ` +
+                         `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
             </>
           </Show>
 
