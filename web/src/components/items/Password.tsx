@@ -180,7 +180,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(passwordItem().text)}
+            {appendNewlineIfEmpty(passwordItem().text)}<span></span>
           </span>
         </Match>
       </Switch>

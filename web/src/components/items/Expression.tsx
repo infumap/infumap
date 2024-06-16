@@ -194,7 +194,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(expressionItem().title)}
+            {appendNewlineIfEmpty(expressionItem().title)}<span></span>
           </span>
         </Match>
       </Switch>

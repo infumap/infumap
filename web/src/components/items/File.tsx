@@ -337,7 +337,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(fileItem().title)}
+            {appendNewlineIfEmpty(fileItem().title)}<span></span>
           </span>
         </Match>
       </Switch>
