@@ -36,7 +36,7 @@ import { trimNewline } from "../../util/string";
 import { fullArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { panic } from "../../util/lang";
+import { assert, panic } from "../../util/lang";
 import { FindDirection, findClosest } from "../../layout/find";
 import { asFileItem, isFile } from "../../items/file-item";
 import { ItemType } from "../../items/base/item";
@@ -134,30 +134,47 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const joinItemsMaybeHandler = () => {
     const editingVe = VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
-    const canonicalItem = VeFns.canonicalItem(editingVe);
+    const initialEditingItem = VeFns.canonicalItem(editingVe);
 
-    // maybe delete note item.
     let compositeVe = props.visualElement;
+    let compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
     if (!isComposite(compositeVe.displayItem)) { panic("composite item is not a composite!") }
-    const closestPath = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
-    if (closestPath == null) { return; }
+    let compositeItem = asCompositeItem(compositeVe.displayItem);
+    const closestPathUp = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
+    if (closestPathUp == null) { return; }
 
-    const veid = VeFns.veidFromPath(closestPath);
-    const nextFocusItem = asTitledItem(itemState.get(veid.itemId)!);
-    const prevTextLength = nextFocusItem.title.length;
-    nextFocusItem.title = nextFocusItem.title + asTitledItem(editingVe.displayItem).title;
+    const upVeid = VeFns.veidFromPath(closestPathUp);
+    const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
+    const upTextLength = upFocusItem.title.length;
+    upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
     fullArrange(store);
 
-    store.overlay.setTextEditInfo(store.history, { itemPath: closestPath, itemType: ItemType.Note });
-    server.updateItem(nextFocusItem);
-    itemState.delete(canonicalItem.id);
-    server.deleteItem(canonicalItem.id);
-    fullArrange(store);
+    server.updateItem(upFocusItem);
+    itemState.delete(initialEditingItem.id);
+    server.deleteItem(initialEditingItem.id);
 
-    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-    const textElement = document.getElementById(editingDomId);
-    setCaretPosition(textElement!, prevTextLength);
-    textElement!.focus();
+    assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
+    if (compositeItem.computed_children.length == 1) {
+      itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
+      server.updateItem(upFocusItem);
+      itemState.delete(compositeItem.id);
+      server.deleteItem(compositeItem.id);
+      fullArrange(store);
+      const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
+      store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: ItemType.Note });
+      const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
+      const textElement = document.getElementById(editingDomId);
+      setCaretPosition(textElement!, upTextLength);
+      textElement!.focus();
+    }
+    else {
+      fullArrange(store);
+      store.overlay.setTextEditInfo(store.history, { itemPath: closestPathUp, itemType: ItemType.Note });
+      const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
+      const textElement = document.getElementById(editingDomId);
+      setCaretPosition(textElement!, upTextLength);
+      textElement!.focus();
+    }
   }
 
   const enterKeyHandler = () => {
