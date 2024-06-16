@@ -40,6 +40,8 @@ import { assert, panic } from "../../util/lang";
 import { FindDirection, findClosest } from "../../layout/find";
 import { asFileItem, isFile } from "../../items/file-item";
 import { ItemType } from "../../items/base/item";
+import { asPositionalItem } from "../../items/base/positional-item";
+import { asXSizableItem } from "../../items/base/x-sizeable-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -135,6 +137,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const joinItemsMaybeHandler = () => {
     const editingVe = VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
     const initialEditingItem = VeFns.canonicalItem(editingVe);
+    if (!isNote(initialEditingItem)) { return; }
 
     let compositeVe = props.visualElement;
     let compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
@@ -145,6 +148,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
     const upVeid = VeFns.veidFromPath(closestPathUp);
     const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
+    if (!isNote(upFocusItem)) { return; }
     const upTextLength = upFocusItem.title.length;
     upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
     fullArrange(store);
@@ -155,7 +159,11 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
     assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
     if (compositeItem.computed_children.length == 1) {
+      const posGr = compositeItem.spatialPositionGr;
+      const widthGr = compositeItem.spatialWidthGr;
       itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
+      asPositionalItem(upFocusItem).spatialPositionGr = posGr;
+      asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
       server.updateItem(upFocusItem);
       itemState.delete(compositeItem.id);
       server.deleteItem(compositeItem.id);
