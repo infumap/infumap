@@ -186,15 +186,19 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const enterKeyHandler = () => {
-    const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
+    const itemPath = store.overlay.textEditInfo()!.itemPath;
+    const noteVeid = VeFns.veidFromPath(itemPath);
+    const item = itemState.get(noteVeid.itemId)!;
+    if (!isNote(item)) { return; }
+    const noteItem = asNoteItem(item);
+
+    const editingDomId = itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
 
     const beforeText = textElement!.innerText.substring(0, caretPosition);
     const afterText = textElement!.innerText.substring(caretPosition);
 
-    const noteVeid = VeFns.veidFromPath(store.overlay.textEditInfo()!.itemPath);
-    const noteItem = asNoteItem(itemState.get(noteVeid.itemId)!);
     noteItem.title = beforeText;
 
     serverOrRemote.updateItem(noteItem);
