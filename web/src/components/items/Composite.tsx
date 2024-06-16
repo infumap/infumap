@@ -42,6 +42,8 @@ import { asFileItem, isFile } from "../../items/file-item";
 import { ItemType } from "../../items/base/item";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
+import { asExpressionItem, isExpression } from "../../items/expression-item";
+import { asPasswordItem, isPassword } from "../../items/password-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -100,19 +102,19 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       let newVe = newVes.get();
       if (isNote(newVe.displayItem)) {
         store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Note });
-
-        // after setting the note edit info, the <a /> (if this is a link) is turned into a <span />
-        newEditingTextElement = document.getElementById(newEditingDomId);
-        setCaretPosition(newEditingTextElement!, caretPosition);
-        newEditingTextElement!.focus();
       } else if (isFile(newVe.displayItem)) {
         store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.File });
-
-        // after setting the note edit info, the <a /> (if this is a link) is turned into a <span />
-        newEditingTextElement = document.getElementById(newEditingDomId);
-        setCaretPosition(newEditingTextElement!, caretPosition);
-        newEditingTextElement!.focus();
+      } else if (isExpression(newVe.displayItem)) {
+        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Expression });
+      } else if (isPassword(newVe.displayItem)) {
+        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Password });
+      } else {
+        console.warn("arrow key handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
       }
+      // after setting the text edit info, the <a /> (if this is a link) is turned into a <span />
+      newEditingTextElement = document.getElementById(newEditingDomId);
+      setCaretPosition(newEditingTextElement!, caretPosition);
+      newEditingTextElement!.focus();
     }
   }
 
@@ -139,10 +141,10 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     const initialEditingItem = VeFns.canonicalItem(editingVe);
     if (!isNote(initialEditingItem)) { return; }
 
-    let compositeVe = props.visualElement;
-    let compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
+    const compositeVe = props.visualElement;
+    const compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
     if (!isComposite(compositeVe.displayItem)) { panic("composite item is not a composite!") }
-    let compositeItem = asCompositeItem(compositeVe.displayItem);
+    const compositeItem = asCompositeItem(compositeVe.displayItem);
     const closestPathUp = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
     if (closestPathUp == null) { return; }
 
@@ -224,19 +226,25 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     setTimeout(() => {
       const focusItemPath = store.history.getFocusPath();
       const focusItemDomId = focusItemPath + ":title";
-      let el = document.getElementById(focusItemDomId);
+      const el = document.getElementById(focusItemDomId);
       if (store.overlay.textEditInfo()) {
-        if (store.overlay.textEditInfo()!.itemType == ItemType.Note && !store.overlay.toolbarPopupInfoMaybe.get()) {
-          let newText = el!.innerText;
-          let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
-          const caretPosition = getCaretPosition(el!);
-          fullArrange(store);
-          setCaretPosition(el!, caretPosition);
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.File && !store.overlay.toolbarPopupInfoMaybe.get()) {
-          let newText = el!.innerText;
-          let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
+        const newText = el!.innerText;
+        if (!store.overlay.toolbarPopupInfoMaybe.get()) {
+          if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
+            let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+            item.title = trimNewline(newText);
+          } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
+            let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+            item.title = trimNewline(newText);
+          } else if (store.overlay.textEditInfo()!.itemType == ItemType.Expression) {
+            let item = asExpressionItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+            item.title = trimNewline(newText);
+          } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
+            let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+            item.text = trimNewline(newText);
+          } else {
+            console.warn("input handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
+          }
           const caretPosition = getCaretPosition(el!);
           fullArrange(store);
           setCaretPosition(el!, caretPosition);
