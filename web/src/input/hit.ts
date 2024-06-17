@@ -694,11 +694,16 @@ function finalize(
       y: (posRelativeToRootVisualElementPx.y - parentVe.viewportBoundsPx!.y) / parentVe.childAreaBoundsPx!.h
     }
     let overPositionGr = { x: 0, y: 0 };
+    let overPositionableVe = parentVe;
     if (isPage(parentVe.displayItem)) {
       overPositionGr = {
         x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
         y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
       };
+    } else if (isComposite(parentVe.displayItem)) {
+      overPositionableVe = VesCache.get(parentVe.parentPath!)!.get();
+    } else {
+      panic("unexpected table parent ve type: " + parentVe.displayItem.itemType);
     }
     return {
       hitboxType,
@@ -707,7 +712,7 @@ function finalize(
       overElementVes,
       overElementMeta,
       overContainerVe: overVe,
-      overPositionableVe: parentVe,
+      overPositionableVe,
       overPositionGr,
     };
   }
