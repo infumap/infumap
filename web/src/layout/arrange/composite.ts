@@ -21,7 +21,6 @@ import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeItem } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -32,7 +31,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
-import { ArrangeItemFlags, arrangeItem } from "./item";
+import { ArrangeItemFlags } from "./item";
 import { arrangeTable } from "./table";
 import { getVePropertiesForItem } from "./util";
 
@@ -79,7 +78,6 @@ export const arrangeComposite = (
     const childItem = itemState.get(childId)!;
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
-    // if (isTable(displayItem_childItem)) { continue; }
 
     const geometry = ItemFns.calcGeometry_InComposite(
       linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
@@ -93,7 +91,8 @@ export const arrangeComposite = (
     const compositeChildVeSignal = arrangeCompositeChildItem(
       store, compositeVePath,
       displayItem_childItem, linkItemMaybe_childItem,
-      geometry, idx, blockSizePx);
+      geometry, idx, blockSizePx, compositeSizeBl.w);
+
     compositeVeChildren.push(compositeChildVeSignal);
   }
 
@@ -111,12 +110,16 @@ function arrangeCompositeChildItem(
     linkItemMaybe_childItem: LinkItem | null,
     geometry: ItemGeometry,
     idx: number,
-    blockSizePx: Dimensions): VisualElementSignal {
+    blockSizePx: Dimensions,
+    compositeWidthBl: number): VisualElementSignal {
 
   if (isTable(displayItem_childItem)) {
     initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));
     return arrangeTable(
-      store, parentPath, asTableItem(displayItem_childItem), linkItemMaybe_childItem, linkItemMaybe_childItem, geometry, ArrangeItemFlags.None);
+      store, parentPath,
+      asTableItem(displayItem_childItem), linkItemMaybe_childItem,
+      linkItemMaybe_childItem, geometry, ArrangeItemFlags.None,
+      compositeWidthBl);
   }
 
   const compositeChildVeSpec: VisualElementSpec = {

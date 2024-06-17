@@ -23,7 +23,6 @@ import { ContainerItem, asContainerItem, isContainer } from "../../items/base/co
 import { TableFlags } from "../../items/base/flags-item";
 import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { isComposite } from "../../items/composite-item";
 import { isExpression } from "../../items/expression-item";
 import { LinkItem } from "../../items/link-item";
@@ -49,11 +48,15 @@ export const arrangeTable = (
     linkItemMaybe_Table: LinkItem | null,
     actualLinkItemMaybe_Table: LinkItem | null,
     tableGeometry: ItemGeometry,
-    flags: ArrangeItemFlags): VisualElementSignal => {
+    flags: ArrangeItemFlags,
+    widthBlOverride?: number): VisualElementSignal => {
 
-  const sizeBl = linkItemMaybe_Table
+  let sizeBl = linkItemMaybe_Table
     ? { w: linkItemMaybe_Table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_Table!.spatialHeightGr / GRID_SIZE }
     : { w: displayItem_Table.spatialWidthGr / GRID_SIZE, h: displayItem_Table.spatialHeightGr / GRID_SIZE };
+  if (widthBlOverride) {
+    sizeBl.w = widthBlOverride
+  }
   const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
 
   const tableVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Table, linkItemMaybe_Table), parentPath);

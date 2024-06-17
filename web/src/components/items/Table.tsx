@@ -28,6 +28,8 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { itemState } from "../../store/ItemState";
+import { asCompositeItem, isComposite } from "../../items/composite-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -42,7 +44,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx;
   const spatialWidthGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
+      const parent = itemState.get(props.visualElement.linkItemMaybe.parentId)!;
+      if (isComposite(parent)) {
+        return asCompositeItem(parent).spatialWidthGr;
+      }
       return props.visualElement.linkItemMaybe.spatialWidthGr;
+    }
+    const parent = itemState.get(tableItem().parentId)!;
+    if (isComposite(parent)) {
+      return asCompositeItem(parent).spatialWidthGr;
     }
     return tableItem().spatialWidthGr;
   }
