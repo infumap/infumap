@@ -83,7 +83,7 @@ export const arrangeItem = (
 
   flags |= (isMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
 
-  const renderWithChildren = (() => {
+  const renderPageWithChildren = (() => {
     if (!isPage(displayItem)) { return false; }
     if (arrangeFlagIsRoot(flags)) { return true; }
     if (flags & ArrangeItemFlags.IsPopupRoot) { return true; }
@@ -98,7 +98,7 @@ export const arrangeItem = (
     return itemGeometry.boundsPx.w / LINE_HEIGHT_PX >= CHILD_ITEMS_VISIBLE_WIDTH_BL;
   })();
 
-  if (renderWithChildren) {
+  if (renderPageWithChildren) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangePageWithChildren(
       store, parentPath, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);

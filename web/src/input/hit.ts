@@ -688,16 +688,18 @@ function finalize(
   }
 
   if (isTable(overVe.displayItem)) {
-    assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, "a page containing a table is not marked as having children visible.");
     const parentVe = VesCache.get(overVe.parentPath!)!.get();
     let prop = {
       x: (posRelativeToRootVisualElementPx.x - parentVe.viewportBoundsPx!.x) / parentVe.childAreaBoundsPx!.w,
       y: (posRelativeToRootVisualElementPx.y - parentVe.viewportBoundsPx!.y) / parentVe.childAreaBoundsPx!.h
     }
-    const overPositionGr = {
-      x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
-      y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
-    };
+    let overPositionGr = { x: 0, y: 0 };
+    if (isPage(parentVe.displayItem)) {
+      overPositionGr = {
+        x: Math.round(prop.x * asPageItem(parentVe.displayItem).innerSpatialWidthGr / GRID_SIZE) * GRID_SIZE,
+        y: Math.round(prop.y * asPageItem(parentVe.displayItem).innerSpatialWidthGr / asPageItem(parentVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
+      };
+    }
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,

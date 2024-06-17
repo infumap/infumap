@@ -31,7 +31,6 @@ import { TableItem, asTableItem } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -74,7 +73,8 @@ export const arrangeTable = (
     parentPath,
   };
 
-  const [childrenVes, tableVesRows, numRows] = arrangeTableChildren(store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags);
+  const [childrenVes, tableVesRows, numRows] = arrangeTableChildren(
+    store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx);
   tableVisualElementSpec.childrenVes = childrenVes;
   tableVisualElementSpec.tableVesRows = tableVesRows;
 
@@ -97,18 +97,13 @@ export function arrangeTableChildren(
     linkItemMaybe_table: LinkItem | null,
     tableGeometry: ItemGeometry,
     tableVePath: VisualElementPath,
-    flags: ArrangeItemFlags): [Array<VisualElementSignal>, Array<number>, number] {
-
-  const sizeBl = linkItemMaybe_table
-    ? { w: linkItemMaybe_table!.spatialWidthGr / GRID_SIZE, h: linkItemMaybe_table!.spatialHeightGr / GRID_SIZE }
-    : { w: displayItem_table.spatialWidthGr / GRID_SIZE, h: displayItem_table.spatialHeightGr / GRID_SIZE };
-  const blockSizePx = { w: tableGeometry.boundsPx.w / sizeBl.w, h: tableGeometry.boundsPx.h / sizeBl.h };
+    flags: ArrangeItemFlags,
+    sizeBl: Dimensions,
+    blockSizePx: Dimensions): [Array<VisualElementSignal>, Array<number>, number] {
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
-  const numVisibleRows = (linkItemMaybe_table ? linkItemMaybe_table.spatialHeightGr / GRID_SIZE : displayItem_table.spatialHeightGr / GRID_SIZE)
-                          - 1
-                          - (displayItem_table.flags & TableFlags.ShowColHeader ? 1 : 0);
+  const numVisibleRows = sizeBl.h - 1 - (displayItem_table.flags & TableFlags.ShowColHeader ? 1 : 0);
   let lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
 
@@ -215,10 +210,12 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     return;
   }
 
-  const numVisibleRows = (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr / GRID_SIZE : asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE)
-                         - 1
-                         - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
+  const sizeBl = tableVeid.linkIdMaybe
+    ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
+    : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
+  const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
 
+  const numVisibleRows = sizeBl.h - 1 - (asTableItem(tableVe.displayItem).flags & TableFlags.ShowColHeader ? 1 : 0);
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
   const firstItemIdx = Math.floor(scrollYPos);
   const lastItemIdx = firstItemIdx + numVisibleRows;
@@ -229,11 +226,6 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     fullArrange(store);
     return;
   }
-
-  const sizeBl = tableVeid.linkIdMaybe
-    ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
-    : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
-  const blockSizePx = { w: tableVe.boundsPx.w / sizeBl.w, h: tableVe.boundsPx.h / sizeBl.h };
 
   let tableVeChildren: Array<VisualElementSignal> = [];
   let iterIndices = [0];
