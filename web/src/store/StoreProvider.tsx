@@ -53,7 +53,7 @@ export interface StoreContextModel {
   dockVisible: InfuSignal<boolean>,
 
   anItemIsMoving: InfuSignal<boolean>,
-  mouseOverTableColumnNumber: InfuSignal<number | null>,
+  mouseOverTableHeaderColumnNumber: InfuSignal<number | null>,
 
   touchToolbar: () => void,  
   touchToolbarDependency: () => void,
@@ -173,7 +173,7 @@ export function StoreProvider(props: StoreContextProps) {
     currentVisiblePassword,
 
     anItemIsMoving: createInfuSignal<boolean>(false),
-    mouseOverTableColumnNumber: createInfuSignal<number | null>(null),
+    mouseOverTableHeaderColumnNumber: createInfuSignal<number | null>(null),
 
     perVe,
     perItem,

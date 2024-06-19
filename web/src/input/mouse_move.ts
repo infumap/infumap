@@ -27,7 +27,7 @@ import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, ve
 import { panic } from "../util/lang";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
-import { getHitInfo } from "./hit";
+import { getHitInfo, hitInfoToString } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
@@ -328,14 +328,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   const ev = CursorEventState.get();
   const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev, store), [], false, true);
-  if (hitInfo.overElementMeta) {
+  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu)) {
     if (hitInfo.overElementMeta!.colNum) {
-      store.mouseOverTableColumnNumber.set(hitInfo.overElementMeta!.colNum);
+      store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
     } else {
-      store.mouseOverTableColumnNumber.set(0);
+      store.mouseOverTableHeaderColumnNumber.set(0);
     }
   } else {
-    store.mouseOverTableColumnNumber.set(null);
+    store.mouseOverTableHeaderColumnNumber.set(null);
   }
 
   const overElementVes = hitInfo.overElementVes;
