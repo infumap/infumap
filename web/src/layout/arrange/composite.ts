@@ -118,7 +118,7 @@ function arrangeCompositeChildItem(
     return arrangeTable(
       store, parentPath,
       asTableItem(displayItem_childItem), linkItemMaybe_childItem,
-      linkItemMaybe_childItem, geometry, ArrangeItemFlags.None,
+      linkItemMaybe_childItem, geometry, ArrangeItemFlags.InsideCompositeOrDoc,
       compositeWidthBl);
   }
 

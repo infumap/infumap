@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_SHADOW } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
@@ -118,13 +118,27 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }));
   });
 
+  const renderNotDetailedShadowMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+      <div class={`absolute border border-transparent rounded-sm shadow-lg`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
+                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
   const renderNotDetailed = () =>
-    <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
+    <div class={`absolute border border-slate-700 rounded-sm bg-white`}
          style={`left: ${boundsPx().x}px; ` +
                 `top: ${boundsPx().y + blockSizePx().h}px; ` +
                 `width: ${boundsPx().w}px; ` +
                 `height: ${boundsPx().h - blockSizePx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />;
+
+  const renderDetailedShadowMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+      <div class={`absolute border border-transparent rounded-sm shadow-lg`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
 
   const renderDetailed = () =>
     <>
@@ -143,7 +157,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
-        <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
+        <div class={`absolute border border-slate-700 rounded-sm bg-white`}
              style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
         <Show when={showColHeader()}>
           <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
@@ -213,9 +227,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   return (
     <Switch>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
+        {renderNotDetailedShadowMaybe()}
         {renderNotDetailed()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Detailed}>
+        {renderDetailedShadowMaybe()}
         {renderDetailed()}
       </Match>
     </Switch>

@@ -49,6 +49,7 @@ export enum ArrangeItemFlags {
   IsMoving                   = 0x080,
   RenderChildrenAsFull       = 0x100,
   RenderAsOutline            = 0x200,
+  InsideCompositeOrDoc       = 0x400,
 }
 
 export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
