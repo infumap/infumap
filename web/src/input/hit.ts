@@ -17,10 +17,11 @@
 */
 
 import { GRID_SIZE } from "../constants";
+import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
-import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
+import { HitboxMeta, HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -63,6 +64,7 @@ export interface HitInfo {
 
   /**
    * The visual element that defines scaling/positioning immediately under the specified position (for a table this is it's parent page).
+   * This could be a non-interactive page (i.e. may be different from the root).
    */
   overPositionableVe: VisualElement | null,
 
@@ -70,6 +72,53 @@ export interface HitInfo {
    * Position in the positionable element.
    */
   overPositionGr: Vector | null,
+}
+
+export function hitInfoToString(hitInfo: HitInfo): string {
+  let result = "hitboxType: " + HitboxFns.hitboxFlagsToString(hitInfo.hitboxType) + "\n";
+
+  result += "compositeHitboxType: " + HitboxFns.hitboxFlagsToString(hitInfo.compositeHitboxTypeMaybe) + "\n";
+
+  result += "rootVe: '" + asPageItem(hitInfo.rootVe.displayItem).title + "' (" + hitInfo.rootVe.displayItem.id + ")\n";
+
+  const overVe = hitInfo.overElementVes.get();
+  if (isTitledItem(overVe.displayItem)) {
+    result += "overElementVes: '" + asTitledItem(overVe.displayItem).title + "' (" + overVe.displayItem.id + ")\n";
+  } else {
+    result += "overElementVes: [N/A] (" + overVe.displayItem.id + ")\n";
+  }
+
+  if (!hitInfo.overElementMeta) {
+    result += "overElementMeta: null\n";
+  } else {
+    result += "overElementMeta: " + HitboxFns.hitboxMetaToString(hitInfo.overElementMeta) + "\n";
+  }
+
+  const overContainerVe = hitInfo.overContainerVe;
+  if (!overContainerVe) {
+    result += "overContainerVe: null\n";
+  } else {
+    if (isTitledItem(overContainerVe.displayItem)) {
+      result += "overContainerVe: '" + asTitledItem(overContainerVe.displayItem).title + "' (" + overContainerVe.displayItem.id + ")\n";
+    } else {
+      result += "overContainerVe: [" + overContainerVe.displayItem.itemType + "] (" + overContainerVe.displayItem.id + ")\n";
+    }
+  }
+
+  const overPositionableVe = hitInfo.overPositionableVe;
+  if (!overPositionableVe) {
+    result += "overPositionableVe: null\n";
+  } else {
+    result += "overPositionableVe: '" + asTitledItem(overPositionableVe.displayItem).title + "' (" + overPositionableVe.displayItem.id + ")\n";
+  }
+
+  if (!hitInfo.overPositionGr) {
+    result += "overPositionGr: null\n";
+  } else {
+    result += "overPositionGr: (" + hitInfo.overPositionGr!.x + ", " + hitInfo.overPositionGr!.y + ")\n";
+  }
+
+  return result;
 }
 
 

@@ -51,9 +51,10 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.Anchor) { result += "Anchor "; }
   if (flags & HitboxFlags.ShiftLeft) { result += "ShiftLeft "; }
   if (flags & HitboxFlags.Settings) { result += "Settings "; }
-  if (flags & HitboxFlags.TriangleLinkSettings ) { result += "TriangleLinkSettings "; }
-  if (flags & HitboxFlags.Expand) { result += "Expand"; }
-  if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu"; }
+  if (flags & HitboxFlags.TriangleLinkSettings) { result += "TriangleLinkSettings "; }
+  if (flags & HitboxFlags.ContentEditable) { result += "ContentEditable "; }
+  if (flags & HitboxFlags.Expand) { result += "Expand "; }
+  if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
   return result;
 }
 
@@ -117,4 +118,11 @@ export const HitboxFns = {
   hitboxFlagsToString: (flags: HitboxFlags): string => {
     return hitboxFlagsToString(flags);
   },
+
+  hitboxMetaToString: (meta: HitboxMeta): string => {
+    return "[colNum: " +
+      (meta.colNum ? meta.colNum : "undefined") + ", startBl: " +
+      (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
+      (meta.endBl ? meta.endBl : "undefined") + "]";
+  }
 }
