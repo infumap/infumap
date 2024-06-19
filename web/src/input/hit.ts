@@ -73,6 +73,15 @@ export interface HitInfo {
 }
 
 
+interface RootInfo {
+  rootVisualElementSignal: VisualElementSignal,
+  rootVisualElement: VisualElement,
+  posRelativeToRootVisualElementViewportPx: Vector,
+  posRelativeToRootVisualElementBoundsPx: Vector,
+  hitMaybe: HitInfo | null
+}
+
+
 /**
  * Intersect posOnDesktopPx with the cached visual element state.
  */
@@ -84,7 +93,7 @@ export function getHitInfo(
     canHitEmbeddedInteractive: boolean): HitInfo {
 
   const umbrellaVisualElement: VisualElement = store.umbrellaVisualElement.get();
-  assert(umbrellaVisualElement.childrenVes.length == 1, "expecting top level visual element to have exactly one child");
+  assert(umbrellaVisualElement.childrenVes.length == 1, "expecting umbrella visual element to have exactly one child");
 
   const currentPageVeid = store.history.currentPageVeid()!;
   const currentPageVe = umbrellaVisualElement.childrenVes[0].get();
@@ -94,33 +103,53 @@ export function getHitInfo(
       y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
     });
 
-  // Root is either the top level page, or popup if mouse is over the popup, list page type selected page or dock page.
-  let topLevelRoot = determineTopLevelRoot(store, umbrellaVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx, canHitEmbeddedInteractive);
-  if (topLevelRoot.hitMaybe) {
-    if (!ignoreItems.find(a => a == topLevelRoot.hitMaybe?.overElementVes.get().displayItem.id)) {
-      return topLevelRoot.hitMaybe!;
-    }
-  } // if a root hitbox was hit.
+  // Root is either:
+  //  - the top level page, or
+  //  - the popup if open and the mouse is over it, or
+  //  - the selected page in a list page, or
+  //  - dock page, or
+  //  - an embedded root.
 
-  topLevelRoot = determinePopupOrSelectedRootMaybe(store, topLevelRoot, posOnDesktopPx, canHitEmbeddedInteractive);
-  if (topLevelRoot.hitMaybe) {
-    if (!ignoreItems.find(a => a == topLevelRoot.hitMaybe?.overElementVes.get().displayItem.id)) {
-      return topLevelRoot.hitMaybe!;
+  // progressively narrow it down:
+
+  let rootInfo = determineTopLevelRoot(store, umbrellaVisualElement, posRelativeToTopLevelVisualElementPx, posOnDesktopPx);
+  if (rootInfo.hitMaybe) {
+    if (!ignoreItems.find(a => a == rootInfo.hitMaybe!.overElementVes.get().displayItem.id)) {
+      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
     }
-  } // if a root hitbox was hit.
+  }
+
+  rootInfo = determinePopupOrSelectedRootMaybe(store, rootInfo, posOnDesktopPx, canHitEmbeddedInteractive);
+  if (rootInfo.hitMaybe) {
+    if (!ignoreItems.find(a => a == rootInfo.hitMaybe!.overElementVes.get().displayItem.id)) {
+      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
+    }
+  }
+
+  rootInfo = determineEmbeddedRootMaybe(store, rootInfo, canHitEmbeddedInteractive);
+  if (rootInfo.hitMaybe) {
+    if (!ignoreItems.find(a => a == rootInfo.hitMaybe!.overElementVes.get().displayItem.id)) {
+      return rootInfo.hitMaybe!; // hit a root hitbox, done already.
+    }
+  }
+
+  return getHitInfoWithRootInfo(store, posOnDesktopPx, ignoreItems, ignoreAttachments, canHitEmbeddedInteractive, rootInfo);
+}
+
+
+function getHitInfoWithRootInfo(
+    store: StoreContextModel,
+    posOnDesktopPx: Vector,
+    ignoreItems: Array<Uid>,
+    ignoreAttachments: boolean,
+    canHitEmbeddedInteractive: boolean,
+    rootInfo: RootInfo) {
 
   let {
     rootVisualElementSignal,
     rootVisualElement,
-    posRelativeToRootVisualElementViewportPx,
-    hitMaybe
-  } = determineEmbeddedRootMaybe(store, topLevelRoot, canHitEmbeddedInteractive);
-
-  if (hitMaybe) {
-    if (!ignoreItems.find(a => a == hitMaybe?.overElementVes.get().displayItem.id)) {
-      return hitMaybe!;
-    }
-  } // if a root hitbox was hit.
+    posRelativeToRootVisualElementViewportPx
+  } = rootInfo;
 
   for (let i=rootVisualElement.childrenVes.length-1; i>=0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVisualElement, posRelativeToRootVisualElementViewportPx, rootVisualElement.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
@@ -211,22 +240,16 @@ function hitChildMaybe(
   }
 }
 
-interface RootInfo {
-  rootVisualElementSignal: VisualElementSignal,
-  rootVisualElement: VisualElement,
-  posRelativeToRootVisualElementViewportPx: Vector,
-  posRelativeToRootVisualElementBoundsPx: Vector,
-  hitMaybe: HitInfo | null
-}
 
+/**
+ * @param posRelativeToTopLevelVisualElementPx the top level ve may be scrolled, so this is not necessarily the same as posOnDesktopPx.
+ * @param posOnDesktopPx does not incorporate page scroll.
+ */
 function determineTopLevelRoot(
     store: StoreContextModel,
     umbrellaVisualElement: VisualElement,
-    // this may be scrolled, so not be the same as posOnDesktopPx.
     posRelativeToTopLevelVisualElementPx: Vector,
-    // does not incorporate page scroll.
-    posOnDesktopPx: Vector,
-    canHitEmbeddedInteractive: boolean): RootInfo {
+    posOnDesktopPx: Vector): RootInfo {
 
   if (umbrellaVisualElement.childrenVes.length != 1) {
     panic("expected umbrellaVisualElement to have a child");
@@ -234,51 +257,42 @@ function determineTopLevelRoot(
 
   let rootVisualElement = umbrellaVisualElement.childrenVes[0].get();
   let posRelativeToRootVisualElementBoundsPx = posRelativeToTopLevelVisualElementPx;
+  let posRelativeToRootVisualElementViewportPx = posRelativeToTopLevelVisualElementPx;
   let rootVisualElementSignal = umbrellaVisualElement.childrenVes[0];
 
   if (rootVisualElement.childrenVes.length == 0) {
     return ({
       rootVisualElementSignal,
       rootVisualElement,
-      posRelativeToRootVisualElementBoundsPx: posRelativeToRootVisualElementBoundsPx,
-      posRelativeToRootVisualElementViewportPx: posRelativeToRootVisualElementBoundsPx,
+      posRelativeToRootVisualElementBoundsPx,
+      posRelativeToRootVisualElementViewportPx,
       hitMaybe: null
     });
   }
 
   const dockRootMaybe = determineIfDockRoot(umbrellaVisualElement, posOnDesktopPx);
-  if (dockRootMaybe != null) {
-    return dockRootMaybe!;
-  }
+  if (dockRootMaybe != null) { return dockRootMaybe; }
 
   posRelativeToRootVisualElementBoundsPx = cloneVector(posRelativeToRootVisualElementBoundsPx)!;
   posRelativeToRootVisualElementBoundsPx.x = posRelativeToRootVisualElementBoundsPx.x - store.getCurrentDockWidthPx();
-
-  // TODO (LOW): pretty sure this is never utilized, but it's harmless.
-  let hitboxType = HitboxFlags.None;
-  for (let j=rootVisualElement.hitboxes.length-1; j>=0; --j) {
-    if (isInside(posRelativeToRootVisualElementBoundsPx, rootVisualElement.hitboxes[j].boundsPx)) {
-      hitboxType |= rootVisualElement.hitboxes[j].type;
-    }
-  }
-  let hitMaybe: HitInfo | null = null;
-  if (hitboxType != HitboxFlags.None) {
-    hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVisualElement, rootVisualElementSignal, null, posRelativeToRootVisualElementBoundsPx, canHitEmbeddedInteractive);
-  }
+  posRelativeToRootVisualElementViewportPx = cloneVector(posRelativeToRootVisualElementBoundsPx)!;
 
   return ({
     rootVisualElementSignal,
     rootVisualElement,
     posRelativeToRootVisualElementBoundsPx,
-    posRelativeToRootVisualElementViewportPx: cloneVector(posRelativeToRootVisualElementBoundsPx)!,
-    hitMaybe
+    posRelativeToRootVisualElementViewportPx,
+    hitMaybe: null
   });
 }
 
+
+/**
+ * @param posOnDesktopPx does not incorporate page scroll.
+ */
 function determinePopupOrSelectedRootMaybe(
     store: StoreContextModel,
     topRootInfo: RootInfo,
-    // does not incorporate page scroll.
     posOnDesktopPx: Vector,
     canHitEmbeddedInteractive: boolean): RootInfo {
 
