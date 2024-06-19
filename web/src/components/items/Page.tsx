@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { borderColorForColorIdx, BorderType, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -246,25 +246,36 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <InfuLinkTriangle />
       </Show>;
 
+
+    const renderShadowMaybe = () =>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+        <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+      </Show>;
+
     return (
-      <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)}; ` +
-                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-        <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-          {renderBoxTitle()}
-          {renderHoverOverMaybe()}
-          {renderMovingOverMaybe()}
-          {renderMovingOverAttachMaybe()}
-          {renderPopupSelectedOverlayMaybe()}
-          <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
-            <VisualElement_Desktop visualElement={attachmentVe.get()} />
-          }</For>
-          {renderIsLinkMaybe()}
-          <InfuResizeTriangle />
-        </Show>
-      </div>
+      <>
+        {renderShadowMaybe()}
+        <div class={`absolute border border-slate-700 rounded-sm`}
+            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                    `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)}; ` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
+            {renderBoxTitle()}
+            {renderHoverOverMaybe()}
+            {renderMovingOverMaybe()}
+            {renderMovingOverAttachMaybe()}
+            {renderPopupSelectedOverlayMaybe()}
+            <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
+              <VisualElement_Desktop visualElement={attachmentVe.get()} />
+            }</For>
+            {renderIsLinkMaybe()}
+            <InfuResizeTriangle />
+          </Show>
+        </div>
+      </>
     );
   }
 
@@ -341,7 +352,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderPage = () =>
       <div ref={translucentDiv}
-           class={`absolute ${borderClass()} rounded-sm shadow-lg`}
+           class={`absolute ${borderClass()} rounded-sm`}
            style={`left: ${boundsPx().x}px; ` +
                   `top: ${boundsPx().y}px; ` +
                   `width: ${boundsPx().w}px; ` +
@@ -426,8 +437,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         ? ''
         : 'border border-slate-700';
 
+    const renderShadowMaybe = () =>
+      <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+        <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+      </Show>;
+
     return (
       <>
+        {renderShadowMaybe()}
         <Switch>
           <Match when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
