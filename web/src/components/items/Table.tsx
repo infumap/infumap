@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
@@ -170,8 +170,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <For each={columnSpecs()}>{spec =>
             <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
                 class={`absolute whitespace-nowrap overflow-hidden`}
-                style={`left: ${spec.startPosPx + 0.15 * blockSizePx().w}px; top: 0px; ` +
-                       `width: ${(spec.endPosPx - spec.startPosPx - 0.15 * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
+                       `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
                        `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
                        `transform: scale(${scale()}); transform-origin: top left;` +
                        `outline: 0px solid transparent;`}
@@ -329,7 +329,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
   const renderExpandIcon = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
       <div class="absolute text-center text-slate-400"
-           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+           style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}>
         <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />

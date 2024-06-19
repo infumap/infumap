@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
@@ -352,7 +352,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const renderExpandIcon = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
       <div class="absolute text-center text-slate-400"
-          style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+          style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}>
         <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />

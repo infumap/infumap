@@ -24,7 +24,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { BoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -253,10 +253,10 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().x + oneBlockWidthPx() * 0.15
+    ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
     : boundsPx().x + oneBlockWidthPx();
   const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().w - oneBlockWidthPx() * 0.15
+    ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP
     : boundsPx().w - oneBlockWidthPx();
 
   const infuTextStyle = () => getTextStyleForNote(expressionItem().flags);

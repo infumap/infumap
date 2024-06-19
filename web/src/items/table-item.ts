@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
@@ -175,9 +175,9 @@ export const TableFns = {
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
     const sizeBl = TableFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
-      x: leftMarginBl * blockSizePx.w,
+      x: leftMarginBl * blockSizePx.w + blockSizePx.w * PADDING_PROP,
       y: topPx,
-      w: compositeWidthBl * blockSizePx.w,
+      w: compositeWidthBl * blockSizePx.w - (blockSizePx.w * PADDING_PROP * 2),
       h: sizeBl.h * blockSizePx.h
     };
     const result = calcTableGeometryImpl(table, boundsPx, blockSizePx, true);

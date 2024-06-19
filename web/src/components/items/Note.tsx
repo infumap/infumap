@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -336,10 +336,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
   const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().x + oneBlockWidthPx() * 0.15
+    ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
     : boundsPx().x + oneBlockWidthPx();
   const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().w - oneBlockWidthPx() * 0.15 - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
+    ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
@@ -450,7 +450,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderCopyIconMaybe = () =>
     <Show when={showCopyIcon()}>
       <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+           style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
            onmousedown={eatMouseEvent}

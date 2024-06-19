@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -186,7 +186,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       </Switch>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; ` +
-                  `top: ${boundsPx().h*0.15}px; ` +
+                  `top: ${boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; ` +
                   `height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
@@ -196,7 +196,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         <i class={`fas fa-copy cursor-pointer`} />
       </div>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*0.15}px; ` +
+          style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
           onmousedown={eatMouseEvent}
@@ -242,60 +242,6 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       </div>
     </>
   );
-
-  // return (
-  //   <div class={`absolute border border-slate-700 rounded-sm shadow-lg`}
-  //        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-  //               `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-  //     <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
-  //       <div style={`position: absolute; ` + 
-  //                   `left: ${NOTE_PADDING_PX*textBlockScale()}px; ` +
-  //                   `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX/4)*textBlockScale()}px; ` +
-  //                   `width: ${naturalWidthPx()}px; ` +
-  //                   `line-height: ${LINE_HEIGHT_PX * lineHeightScale()}px; ` +
-  //                   `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-  //                   `overflow-wrap: break-word; white-space: pre-wrap;`}>
-  //         <Show when={isVisible()} fallback={
-  //           <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
-  //         }>
-  //           <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
-  //         </Show>
-  //       </div>
-  //       <div class="absolute text-center text-slate-600"
-  //            style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; ` +
-  //                   `top: ${boundsPx().h*0.15}px; ` +
-  //                   `width: ${oneBlockWidthPx() / smallScale()}px; ` +
-  //                   `height: ${boundsPx().h/smallScale()}px; `+
-  //                   `transform: scale(${smallScale()}); transform-origin: top left;`}
-  //            onmousedown={eatMouseEvent}
-  //            onmouseup={eatMouseEvent}
-  //            onclick={copyClickHandler}>
-  //         <i class={`fas fa-copy cursor-pointer`} />
-  //       </div>
-  //       <div class="absolute text-center text-slate-600"
-  //            style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*0.15}px; ` +
-  //                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-  //                   `transform: scale(${smallScale()}); transform-origin: top left;`}
-  //            onmousedown={eatMouseEvent}
-  //            onmouseup={eatMouseEvent}
-  //            onclick={VisibleClickHandler}>
-  //         <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
-  //       </div>
-  //       <For each={props.visualElement.attachmentsVes}>{attachment =>
-  //         <VisualElement_Desktop visualElement={attachment.get()} />
-  //       }</For>
-  //       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-  //         <InfuLinkTriangle />
-  //       </Show>
-  //       <InfuResizeTriangle />
-  //       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
-  //         <div class={`absolute rounded-sm`}
-  //              style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
-  //                     `background-color: #ff0000;`} />
-  //       </Show>
-  //     </Show>
-  //   </div>
-  // );
 }
 
 
@@ -365,15 +311,15 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
       <Show when={isVisible()} fallback={
-        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>••••••••••••</span>
+        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>••••••••••••</span>
       }>
-        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*0.15}px`}>{passwordItem().text}</span>
+        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>{passwordItem().text}</span>
       </Show>
     </div>;
 
   const renderCopyIcon = () =>
     <div class="absolute text-center text-slate-600"
-         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.05}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
                 `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                 `transform: scale(${smallScale()}); transform-origin: top left;`}
          onmousedown={eatMouseEvent}
@@ -384,7 +330,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
 
   const renderShowIcon = () =>
     <div class="absolute text-center text-slate-600"
-         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*0.15}px; ` +
+         style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
                 `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                 `transform: scale(${smallScale()}); transform-origin: top left;`}
          onmousedown={eatMouseEvent}

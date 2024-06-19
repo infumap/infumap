@@ -48,6 +48,7 @@ export const LIST_PAGE_TOP_PADDING_PX = 4;
 
 export const ITEM_BORDER_WIDTH_PX = 1;
 
+export const PADDING_PROP = 0.15;
 export const COMPOSITE_ITEM_GAP_BL = 0.15;
 
 export const ANCHOR_BOX_SIZE_PX = 20;
