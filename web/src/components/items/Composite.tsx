@@ -255,7 +255,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
-      <div class={`absolute borderborder-transparent rounded-sm shadow-lg overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
