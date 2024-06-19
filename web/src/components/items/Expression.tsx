@@ -143,13 +143,6 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     store.overlay.textEditInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
-  const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`${shadowOuterClass()}`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
-    </Show>;
-
   const inputListener = (_ev: InputEvent) => {
     setTimeout(() => {
       if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
@@ -174,6 +167,13 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
         return;
     }
   }
+
+  const renderShadowMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+      <div class={`${shadowOuterClass()}`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
 
   const renderDetailed = () =>
     <>

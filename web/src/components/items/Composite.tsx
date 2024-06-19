@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
@@ -253,32 +253,41 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     }, 0);
   }
 
+  const renderShadowMaybe = () =>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
+      <div class={`absolute borderborder-transparent rounded-sm shadow-lg overflow-hidden`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
+    </Show>;
+
   return (
-    <div class={`absolute border ` +
-                `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
-                `rounded-sm ` +
-                `${showBorder() ? "shadow-lg " : ""}` +
-                `bg-white overflow-hidden`}
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
-                `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
-                `outline: 0px solid transparent;`}
-         contentEditable={store.overlay.textEditInfo() != null}
-         onKeyUp={keyUpHandler}
-         onKeyDown={keyDownHandler}
-         onInput={inputListener}>
-      <For each={props.visualElement.childrenVes}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} />
-      }</For>
-      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
-        <div class={`absolute rounded-sm`}
-             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                    `background-color: #ff0000;`} />
-      </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
-        <InfuLinkTriangle />
-      </Show>
-    </div>
+    <>
+      {renderShadowMaybe()}
+      <div class={`absolute border ` +
+                  `${showBorder() ? "border-slate-700" : "border-transparent"} ` +
+                  `rounded-sm ` +
+                  `bg-white overflow-hidden`}
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
+                 `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
+                 `outline: 0px solid transparent;`}
+          contentEditable={store.overlay.textEditInfo() != null}
+          onKeyUp={keyUpHandler}
+          onKeyDown={keyDownHandler}
+          onInput={inputListener}>
+        <For each={props.visualElement.childrenVes}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
+        <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
+          <div class={`absolute rounded-sm`}
+              style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                     `background-color: #ff0000;`} />
+        </Show>
+        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+          <InfuLinkTriangle />
+        </Show>
+      </div>
+    </>
   );
 };
 
