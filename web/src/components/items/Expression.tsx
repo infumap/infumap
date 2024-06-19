@@ -105,18 +105,29 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
     });
   };
 
-  const outerClass = (shadow: boolean) => {
+  const shadowOuterClass = () => {
+    if (expressionItem().flags & NoteFlags.HideBorder) {
+      if (store.perVe.getMouseIsOver(vePath())) {
+        return `absolute border border-slate-700 rounded-sm shadow-lg`;
+      } else {
+        return 'absolute border border-transparent rounded-sm';
+      }
+    }
+    return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
+  };
+
+  const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm bg-white';
     } else {
-      if ((expressionItem().flags & NoteFlags.HideBorder)) {
+      if (expressionItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""}`;
+          return `absolute border border-slate-700 rounded-sm`;
         } else {
           return 'absolute border border-transparent rounded-sm';
         }
       }
-      return `absolute border border-slate-700 rounded-sm ${shadow ? "shadow-lg" : ""} bg-white`;
+      return `absolute border border-slate-700 rounded-sm bg-white`;
     }
   };
 
@@ -134,7 +145,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`${outerClass(true)}`}
+      <div class={`${shadowOuterClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
@@ -229,7 +240,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   return (
     <>
       {renderShadowMaybe()}
-      <div class={`${outerClass(false)}`}
+      <div class={`${outerClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.zIndexStyle(props.visualElement)}; ${VeFns.opacityStyle(props.visualElement)}; ` +
                   `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : 'background-color: #fff1e4;'}`}>

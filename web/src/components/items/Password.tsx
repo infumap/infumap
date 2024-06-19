@@ -108,17 +108,21 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
-  const outerClass = (shadow: boolean) => {
+  const shadowOuterClass = () => {
+    return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
+  };
+
+  const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-sm bg-white';
     } else {
-      return `absolute border border-slate-700 rounded-sm${shadow ? " shadow-lg " : " "}bg-white`;
+      return `absolute border border-slate-700 rounded-sm bg-white`;
     }
   };
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`${outerClass(true)}`}
+      <div class={`${shadowOuterClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
@@ -233,8 +237,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   return (
     <>
       {renderShadowMaybe()}
-      <div class={outerClass(false)}
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+      <div class={outerClass()}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}

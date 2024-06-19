@@ -939,7 +939,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
-    </Show>
+    </Show>;
 
   return (
     <>
