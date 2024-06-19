@@ -340,6 +340,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   });
 
   if (hitInfo.hitboxType & HitboxFlags.ContentEditable) {
+    // make sure not PreventDefault in the case of clicking on a contenteditable.
     return MouseEventActionFlags.None;
   }
 
