@@ -80,7 +80,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const vePath = () => VeFns.veToPath(props.visualElement);
   const parentPage = () => {
     const parentId = VeFns.itemIdFromPath(props.visualElement.parentPath!);
-    return asPageItem(itemState.get(parentId)!);
+    const parent = itemState.get(parentId)!;
+    if (isPage(parent)) {
+      return asPageItem(parent);
+    }
+    return null;
+  };
+  const parentPageArrangeAlgorithm = () => {
+    const pp = parentPage();
+    if (!pp) { return ArrangeAlgorithm.None; }
+    return pp.arrangeAlgorithm;
   };
   const boundsPx = () => props.visualElement.boundsPx;
   const scale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
@@ -429,11 +438,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <InfuLinkTriangle />
       </Show>;
 
-    const backgroundStyle = () => parentPage().arrangeAlgorithm == ArrangeAlgorithm.List
+    const backgroundStyle = () => parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
         ? ''
         : `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.636)};`;
 
-    const borderClass = () => parentPage().arrangeAlgorithm == ArrangeAlgorithm.List
+    const borderClass = () => parentPageArrangeAlgorithm() == ArrangeAlgorithm.List
         ? ''
         : 'border border-slate-700';
 

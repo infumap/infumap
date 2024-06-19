@@ -16,11 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { COMPOSITE_ITEM_GAP_BL } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE } from "../../constants";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeItem } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
+import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -32,6 +33,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags } from "./item";
+import { arrangePageWithChildren } from "./page";
 import { arrangeTable } from "./table";
 import { getVePropertiesForItem } from "./util";
 
@@ -120,6 +122,21 @@ function arrangeCompositeChildItem(
       asTableItem(displayItem_childItem), linkItemMaybe_childItem,
       linkItemMaybe_childItem, geometry, ArrangeItemFlags.InsideCompositeOrDoc,
       compositeWidthBl);
+  }
+
+  if (isPage(displayItem_childItem)) {
+    const renderPageWithChildren = (() => {
+      if (!isPage(displayItem_childItem)) { return false; }
+      // This test does not depend on pixel size, so is invariant over display devices.
+      return (compositeWidthBl >= CHILD_ITEMS_VISIBLE_WIDTH_BL);
+    })();
+    if (renderPageWithChildren) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));
+      return arrangePageWithChildren(
+        store, parentPath,
+        asPageItem(displayItem_childItem), linkItemMaybe_childItem,
+        linkItemMaybe_childItem, geometry, ArrangeItemFlags.InsideCompositeOrDoc);
+    }
   }
 
   const compositeChildVeSpec: VisualElementSpec = {

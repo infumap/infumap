@@ -177,7 +177,7 @@ export const TableFns = {
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w + blockSizePx.w * PADDING_PROP,
       y: topPx,
-      w: compositeWidthBl * blockSizePx.w - (blockSizePx.w * PADDING_PROP * 2),
+      w: compositeWidthBl * blockSizePx.w - (blockSizePx.w * PADDING_PROP * 2) - 2,
       h: sizeBl.h * blockSizePx.h
     };
     const result = calcTableGeometryImpl(table, boundsPx, blockSizePx, true);
