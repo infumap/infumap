@@ -118,7 +118,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }));
   });
 
-  const renderNotDetailedShadowMaybe = () =>
+  const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
@@ -132,13 +132,6 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `width: ${boundsPx().w}px; ` +
                 `height: ${boundsPx().h - blockSizePx().h}px; ` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`} />;
-
-  const renderDetailedShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
-    </Show>;
 
   const renderDetailed = () =>
     <>
@@ -227,11 +220,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   return (
     <Switch>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed)}>
-        {renderNotDetailedShadowMaybe()}
+        {renderShadowMaybe()}
         {renderNotDetailed()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Detailed}>
-        {renderDetailedShadowMaybe()}
+        {renderShadowMaybe()}
         {renderDetailed()}
       </Match>
     </Switch>
