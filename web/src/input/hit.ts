@@ -269,10 +269,10 @@ function hitChildMaybe(
     console.error("A table visual element unexpectedly had no childAreaBoundsPx set.", childVisualElement);
   }
 
-  const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems, ignoreAttachments, posOnDesktopPx, canHitEmbeddedInteractive);
+  const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems, ignoreAttachments, posOnDesktopPx);
   if (insideTableHit != null) { return insideTableHit; }
 
-  const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems, canHitEmbeddedInteractive);
+  const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems);
   if (insideCompositeHit != null) { return insideCompositeHit; }
 
   // handle inside any other item (including pages that are sized such that they can't be clicked in).
@@ -571,8 +571,7 @@ function handleInsideTableMaybe(
     posRelativeToRootVisualElementPx: Vector,
     ignoreItems: Array<Uid>,
     ignoreAttachments: boolean,
-    posOnDesktopPx: Vector,
-    canHitEmbeddedInteractive: boolean): HitInfo | null {
+    posOnDesktopPx: Vector): HitInfo | null {
 
   if (!isTable(childVisualElement.displayItem)) { return null; }
   if (childVisualElement.flags & VisualElementFlags.LineItem) { return null; }
@@ -585,14 +584,14 @@ function handleInsideTableMaybe(
   const resizeHitbox = tableVisualElement.hitboxes[tableVisualElement.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, resizeHitbox.meta, posRelativeToRootVisualElementPx, false);
   }
   // col resize also takes precedence over anything in the child area.
   for (let j=tableVisualElement.hitboxes.length-2; j>=0; j--) {
     const hb = tableVisualElement.hitboxes[j];
     if (hb.type != HitboxFlags.HorizontalResize) { break; }
     if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVisualElement.boundsPx!)))) {
-      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVisualElement, tableVisualElementSignal, hb.meta, posRelativeToRootVisualElementPx, false);
     }
   }
 
@@ -616,7 +615,7 @@ function handleInsideTableMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+        return finalize(hitboxType, HitboxFlags.None, rootVisualElement, tableChildVes, meta, posRelativeToRootVisualElementPx, false);
       }
     }
     if (!ignoreAttachments) {
@@ -633,7 +632,7 @@ function handleInsideTableMaybe(
             }
           }
           if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
-            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, canHitEmbeddedInteractive);
+            const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, false);
             return {
               hitboxType,
               compositeHitboxTypeMaybe: HitboxFlags.None,
@@ -658,8 +657,7 @@ function handleInsideCompositeMaybe(
     childVisualElement: VisualElement, childVisualElementSignal: VisualElementSignal,
     rootVisualElement: VisualElement,
     posRelativeToRootVisualElementPx: Vector,
-    ignoreItems: Array<Uid>,
-    canHitEmbeddedInteractive: boolean): HitInfo | null {
+    ignoreItems: Array<Uid>): HitInfo | null {
 
   if (!isComposite(childVisualElement.displayItem)) { return null; }
   if (childVisualElement.flags & VisualElementFlags.LineItem) { return null; }
@@ -672,7 +670,7 @@ function handleInsideCompositeMaybe(
   const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVisualElementPx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVisualElement, compositeVes, resizeHitbox.meta, posRelativeToRootVisualElementPx, false);
   }
 
   // for the composite case, also hit the container, even if a child is also hit.
@@ -703,11 +701,11 @@ function handleInsideCompositeMaybe(
       if (hitboxType == HitboxFlags.None) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
         if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
-          return finalize(compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+          return finalize(compositeHitboxType, HitboxFlags.None, rootVisualElement, compositeVes, meta, posRelativeToRootVisualElementPx, false);
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-          return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx, canHitEmbeddedInteractive);
+          return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx, false);
         }
       }
     }
