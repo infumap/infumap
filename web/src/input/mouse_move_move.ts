@@ -297,20 +297,15 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     panic("unexpected table parent type: " + tableParentVe.displayItem.itemType);
   }
 
-  let moveToPageAbsoluteBoundsPx;
-  // if (tableParentVe.parentPath == null) {
-  //   moveToPageAbsoluteBoundsPx = tableParentVe.childAreaBoundsPx!;
-  // } else {
-    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableParentVe);
-  // }
+  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToPageVe);
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
 
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);
   itemPosInPagePx.x -= store.getCurrentDockWidthPx();
 
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVe!.viewportBoundsPx!.w * moveToPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe!.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / moveToPageVe!.viewportBoundsPx!.w * moveToPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / moveToPageVe!.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
