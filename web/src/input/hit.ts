@@ -109,7 +109,11 @@ export function hitInfoToString(hitInfo: HitInfo): string {
   if (!overPositionableVe) {
     result += "overPositionableVe: null\n";
   } else {
-    result += "overPositionableVe: '" + asTitledItem(overPositionableVe.displayItem).title + "' (" + overPositionableVe.displayItem.id + ")\n";
+    if (isTitledItem(overPositionableVe.displayItem)) {
+      result += "overPositionableVe: '" + asTitledItem(overPositionableVe.displayItem).title + "' (" + overPositionableVe.displayItem.id + ")\n";
+    } else {
+      result += "overPositionableVe: [" + overPositionableVe.displayItem.itemType + "] (" + overPositionableVe.displayItem.id + ")\n";
+    }
   }
 
   if (!hitInfo.overPositionGr) {
@@ -272,7 +276,7 @@ function hitChildMaybe(
   const insideTableHit = handleInsideTableMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems, ignoreAttachments, posOnDesktopPx);
   if (insideTableHit != null) { return insideTableHit; }
 
-  const insideCompositeHit = handleInsideCompositeMaybe(childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems);
+  const insideCompositeHit = handleInsideCompositeMaybe(store, childVisualElement, childVisualElementSignal, rootVisualElement, posRelativeToRootVisualElementViewportPx, ignoreItems);
   if (insideCompositeHit != null) { return insideCompositeHit; }
 
   // handle inside any other item (including pages that are sized such that they can't be clicked in).
@@ -654,7 +658,9 @@ function handleInsideTableMaybe(
 
 
 function handleInsideCompositeMaybe(
-    childVisualElement: VisualElement, childVisualElementSignal: VisualElementSignal,
+    store: StoreContextModel,
+    childVisualElement: VisualElement,
+    childVisualElementSignal: VisualElementSignal,
     rootVisualElement: VisualElement,
     posRelativeToRootVisualElementPx: Vector,
     ignoreItems: Array<Uid>): HitInfo | null {
@@ -705,6 +711,8 @@ function handleInsideCompositeMaybe(
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
+          const insideTableHit = handleInsideTableInCompositeMaybe(store, rootVisualElement, compositeChildVe, compositeChildVes, ignoreItems, posRelativeToRootVisualElementPx, posRelativeToCompositeChildAreaPx);
+          if (insideTableHit != null) { return insideTableHit; }
           return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx, false);
         }
       }
@@ -714,6 +722,76 @@ function handleInsideCompositeMaybe(
   return null;
 }
 
+function handleInsideTableInCompositeMaybe(
+    store: StoreContextModel,
+    rootVe: VisualElement,
+    compositeChildVe: VisualElement,
+    compositeChildVes: VisualElementSignal,
+    ignoreItems: Array<Uid>,
+    posRelativeToRootVisualElementPx: Vector,
+    posRelativeToCompositeChildAreaPx: Vector) {
+
+  if (!isTable(compositeChildVe.displayItem)) { return null; }
+
+  // const tableVisualElementSignal = compositeChildVes;
+  const tableVisualElement = compositeChildVe;;
+
+  for (let j=0; j<tableVisualElement.childrenVes.length; ++j) {
+    const tableChildVes = tableVisualElement.childrenVes[j];
+    const tableChildVe = tableChildVes.get();
+    const tableBlockHeightPx = tableChildVe.boundsPx.h;
+
+    const posRelativeToTableChildAreaPx = vectorSubtract(
+      posRelativeToCompositeChildAreaPx,
+      { x: tableVisualElement.viewportBoundsPx!.x,
+        y: tableVisualElement.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVisualElement)) * tableBlockHeightPx }
+    );
+    if (isInside(posRelativeToTableChildAreaPx, tableChildVe.boundsPx)) {
+      let hitboxType = HitboxFlags.None;
+      let meta = null;
+      for (let k=tableChildVe.hitboxes.length-1; k>=0; --k) {
+        if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(tableChildVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(tableChildVe.boundsPx)))) {
+          hitboxType |= tableChildVe.hitboxes[k].type;
+          if (tableChildVe.hitboxes[k].meta != null) { meta = tableChildVe.hitboxes[k].meta; }
+        }
+      }
+      if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
+        return finalize(hitboxType, HitboxFlags.None, rootVe, tableChildVes, meta, posRelativeToRootVisualElementPx, false);
+      }
+    }
+  //   if (!ignoreAttachments) {
+  //     for (let k=0; k<tableChildVe.attachmentsVes.length; ++k) {
+  //       const attachmentVes = tableChildVe.attachmentsVes[k];
+  //       const attachmentVe = attachmentVes.get();
+  //       if (isInside(posRelativeToTableChildAreaPx, attachmentVe.boundsPx)) {
+  //         let hitboxType = HitboxFlags.None;
+  //         let meta = null;
+  //         for (let l=attachmentVe.hitboxes.length-1; l>=0; --l) {
+  //           if (isInside(posRelativeToTableChildAreaPx, offsetBoundingBoxTopLeftBy(attachmentVe.hitboxes[l].boundsPx, getBoundingBoxTopLeft(attachmentVe.boundsPx)))) {
+  //             hitboxType |= attachmentVe.hitboxes[l].type;
+  //             if (attachmentVe.hitboxes[l].meta != null) { meta = attachmentVe.hitboxes[l].meta; }
+  //           }
+  //         }
+  //         if (!ignoreItems.find(a => a == attachmentVe.displayItem.id)) {
+  //           const noAttachmentResult = getHitInfo(store, posOnDesktopPx, ignoreItems, true, false);
+  //           return {
+  //             hitboxType,
+  //             compositeHitboxTypeMaybe: HitboxFlags.None,
+  //             rootVe: rootVisualElement,
+  //             overElementVes: attachmentVes,
+  //             overElementMeta: meta,
+  //             overContainerVe: noAttachmentResult.overContainerVe,
+  //             overPositionableVe: noAttachmentResult.overPositionableVe,
+  //             overPositionGr: noAttachmentResult.overPositionGr,
+  //           };
+  //         }
+  //       }
+  //     }
+  //   }
+  }
+
+  return null;
+}
 
 function finalize(
     hitboxType: HitboxFlags,
@@ -744,8 +822,13 @@ function finalize(
     assert(isTable(VesCache.get(overVe.parentPath!)!.get().displayItem), "a visual element marked as inside table, is not in fact inside a table.");
     const parentTableVe = VesCache.get(overVe.parentPath!)!.get();
     const tableParentPageVe = VesCache.get(parentTableVe.parentPath!)!.get();
-    assert(isPage(tableParentPageVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
-    assert((tableParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing table is not marked as having children visible.");
+    let overPositionableVe = tableParentPageVe;
+    if (isComposite(tableParentPageVe.displayItem)) {
+      overPositionableVe = VesCache.get(tableParentPageVe.parentPath!)!.get();
+    } else {
+      assert(isPage(tableParentPageVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
+      assert((tableParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing table is not marked as having children visible.");
+    }
     return {
       hitboxType,
       compositeHitboxTypeMaybe: containerHitboxType,
@@ -753,7 +836,7 @@ function finalize(
       overElementVes,
       overElementMeta,
       overContainerVe: parentTableVe,
-      overPositionableVe: tableParentPageVe,
+      overPositionableVe,
       overPositionGr,
     };
   }

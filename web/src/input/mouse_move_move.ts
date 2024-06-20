@@ -24,7 +24,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { PageFns, asPageItem } from "../items/page-item";
+import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -285,7 +285,18 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   const tableVe = VesCache.get(activeVisualElement.parentPath!)!.get();
   const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
 
-  const moveToPage = asPageItem(tableParentVe.displayItem);
+  let moveToPage;
+  let moveToPageVe;
+  if (isPage(tableParentVe.displayItem)) {
+    moveToPageVe = tableParentVe;
+    moveToPage = asPageItem(tableParentVe.displayItem);
+  } else if (isComposite(tableParentVe.displayItem)) {
+    moveToPageVe = VesCache.get(tableParentVe.parentPath!)!.get();
+    moveToPage = asPageItem(moveToPageVe.displayItem);
+  } else {
+    panic("unexpected table parent type: " + tableParentVe.displayItem.itemType);
+  }
+
   let moveToPageAbsoluteBoundsPx;
   // if (tableParentVe.parentPath == null) {
   //   moveToPageAbsoluteBoundsPx = tableParentVe.childAreaBoundsPx!;
@@ -296,10 +307,10 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 
   const itemPosInPagePx = CursorEventState.getLatestDesktopPx(store);
   itemPosInPagePx.x -= store.getCurrentDockWidthPx();
-  const tableParentPage = asPageItem(tableParentVe.displayItem);
+
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / tableParentVe!.viewportBoundsPx!.w * tableParentPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / tableParentVe!.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(tableParentPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / tableParentVe!.viewportBoundsPx!.w * moveToPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / tableParentVe!.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
@@ -307,8 +318,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   };
 
   if (shouldCreateLink && !isLink(activeVisualElement.displayItem)) {
-    const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(tableParentPage.id));
-    link.parentId = tableParentPage.id;
+    const link = LinkFns.createFromItem(activeVisualElement.displayItem, RelationshipToParent.Child, itemState.newOrderingAtEndOfChildren(moveToPage.id));
+    link.parentId = moveToPage.id;
     link.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.add(link);
     server.addItem(link, null);
@@ -324,8 +335,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     MouseActionState.get().linkCreatedOnMoveStart = true;
   } else {
     activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
-    itemState.moveToNewParent(activeItem, tableParentPage.id, RelationshipToParent.Child);
-    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), tableVe.parentPath!);
+    itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
+    MouseActionState.get().activeElementPath = VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe));
     MouseActionState.get().onePxSizeBl = {
       x: moveToPageInnerSizeBl.w / moveToPageAbsoluteBoundsPx.w,
       y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
