@@ -316,7 +316,6 @@ export const PageFns = {
   },
 
   calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, ignoreCellHeight: boolean): ItemGeometry => {
-
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
       let boundsPx;
@@ -429,6 +428,9 @@ export const PageFns = {
       h: sizeBl.h * blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const popupClickBoundsPx =
+      { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
+        w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
     const moveBoundsPx = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
@@ -442,6 +444,7 @@ export const PageFns = {
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+        HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: innerBoundsPx.w / 4,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
