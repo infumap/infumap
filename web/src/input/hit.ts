@@ -706,6 +706,11 @@ function handleInsideCompositeMaybe(
         }
       }
 
+      if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
+        const insideTableHit = handleInsideTableInCompositeMaybe(store, rootVisualElement, compositeChildVe, compositeChildVes, ignoreItems, posRelativeToRootVisualElementPx, posRelativeToCompositeChildAreaPx, posOnDesktopPx, ignoreAttachments);
+        if (insideTableHit != null) { return insideTableHit; }
+      }
+
       if (hitboxType == HitboxFlags.None) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
         if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
@@ -713,8 +718,6 @@ function handleInsideCompositeMaybe(
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-          const insideTableHit = handleInsideTableInCompositeMaybe(store, rootVisualElement, compositeChildVe, compositeChildVes, ignoreItems, posRelativeToRootVisualElementPx, posRelativeToCompositeChildAreaPx, posOnDesktopPx, ignoreAttachments);
-          if (insideTableHit != null) { return insideTableHit; }
           return finalize(hitboxType, compositeHitboxType, rootVisualElement, compositeChildVes, meta, posRelativeToRootVisualElementPx, false);
         }
       }
@@ -846,7 +849,9 @@ function finalize(
     };
   }
 
-  if (isTable(overVe.displayItem)) {
+  //   if overElementVes.parent is composite, then overContainerVe should alays be the composite
+
+  if (isTable(overVe.displayItem) && !(overVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
     const parentVe = VesCache.get(overVe.parentPath!)!.get();
     let prop = {
       x: (posRelativeToRootVisualElementPx.x - parentVe.viewportBoundsPx!.x) / parentVe.childAreaBoundsPx!.w,
@@ -876,7 +881,7 @@ function finalize(
     };
   }
 
-  if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren)) {
+  if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren) && !(overVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
     let prop = {
       x: (posRelativeToRootVisualElementPx.x - overVe.viewportBoundsPx!.x) / overVe.childAreaBoundsPx!.w,
       y: (posRelativeToRootVisualElementPx.y - overVe.viewportBoundsPx!.y) / overVe.childAreaBoundsPx!.h

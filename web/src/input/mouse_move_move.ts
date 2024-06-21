@@ -37,7 +37,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
-import { getHitInfo } from "./hit";
+import { getHitInfo, hitInfoToString } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 
 
@@ -156,6 +156,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     return;
   }
 
+  console.log("TODO: case where overContainer needs to be the table here.");
   if (isTable(hitInfo.overContainerVe!.displayItem)) {
     moving_handleOverTable(store, hitInfo.overContainerVe!, desktopPosPx);
   }

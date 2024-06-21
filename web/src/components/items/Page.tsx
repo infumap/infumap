@@ -18,9 +18,9 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
-import { borderColorForColorIdx, BorderType, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
+import { borderColorForColorIdx, BorderType, Colors, FEATURE_COLOR, FEATURE_COLOR_DARK, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem, VisualElementProps } from "../VisualElement";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -35,6 +35,7 @@ import { fArrange } from "../../layout/arrange";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { isComposite } from "../../items/composite-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -92,6 +93,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return pp.arrangeAlgorithm;
   };
   const boundsPx = () => props.visualElement.boundsPx;
+  const attachCompositeBoundsPx = (): BoundingBox => {
+    return {
+      x: boundsPx().w / 4.0,
+      y: boundsPx().h - ATTACH_AREA_SIZE_PX,
+      w: boundsPx().w / 2.0,
+      h: ATTACH_AREA_SIZE_PX,
+    }
+  };
   const scale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx!;
   const innerBoundsPx = () => {
@@ -111,6 +120,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       w: ATTACH_AREA_SIZE_PX,
       h: ATTACH_AREA_SIZE_PX,
     }
+  };
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    });
   };
   const isPoppedUp = () =>
     store.history.currentPopupSpecVeid() != null &&
@@ -139,6 +156,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const listViewScale = () => props.visualElement.boundsPx.w / store.desktopMainAreaBoundsPx().w;
+
+  const isInComposite = () =>
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
+  const showMoveOutOfCompositeArea = () =>
+    store.user.getUserMaybe() != null &&
+    store.perVe.getMouseIsOver(vePath()) &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.textEditInfo() == null &&
+    isInComposite();
 
   const renderGridlinesMaybe = () =>
     <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
@@ -243,6 +270,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     'background-color: #ff0000;'} />
       </Show>;
 
+    const renderMovingOverAttachCompositeMaybe = () =>
+      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
+        <div class={`absolute rounded-sm`}
+             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR_DARK};`} />
+      </Show>;
+
     const renderPopupSelectedOverlayMaybe = () =>
       <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
         <div class='absolute'
@@ -276,10 +310,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             {renderHoverOverMaybe()}
             {renderMovingOverMaybe()}
             {renderMovingOverAttachMaybe()}
+            {renderMovingOverAttachCompositeMaybe()}
             {renderPopupSelectedOverlayMaybe()}
             <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
               <VisualElement_Desktop visualElement={attachmentVe.get()} />
             }</For>
+            <Show when={showMoveOutOfCompositeArea()}>
+              <div class={`absolute rounded-sm`}
+                   style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                          `background-color: ${FEATURE_COLOR};`} />
+            </Show>
             {renderIsLinkMaybe()}
             <InfuResizeTriangle />
           </Show>
@@ -426,6 +466,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `background-color: #ff0000;`} />
       </Show>;
 
+    const renderMovingOverAttachCompositeMaybe = () =>
+      <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
+        <div class={`absolute rounded-sm`}
+             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                    `background-color: ${FEATURE_COLOR};`} />
+      </Show>;
+
     const renderPopupSelectedOverlayMaybe = () =>
       <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
         <div class="absolute pointer-events-none"
@@ -471,10 +518,16 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           {renderHoverOverMaybe()}
           {renderMovingOverMaybe()}
           {renderMovingOverAttachMaybe()}
+          {renderMovingOverAttachCompositeMaybe()}
           {renderPopupSelectedOverlayMaybe()}
           <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
+          <Show when={showMoveOutOfCompositeArea()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                        `background-color: ${FEATURE_COLOR};`} />
+          </Show>
           {renderIsLinkMaybe()}
         </div>
         {renderBoxTitleMaybe()}

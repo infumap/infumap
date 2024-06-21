@@ -167,7 +167,7 @@ export const TableFns = {
       w: tableSizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
       h: tableSizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
-    return calcTableGeometryImpl(table, boundsPx, blockSizePx, emitHitboxes);
+    return calcTableGeometryImpl(table, boundsPx, blockSizePx, emitHitboxes, true);
   },
 
   calcGeometry_InComposite: (table: TableMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
@@ -180,7 +180,7 @@ export const TableFns = {
       w: compositeWidthBl * blockSizePx.w - (blockSizePx.w * PADDING_PROP * 2) - 2,
       h: sizeBl.h * blockSizePx.h
     };
-    const result = calcTableGeometryImpl(table, boundsPx, blockSizePx, true);
+    const result = calcTableGeometryImpl(table, boundsPx, blockSizePx, true, false);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
       x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
@@ -254,7 +254,7 @@ export const TableFns = {
       w: boundsPx.w / sizeBl.w,
       h: boundsPx.h / sizeBl.h,
     };
-    return calcTableGeometryImpl(table, boundsPx, blockSizePx, true);
+    return calcTableGeometryImpl(table, boundsPx, blockSizePx, true, true);
   },
 
   asTableMeasurable: (item: ItemTypeMixin): TableMeasurable => {
@@ -420,7 +420,12 @@ export function asTableItem(item: ItemTypeMixin): TableItem {
 }
 
 
-function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, blockSizePx: Dimensions, emitHitboxes: boolean): ItemGeometry {
+function calcTableGeometryImpl(
+    table: TableMeasurable,
+    boundsPx: BoundingBox,
+    blockSizePx: Dimensions,
+    emitHitboxes: boolean,
+    emitMove: boolean): ItemGeometry {
   let colLen = table.tableColumns.length;
   if (colLen > table.numberOfVisibleColumns) { colLen = table.numberOfVisibleColumns; }
 
@@ -472,12 +477,16 @@ function calcTableGeometryImpl(table: TableMeasurable, boundsPx: BoundingBox, bl
   const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
   viewportBoundsPx.h -= TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h + colHeaderHeightPxOrZero;
   viewportBoundsPx.y += TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h + colHeaderHeightPxOrZero;
+  const moveHbMaybe = [];
+  if (emitMove) {
+    moveHbMaybe.push(HitboxFns.create(HitboxFlags.Move, innerBoundsPx));
+  }
   return {
     boundsPx,
     blockSizePx,
     viewportBoundsPx,
     hitboxes: !emitHitboxes ? [] : [
-      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      ...moveHbMaybe,
       HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
       ...colResizeHitboxes,
       ...colClickHitboxes,

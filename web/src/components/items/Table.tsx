@@ -17,7 +17,7 @@
 */
 
 import { Component, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_SHADOW } from "../../constants";
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
@@ -30,6 +30,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { itemState } from "../../store/ItemState";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { FEATURE_COLOR } from "../../style";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -96,6 +97,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       h: ATTACH_AREA_SIZE_PX,
     }
   }
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    });
+  };
+
   const columnSpecs = createMemo(() => {
     // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
     const specsBl = [];
@@ -117,6 +127,16 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       isLast: s.isLast
     }));
   });
+
+  const isInComposite = () =>
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
+  const showMoveOutOfCompositeArea = () =>
+    store.user.getUserMaybe() != null &&
+    store.perVe.getMouseIsOver(vePath()) &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.textEditInfo() == null &&
+    isInComposite();
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
@@ -164,6 +184,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} />
         }</For>
+        <Show when={showMoveOutOfCompositeArea()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                      `background-color: ${FEATURE_COLOR};`} />
+        </Show>;
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <InfuLinkTriangle />
         </Show>
