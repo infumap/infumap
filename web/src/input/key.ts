@@ -24,7 +24,6 @@ import { VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
-import { getHitInfo } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
 import { newItemInContext } from "./create";
@@ -32,6 +31,7 @@ import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
 import { ItemType } from "../items/base/item";
+import { HitInfoFns } from "./hit";
 
 
 const recognizedKeys = [
@@ -66,7 +66,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (store.overlay.anOverlayIsVisible()) { return; }
   if (!recognizedKeys.find(a => a == ev.code)) { return; }
 
-  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
+  const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
 
   if (ev.code == "Slash") {
     ev.preventDefault();

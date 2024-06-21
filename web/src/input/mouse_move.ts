@@ -27,7 +27,7 @@ import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, ve
 import { panic } from "../util/lang";
 import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
-import { getHitInfo, hitInfoToString } from "./hit";
+import { HitInfoFns } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
@@ -327,7 +327,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const hasModal = cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
-  const hitInfo = getHitInfo(store, desktopPxFromMouseEvent(ev, store), [], false, true);
+  const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], false, true);
   if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu)) {
     if (hitInfo.overElementMeta!.colNum) {
       store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
@@ -338,7 +338,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     store.mouseOverTableHeaderColumnNumber.set(null);
   }
 
-  const overElementVes = hitInfo.overElementVes;
+  const overElementVes = HitInfoFns.getOverVes(hitInfo);
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
       store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
@@ -376,8 +376,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "nwse-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {
       document.body.style.cursor = "ew-resize";
-    } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(hitInfo.overElementVes.get().displayItem)) &&
-               ((hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) || (asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.EmbeddedInteractive))) {
+    } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
+               ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) || (asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive))) {
       document.body.style.cursor = "move";
     } else if (hitInfo.hitboxType & HitboxFlags.ShiftLeft) {
       document.body.style.cursor = "zoom-in";

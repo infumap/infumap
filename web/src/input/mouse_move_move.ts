@@ -37,7 +37,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
-import { getHitInfo, hitInfoToString } from "./hit";
+import { HitInfoFns } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 
 
@@ -49,12 +49,12 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     fullArrange(store);
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-    const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
     fullArrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
     fullArrange(store);
   }
@@ -110,11 +110,11 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
     for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
   }
-  const hitInfo = getHitInfo(store, desktopPosPx, ignoreIds, false, MouseActionState.get().hitEmbeddedInteractive);
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, false, MouseActionState.get().hitEmbeddedInteractive);
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||
-      MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(hitInfo.overContainerVe!)) {
+      MouseActionState.get().moveOver_containerElement! != VeFns.veToPath(HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo))) {
     if (MouseActionState.get().moveOver_containerElement != null) {
       const veMaybe = VesCache.get(MouseActionState.get().moveOver_containerElement!);
       if (veMaybe) {
@@ -122,8 +122,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       }
     }
 
-    store.perVe.setMovingItemIsOver(VeFns.veToPath(hitInfo.overContainerVe!), true);
-    MouseActionState.get().moveOver_containerElement = VeFns.veToPath(hitInfo.overContainerVe!);
+    store.perVe.setMovingItemIsOver(VeFns.veToPath(HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo)), true);
+    MouseActionState.get().moveOver_containerElement = VeFns.veToPath(HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo));
   }
 
   // update move over attach state.
@@ -132,8 +132,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.Attach) {
-    store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(hitInfo.overElementVes.get()), true);
-    MouseActionState.get().moveOver_attachHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
+    store.perVe.setMovingItemIsOverAttach(VeFns.veToPath(hitInfo.overVes!.get()), true);
+    MouseActionState.get().moveOver_attachHitboxElement = VeFns.veToPath(hitInfo.overVes!.get());
   } else {
     MouseActionState.get().moveOver_attachHitboxElement = null;
   }
@@ -144,8 +144,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(ve), false);
   }
   if (hitInfo.hitboxType & HitboxFlags.AttachComposite) {
-    store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(hitInfo.overElementVes.get()), true);
-    MouseActionState.get().moveOver_attachCompositeHitboxElement = VeFns.veToPath(hitInfo.overElementVes.get());
+    store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(hitInfo.overVes!.get()), true);
+    MouseActionState.get().moveOver_attachCompositeHitboxElement = VeFns.veToPath(hitInfo.overVes!.get());
   } else {
     MouseActionState.get().moveOver_attachCompositeHitboxElement = null;
   }
@@ -157,8 +157,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   console.log("TODO: case where overContainer needs to be the table here.");
-  if (isTable(hitInfo.overContainerVe!.displayItem)) {
-    moving_handleOverTable(store, hitInfo.overContainerVe!, desktopPosPx);
+  if (isTable(HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo).displayItem)) {
+    moving_handleOverTable(store, HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo), desktopPosPx);
   }
 
   const deltaBl = {

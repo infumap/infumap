@@ -24,7 +24,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { asPageItem, isPage } from "../items/page-item";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
-import { getHitInfo } from "../input/hit";
+import { HitInfoFns } from "../input/hit";
 import { CursorEventState } from "../input/state";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
@@ -41,12 +41,12 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hi = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
-      if (hi.hitboxType != HitboxFlags.None) {
+      let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
+      if (hitInfo.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;
       }
-      let item = hi.overElementVes.get().displayItem;
+      let item = HitInfoFns.getHitVe(hitInfo).displayItem;
       if (!isPage(item)) {
         console.log("must upload on page.");
         return;

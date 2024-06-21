@@ -30,7 +30,7 @@ import { VisualElementFlags, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
-import { getHitInfo, hitInfoToString } from "./hit";
+import { HitInfoFns } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
@@ -234,16 +234,16 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
     return defaultResult;
   }
 
-  const hitInfo = getHitInfo(store, desktopPosPx, [], false, false);
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
   if (hitInfo.hitboxType == HitboxFlags.None) {
-    if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup && !viaOverlay) {
+    if (HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup && !viaOverlay) {
       DoubleClickState.preventDoubleClick();
-      switchToPage(store, VeFns.actualVeidFromVe(hitInfo.overElementVes.get()), true, false, false);
-    } else if(isPage(hitInfo.overElementVes.get().displayItem) &&
-              asPageItem(hitInfo.overElementVes.get().displayItem).flags & PageFlags.EmbeddedInteractive) {
+      switchToPage(store, VeFns.actualVeidFromVe(HitInfoFns.getHitVe(hitInfo)), true, false, false);
+    } else if(isPage(HitInfoFns.getHitVe(hitInfo).displayItem) &&
+              asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) {
       DoubleClickState.preventDoubleClick();
-      store.history.setFocus(VeFns.veToPath(hitInfo.overElementVes.get()));
-      switchToPage(store, VeFns.actualVeidFromVe(hitInfo.overElementVes.get()), true, false, false);
+      store.history.setFocus(VeFns.veToPath(HitInfoFns.getHitVe(hitInfo)));
+      switchToPage(store, VeFns.actualVeidFromVe(HitInfoFns.getHitVe(hitInfo)), true, false, false);
     } else {
       fullArrange(store);
     }
@@ -255,25 +255,25 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPosPx;
-  const activeItem = VeFns.canonicalItem(hitInfo.overElementVes.get());
-  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overElementVes.get());
+  const activeItem = VeFns.canonicalItem(HitInfoFns.getHitVe(hitInfo));
+  let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, HitInfoFns.getHitVe(hitInfo));
   let onePxSizeBl;
-  if (hitInfo.overElementVes.get().flags & VisualElementFlags.Popup) {
-    const sizeBl = isPage(hitInfo.overElementVes.get().displayItem)
-      ? ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL })
-      : ItemFns.calcSpatialDimensionsBl(hitInfo.overElementVes.get().linkItemMaybe!);
+  if (HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) {
+    const sizeBl = isPage(HitInfoFns.getHitVe(hitInfo).displayItem)
+      ? ItemFns.calcSpatialDimensionsBl(HitInfoFns.getHitVe(hitInfo).linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL })
+      : ItemFns.calcSpatialDimensionsBl(HitInfoFns.getHitVe(hitInfo).linkItemMaybe!);
     onePxSizeBl = {
       x: sizeBl.w / boundsOnTopLevelPagePx.w,
       y: sizeBl.h / boundsOnTopLevelPagePx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
-      const activeCompositeItem = VeFns.canonicalItem(hitInfo.overContainerVe!);
-      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitInfo.overContainerVe!);
+      const activeCompositeItem = VeFns.canonicalItem(HitInfoFns.getCompositeContainerVe(hitInfo)!);
+      const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, HitInfoFns.getCompositeContainerVe(hitInfo)!);
       onePxSizeBl = {
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,
         y: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).h / compositeBoundsOnTopLevelPagePx.h };
     } else {
-      const sizeBl = (hitInfo.overElementVes.get().flags & VisualElementFlags.EmbededInteractiveRoot)
+      const sizeBl = (HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.EmbededInteractiveRoot)
         ? ItemFns.calcSpatialDimensionsBl(activeItem, { w: 0, h: PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL })
         : ItemFns.calcSpatialDimensionsBl(activeItem);
       onePxSizeBl = {
@@ -289,22 +289,22 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
 
-  const canHitEmbeddedInteractive = !!(hitInfo.overElementVes.get().flags & VisualElementFlags.EmbededInteractiveRoot);
-  const hitInfoFiltered = getHitInfo(store, desktopPosPx, [hitInfo.overElementVes.get().displayItem.id], false, canHitEmbeddedInteractive);
+  const canHitEmbeddedInteractive = !!(HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.EmbededInteractiveRoot);
+  const hitInfoFiltered = HitInfoFns.hit(store, desktopPosPx, [HitInfoFns.getHitVe(hitInfo).displayItem.id], false, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
-  const activeElementPath = VeFns.veToPath(hitInfo.overElementVes.get());
+  const activeElementPath = VeFns.veToPath(HitInfoFns.getHitVe(hitInfo));
 
   if (longHoldTimeoutId) {
     clearTimeout(longHoldTimeoutId);
   }
 
-  const overDisplayItem = hitInfo.overElementVes.get().displayItem;
+  const overDisplayItem = HitInfoFns.getHitVe(hitInfo).displayItem;
   setTimeout(() => {
     if (MouseActionState.empty()) { return; }
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
     if (isPage(overDisplayItem)) {
-      PageFns.handleLongClick(hitInfo.overElementVes.get(), store);
+      PageFns.handleLongClick(HitInfoFns.getHitVe(hitInfo), store);
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);
@@ -313,10 +313,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   }, 750);
 
   MouseActionState.set({
-    activeRoot: VeFns.veToPath(hitInfo.rootVe.flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVe.parentPath!)!.get() : hitInfo.rootVe),
-    startActiveElementParent: hitInfo.overElementVes.get().parentPath!,
+    activeRoot: VeFns.veToPath(hitInfo.rootVes.get().flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVes.get().parentPath!)!.get() : hitInfo.rootVes.get()),
+    startActiveElementParent: HitInfoFns.getHitVe(hitInfo).parentPath!,
     activeElementPath,
-    activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(hitInfo.overContainerVe!) : null,
+    activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
     moveOver_containerElement: null,
     moveOver_attachHitboxElement: null,
     moveOver_attachCompositeHitboxElement: null,
@@ -406,9 +406,9 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   }
 
   // compact expanded list item.
-  let hi = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], true, false);
+  let hi = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], true, false);
   if (hi.hitboxType & HitboxFlags.Expand) {
-    const itemPath = VeFns.veToPath(hi.overElementVes.get());
+    const itemPath = VeFns.veToPath(HitInfoFns.getHitVe(hi));
     store.perVe.setIsExpanded(itemPath, !store.perVe.getIsExpanded(itemPath));
     fullArrange(store);
   }

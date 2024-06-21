@@ -27,7 +27,7 @@ import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { itemState } from "./store/ItemState";
 import { fullArrange } from "./layout/arrange";
-import { getHitInfo } from "./input/hit";
+import { HitInfoFns } from "./input/hit";
 
 
 export async function handleUpload(
@@ -50,7 +50,7 @@ export async function handleUpload(
 
   let posPx = { x: 0.0, y: 0.0 };
   if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const hbi = getHitInfo(store, desktopPx, [], false, false);
+    const hbi = HitInfoFns.hit(store, desktopPx, [], false, false);
     const propX = (desktopPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
     const propY = (desktopPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
     posPx = {

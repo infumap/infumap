@@ -17,7 +17,7 @@
 */
 
 import { StoreContextModel } from "../store/StoreProvider";
-import { getHitInfo } from "./hit";
+import { HitInfoFns } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState } from "./state";
@@ -30,7 +30,7 @@ export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent
   if (store.overlay.textEditInfo() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
 
-  const hitInfo = getHitInfo(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
+  const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
 
   store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(store), hitInfo });
   mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);

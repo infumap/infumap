@@ -38,7 +38,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { Vector, isInside } from "../util/geometry";
 import { panic } from "../util/lang";
 import { EMPTY_UID, Uid } from "../util/uid";
-import { HitInfo } from "./hit";
+import { HitInfo, HitInfoFns } from "./hit";
 
 
 function createNewItem(store: StoreContextModel, type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
@@ -64,7 +64,7 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
 }
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
-  const overElementVe = hitInfo.overElementVes.get();
+  const overElementVe = HitInfoFns.getHitVe(hitInfo);
   const overPositionableVe = hitInfo.overPositionableVe;
 
   let newItem;
