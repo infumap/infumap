@@ -17,10 +17,11 @@
 */
 
 import { GRID_SIZE } from "../constants";
+import { PageFlags } from "../items/base/flags-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
-import { isTable } from "../items/table-item";
+import { asTableItem, isTable } from "../items/table-item";
 import { HitboxMeta, HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
@@ -89,6 +90,11 @@ export interface HitInfo {
    * Position in the positionable element.
    */
   overPositionGr: Vector | null,
+
+  /**
+   * A string that identifies the point in the code the HitInfo was created. Useful for debugging.
+   */
+  debugCreatedAt: string,
 }
 
 
@@ -106,9 +112,9 @@ export const HitInfoFns = {
   },
 
   /**
-   * The visual element that was hit - the over element, or root if there is none.
+   * The visual element signal that was hit - the over element, or root if there is none.
    */
-  getOverVes: (hitInfo: HitInfo): VisualElementSignal => {
+  getHitVes: (hitInfo: HitInfo): VisualElementSignal => {
     if (hitInfo.overVes) { return hitInfo.overVes; }
     return hitInfo.rootVes;
   },
@@ -117,6 +123,7 @@ export const HitInfoFns = {
    * The visual element container immediately under the hit element.
    */
   getContainerImmediatelyUnderOverVe: (hitInfo: HitInfo): VisualElement => {
+    if (hitInfo.overVes) { return hitInfo.overVes.get(); }
     if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
     if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
     return hitInfo.rootVes.get();
@@ -135,9 +142,14 @@ export const HitInfoFns = {
    * Gets the table container under the hit point, or null if there is none.
    */
   getTableContainerVe: (hitInfo: HitInfo): VisualElement | null => {
+    if (hitInfo.overVes && isTable(VeFns.canonicalItem(hitInfo.overVes!.get()))) { return hitInfo.overVes.get(); }
     if (hitInfo.subSubRootVe && isTable(VeFns.canonicalItem(hitInfo.subSubRootVe))) { return hitInfo.subSubRootVe; }
     if (hitInfo.subRootVe && isTable(VeFns.canonicalItem(hitInfo.subRootVe))) { return hitInfo.subRootVe; }
     return null;
+  },
+
+  isOverTableInComposite: (hitInfo: HitInfo): boolean => {
+    return (HitInfoFns.getTableContainerVe(hitInfo) != null) && (HitInfoFns.getCompositeContainerVe(hitInfo) != null);
   },
 
   toDebugString: (hitInfo: HitInfo): string => {
@@ -205,9 +217,14 @@ export const HitInfoFns = {
       result += "overPositionGr: (" + hitInfo.overPositionGr!.x + ", " + hitInfo.overPositionGr!.y + ")\n";
     }
 
+    result += "debugCreatedAt: " + hitInfo.debugCreatedAt + "\n";
+
     return result;
   },
 
+  /**
+   * Intersect posOnDesktopPx with the cached visual element state.
+   */
   hit: (store: StoreContextModel,
         posOnDesktopPx: Vector,
         ignoreItems: Array<Uid>,
@@ -227,9 +244,6 @@ interface RootInfo {
 }
 
 
-/**
- * Intersect posOnDesktopPx with the cached visual element state.
- */
 function getHitInfo(
     store: StoreContextModel,
     posOnDesktopPx: Vector,
@@ -249,11 +263,11 @@ function getHitInfo(
     });
 
   // Root is either:
-  //  - the top level page, or
-  //  - the popup if open and the mouse is over it, or
-  //  - the selected page in a list page, or
-  //  - dock page, or
-  //  - an embedded root.
+  //  - The top level page, or
+  //  - The popup if open and the mouse is over it, or
+  //  - The selected page in a list page, or
+  //  - The dock page, or
+  //  - An embedded root.
 
   // progressively narrow it down:
 
@@ -306,7 +320,7 @@ function getHitInfoUnderRoot(
     if (hitMaybe) { return hitMaybe; }
   }
 
-  return finalize(HitboxFlags.None, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeViewportPx, canHitEmbeddedInteractive);
+  return finalize(HitboxFlags.None, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeViewportPx, canHitEmbeddedInteractive, "getHitInfoUnderRoot");
 }
 
 
@@ -353,6 +367,7 @@ function hitChildMaybe(
           overElementMeta: meta,
           overPositionableVe: noAttachmentResult.overPositionableVe,
           overPositionGr: noAttachmentResult.overPositionGr,
+          debugCreatedAt: "hitChildMaybe",
         };
       }
     }
@@ -382,7 +397,7 @@ function hitChildMaybe(
     }
   }
   if (!ignoreItems.find(a => a == childVe.displayItem.id)) {
-    return finalize(hitboxType, HitboxFlags.None, rootVes, childVes, meta, posRelativeToRootVeViewportPx, canHitEmbeddedInteractive);
+    return finalize(hitboxType, HitboxFlags.None, rootVes, childVes, meta, posRelativeToRootVeViewportPx, canHitEmbeddedInteractive, "hitChildMaybe");
   }
 
   return null;
@@ -494,7 +509,7 @@ function determinePopupOrSelectedRootMaybe(
           rootVe,
           posRelativeToRootVeBoundsPx,
           posRelativeToRootVeViewportPx,
-          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive)
+          hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe1")
         });
       }
       posRelativeToRootVeBoundsPx = vectorSubtract(
@@ -533,7 +548,7 @@ function determinePopupOrSelectedRootMaybe(
             rootVe,
             posRelativeToRootVeBoundsPx,
             posRelativeToRootVeViewportPx: posRelativeToRootVeBoundsPx,
-            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive)
+            hitMaybe: finalize(hitboxType, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe2")
           });
         }
 
@@ -550,7 +565,7 @@ function determinePopupOrSelectedRootMaybe(
   }
   let hitMaybe = null;
   if (hitboxType != HitboxFlags.None) {
-    hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive);
+    hitMaybe = finalize(hitboxType, HitboxFlags.None, rootVes, rootVes, null, posRelativeToRootVeBoundsPx, canHitEmbeddedInteractive, "determinePopupOrSelectedRootMaybe3");
   }
 
   const posRelativeToRootVeViewportPx = cloneVector(posRelativeToRootVeBoundsPx)!;
@@ -618,7 +633,7 @@ function determineEmbeddedRootMaybe(
         posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx,
         posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx,
         hitMaybe: hitboxType != HitboxFlags.None
-          ? finalize(hitboxType, HitboxFlags.None, childVes, childVes, null, newPosRelativeToRootVeViewportPx, canHitEmbeddedInteractive)
+          ? finalize(hitboxType, HitboxFlags.None, childVes, childVes, null, newPosRelativeToRootVeViewportPx, canHitEmbeddedInteractive, "determineEmbeddedRootMaybe")
           : null
       })
     }
@@ -649,7 +664,7 @@ function determineIfDockRoot(umbrellaVe: VisualElement, posOnDesktopPx: Vector):
       rootVe: dockVe,
       posRelativeToRootVeBoundsPx: posRelativeToRootVePx,
       posRelativeToRootVeViewportPx: posRelativeToRootVePx,
-      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVes, dockVes, null, posRelativeToRootVePx, false)
+      hitMaybe: finalize(hitboxType, HitboxFlags.None, dockVes, dockVes, null, posRelativeToRootVePx, false, "determineIfDockRoot")
     });
   }
 
@@ -684,14 +699,14 @@ function handleInsideTableMaybe(
   const resizeHitbox = tableVe.hitboxes[tableVe.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last table hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVePx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVes, tableVes, resizeHitbox.meta, posRelativeToRootVePx, false);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVes, tableVes, resizeHitbox.meta, posRelativeToRootVePx, false, "handleInsideTableMaybe1");
   }
   // col resize also takes precedence over anything in the child area.
   for (let j=tableVe.hitboxes.length-2; j>=0; j--) {
     const hb = tableVe.hitboxes[j];
     if (hb.type != HitboxFlags.HorizontalResize) { break; }
     if (isInside(posRelativeToRootVePx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
-      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVes, tableVes, hb.meta, posRelativeToRootVePx, false);
+      return finalize(HitboxFlags.HorizontalResize, HitboxFlags.None, rootVes, tableVes, hb.meta, posRelativeToRootVePx, false, "handleInsideTableMaybe2");
     }
   }
 
@@ -715,7 +730,7 @@ function handleInsideTableMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(hitboxType, HitboxFlags.None, rootVes, tableChildVes, meta, posRelativeToRootVePx, false);
+        return finalize(hitboxType, HitboxFlags.None, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableMaybe3");
       }
     }
     if (!ignoreAttachments) {
@@ -743,6 +758,7 @@ function handleInsideTableMaybe(
               overElementMeta: meta,
               overPositionableVe: noAttachmentResult.overPositionableVe,
               overPositionGr: noAttachmentResult.overPositionGr,
+              debugCreatedAt: "handleInsideTableMaybe",
             };
           }
         }
@@ -775,16 +791,16 @@ function handleInsideCompositeMaybe(
   const resizeHitbox = compositeVe.hitboxes[compositeVe.hitboxes.length-1];
   if (resizeHitbox.type != HitboxFlags.Resize) { panic("Last composite hitbox type is not Resize."); }
   if (isInside(posRelativeToRootVePx, offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
-    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVes, compositeVes, resizeHitbox.meta, posRelativeToRootVePx, false);
+    return finalize(HitboxFlags.Resize, HitboxFlags.None, rootVes, compositeVes, resizeHitbox.meta, posRelativeToRootVePx, false, "handleInsideCompositeMaybe1");
   }
 
   // for the composite case, also hit the container, even if a child is also hit.
   let compositeHitboxType = HitboxFlags.None;
-  let compositeMeta = null;
+  let _compositeMeta = null;
   for (let k=compositeVe.hitboxes.length-1; k>=0; --k) {
     if (isInside(posRelativeToRootVePx, offsetBoundingBoxTopLeftBy(compositeVe.hitboxes[k].boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
       compositeHitboxType |= compositeVe.hitboxes[k].type;
-      if (compositeVe.hitboxes[k].meta != null) { compositeMeta = compositeVe.hitboxes[k].meta; }
+      if (compositeVe.hitboxes[k].meta != null) { _compositeMeta = compositeVe.hitboxes[k].meta; }
     }
   }
 
@@ -804,18 +820,18 @@ function handleInsideCompositeMaybe(
       }
 
       if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-        const insideTableHit = handleInsideTableInCompositeMaybe(store, rootVes, compositeChildVe, compositeChildVes, ignoreItems, posRelativeToRootVePx, posRelativeToCompositeChildAreaPx, posOnDesktopPx, ignoreAttachments);
+        const insideTableHit = handleInsideTableInCompositeMaybe(store, rootVes, compositeChildVe, ignoreItems, posRelativeToRootVePx, posRelativeToCompositeChildAreaPx, posOnDesktopPx, ignoreAttachments);
         if (insideTableHit != null) { return insideTableHit; }
       }
 
-      if (hitboxType == HitboxFlags.None) {
+      if (hitboxType == HitboxFlags.None && !isTable(compositeChildVe.displayItem)) {
         // if inside a composite child, but didn't hit any hitboxes, then hit the composite, not the child.
         if (!ignoreItems.find(a => a == compositeVe.displayItem.id)) {
-          return finalize(compositeHitboxType, HitboxFlags.None, rootVes, compositeVes, meta, posRelativeToRootVePx, false);
+          return finalize(compositeHitboxType, HitboxFlags.None, rootVes, compositeVes, meta, posRelativeToRootVePx, false, "handleInsideCompositeMaybe2");
         }
       } else {
         if (!ignoreItems.find(a => a == compositeChildVe.displayItem.id)) {
-          return finalize(hitboxType, compositeHitboxType, rootVes, compositeChildVes, meta, posRelativeToRootVePx, false);
+          return finalize(hitboxType, compositeHitboxType, rootVes, compositeChildVes, meta, posRelativeToRootVePx, false, "handleInsideCompositeMaybe3");
         }
       }
     }
@@ -828,7 +844,6 @@ function handleInsideTableInCompositeMaybe(
     store: StoreContextModel,
     rootVes: VisualElementSignal,
     compositeChildVe: VisualElement,
-    compositeChildVes: VisualElementSignal,
     ignoreItems: Array<Uid>,
     posRelativeToRootVePx: Vector,
     posRelativeToCompositeChildAreaPx: Vector,
@@ -859,7 +874,7 @@ function handleInsideTableInCompositeMaybe(
         }
       }
       if (!ignoreItems.find(a => a == tableChildVe.displayItem.id)) {
-        return finalize(hitboxType, HitboxFlags.None, rootVes, tableChildVes, meta, posRelativeToRootVePx, false);
+        return finalize(hitboxType, HitboxFlags.None, rootVes, tableChildVes, meta, posRelativeToRootVePx, false, "handleInsideTableInCompositeMaybe1");
       }
     }
 
@@ -888,6 +903,7 @@ function handleInsideTableInCompositeMaybe(
               overElementMeta: meta,
               overPositionableVe: noAttachmentResult.overPositionableVe,
               overPositionGr: noAttachmentResult.overPositionGr,
+              debugCreatedAt: "handleInsideTableInCompositeMaybe",
             };
           }
         }
@@ -905,7 +921,8 @@ function finalize(
     overVes: VisualElementSignal,
     overElementMeta: HitboxMeta | null,
     posRelativeToRootVePx: Vector,
-    canHitEmbeddedInteractive: boolean): HitInfo {
+    canHitEmbeddedInteractive: boolean,
+    debugCreatedAt: string): HitInfo {
 
   const overVe = overVes.get();
   if (overVe.displayItem.id == PageFns.umbrellaPage().id) {
@@ -919,6 +936,7 @@ function finalize(
       overElementMeta: null,
       overPositionableVe: null,
       overPositionGr: null,
+      debugCreatedAt: "finalize " + debugCreatedAt + " (A)",
     };
   }
 
@@ -941,6 +959,7 @@ function finalize(
         overElementMeta,
         overPositionableVe,
         overPositionGr,
+        debugCreatedAt: "finalize " + debugCreatedAt + " (B)",
       };
     } else {
       assert(isPage(tableParentVe.displayItem), "the parent of a table that has a visual element child, is not a page.");
@@ -955,6 +974,7 @@ function finalize(
         overElementMeta,
         overPositionableVe,
         overPositionGr,
+        debugCreatedAt: "finalize " + debugCreatedAt + " (C)",
       };
     }
   }
@@ -987,6 +1007,7 @@ function finalize(
       overElementMeta,
       overPositionableVe,
       overPositionGr,
+      debugCreatedAt: "finalize " + debugCreatedAt + " (D)",
     };
   }
 
@@ -1024,6 +1045,7 @@ function finalize(
       overElementMeta,
       overPositionableVe,
       overPositionGr,
+      debugCreatedAt: "finalize " + debugCreatedAt + " (E)",
     };
   }
 
@@ -1042,6 +1064,7 @@ function finalize(
       compositeHitboxTypeMaybe: containerHitboxType,
       overElementMeta,
       overPositionGr,
+      debugCreatedAt: "finalize " + debugCreatedAt + " (F)",
     };
   }
 
@@ -1059,6 +1082,7 @@ function finalize(
       overElementMeta,
       overPositionableVe: overVeParent,
       overPositionGr,
+      debugCreatedAt: "finalize " + debugCreatedAt + " (G)",
     };
   }
 
@@ -1072,5 +1096,6 @@ function finalize(
     overElementMeta,
     overPositionableVe: overVeParent,
     overPositionGr,
+    debugCreatedAt: "finalize " + debugCreatedAt + " (H)",
   };
 }

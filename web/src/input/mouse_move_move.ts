@@ -110,6 +110,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const compositeItem = asCompositeItem(activeVisualElement.displayItem);
     for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
   }
+
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, false, MouseActionState.get().hitEmbeddedInteractive);
 
   // update move over element state.
@@ -156,9 +157,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     return;
   }
 
-  console.log("TODO: case where overContainer needs to be the table here.");
-  if (isTable(HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo).displayItem)) {
-    moving_handleOverTable(store, HitInfoFns.getContainerImmediatelyUnderOverVe(hitInfo), desktopPosPx);
+  const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
+  if (tableContainerVeMaybe) {
+    moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx);
   }
 
   const deltaBl = {

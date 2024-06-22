@@ -235,7 +235,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   }
 
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
-  if (hitInfo.hitboxType == HitboxFlags.None) {
+  if (hitInfo.hitboxType == HitboxFlags.None && !HitInfoFns.isOverTableInComposite(hitInfo)) {
     if (HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup && !viaOverlay) {
       DoubleClickState.preventDoubleClick();
       switchToPage(store, VeFns.actualVeidFromVe(HitInfoFns.getHitVe(hitInfo)), true, false, false);

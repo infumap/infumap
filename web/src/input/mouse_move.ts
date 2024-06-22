@@ -338,7 +338,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     store.mouseOverTableHeaderColumnNumber.set(null);
   }
 
-  const overElementVes = HitInfoFns.getOverVes(hitInfo);
+  const overElementVes = HitInfoFns.getHitVes(hitInfo);
   if (overElementVes != lastMouseOverVes || hasModal) {
     if (lastMouseOverVes != null) {
       store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);

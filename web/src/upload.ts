@@ -50,9 +50,9 @@ export async function handleUpload(
 
   let posPx = { x: 0.0, y: 0.0 };
   if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const hbi = HitInfoFns.hit(store, desktopPx, [], false, false);
-    const propX = (desktopPx.x - hbi.overElementVes.get().boundsPx.x) / hbi.overElementVes.get().boundsPx.w;
-    const propY = (desktopPx.y - hbi.overElementVes.get().boundsPx.y) / hbi.overElementVes.get().boundsPx.h;
+    const hitInfo = HitInfoFns.hit(store, desktopPx, [], false, false);
+    const propX = (desktopPx.x - HitInfoFns.getHitVe(hitInfo).boundsPx.x) / HitInfoFns.getHitVe(hitInfo).boundsPx.w;
+    const propY = (desktopPx.y - HitInfoFns.getHitVe(hitInfo).boundsPx.y) / HitInfoFns.getHitVe(hitInfo).boundsPx.h;
     posPx = {
       x: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
       y: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE / parent.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
