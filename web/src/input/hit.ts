@@ -17,6 +17,7 @@
 */
 
 import { GRID_SIZE } from "../constants";
+import { isContainer } from "../items/base/container-item";
 import { PageFlags } from "../items/base/flags-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
@@ -123,7 +124,12 @@ export const HitInfoFns = {
    * The visual element container immediately under the hit element.
    */
   getContainerImmediatelyUnderOverVe: (hitInfo: HitInfo): VisualElement => {
-    if (hitInfo.overVes) { return hitInfo.overVes.get(); }
+    if (hitInfo.overVes) {
+      const overVe = hitInfo.overVes.get();
+      if (isContainer(overVe.displayItem)) {
+        return hitInfo.overVes.get();
+      }
+    }
     if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
     if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
     return hitInfo.rootVes.get();
