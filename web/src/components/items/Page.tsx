@@ -246,14 +246,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderHoverOverMaybe = () =>
       <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
-        <div class={'absolute rounded-sm pointer-events-none'}
-             style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                    'background-color: #ffffff33;'} />
-        <Show when={hasPopupClickBoundsPx()}>
-          <div class={'absolute rounded-sm pointer-events-none'}
-               style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                      'background-color: #ffffff55;'} />
-        </Show>
+        <>
+          <Show when={!isInComposite()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff33;`} />
+          </Show>
+          <Show when={hasPopupClickBoundsPx()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
+                        `background-color: ${isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
+          </Show>
+        </>
       </Show>;
 
     const renderMovingOverMaybe = () =>
@@ -318,7 +322,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <Show when={showMoveOutOfCompositeArea()}>
               <div class={`absolute rounded-sm`}
                    style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
-                          `background-color: ${FEATURE_COLOR};`} />
+                          `background-color: ${FEATURE_COLOR_DARK};`} />
             </Show>
             {renderIsLinkMaybe()}
             <InfuResizeTriangle />
@@ -442,14 +446,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const renderHoverOverMaybe = () =>
       <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
-        <div class={`absolute rounded-sm`}
-             style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
-                    `background-color: #ffffff33;`} />
-        <Show when={hasPopupClickBoundsPx()}>
-          <div class={`absolute rounded-sm`}
-               style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
-                      `background-color: #ffffff55;`} />
-        </Show>
+        <>
+          <Show when={!isInComposite()}>
+            <div class={`absolute rounded-sm`}
+                style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
+                        `background-color: #ffffff33;`} />
+          </Show>
+          <Show when={hasPopupClickBoundsPx()}>
+            <div class={`absolute rounded-sm`}
+                 style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
+                        `background-color: ${isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
+          </Show>
+        </>
       </Show>;
 
     const renderMovingOverMaybe = () =>
