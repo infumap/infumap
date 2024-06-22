@@ -28,7 +28,7 @@ import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
-import { HitboxFlags } from "../layout/hitbox";
+import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElement } from "../layout/visual-element";

@@ -751,14 +751,14 @@ function handleInsideTableMaybe(
             return {
               overVes: attachmentVes,
               rootVes: rootVes,
-              subRootVe: noAttachmentResult.subRootVe,
+              subRootVe: tableVe,
               subSubRootVe: null,
               hitboxType,
               compositeHitboxTypeMaybe: HitboxFlags.None,
               overElementMeta: meta,
               overPositionableVe: noAttachmentResult.overPositionableVe,
               overPositionGr: noAttachmentResult.overPositionGr,
-              debugCreatedAt: "handleInsideTableMaybe",
+              debugCreatedAt: "handleInsideTableMaybe (attachment)",
             };
           }
         }
@@ -897,13 +897,13 @@ function handleInsideTableInCompositeMaybe(
               overVes: attachmentVes,
               rootVes,
               subRootVe: noAttachmentResult.subRootVe,
-              subSubRootVe: null,
+              subSubRootVe: tableVe,
               hitboxType,
               compositeHitboxTypeMaybe: HitboxFlags.None,
               overElementMeta: meta,
               overPositionableVe: noAttachmentResult.overPositionableVe,
               overPositionGr: noAttachmentResult.overPositionGr,
-              debugCreatedAt: "handleInsideTableInCompositeMaybe",
+              debugCreatedAt: "handleInsideTableInCompositeMaybe (attachment)",
             };
           }
         }
