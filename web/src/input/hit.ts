@@ -18,11 +18,10 @@
 
 import { GRID_SIZE } from "../constants";
 import { isContainer } from "../items/base/container-item";
-import { PageFlags } from "../items/base/flags-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { isTable } from "../items/table-item";
 import { HitboxMeta, HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns } from "../layout/visual-element";
@@ -34,7 +33,7 @@ import { Uid } from "../util/uid";
 
 
 /**
- * Information pertaining to the current visual state under a specific screen position.
+ * Information pertaining to the current visual state under a specific screen pixel position.
  * The result of a call to HitInfoFns.hit.
  * 
  * rootVe, subRootVe, subSubRootVe and overVes are always different elements (or null).
@@ -64,7 +63,7 @@ export interface HitInfo {
 
 
   /**
-   * The intersected hitbox flags of overElement.
+   * The intersected hitbox flags of overVes.
    */
   hitboxType: HitboxFlags,
 
@@ -154,6 +153,9 @@ export const HitInfoFns = {
     return null;
   },
 
+  /**
+   * Whether or not the hit point is over a table inside a composite.
+   */
   isOverTableInComposite: (hitInfo: HitInfo): boolean => {
     return (HitInfoFns.getTableContainerVe(hitInfo) != null) && (HitInfoFns.getCompositeContainerVe(hitInfo) != null);
   },
