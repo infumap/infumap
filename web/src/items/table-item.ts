@@ -42,6 +42,7 @@ import { VesCache } from "../layout/ves-cache";
 import { fullArrange } from "../layout/arrange";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { CursorEventState } from "../input/state";
+import { asCompositeItem, isComposite } from "./composite-item";
 
 
 export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -342,6 +343,11 @@ export const TableFns = {
       w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
       h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
     };
+    const tableParentVe = VesCache.get(tableVe.parentPath!)!.get();
+    if (isComposite(tableParentVe.displayItem)) {
+      tableDimensionsBl.w = asCompositeItem(tableParentVe.displayItem).spatialWidthGr / GRID_SIZE;
+    }
+
     const tableBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, tableVe);
 
     // col
@@ -349,6 +355,7 @@ export const TableFns = {
     if (colLen > tableItem.numberOfVisibleColumns) { colLen = tableItem.numberOfVisibleColumns; }
     const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
     const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
+
     let accumBl = 0;
     let colNumber = colLen - 1;
     for (let i=0; i<colLen; ++i) {
