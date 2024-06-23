@@ -293,7 +293,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <InfuLinkTriangle />
       </Show>;
 
-
     const renderShadowMaybe = () =>
       <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
         <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}

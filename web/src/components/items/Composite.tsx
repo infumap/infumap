@@ -44,6 +44,7 @@ import { asPositionalItem } from "../../items/base/positional-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { asExpressionItem, isExpression } from "../../items/expression-item";
 import { asPasswordItem, isPassword } from "../../items/password-item";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -286,6 +287,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <InfuLinkTriangle />
         </Show>
+        <InfuResizeTriangle />
       </div>
     </>
   );
