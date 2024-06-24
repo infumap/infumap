@@ -18,6 +18,7 @@
 
 import { GRID_SIZE } from "../constants";
 import { isContainer } from "../items/base/container-item";
+import { PageFlags } from "../items/base/flags-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
@@ -127,14 +128,18 @@ export const HitInfoFns = {
    * The top most container element (including if this was the hit element)
    */
   getHitContainerVe: (hitInfo: HitInfo): VisualElement => {
-    if (hitInfo.overVes) {
-      const overVe = hitInfo.overVes.get();
-      if (isContainer(overVe.displayItem)) {
-        return hitInfo.overVes.get();
-      }
-    }
     if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
     if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
+    if (hitInfo.overVes) {
+      const overVe = hitInfo.overVes.get();
+      if (isPage(overVe.displayItem)) {
+        if (asPageItem(overVe.displayItem).flags & PageFlags.EmbeddedInteractive) {
+          if (hitInfo.parentRootVe) {
+            return hitInfo.parentRootVe;
+          }
+        }
+      }
+    }
     return hitInfo.rootVes.get();
   },
 
