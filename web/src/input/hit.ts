@@ -127,7 +127,7 @@ export const HitInfoFns = {
   /**
    * The top most container element (including if this was the hit element)
    */
-  getHitContainerVe: (hitInfo: HitInfo): VisualElement => {
+  getOverContainerVe: (hitInfo: HitInfo): VisualElement => {
     if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
     if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
     if (hitInfo.overVes) {
