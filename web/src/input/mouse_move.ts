@@ -17,7 +17,7 @@
 */
 
 import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
-import { HitboxFlags } from "../layout/hitbox";
+import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, isPage, PageFns } from "../items/page-item";
@@ -36,6 +36,7 @@ import { fullArrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
+import { isComposite } from "../items/composite-item";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -385,7 +386,10 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) {
       document.body.style.cursor = "pointer";
-    }else {
+    } else if (hitInfo.hitboxType & HitboxFlags.Move &&
+              isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
+      document.body.style.cursor = "pointer";
+    } else {
       document.body.style.cursor = "default";
     }
   }
