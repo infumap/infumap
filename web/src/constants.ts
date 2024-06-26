@@ -28,9 +28,6 @@ export const ATTACH_AREA_SIZE_PX = 10;
 
 export const LINK_TRIANGLE_SIZE_PX = 10;
 
-export const COMPOSITE_MOVE_OUT_AREA_SIZE_PX = 10;
-export const COMPOSITE_MOVE_OUT_AREA_MARGIN_PX = 2;
-
 export const FONT_SIZE_PX = 16;
 
 export const LINE_HEIGHT_PX = 24;
@@ -49,6 +46,11 @@ export const LIST_PAGE_TOP_PADDING_PX = 4;
 export const ITEM_BORDER_WIDTH_PX = 1;
 
 export const PADDING_PROP = 0.15;
+
+export const COMPOSITE_MOVE_OUT_AREA_SIZE_PX = 10;
+export const COMPOSITE_MOVE_OUT_AREA_MARGIN_PX = 2;
+export const COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX = 2;
+export const CONTAINER_IN_COMPOSITE_PADDING_PX = 3;
 export const COMPOSITE_ITEM_GAP_BL = 0.15;
 
 export const ANCHOR_BOX_SIZE_PX = 20;

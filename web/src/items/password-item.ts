@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -147,7 +147,11 @@ export const PasswordFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveBoundsPx = {
-      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      x: innerBoundsPx.w
+          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+          - CONTAINER_IN_COMPOSITE_PADDING_PX
+          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX

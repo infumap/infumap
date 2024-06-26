@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -62,7 +62,11 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
-      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+      x: boundsPx().w
+          - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+          - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+          - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
+          - CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),

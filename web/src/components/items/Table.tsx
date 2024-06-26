@@ -99,7 +99,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
-      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX - 2,
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
