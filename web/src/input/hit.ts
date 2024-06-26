@@ -131,13 +131,8 @@ export const HitInfoFns = {
     if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
     if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
     if (hitInfo.overVes) {
-      const overVe = hitInfo.overVes.get();
-      if (isPage(overVe.displayItem)) {
-        if (asPageItem(overVe.displayItem).flags & PageFlags.EmbeddedInteractive) {
-          if (hitInfo.parentRootVe) {
-            return hitInfo.parentRootVe;
-          }
-        }
+      if (isContainer(hitInfo.overVes.get().displayItem)) {
+        return hitInfo.overVes.get();
       }
     }
     return hitInfo.rootVes.get();
