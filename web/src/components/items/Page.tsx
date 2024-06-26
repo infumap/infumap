@@ -725,40 +725,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
       </Show>;
 
-    const borderStyle = () =>
-      isDockItem()
-        ? `border-color: ${Colors[pageItem().backgroundColorIndex]}; `
-        : `border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; `;
-
-    const renderEmbededInteractiveBackgroundMaybe = () =>
-      <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full"
-             style={`background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; ` +
-                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
-                    borderStyle()} />
-      </Show>;
-
-    const renderEmbededInteractiveForegroundMaybe = () =>
-      <Show when={isEmbeddedInteractive()}>
-        <div class="absolute w-full pointer-events-none"
-             style={`z-index: ${Z_INDEX_ITEMS}; ` +
-                    `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
-                    borderStyle()} />
-      </Show>;
-
-    const renderEmbededInteractiveTitleMaybe = () =>
-      <Show when={isEmbeddedInteractive()}>
-        <div class={`absolute`}
-             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px;`}>
-          <div class="absolute font-bold"
-               style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale()}px; ` +
-                      `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
-                      `overflow-wrap: break-word;`}>
-            {pageItem().title}
-          </div>
-        </div>
-      </Show>;
-
     const renderListPage = () =>
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
            style={`width: ${viewportBoundsPx().w}px; ` +
@@ -852,7 +818,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class={`absolute`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-color: #ffffff;`}>
-          {renderEmbededInteractiveBackgroundMaybe()}
           <Switch>
             <Match when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
               {renderListPage()}
@@ -861,8 +826,126 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               {renderPage()}
             </Match>
           </Switch>
-          {renderEmbededInteractiveForegroundMaybe()}
           {renderIsPublicBorder()}
+        </div>
+      </>
+    );
+  }
+
+
+  // ## Embedded Root
+
+  const renderAsEmbeddedRoot = () => {
+
+    const borderStyle = () =>
+      isDockItem()
+        ? `border-color: ${Colors[pageItem().backgroundColorIndex]}; `
+        : `border-width: 1px; border-color: ${Colors[pageItem().backgroundColorIndex]}; `;
+
+    const renderEmbededInteractiveBackground = () =>
+      <div class="absolute w-full"
+           style={`background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.95)}; ` +
+                  `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+                  borderStyle()} />;
+
+    const renderEmbededInteractiveForeground = () =>
+      <div class="absolute w-full pointer-events-none"
+           style={`${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+                  `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
+                  borderStyle()} />;
+
+    const renderEmbededInteractiveTitleMaybe = () =>
+      <Show when={isEmbeddedInteractive()}>
+        <div class={`absolute`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px;`}>
+          <div class="absolute font-bold"
+               style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale()}px; ` +
+                      `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
+                      `overflow-wrap: break-word;` +
+                      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+            {pageItem().title}
+          </div>
+        </div>
+      </Show>;
+
+    const renderListPage = () =>
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+           style={`width: ${viewportBoundsPx().w}px; ` +
+                  `height: ${viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0)}px; left: 0px; ` +
+                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
+                  `background-color: #ffffff;` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div ref={rootDiv}
+             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
+                    `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
+             style={`overflow-y: auto; ` +
+                    `width: ${viewportBoundsPx().w}px; ` +
+                    `height: ${viewportBoundsPx().h}px; ` +
+                    `background-color: #ffffff;` +
+                    `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+          <div class="absolute"
+               style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
+            <For each={lineVes()}>{childVe =>
+              <VisualElement_LineItem visualElement={childVe.get()} />
+            }</For>
+          </div>
+        </div>
+        <For each={desktopVes()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} />
+        }</For>
+        <Show when={props.visualElement.selectedVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.selectedVes!.get()} />
+        </Show>
+        <Show when={props.visualElement.popupVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+        </Show>
+      </div>;
+
+    const renderPage = () =>
+      <div ref={rootDiv}
+           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
+           style={`left: 0px; ` +
+                  `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeight() : 0) + (boundsPx().h - viewportBoundsPx().h)}px; ` +
+                  `width: ${viewportBoundsPx().w}px; height: ${viewportBoundsPx().h}px; ` +
+                  `overflow-y: ${viewportBoundsPx().h < childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
+                  `overflow-x: ${viewportBoundsPx().w < childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
+                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+        <div class="absolute"
+             style={`left: 0px; top: 0px; ` +
+                    `width: ${childAreaBoundsPx().w}px; ` +
+                    `height: ${childAreaBoundsPx().h}px;`}>
+          <For each={props.visualElement.childrenVes}>{childVes =>
+            <VisualElement_Desktop visualElement={childVes.get()} />
+          }</For>
+          <Show when={props.visualElement.popupVes != null}>
+            <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
+          </Show>
+          <Show when={isPage(VeFns.canonicalItem(props.visualElement)) && asPageItem(VeFns.canonicalItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
+            <>
+              <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
+              <div class="absolute" style={`left: ${(asPageItem(VeFns.canonicalItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
+            </>
+          </Show>
+          {renderGridlinesMaybe()}
+        </div>
+      </div>;
+
+    return (
+      <>
+        <div class={`absolute`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `background-color: #ffffff;`}>
+          {renderEmbededInteractiveBackground()}
+          <Switch>
+            <Match when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
+              {renderListPage()}
+            </Match>
+            <Match when={pageItem().arrangeAlgorithm != ArrangeAlgorithm.List}>
+              {renderPage()}
+            </Match>
+          </Switch>
+          {renderEmbededInteractiveForeground()}
         </div>
         {renderEmbededInteractiveTitleMaybe()}
       </>
@@ -905,9 +988,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         {renderAsPopup()}
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
-                   props.visualElement.flags & VisualElementFlags.ListPageRoot ||
-                   props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot}>
+                   props.visualElement.flags & VisualElementFlags.ListPageRoot}>
         {renderAsRoot()}
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot}>
+        {renderAsEmbeddedRoot()}
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
                    !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
