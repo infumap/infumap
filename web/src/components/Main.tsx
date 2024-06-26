@@ -38,6 +38,7 @@ import { keyDownHandler } from "../input/key";
 import { fArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
+import { composite_selectionChangeListener } from "./items/Composite";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -127,6 +128,7 @@ export const Main: Component = () => {
     document.addEventListener('keydown', keyDownListener);
     window.addEventListener('resize', windowResizeListener);
     window.addEventListener('popstate', windowPopStateListener);
+    document.addEventListener('selectionchange', selectionChangeListener);
   });
 
   onCleanup(() => {
@@ -134,7 +136,12 @@ export const Main: Component = () => {
     document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('resize', windowResizeListener);
     window.removeEventListener('popstate', windowPopStateListener);
+    document.removeEventListener('selectionchange', selectionChangeListener)
   });
+
+  const selectionChangeListener = () => {
+    composite_selectionChangeListener();
+  }
 
   const keyDownListener = (ev: KeyboardEvent) => {
     keyDownHandler(store, ev);

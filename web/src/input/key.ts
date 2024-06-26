@@ -193,3 +193,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     panic(`Unexpected key code: ${ev.code}`);
   }
 }
+
+export function isArrowKey(key: string) {
+  if (key == "ArrowDown") { return true; }
+  if (key == "ArrowUp") { return true; }
+  if (key == "ArrowLeft") { return true; }
+  if (key == "ArrowRight") { return true; }
+  return false;
+}

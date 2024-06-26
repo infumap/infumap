@@ -45,6 +45,20 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { asExpressionItem, isExpression } from "../../items/expression-item";
 import { asPasswordItem, isPassword } from "../../items/password-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { isArrowKey } from "../../input/key";
+import { isTable } from "../../items/table-item";
+
+
+let arrowKeyDown_caretPosition = null;
+let arrowKeyDown_element = null;
+
+export function composite_selectionChangeListener() {
+  try {
+    getCurrentCaretVePath_title();
+  } catch (e) {
+    setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
+  }
+}
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -67,28 +81,20 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
   const keyUpHandler = (ev: KeyboardEvent) => {
-    switch (ev.key) {
-      case "ArrowDown":
-        keyUp_Arrow();
-        break;
-      case "ArrowUp":
-        keyUp_Arrow();
-        break;
-      case "ArrowLeft":
-        keyUp_Arrow();
-        break;
-      case "ArrowRight":
-        keyUp_Arrow();
-        break;
+    if (isArrowKey(ev.key)) {
+      keyUp_Arrow();
     }
   }
 
   const keyUp_Arrow = () => {
+    arrowKeyDown_caretPosition = null;
+    arrowKeyDown_element = null;
+
     let currentCaretItemPath;
     try {
       currentCaretItemPath = getCurrentCaretVePath_title();
     } catch (e) {
-      console.log("bad current caret ve path", e);
+      console.log("bad current caret ve path: ", e);
       return;
     }
     const currentEditingPath = store.history.getFocusPath();
@@ -109,6 +115,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Expression });
       } else if (isPassword(newVe.displayItem)) {
         store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Password });
+      } else if (isTable(newVe.displayItem)) {
+        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Table });
       } else {
         console.warn("arrow key handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
       }
@@ -120,6 +128,16 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
+    if (isArrowKey(ev.key)) {
+      const itemPath = store.overlay.textEditInfo()!.itemPath;
+      const editingDomId = itemPath + ":title";
+      const textElement = document.getElementById(editingDomId);
+      const caretPosition = getCaretPosition(textElement!);
+      arrowKeyDown_caretPosition = caretPosition;
+      arrowKeyDown_element = textElement;
+      return;
+    }
+
     switch (ev.key) {
       case "Backspace":
         const el = currentCaretElement();

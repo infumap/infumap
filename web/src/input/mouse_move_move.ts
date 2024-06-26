@@ -200,21 +200,13 @@ function moving_handleOverTable(store: StoreContextModel, overContainerVe: Visua
 
 
 function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean) {
-  console.log("moving_activeItemToPage: ", moveToVe.displayItem.id, "TODO: check for move into child.");
   const activeElement = VesCache.get(MouseActionState.get().activeElementPath!)!.get();
   const canonicalActiveItem = asPositionalItem(VeFns.canonicalItem(activeElement));
 
   const pagePx = VeFns.desktopPxToTopLevelPagePx(store, desktopPx);
 
   const moveToPage = asPageItem(moveToVe.displayItem);
-  let moveToPageAbsoluteBoundsPx;
-  // if (moveToVe.parentPath == null) {
-  //   // moveToVe is top level page is a special case - the only one where it's appropropriate
-  //   // for dimensions to be that of clientAreaBounds not boundsPx.
-  //   moveToPageAbsoluteBoundsPx = moveToVe.childAreaBoundsPx!;
-  // } else {
-    moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToVe);
-  // }
+  const moveToPageAbsoluteBoundsPx = VeFns.veBoundsRelativeToDestkopPx(store, moveToVe);
 
   const moveToPageInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(moveToPage);
   const mousePointBl = {
