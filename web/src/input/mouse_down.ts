@@ -290,7 +290,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);
 
   const canHitEmbeddedInteractive = !!(HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.EmbededInteractiveRoot);
-  const hitInfoFiltered = HitInfoFns.hit(store, desktopPosPx, [HitInfoFns.getHitVe(hitInfo).displayItem.id], false, canHitEmbeddedInteractive);
+  const ignoreItems = [HitInfoFns.getHitVe(hitInfo).displayItem.id];
+  const hitInfoFiltered = HitInfoFns.hit(store, desktopPosPx, ignoreItems, false, canHitEmbeddedInteractive);
   const scaleDefiningElement = VeFns.veToPath(hitInfoFiltered.overPositionableVe!);
 
   const activeElementPath = VeFns.veToPath(HitInfoFns.getHitVe(hitInfo));

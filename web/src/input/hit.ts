@@ -323,7 +323,7 @@ function getHitInfo(
     }
   }
 
-  rootInfo = determineEmbeddedRootMaybe(store, rootInfo, canHitEmbeddedInteractive);
+  rootInfo = determineEmbeddedRootMaybe(store, rootInfo, ignoreItems, canHitEmbeddedInteractive);
   if (rootInfo.hitMaybe) {
     if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
       return rootInfo.hitMaybe!; // hit a root hitbox, done already.
@@ -636,6 +636,7 @@ function determinePopupOrSelectedRootMaybe(
 function determineEmbeddedRootMaybe(
     store: StoreContextModel,
     parentRootInfo: RootInfo,
+    ignoreItems: Array<Uid>,
     canHitEmbeddedInteractive: boolean): RootInfo {
 
   const {
@@ -646,9 +647,9 @@ function determineEmbeddedRootMaybe(
   for (let i=0; i<rootVe.childrenVes.length; ++i) {
     const childVes = rootVe.childrenVes[i];
     const childVe = childVes.get();
-    if (!(childVe.flags & VisualElementFlags.EmbededInteractiveRoot)) {
-      continue;
-    }
+
+    if (ignoreItems.find(a => a == childVe.displayItem.id)) { continue; }
+    if (!(childVe.flags & VisualElementFlags.EmbededInteractiveRoot)) { continue; }
 
     if (isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) {
       const childVeid = VeFns.veidFromVe(childVe);
