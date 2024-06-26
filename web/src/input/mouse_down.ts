@@ -258,6 +258,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
   const activeItem = VeFns.canonicalItem(HitInfoFns.getHitVe(hitInfo));
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, HitInfoFns.getHitVe(hitInfo));
   let onePxSizeBl;
+
   if (HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) {
     const sizeBl = isPage(HitInfoFns.getHitVe(hitInfo).displayItem)
       ? ItemFns.calcSpatialDimensionsBl(HitInfoFns.getHitVe(hitInfo).linkItemMaybe!, { w: 0, h: PAGE_POPUP_TITLE_HEIGHT_BL })
@@ -267,7 +268,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, viaOverlay: boole
       y: sizeBl.h / boundsOnTopLevelPagePx.h };
   } else {
     if (hitInfo.compositeHitboxTypeMaybe) {
-      const activeCompositeItem = VeFns.canonicalItem(HitInfoFns.getCompositeContainerVe(hitInfo)!);
+      const compositeVe = HitInfoFns.getCompositeContainerVe(hitInfo)!;
+      const activeCompositeItem = VeFns.canonicalItem(compositeVe);
       const compositeBoundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, HitInfoFns.getCompositeContainerVe(hitInfo)!);
       onePxSizeBl = {
         x: ItemFns.calcSpatialDimensionsBl(activeCompositeItem).w / compositeBoundsOnTopLevelPagePx.w,

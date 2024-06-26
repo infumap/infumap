@@ -36,7 +36,7 @@ import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
-import { panic } from "../util/lang";
+import { assert, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 
@@ -185,6 +185,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
 
 function moving_handleOverTable(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
+  assert(isTable(overContainerVe.displayItem), "overContainerVe is not a table");
   const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overContainerVe, desktopPx);
   store.perVe.setMoveOverRowNumber(VeFns.veToPath(overContainerVe), insertRow);
 

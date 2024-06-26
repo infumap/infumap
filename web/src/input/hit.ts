@@ -128,13 +128,13 @@ export const HitInfoFns = {
    * The top most container element (including if this was the hit element)
    */
   getOverContainerVe: (hitInfo: HitInfo): VisualElement => {
-    if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
-    if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
     if (hitInfo.overVes) {
       if (isContainer(hitInfo.overVes.get().displayItem)) {
         return hitInfo.overVes.get();
       }
     }
+    if (hitInfo.subSubRootVe) { return hitInfo.subSubRootVe; }
+    if (hitInfo.subRootVe) { return hitInfo.subRootVe; }
     return hitInfo.rootVes.get();
   },
 
@@ -151,8 +151,9 @@ export const HitInfoFns = {
    * Gets the composite container under the hit point, or null if there is none.
    */
   getCompositeContainerVe: (hitInfo: HitInfo): VisualElement | null => {
-    if (hitInfo.subSubRootVe && isComposite(VeFns.canonicalItem(hitInfo.subSubRootVe))) { return hitInfo.subSubRootVe; }
-    if (hitInfo.subRootVe && isComposite(VeFns.canonicalItem(hitInfo.subRootVe))) { return hitInfo.subRootVe; }
+    if (hitInfo.overVes && isComposite(hitInfo.overVes.get().displayItem)) { return hitInfo.overVes.get(); }
+    if (hitInfo.subSubRootVe && isComposite(hitInfo.subSubRootVe.displayItem)) { return hitInfo.subSubRootVe; }
+    if (hitInfo.subRootVe && isComposite(hitInfo.subRootVe.displayItem)) { return hitInfo.subRootVe; }
     return null;
   },
 
@@ -160,9 +161,9 @@ export const HitInfoFns = {
    * Gets the table container under the hit point, or null if there is none.
    */
   getTableContainerVe: (hitInfo: HitInfo): VisualElement | null => {
-    if (hitInfo.overVes && isTable(VeFns.canonicalItem(hitInfo.overVes!.get()))) { return hitInfo.overVes.get(); }
-    if (hitInfo.subSubRootVe && isTable(VeFns.canonicalItem(hitInfo.subSubRootVe))) { return hitInfo.subSubRootVe; }
-    if (hitInfo.subRootVe && isTable(VeFns.canonicalItem(hitInfo.subRootVe))) { return hitInfo.subRootVe; }
+    if (hitInfo.overVes && isTable(hitInfo.overVes!.get().displayItem)) { return hitInfo.overVes.get(); }
+    if (hitInfo.subSubRootVe && isTable(hitInfo.subSubRootVe.displayItem)) { return hitInfo.subSubRootVe; }
+    if (hitInfo.subRootVe && isTable(hitInfo.subRootVe.displayItem)) { return hitInfo.subRootVe; }
     return null;
   },
 
@@ -1066,7 +1067,7 @@ function finalize(
     };
   }
 
-  if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren) && !(overVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
+  if (isPage(overVe.displayItem) && (overVe.flags & VisualElementFlags.ShowChildren)) {
     let prop = {
       x: (posRelativeToRootVePx.x - overVe.viewportBoundsPx!.x) / overVe.childAreaBoundsPx!.w,
       y: (posRelativeToRootVePx.y - overVe.viewportBoundsPx!.y) / overVe.childAreaBoundsPx!.h
@@ -1090,19 +1091,41 @@ function finalize(
       }
     }
 
-    return {
-      overVes,
-      rootVes,
-      parentRootVe,
-      subRootVe: null,
-      subSubRootVe: null,
-      hitboxType,
-      compositeHitboxTypeMaybe: containerHitboxType,
-      overElementMeta,
-      overPositionableVe,
-      overPositionGr,
-      debugCreatedAt: "finalize " + debugCreatedAt + " (E)",
-    };
+    if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
+      const parentCompositeVe = VesCache.get(overVe.parentPath!)!.get();
+      const compositeParentPageVe = VesCache.get(parentCompositeVe.parentPath!)!.get();
+      assert(isPage(compositeParentPageVe.displayItem), "the parent of a composite that has a visual element child, is not a page.");
+      assert((compositeParentPageVe.flags & VisualElementFlags.ShowChildren) > 0, "page containing composite is not marked as having children visible.");
+      return {
+        overVes,
+        rootVes,
+        parentRootVe,
+        subRootVe: parentCompositeVe,
+        subSubRootVe: null,
+        overPositionableVe,
+        hitboxType,
+        compositeHitboxTypeMaybe: containerHitboxType,
+        overElementMeta,
+        overPositionGr,
+        debugCreatedAt: "finalize " + debugCreatedAt + " (E1)",
+      };
+    }
+
+    else {
+      return {
+        overVes,
+        rootVes,
+        parentRootVe,
+        subRootVe: null,
+        subSubRootVe: null,
+        hitboxType,
+        compositeHitboxTypeMaybe: containerHitboxType,
+        overElementMeta,
+        overPositionableVe,
+        overPositionGr,
+        debugCreatedAt: "finalize " + debugCreatedAt + " (E2)",
+      };
+    }
   }
 
   if (overVe.flags & VisualElementFlags.InsideCompositeOrDoc && isComposite(VesCache.get(overVe.parentPath!)!.get().displayItem)) {
