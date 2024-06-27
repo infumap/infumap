@@ -125,11 +125,11 @@ function arrangeCompositeChildItem(
   }
 
   if (isPage(displayItem_childItem)) {
-    const renderPageWithChildren = (() => {
-      if (!isPage(displayItem_childItem)) { return false; }
-      // This test does not depend on pixel size, so is invariant over display devices.
-      return (compositeWidthBl >= CHILD_ITEMS_VISIBLE_WIDTH_BL);
-    })();
+    let widthBl = compositeWidthBl;
+    if (asPageItem(displayItem_childItem).spatialWidthGr / GRID_SIZE < widthBl) {
+      widthBl = asPageItem(displayItem_childItem).spatialWidthGr / GRID_SIZE;
+    }
+    const renderPageWithChildren = widthBl >= CHILD_ITEMS_VISIBLE_WIDTH_BL;
     if (renderPageWithChildren) {
       initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));
       return arrangePageWithChildren(

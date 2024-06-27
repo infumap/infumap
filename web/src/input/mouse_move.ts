@@ -36,7 +36,7 @@ import { fullArrange } from "../layout/arrange";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
-import { isComposite } from "../items/composite-item";
+import { asCompositeItem, isComposite } from "../items/composite-item";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -133,6 +133,15 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.ResizingPopup;
     } else {
       MouseActionState.get().startWidthBl = asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE;
+      if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
+        const parentPath = activeVisualElement.parentPath!;
+        const parentVe = VesCache.get(parentPath)!.get();
+        // TODO (MEDIUM): document page type support.
+        const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
+        if (compositeWidthBl < MouseActionState.get().startWidthBl!) {
+          MouseActionState.get().startWidthBl = compositeWidthBl;
+        }
+      }
       if (isYSizableItem(activeItem)) {
         MouseActionState.get().startHeightBl = asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE;
       } else if(isLink(activeItem) && isYSizableItem(activeVisualElement.displayItem)) {
@@ -225,6 +234,17 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
   newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
   if (newWidthBl < 1) { newWidthBl = 1.0; }
+
+  if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
+    const parentPath = activeVisualElement.parentPath!;
+    const parentVe = VesCache.get(parentPath)!.get();
+    // TODO (MEDIUM): document page type support.
+    const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
+    if (compositeWidthBl < newWidthBl) {
+      newWidthBl = compositeWidthBl;
+    }
+  }
+
   const newWidthGr = newWidthBl * GRID_SIZE;
 
   if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {

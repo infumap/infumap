@@ -35,6 +35,7 @@ import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-eleme
 import { StoreContextModel } from '../store/StoreProvider';
 import { VesCache } from '../layout/ves-cache';
 import { fullArrange } from '../layout/arrange';
+import { asPageItem, isPage } from './page-item';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -129,7 +130,11 @@ export const CompositeFns = {
       // Tables: allow to be sized arbitrarily, but will be scaled.
       // Notes: will be sized to width of composite.
       // For now, just consider x sizable items, and only in a basic way. assume note or file.
-      if (isXSizableItem(cloned)) {
+      if (isPage(cloned)) {
+        if (asPageItem(cloned).spatialWidthGr > composite.spatialWidthGr) {
+          asPageItem(cloned).spatialWidthGr = composite.spatialWidthGr;
+        }
+      } else if (isXSizableItem(cloned)) {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
       }
       const sizeBl = ItemFns.calcSpatialDimensionsBl(cloned);
@@ -138,31 +143,6 @@ export const CompositeFns = {
     bh -= COMPOSITE_ITEM_GAP_BL;
     bh = Math.ceil(bh*2)/2;
     return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
-  },
-
-  calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
-    const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
-    const blockSizePx = {
-      w: containerBoundsPx.w / containerInnerSizeBl.w,
-      h: containerBoundsPx.h / containerInnerSizeBl.h
-    };
-    const boundsPx = {
-      x: (composite.spatialPositionGr.x / GRID_SIZE) * blockSizePx.w + containerBoundsPx.x,
-      y: (composite.spatialPositionGr.y / GRID_SIZE) * blockSizePx.h + containerBoundsPx.y,
-      w: sizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
-      h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
-    };
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    return ({
-      boundsPx,
-      blockSizePx,
-      viewportBoundsPx: boundsPx,
-      hitboxes: !emitHitboxes ? [] : [
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
-        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
-      ],
-    });
   },
 
   calcGeometry_InComposite: (_measurable: CompositeMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
@@ -195,6 +175,31 @@ export const CompositeFns = {
         }),
       ]
     };
+  },
+
+  calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+    const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
+    const blockSizePx = {
+      w: containerBoundsPx.w / containerInnerSizeBl.w,
+      h: containerBoundsPx.h / containerInnerSizeBl.h
+    };
+    const boundsPx = {
+      x: (composite.spatialPositionGr.x / GRID_SIZE) * blockSizePx.w + containerBoundsPx.x,
+      y: (composite.spatialPositionGr.y / GRID_SIZE) * blockSizePx.h + containerBoundsPx.y,
+      w: sizeBl.w * blockSizePx.w + ITEM_BORDER_WIDTH_PX,
+      h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    return ({
+      boundsPx,
+      blockSizePx,
+      viewportBoundsPx: boundsPx,
+      hitboxes: !emitHitboxes ? [] : [
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Attach, { x: innerBoundsPx.w - ATTACH_AREA_SIZE_PX + 2, y: 0.0, w: ATTACH_AREA_SIZE_PX, h: ATTACH_AREA_SIZE_PX }),
+        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+      ],
+    });
   },
 
   calcGeometry_Attachment: (composite: CompositeMeasurable, parentBoundsPx: BoundingBox, parentInnerSizeBl: Dimensions, index: number, isSelected: boolean): ItemGeometry => {

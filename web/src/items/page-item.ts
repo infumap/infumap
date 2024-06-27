@@ -419,12 +419,14 @@ export const PageFns = {
 
   calcGeometry_InComposite: (measurable: PageMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = PageFns.asPageMeasurable(ItemFns.cloneMeasurableFields(measurable));
-    cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+    if (cloned.spatialWidthGr > compositeWidthBl * GRID_SIZE) {
+      cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+    }
     const sizeBl = PageFns.calcSpatialDimensionsBl(cloned);
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w + CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: topPx,
-      w: compositeWidthBl * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2,
+      w: (cloned.spatialWidthGr / GRID_SIZE) * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2,
       h: sizeBl.h * blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
@@ -451,6 +453,7 @@ export const PageFns = {
           w: innerBoundsPx.w / 2,
           h: ATTACH_AREA_SIZE_PX,
         }),
+        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
       ]
     };
   },
