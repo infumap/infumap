@@ -241,6 +241,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  const isInCompositeOrDocument = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
+
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`${shadowOuterClass()}`}
@@ -307,7 +310,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInComposite()}>
+      <Show when={!isInCompositeOrDocument()}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>

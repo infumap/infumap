@@ -138,14 +138,15 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
   const isInComposite = () =>
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
-  const infuTextStyle = () => getTextStyleForNote(expressionItem().flags);
-
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
+  const isInCompositeOrDocument = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
   const inputListener = (_ev: InputEvent) => {
     setTimeout(() => {
@@ -226,7 +227,7 @@ export const Expression_Desktop: Component<VisualElementProps> = (props: VisualE
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInComposite()}>
+      <Show when={!isInCompositeOrDocument()}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>

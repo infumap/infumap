@@ -167,6 +167,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  const keyUpHandler = (ev: KeyboardEvent) => { }
+  const keyDownHandler = (ev: KeyboardEvent) => { }
+  const inputListener = (ev: InputEvent) => { }
+
   const renderGridlinesMaybe = () =>
     <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
       <For each={[...Array(pageItem().gridNumberOfColumns).keys()]}>{i =>
@@ -914,7 +918,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="absolute"
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
-                    `height: ${childAreaBoundsPx().h}px;`}>
+                    `height: ${childAreaBoundsPx().h}px;`}
+             contentEditable={store.overlay.textEditInfo() != null && pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document}
+             onKeyUp={keyUpHandler}
+             onKeyDown={keyDownHandler}
+             onInput={inputListener}>
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>

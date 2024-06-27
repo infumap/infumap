@@ -112,6 +112,9 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
+  const isInCompositeOrDocument = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
+
   const shadowOuterClass = () => {
     return `absolute border border-slate-700 rounded-sm shadow-lg bg-white`;
   };
@@ -223,7 +226,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInComposite()}>
+      <Show when={!isInCompositeOrDocument()}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
