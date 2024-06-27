@@ -36,6 +36,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { VesCache } from '../layout/ves-cache';
 import { fullArrange } from '../layout/arrange';
 import { asPageItem, isPage } from './page-item';
+import { asImageItem, isImage } from './image-item';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -133,6 +134,10 @@ export const CompositeFns = {
       if (isPage(cloned)) {
         if (asPageItem(cloned).spatialWidthGr > composite.spatialWidthGr) {
           asPageItem(cloned).spatialWidthGr = composite.spatialWidthGr;
+        }
+      } else if (isImage(cloned)) {
+        if (asImageItem(cloned).spatialWidthGr > composite.spatialWidthGr) {
+          asImageItem(cloned).spatialWidthGr = composite.spatialWidthGr;
         }
       } else if (isXSizableItem(cloned)) {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
