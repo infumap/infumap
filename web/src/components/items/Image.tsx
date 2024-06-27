@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, cloneBoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -28,6 +28,9 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { ImageFlags } from "../../items/base/flags-item";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { FEATURE_COLOR } from "../../style";
+import { isComposite } from "../../items/composite-item";
+import { itemState } from "../../store/ItemState";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -61,6 +64,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   //   }
   //   return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
   // };
+
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    return ({
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    });
+  };
 
   const imageWidthToRequestPx = (lockToResizingFromBounds: boolean) => {
     let boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
@@ -152,6 +164,17 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
   });
 
+  const isInComposite = () =>
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+
+  const showMoveOutOfCompositeArea = () =>
+    store.user.getUserMaybe() != null &&
+    store.perVe.getMouseIsOver(vePath()) &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.textEditInfo() == null &&
+    isInComposite();
+
+
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
                 !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
@@ -227,6 +250,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={props.visualElement.attachmentsVes}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} />
         }</For>
+        <Show when={showMoveOutOfCompositeArea()}>
+          <div class={`absolute rounded-sm`}
+               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
+                      `background-color: ${FEATURE_COLOR};`} />
+        </Show>
         <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <InfuLinkTriangle />
         </Show>
@@ -273,7 +301,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                  style={`left: ${attachBoundsPx().x}px; top: ${attachBoundsPx().y}px; width: ${attachBoundsPx().w}px; height: ${attachBoundsPx().h}px; ` +
                         `background-color: #ff0000; ${VeFns.zIndexStyle(props.visualElement)}`} />
           </Show>
-          <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
+          <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && !isInComposite()}>
             <div class="absolute"
                  style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; ` +
                         `background-color: #ffffff33; ${VeFns.zIndexStyle(props.visualElement)}`} />
