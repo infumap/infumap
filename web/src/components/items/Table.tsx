@@ -188,7 +188,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div class={`absolute rounded-sm`}
                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                       `background-color: ${FEATURE_COLOR};`} />
-        </Show>;
+        </Show>
         <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
           <InfuLinkTriangle />
         </Show>
