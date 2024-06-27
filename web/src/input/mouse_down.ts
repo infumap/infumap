@@ -76,9 +76,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   // Page title edit via toolbar.
-  let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
-  if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
-    return MouseEventActionFlags.None;
+  const toolbarTitleDiv = document.getElementById("toolbarTitleDiv")!;
+  if (toolbarTitleDiv) {
+    const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
+    if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
+      return MouseEventActionFlags.None;
+    }
   }
   if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
     let selection = window.getSelection();
