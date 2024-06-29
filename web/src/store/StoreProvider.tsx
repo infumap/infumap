@@ -48,7 +48,7 @@ export interface StoreContextModel {
   setDockWidthPx: (widthPx: number) => void,
 
   topToolbarVisible: InfuSignal<boolean>,
-  topToolbarHeight: () => number,
+  topToolbarHeightPx: () => number,
 
   dockVisible: InfuSignal<boolean>,
 
@@ -79,13 +79,13 @@ export function StoreProvider(props: StoreContextProps) {
   const userStore = makeUserStore();
 
   const topToolbarVisible = createInfuSignal<boolean>(true);
-  const topToolbarHeight = () => topToolbarVisible.get() ? TOP_TOOLBAR_HEIGHT_PX : 0;
+  const topToolbarHeightPx = () => topToolbarVisible.get() ? TOP_TOOLBAR_HEIGHT_PX : 0;
 
   function currentDesktopSize(): Dimensions {
     let rootElement = document.getElementById("rootDiv") ?? panic("no rootDiv");
     return {
       w: rootElement.clientWidth,
-      h: rootElement.clientHeight - topToolbarHeight(),
+      h: rootElement.clientHeight - topToolbarHeightPx(),
     };
   }
 
@@ -161,7 +161,7 @@ export function StoreProvider(props: StoreContextProps) {
     setDockWidthPx,
     dockVisible,
     topToolbarVisible,
-    topToolbarHeight,
+    topToolbarHeightPx,
 
     umbrellaVisualElement,
 

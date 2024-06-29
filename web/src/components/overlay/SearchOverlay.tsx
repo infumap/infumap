@@ -36,7 +36,7 @@ export const SearchOverlay: Component = () => {
   const boxBoundsPx = () => {
     return ({
       x: 5,
-      y: 5 + store.topToolbarHeight(),
+      y: 5 + store.topToolbarHeightPx(),
       w: 405,
       h: 64
     });

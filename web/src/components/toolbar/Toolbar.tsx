@@ -111,7 +111,7 @@ export const Toolbar: Component = () => {
           <Show when={store.dockVisible.get()}>
             <>
               <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-                   style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeight()}px; background-color: #fafafa; ` +
+                   style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
                          `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                          `border-right-width: ${mainPageBorderWidth(store)}px`}>
                 <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
@@ -132,7 +132,7 @@ export const Toolbar: Component = () => {
               </div>
               <div class="absolute"
                   style={`width: ${mainPageBorderWidth(store)}px; height: 10px; ` +
-                         `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; top: ${store.topToolbarHeight() - 5}px; ` +
+                         `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; top: ${store.topToolbarHeightPx() - 5}px; ` +
                          `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
             </>
           </Show>
@@ -150,7 +150,7 @@ export const Toolbar: Component = () => {
                           `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                           `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +
                           `padding-top: ${2-(mainPageBorderWidth(store)-1)}px; ` +
-                          `height: ${store.topToolbarHeight()}px; ` + 
+                          `height: ${store.topToolbarHeightPx()}px; ` +
                           "outline: 0px solid transparent;"}
                    onClick={handleTitleClick}>
                 {title()}

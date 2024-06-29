@@ -178,12 +178,14 @@ export function arrange_grid_page(
     const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const popupTitleHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
     const cellBoundsPx = {
-      x: mouseDestkopPosPx.x - geometry.boundsPx.x + xOffsetPx,
-      y: mouseDestkopPosPx.y - geometry.boundsPx.y + yOffsetPx + pageYScrollPx,
+      x: mouseDestkopPosPx.x - geometry.boundsPx.x - store.getCurrentDockWidthPx() + xOffsetPx,
+      y: mouseDestkopPosPx.y - geometry.boundsPx.y - popupTitleHeightPx + yOffsetPx + pageYScrollPx,
       w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
     };
+
     cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
     cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
     const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false);

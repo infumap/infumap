@@ -155,7 +155,7 @@ function clientPxFromMouseEvent(ev: TouchOrMouseEvent): Vector {
 export function desktopPxFromMouseEvent(ev: TouchOrMouseEvent, store: StoreContextModel): Vector {
   return vectorSubtract(
     clientPxFromMouseEvent(ev),
-    { x: 0, y: store.topToolbarHeight() }
+    { x: 0, y: store.topToolbarHeightPx() }
   );
 }
 
