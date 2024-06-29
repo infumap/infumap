@@ -168,7 +168,7 @@ export const HitInfoFns = {
   },
 
   /**
-   * Whether or not the hit point is over a table inside a composite.
+   * Whether or not the hit point is over a table (or child of the table) inside a composite.
    */
   isOverTableInComposite: (hitInfo: HitInfo): boolean => {
     return (HitInfoFns.getTableContainerVe(hitInfo) != null) && (HitInfoFns.getCompositeContainerVe(hitInfo) != null);

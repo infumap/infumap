@@ -472,7 +472,6 @@ export const PageFns = {
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
-        HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: innerBoundsPx.w / 4,
           y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
