@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -30,7 +30,7 @@ import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
-import { CompositeFlags, FlagsMixin } from './base/flags-item';
+import { CompositeFlags, FlagsMixin, PageFlags } from './base/flags-item';
 import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { VesCache } from '../layout/ves-cache';
@@ -127,10 +127,6 @@ export const CompositeFns = {
       let item = itemState.get(childId)!;
       if (!item) { continue; }
       let cloned = ItemFns.cloneMeasurableFields(item);
-      // TODO (HIGH): different items will be sized differently in composite items.
-      // Tables: allow to be sized arbitrarily, but will be scaled.
-      // Notes: will be sized to width of composite.
-      // For now, just consider x sizable items, and only in a basic way. assume note or file.
       if (isPage(cloned)) {
         if (asPageItem(cloned).spatialWidthGr > composite.spatialWidthGr) {
           asPageItem(cloned).spatialWidthGr = composite.spatialWidthGr;
@@ -143,6 +139,10 @@ export const CompositeFns = {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
       }
       const sizeBl = ItemFns.calcSpatialDimensionsBl(cloned);
+      if (isPage(cloned) && (asPageItem(cloned).flags & PageFlags.EmbeddedInteractive)) {
+        // TODO (LOW): encapsulate / abstract this.
+        sizeBl.h += PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+      }
       bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;
     }
     bh -= COMPOSITE_ITEM_GAP_BL;

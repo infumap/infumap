@@ -429,7 +429,7 @@ export const PageFns = {
       w: (cloned.spatialWidthGr / GRID_SIZE) * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2,
       h: sizeBl.h * blockSizePx.h
     };
-    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    let innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const popupClickBoundsPx =
       { x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
         w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0 };
@@ -439,10 +439,36 @@ export const PageFns = {
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
     };
+    if (!(measurable.flags & PageFlags.EmbeddedInteractive)) {
+      return {
+        boundsPx,
+        blockSizePx,
+        viewportBoundsPx: boundsPx,
+        hitboxes: [
+          HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+          HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
+          HitboxFns.create(HitboxFlags.OpenPopup, popupClickBoundsPx),
+          HitboxFns.create(HitboxFlags.AttachComposite, {
+            x: innerBoundsPx.w / 4,
+            y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+            w: innerBoundsPx.w / 2,
+            h: ATTACH_AREA_SIZE_PX,
+          }),
+          HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+        ]
+      };
+    }
+
+    let headerHeightBl = PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+    let viewportBoundsPx = cloneBoundingBox(boundsPx)!;
+    boundsPx.h = boundsPx.h + headerHeightBl * blockSizePx.h;
+    viewportBoundsPx.y = viewportBoundsPx.y + headerHeightBl * blockSizePx.h;
+    innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+
     return {
       boundsPx,
       blockSizePx,
-      viewportBoundsPx: boundsPx,
+      viewportBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, moveBoundsPx),
