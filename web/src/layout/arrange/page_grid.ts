@@ -178,10 +178,10 @@ export function arrange_grid_page(
     const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const popupTitleHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+    const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
     const cellBoundsPx = {
       x: mouseDestkopPosPx.x - geometry.boundsPx.x - store.getCurrentDockWidthPx() + xOffsetPx,
-      y: mouseDestkopPosPx.y - geometry.boundsPx.y - popupTitleHeightPx + yOffsetPx + pageYScrollPx,
+      y: mouseDestkopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
       w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
     };

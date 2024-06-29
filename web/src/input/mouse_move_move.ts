@@ -299,8 +299,8 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   itemPosInPagePx.x -= store.getCurrentDockWidthPx();
 
   const itemPosInPageGr = {
-    x: itemPosInPagePx.x / moveToPageVe!.viewportBoundsPx!.w * moveToPage.innerSpatialWidthGr,
-    y: itemPosInPagePx.y / moveToPageVe!.viewportBoundsPx!.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
+    x: itemPosInPagePx.x / moveToPageAbsoluteBoundsPx.w * moveToPage.innerSpatialWidthGr,
+    y: itemPosInPagePx.y / moveToPageAbsoluteBoundsPx.h * PageFns.calcInnerSpatialDimensionsBl(moveToPage).h * GRID_SIZE
   };
   const itemPosInPageQuantizedGr = {
     x: Math.round(itemPosInPageGr.x / (GRID_SIZE / 2.0)) / 2.0 * GRID_SIZE,
@@ -332,5 +332,6 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
       y: moveToPageInnerSizeBl.h / moveToPageAbsoluteBoundsPx.h
     };
   }
+
   MouseActionState.get().startPosBl = { x: itemPosInPageQuantizedGr.x / GRID_SIZE, y: itemPosInPageQuantizedGr.y / GRID_SIZE };
 }

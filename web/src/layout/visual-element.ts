@@ -520,6 +520,11 @@ export const VeFns = {
       ve = ve.parentPath == null ? null : VesCache.get(ve.parentPath!)!.get();
     }
 
+    if (isPage(visualElement.displayItem) && visualElement.childAreaBoundsPx) {
+      const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx!.h;
+      return { x: r.x, y: r.y + popupTitleHeightMaybePx, w: visualElement.childAreaBoundsPx.w, h: visualElement.childAreaBoundsPx.h };
+    }
+
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
   },
 
