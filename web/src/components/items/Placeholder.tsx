@@ -77,7 +77,7 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
       {renderHighlightsMaybe()}
       <div class={`absolute rounded-sm border border-slate-200`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  "background: repeating-linear-gradient(315deg, #fff, #fff 3px, #eee 2px, #eee 5px);"} />
+                  "background: repeating-linear-gradient(315deg, #00000000, #00000000 3px, #eee 2px, #eee 5px);"} />
     </>
   );
 }
