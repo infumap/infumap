@@ -179,9 +179,9 @@ export const RatingFns = {
     };
   },
 
-  calcGeometry_InCell: (rating: RatingMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
+  calcGeometry_InCell: (rating: RatingMeasurable, cellBoundsPx: BoundingBox, _maximize: boolean): ItemGeometry => {
     const sizeBl = RatingFns.calcSpatialDimensionsBl(rating);
-    const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
+    const boundsPx = calcBoundsInCell(sizeBl, cellBoundsPx);
     const blockSizePx = {
       w: boundsPx.w / sizeBl.w,
       h: boundsPx.h / sizeBl.h,
@@ -192,7 +192,8 @@ export const RatingFns = {
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx)
       ]
     });
   },

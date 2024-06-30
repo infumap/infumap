@@ -247,7 +247,8 @@ export const NoteFns = {
       viewportBoundsPx: null,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ]
     });
   },
