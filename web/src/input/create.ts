@@ -207,23 +207,8 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     panic("cannot create item in context here.");
   }
 
-  if (type == ItemType.Page) {
-    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Page });
-    const elId = newItemPath + ":title";
-    const el = document.getElementById(elId);
-    el!.focus();
-  } else if (type == ItemType.Note) {
-    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Note });
-    const elId = newItemPath + ":title";
-    const el = document.getElementById(elId);
-    el!.focus();
-  } else if (type == ItemType.Expression) {
-    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Expression });
-    const elId = newItemPath + ":title";
-    const el = document.getElementById(elId);
-    el!.focus();
-  } else if (type == ItemType.Password) {
-    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Password });
+  if (type == ItemType.Page || ItemType.Note || ItemType.Expression || ItemType.Password || ItemType.Table) {
+    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);
     el!.focus();
