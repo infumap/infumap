@@ -50,13 +50,15 @@ import { isTable } from "../../items/table-item";
 
 
 let arrowKeyDown_caretPosition = null;
-let arrowKeyDown_element = null;
+let arrowKeyDown_element: HTMLElement | null = null;
 
 export function composite_selectionChangeListener() {
-  try {
-    getCurrentCaretVePath_title();
-  } catch (e) {
-    setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
+  if (arrowKeyDown_element != null) {
+    try {
+      getCurrentCaretVePath_title();
+    } catch (e) {
+      setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
+    }
   }
 }
 

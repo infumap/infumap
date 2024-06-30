@@ -39,7 +39,7 @@ export enum HitboxFlags {
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
-  let result = "";
+  let result = " ";
   if (flags & HitboxFlags.Click) { result += "Click "; }
   if (flags & HitboxFlags.Move) { result += "Move "; }
   if (flags & HitboxFlags.Resize) { result += "Resize "; }
@@ -55,6 +55,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.ContentEditable) { result += "ContentEditable "; }
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
+  result += "(" + flags + ")";
   return result;
 }
 

@@ -36,6 +36,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { isComposite } from "../../items/composite-item";
+import { appendNewlineIfEmpty } from "../../util/string";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -245,7 +246,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `outline: 0px solid transparent;`}
            contentEditable={store.overlay.textEditInfo() != null}
            spellcheck={store.overlay.textEditInfo() != null}>
-        {pageItem().title}
+        {appendNewlineIfEmpty(pageItem().title)}
       </div>;
 
     const renderHoverOverMaybe = () =>
@@ -308,7 +309,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <>
         {renderShadowMaybe()}
         <div class={`absolute border border-slate-700 rounded-sm`}
-            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.0)}; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -425,7 +426,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
         </div>
-        <InfuResizeTriangle />
       </div>;
 
     const renderBoxTitleMaybe = () =>
@@ -443,7 +443,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              spellcheck={store.overlay.textEditInfo() != null}
              contentEditable={store.overlay.textEditInfo() != null}>
             {pageItem().title}
-            <InfuResizeTriangle />
         </div>
       </Show>;
 
@@ -511,6 +510,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
       </Show>;
 
+    const renderResizeTriangle = () =>
+      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  `${VeFns.opacityStyle(props.visualElement)}; ${VeFns.zIndexStyle(props.visualElement)}`}>
+          <InfuResizeTriangle />
+      </div>;
+
     return (
       <>
         {renderShadowMaybe()}
@@ -522,6 +528,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             {renderPage()}
           </Match>
         </Switch>
+        {renderResizeTriangle()}
         <div class={`absolute ${borderClass()} rounded-sm`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     backgroundStyle() +

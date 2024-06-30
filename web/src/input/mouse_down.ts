@@ -114,7 +114,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       const editingDomEl = document.getElementById(editingDomId);
       if (isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl!.getBoundingClientRect())!) &&
           buttonNumber == MOUSE_LEFT) {
-        return MouseEventActionFlags.None;
+        const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
+        if (!(hitInfo.hitboxType & HitboxFlags.Resize)) {
+          return MouseEventActionFlags.None;
+        }
       }
       const newText = editingDomEl!.innerText;
       const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
@@ -165,29 +168,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
     }
     defaultResult = MouseEventActionFlags.None;
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
-
-
-  // Text edit overlays.
-
-  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Expression) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
-    if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
-  }
-
-  if (store.overlay.textEditInfo() && store.overlay.textEditInfo()!.itemType == ItemType.Password) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
-    if (store.user.getUserMaybe() != null && store.history.getFocusItem().ownerId == store.user.getUser().userId) {
-      serverOrRemote.updateItem(store.history.getFocusItem());
-    }
-    store.overlay.setTextEditInfo(store.history, null);
-    fullArrange(store);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
