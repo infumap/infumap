@@ -185,8 +185,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   else if (ev.code == "KeyE") {
     ev.preventDefault();
-    // TODO: expressions..
-    // newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx(store));
+    newItemInContext(store, "expression", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else {

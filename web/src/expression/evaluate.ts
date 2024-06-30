@@ -43,14 +43,14 @@ interface Context {
 }
 
 function evaluateExpression(path: VisualElementPath, text: string, virtual: boolean): string {
+  if (text.trim() == "") { return ""; }
   try {
     const expr = Parser.parse(text);
     const context = { path };
     const r = evaluate(expr, context, virtual);
     return "" + r;
   } catch (e: any) {
-    console.debug(e);
-    return text;
+    return "#VALUE!";
   }
 }
 
