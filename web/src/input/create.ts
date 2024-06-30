@@ -128,7 +128,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else if (isTable(overElementVe.displayItem)) {
-    if (isInside(desktopPosPx, overElementVe.childAreaBoundsPx!)) {
+    if (isInside(desktopPosPx, overElementVe.viewportBoundsPx!)) {
       const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, desktopPosPx);
       const tableItem = asTableItem(overElementVe.displayItem);
 
@@ -224,6 +224,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     el!.focus();
   } else if (type == ItemType.Password) {
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: ItemType.Password });
+    const elId = newItemPath + ":title";
+    const el = document.getElementById(elId);
+    el!.focus();
   } else if (type == ItemType.Rating) {
     // noop.
   } else {
