@@ -24,7 +24,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { PageFns, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -177,7 +177,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
-  if (compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
+  if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch || compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
     activeItem.spatialPositionGr = newPosGr;
     fullArrange(store);
   }
