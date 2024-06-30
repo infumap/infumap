@@ -16,11 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Switch } from "solid-js";
+import { Component, Match, Show, Switch } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { cloneBoundingBox } from "../../util/geometry";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -51,11 +52,18 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
     return result;
   };
 
+  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
+  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
+
   const renderHighlightsMaybe = () =>
     <Switch>
-      <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
+      <Match when={store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+        <Show when={lineHighlightBoundsPx() != null}>
+          <div class="absolute border border-slate-300 rounded-sm"
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+        </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"

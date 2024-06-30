@@ -386,7 +386,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
-    </Show>
+    </Show>;
 
   return (
     <>

@@ -391,6 +391,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
              style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+        <Show when={lineHighlightBoundsPx() != null}>
+          <div class="absolute border border-slate-300 rounded-sm"
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+        </Show>
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
