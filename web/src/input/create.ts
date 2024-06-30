@@ -211,6 +211,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);
+    el!.innerText = "\n";
     el!.focus();
   } else if (type == ItemType.Rating) {
     // noop.

@@ -313,7 +313,7 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
                'background-color: #fff1e4;'}>
       <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
             style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-        {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format)}
+        {formatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format)}<span></span>
       </span>
     </div>;
 

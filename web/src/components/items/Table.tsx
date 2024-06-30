@@ -375,7 +375,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      <span>{tableItem().title}</span>
+      <span>{tableItem().title}<span></span></span>
     </div>;
 
   const renderLinkMarkingMaybe = () =>

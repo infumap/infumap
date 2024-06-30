@@ -1116,7 +1116,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; ` +
                 `height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      {pageItem().title}
+      {pageItem().title}<span></span>
     </div>;
 
   const renderLinkMarkingMaybe = () =>

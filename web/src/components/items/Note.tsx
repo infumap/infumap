@@ -459,7 +459,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}
+            {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}<span></span>
           </span>
         </Match>
       </Switch>

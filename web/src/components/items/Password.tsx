@@ -324,7 +324,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       <Show when={isVisible()} fallback={
         <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>••••••••••••</span>
       }>
-        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>{passwordItem().text}</span>
+        <span class="text-slate-800" style={`margin-left: ${oneBlockWidthPx()*PADDING_PROP}px`}>{passwordItem().text}<span></span></span>
       </Show>
     </div>;
 
