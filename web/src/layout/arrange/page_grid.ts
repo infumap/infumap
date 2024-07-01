@@ -179,8 +179,10 @@ export function arrange_grid_page(
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
     const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+    // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
+    const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
     const cellBoundsPx = {
-      x: mouseDestkopPosPx.x - geometry.boundsPx.x - store.getCurrentDockWidthPx() + xOffsetPx,
+      x: mouseDestkopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
       y: mouseDestkopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
       w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
       h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
