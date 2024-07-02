@@ -54,7 +54,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     fullArrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false, false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
     fullArrange(store);
   }
