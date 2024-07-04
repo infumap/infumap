@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_TEXT_OVERLAY } from "../../constants";
@@ -51,15 +51,28 @@ export const TableColumnContextMenu: Component = () => {
     store.overlay.tableColumnContextMenuInfo.set(null);
   };
 
+  const deleteColumn = () => {
+    TableFns.removeColItemsAt(tableId(), colNum()-1);
+    tableItem().numberOfVisibleColumns -= 1;
+    fullArrange(store);
+    serverOrRemote.updateItem(tableItem());
+    store.overlay.tableColumnContextMenuInfo.set(null);
+  }
+
   return (
     <div class="absolute"
-         style={`left: ${posPx().x-10}px; top: ${posPx().y-5}px; ` +
+         style={`left: ${posPx().x+10}px; top: ${posPx().y-12}px; ` +
                 `z-index: ${Z_INDEX_TEXT_OVERLAY};`}
          onMouseDown={mouseDownListener}>
-      <div class="border rounded w-[160px] h-[30px] bg-slate-50 mb-1 shadow-lg">
+      <div class={`border rounded w-[160px] h-[${colNum() == 0 ? '30' : '60'}px] bg-slate-50 mb-1 shadow-lg`}>
         <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newColToRight}>
           Insert 1 Column Right
         </div>
+        <Show when={colNum() > 0}>
+          <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={deleteColumn}>
+            Delete column
+          </div>
+        </Show>
       </div>
     </div>
   );
