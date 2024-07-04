@@ -170,13 +170,29 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   let newPosBl = vectorAdd(MouseActionState.get().startPosBl!, deltaBl);
   newPosBl.x = Math.round(newPosBl.x * 2.0) / 2.0;
   newPosBl.y = Math.round(newPosBl.y * 2.0) / 2.0;
-  const inElement = VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get().displayItem;
+  const inElementVe = VesCache.get(MouseActionState.get().moveOver_scaleDefiningElement!)!.get();
+  const inElement = inElementVe.displayItem;
   const dimBl = PageFns.calcInnerSpatialDimensionsBl(asPageItem(inElement));
   if (newPosBl.x < 0.0) { newPosBl.x = 0.0; }
   if (newPosBl.y < 0.0) { newPosBl.y = 0.0; }
   if (newPosBl.x > dimBl.w - 0.5) { newPosBl.x = dimBl.w - 0.5; }
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
+
+  if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+    const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + store.getCurrentDockWidthPx());
+    const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y;
+    const veid = VeFns.veidFromVe(inElementVe);
+    const scrollYPx = store.perItem.getPageScrollYProp(veid)
+      * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
+    const scrollXPx = store.perItem.getPageScrollXProp(veid)
+      * (inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
+    const cellX = Math.floor((xOffsetPx + scrollXPx) / inElementVe.cellSizePx!.w);
+    const cellY = Math.floor((yOffsetPx + scrollYPx) / inElementVe.cellSizePx!.h);
+    const index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
+  }
+
   if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch || compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {
     activeItem.spatialPositionGr = newPosGr;
     fullArrange(store);

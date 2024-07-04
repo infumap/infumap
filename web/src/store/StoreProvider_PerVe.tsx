@@ -39,6 +39,9 @@ export interface PerVeStoreContextModel {
   getMoveOverRowNumber: (vePath: VisualElementPath) => number,  // for tables only
   setMoveOverRowNumber: (vePath: VisualElementPath, rowNumber: number) => void,
 
+  getMoveOverIndex: (vePath: VisualElementPath) => number, // for grid pages
+  setMoveOverIndex: (vePath: VisualElementPath, index: number) => void,
+
   getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
   setMoveOverColAttachmentNumber: (vePath: VisualElementPath, colNumber: number) => void,
 
@@ -59,6 +62,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const movingItemIsOverAttachComposite = new Map<string, BooleanSignal>();
   const moveOverRowNumber = new Map<string, NumberSignal>();
   const moveOverColAttachmentNumber = new Map<string, NumberSignal>();
+  const moveOverIndex = new Map<string, NumberSignal>();
   const isExpanded = new Map<string, BooleanSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
@@ -151,6 +155,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
     moveOverRowNumber.get(vePath)!.set(rowNumber);
   };
 
+  const getMoveOverIndex = (vePath: VisualElementPath): number => {
+    if (!moveOverIndex.get(vePath)) {
+      moveOverIndex.set(vePath, createNumberSignal(-1));
+    }
+    return moveOverIndex.get(vePath)!.get();
+  };
+
+  const setMoveOverIndex = (vePath: VisualElementPath, rowNumber: number): void => {
+    if (!moveOverIndex.get(vePath)) {
+      moveOverIndex.set(vePath, createNumberSignal(-1));
+      return;
+    }
+    moveOverIndex.get(vePath)!.set(rowNumber);
+  };
+
   const getMoveOverColAttachmentNumber = (vePath: VisualElementPath): number => {
     if (!moveOverColAttachmentNumber.get(vePath)) {
       moveOverColAttachmentNumber.set(vePath, createNumberSignal(-1));
@@ -196,6 +215,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMovingItemIsOverAttachComposite,
     setMovingItemIsOverAttachComposite,
+
+    getMoveOverIndex,
+    setMoveOverIndex,
 
     getMoveOverRowNumber,
     setMoveOverRowNumber,

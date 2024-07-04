@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { PageFns } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -167,11 +167,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 }
 
 
-function handleAttachmentClick(store: StoreContextModel, visualElement: VisualElement) {
-  console.log("handle attachment click", visualElement);
-}
-
-
 function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalItem) {
 
   if (MouseActionState.get().moveOver_containerElement != null) {
@@ -202,8 +197,19 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   }
 
   // root page
-  if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
-      MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+  const pageItem = asPageItem(overContainerVe.displayItem);
+  if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+    const insertIndex = pageItem.orderChildrenBy == "" ? 0 : store.perVe.getMoveOverIndex(VeFns.veToPath(overContainerVe));
+    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex);
+    itemState.sortChildren(pageItem.id);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!);
+  } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
+        MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
+      serverOrRemote.updateItem(itemState.get(activeItem.id)!);
+    }
+  } else {
+    console.log("todo: explicitly consider other page types here.");
     serverOrRemote.updateItem(itemState.get(activeItem.id)!);
   }
 

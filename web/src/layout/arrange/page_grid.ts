@@ -81,7 +81,8 @@ export function arrange_grid_page(
     }
   }
 
-  const numRows = Math.ceil((pageItem.computed_children.length + nItemAdj) / numCols);
+  const movingAdj = movingItemInThisPage ? 1 : 0;
+  const numRows = Math.ceil((pageItem.computed_children.length - movingAdj + nItemAdj) / numCols);
   const cellWPx = geometry.boundsPx.w / numCols;
   const cellHPx = cellWPx * (1.0/pageItem.gridCellAspect);
   const marginPx = cellWPx * 0.01;

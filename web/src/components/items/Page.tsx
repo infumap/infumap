@@ -186,6 +186,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }</For>
     </Show>;
 
+  const renderMoveOverIndexMaybe = () =>
+    <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid && store.perVe.getMovingItemIsOver(vePath()) && pageItem().orderChildrenBy == ""}>
+        <div class="absolute border border-black"
+             style={`top: ${props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(vePath())) / pageItem().gridNumberOfColumns)}px; ` +
+                    `left: ${props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(vePath()) % pageItem().gridNumberOfColumns)}px; ` +
+                    `height: ${props.visualElement.cellSizePx!.h}px; ` +
+                    `width: 1px;`} />
+    </Show>;
+
   const showDock = () => {
     store.dockVisible.set(true);
     fArrange(store);
@@ -425,13 +434,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
+          {renderMoveOverIndexMaybe()}
         </div>
       </div>;
 
     const renderBoxTitleMaybe = () =>
       <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
-             class={`absolute flex font-bold text-white`}
+             class={`absolute flex font-bold text-white pointer-events-none`}
              style={`left: ${boundsPx().x}px; ` +
                     `top: ${boundsPx().y}px; ` +
                     `width: ${boundsPx().w}px; ` +
@@ -450,12 +460,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get()}>
         <>
           <Show when={!isInComposite()}>
-            <div class={`absolute rounded-sm`}
+            <div class={`absolute rounded-sm pointer-events-none`}
                 style={`left: ${clickBoundsPx()!.x}px; top: ${clickBoundsPx()!.y}px; width: ${clickBoundsPx()!.w}px; height: ${clickBoundsPx()!.h}px; ` +
                         `background-color: #ffffff33;`} />
           </Show>
           <Show when={hasPopupClickBoundsPx()}>
-            <div class={`absolute rounded-sm`}
+            <div class={`absolute rounded-sm pointer-events-none`}
                  style={`left: ${popupClickBoundsPx()!.x}px; top: ${popupClickBoundsPx()!.y}px; width: ${popupClickBoundsPx()!.w}px; height: ${popupClickBoundsPx()!.h}px; ` +
                         `background-color: ${isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
           </Show>
@@ -511,7 +521,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderResizeTriangle = () =>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden pointer-events-none`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)}; ${VeFns.zIndexStyle(props.visualElement)}`}>
           <InfuResizeTriangle />
@@ -529,7 +539,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Match>
         </Switch>
         {renderResizeTriangle()}
-        <div class={`absolute ${borderClass()} rounded-sm`}
+        <div class={`absolute ${borderClass()} rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     backgroundStyle() +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -681,6 +691,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <VisualElement_Desktop visualElement={childVe.get()} />
           }</For>
           {renderGridlinesMaybe()}
+          {renderMoveOverIndexMaybe()}
         </div>
       </div>;
 
@@ -821,6 +832,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </>
           </Show>
           {renderGridlinesMaybe()}
+          {renderMoveOverIndexMaybe()}
         </div>
       </div>;
 
@@ -943,6 +955,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </>
           </Show>
           {renderGridlinesMaybe()}
+          {renderMoveOverIndexMaybe()}
         </div>
       </div>;
 
