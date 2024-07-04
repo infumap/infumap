@@ -53,12 +53,7 @@ export function arrange_grid_page(
   let movingItem = null;
   let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    const veid = VeFns.veidFromPath(MouseActionState.get().activeElementPath);
-    if (veid.linkIdMaybe) {
-      movingItemInThisPage = itemState.get(veid.linkIdMaybe);
-    } else {
-      movingItemInThisPage = itemState.get(veid.itemId);
-    }
+    movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
     movingItem = movingItemInThisPage;
     if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
       movingItemInThisPage = null;

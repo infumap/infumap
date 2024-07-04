@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { BoundingBox, Dimensions } from '../../util/geometry';
+import { BoundingBox, Dimensions, Vector } from '../../util/geometry';
 import { assert, panic } from '../../util/lang';
 import { VisualElementSignal } from '../../util/signals';
 import { StoreContextModel } from '../../store/StoreProvider';
@@ -36,6 +36,7 @@ import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
 import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
 import { HitboxMeta } from '../../layout/hitbox';
 import { ExpressionFns, asExpressionItem, isExpression } from '../expression-item';
+import { LINE_HEIGHT_PX } from '../../constants';
 
 
 // Poor man's polymorphism
@@ -119,6 +120,26 @@ export const ItemFns = {
     if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, isPopup, hasPendingChanges, maximize, ignoreCellHeight); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
     panic(`Unknown item type: ${measurable.itemType}`);
+  },
+
+  calcGeometry_Natural: (measurable: Measurable, desktopPx: Vector): ItemGeometry => {
+    const sizeBl = ItemFns.calcSpatialDimensionsBl(measurable);
+    const blockSizePx = {
+      w: LINE_HEIGHT_PX,
+      h: LINE_HEIGHT_PX
+    };
+    const boundsPx = {
+      x: desktopPx.x,
+      y: desktopPx.y,
+      w: sizeBl.w * LINE_HEIGHT_PX,
+      h: sizeBl.h * LINE_HEIGHT_PX
+    };
+    return ({
+      boundsPx,
+      blockSizePx,
+      viewportBoundsPx: boundsPx,
+      hitboxes: []
+    })
   },
 
   calcGeometry_InComposite: (measurable: Measurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -32,7 +32,10 @@ import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from 
 import { ArrangeItemFlags, arrangeItem } from "./item";
 
 
-export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElementPath): VisualElementSignal | null => {
+export const renderDockMaybe = (
+    store: StoreContextModel,
+    parentPath: VisualElementPath): VisualElementSignal | null => {
+
   if (store.user.getUserMaybe() == null) {
     return null;
   }
@@ -49,10 +52,14 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
   const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
   let movingItem = null;
+  let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItem = movingItemInThisPage;
+    if (movingItemInThisPage!.parentId != dockPage.id) {
+      movingItemInThisPage = null;
+    }
   }
-
   const GAP_PX = LIST_PAGE_TOP_PADDING_PX;
 
   const dockWidthPx = store.getCurrentDockWidthPx();
@@ -64,6 +71,10 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     const childItem = itemState.get(childId)!;
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
 
+    if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
+      continue;
+    }
+
     let wPx = dockWidthPx - GAP_PX * 2;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
@@ -73,19 +84,12 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     if (geometry.viewportBoundsPx) {
       viewportOffsetPx = geometry.viewportBoundsPx.y - geometry.boundsPx.y;
     }
-    if (movingItem != null && childId == movingItem.id) {
-      const _mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
-      geometry.boundsPx.y = 0;
-      if (geometry.viewportBoundsPx) {
-        geometry.viewportBoundsPx!.y = viewportOffsetPx;
-      }
-    } else {
-      geometry.boundsPx.y = GAP_PX + yCurrentPx;
-      if (geometry.viewportBoundsPx) {
-        geometry.viewportBoundsPx.y = geometry.boundsPx.y + viewportOffsetPx;
-      }
-      yCurrentPx += geometry.boundsPx.h + GAP_PX;
+
+    geometry.boundsPx.y = GAP_PX + yCurrentPx;
+    if (geometry.viewportBoundsPx) {
+      geometry.viewportBoundsPx.y = geometry.boundsPx.y + viewportOffsetPx;
     }
+    yCurrentPx += geometry.boundsPx.h + GAP_PX;
 
     if (dockWidthPx > NATURAL_BLOCK_SIZE_PX.w * 2 + 1) {
       const ves = arrangeItem(
@@ -95,6 +99,18 @@ export const renderDockMaybe = (store: StoreContextModel, parentPath: VisualElem
     }
   }
   yCurrentPx += GAP_PX;
+
+  if (movingItemInThisPage) {
+    const actualLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+    const scale = 1.0;
+
+    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDestkopPosPx);
+    const ves = arrangeItem(
+      store, dockPath, ArrangeAlgorithm.Dock, movingItemInThisPage, actualLinkItemMaybe, cellGeometry,
+      ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull);
+    dockChildren.push(ves);
+  }
 
   let trashHeightPx = 50;
   if (dockWidthPx - GAP_PX*2 < trashHeightPx) {
