@@ -102,6 +102,11 @@ export const Toolbar: Component = () => {
     return;
   }
 
+  const handleLogoClick = () => {
+    window.history.pushState(null, "", "/");
+    window.location.reload();
+  }
+
   return (
     <>
       <Show when={store.topToolbarVisible.get()}>
@@ -117,7 +122,7 @@ export const Toolbar: Component = () => {
                 <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
                   <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
                     <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
-                      <a href="/"><img src={imgUrl} class="w-[28px] inline-block" /></a>
+                      <a href="/" onClick={handleLogoClick}><img src={imgUrl} class="w-[28px] inline-block" /></a>
                     </div>
                   </Show>
                   <div class="inline-block" style="flex-grow: 1;" />
