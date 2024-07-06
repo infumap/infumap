@@ -32,7 +32,7 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -197,18 +197,27 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   }
 
   // root page
+
   const pageItem = asPageItem(overContainerVe.displayItem);
-  if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+  if (overContainerVe.flags & VisualElementFlags.IsDock) {
+    const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
+    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index);
+    itemState.sortChildren(pageItem.id);
+    serverOrRemote.updateItem(itemState.get(activeItem.id)!);
+  }
+  else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
     const insertIndex = pageItem.orderChildrenBy == "" ? 0 : store.perVe.getMoveOverIndex(VeFns.veToPath(overContainerVe));
     activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex);
     itemState.sortChildren(pageItem.id);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!);
-  } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+  }
+  else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
     if (MouseActionState.get().startPosBl!.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
         MouseActionState.get().startPosBl!.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
       serverOrRemote.updateItem(itemState.get(activeItem.id)!);
     }
-  } else {
+  }
+  else {
     console.log("todo: explicitly consider other page types here.");
     serverOrRemote.updateItem(itemState.get(activeItem.id)!);
   }

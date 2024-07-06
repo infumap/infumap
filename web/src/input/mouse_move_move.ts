@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
+import { DOCK_GAP_PX, GRID_SIZE } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem } from "../items/base/positional-item";
@@ -31,7 +31,7 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -39,6 +39,7 @@ import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract
 import { assert, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
+import { dockInsertIndexAndPositionFromDesktopY } from "../layout/arrange/dock";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
@@ -191,6 +192,13 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const cellY = Math.floor((yOffsetPx + scrollYPx) / inElementVe.cellSizePx!.h);
     const index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
+  }
+
+  const dockWidthPx = store.getCurrentDockWidthPx();
+
+  if (inElementVe.flags & VisualElementFlags.IsDock) {
+    const indexAndPosition = dockInsertIndexAndPositionFromDesktopY(asPageItem(inElement), activeItem, dockWidthPx, desktopPosPx.y);
+    store.perVe.setMoveOverIndexAndPosition(VeFns.veToPath(inElementVe), indexAndPosition);
   }
 
   if (asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch || compareVector(newPosGr, activeItem.spatialPositionGr) != 0) {

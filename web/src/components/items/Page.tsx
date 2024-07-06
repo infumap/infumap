@@ -201,6 +201,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const renderAsDock = () => {
+    const renderDockMoveOverIndexMaybe = () =>
+      <Show when={store.perVe.getMovingItemIsOver(vePath())}>
+          <div class="absolute border border-black"
+               style={`left: 0px;` +
+                      `top: ${store.perVe.getMoveOverIndexAndPosition(vePath()).position}px; ` +
+                      `width: ${store.getCurrentDockWidthPx()}px;`} />
+      </Show>;
+
     return (
       <>
         <Show when={store.dockVisible.get()}>
@@ -211,6 +219,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             <For each={props.visualElement.childrenVes}>{childVe =>
               <VisualElement_Desktop visualElement={childVe.get()} />
             }</For>
+            {renderDockMoveOverIndexMaybe()}
           </div>
         </Show>
         <Show when={!store.dockVisible.get()}>

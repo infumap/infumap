@@ -16,13 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { DOCK_GAP_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
+import { IndexAndPosition } from "../../store/StoreProvider_PerVe";
 import { zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { HitboxFlags, HitboxFns } from "../hitbox";
@@ -60,7 +62,6 @@ export const renderDockMaybe = (
       movingItemInThisPage = null;
     }
   }
-  const GAP_PX = LIST_PAGE_TOP_PADDING_PX;
 
   const dockWidthPx = store.getCurrentDockWidthPx();
 
@@ -75,9 +76,9 @@ export const renderDockMaybe = (
       continue;
     }
 
-    let wPx = dockWidthPx - GAP_PX * 2;
+    let wPx = dockWidthPx - DOCK_GAP_PX * 2;
     if (wPx < 0) { wPx = 0; }
-    const cellBoundsPx = { x: GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
+    const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false, true);
 
     let viewportOffsetPx = 0;
@@ -85,11 +86,11 @@ export const renderDockMaybe = (
       viewportOffsetPx = geometry.viewportBoundsPx.y - geometry.boundsPx.y;
     }
 
-    geometry.boundsPx.y = GAP_PX + yCurrentPx;
+    geometry.boundsPx.y = DOCK_GAP_PX + yCurrentPx;
     if (geometry.viewportBoundsPx) {
       geometry.viewportBoundsPx.y = geometry.boundsPx.y + viewportOffsetPx;
     }
-    yCurrentPx += geometry.boundsPx.h + GAP_PX;
+    yCurrentPx += geometry.boundsPx.h + DOCK_GAP_PX;
 
     if (dockWidthPx > NATURAL_BLOCK_SIZE_PX.w * 2 + 1) {
       const ves = arrangeItem(
@@ -98,11 +99,10 @@ export const renderDockMaybe = (
       dockChildren.push(ves);
     }
   }
-  yCurrentPx += GAP_PX;
+  yCurrentPx += DOCK_GAP_PX;
 
   if (movingItemInThisPage) {
     const actualLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
-    const scale = 1.0;
 
     const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
     const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDestkopPosPx);
@@ -113,8 +113,8 @@ export const renderDockMaybe = (
   }
 
   let trashHeightPx = 50;
-  if (dockWidthPx - GAP_PX*2 < trashHeightPx) {
-    trashHeightPx = dockWidthPx - GAP_PX*2;
+  if (dockWidthPx - DOCK_GAP_PX*2 < trashHeightPx) {
+    trashHeightPx = dockWidthPx - DOCK_GAP_PX*2;
     if (trashHeightPx < 0) { trashHeightPx = 0; }
   }
 
@@ -148,9 +148,9 @@ export const renderDockMaybe = (
   } else {
     const trashPage = asPageItem(itemState.get(store.user.getUser().trashPageId)!);
     const trashBoundsPx = {
-      x: GAP_PX,
-      y: store.desktopBoundsPx().h - trashHeightPx - GAP_PX * 2,
-      w: dockWidthPx - GAP_PX*2,
+      x: DOCK_GAP_PX,
+      y: store.desktopBoundsPx().h - trashHeightPx - DOCK_GAP_PX * 2,
+      w: dockWidthPx - DOCK_GAP_PX*2,
       h: trashHeightPx,
     }
     const innerBoundsPx = zeroBoundingBoxTopLeft(trashBoundsPx);
@@ -174,4 +174,39 @@ export const renderDockMaybe = (
   }
 
   return VesCache.full_createOrRecycleVisualElementSignal(dockVisualElementSpec, dockPath);
+}
+
+export function dockInsertIndexAndPositionFromDesktopY(dockItem: PageItem, movingItem: Item, dockWidthPx: number, desktopYPx: number): IndexAndPosition {
+  let positionIndex = 0;
+  let yCurrentPx = 0;
+  for (let i=0; i<dockItem.computed_children.length; ++i) {
+    positionIndex = i;
+    const childId = dockItem.computed_children[i];
+    const childItem = itemState.get(childId)!;
+
+    if (childItem.id == movingItem!.id) {
+      continue;
+    }
+
+    let wPx = dockWidthPx - DOCK_GAP_PX * 2;
+    if (wPx < 0) { wPx = 0; }
+    const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false, true);
+
+    let viewportOffsetPx = 0;
+    if (geometry.viewportBoundsPx) {
+      viewportOffsetPx = geometry.viewportBoundsPx.y - geometry.boundsPx.y;
+    }
+
+    geometry.boundsPx.y = DOCK_GAP_PX + yCurrentPx;
+    if (geometry.viewportBoundsPx) {
+      geometry.viewportBoundsPx.y = geometry.boundsPx.y + viewportOffsetPx;
+    }
+
+    const newYPx = yCurrentPx + geometry.boundsPx.h + DOCK_GAP_PX;
+    if (newYPx > desktopYPx) { break; }
+    yCurrentPx = newYPx;
+  }
+
+  return { index: positionIndex, position: yCurrentPx };
 }

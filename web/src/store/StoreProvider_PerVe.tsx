@@ -17,7 +17,13 @@
 */
 
 import { VisualElementPath } from "../layout/visual-element";
-import { BooleanSignal, NumberSignal, createBooleanSignal, createNumberSignal } from "../util/signals";
+import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
+
+
+export interface IndexAndPosition {
+  index: number,
+  position: number,
+}
 
 
 export interface PerVeStoreContextModel {
@@ -42,6 +48,9 @@ export interface PerVeStoreContextModel {
   getMoveOverIndex: (vePath: VisualElementPath) => number, // for grid pages
   setMoveOverIndex: (vePath: VisualElementPath, index: number) => void,
 
+  getMoveOverIndexAndPosition: (vePath: VisualElementPath) => IndexAndPosition, // for dock, justified pages.
+  setMoveOverIndexAndPosition: (vePath: VisualElementPath, index: IndexAndPosition) => void,
+
   getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
   setMoveOverColAttachmentNumber: (vePath: VisualElementPath, colNumber: number) => void,
 
@@ -63,6 +72,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const moveOverRowNumber = new Map<string, NumberSignal>();
   const moveOverColAttachmentNumber = new Map<string, NumberSignal>();
   const moveOverIndex = new Map<string, NumberSignal>();
+  const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
   const isExpanded = new Map<string, BooleanSignal>();
 
   const getMouseIsOver = (vePath: VisualElementPath): boolean => {
@@ -162,12 +172,27 @@ export function makePerVeStore(): PerVeStoreContextModel {
     return moveOverIndex.get(vePath)!.get();
   };
 
-  const setMoveOverIndex = (vePath: VisualElementPath, rowNumber: number): void => {
+  const setMoveOverIndex = (vePath: VisualElementPath, index: number): void => {
     if (!moveOverIndex.get(vePath)) {
       moveOverIndex.set(vePath, createNumberSignal(-1));
       return;
     }
-    moveOverIndex.get(vePath)!.set(rowNumber);
+    moveOverIndex.get(vePath)!.set(index);
+  };
+
+  const getMoveOverIndexAndPosition = (vePath: VisualElementPath): IndexAndPosition => {
+    if (!moveOverIndexAndPosition.get(vePath)) {
+      moveOverIndexAndPosition.set(vePath, createInfuSignal<IndexAndPosition>({ index: -1, position: -1 }));
+    }
+    return moveOverIndexAndPosition.get(vePath)!.get();
+  };
+
+  const setMoveOverIndexAndPosition = (vePath: VisualElementPath, ip: IndexAndPosition): void => {
+    if (!moveOverIndexAndPosition.get(vePath)) {
+      moveOverIndexAndPosition.set(vePath, createInfuSignal<IndexAndPosition>(ip));
+      return;
+    }
+    moveOverIndexAndPosition.get(vePath)!.set(ip);
   };
 
   const getMoveOverColAttachmentNumber = (vePath: VisualElementPath): number => {
@@ -218,6 +243,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMoveOverIndex,
     setMoveOverIndex,
+
+    getMoveOverIndexAndPosition,
+    setMoveOverIndexAndPosition,
 
     getMoveOverRowNumber,
     setMoveOverRowNumber,
