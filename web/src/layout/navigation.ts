@@ -103,7 +103,7 @@ export async function navigateUp(store: StoreContextModel) {
   let cnt = 0;
   let parentId = currentPage.parentId;
   while (cnt++ < MAX_LEVELS) {
-    if (parentId == EMPTY_UID) {
+    if (parentId == EMPTY_UID || parentId == store.user.getUser().dockPageId) {
       // already at top.
       navigateUpInProgress = false;
       return;
