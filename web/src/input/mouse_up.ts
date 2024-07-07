@@ -154,7 +154,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleShiftLeftClick(activeVisualElement, store);
-      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags)) {
+      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags) &&
+                 ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
+                  (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe))) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
       } else {
