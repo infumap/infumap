@@ -891,11 +891,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={isEmbeddedInteractive()}>
         <div class={`absolute`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px;`}>
-          <div class="absolute font-bold"
+          <div id={VeFns.veToPath(props.visualElement) + ":title"}
+               class="absolute font-bold"
                style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale()}px; ` +
                       `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
                       `overflow-wrap: break-word;` +
-                      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
+                      `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
+                      `outline: 0px solid transparent;`}
+               spellcheck={store.overlay.textEditInfo() != null}
+               contentEditable={store.overlay.textEditInfo() != null}>
             {pageItem().title}
           </div>
         </div>

@@ -295,7 +295,7 @@ export const PageFns = {
 
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
+      HitboxFns.create(HitboxFlags.Move | HitboxFlags.Click | HitboxFlags.ContentEditable, { x: 0, y: 0, h: blockSizePx.h * headerHeightBl, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
@@ -536,13 +536,17 @@ export const PageFns = {
     panic("not page measurable.");
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-    store.history.setFocus(VeFns.veToPath(visualElement));
-    switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false, false);
+    if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
+      PageFns.handleEditTitleClick(visualElement, store);
+    } else {
+      store.history.setFocus(VeFns.veToPath(visualElement));
+      switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false, false);
+    }
   },
 
-  handleLongClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     let itemPath = VeFns.veToPath(visualElement);
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });

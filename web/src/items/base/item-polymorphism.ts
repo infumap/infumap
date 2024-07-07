@@ -34,7 +34,7 @@ import { asPlaceholderItem, isPlaceholder, PlaceholderFns } from '../placeholder
 import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
 import { calcGeometryOfEmptyItem_ListItem } from './item-common-fns';
-import { HitboxMeta } from '../../layout/hitbox';
+import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { ExpressionFns, asExpressionItem, isExpression } from '../expression-item';
 import { LINE_HEIGHT_PX } from '../../constants';
 
@@ -207,9 +207,9 @@ export const ItemFns = {
     panic(`toObject: Unknown item type: ${item.itemType}`);
   },
 
-  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, store: StoreContextModel): void => {
+  handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel): void => {
     const item = visualElementSignal.get().displayItem;
-    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), store); }
+    if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), hitboxFlags, store); }
     else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, store); }
     else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store); }

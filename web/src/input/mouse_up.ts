@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -40,7 +40,6 @@ import { panic } from "../util/lang";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
-import { PageFlags } from "../items/base/flags-item";
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
@@ -146,7 +145,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, store);
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
       }
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
         DoubleClickState.preventDoubleClick();
@@ -157,7 +156,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         PageFns.handleShiftLeftClick(activeVisualElement, store);
       } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags)) {
         DoubleClickState.preventDoubleClick();
-        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, store);
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         console.debug("no action taken");

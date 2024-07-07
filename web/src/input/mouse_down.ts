@@ -275,7 +275,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     if (MouseActionState.get().action != MouseAction.Ambiguous) { return; }
     const hitVe = HitInfoFns.getHitVe(hitInfo);
     if (isPage(overDisplayItem) && !(veFlagIsRoot(hitVe.flags))) {
-      PageFns.handleLongClick(HitInfoFns.getHitVe(hitInfo), store);
+      PageFns.handleEditTitleClick(HitInfoFns.getHitVe(hitInfo), store);
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);
