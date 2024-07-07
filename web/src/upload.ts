@@ -43,14 +43,14 @@ export async function handleUpload(
     }
     if (item.type == 'text/html') {
       item.getAsString((txt) => {
-        console.log("TODO: upload clipings", txt, desktopPx);
+        console.debug("TODO: upload clipings", txt, desktopPx);
       });
     }
   }
 
   let posPx = { x: 0.0, y: 0.0 };
   if (parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const hitInfo = HitInfoFns.hit(store, desktopPx, [], false, false);
+    const hitInfo = HitInfoFns.hit(store, desktopPx, [], false);
     const propX = (desktopPx.x - HitInfoFns.getHitVe(hitInfo).boundsPx.x) / HitInfoFns.getHitVe(hitInfo).boundsPx.w;
     const propY = (desktopPx.y - HitInfoFns.getHitVe(hitInfo).boundsPx.y) / HitInfoFns.getHitVe(hitInfo).boundsPx.h;
     posPx = {

@@ -102,7 +102,7 @@ function serveWaiting() {
     if (objectUrls.has(task.path) && objectUrls.get(task.path) != null) {
       // a waiting task that has now completed might have been for the same filename.
       task.resolve(objectUrls.get(task.path) as string);
-      if (debug) { console.log(`previus waiting task satisfied a subsequent request: ${task.path}.`) }
+      if (debug) { console.debug(`previus waiting task satisfied a subsequent request: ${task.path}.`) }
       serveWaiting();
       return;
     }
@@ -170,7 +170,7 @@ export function releaseImage(filename: string) {
         waitingForCleanup.delete(filename);
         if (debug) { console.debug(`revoke objectURL complete: ${filename}.`); }
       } else {
-        console.log(`WARNING: release called when ref count > 0: ${filename}.`);
+        console.error(`WARNING: release called when ref count > 0: ${filename}.`);
       }
     }, CLEANUP_AFTER_MS);
     waitingForCleanup.set(filename, timeoutId);

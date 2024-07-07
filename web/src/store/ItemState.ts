@@ -275,8 +275,8 @@ export const itemState = {
   },
 
   debugLog: (): void => {
-    console.log("--- start item state list");
-    for (let v of items) { console.log("id: " + v[0] + ", pid: " + v[1].parentId); }
-    console.log("--- end item state list");
+    console.debug("--- start item state list");
+    for (let v of items) { console.debug("id: " + v[0] + ", pid: " + v[1].parentId); }
+    console.debug("--- end item state list");
   },
 }

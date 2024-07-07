@@ -50,7 +50,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     try {
       setInstallationState(await post(null, "/admin/installation-state", {}));
     } catch (e) {
-      console.log("An error occurred retrieving installation state. " + e);
+      console.error("An error occurred retrieving installation state. " + e);
       setInstallationState(null);
     }
   }

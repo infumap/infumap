@@ -25,7 +25,7 @@ import { asTableItem } from "../items/table-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElementFlags, VeFns } from "../layout/visual-element";
+import { VisualElementFlags, VeFns, veFlagIsRoot } from "../layout/visual-element";
 import { VisualElementSignal } from "../util/signals";
 import { HitInfoFns } from "./hit";
 import { asPositionalItem } from "../items/base/positional-item";
@@ -103,6 +103,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
       return;
     case MouseAction.ResizingListPageColumn:
       mouseAction_resizingListPageColumn(deltaPx, store);
+      return;
+    case MouseAction.Selecting:
+      console.debug("TODO (HIGH): multi-item selection.");
       return;
     default:
       panic("unknown mouse action.");
@@ -193,6 +196,10 @@ function changeMouseActionStateMaybe(
     } else {
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
+  } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags)) {
+    MouseActionState.get().action = MouseAction.Selecting;
+  } else {
+    console.debug(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags);
   }
 }
 
@@ -205,7 +212,7 @@ function mouseAction_resizingListPageColumn(_deltaPx: Vector, _store: StoreConte
   // if (newDockWidthPx > 300) { newDockWidthPx = 300; }
   // store.overlay.setDockWidthPx(newDockWidthPx);
   // arrange(store);
-  console.log("TODO: mouseAction_resizingListPageColumn");
+  console.debug("TODO: mouseAction_resizingListPageColumn");
 }
 
 
@@ -348,7 +355,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const hasModal = cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
-  const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], false, true);
+  const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], true);
   if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu)) {
     if (hitInfo.overElementMeta!.colNum) {
       store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);

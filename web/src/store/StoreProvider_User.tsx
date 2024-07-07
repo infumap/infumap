@@ -84,7 +84,7 @@ export function makeUserStore(): UserStoreContextModel {
       if (data == null) { return null };
       if (getCookie(SESSION_COOKIE_NAME) == null) {
         // Session cookie has expired. Update SolidJS state to reflect this.
-        console.log("Session cookie has expired.");
+        console.error("Session cookie has expired.");
         setSessionDataString(null);
         return null;
       }
@@ -96,7 +96,7 @@ export function makeUserStore(): UserStoreContextModel {
       if (data == null) { panic("no session data string."); };
       if (getCookie(SESSION_COOKIE_NAME) == null) {
         // Session cookie has expired. Update SolidJS state to reflect this.
-        console.log("Session cookie has expired.");
+        console.error("Session cookie has expired.");
         setSessionDataString(null);
         panic("session cookie has expired");
       }

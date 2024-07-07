@@ -55,7 +55,7 @@ const App: Component = () => {
 async function handleFileInputUpdated() {
   const fileInputElement = document.getElementById("file-input")! as HTMLInputElement;
   if (fileInputElement.value == null || fileInputElement.files == null) {
-    console.log("no file");
+    console.error("no file");
     return;
   }
   const file = fileInputElement.files[0];

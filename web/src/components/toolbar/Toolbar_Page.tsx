@@ -218,7 +218,7 @@ export const Toolbar_Page: Component = () => {
 
   const emptyTrashHandler = () => {
     server.emptyTrash().then(r => {
-      console.log(r);
+      console.debug(r);
     })
   };
 

@@ -134,7 +134,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
  * Update the ve specified by vePath for updates to it's display/link item.
  */
 export function rearrangeVisualElement(store: StoreContextModel, vePath: VisualElementPath): void {
-  console.log("rearrange visual element");
+  console.debug("rearrange visual element");
 
   const ves = VesCache.get(vePath)!;
   rearrangeVisualElementSignal(store, ves);
@@ -170,7 +170,7 @@ function rearrangeVisualElementSignal(store: StoreContextModel, ves: VisualEleme
  * Update all VisualElements impacted by a change to @argument displayItemId.
  */
 export function rearrangeWithDisplayId(store: StoreContextModel, displayItemId: Uid): void {
-  console.log("rearrange all with display id");
+  console.debug("rearrange all with display id");
 
   const paths = VesCache.getPathsForDisplayId(displayItemId);
   let requireFullArrange = false;
@@ -228,11 +228,11 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
 }
 
 function rearrangeInsideComposite(store: StoreContextModel, ves: VisualElementSignal): void {
-  console.log("fell back to full arrange (inside composite)");
+  console.debug("fell back to full arrange (inside composite)");
   fullArrange(store);
 }
 
 function rearrangeInsideTable(store: StoreContextModel, ves: VisualElementSignal): void {
-  console.log("fell back to full arrange (inside table)");
+  console.debug("fell back to full arrange (inside table)");
   fullArrange(store);
 }

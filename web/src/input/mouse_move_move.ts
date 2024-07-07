@@ -50,12 +50,12 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     fullArrange(store);
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink);
     fullArrange(store);
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false, false);
+    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false);
     moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink);
     fullArrange(store);
   }
@@ -112,7 +112,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     for (let childId of compositeItem.computed_children) { ignoreIds.push(childId); }
   }
 
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, false, MouseActionState.get().hitEmbeddedInteractive);
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.get().hitEmbeddedInteractive);
 
   // update move over element state.
   if (MouseActionState.get().moveOver_containerElement == null ||

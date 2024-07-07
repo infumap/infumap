@@ -66,7 +66,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (store.overlay.anOverlayIsVisible()) { return; }
   if (!recognizedKeys.find(a => a == ev.code)) { return; }
 
-  const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
+  const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
 
   if (ev.code == "Slash") {
     ev.preventDefault();

@@ -182,10 +182,11 @@ export const HitInfoFns = {
     } else {
       const overVe = hitInfo.overVes.get();
       if (isTitledItem(overVe.displayItem)) {
-        result += "overVes: '" + asTitledItem(overVe.displayItem).title + "' (" + overVe.displayItem.id + ")\n";
+        result += "overVes: '" + asTitledItem(overVe.displayItem).title + "' (" + overVe.displayItem.id + ")  ";
       } else {
-        result += "overVes: [N/A] (" + overVe.displayItem.id + ")\n";
+        result += "overVes: [N/A] (" + overVe.displayItem.id + ")  ";
       }
+      result += `[x: ${overVe.boundsPx.x}, y: ${overVe.boundsPx.y}, w: ${overVe.boundsPx.w}, h: ${overVe.boundsPx.h}]\n`;
     }
 
     result += "rootVe: '" + asPageItem(hitInfo.rootVes.get().displayItem).title + "' (" + hitInfo.rootVes.get().displayItem.id + ")\n";
@@ -261,9 +262,8 @@ export const HitInfoFns = {
   hit: (store: StoreContextModel,
         posOnDesktopPx: Vector,
         ignoreItems: Array<Uid>,
-        ignoreAttachments: boolean,
         canHitEmbeddedInteractive: boolean): HitInfo => {
-    return getHitInfo(store, posOnDesktopPx, ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
+    return getHitInfo(store, posOnDesktopPx, ignoreItems, false, canHitEmbeddedInteractive);
   }
 };
 
@@ -404,7 +404,7 @@ function hitChildMaybe(
           overElementMeta: meta,
           overPositionableVe: noAttachmentResult.overPositionableVe,
           overPositionGr: noAttachmentResult.overPositionGr,
-          debugCreatedAt: "hitChildMaybe",
+          debugCreatedAt: "hitChildMaybe1",
         };
       }
     }

@@ -183,7 +183,7 @@ export const Main: Component = () => {
   };
 
   const mouseDownListener = async (ev: MouseEvent) => {
-    let flags = await mouseDownHandler(store, ev.button, false);
+    let flags = await mouseDownHandler(store, ev.button);
     if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();
     }
@@ -193,7 +193,7 @@ export const Main: Component = () => {
     if (ev.touches.length > 1) {
       CursorEventState.setFromTouchEvent(ev);
       ev.preventDefault();
-      await mouseDownHandler(store, MOUSE_RIGHT, false);
+      await mouseDownHandler(store, MOUSE_RIGHT);
     }
   }
 

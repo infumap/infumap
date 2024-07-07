@@ -31,6 +31,7 @@ import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_ITEMS, Z_INDEX_MOVING, Z_INDEX_POPUP } from "../constants";
 import { isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
+import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 
 
 /**
@@ -560,6 +561,17 @@ export const VeFns = {
   opacityStyle: (visualElement: VisualElement): string => {
     return visualElement.flags & VisualElementFlags.Moving ? " opacity: 0.3;" : "";
   },
+
+  toDebugString: (ve: VisualElement): string => {
+    let result = "";
+    if (isTitledItem(ve.displayItem)) {
+      result += "'" + asTitledItem(ve.displayItem).title + "' (" + ve.displayItem.id + ")  ";
+    } else {
+      result += "[N/A] (" + ve.displayItem.id + ")  ";
+    }
+    result += `[x: ${ve.boundsPx.x}, y: ${ve.boundsPx.y}, w: ${ve.boundsPx.w}, h: ${ve.boundsPx.h}]`;
+    return result;
+  },
 }
 
 
@@ -579,7 +591,7 @@ function getIdsFromPathPart(part: string): Veid {
 function printRecursive(visualElement: VisualElement, level: number, relationship: string) {
   let indent = "";
   for (let i=0; i<level; ++i) { indent += "-"; }
-  console.log(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
+  console.debug(relationship + " " + indent + " [" + (visualElement.linkItemMaybe ? "link: " + visualElement.linkItemMaybe!.id : "") + "] {" + (visualElement.displayItem ? "itemid: " + visualElement.displayItem.id : "") + "}");
   for (let i=0; i<visualElement.childrenVes.length; ++i) {
     printRecursive(visualElement.childrenVes[i].get(), level + 1, "c");
   }

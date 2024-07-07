@@ -168,128 +168,128 @@ export function newOrderingDirectlyAfter(orderings: Array<Uint8Array>, find: Uin
 
 
 export function testOrdering(): void {
-  console.log('### -- Start Ordering tests');
+  console.debug('### -- Start Ordering tests');
 
-  console.log('### -- compare');
+  console.debug('### -- compare');
 
   let p1 = new Uint8Array([55, 23]);
   let p2 = new Uint8Array([55, 24]);
   let r = compareOrderings(p1, p2);
-  console.log('expect: -1', r);
+  console.debug('expect: -1', r);
 
   p1 = new Uint8Array([55, 24]);
   p2 = new Uint8Array([55, 23]);
   r = compareOrderings(p1, p2);
-  console.log('expect: 1', r);
+  console.debug('expect: 1', r);
 
   p1 = new Uint8Array([55]);
   p2 = new Uint8Array([55, 23]);
   r = compareOrderings(p1, p2);
-  console.log('expect: -1', r);
+  console.debug('expect: -1', r);
 
   p1 = new Uint8Array([55, 23]);
   p2 = new Uint8Array([55]);
   r = compareOrderings(p1, p2);
-  console.log('expect: 1', r);
+  console.debug('expect: 1', r);
 
   p1 = new Uint8Array([55, 23]);
   p2 = new Uint8Array([55, 23]);
   r = compareOrderings(p1, p2);
-  console.log('expect: 0', r);
+  console.debug('expect: 0', r);
 
   p1 = new Uint8Array([55, 23]);
   p2 = new Uint8Array([]);
   r = compareOrderings(p1, p2);
-  console.log('expect: 1', r);
+  console.debug('expect: 1', r);
 
   p1 = new Uint8Array([]);
   p2 = new Uint8Array([55, 23]);
   r = compareOrderings(p1, p2);
-  console.log('expect: -1', r);
+  console.debug('expect: -1', r);
 
 
-  console.log('### -- newOrderingBetween tests');
+  console.debug('### -- newOrderingBetween tests');
 
   p1 = new Uint8Array([55, 23]);
   p2 = new Uint8Array([55, 24]);
   let p = newOrderingBetween(p1, p2);
-  console.log('expect: [55, 23, 128]', Array.from(p));
+  console.debug('expect: [55, 23, 128]', Array.from(p));
 
   p1 = new Uint8Array([55, 23]);
   p2 = new Uint8Array([55, 23]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [55, 23]', Array.from(p));
+  console.debug('expect: [55, 23]', Array.from(p));
 
   p1 = new Uint8Array([1]);
   p2 = new Uint8Array([0, 254]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [0, 255]', Array.from(p));
+  console.debug('expect: [0, 255]', Array.from(p));
 
   p1 = new Uint8Array([1]);
   p2 = new Uint8Array([0, 250]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [0, 253]', Array.from(p));
+  console.debug('expect: [0, 253]', Array.from(p));
 
   p1 = new Uint8Array([1]);
   p2 = new Uint8Array([0, 255]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [0, 255, 128]', Array.from(p));
+  console.debug('expect: [0, 255, 128]', Array.from(p));
 
   p1 = new Uint8Array([1, 31]);
   p2 = new Uint8Array([1, 32]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [1, 31, 128]', Array.from(p));
+  console.debug('expect: [1, 31, 128]', Array.from(p));
 
   p1 = new Uint8Array([1, 30]);
   p2 = new Uint8Array([1, 32]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [1, 31]', Array.from(p));
+  console.debug('expect: [1, 31]', Array.from(p));
 
   p1 = new Uint8Array([1, 30]);
   p2 = new Uint8Array([1, 30, 255]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [1, 30, 127]', Array.from(p));
+  console.debug('expect: [1, 30, 127]', Array.from(p));
 
   p1 = new Uint8Array([1, 30]);
   p2 = new Uint8Array([1, 30, 1]);
   p = newOrderingBetween(p1, p2);
-  console.log('expect: [1, 30, 0, 128]', Array.from(p));
+  console.debug('expect: [1, 30, 0, 128]', Array.from(p));
 
 
-  console.log('### -- newOrderingAfter tests');
+  console.debug('### -- newOrderingAfter tests');
 
   p1 = new Uint8Array([55]);
   p = newOrderingAfter(p1);
-  console.log('expect: [63]', Array.from(p));
+  console.debug('expect: [63]', Array.from(p));
 
   p1 = new Uint8Array([254]);
   p = newOrderingAfter(p1);
-  console.log('expect: [255]', Array.from(p));
+  console.debug('expect: [255]', Array.from(p));
 
   p1 = new Uint8Array([255]);
   p = newOrderingAfter(p1);
-  console.log('expect: [255, 8]', Array.from(p));
+  console.debug('expect: [255, 8]', Array.from(p));
 
   p1 = new Uint8Array([42, 255, 255]);
   p = newOrderingAfter(p1);
-  console.log('expect: [50]', Array.from(p));
+  console.debug('expect: [50]', Array.from(p));
 
 
-  console.log('### -- newOrderingBefore tests')
+  console.debug('### -- newOrderingBefore tests')
 
   p1 = new Uint8Array([1]);
   p = newOrderingBefore(p1);
-  console.log('expect: [0, 247]', Array.from(p));
+  console.debug('expect: [0, 247]', Array.from(p));
 
   p1 = new Uint8Array([2]);
   p = newOrderingBefore(p1);
-  console.log('expect: [1]', [1], Array.from(p));
+  console.debug('expect: [1]', [1], Array.from(p));
 
   p1 = new Uint8Array([0, 1]);
   p = newOrderingBefore(p1);
-  console.log('expect: [0, 0, 247]', Array.from(p));
+  console.debug('expect: [0, 0, 247]', Array.from(p));
 
   p1 = new Uint8Array([0, 0]);
   p = newOrderingBefore(p1);
-  console.log('expect: [0, 0, 0]', Array.from(p));
+  console.debug('expect: [0, 0, 0]', Array.from(p));
 }

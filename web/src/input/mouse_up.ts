@@ -32,7 +32,7 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns, VisualElementFlags } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -40,6 +40,7 @@ import { panic } from "../util/lang";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
+import { PageFlags } from "../items/base/flags-item";
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
@@ -110,6 +111,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.ResizingListPageColumn:
       break;
 
+    case MouseAction.Selecting:
+      console.debug("TODO (HIGH): multi-item selection (mouse up).");
+      break;
+
     case MouseAction.Ambiguous:
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
@@ -150,6 +155,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleShiftLeftClick(activeVisualElement, store);
+      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags)) {
+        DoubleClickState.preventDoubleClick();
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, store);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         console.debug("no action taken");
@@ -218,7 +226,7 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
     }
   }
   else {
-    console.log("todo: explicitly consider other page types here.");
+    console.debug("todo: explicitly consider other page types here.");
     serverOrRemote.updateItem(itemState.get(activeItem.id)!);
   }
 

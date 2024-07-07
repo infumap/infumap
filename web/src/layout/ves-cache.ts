@@ -245,9 +245,9 @@ export let VesCache = {
   },
 
   debugLog: (): void => {
-    console.log("--- start ves cache entry list");
-    for (let v of currentVesCache) { console.log(v[0]); }
-    console.log("--- end ves cache entry list");
+    console.debug("--- start ves cache entry list");
+    for (let v of currentVesCache) { console.debug(v[0]); }
+    console.debug("--- end ves cache entry list");
   }
 }
 

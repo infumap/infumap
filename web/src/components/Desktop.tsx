@@ -41,7 +41,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, false);
+      let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
       if (hitInfo.hitboxType != HitboxFlags.None) {
         console.log("must upload on background.");
         return;

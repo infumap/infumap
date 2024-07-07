@@ -239,7 +239,7 @@ export const ExpressionFns = {
   },
 
   handleLinkClick: (_visualElement: VisualElement): void => {
-    console.log("TODO");
+    console.debug("TODO");
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {

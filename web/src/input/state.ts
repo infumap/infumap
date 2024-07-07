@@ -37,6 +37,7 @@ export enum MouseAction {
   ResizingPopup,
   ResizingDock,
   ResizingListPageColumn,
+  Selecting,
 }
 
 
