@@ -173,7 +173,14 @@ export function arrange_list_page(
 
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
-export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, boundsPx: BoundingBox, currentPath: VisualElementPath, canShiftLeft: boolean, isRoot: boolean): VisualElementSignal {
+export function arrangeSelectedListItem(
+    store: StoreContextModel,
+    veid: Veid,
+    boundsPx: BoundingBox,
+    currentPath: VisualElementPath,
+    canShiftLeft: boolean,
+    isRoot: boolean): VisualElementSignal | null {
+
   const item = itemState.get(veid.itemId)!;
   const actualLinkItemMaybe = veid.linkIdMaybe == null ? null : asLinkItem(itemState.get(veid.linkIdMaybe)!);
   const canonicalItem = VeFns.canonicalItemFromVeid(veid)!;
@@ -184,6 +191,10 @@ export function arrangeSelectedListItem(store: StoreContextModel, veid: Veid, bo
     w: boundsPx.w - 2 * LINE_HEIGHT_PX,
     h: boundsPx.h - 2 * LINE_HEIGHT_PX,
   };
+
+  if (paddedBoundsPx.w < LINE_HEIGHT_PX / 2 || paddedBoundsPx.h < LINE_HEIGHT_PX / 2) {
+    return null;
+  }
 
   let li = LinkFns.create(item.ownerId, canonicalItem.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
   li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
