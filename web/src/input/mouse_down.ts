@@ -284,7 +284,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }, 750);
 
   MouseActionState.set({
-    activeRoot: VeFns.veToPath(hitInfo.rootVes.get().flags & VisualElementFlags.Popup ? VesCache.get(hitInfo.rootVes.get().parentPath!)!.get() : hitInfo.rootVes.get()),
+    activeRoot: VeFns.veToPath(hitInfo.rootVes.get().flags & VisualElementFlags.Popup
+      ? VesCache.get(hitInfo.rootVes.get().parentPath!)!.get()
+      : hitInfo.rootVes.get()),
     startActiveElementParent: HitInfoFns.getHitVe(hitInfo).parentPath!,
     activeElementPath,
     activeCompositeElementMaybe: hitInfo.compositeHitboxTypeMaybe ? VeFns.veToPath(HitInfoFns.getCompositeContainerVe(hitInfo)!) : null,
