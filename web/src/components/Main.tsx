@@ -22,7 +22,7 @@ import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, ItemsA
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
-import { childrenLoadInitiatedOrComplete } from "../layout/load";
+import { clearLoadState, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
 import { switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
@@ -89,7 +89,7 @@ export const Main: Component = () => {
         throw e;
       }
 
-      childrenLoadInitiatedOrComplete[pageId] = true;
+      markChildrenLoadAsInitiatedOrComplete(pageId);
 
       try {
         itemState.setChildItemsFromServerObjects(pageId, result.children, null);
@@ -171,11 +171,7 @@ export const Main: Component = () => {
     VesCache.clear();
     await store.user.logout();
     navigate('/login');
-    for (let key in childrenLoadInitiatedOrComplete) {
-      if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {
-        delete childrenLoadInitiatedOrComplete[key];
-      }
-    }
+    clearLoadState();
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {

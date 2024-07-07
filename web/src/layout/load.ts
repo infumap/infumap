@@ -28,7 +28,25 @@ import { PageFns } from "../items/page-item";
 import { Veid } from "./visual-element";
 
 
-export let childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
+export function clearLoadState() {
+  for (let key in childrenLoadInitiatedOrComplete) {
+    if (childrenLoadInitiatedOrComplete.hasOwnProperty(key)) {
+      delete childrenLoadInitiatedOrComplete[key];
+    }
+  }
+  for (let key in itemLoadInitiatedOrComplete) {
+    if (itemLoadInitiatedOrComplete.hasOwnProperty(key)) {
+      delete itemLoadInitiatedOrComplete[key];
+    }
+  }
+}
+
+export function markChildrenLoadAsInitiatedOrComplete(pageId: Uid) {
+  childrenLoadInitiatedOrComplete[pageId] = true;
+}
+
+
+const childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
 export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid) => {
   if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
@@ -72,7 +90,7 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
 }
 
 
-let itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
+const itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 
 export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Promise<void> => {
   if (itemLoadInitiatedOrComplete[id]) { return Promise.resolve(); }
