@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, cloneBoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -31,6 +31,7 @@ import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./help
 import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
+import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -64,6 +65,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   //   }
   //   return "/files/" + props.visualElement.itemId + "_" + imageWidthToRequestPx(true);
   // };
+  const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
@@ -255,8 +257,12 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                       `background-color: ${FEATURE_COLOR};`} />
         </Show>
-        <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+        <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                    showTriangleDetail()}>
           <InfuLinkTriangle />
+        </Show>
+        <Show when={showTriangleDetail()}>
+          <InfuResizeTriangle />
         </Show>
       </div>
     </Show>;
@@ -330,6 +336,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
     r.w = oneBlockWidthPx();
     return r;
   };
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const renderHighlightsMaybe = () =>
     <Switch>
@@ -374,7 +381,8 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

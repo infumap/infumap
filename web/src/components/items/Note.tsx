@@ -88,6 +88,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
+  const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
 
   const attachBoundsPx = (): BoundingBox => {
     return ({
@@ -307,10 +308,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                  showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInCompositeOrDocument()}>
+      <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
@@ -364,6 +366,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     r.w = oneBlockWidthPx();
     return r;
   };
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
@@ -483,7 +486,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

@@ -86,6 +86,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
   const smallScale = () => textBlockScale() * 0.7;
+  const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
@@ -223,10 +224,11 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)
+                  && showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInCompositeOrDocument()}>
+      <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
@@ -279,6 +281,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const copyClickHandler = () => {
     navigator.clipboard.writeText(passwordItem().text);
   }
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
@@ -351,11 +354,12 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                 `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>

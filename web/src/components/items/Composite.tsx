@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { ATTACH_AREA_SIZE_PX, LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
@@ -79,6 +79,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       h: ATTACH_AREA_SIZE_PX,
     }
   };
+
+  const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * asCompositeItem(props.visualElement.displayItem).spatialWidthGr / GRID_SIZE); }
 
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
@@ -291,7 +293,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                  `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)} ` +
                  `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
-                 `outline: 0px solid transparent;`}
+                 `outline: 0px solid transparent; ` +
+                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
           contentEditable={store.overlay.textEditInfo() != null}
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
@@ -301,13 +304,20 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         }</For>
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
           <div class={`absolute rounded-sm`}
-              style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
-                     `background-color: #ff0000;`} />
+               style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px; ` +
+                      `background-color: #ff0000;`} />
         </Show>
-        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                    showTriangleDetail()}>
           <InfuLinkTriangle />
         </Show>
-        <InfuResizeTriangle />
+        <Show when={showTriangleDetail()}>
+          <div class="absolute"
+               style={"width: 0px; height: 0px; bottom: 2px; right: 2px;" +
+               `${VeFns.zIndexStyle(props.visualElement)}`}>
+            <InfuResizeTriangle />
+          </div>
+        </Show>
       </div>
     </>
   );
@@ -342,6 +352,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     r.w = oneBlockWidthPx();
     return r;
   };
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const renderHighlightsMaybe = () =>
     <Switch>
@@ -391,7 +402,8 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     </Show>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

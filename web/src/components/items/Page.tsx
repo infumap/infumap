@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { borderColorForColorIdx, BorderType, Colors, FEATURE_COLOR, FEATURE_COLOR_DARK, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -140,6 +140,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const lineVes = () => props.visualElement.childrenVes.filter(c => c.get().flags & VisualElementFlags.LineItem);
   const desktopVes = () => props.visualElement.childrenVes.filter(c => !(c.get().flags & VisualElementFlags.LineItem));
+
+  const showTriangleDetail = () => (boundsPx().w / (pageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const calcTitleInBoxScale = (textSize: string) => {
     const outerDiv = document.createElement("div");
@@ -312,7 +314,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderIsLinkMaybe = () =>
-      <Show when={props.visualElement.linkItemMaybe != null}>
+      <Show when={props.visualElement.linkItemMaybe != null && showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>;
 
@@ -347,7 +349,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                           `background-color: ${FEATURE_COLOR_DARK};`} />
             </Show>
             {renderIsLinkMaybe()}
-            <InfuResizeTriangle />
+            <Show when={showTriangleDetail()}>
+              <InfuResizeTriangle />
+            </Show>
           </Show>
         </div>
       </>
@@ -510,7 +514,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
 
     const renderIsLinkMaybe = () =>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                  showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>;
 
@@ -529,12 +534,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
       </Show>;
 
-    const renderResizeTriangle = () =>
-      <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden pointer-events-none`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  `${VeFns.opacityStyle(props.visualElement)}; ${VeFns.zIndexStyle(props.visualElement)}`}>
-          <InfuResizeTriangle />
-      </div>;
+    const renderResizeTriangleMaybe = () =>
+      <Show when={showTriangleDetail()}>
+        <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden pointer-events-none`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    `${VeFns.opacityStyle(props.visualElement)}; ${VeFns.zIndexStyle(props.visualElement)}`}>
+            <InfuResizeTriangle />
+        </div>
+      </Show>;
 
     return (
       <>
@@ -547,7 +554,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             {renderPage()}
           </Match>
         </Switch>
-        {renderResizeTriangle()}
+        {renderResizeTriangleMaybe()}
         <div class={`absolute ${borderClass()} rounded-sm pointer-events-none`}
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     backgroundStyle() +
@@ -1078,6 +1085,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     const result = { x, y, w, h };
     return result;
   };
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const isPoppedUp = () =>
     store.history.currentPopupSpecVeid() != null &&
@@ -1150,7 +1158,8 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

@@ -106,6 +106,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX*2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => heightScale() / widthScale();
+  const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
 
   // Link click events are handled in the global mouse up handler. However, calculating the text
   // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
@@ -223,10 +224,11 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
               style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                  showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInCompositeOrDocument()}>
+      <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
@@ -273,6 +275,7 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     r.w = oneBlockWidthPx();
     return r;
   };
+  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   // Link click events are handled in the global mouse up handler. However, calculating the text
   // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
@@ -359,11 +362,12 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)}>
+    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                 `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>
