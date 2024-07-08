@@ -308,11 +308,15 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                     `background-color: ${FEATURE_COLOR};`} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+      <Show when={props.visualElement.linkItemMaybe != null &&
+                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                  (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath())) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={!isInCompositeOrDocument() && showTriangleDetail()}>
+      <Show when={!isInCompositeOrDocument() &&
+                  showTriangleDetail() &&
+                  (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttach(vePath())}>
