@@ -60,7 +60,7 @@ export const AddItem: Component<ContexMenuProps> = (props: ContexMenuProps) => {
         <div class="inline-block text-center w-[18px]"><span class="w-[16px] h-[16px] inline-block text-center relative">∑</span></div> Expression
       </div>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newLinkInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-link" /></div> Rating
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-link" /></div> Link
       </div>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-eye-slash" /></div> Password
