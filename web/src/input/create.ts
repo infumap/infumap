@@ -207,7 +207,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     panic("cannot create item in context here.");
   }
 
-  if (type == ItemType.Page || ItemType.Note || ItemType.Expression || ItemType.Password || ItemType.Table) {
+  if (type == ItemType.Page || type == ItemType.Note || type == ItemType.Expression || type == ItemType.Password || type == ItemType.Table) {
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);

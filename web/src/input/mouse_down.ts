@@ -54,7 +54,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
 
-  // Toolbar popups.
+  // Popups associated with the toolbar.
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
     if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
       // if mouse down is inside popup bounds, this is not handled by the global handler.
@@ -74,7 +74,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  // Page title edit via toolbar.
+  // Editing the page title on the toolbar.
   const toolbarTitleDiv = document.getElementById("toolbarTitleDiv")!;
   if (toolbarTitleDiv) {
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
@@ -93,7 +93,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  // In text edit mode.
+  // Editing text using a content editable div (variety of item types).
   if (store.overlay.textEditInfo()) {
     if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
 
@@ -150,9 +150,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
   }
 
-
-  // The area of the toolbar specific to an item type.
-
+  /**
+   * whether or not the mouse cursor is inside the item specific part of the toolbar.
+   */
   function isInsideItemOptionsToolbox(): boolean {
     const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
     if (!toolboxDiv) { return false; }
@@ -161,9 +161,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     return isInside(CursorEventState.getLatestClientPx(), boundsPx);
   }
 
-  if (isLink(store.history.getFocusItem()) || isRating(store.history.getFocusItem())) {
-    if (buttonNumber != MOUSE_LEFT ||
-        !isInsideItemOptionsToolbox()) {
+  if (isLink(store.history.getFocusItem()) ||
+      isRating(store.history.getFocusItem())) {
+    if (buttonNumber != MOUSE_LEFT || !isInsideItemOptionsToolbox()) {
       store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
     }
     defaultResult = MouseEventActionFlags.None;

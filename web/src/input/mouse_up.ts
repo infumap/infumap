@@ -115,6 +115,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.Ambiguous:
+
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {
@@ -156,7 +157,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         PageFns.handleShiftLeftClick(activeVisualElement, store);
       } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags) &&
                  ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
-                  (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe))) {
+                  (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
+                 (CursorEventState.getLatestDesktopPx(store).y > 0)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
       } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.Popup) {
