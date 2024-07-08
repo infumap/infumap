@@ -179,7 +179,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
-                !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+                !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
+                (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
       <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
@@ -257,11 +258,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                style={`left: ${moveOutOfCompositeBox().x}px; top: ${moveOutOfCompositeBox().y}px; width: ${moveOutOfCompositeBox().w}px; height: ${moveOutOfCompositeBox().h}px; ` +
                       `background-color: ${FEATURE_COLOR};`} />
         </Show>
-        <Show when={props.visualElement.linkItemMaybe != null && !(props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                    showTriangleDetail()}>
+        <Show when={props.visualElement.linkItemMaybe != null &&
+                    !(props.visualElement.flags & VisualElementFlags.Popup) &&
+                    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                    showTriangleDetail() &&
+                    (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
           <InfuLinkTriangle />
         </Show>
-        <Show when={showTriangleDetail()}>
+        <Show when={showTriangleDetail() &&
+                    (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
           <InfuResizeTriangle />
         </Show>
       </div>
