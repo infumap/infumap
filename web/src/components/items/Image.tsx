@@ -181,8 +181,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
                 !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
                 (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
-      <div class={`absolute border border-slate-700 rounded-sm shadow-lg bg-white`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+      <div class={`absolute border border-transparent rounded-sm shadow-lg bg-white`}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
