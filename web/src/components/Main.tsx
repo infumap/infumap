@@ -38,7 +38,7 @@ import { keyDownHandler } from "../input/key";
 import { fArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
-import { composite_selectionChangeListener } from "./items/Composite";
+import { composite_selectionChangeListener } from "../input/edit";
 
 
 export let logout: (() => Promise<void>) | null = null;

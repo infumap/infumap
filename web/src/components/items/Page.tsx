@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_ITEMS, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { borderColorForColorIdx, BorderType, Colors, FEATURE_COLOR, FEATURE_COLOR_DARK, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -37,6 +37,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { isComposite } from "../../items/composite-item";
 import { appendNewlineIfEmpty } from "../../util/string";
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -163,6 +164,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isInComposite = () =>
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
+  const isDocumentPage = () =>
+    pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
+
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
@@ -170,10 +174,18 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     store.overlay.textEditInfo() == null &&
     isInComposite();
 
-  const keyUpHandler = (ev: KeyboardEvent) => { }
-  const keyDownHandler = (ev: KeyboardEvent) => { }
-  const inputListener = (ev: InputEvent) => { }
+  const keyUpHandler = (ev: KeyboardEvent) => {
+    edit_keyUpHandler(store, ev);
+  }
 
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    edit_keyDownHandler(store, props.visualElement, ev);
+  }
+
+  const inputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
+  }
+  
   const renderGridlinesMaybe = () =>
     <Show when={pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
       <For each={[...Array(pageItem().gridNumberOfColumns).keys()]}>{i =>
@@ -834,17 +846,22 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="absolute"
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
-                    `height: ${childAreaBoundsPx().h}px;`}>
+                    `height: ${childAreaBoundsPx().h}px;` +
+                    `outline: 0px solid transparent; `}
+             contentEditable={store.overlay.textEditInfo() != null && isDocumentPage()}
+             onKeyUp={keyUpHandler}
+             onKeyDown={keyDownHandler}
+             onInput={inputListener}>
           <For each={props.visualElement.childrenVes}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} />
           }</For>
           <Show when={props.visualElement.popupVes != null}>
             <VisualElement_Desktop visualElement={props.visualElement.popupVes!.get()} />
           </Show>
-          <Show when={isPage(VeFns.canonicalItem(props.visualElement)) && asPageItem(VeFns.canonicalItem(props.visualElement)).arrangeAlgorithm == ArrangeAlgorithm.Document}>
+          <Show when={isDocumentPage()}>
             <>
               <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
-              <div class="absolute" style={`left: ${(asPageItem(VeFns.canonicalItem(props.visualElement)).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
+              <div class="absolute" style={`left: ${(asPageItem(props.visualElement.displayItem).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
             </>
           </Show>
           {renderGridlinesMaybe()}
@@ -957,8 +974,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <div class="absolute"
              style={`left: 0px; top: 0px; ` +
                     `width: ${childAreaBoundsPx().w}px; ` +
-                    `height: ${childAreaBoundsPx().h}px;`}
-             contentEditable={store.overlay.textEditInfo() != null && pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document}
+                    `height: ${childAreaBoundsPx().h}px;` +
+                    `outline: 0px solid transparent; `}
+             contentEditable={store.overlay.textEditInfo() != null && isDocumentPage()}
              onKeyUp={keyUpHandler}
              onKeyDown={keyDownHandler}
              onInput={inputListener}>

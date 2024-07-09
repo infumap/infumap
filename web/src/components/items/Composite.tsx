@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
-import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { asCompositeItem } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -29,38 +29,8 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
-import { currentCaretElement, getCurrentCaretVePath_title, getCaretPosition, setCaretPosition } from "../../util/caret";
-import { server, serverOrRemote } from "../../server";
-import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
-import { trimNewline } from "../../util/string";
-import { fullArrange } from "../../layout/arrange";
-import { VesCache } from "../../layout/ves-cache";
-import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { assert, panic } from "../../util/lang";
-import { FindDirection, findClosest } from "../../layout/find";
-import { asFileItem, isFile } from "../../items/file-item";
-import { ItemType } from "../../items/base/item";
-import { asPositionalItem } from "../../items/base/positional-item";
-import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { asExpressionItem, isExpression } from "../../items/expression-item";
-import { asPasswordItem, isPassword } from "../../items/password-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { isArrowKey } from "../../input/key";
-import { isTable } from "../../items/table-item";
-
-
-let arrowKeyDown_caretPosition = null;
-let arrowKeyDown_element: HTMLElement | null = null;
-
-export function composite_selectionChangeListener() {
-  if (arrowKeyDown_element != null) {
-    try {
-      getCurrentCaretVePath_title();
-    } catch (e) {
-      setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
-    }
-  }
-}
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -84,204 +54,24 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
 
-  const keyUpHandler = (ev: KeyboardEvent) => {
-    if (isArrowKey(ev.key)) {
-      keyUp_Arrow();
-    }
-  }
-
-  const keyUp_Arrow = () => {
-    arrowKeyDown_caretPosition = null;
-    arrowKeyDown_element = null;
-
-    let currentCaretItemPath;
-    try {
-      currentCaretItemPath = getCurrentCaretVePath_title();
-    } catch (e) {
-      console.log("bad current caret ve path: ", e);
-      return;
-    }
-    const currentEditingPath = store.history.getFocusPath();
-    if (currentEditingPath != currentCaretItemPath) {
-      serverOrRemote.updateItem(store.history.getFocusItem());
-
-      const newEditingDomId = currentCaretItemPath + ":title";
-      let newEditingTextElement = document.getElementById(newEditingDomId);
-      let caretPosition = getCaretPosition(newEditingTextElement!);
-
-      let newVes = VesCache.get(currentCaretItemPath)!;
-      let newVe = newVes.get();
-      if (isNote(newVe.displayItem)) {
-        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Note });
-      } else if (isFile(newVe.displayItem)) {
-        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.File });
-      } else if (isExpression(newVe.displayItem)) {
-        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Expression });
-      } else if (isPassword(newVe.displayItem)) {
-        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Password });
-      } else if (isTable(newVe.displayItem)) {
-        store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Table });
-      } else {
-        console.warn("arrow key handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
-      }
-      // after setting the text edit info, the <a /> (if this is a link) is turned into a <span />
-      newEditingTextElement = document.getElementById(newEditingDomId);
-      setCaretPosition(newEditingTextElement!, caretPosition);
-      newEditingTextElement!.focus();
-    }
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    if (isArrowKey(ev.key)) {
-      const itemPath = store.overlay.textEditInfo()!.itemPath;
-      const editingDomId = itemPath + ":title";
-      const textElement = document.getElementById(editingDomId);
-      const caretPosition = getCaretPosition(textElement!);
-      arrowKeyDown_caretPosition = caretPosition;
-      arrowKeyDown_element = textElement;
-      return;
-    }
-
-    switch (ev.key) {
-      case "Backspace":
-        const el = currentCaretElement();
-        const position = getCaretPosition(el!);
-        if (position > 0) { return; }
-        ev.preventDefault();
-        ev.stopPropagation();
-        joinItemsMaybeHandler();
-        return;
-      case "Enter":
-        enterKeyHandler()
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-    }
-  }
-
-  const joinItemsMaybeHandler = () => {
-    const editingVe = VesCache.get(store.overlay.textEditInfo()!.itemPath)!.get();
-    const initialEditingItem = VeFns.canonicalItem(editingVe);
-    if (!isNote(initialEditingItem)) { return; }
-
-    const compositeVe = props.visualElement;
-    const compositeParentPath = VeFns.parentPath(VeFns.veToPath(compositeVe));
-    if (!isComposite(compositeVe.displayItem)) { panic("composite item is not a composite!") }
-    const compositeItem = asCompositeItem(compositeVe.displayItem);
-    const closestPathUp = findClosest(VeFns.veToPath(editingVe), FindDirection.Up, true, false);
-    if (closestPathUp == null) { return; }
-
-    const upVeid = VeFns.veidFromPath(closestPathUp);
-    const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
-    if (!isNote(upFocusItem)) { return; }
-    const upTextLength = upFocusItem.title.length;
-    upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
-    fullArrange(store);
-
-    server.updateItem(upFocusItem);
-    itemState.delete(initialEditingItem.id);
-    server.deleteItem(initialEditingItem.id);
-
-    assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
-    if (compositeItem.computed_children.length == 1) {
-      const posGr = compositeItem.spatialPositionGr;
-      const widthGr = compositeItem.spatialWidthGr;
-      itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
-      asPositionalItem(upFocusItem).spatialPositionGr = posGr;
-      asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
-      server.updateItem(upFocusItem);
-      itemState.delete(compositeItem.id);
-      server.deleteItem(compositeItem.id);
-      fullArrange(store);
-      const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
-      store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: ItemType.Note });
-      const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-      const textElement = document.getElementById(editingDomId);
-      setCaretPosition(textElement!, upTextLength);
-      textElement!.focus();
-    }
-    else {
-      fullArrange(store);
-      store.overlay.setTextEditInfo(store.history, { itemPath: closestPathUp, itemType: ItemType.Note });
-      const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-      const textElement = document.getElementById(editingDomId);
-      setCaretPosition(textElement!, upTextLength);
-      textElement!.focus();
-    }
-  }
-
-  const enterKeyHandler = () => {
-    const itemPath = store.overlay.textEditInfo()!.itemPath;
-    const noteVeid = VeFns.veidFromPath(itemPath);
-    const item = itemState.get(noteVeid.itemId)!;
-    if (!isNote(item)) { return; }
-    const noteItem = asNoteItem(item);
-
-    const editingDomId = itemPath + ":title";
-    const textElement = document.getElementById(editingDomId);
-    const caretPosition = getCaretPosition(textElement!);
-
-    const beforeText = textElement!.innerText.substring(0, caretPosition);
-    const afterText = textElement!.innerText.substring(caretPosition);
-
-    noteItem.title = beforeText;
-
-    serverOrRemote.updateItem(noteItem);
-
-    const ordering = itemState.newOrderingDirectlyAfterChild(props.visualElement.displayItem.id, VeFns.canonicalItemFromVeid(noteVeid)!.id);
-    const note = NoteFns.create(noteItem.ownerId, props.visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
-    note.title = afterText;
-    itemState.add(note);
-    server.addItem(note, null);
-    fullArrange(store);
-
-    const veid = { itemId: note.id, linkIdMaybe: null };
-    const newVes = VesCache.findSingle(veid);
-    store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(newVes.get()), itemType: ItemType.Note });
-
-    const newEditingPath = store.overlay.textEditInfo()!.itemPath + ":title";
-    const newEditingTextElement = document.getElementById(newEditingPath);
-    setCaretPosition(newEditingTextElement!, 0);
-    textElement!.focus();
-  }
-
-  const inputListener = (_ev: InputEvent) => {
-    setTimeout(() => {
-      const focusItemPath = store.history.getFocusPath();
-      const focusItemDomId = focusItemPath + ":title";
-      const el = document.getElementById(focusItemDomId);
-      if (store.overlay.textEditInfo()) {
-        const newText = el!.innerText;
-        if (!store.overlay.toolbarPopupInfoMaybe.get()) {
-          if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
-            let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-            item.title = trimNewline(newText);
-          } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
-            let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-            item.title = trimNewline(newText);
-          } else if (store.overlay.textEditInfo()!.itemType == ItemType.Expression) {
-            let item = asExpressionItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-            item.title = trimNewline(newText);
-          } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
-            let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-            item.text = trimNewline(newText);
-          } else {
-            console.warn("input handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
-          }
-          const caretPosition = getCaretPosition(el!);
-          fullArrange(store);
-          setCaretPosition(el!, caretPosition);
-        }
-      }
-    }, 0);
-  }
-
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
       <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
+
+  const keyUpHandler = (ev: KeyboardEvent) => {
+    edit_keyUpHandler(store, ev);
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    edit_keyDownHandler(store, props.visualElement, ev);
+  }
+
+  const inputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
+  }
 
   return (
     <>

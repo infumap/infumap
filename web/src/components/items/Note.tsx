@@ -292,7 +292,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                        `overflow-wrap: break-word; white-space: pre-wrap; ` +
                        `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                        `outline: 0px solid transparent;`}
-                contentEditable={!isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
+                contentEditable={!isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>

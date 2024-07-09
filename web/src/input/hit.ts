@@ -18,7 +18,6 @@
 
 import { GRID_SIZE } from "../constants";
 import { isContainer } from "../items/base/container-item";
-import { PageFlags } from "../items/base/flags-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
