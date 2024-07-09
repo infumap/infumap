@@ -43,7 +43,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const vePath = () => VeFns.veToPath(props.visualElement);
   const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
   const boundsPx = () => props.visualElement.boundsPx;
-  const viewportBoundsPx = () => props.visualElement.viewportBoundsPx;
+  const viewportBoundsPx = () => {
+    if (props.visualElement.viewportBoundsPx == null) {
+      throw "Table_Desktop: viewportBoundsPx is null " + VeFns.veToPath(props.visualElement);
+    }
+    return props.visualElement.viewportBoundsPx;
+  }
   const spatialWidthGr = () => {
     if (props.visualElement.linkItemMaybe != null) {
       const parent = itemState.get(props.visualElement.linkItemMaybe.parentId)!;
@@ -280,7 +285,12 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
   }
 
   const blockHeightPx = () => props.visualElement.blockSizePx!.h;
-  const viewportBoundsPx = () => props.visualElement.viewportBoundsPx;
+  const viewportBoundsPx = () => {
+    if (props.visualElement.viewportBoundsPx == null) {
+      throw "TableChildArea: viewportBoundsPx is null " + VeFns.veToPath(props.visualElement);
+    }
+    return props.visualElement.viewportBoundsPx;
+  }
 
   const scrollHandler = (_ev: Event) => {
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
