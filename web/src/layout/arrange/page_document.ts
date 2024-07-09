@@ -82,7 +82,7 @@ export function arrange_document_page(
     ves.get().blockSizePx = blockSizePx
     ves.get().row = idx;
     ves.get().col = 0;
-    ves.get().flags = ves.get().flags | VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed;
+    ves.get().flags = ves.get().flags | VisualElementFlags.InsideCompositeOrDoc;
     ves.set(ves.get()); // TODO (MEDIUM): avoid the double set (arrangeItem also sets).
 
     childrenVes.push(ves);
