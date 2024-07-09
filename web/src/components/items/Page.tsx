@@ -911,6 +911,17 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `top: ${boundsPx().h - viewportBoundsPx().h}px; bottom: ${0}px;` +
                   borderStyle()} />;
 
+    const renderIsLinkMaybe = () =>
+      <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+                  showTriangleDetail()}>
+        <InfuLinkTriangle />
+      </Show>;
+
+    const renderResizeTriangleMaybe = () =>
+      <Show when={showTriangleDetail()}>
+        <InfuResizeTriangle />
+      </Show>;
+
     const renderEmbededInteractiveTitleMaybe = () =>
       <Show when={isEmbeddedInteractive()}>
         <div class={`absolute`}
@@ -1011,6 +1022,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               {renderPage()}
             </Match>
           </Switch>
+          {renderResizeTriangleMaybe()}
+          {renderIsLinkMaybe()}
           {renderEmbededInteractiveForeground()}
         </div>
         {renderEmbededInteractiveTitleMaybe()}
