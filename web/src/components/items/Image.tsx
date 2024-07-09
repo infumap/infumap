@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Match, Show, Switch, createEffect, onCleanup } from "solid-js";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX, Z_INDEX_SHADOW } from "../../constants";
 import { asImageItem } from "../../items/image-item";
 import { BoundingBox, Dimensions, cloneBoundingBox, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -141,20 +141,25 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
 
+  // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
   createEffect(() => {
     const nextId = props.visualElement.displayItem.id;
-    if (nextId != imgSrc()) {
+    if (nextId != imgSrc()) { // TODO (MEDIUM): will always be true - unsure what i was thinking here. always evaluates signal.
       if (isDetailed_OnLoad) {
         if (!isMounting) {
           releaseImage(currentImgSrc);
         }
         isMounting = false;
         currentImgSrc = imgSrc();
-        imgElement!.src = "";
+        if (imgElement) {
+          imgElement!.src = "";
+        }
         const isHighPriority = (props.visualElement.flags & VisualElementFlags.Popup) != 0;
         getImage(currentImgSrc, imgOriginOnLoad, isHighPriority)
           .then((objectUrl) => {
-            imgElement!.src = objectUrl;
+            if (imgElement) {
+              imgElement!.src = objectUrl;
+            }
           });
       }
     }
@@ -289,7 +294,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
          width={noCropWidth(false)} />;
 
   return (
-    <Show when={boundsPx().w > 5} fallback={tooSmallFallback()}>
+    <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX} fallback={tooSmallFallback()}>
       {renderPopupBaseMaybe()}
       {renderShadowMaybe()}
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +

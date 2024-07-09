@@ -83,3 +83,5 @@ export const TABLE_TITLE_HEADER_HEIGHT_BL = 1;
 export const TABLE_COL_HEADER_HEIGHT_BL = 1;
 
 export const DOCK_GAP_PX = LIST_PAGE_TOP_PADDING_PX;
+
+export const MIN_IMAGE_WIDTH_PX = 5;
