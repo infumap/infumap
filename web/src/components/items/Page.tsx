@@ -18,7 +18,7 @@
 
 import { Component, createEffect, createMemo, For, Match, onMount, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../../items/page-item";
-import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PADDING_PROP, PAGE_DOCUMENT_LEFT_MARGIN_BL, RESIZE_BOX_SIZE_PX, Z_INDEX_SHADOW, Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
 import { hexToRGBA } from "../../util/color";
 import { borderColorForColorIdx, BorderType, Colors, FEATURE_COLOR, FEATURE_COLOR_DARK, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { useStore } from "../../store/StoreProvider";
@@ -860,8 +860,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           </Show>
           <Show when={isDocumentPage()}>
             <>
-              <div class="absolute" style={`left: ${2.5 * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
-              <div class="absolute" style={`left: ${(asPageItem(props.visualElement.displayItem).docWidthBl + 3.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
+              <div class="absolute" style={`left: ${(PAGE_DOCUMENT_LEFT_MARGIN_BL - 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
+              <div class="absolute" style={`left: ${(asPageItem(props.visualElement.displayItem).docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + 0.5) * LINE_HEIGHT_PX}px; top: 0px; width: 1px; height: ${childAreaBoundsPx().h}px; background-color: #eee;`} />
             </>
           </Show>
           {renderGridlinesMaybe()}

@@ -139,10 +139,18 @@ function changeMouseActionStateMaybe(
       if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
         const parentPath = activeVisualElement.parentPath!;
         const parentVe = VesCache.get(parentPath)!.get();
-        // TODO (MEDIUM): document page type support.
-        const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
-        if (compositeWidthBl < MouseActionState.get().startWidthBl!) {
-          MouseActionState.get().startWidthBl = compositeWidthBl;
+        if (isComposite(parentVe.displayItem)) {
+          const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
+          if (compositeWidthBl < MouseActionState.get().startWidthBl!) {
+            MouseActionState.get().startWidthBl = compositeWidthBl;
+          }
+        } else if (isPage(parentVe.displayItem)) {
+          const docWidthBl = asPageItem(parentVe.displayItem).docWidthBl;
+          if (docWidthBl < MouseActionState.get().startWidthBl!) {
+            MouseActionState.get().startWidthBl = docWidthBl;
+          }
+        } else {
+          panic("unexpected item type: " + parentVe.displayItem.itemType);
         }
       }
       if (isYSizableItem(activeItem)) {
@@ -245,10 +253,19 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
     const parentPath = activeVisualElement.parentPath!;
     const parentVe = VesCache.get(parentPath)!.get();
-    // TODO (MEDIUM): document page type support.
-    const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
-    if (compositeWidthBl < newWidthBl) {
-      newWidthBl = compositeWidthBl;
+
+    if (isComposite(parentVe.displayItem)) {
+      const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
+      if (compositeWidthBl < newWidthBl) {
+        MouseActionState.get().startWidthBl = compositeWidthBl;
+      }
+    } else if (isPage(parentVe.displayItem)) {
+      const docWidthBl = asPageItem(parentVe.displayItem).docWidthBl;
+      if (docWidthBl < newWidthBl) {
+        MouseActionState.get().startWidthBl = docWidthBl;
+      }
+    } else {
+      panic("unexpected item type: " + parentVe.displayItem.itemType);
     }
   }
 
