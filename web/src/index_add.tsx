@@ -56,11 +56,12 @@ const App: Component = () => {
       </div>
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="status"></div>
 
+      <div style="padding-top: 5px; padding-left: 10px; padding-bottom: 4px; font-weight: bold;">Add Image</div>
       <input type="file" id="file-input" style="display: none" onchange={handleFileInputUpdated} multiple={false} />
       <div style="padding-left: 10px;">
         <button class="border border-slate-700 rounded-md"
                 style="padding: 5px;"
-                onclick={handleImageSubmit}>submit image</button>
+                onclick={handleImageSubmit}>upload</button>
       </div>
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="imagestatus"></div>
     </>
