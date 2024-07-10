@@ -55,12 +55,14 @@ const App: Component = () => {
                 onclick={handleSubmit}>submit</button>
       </div>
       <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="status"></div>
+
       <input type="file" id="file-input" style="display: none" onchange={handleFileInputUpdated} multiple={false} />
       <div style="padding-left: 10px;">
         <button class="border border-slate-700 rounded-md"
                 style="padding: 5px;"
                 onclick={handleImageSubmit}>submit image</button>
       </div>
+      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="imagestatus"></div>
     </>
   );
 }
@@ -82,6 +84,7 @@ async function handleFileInputUpdated() {
     mimeType: file.type,
     fileSizeBytes: file.size,
   });
+  document.getElementById("imagestatus")!.textContent = "adding";
   await fetch("/command", {
     method: 'POST',
     headers: {
@@ -90,6 +93,10 @@ async function handleFileInputUpdated() {
     },
     body: JSON.stringify({ command: "add-item", jsonData, base64Data })
   });
+  document.getElementById("imagestatus")!.textContent = "added";
+  setTimeout(() => {
+    document.getElementById("imagestatus")!.textContent = "";
+  }, 2000);
 }
 
 
