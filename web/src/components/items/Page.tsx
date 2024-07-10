@@ -678,7 +678,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={popupDiv}
-             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-700`}
+             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-100`}
              style={`overflow-y: auto; overflow-x: hidden; ` +
                     `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * listViewScale()}px; ` +
                     `height: ${viewportBoundsPx().h}px; ` +
@@ -783,14 +783,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div ref={rootDiv}
-             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
-                    `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
+             class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} `}
              style={`overflow-y: auto; ` +
                     `width: ${viewportBoundsPx().w}px; ` +
                     `height: ${viewportBoundsPx().h}px; ` +
                     `background-color: #ffffff;` +
                     `${VeFns.zIndexStyle(props.visualElement)}`}>
-          <div class="absolute"
+          <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
                style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * lineVes().length}px`}>
             <For each={lineVes()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
