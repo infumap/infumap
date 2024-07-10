@@ -114,6 +114,7 @@ async function handleSubmit() {
     spatialWidthGr: 8 * 60,
   });
   document.getElementById("status")!.textContent = "adding";
+  (document.getElementById("note")! as HTMLInputElement).value = "";
   await fetch("/command", {
     method: 'POST',
     headers: {
