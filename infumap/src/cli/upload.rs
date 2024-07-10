@@ -118,6 +118,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     };
     local_filenames.push(filename);
   }
+  local_filenames.sort();
 
   // Validate container.
   let container_id = match sub_matches.get_one::<String>("container_id") {
@@ -201,7 +202,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   let mut num_skipped = 0;
-  for i in 1..local_filenames.len() {
+  for i in 0..local_filenames.len() {
     let filename = &local_filenames[i];
     let mut path = local_path.clone();
     path.push(filename);
