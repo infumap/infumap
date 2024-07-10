@@ -19,6 +19,8 @@
 import { Component, onMount } from 'solid-js';
 import { render } from 'solid-js/web';
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
+import "tailwindcss/tailwind.css";
+import './index.css';
 
 
 const App: Component = () => {
@@ -41,12 +43,24 @@ const App: Component = () => {
 
   return (
     <>
-      <div>Add Note</div>
-      <div style="padding: 10px;"><textarea id="note" rows="6" style="width: 100%;"></textarea></div>
-      <div><button onclick={handleSubmit}>submit</button></div>
-      <div id="status"></div>
+      <div style="padding-top: 10px; padding-left: 10px; font-weight: bold;">Add Note</div>
+      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 2px;">
+        <textarea id="note" rows="6"
+                  class="border border-slate-700 rounded-md"
+                  style="position: relative; width: 100%; box-sizing: border-box; font-size: 16px; padding: 5px;" />
+      </div>
+      <div style="padding-left: 10px;">
+        <button class="border border-slate-700 rounded-md"
+                style="padding: 5px;"
+                onclick={handleSubmit}>submit</button>
+      </div>
+      <div style="padding-left: 10px; padding-right: 10px; padding-top: 2px; padding-bottom: 16px;" id="status"></div>
       <input type="file" id="file-input" style="display: none" onchange={handleFileInputUpdated} multiple={false} />
-      <div><button onclick={handleImageSubmit}>submit image</button></div>
+      <div style="padding-left: 10px;">
+        <button class="border border-slate-700 rounded-md"
+                style="padding: 5px;"
+                onclick={handleImageSubmit}>submit image</button>
+      </div>
     </>
   );
 }
