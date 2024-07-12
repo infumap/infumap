@@ -50,14 +50,19 @@ export function arrange_justified_page(
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
       
   let movingItem = null;
+  let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {
-    movingItem = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItemInThisPage = VeFns.canonicalItemFromPath(MouseActionState.get().activeElementPath);
+    movingItem = movingItemInThisPage;
+    if (movingItemInThisPage!.parentId != displayItem_pageWithChildren.id) {
+      movingItemInThisPage = null;
+    }
   }
 
-  // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
+  // if an item is moving out of or into a justified page, then ensure the height of the page doesn't
   // change until after the move is complete to avoid a very distruptive jump in y scroll px.
   let nItemAdj = 0;
-  if (movingItem && !MouseActionState.get().linkCreatedOnMoveStart) {
+  if (movingItemInThisPage && !MouseActionState.get().linkCreatedOnMoveStart) {
     const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
     const startParent = startParentVes.get().displayItem;
     if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
@@ -69,7 +74,7 @@ export function arrange_justified_page(
   let items = [];
   for (let i=0; i<displayItem_pageWithChildren.computed_children.length; ++i) {
     const item = itemState.get(displayItem_pageWithChildren.computed_children[i])!;
-    if (movingItem && item.id == movingItem!.id) {
+    if (movingItemInThisPage && item.id == movingItemInThisPage!.id) {
       continue;
     }
     let dimensions = ItemFns.calcSpatialDimensionsBl(item);

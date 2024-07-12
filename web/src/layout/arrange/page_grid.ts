@@ -65,10 +65,10 @@ export function arrange_grid_page(
   const pageItem = asPageItem(displayItem_pageWithChildren);
   const numCols = pageItem.gridNumberOfColumns;
 
-  // if an item is moving out of or in a grid page, then ensure the height of the grid page doesn't
+  // if an item is moving out of or into a grid page, then ensure the height of the page doesn't
   // change until after the move is complete to avoid a very distruptive jump in y scroll px.
   let nItemAdj = 0;
-  if (movingItem && !MouseActionState.get().linkCreatedOnMoveStart) {
+  if (movingItemInThisPage && !MouseActionState.get().linkCreatedOnMoveStart) {
     const startParentVes = VesCache.get(MouseActionState.get().startActiveElementParent)!;
     const startParent = startParentVes.get().displayItem;
     if (startParent.id == displayItem_pageWithChildren.id && movingItem!.parentId != startParent.id) {
