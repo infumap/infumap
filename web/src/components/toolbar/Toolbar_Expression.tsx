@@ -142,11 +142,14 @@ export const Toolbar_Expression: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </Show>
       </Show>
-      <div ref={qrDiv}
-           class="pl-[4px] inline-block"
-           onMouseDown={handleQrDown}>
+
+      <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
+      <div class="inline-block">
+        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+      </div>
+
     </div>;
 
   const renderCompositeToolbox = () =>
@@ -172,11 +175,14 @@ export const Toolbar_Expression: Component = () => {
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </div>
       </Show>
-      <div ref={qrDiv}
-           class="pl-[4px] inline-block"
-           onMouseDown={handleQrDown}>
+
+      <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
+      <div class="inline-block">
+        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+      </div>
+
     </div>;
 
   return (

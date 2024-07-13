@@ -86,6 +86,12 @@ export const Toolbar: Component = () => {
     return 'background-color: #fafafa;';
   }
 
+  const showSecondSpacer = () => {
+    const focusItem = store.history.getFocusItem();
+    if (isFile(focusItem)) { return false; }
+    return true;
+  }
+
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
     store.resetDesktopSizePx();
@@ -224,6 +230,9 @@ export const Toolbar: Component = () => {
           </div>
 
           <div class="fixed border-r border-slate-300" style="height: 25px; right: 62px; top: 7px;"></div>
+          <Show when={showSecondSpacer()}>
+            <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+          </Show>
 
         </div>
       </Show>

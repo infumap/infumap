@@ -86,11 +86,14 @@ export const Toolbar_Image: Component = () => {
         <div class="inline-block">
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
         </div>
-        <div ref={qrDiv}
-             class="pl-[4px] inline-block"
-             onMouseDown={handleQrDown}>
+
+        <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
+        <div class="inline-block">
+          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+        </div>
+
       </div>
     </div>
   );

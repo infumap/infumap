@@ -430,11 +430,14 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
-      <div ref={qrDiv}
-           class="inline-block"
-           onMouseDown={handleQrDown}>
+  
+      <div ref={qrDiv} class="inline-block pl-[16px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
+      <div class="inline-block">
+        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+      </div>
+
     </div>
   );
 }

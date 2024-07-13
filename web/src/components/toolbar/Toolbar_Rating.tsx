@@ -44,11 +44,14 @@ export const Toolbar_Rating: Component = () => {
     <div id="toolbarItemOptionsDiv"
          class="flex-grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div ref={qrDiv}
-             class="pl-[4px] inline-block"
-             onMouseDown={handleQrDown}>
+
+        <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
+        <div class="inline-block">
+          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+        </div>
+
       </div>
     </div>
   );

@@ -19,7 +19,7 @@
 import { createSignal } from "solid-js";
 import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
-import { Item, ItemType } from "../items/base/item";
+import { EMPTY_ITEM, Item, ItemType } from "../items/base/item";
 import { itemState } from "./ItemState";
 
 
@@ -175,6 +175,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const getFocusItem = (): Item => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    if (!breadcrumb) { return ((EMPTY_ITEM as any) as Item); } // happens on initialization. This is a bit of a hack, it would be better if the logic was tighter.
     if (breadcrumb.focusPath != null) {
       return itemState.get(VeFns.veidFromPath(breadcrumb.focusPath!).itemId)!;
     }

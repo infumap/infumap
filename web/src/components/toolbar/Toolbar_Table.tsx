@@ -114,11 +114,14 @@ export const Toolbar_Table: Component = () => {
       </div>
       <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
       <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
-      <div ref={qrDiv}
-           class="pl-[4px] inline-block"
-           onMouseDown={handleQrDown}>
+
+      <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
+      <div class="inline-block">
+        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+      </div>
+
     </div>
   )
 }

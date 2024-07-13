@@ -74,11 +74,12 @@ export const Toolbar_Link: Component = () => {
                  onKeyUp={keyEventHandler}
                  onKeyPress={keyEventHandler} />
         </div>
-        <div ref={qrDiv}
-             class="pl-[4px] inline-block"
-             onMouseDown={handleQrDown}>
-          <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
-        </div>
+          <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
+            <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
+          </div>
+          <div class="inline-block">
+            <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+          </div>
       </div>
     </div>
   );
