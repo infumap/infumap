@@ -17,13 +17,13 @@
 */
 
 import { Component, onCleanup, onMount } from "solid-js";
-import { useStore } from "../../store/StoreProvider";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
-import { asLinkItem } from "../../items/link-item";
-import { fullArrange } from "../../layout/arrange";
-import { serverOrRemote } from "../../server";
-import { ClickState } from "../../input/state";
+import { useStore } from "../../../store/StoreProvider";
+import { InfuIconButton } from "../../library/InfuIconButton";
+import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
+import { asLinkItem } from "../../../items/link-item";
+import { fullArrange } from "../../../layout/arrange";
+import { serverOrRemote } from "../../../server";
+import { ClickState } from "../../../input/state";
 
 
 export const Toolbar_Link: Component = () => {

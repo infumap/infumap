@@ -21,7 +21,7 @@ import imgUrl from '../../assets/circle.png'
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
-import { Toolbar_Note } from "./Toolbar_Note";
+import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
 import { useNavigate } from "@solidjs/router";
@@ -30,24 +30,24 @@ import { asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
 import { Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
-import { Toolbar_Page } from './Toolbar_Page';
-import { Toolbar_Table } from './Toolbar_Table';
+import { Toolbar_Page } from './item/Toolbar_Page';
+import { Toolbar_Table } from './item/Toolbar_Table';
 import { fullArrange } from '../../layout/arrange';
 import { NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
-import { Toolbar_Expression } from './Toolbar_Expression';
+import { Toolbar_Expression } from './item/Toolbar_Expression';
 import { isNote } from '../../items/note-item';
 import { isExpression } from '../../items/expression-item';
 import { isTable } from '../../items/table-item';
 import { isRating } from '../../items/rating-item';
-import { Toolbar_Rating } from './Toolbar_Rating';
+import { Toolbar_Rating } from './item/Toolbar_Rating';
 import { isPassword } from '../../items/password-item';
-import { Toolbar_Password } from './Toolbar_Password';
+import { Toolbar_Password } from './item/Toolbar_Password';
 import { isImage } from '../../items/image-item';
-import { Toolbar_Image } from './Toolbar_Image';
+import { Toolbar_Image } from './item/Toolbar_Image';
 import { isFile } from '../../items/file-item';
-import { Toolbar_File } from './Toolbar_File';
+import { Toolbar_File } from './item/Toolbar_File';
 import { isLink } from '../../items/link-item';
-import { Toolbar_Link } from './Toolbar_Link';
+import { Toolbar_Link } from './item/Toolbar_Link';
 
 
 export const Toolbar: Component = () => {

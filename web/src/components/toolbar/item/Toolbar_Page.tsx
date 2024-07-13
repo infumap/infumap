@@ -17,19 +17,19 @@
 */
 
 import { Component, Show, createEffect } from "solid-js";
-import { useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
-import { itemState } from "../../store/ItemState";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { InfuColorButton } from "../library/InfuColorButton";
-import { panic } from "../../util/lang";
-import { fullArrange } from "../../layout/arrange";
-import { GRID_SIZE } from "../../constants";
-import { server, serverOrRemote } from "../../server";
-import { PermissionFlags } from "../../items/base/permission-flags-item";
-import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
-import { PageFlags } from "../../items/base/flags-item";
-import { ClickState } from "../../input/state";
+import { useStore } from "../../../store/StoreProvider";
+import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
+import { itemState } from "../../../store/ItemState";
+import { InfuIconButton } from "../../library/InfuIconButton";
+import { InfuColorButton } from "../../library/InfuColorButton";
+import { panic } from "../../../util/lang";
+import { fullArrange } from "../../../layout/arrange";
+import { GRID_SIZE } from "../../../constants";
+import { server, serverOrRemote } from "../../../server";
+import { PermissionFlags } from "../../../items/base/permission-flags-item";
+import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
+import { PageFlags } from "../../../items/base/flags-item";
+import { ClickState } from "../../../input/state";
 
 
 export const Toolbar_Page: Component = () => {

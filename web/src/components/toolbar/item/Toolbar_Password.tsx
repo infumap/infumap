@@ -17,13 +17,13 @@
 */
 
 import { Component } from "solid-js";
-import { useStore } from "../../store/StoreProvider";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
-import { ClickState } from "../../input/state";
+import { useStore } from "../../../store/StoreProvider";
+import { InfuIconButton } from "../../library/InfuIconButton";
+import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
+import { ClickState } from "../../../input/state";
 
 
-export const Toolbar_Rating: Component = () => {
+export const Toolbar_Password: Component = () => {
   const store = useStore();
 
   let qrDiv: HTMLDivElement | undefined;

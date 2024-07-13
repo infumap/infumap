@@ -17,15 +17,15 @@
 */
 
 import { Component } from "solid-js";
-import { useStore } from "../../store/StoreProvider";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { asTableItem } from "../../items/table-item";
-import { itemState } from "../../store/ItemState";
-import { rearrangeWithDisplayId } from "../../layout/arrange";
-import { serverOrRemote } from "../../server";
-import { TableFlags } from "../../items/base/flags-item";
-import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
-import { ClickState } from "../../input/state";
+import { useStore } from "../../../store/StoreProvider";
+import { InfuIconButton } from "../../library/InfuIconButton";
+import { asTableItem } from "../../../items/table-item";
+import { itemState } from "../../../store/ItemState";
+import { rearrangeWithDisplayId } from "../../../layout/arrange";
+import { serverOrRemote } from "../../../server";
+import { TableFlags } from "../../../items/base/flags-item";
+import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
+import { ClickState } from "../../../input/state";
 
 
 export const Toolbar_Table: Component = () => {

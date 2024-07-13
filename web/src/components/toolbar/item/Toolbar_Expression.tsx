@@ -17,17 +17,17 @@
 */
 
 import { Component, Match, Show, Switch } from "solid-js";
-import { useStore } from "../../store/StoreProvider";
-import { InfuIconButton } from "../library/InfuIconButton";
-import { ToolbarPopupType } from "../../store/StoreProvider_Overlay";
-import { ClickState } from "../../input/state";
-import { VesCache } from "../../layout/ves-cache";
-import { asExpressionItem } from "../../items/expression-item";
-import { VeFns } from "../../layout/visual-element";
-import { NoteFns } from "../../items/note-item";
-import { CompositeFlags, NoteFlags } from "../../items/base/flags-item";
-import { rearrangeWithDisplayId } from "../../layout/arrange";
-import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { useStore } from "../../../store/StoreProvider";
+import { InfuIconButton } from "../../library/InfuIconButton";
+import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
+import { ClickState } from "../../../input/state";
+import { VesCache } from "../../../layout/ves-cache";
+import { asExpressionItem } from "../../../items/expression-item";
+import { VeFns } from "../../../layout/visual-element";
+import { NoteFns } from "../../../items/note-item";
+import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
+import { rearrangeWithDisplayId } from "../../../layout/arrange";
+import { asCompositeItem, isComposite } from "../../../items/composite-item";
 
 
 export const Toolbar_Expression: Component = () => {
