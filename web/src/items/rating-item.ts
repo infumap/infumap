@@ -237,7 +237,7 @@ export const RatingFns = {
 
 // for click handler
 const PERSIST_AFTER_MS = 1000;
-let clickTimer: number | null = null;
+let clickTimer: any = null;
 
 
 export function isRating(item: ItemTypeMixin | null): boolean {

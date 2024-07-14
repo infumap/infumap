@@ -11,6 +11,7 @@
   "license": "AGPL 3.0",
   "devDependencies": {
     "@types/justified-layout": "^4.1.4",
+    "@types/qrcode": "^1.5.5",
     "autoprefixer": "^10.4.16",
     "path": "^0.12.7",
     "postcss": "^8.4.31",
@@ -20,8 +21,9 @@
     "vite-plugin-solid": "^2.7.2"
   },
   "dependencies": {
+    "@solidjs/router": "^0.13.3",
     "justified-layout": "^4.1.0",
-    "solid-js": "^1.8.17",
-    "@solidjs/router": "^0.13.3"
+    "qrcode": "^1.5.3",
+    "solid-js": "^1.8.17"
   }
 }

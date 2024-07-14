@@ -191,7 +191,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 }
 
 
-let longHoldTimeoutId: number | null = null;
+let longHoldTimeoutId: any = null;
 
 export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: MouseEventActionFlags): MouseEventActionFlags {
   const desktopPosPx = CursorEventState.getLatestDesktopPx(store);

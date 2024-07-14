@@ -162,7 +162,7 @@ export function releaseImage(filename: string) {
       if (debug) { console.debug(`${waitingSizeBefore - waiting.length} waiting fetch task(s) for ${filename} aborted.`); }
     }
     if (debug) { console.debug(`setting revoke objectURL timer: ${filename}.`); }
-    let timeoutId = setTimeout(() => {
+    let timeoutId: any = setTimeout(() => {
       if (objectUrlsRefCount.get(filename) == 0) {
         URL.revokeObjectURL(objectUrls.get(filename) as string);
         objectUrls.delete(filename);

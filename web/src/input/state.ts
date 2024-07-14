@@ -157,7 +157,7 @@ export const CursorEventState = {
 
 const DOUBLE_CLICK_TIMEOUT_MS = 500; // this is standard.
 let canDoubleClick = true;
-let timer: number | undefined = undefined;
+let timer: any = undefined;
 
 export const DoubleClickState = {
   preventDoubleClick: (): void => {

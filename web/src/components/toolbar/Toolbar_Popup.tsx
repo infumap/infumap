@@ -33,6 +33,7 @@ import { itemState } from "../../store/ItemState";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asFormatItem } from "../../items/base/format-item";
 import { asTableItem } from "../../items/table-item";
+import QRCode from "qrcode";
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
@@ -47,9 +48,9 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
-      return 60;
+      return 250;
     }
-    return 30;
+    return 220;
   }
   return 30;
 }
@@ -275,6 +276,12 @@ export const Toolbar_Popup: Component = () => {
 
   const handleMouseDown = (e: MouseEvent) => { if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); } }
 
+  onMount(() => {
+    const canvas = document.getElementById('qrcanvas');
+    const url = window.location.origin + "/" + store.history.getFocusItem()!.id;
+    QRCode.toCanvas(canvas, url, (error) => { if (error) { console.error(error); } });
+  });
+
   return (
     <>
       <Switch>
@@ -321,6 +328,7 @@ export const Toolbar_Popup: Component = () => {
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
                onMouseDown={handleMouseDown}>
+            <canvas id="qrcanvas" style="margin: 4px;" />
             <div class="inline-block text-slate-800 text-xs p-[6px]">
               <span class="font-mono text-slate-400">{`I: ${store.history.getFocusItem().id}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />

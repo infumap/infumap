@@ -223,7 +223,7 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
       <div class="inline-block">
-        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
       </div>
 
     </div>;

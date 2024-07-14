@@ -275,7 +275,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
 
   const QUANTIZE_SCROLL_TIMEOUT_MS = 600;
 
-  let scrollDoneTimer: number | null = null;
+  let scrollDoneTimer: any = null;
   function scrollDoneHandler() {
     const newScrollYPos = Math.round(store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)));
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(props.visualElement), newScrollYPos);
