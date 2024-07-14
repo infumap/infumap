@@ -170,6 +170,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
+  if (isInsideItemOptionsToolbox()) {
+    return MouseEventActionFlags.None;
+  }
+
 
   // Desktop handlers.
 
@@ -346,7 +350,11 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
-  // TODO (LOW): abstract all this somehow.
+
+  if (store.overlay.toolbarTransientMessage.get() != null) {
+    store.overlay.toolbarTransientMessage.set(null);
+    return;
+  }
 
   if (store.overlay.contextMenuInfo.get()) {
     store.overlay.contextMenuInfo.set(null);
