@@ -39,6 +39,7 @@ import { fArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { composite_selectionChangeListener } from "../input/edit";
+import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -228,6 +229,9 @@ export const Main: Component = () => {
       {/* global overlays */}
       <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
         <Toolbar_Popup />
+      </Show>
+      <Show when={store.overlay.toolbarTransientMessage.get()}>
+        <Toolbar_TransientMessage />
       </Show>
       <Show when={store.overlay.searchOverlayVisible.get()}>
         <SearchOverlay />

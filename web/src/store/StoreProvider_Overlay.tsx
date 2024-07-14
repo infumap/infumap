@@ -17,7 +17,6 @@
 */
 
 import { HitInfo } from "../input/hit";
-import { Item } from "../items/base/item";
 import { VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
@@ -36,7 +35,7 @@ export enum ToolbarPopupType {
   PageJustifiedRowAspect = "justifiedrowaspect",
   PageArrangeAlgorithm = "arrangealgorithm",
   TableNumCols = "tablenumcols",
-  Ids = "ids",
+  QrLink = "qrlink",
 }
 
 export interface ToolbarPopupInfo {
@@ -76,6 +75,7 @@ export interface OverlayStoreContextModel {
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
+  toolbarTransientMessage: InfuSignal<string | null>,
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => void,
@@ -97,6 +97,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
+  const toolbarTransientMessage = createInfuSignal<string | null>(null);
 
   function clear() {
     textEditInfo_.set(null);
@@ -138,6 +139,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     isPanicked: createInfuSignal<boolean>(false),
 
     toolbarPopupInfoMaybe,
+    toolbarTransientMessage,
 
     clear,
     anOverlayIsVisible,

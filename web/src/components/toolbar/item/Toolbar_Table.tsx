@@ -70,12 +70,12 @@ export const Toolbar_Table: Component = () => {
   }
 
   const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.QrLink });
   }
   const handleQrDown = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
@@ -99,6 +99,12 @@ export const Toolbar_Table: Component = () => {
     ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
   };
 
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(tableItem().id);
+    store.overlay.toolbarTransientMessage.set("table id copied to clipboard");
+    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+  }
+
   return (
     <div id="toolbarItemOptionsDiv"
          class="flex-grow-0" style="flex-order: 0;">
@@ -119,7 +125,7 @@ export const Toolbar_Table: Component = () => {
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>
       <div class="inline-block">
-        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
       </div>
 
     </div>

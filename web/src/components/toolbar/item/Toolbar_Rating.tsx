@@ -21,6 +21,7 @@ import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
+import { asRatingItem } from "../../../items/rating-item";
 
 
 export const Toolbar_Rating: Component = () => {
@@ -28,17 +29,25 @@ export const Toolbar_Rating: Component = () => {
 
   let qrDiv: HTMLDivElement | undefined;
 
+  const ratingItem = () => asRatingItem(store.history.getFocusItem());
+
   const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.Ids) {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.Ids });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.QrLink });
   }
   const handleQrDown = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
   };
+
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(ratingItem().id);
+    store.overlay.toolbarTransientMessage.set("rating id copied to clipboard");
+    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+  }
 
   return (
     <div id="toolbarItemOptionsDiv"
@@ -49,7 +58,7 @@ export const Toolbar_Rating: Component = () => {
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">
-          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleQr} />
+          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
         </div>
 
       </div>

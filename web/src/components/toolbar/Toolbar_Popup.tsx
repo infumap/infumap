@@ -45,7 +45,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
-  if (overlayType == ToolbarPopupType.Ids) {
+  if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
       return 60;
     }
@@ -192,7 +192,7 @@ export const Toolbar_Popup: Component = () => {
 
   onMount(() => {
     if (overlayType() != ToolbarPopupType.PageColor &&
-        overlayType() != ToolbarPopupType.Ids &&
+        overlayType() != ToolbarPopupType.QrLink &&
         overlayType() != ToolbarPopupType.PageArrangeAlgorithm) {
       textElement!.focus();
     }
@@ -216,7 +216,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
-    if (overlayType() == ToolbarPopupType.Ids) { return null; }
+    if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
 
@@ -230,7 +230,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }
-    if (overlayType() == ToolbarPopupType.Ids) { return null; }
+    if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
 
@@ -317,7 +317,7 @@ export const Toolbar_Popup: Component = () => {
             </div>
           </div>
         </Match>
-        <Match when={overlayType() == ToolbarPopupType.Ids}>
+        <Match when={overlayType() == ToolbarPopupType.QrLink}>
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
                onMouseDown={handleMouseDown}>
