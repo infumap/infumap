@@ -101,7 +101,7 @@ export const Toolbar_Table: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(tableItem().id);
-    store.overlay.toolbarTransientMessage.set("table id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("table id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

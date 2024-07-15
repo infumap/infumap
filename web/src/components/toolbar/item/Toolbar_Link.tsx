@@ -49,7 +49,7 @@ export const Toolbar_Link: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(linkItem().id);
-    store.overlay.toolbarTransientMessage.set("link id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("link id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

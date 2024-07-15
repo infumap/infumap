@@ -329,7 +329,7 @@ export const Toolbar_Page: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(pageItem().id);
-    store.overlay.toolbarTransientMessage.set("page id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("page id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

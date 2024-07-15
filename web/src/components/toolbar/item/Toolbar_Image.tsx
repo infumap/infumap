@@ -50,7 +50,7 @@ export const Toolbar_Image: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(imageItem().id);
-    store.overlay.toolbarTransientMessage.set("image id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("image id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

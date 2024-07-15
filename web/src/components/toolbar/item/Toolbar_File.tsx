@@ -45,7 +45,7 @@ export const Toolbar_File: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(fileItem().id);
-    store.overlay.toolbarTransientMessage.set("file id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("file id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

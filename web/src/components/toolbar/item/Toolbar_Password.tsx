@@ -45,7 +45,7 @@ export const Toolbar_Password: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(passwordItem().id);
-    store.overlay.toolbarTransientMessage.set("password id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("password id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

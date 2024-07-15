@@ -48,9 +48,9 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
-      return 250;
+      return 420;
     }
-    return 220;
+    return 370;
   }
   return 30;
 }
@@ -248,10 +248,20 @@ export const Toolbar_Popup: Component = () => {
   const showAutoButton = (): boolean => overlayType() == ToolbarPopupType.PageAspect;
 
   const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(store.history.getFocusItem().id); }
-  const linkItemIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + store.history.getFocusItem()!.id); }
+  const linkItemIdClickHandler = (): void => {
+    navigator.clipboard.writeText(window.location.origin + "/" + store.history.getFocusItem()!.id);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.overlay.toolbarTransientMessage.set(store.history.getFocusItem().itemType + " id → clipboard");
+    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+  }
 
   const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
-  const linkCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id); }
+  const linkCompositeIdClickHandler = (): void => {
+    navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.overlay.toolbarTransientMessage.set("composite id → clipboard");
+    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+  }
 
   const handleAutoClick = (): void => {
     const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
@@ -279,7 +289,7 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     const canvas = document.getElementById('qrcanvas');
     const url = window.location.origin + "/" + store.history.getFocusItem()!.id;
-    QRCode.toCanvas(canvas, url, (error) => { if (error) { console.error(error); } });
+    QRCode.toCanvas(canvas, url, { scale: 7 });
   });
 
   return (
@@ -328,17 +338,23 @@ export const Toolbar_Popup: Component = () => {
           <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
                style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_TOOLBAR_OVERLAY};`}
                onMouseDown={handleMouseDown}>
-            <canvas id="qrcanvas" style="margin: 4px;" />
-            <div class="inline-block text-slate-800 text-xs p-[6px]">
-              <span class="font-mono text-slate-400">{`I: ${store.history.getFocusItem().id}`}</span>
-              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyItemIdClickHandler} />
-              <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkItemIdClickHandler} />
+            <canvas id="qrcanvas" style="margin: auto; width: 200px; height: 200px; margin-top: 12px;" width="200" height="200" />
+            <Show when={compositeItemMaybe() != null}>
+              <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
+            </Show>
+            <Show when={compositeItemMaybe() == null}>
+              <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
+            </Show>
+            <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
+              <span class="font-mono text-slate-400">{store.history.getFocusItem().itemType[0].toUpperCase() + store.history.getFocusItem().itemType.substring(1)} Id:</span><br />
+              <span class="font-mono text-slate-400">{`${store.history.getFocusItem().id}`}</span>
+              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyItemIdClickHandler} />
             </div>
             <Show when={compositeItemMaybe() != null}>
-              <div class="inline-block text-slate-800 text-xs p-[6px]">
-                <span class="font-mono text-slate-400">{`C: ${compositeItemMaybe()!.id}`}</span>
-                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-4`} onclick={copyCompositeIdClickHandler} />
-                <i class={`fa fa-link text-slate-400 cursor-pointer ml-1`} onclick={linkCompositeIdClickHandler} />
+              <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
+                <span class="font-mono text-slate-400">Composite Id:</span><br />
+                <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
+                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyCompositeIdClickHandler} />
               </div>
             </Show>
           </div>

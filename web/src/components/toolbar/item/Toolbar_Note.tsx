@@ -114,7 +114,7 @@ export const Toolbar_Note: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(noteItem().id);
-    store.overlay.toolbarTransientMessage.set("note id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("note id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

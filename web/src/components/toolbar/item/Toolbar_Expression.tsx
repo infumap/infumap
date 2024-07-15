@@ -68,7 +68,7 @@ export const Toolbar_Expression: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(expressionItem().id);
-    store.overlay.toolbarTransientMessage.set("expression id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("expression id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

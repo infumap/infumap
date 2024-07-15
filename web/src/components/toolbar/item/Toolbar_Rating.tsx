@@ -45,7 +45,7 @@ export const Toolbar_Rating: Component = () => {
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(ratingItem().id);
-    store.overlay.toolbarTransientMessage.set("rating id copied to clipboard");
+    store.overlay.toolbarTransientMessage.set("rating id → clipboard");
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
