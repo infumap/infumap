@@ -116,6 +116,12 @@ export const Login: Component = () => {
         <div class="mb-3">
           right mouse button → navigate back in history one step.
         </div>
+        <div class="mb-3">
+          shift drag → create a link.
+        </div>
+        <div class="mb-3">
+          long left click on page → edit page title.
+        </div>
       </div>
     </>
   );
