@@ -55,7 +55,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   return 30;
 }
 
-export function toolbarBoxBoundsPx(store: StoreContextModel): BoundingBox {
+export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeVisualElementMaybe = () => {
     if (!isNote(store.history.getFocusItem())) {
@@ -189,7 +189,7 @@ export const Toolbar_Popup: Component = () => {
     return 200;
   }
 
-  const boxBoundsPx = () => toolbarBoxBoundsPx(store);
+  const boxBoundsPx = () => toolbarPopupBoxBoundsPx(store);
 
   onMount(() => {
     if (overlayType() != ToolbarPopupType.PageColor &&

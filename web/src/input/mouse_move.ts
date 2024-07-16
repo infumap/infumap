@@ -17,7 +17,7 @@
 */
 
 import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../constants";
-import { HitboxFlags, HitboxFns } from "../layout/hitbox";
+import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asPageItem, isPage, PageFns } from "../items/page-item";
@@ -37,6 +37,7 @@ import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
+import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 
 
 let lastMouseOverVes: VisualElementSignal | null = null;
@@ -367,13 +368,21 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
+
+  let isInsideToolbarPopup = false;
+  if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
+    if (isInside(CursorEventState.getLatestClientPx(), toolbarPopupBoxBoundsPx(store))) {
+      isInsideToolbarPopup = true;
+    }
+  }
+
   const userSettingsInfo = store.overlay.editUserSettingsInfo.get();
   const cmi = store.overlay.contextMenuInfo.get();
   const hasModal = cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
   const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], true);
-  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu)) {
+  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && !isInsideToolbarPopup) {
     if (hitInfo.overElementMeta!.colNum) {
       store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
     } else {
@@ -384,14 +393,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   const overElementVes = HitInfoFns.getHitVes(hitInfo);
-  if (overElementVes != lastMouseOverVes || hasModal) {
+  if (overElementVes != lastMouseOverVes || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverVes != null) {
       store.perVe.setMouseIsOver(VeFns.veToPath(lastMouseOverVes.get()), false);
       lastMouseOverVes = null;
     }
   }
 
-  if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal) {
+  if (overElementVes != lastMouseOverOpenPopupVes || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverOpenPopupVes != null) {
       store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(lastMouseOverOpenPopupVes.get()), false);
       lastMouseOverOpenPopupVes = null;
@@ -400,14 +409,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOver(VeFns.veToPath(overElementVes.get())) &&
-      !hasModal) {
+      !hasModal && !isInsideToolbarPopup) {
     store.perVe.setMouseIsOver(VeFns.veToPath(overElementVes.get()), true);
     lastMouseOverVes = overElementVes;
   }
 
   if ((overElementVes!.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
       !(overElementVes.get().flags & VisualElementFlags.Popup) && !store.perVe.getMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get())) &&
-      !hasModal) {
+      !hasModal && !isInsideToolbarPopup) {
     if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
       store.perVe.setMouseIsOverOpenPopup(VeFns.veToPath(overElementVes.get()), true);
       lastMouseOverOpenPopupVes = overElementVes;
@@ -416,7 +425,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     }
   }
 
-  if (hasUser) {
+  if (hasUser && !isInsideToolbarPopup) {
     if (hitInfo.hitboxType & HitboxFlags.Resize) {
       document.body.style.cursor = "nwse-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {

@@ -35,7 +35,7 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
-import { toolbarBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
+import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
 import { trimNewline } from "../util/string";
 import { isRating } from "../items/rating-item";
@@ -56,7 +56,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Popups associated with the toolbar.
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {
-    if (isInside(CursorEventState.getLatestClientPx(), toolbarBoxBoundsPx(store))) {
+    if (isInside(CursorEventState.getLatestClientPx(), toolbarPopupBoxBoundsPx(store))) {
       // if mouse down is inside popup bounds, this is not handled by the global handler.
       return MouseEventActionFlags.None;
     }
@@ -95,7 +95,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Editing text using a content editable div (variety of item types).
   if (store.overlay.textEditInfo()) {
-    if (isInsideItemOptionsToolbox()) { return MouseEventActionFlags.PreventDefault; }
+    if (isInsideItemOptionsToolbarArea()) { return MouseEventActionFlags.PreventDefault; }
 
     if (store.user.getUserMaybe() == null || store.history.getFocusItem().ownerId != store.user.getUser().userId) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -153,7 +153,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   /**
    * whether or not the mouse cursor is inside the item specific part of the toolbar.
    */
-  function isInsideItemOptionsToolbox(): boolean {
+  function isInsideItemOptionsToolbarArea(): boolean {
     const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
     if (!toolboxDiv) { return false; }
     const bounds = toolboxDiv.getBoundingClientRect();
@@ -163,14 +163,14 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   if (isLink(store.history.getFocusItem()) ||
       isRating(store.history.getFocusItem())) {
-    if (buttonNumber != MOUSE_LEFT || !isInsideItemOptionsToolbox()) {
+    if (buttonNumber != MOUSE_LEFT || !isInsideItemOptionsToolbarArea()) {
       store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
     }
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  if (isInsideItemOptionsToolbox()) {
+  if (isInsideItemOptionsToolbarArea()) {
     return MouseEventActionFlags.None;
   }
 
