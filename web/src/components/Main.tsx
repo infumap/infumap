@@ -116,12 +116,8 @@ export const Main: Component = () => {
       }
     } catch (e: any) {
       console.error(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
-      store.user.clear();
       store.general.clearInstallationState();
       await store.general.retrieveInstallationState();
-      if (logout) {
-        await logout();
-      }
       navigate('/login');
     }
 
