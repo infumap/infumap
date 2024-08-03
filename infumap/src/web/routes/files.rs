@@ -20,7 +20,7 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
-use image::io::Reader;
+use image::ImageReader;
 use infusdk::util::infu::InfuResult;
 use log::debug;
 use once_cell::sync::Lazy;
@@ -236,7 +236,7 @@ async fn get_cached_resized_img(
 
   // decode and resize
   let original_file_cursor = Cursor::new(original_file_bytes.clone());
-  let original_file_reader = Reader::new(original_file_cursor).with_guessed_format()?;
+  let original_file_reader = ImageReader::new(original_file_cursor).with_guessed_format()?;
   let original_img_maybe = original_file_reader.decode();
   match original_img_maybe {
     Ok(mut img) => {

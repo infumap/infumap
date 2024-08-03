@@ -62,11 +62,12 @@ export async function handleUpload(
   // handle files.
   const files = dataTransfer.files;
   for (let i=0; i<files.length; ++i) {
-    console.log(`uploading ${i}/${files.length}...`);
     const file = files[i];
     const base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
     if (file.type == "image/jpeg" || file.type == "image/png") {
+      console.log(`uploading ${i+1}/${files.length}... [image] '${file.name}'`);
+
       let imageItem: object = {
         itemType: ItemType.Image,
         parentId: parent.id,
@@ -84,6 +85,8 @@ export async function handleUpload(
       fullArrange(store);
 
     } else {
+      console.log(`uploading ${i+1}/${files.length}... [file] '${file.name}'`);
+
       let fileItem: object = {
         itemType: ItemType.File,
         id: newUid(),

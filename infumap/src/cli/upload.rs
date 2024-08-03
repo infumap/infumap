@@ -23,7 +23,7 @@ use std::time::UNIX_EPOCH;
 use base64::{Engine as _, engine::general_purpose};
 use clap::ArgAction;
 use clap::{Command, Arg, ArgMatches};
-use image::io::Reader;
+use image::ImageReader;
 use infusdk::item::ItemType;
 use infusdk::util::json;
 use infusdk::util::geometry::Dimensions;
@@ -234,7 +234,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
     if filename.to_lowercase().ends_with(".png") || filename.to_lowercase().ends_with(".jpg") || filename.to_lowercase().ends_with(".jpeg") {
       let file_cursor = Cursor::new(buffer.clone());
-      let file_reader = Reader::new(file_cursor).with_guessed_format()?;
+      let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
       match file_reader.decode() {
         Ok(img) => {
           let exif_orientation = get_exif_orientation(buffer.clone(), filename);

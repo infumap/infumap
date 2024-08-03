@@ -19,7 +19,7 @@ use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::imageops::FilterType;
-use image::io::Reader;
+use image::ImageReader;
 use image::ImageFormat;
 use infusdk::item::{is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item, Item, ItemType, PermissionFlags, RelationshipToParent};
 use infusdk::util::geometry::{Dimensions, Vector};
@@ -624,7 +624,7 @@ async fn handle_add_item(
       // TODO (LOW): clone here seems a bit excessive.
       let exif_orientation = get_exif_orientation(decoded.clone(), title);
       let file_cursor = Cursor::new(decoded);
-      let file_reader = Reader::new(file_cursor).with_guessed_format()?;
+      let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
       let img = file_reader.decode().ok().ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
       let img = adjust_image_for_exif_orientation(img, exif_orientation, title);
 
