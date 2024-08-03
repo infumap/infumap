@@ -66,7 +66,7 @@ export async function handleUpload(
     const file = files[i];
     const base64Data = base64ArrayBuffer(await file.arrayBuffer());
 
-    if (file.type.startsWith("image")) {
+    if (file.type == "image/jpeg" || file.type == "image/png") {
       let imageItem: object = {
         itemType: ItemType.Image,
         parentId: parent.id,
