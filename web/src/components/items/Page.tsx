@@ -103,7 +103,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       h: ATTACH_AREA_SIZE_PX,
     }
   };
-  const scale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
+
   const viewportBoundsPx = () => props.visualElement.viewportBoundsPx!;
   const innerBoundsPx = () => {
     let r = zeroBoundingBoxTopLeft(props.visualElement.boundsPx);
@@ -159,7 +159,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     return scale > 1.0 ? 1.0 : scale;
   }
 
-  const listViewScale = () => props.visualElement.boundsPx.w / store.desktopMainAreaBoundsPx().w;
+  const listViewScale = () => {
+    return props.visualElement.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+  }
 
   const isInComposite = () =>
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
@@ -624,6 +626,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return LIGHT_BORDER_COLOR;
     };
 
+    const titleScale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
+
     const titleColor = () => `${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)}; `;
 
     const popupScrollHandler = (_ev: Event) => {
@@ -656,10 +660,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   `${VeFns.zIndexStyle(props.visualElement)}` +
                   `background-image: ${linearGradient(pageItem().backgroundColorIndex, 0.9)};`}>
         <div class="absolute font-bold"
-              style={`left: 0px; top: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.05}px; ` +
-                     `width: ${boundsPx().w / scale() * 0.9}px; ` +
-                     `height: ${(boundsPx().h - viewportBoundsPx().h) / scale() * 0.9}px; ` +
-                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale() * 0.9}); ` +
+              style={`left: 0px; top: ${(boundsPx().h - viewportBoundsPx().h) / titleScale() * 0.05}px; ` +
+                     `width: ${boundsPx().w / titleScale() * 0.9}px; ` +
+                     `height: ${(boundsPx().h - viewportBoundsPx().h) / titleScale() * 0.9}px; ` +
+                     `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale() * 0.9}); ` +
                      `transform-origin: top left; ` +
                      `overflow-wrap: break-word; ` +
                      `padding-left: 4px; ` +
@@ -891,6 +895,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   // ## Embedded Root
 
   const renderAsEmbeddedRoot = () => {
+    const titleScale = () => (boundsPx().h - viewportBoundsPx().h) / LINE_HEIGHT_PX;
 
     const borderStyle = () =>
       isDockItem()
@@ -927,8 +932,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
              style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h - viewportBoundsPx().h}px;`}>
           <div id={VeFns.veToPath(props.visualElement) + ":title"}
                class="absolute font-bold"
-               style={`left: 0px; top: 0px; width: ${boundsPx().w / scale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / scale()}px; ` +
-                      `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${scale()}); transform-origin: top left; ` +
+               style={`left: 0px; top: 0px; width: ${boundsPx().w / titleScale()}px; height: ${(boundsPx().h - viewportBoundsPx().h) / titleScale()}px; ` +
+                      `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
                       `overflow-wrap: break-word;` +
                       `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}` +
                       `outline: 0px solid transparent;`}
