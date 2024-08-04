@@ -37,15 +37,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   const pageFns = () => props.pageFns;
 
   onMount(() => {
-    let veid;
-    let div;
+    let veid = store.history.currentPageVeid()!;
     if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       veid = store.perItem.getSelectedListPageItem(parentVeid);
-      div = rootDiv;
-    } else {
-      veid = VeFns.veidFromVe(props.visualElement);
-      div = rootDiv;
     }
 
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
@@ -54,8 +49,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const scrollYProp = store.perItem.getPageScrollYProp(veid);
     const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
 
-    div.scrollTop = scrollYPx;
-    div.scrollLeft = scrollXPx;
+    rootDiv.scrollTop = scrollYPx;
+    rootDiv.scrollLeft = scrollXPx;
   });
 
   const renderIsPublicBorder = () =>
