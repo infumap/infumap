@@ -24,20 +24,25 @@ import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
-import { VisualElementFlags, VeFns } from "../../layout/visual-element";
+import { VisualElementFlags, VeFns, VisualElement } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { isComposite } from "../../items/composite-item";
-import { renderAsOpaque } from "./Page_Opaque";
-import { renderAsTrash } from "./Page_Trash";
-import { renderAsDock } from "./Page_Dock";
-import { renderAsUmbrella } from "./Page_Umbrella";
-import { renderAsTranslucent } from "./Page_Translucent";
-import { renderAsRoot } from "./Page_Root";
-import { renderAsEmbeddedInteractive } from "./Page_EmbeddedInteractive";
-import { renderAsPopup } from "./Page_Popup";
+import { Page_Opaque } from "./Page_Opaque";
+import { Page_Trash } from "./Page_Trash";
+import { Page_Translucent } from "./Page_Translucent";
+import { Page_Root } from "./Page_Root";
+import { Page_EmbeddedInteractive } from "./Page_EmbeddedInteractive";
+import { Page_Umbrella } from "./Page_Umbrella";
+import { Page_Dock } from "./Page_Dock";
+import { Page_Popup } from "./Page_Popup";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
+export interface PageVisualElementProps {
+  visualElement: VisualElement,
+  pageFns: any
+}
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -266,30 +271,30 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   return (
     <Switch>
       <Match when={props.visualElement.flags & VisualElementFlags.UmbrellaPage}>
-        {renderAsUmbrella(pageFns, props)}
+        <Page_Umbrella visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
-        {renderAsDock(pageFns, props)}
+        <Page_Dock visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
-        {renderAsTrash(pageFns)}
+        <Page_Trash visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
-        {renderAsPopup(pageFns, props)}
+        <Page_Popup visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
                    props.visualElement.flags & VisualElementFlags.ListPageRoot}>
-        {renderAsRoot(pageFns, props)}
+        <Page_Root visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot}>
-        {renderAsEmbeddedInteractive(pageFns, props)}
+        <Page_EmbeddedInteractive visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
                    !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
-        {renderAsOpaque(pageFns, props)}
+        <Page_Opaque visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={true}>
-        {renderAsTranslucent(pageFns, props)}
+        <Page_Translucent visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
     </Switch>
   );

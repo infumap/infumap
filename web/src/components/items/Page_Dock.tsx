@@ -16,18 +16,19 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { For, Show } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { fArrange } from "../../layout/arrange";
-import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
+import { VisualElement_Desktop } from "../VisualElement";
 import { mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { itemState } from "../../store/ItemState";
 import { Z_INDEX_SHOW_TOOLBAR_ICON } from "../../constants";
+import { PageVisualElementProps } from "./Page";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
-export const renderAsDock = (pageFns: any, props: VisualElementProps) => {
+export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
   const showDock = () => {
@@ -36,10 +37,10 @@ export const renderAsDock = (pageFns: any, props: VisualElementProps) => {
   }
 
   const renderDockMoveOverIndexMaybe = () =>
-    <Show when={store.perVe.getMovingItemIsOver(pageFns.vePath())}>
+    <Show when={store.perVe.getMovingItemIsOver(props.pageFns.vePath())}>
         <div class="absolute border border-black"
              style={`left: 0px;` +
-                    `top: ${store.perVe.getMoveOverIndexAndPosition(pageFns.vePath()).position}px; ` +
+                    `top: ${store.perVe.getMoveOverIndexAndPosition(props.pageFns.vePath()).position}px; ` +
                     `width: ${store.getCurrentDockWidthPx()}px;`} />
     </Show>;
 
@@ -47,7 +48,7 @@ export const renderAsDock = (pageFns: any, props: VisualElementProps) => {
     <>
       <Show when={store.dockVisible.get()}>
         <div class={`absolute border-r`}
-             style={`left: ${pageFns.boundsPx().x}px; top: ${pageFns.boundsPx().y}px; width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px; ` +
+             style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
                     `background-color: #ffffff; border-right-width: ${mainPageBorderWidth(store)}px; ` +
                     `border-color: ${mainPageBorderColor(store, itemState.get)}; `}>
           <For each={props.visualElement.childrenVes}>{childVe =>
@@ -58,7 +59,7 @@ export const renderAsDock = (pageFns: any, props: VisualElementProps) => {
       </Show>
       <Show when={!store.dockVisible.get()}>
         <div class={`absolute`}
-             style={`left: ${5}px; top: ${pageFns.boundsPx().h - 30}px; z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
+             style={`left: ${5}px; top: ${props.pageFns.boundsPx().h - 30}px; z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
              onmousedown={showDock}>
           <i class={`fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-slate-400'}`} />
         </div>

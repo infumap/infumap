@@ -16,22 +16,25 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
+import { PageVisualElementProps } from "./Page";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
-export const renderAsTrash = (pageFns: any) => {
+export const Page_Trash: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
+
   const store = useStore();
 
   const trashFontSizePx = () => {
-    return pageFns.boundsPx().h * 0.65;
+    return props.pageFns.boundsPx().h * 0.65;
   }
 
   return (
     <div class={`absolute rounded-sm align-middle text-center`}
-         style={`left: ${pageFns.boundsPx().x}px; top: ${pageFns.boundsPx().y}px; width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px; ` +
-                `background-color: ${store.perVe.getMovingItemIsOver(pageFns.vePath()) ? "#dddddd" : (store.perVe.getMouseIsOver(pageFns.vePath()) ? "#eeeeee" : "#ffffff")}; ` +
+         style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
+                `background-color: ${store.perVe.getMovingItemIsOver(props.pageFns.vePath()) ? "#dddddd" : (store.perVe.getMouseIsOver(props.pageFns.vePath()) ? "#eeeeee" : "#ffffff")}; ` +
                 `font-size: ${trashFontSizePx()}px;`}>
       <i class="fa fa-trash" />
     </div>);

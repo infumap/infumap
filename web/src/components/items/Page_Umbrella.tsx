@@ -16,17 +16,18 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { For, Show } from "solid-js";
-import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
+import { Component, For, Show } from "solid-js";
+import { VisualElement_Desktop } from "../VisualElement";
+import { PageVisualElementProps } from "./Page";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
-export const renderAsUmbrella = (pageFns: any, props: VisualElementProps) => {
+export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   return (
     <>
       <div class={`absolute`}
-           style={`left: ${pageFns.boundsPx().x}px; top: ${pageFns.boundsPx().y}px; width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px; ` +
+           style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
                   `background-color: #ffffff;`}>
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />

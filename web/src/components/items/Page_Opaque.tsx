@@ -16,92 +16,95 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { For, Show, createMemo } from "solid-js";
+import { Component, For, Show, createMemo } from "solid-js";
 import { FEATURE_COLOR_DARK, linearGradient } from "../../style";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Z_INDEX_SHADOW } from "../../constants";
-import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
+import { VisualElement_Desktop } from "../VisualElement";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { PageVisualElementProps } from "./Page";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
-export const renderAsOpaque = (pageFns: any, props: VisualElementProps) => {
+export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
-  const opaqueTitleInBoxScale = createMemo((): number => pageFns.calcTitleInBoxScale("xs"));
+  const pageFns = () => props.pageFns;
+
+  const opaqueTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("xs"));
 
   const renderBoxTitle = () =>
     <div id={VeFns.veToPath(props.visualElement) + ":title"}
          class={`flex font-bold text-white`}
-         style={`left: ${pageFns.boundsPx().x}px; ` +
-                `top: ${pageFns.boundsPx().y}px; ` +
-                `width: ${pageFns.boundsPx().w}px; ` +
-                `height: ${pageFns.boundsPx().h}px;` +
+         style={`left: ${pageFns().boundsPx().x}px; ` +
+                `top: ${pageFns().boundsPx().y}px; ` +
+                `width: ${pageFns().boundsPx().w}px; ` +
+                `height: ${pageFns().boundsPx().h}px;` +
                 `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
                 `justify-content: center; align-items: center; text-align: center;` +
                 `outline: 0px solid transparent;`}
           contentEditable={store.overlay.textEditInfo() != null}
           spellcheck={store.overlay.textEditInfo() != null}>
-      {appendNewlineIfEmpty(pageFns.pageItem().title)}
+      {appendNewlineIfEmpty(pageFns().pageItem().title)}
     </div>;
 
   const renderHoverOverMaybe = () =>
-    <Show when={store.perVe.getMouseIsOver(pageFns.vePath()) && !store.anItemIsMoving.get()}>
+    <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
-        <Show when={!pageFns.isInComposite()}>
+        <Show when={!pageFns().isInComposite()}>
           <div class={`absolute rounded-sm`}
-               style={`left: ${pageFns.clickBoundsPx()!.x}px; top: ${pageFns.clickBoundsPx()!.y}px; width: ${pageFns.clickBoundsPx()!.w}px; height: ${pageFns.clickBoundsPx()!.h}px; ` +
+               style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
                       `background-color: #ffffff33;`} />
         </Show>
-        <Show when={pageFns.hasPopupClickBoundsPx()}>
+        <Show when={pageFns().hasPopupClickBoundsPx()}>
           <div class={`absolute rounded-sm`}
-               style={`left: ${pageFns.popupClickBoundsPx()!.x}px; top: ${pageFns.popupClickBoundsPx()!.y}px; width: ${pageFns.popupClickBoundsPx()!.w}px; height: ${pageFns.popupClickBoundsPx()!.h}px; ` +
-                      `background-color: ${pageFns.isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
+               style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
+                      `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>
       </>
     </Show>;
 
   const renderMovingOverMaybe = () =>
-    <Show when={store.perVe.getMovingItemIsOver(pageFns.vePath())}>
+    <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath())}>
       <div class={'absolute rounded-sm'}
-           style={`left: ${pageFns.clickBoundsPx()!.x}px; top: ${pageFns.clickBoundsPx()!.y}px; width: ${pageFns.clickBoundsPx()!.w}px; height: ${pageFns.clickBoundsPx()!.h}px; ` +
+           style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
                   'background-color: #ffffff33;'} />
     </Show>;
 
   const renderMovingOverAttachMaybe = () =>
-    <Show when={store.perVe.getMovingItemIsOverAttach(pageFns.vePath())}>
+    <Show when={store.perVe.getMovingItemIsOverAttach(pageFns().vePath())}>
       <div class={'absolute rounded-sm'}
-           style={`left: ${pageFns.attachBoundsPx().x}px; top: ${pageFns.attachBoundsPx().y}px; width: ${pageFns.attachBoundsPx().w}px; height: ${pageFns.attachBoundsPx().h}px; ` +
+           style={`left: ${pageFns().attachBoundsPx().x}px; top: ${pageFns().attachBoundsPx().y}px; width: ${pageFns().attachBoundsPx().w}px; height: ${pageFns().attachBoundsPx().h}px; ` +
                   'background-color: #ff0000;'} />
     </Show>;
 
   const renderMovingOverAttachCompositeMaybe = () =>
-    <Show when={store.perVe.getMovingItemIsOverAttachComposite(pageFns.vePath())}>
+    <Show when={store.perVe.getMovingItemIsOverAttachComposite(pageFns().vePath())}>
       <div class={`absolute rounded-sm`}
-           style={`left: ${pageFns.attachCompositeBoundsPx().x}px; top: ${pageFns.attachCompositeBoundsPx().y}px; width: ${pageFns.attachCompositeBoundsPx().w}px; height: ${pageFns.attachCompositeBoundsPx().h}px; ` +
+           style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px; ` +
                   `background-color: ${FEATURE_COLOR_DARK};`} />
     </Show>;
 
   const renderPopupSelectedOverlayMaybe = () =>
-    <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || pageFns.isPoppedUp()}>
+    <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || pageFns().isPoppedUp()}>
       <div class='absolute'
-           style={`left: ${pageFns.innerBoundsPx().x}px; top: ${pageFns.innerBoundsPx().y}px; width: ${pageFns.innerBoundsPx().w}px; height: ${pageFns.innerBoundsPx().h}px; ` +
+           style={`left: ${pageFns().innerBoundsPx().x}px; top: ${pageFns().innerBoundsPx().y}px; width: ${pageFns().innerBoundsPx().w}px; height: ${pageFns().innerBoundsPx().h}px; ` +
                   'background-color: #dddddd88;'} />
     </Show>;
 
   const renderIsLinkMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && pageFns.showTriangleDetail()}>
+    <Show when={props.visualElement.linkItemMaybe != null && pageFns().showTriangleDetail()}>
       <InfuLinkTriangle />
     </Show>;
 
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-sm shadow-lg overflow-hidden`}
-           style={`left: ${pageFns.boundsPx().x}px; top: ${pageFns.boundsPx().y}px; width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px; ` +
+           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
     </Show>;
 
@@ -109,9 +112,9 @@ export const renderAsOpaque = (pageFns: any, props: VisualElementProps) => {
     <>
       {renderShadowMaybe()}
       <div class={`absolute border border-slate-700 rounded-sm`}
-           style={`left: ${pageFns.boundsPx().x}px; top: ${pageFns.boundsPx().y}px; ` +
-                  `width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px; ` +
-                  `background-image: ${linearGradient(pageFns.pageItem().backgroundColorIndex, 0.0)}; ` +
+           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
+                  `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+                  `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.0)}; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderBoxTitle()}
@@ -123,13 +126,13 @@ export const renderAsOpaque = (pageFns: any, props: VisualElementProps) => {
           <For each={props.visualElement.attachmentsVes}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} />
           }</For>
-          <Show when={pageFns.showMoveOutOfCompositeArea()}>
+          <Show when={pageFns().showMoveOutOfCompositeArea()}>
             <div class={`absolute rounded-sm`}
-                  style={`left: ${pageFns.moveOutOfCompositeBox().x}px; top: ${pageFns.moveOutOfCompositeBox().y}px; width: ${pageFns.moveOutOfCompositeBox().w}px; height: ${pageFns.moveOutOfCompositeBox().h}px; ` +
+                  style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
                         `background-color: ${FEATURE_COLOR_DARK};`} />
           </Show>
           {renderIsLinkMaybe()}
-          <Show when={pageFns.showTriangleDetail()}>
+          <Show when={pageFns().showTriangleDetail()}>
             <InfuResizeTriangle />
           </Show>
         </Show>
