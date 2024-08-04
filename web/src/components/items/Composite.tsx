@@ -16,18 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { ATTACH_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
+import { BoundingBox } from "../../util/geometry";
 import { asCompositeItem } from "../../items/composite-item";
-import { itemState } from "../../store/ItemState";
-import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -112,103 +109,3 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     </>
   );
 };
-
-
-export const Composite_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const store = useStore();
-
-  const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
-  const vePath = () => VeFns.veToPath(props.visualElement);
-  const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
-  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const smallScale = () => scale() * 0.7;
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
-  const leftPx = () => boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => boundsPx().w - oneBlockWidthPx();
-  const titleText = () => {
-    if (compositeItem().computed_children.length == 0) {
-      return "[empty]";
-    }
-    const topItem = itemState.get(compositeItem().computed_children[0])!
-    if (isTitledItem(topItem)) {
-      return asTitledItem(topItem).title + "...";
-    }
-    return "[no title]";
-  }
-  const openPopupBoundsPx = () => {
-    const r = cloneBoundingBox(boundsPx())!;
-    r.w = oneBlockWidthPx();
-    return r;
-  };
-  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-
-  const renderHighlightsMaybe = () =>
-    <Switch>
-      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
-      </Match>
-      <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
-      </Match>
-    </Switch>;
-
-  const renderIcon = () =>
-    <div class="absolute text-center"
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                `transform: scale(${scale()}); transform-origin: top left;`}>
-      <i class={`fas fa-object-group`} />
-    </div>;
-
-  const renderText = () =>
-    <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
-         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left;`}>
-      <span>{titleText()}</span>
-    </div>;
-
-  const renderExpandIcon = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment) && (props.visualElement.flags & VisualElementFlags.InsideTable)}>
-      <div class="absolute text-center text-slate-400"
-          style={`left: ${boundsPx().x+boundsPx().w - oneBlockWidthPx()*0.85}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}>
-        <i class={`fas ${store.perVe.getIsExpanded(vePath()) ? 'fa-minus' : 'fa-plus'}`} />
-      </div>
-    </Show>;
-
-  const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
-      <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                 `transform: scale(${scale()}); transform-origin: top left;`}>
-        <InfuLinkTriangle />
-      </div>
-    </Show>
-
-  return (
-    <>
-      {renderHighlightsMaybe()}
-      {renderIcon()}
-      {renderText()}
-      {renderExpandIcon()}
-      {renderLinkMarkingMaybe()}
-    </>
-  )
-}

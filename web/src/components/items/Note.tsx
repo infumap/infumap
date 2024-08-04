@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
@@ -40,7 +40,6 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { fullArrange } from "../../layout/arrange";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { VesCache } from "../../layout/ves-cache";
 import { asPositionalItem } from "../../items/base/positional-item";
 import { server, serverOrRemote } from "../../server";
@@ -274,7 +273,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                onClick={aHrefClickListener}
                onMouseDown={aHrefMouseDownListener}
                onMouseUp={aHrefMouseUpListener}>
-              {formatMaybe(noteItem().title, noteItem().format)}
+              {noteFormatMaybe(noteItem().title, noteItem().format)}
             </a>
           </div>
         </Match>
@@ -296,7 +295,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}
                 onInput={inputListener}>
-            {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}<span></span>
+            {appendNewlineIfEmpty(noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
           </span>
         </Match>
       </Switch>
@@ -346,174 +345,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   );
 }
 
-
-export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const store = useStore();
-
-  const noteItem = () => asNoteItem(props.visualElement.displayItem);
-  const vePath = () => VeFns.veToPath(props.visualElement);
-  const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
-  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const smallScale = () => scale() * 0.7;
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
-  const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
-  const leftPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().x + oneBlockWidthPx() * PADDING_PROP
-    : boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => props.visualElement.flags & VisualElementFlags.Attachment
-    ? boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
-    : boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
-  const openPopupBoundsPx = () => {
-    const r = cloneBoundingBox(boundsPx())!;
-    r.w = oneBlockWidthPx();
-    return r;
-  };
-  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-
-  const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
-
-  const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
-
-  const copyClickHandler = () => {
-    if (noteItem().url == "") {
-      navigator.clipboard.writeText(noteItem().title);
-    } else {
-      navigator.clipboard.writeText("[" + noteItem().title + "](" + noteItem().url + ")");
-    }
-  }
-
-  // Link click events are handled in the global mouse up handler. However, calculating the text
-  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
-  const aHrefMouseDown = (ev: MouseEvent) => {
-    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(noteItem().url != null && noteItem().url != ""); }
-    ev.preventDefault();
-  };
-  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
-  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
-
-  const renderHighlightsMaybe = () =>
-    <Switch>
-      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
-      </Match>
-    </Switch>;
-
-  const renderIconMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment)}>
-      <div class="absolute text-center"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class={`fas fa-sticky-note`} />
-      </div>
-    </Show>;
-
-  const inputListener = (_ev: InputEvent) => {
-    // fullArrange is not required in the line item case, because the ve geometry does not change.
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    switch (ev.key) {
-      case "Enter":
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-    }
-  }
-
-  const renderText = () =>
-    <div class={`absolute overflow-hidden whitespace-nowrap ` +
-                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
-                `${infuTextStyle().alignClass} `}
-         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left;`}>
-      <Switch>
-        <Match when={NoteFns.hasUrl(noteItem()) &&
-                     (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
-          <a id={VeFns.veToPath(props.visualElement) + ":title"}
-             href={""}
-             class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
-             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
-                    `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
-             onClick={aHrefClick}
-             onMouseDown={aHrefMouseDown}
-             onMouseUp={aHrefMouseUp}>
-            {formatMaybe(noteItem().title, noteItem().format)}
-          </a>
-        </Match>
-        <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
-            {appendNewlineIfEmpty(formatMaybe(noteItem().title, noteItem().format))}<span></span>
-          </span>
-        </Match>
-      </Switch>
-    </div>;
-
-  const renderCopyIconMaybe = () =>
-    <Show when={showCopyIcon()}>
-      <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x+boundsPx().w - 1*oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h*PADDING_PROP}px; ` +
-                  `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
-                  `transform: scale(${smallScale()}); transform-origin: top left;`}
-           onmousedown={eatMouseEvent}
-           onmouseup={eatMouseEvent}
-           onclick={copyClickHandler}>
-        <i class={`fas fa-copy cursor-pointer`} />
-      </div>
-    </Show>;
-
-  const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
-      <div class="absolute text-center text-slate-600"
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <InfuLinkTriangle />
-      </div>
-    </Show>
-
-  return (
-    <>
-      {renderHighlightsMaybe()}
-      {renderIconMaybe()}
-      {renderText()}
-      {renderCopyIconMaybe()}
-      {renderLinkMarkingMaybe()}
-    </>
-  );
-}
-
-
 // TODO (HIGH): something not naive.
-function formatMaybe(text: string, format: string): string {
+export function noteFormatMaybe(text: string, format: string): string {
   if (format == "") { return text; }
   if (!isNumeric(text)) { return text; }
   if (format == "0") { return parseFloat(text).toFixed(0); }

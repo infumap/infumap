@@ -32,23 +32,26 @@ import { Image_Desktop } from "./items/Image";
 import { File } from "./items/File";
 import { VisualElement } from "../layout/visual-element";
 import { Placeholder_Desktop } from "./items/Placeholder";
-import { FileLineItem } from "./items/File";
-import { Image_LineItem } from "./items/Image";
-import { Note_LineItem } from "./items/Note";
-import { Expression_LineItem } from "./items/Expression";
 import { Page_LineItem } from "./items/Page_LineItem";
-import { Rating_LineItem } from "./items/Rating";
-import { Table_LineItem } from "./items/Table";
 import { EMPTY_ITEM, isEmptyItem } from "../items/base/item";
 import { isPlaceholder } from "../items/placeholder-item";
-import { Placeholder_LineItem } from "./items/Placeholder";
-import { LinkDefault_Desktop, LinkDefault_LineItem } from "./items/LinkDefault";
+import { LinkDefault_Desktop } from "./items/LinkDefault";
 import { isLink } from "../items/link-item";
 import { isPassword } from "../items/password-item";
-import { Password, PasswordLineItem } from "./items/Password";
-import { Composite_Desktop, Composite_LineItem } from "./items/Composite";
+import { Password } from "./items/Password";
+import { Composite_Desktop } from "./items/Composite";
 import { isComposite } from "../items/composite-item";
 import { isExpression } from "../items/expression-item";
+import { PasswordLineItem } from "./items/Password_LineItem";
+import { Placeholder_LineItem } from "./items/Placeholder_LineItem";
+import { Rating_LineItem } from "./items/Rating_LineItem";
+import { Table_LineItem } from "./items/Table_LineItem";
+import { Note_LineItem } from "./items/Note_LineItem";
+import { LinkDefault_LineItem } from "./items/LinkDefault_LineItem";
+import { Image_LineItem } from "./items/Image_LineItem";
+import { FileLineItem } from "./items/File_LineItem";
+import { Composite_LineItem } from "./items/Composite_LineItem";
+import { Expression_LineItem } from "./items/Expression_LineItem";
 
 
 export interface VisualElementProps {

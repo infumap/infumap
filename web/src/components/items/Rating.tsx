@@ -16,14 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch } from "solid-js";
+import { Component, Show } from "solid-js";
 import { asRatingItem } from "../../items/rating-item";
 import { COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
 import { FEATURE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
@@ -90,69 +89,5 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
         <InfuLinkTriangle />
       </Show>
     </div>
-  );
-}
-
-
-export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const store = useStore();
-
-  const ratingItem = () => asRatingItem(props.visualElement.displayItem);
-  const vePath = () => VeFns.veToPath(props.visualElement);
-  const starSizeProp = () => ratingItem().rating / 5 * 1.2;
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
-  const boundsPx = () => {
-    let result = props.visualElement.boundsPx;
-    result.w = oneBlockWidthPx();
-    return result;
-  }
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
-  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-
-  const renderHighlightsMaybe = () =>
-    <Switch>
-      <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
-      </Match>
-    </Switch>;
-
-  const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
-      <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <InfuLinkTriangle />
-      </div>
-    </Show>
-
-  return (
-    <>
-      {renderHighlightsMaybe()}
-      <div class={`absolute`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <div class={`fas fa-star text-gray-400 absolute`}
-             style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; `+
-                    `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
-                    `text-align: center; vertical-align: bottom;`} />
-        <div class={`fas fa-star text-yellow-400 absolute`}
-             style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; ` +
-                    `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
-                    `text-align: center; vertical-align: bottom;`} />
-      </div>
-      {renderLinkMarkingMaybe()}
-    </>
   );
 }

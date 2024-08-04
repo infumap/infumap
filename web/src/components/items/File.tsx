@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 import { FileFns, asFileItem } from "../../items/file-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_SHADOW } from "../../constants";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
-import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox } from "../../util/geometry";
 import { ItemFns} from "../../items/base/item-polymorphism";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
@@ -30,7 +30,6 @@ import { asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { itemState } from "../../store/ItemState";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { isComposite } from "../../items/composite-item";
@@ -253,131 +252,6 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
           {renderDetailed()}
         </Show>
       </div>
-    </>
-  );
-}
-
-
-export const FileLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
-  const store = useStore();
-
-  const fileItem = () => asFileItem(props.visualElement.displayItem);
-  const vePath = () => VeFns.veToPath(props.visualElement);
-  const boundsPx = () => props.visualElement.boundsPx;
-  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
-  const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
-  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
-  const oneBlockWidthPx = () => props.visualElement.blockSizePx!.w;
-  const leftPx = () => boundsPx().x + oneBlockWidthPx();
-  const widthPx = () => boundsPx().w - oneBlockWidthPx();
-  const openPopupBoundsPx = () => {
-    const r = cloneBoundingBox(boundsPx())!;
-    r.w = oneBlockWidthPx();
-    return r;
-  };
-  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-
-  // Link click events are handled in the global mouse up handler. However, calculating the text
-  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
-  const aHrefMouseDown = (ev: MouseEvent) => {
-    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(true); }
-    ev.preventDefault();
-  };
-  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
-  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
-
-  const renderHighlightsMaybe = () =>
-    <Switch>
-      <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
-        <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
-        </Show>
-      </Match>
-      <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
-        <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; background-color: #dddddd88;`} />
-      </Match>
-    </Switch>;
-
-  const renderIcon = () =>
-    <div class="absolute text-center"
-         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                `transform: scale(${scale()}); transform-origin: top left;`}>
-      <i class={`fas fa-file`} />
-    </div>;
-
-  const inputListener = (_ev: InputEvent) => {
-    // fullArrange is not required in the line item case, because the ve geometry does not change.
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    switch (ev.key) {
-      case "Enter":
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-    }
-  }
-
-  const renderText = () =>
-    <div class="absolute overflow-hidden whitespace-nowrap"
-         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left;`}>
-      <Switch>
-        <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
-          <a id={VeFns.veToPath(props.visualElement) + ":title"}
-             href={""}
-             class={`text-green-800`}
-             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-             onClick={aHrefClick}
-             onMouseDown={aHrefMouseDown}
-             onMouseUp={aHrefMouseUp}>
-           {fileItem().title}
-          </a>
-        </Match>
-        <Match when={store.overlay.textEditInfo() != null}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                style={`outline: 0px solid transparent;`}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}
-                onInput={inputListener}>
-            {appendNewlineIfEmpty(fileItem().title)}<span></span>
-          </span>
-        </Match>
-      </Switch>
-    </div>;
-
-  const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
-      <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                 `transform: scale(${scale()}); transform-origin: top left;`}>
-        <InfuLinkTriangle />
-      </div>
-    </Show>
-
-  return (
-    <>
-      {renderHighlightsMaybe()}
-      {renderIcon()}
-      {renderText()}
-      {renderLinkMarkingMaybe()}
     </>
   );
 }

@@ -51,7 +51,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     popupDiv.scrollLeft = scrollXPx;
   });
 
-  // ## Popup
   createEffect(() => {
     // occurs on page arrange algorithm change.
     if (!pageFns().childAreaBoundsPx()) { return; }
