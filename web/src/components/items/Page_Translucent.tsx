@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount } from "solid-js";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
@@ -34,20 +34,56 @@ import { PageVisualElementProps } from "./Page";
 export const Page_Translucent: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
+  let updatingTranslucentScrollTop = false;
+
+  let translucentDiv: any = undefined; // HTMLDivElement | undefined
+
   const pageFns = () => props.pageFns;
+
+  onMount(() => {
+    let veid = VeFns.veidFromVe(props.visualElement);
+
+    const scrollXProp = store.perItem.getPageScrollXProp(veid);
+    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+
+    const scrollYProp = store.perItem.getPageScrollYProp(veid);
+    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+
+    translucentDiv.scrollTop = scrollYPx;
+    translucentDiv.scrollLeft = scrollXPx;
+  });
+
+  createEffect(() => {
+    // occurs on page arrange algorithm change.
+    if (!pageFns().childAreaBoundsPx()) { return; }
+
+    updatingTranslucentScrollTop = true;
+    if (translucentDiv) {
+      translucentDiv.scrollTop =
+        store.perItem.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
+        (pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+      translucentDiv.scrollLeft =
+        store.perItem.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
+        (pageFns().childAreaBoundsPx().w - props.visualElement.boundsPx.w);
+    }
+
+    setTimeout(() => {
+      updatingTranslucentScrollTop = false;
+    }, 0);
+  });
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));
 
   const translucentScrollHandler = (_ev: Event) => {
-    if (!pageFns().translucentDiv) { return; }
-    if (pageFns().updatingTranslucentScrollTop) { return; }
+    if (!translucentDiv) { return; }
+    if (updatingTranslucentScrollTop) { return; }
 
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBounds = pageFns().childAreaBoundsPx();
     const pageVeid = VeFns.veidFromVe(props.visualElement);
 
     if (childAreaBounds.h > pageBoundsPx.h) {
-      const scrollYProp = pageFns().translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);
+      const scrollYProp = translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);
       store.perItem.setPageScrollYProp(pageVeid, scrollYProp);
     }
   };
@@ -69,7 +105,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           }</For>
         </div>
       </div>
-      <div ref={pageFns().translucentDiv}
+      <div ref={translucentDiv}
            class={`absolute`}
            style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -83,7 +119,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </>;
 
   const renderPage = () =>
-    <div ref={pageFns().translucentDiv}
+    <div ref={translucentDiv}
          class={`absolute ${borderClass()} rounded-sm`}
          style={`left: ${pageFns().boundsPx().x}px; ` +
                 `top: ${pageFns().boundsPx().y}px; ` +

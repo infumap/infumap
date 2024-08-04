@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Colors, linearGradient } from "../../style";
@@ -35,7 +35,31 @@ import { PageVisualElementProps } from "./Page";
 export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
+  let rootDiv: any = undefined; // HTMLDivElement | undefined
+
   const pageFns = () => props.pageFns;
+
+  onMount(() => {
+    let veid;
+    let div;
+    if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+      veid = store.perItem.getSelectedListPageItem(parentVeid);
+      div = rootDiv;
+    } else {
+      veid = VeFns.veidFromVe(props.visualElement);
+      div = rootDiv;
+    }
+
+    const scrollXProp = store.perItem.getPageScrollXProp(veid);
+    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+
+    const scrollYProp = store.perItem.getPageScrollYProp(veid);
+    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+
+    div.scrollTop = scrollYPx;
+    div.scrollLeft = scrollXPx;
+  });
 
   const keyUpHandler = (ev: KeyboardEvent) => {
     edit_keyUpHandler(store, ev);
@@ -109,7 +133,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
                 `background-color: #ffffff;` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
-      <div ref={pageFns().rootDiv}
+      <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} ` +
                   `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
            style={`overflow-y: auto; ` +
@@ -136,7 +160,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </div>;
 
   const renderPage = () =>
-    <div ref={pageFns().rootDiv}
+    <div ref={rootDiv}
          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
          style={`left: 0px; ` +
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +

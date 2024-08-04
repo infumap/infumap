@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
 import { ANCHOR_BOX_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -32,7 +32,45 @@ import { PageVisualElementProps } from "./Page";
 export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
+  let updatingPopupScrollTop = false;
+
+  let popupDiv: any = undefined; // HTMLDivElement | undefined
+
   const pageFns = () => props.pageFns;
+
+  onMount(() => {
+    let veid = store.history.currentPopupSpec()!.actualVeid;
+
+    const scrollXProp = store.perItem.getPageScrollXProp(veid);
+    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+
+    const scrollYProp = store.perItem.getPageScrollYProp(veid);
+    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+
+    popupDiv.scrollTop = scrollYPx;
+    popupDiv.scrollLeft = scrollXPx;
+  });
+
+  // ## Popup
+  createEffect(() => {
+    // occurs on page arrange algorithm change.
+    if (!pageFns().childAreaBoundsPx()) { return; }
+
+    updatingPopupScrollTop = true;
+
+    if (popupDiv && store.history.currentPopupSpec()) {
+      popupDiv.scrollTop =
+        store.perItem.getPageScrollYProp(store.history.currentPopupSpec()!.actualVeid) *
+        (pageFns().childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
+      popupDiv.scrollLeft =
+        store.perItem.getPageScrollXProp(store.history.currentPopupSpec()!.actualVeid) *
+        (pageFns().childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
+    }
+
+    setTimeout(() => {
+      updatingPopupScrollTop = false;
+    }, 0);
+  });
 
   const borderColorVal = () => {
     if (props.visualElement.flags & VisualElementFlags.HasToolbarFocus) {
@@ -46,15 +84,15 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const titleColor = () => `${hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0)}; `;
 
   const popupScrollHandler = (_ev: Event) => {
-    if (!pageFns().popupDiv) { return; }
-    if (pageFns().updatingPopupScrollTop) { return; }
+    if (!popupDiv) { return; }
+    if (updatingPopupScrollTop) { return; }
 
     const viewportBoundsPx = props.visualElement.viewportBoundsPx!;
     const childAreaBoundsPx_ = pageFns().childAreaBoundsPx();
     const popupVeid = store.history.currentPopupSpec()!.actualVeid;
 
     if (childAreaBoundsPx_.h > viewportBoundsPx.h) {
-      const scrollYProp = pageFns().popupDiv!.scrollTop / (childAreaBoundsPx_.h - viewportBoundsPx.h);
+      const scrollYProp = popupDiv!.scrollTop / (childAreaBoundsPx_.h - viewportBoundsPx.h);
       store.perItem.setPageScrollYProp(popupVeid, scrollYProp);
     }
   };
@@ -96,7 +134,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                 `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
                 `background-color: #ffffff;` +
                 `${VeFns.zIndexStyle(props.visualElement)}`}>
-      <div ref={pageFns().popupDiv}
+      <div ref={popupDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-100`}
            style={`overflow-y: auto; overflow-x: hidden; ` +
                   `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * pageFns().listViewScale()}px; ` +
@@ -119,7 +157,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     </div>;
 
   const renderPage = () =>
-    <div ref={pageFns().popupDiv}
+    <div ref={popupDiv}
          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-t border-slate-300`}
          style={`left: ${pageFns().viewportBoundsPx().x}px; ` +
                 `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +

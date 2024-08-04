@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createEffect, For, Match, onMount, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch } from "solid-js";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
@@ -179,93 +179,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                       `height: ${props.visualElement.cellSizePx!.h}px; ` +
                       `width: 1px;`} />
       </Show>,
-
-    updatingTranslucentScrollTop: false,
-
-    translucentDiv: undefined as (HTMLDivElement | undefined),
-
-    rootDiv: undefined as (HTMLDivElement | undefined),
-
-    updatingPopupScrollTop: false,
-
-    popupDiv: undefined as (HTMLDivElement | undefined),
   };
-
-
-  onMount(() => {
-    let veid;
-    let div;
-
-    if (props.visualElement.flags & VisualElementFlags.Popup) {
-      veid = store.history.currentPopupSpec()!.actualVeid;
-      div = pageFns.popupDiv;
-    } else if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
-      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
-      veid = store.perItem.getSelectedListPageItem(parentVeid);
-      div = pageFns.rootDiv;
-    } else if (props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
-               props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
-      veid = VeFns.veidFromVe(props.visualElement);
-      div = pageFns.rootDiv;
-    } else {
-      veid = VeFns.veidFromVe(props.visualElement);
-      div = pageFns.translucentDiv;
-    }
-
-    if (!div) { return; }
-
-    const scrollXProp = store.perItem.getPageScrollXProp(veid);
-    const scrollXPx = scrollXProp * (pageFns.childAreaBoundsPx().w - pageFns.viewportBoundsPx().w);
-
-    const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * (pageFns.childAreaBoundsPx().h - pageFns.viewportBoundsPx().h);
-
-    div.scrollTop = scrollYPx;
-    div.scrollLeft = scrollXPx;
-  });
-
-
-  // ## Translucent
-  createEffect(() => {
-    // occurs on page arrange algorithm change.
-    if (!pageFns.childAreaBoundsPx()) { return; }
-
-    pageFns.updatingTranslucentScrollTop = true;
-    if (pageFns.translucentDiv) {
-      pageFns.translucentDiv.scrollTop =
-        store.perItem.getPageScrollYProp(VeFns.veidFromVe(props.visualElement)) *
-        (pageFns.childAreaBoundsPx().h - props.visualElement.boundsPx.h);
-      pageFns.translucentDiv.scrollLeft =
-        store.perItem.getPageScrollXProp(VeFns.veidFromVe(props.visualElement)) *
-        (pageFns.childAreaBoundsPx().w - props.visualElement.boundsPx.w);
-    }
-
-    setTimeout(() => {
-      pageFns.updatingTranslucentScrollTop = false;
-    }, 0);
-  });
-
-
-  // ## Popup
-  createEffect(() => {
-    // occurs on page arrange algorithm change.
-    if (!pageFns.childAreaBoundsPx()) { return; }
-
-    pageFns.updatingPopupScrollTop = true;
-
-    if (pageFns.popupDiv && store.history.currentPopupSpec()) {
-      pageFns.popupDiv.scrollTop =
-        store.perItem.getPageScrollYProp(store.history.currentPopupSpec()!.actualVeid) *
-        (pageFns.childAreaBoundsPx().h - props.visualElement.viewportBoundsPx!.h);
-      pageFns.popupDiv.scrollLeft =
-        store.perItem.getPageScrollXProp(store.history.currentPopupSpec()!.actualVeid) *
-        (pageFns.childAreaBoundsPx().w - props.visualElement.viewportBoundsPx!.w);
-    }
-
-    setTimeout(() => {
-      pageFns.updatingPopupScrollTop = false;
-    }, 0);
-  });
 
 
   return (

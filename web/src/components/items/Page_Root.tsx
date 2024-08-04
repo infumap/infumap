@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
@@ -32,7 +32,31 @@ import { PageVisualElementProps } from "./Page";
 export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
+  let rootDiv: any = undefined; // HTMLDivElement | undefined
+
   const pageFns = () => props.pageFns;
+
+  onMount(() => {
+    let veid;
+    let div;
+    if (props.visualElement.flags & VisualElementFlags.ListPageRoot) {
+      const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
+      veid = store.perItem.getSelectedListPageItem(parentVeid);
+      div = rootDiv;
+    } else {
+      veid = VeFns.veidFromVe(props.visualElement);
+      div = rootDiv;
+    }
+
+    const scrollXProp = store.perItem.getPageScrollXProp(veid);
+    const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
+
+    const scrollYProp = store.perItem.getPageScrollYProp(veid);
+    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+
+    div.scrollTop = scrollYPx;
+    div.scrollLeft = scrollXPx;
+  });
 
   const renderIsPublicBorder = () =>
     <Show when={pageFns().isPublic() && store.user.getUserMaybe() != null}>
@@ -46,7 +70,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
                 `background-color: #ffffff;` +
                 `${VeFns.zIndexStyle(props.visualElement)}`}>
-      <div ref={pageFns().rootDiv}
+      <div ref={rootDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} `}
            style={`overflow-y: auto; ` +
                   `width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -72,7 +96,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     </div>;
 
   const rootScrollHandler = (_ev: Event) => {
-    if (!pageFns().rootDiv) { return; }
+    if (!rootDiv) { return; }
 
     const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
     const desktopSizePx = props.visualElement.boundsPx;
@@ -86,12 +110,12 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
 
     if (desktopSizePx.w < pageBoundsPx.w) {
-      const scrollXProp = pageFns().rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
+      const scrollXProp = rootDiv!.scrollLeft / (pageBoundsPx.w - desktopSizePx.w);
       store.perItem.setPageScrollXProp(veid, scrollXProp);
     }
 
     if (desktopSizePx.h < pageBoundsPx.h) {
-      const scrollYProp = pageFns().rootDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
+      const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx.h - desktopSizePx.h);
       store.perItem.setPageScrollYProp(veid, scrollYProp);
     }
   }
@@ -109,7 +133,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   }
   
   const renderPage = () =>
-    <div ref={pageFns().rootDiv}
+    <div ref={rootDiv}
          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
          style={`left: 0px; ` +
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
