@@ -1,0 +1,40 @@
+/*
+  Copyright (C) The Infumap Authors
+  This file is part of Infumap.
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as
+  published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import { For, Show } from "solid-js";
+import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
+
+
+// REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
+export const renderAsUmbrella = (pageFns: any, props: VisualElementProps) => {
+  return (
+    <>
+      <div class={`absolute`}
+           style={`left: ${pageFns.boundsPx().x}px; top: ${pageFns.boundsPx().y}px; width: ${pageFns.boundsPx().w}px; height: ${pageFns.boundsPx().h}px; ` +
+                  `background-color: #ffffff;`}>
+        <For each={props.visualElement.childrenVes}>{childVes =>
+          <VisualElement_Desktop visualElement={childVes.get()} />
+        }</For>
+        <Show when={props.visualElement.dockVes != null}>
+          <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
+        </Show>
+      </div>
+    </>
+  );
+}

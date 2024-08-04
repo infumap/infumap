@@ -36,7 +36,7 @@ import { FileLineItem } from "./items/File";
 import { Image_LineItem } from "./items/Image";
 import { Note_LineItem } from "./items/Note";
 import { Expression_LineItem } from "./items/Expression";
-import { Page_LineItem } from "./items/Page";
+import { Page_LineItem } from "./items/Page_LineItem";
 import { Rating_LineItem } from "./items/Rating";
 import { Table_LineItem } from "./items/Table";
 import { EMPTY_ITEM, isEmptyItem } from "../items/base/item";
