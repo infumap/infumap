@@ -64,7 +64,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
                 showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />

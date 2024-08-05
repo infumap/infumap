@@ -196,7 +196,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         </Match>
       </Switch>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; ` +
+           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.05}px; ` +
                   `top: ${boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; ` +
                   `height: ${boundsPx().h/smallScale()}px; `+
@@ -207,7 +207,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         <i class={`fas fa-copy cursor-pointer`} />
       </div>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*PADDING_PROP}px; ` +
+           style={`left: ${boundsPx().w - oneBlockWidthPx()*1.8}px; top: ${boundsPx().h*PADDING_PROP}px; ` +
                   `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h/smallScale()}px; `+
                   `transform: scale(${smallScale()}); transform-origin: top left;`}
           onmousedown={eatMouseEvent}

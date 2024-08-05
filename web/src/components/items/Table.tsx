@@ -206,19 +206,19 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <TableChildArea visualElement={props.visualElement} />
       <Show when={showColHeader()}>
         <div class='absolute'
-            style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h}px; ` +
+             style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h}px; ` +
                     `width: ${viewportBoundsPx()!.w}px; height: ${blockSizePx().h}px; ` +
                     `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
           <For each={columnSpecs()}>{spec =>
             <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
-                class={`absolute whitespace-nowrap overflow-hidden`}
-                style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
-                       `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                       `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
-                       `transform: scale(${scale()}); transform-origin: top left;` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.textEditInfo() != null}
-                spellcheck={store.overlay.textEditInfo() != null}>
+                 class={`absolute whitespace-nowrap overflow-hidden`}
+                 style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
+                        `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
+                        `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                        `transform: scale(${scale()}); transform-origin: top left;` +
+                        `outline: 0px solid transparent;`}
+                 contentEditable={store.overlay.textEditInfo() != null}
+                 spellcheck={store.overlay.textEditInfo() != null}>
               {spec.name}
               <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
                 <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
@@ -236,7 +236,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={columnSpecs()}>{spec =>
           <Show when={!spec.isLast}>
             <div class="absolute bg-slate-700"
-                  style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+                 style={`left: ${spec.endPosPx}px; width: 1px; top: $0px; height: ${viewportBoundsPx()!.h + (showColHeader() ? blockSizePx().h : 0)}px`} />
           </Show>
         }</For>
       </div>
@@ -320,7 +320,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
          style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y}px; ` +
                 `width: ${viewportBoundsPx()!.w}px; height: ${viewportBoundsPx()!.h}px; overflow-y: auto;` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}
-                onscroll={scrollHandler}>
+         onscroll={scrollHandler}>
       <div class='absolute' style={`width: ${viewportBoundsPx()!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
         {renderVisibleItems()}
       </div>
