@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LIST_PAGE_TOP_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -53,10 +53,21 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     rootDiv.scrollLeft = scrollXPx;
   });
 
+  const listHeightPx = () => {
+    let height1 = LINE_HEIGHT_PX * pageFns().lineChildren().length + LIST_PAGE_TOP_PADDING_PX;
+    let height2 = pageFns().viewportBoundsPx().h;
+    return Math.max(height1, height2);
+  }
+
   const renderIsPublicBorder = () =>
     <Show when={pageFns().isPublic() && store.user.getUserMaybe() != null}>
       <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
     </Show>;
+
+  const listRootScrollHandler = (_ev: Event) => {
+    if (!rootDiv) { return; }
+    console.debug("todo");
+  }
 
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
@@ -71,9 +82,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                   `width: ${pageFns().viewportBoundsPx().w}px; ` +
                   `height: ${pageFns().viewportBoundsPx().h}px; ` +
                   `background-color: #ffffff;` +
-                  `${VeFns.zIndexStyle(props.visualElement)}`}>
+                  `${VeFns.zIndexStyle(props.visualElement)}`}
+           onscroll={listRootScrollHandler}>
         <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * pageFns().lineChildren().length}px`}>
+             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${listHeightPx()}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
@@ -90,6 +102,18 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       </Show>
     </div>;
 
+  const keyUpHandler = (ev: KeyboardEvent) => {
+    edit_keyUpHandler(store, ev);
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    edit_keyDownHandler(store, props.visualElement, ev);
+  }
+
+  const inputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
+  }
+  
   const rootScrollHandler = (_ev: Event) => {
     if (!rootDiv) { return; }
 
@@ -115,18 +139,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
   }
 
-  const keyUpHandler = (ev: KeyboardEvent) => {
-    edit_keyUpHandler(store, ev);
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    edit_keyDownHandler(store, props.visualElement, ev);
-  }
-
-  const inputListener = (ev: InputEvent) => {
-    edit_inputListener(store, ev);
-  }
-  
   const renderPage = () =>
     <div ref={rootDiv}
          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
@@ -136,16 +148,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
                 `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
                 `${VeFns.zIndexStyle(props.visualElement)}`}
-          onscroll={rootScrollHandler}>
+         onscroll={rootScrollHandler}>
       <div class="absolute"
            style={`left: 0px; top: 0px; ` +
                   `width: ${pageFns().childAreaBoundsPx().w}px; ` +
                   `height: ${pageFns().childAreaBoundsPx().h}px;` +
                   `outline: 0px solid transparent; `}
-            contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
-            onKeyUp={keyUpHandler}
-            onKeyDown={keyDownHandler}
-            onInput={inputListener}>
+           contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+           onKeyUp={keyUpHandler}
+           onKeyDown={keyDownHandler}
+           onInput={inputListener}>
         <For each={props.visualElement.childrenVes}>{childVes =>
           <VisualElement_Desktop visualElement={childVes.get()} />
         }</For>

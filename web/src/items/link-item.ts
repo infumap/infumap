@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
+import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, newUid, Uid } from "../util/uid";
@@ -227,9 +227,10 @@ export const LinkFns = {
 
   calcGeometry_ListItem: (link: LinkItem, blockSizePx: Dimensions, row: number, col: number, widthBl: number, parentIsPopup: boolean, padTop: boolean, expandable: boolean): ItemGeometry => {
     function noLinkTo(): ItemGeometry {
+      const scale = blockSizePx.h / LINE_HEIGHT_PX;
       const boundsPx = {
         x: blockSizePx.w * col,
-        y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX : 0),
+        y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX * scale : 0),
         w: blockSizePx.w * widthBl,
         h: blockSizePx.h
       };
