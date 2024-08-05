@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -27,7 +27,7 @@ import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
@@ -65,7 +65,7 @@ export function arrange_list_page(
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
-  const scale = isFull ? 1.0 : geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
+  const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
   let resizeBoundsPx = {
     x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
@@ -84,6 +84,15 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
+  const listWidthPx = LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * scale;
+  const listChildAreaHeightPx1 = (displayItem_pageWithChildren.computed_children.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * scale;
+  const listChildAreaHeightPx2 = geometry.viewportBoundsPx!.h;
+  const listChildAreaHeightPx = Math.max(listChildAreaHeightPx1, listChildAreaHeightPx2);
+  const listViewportBoundsPx = cloneBoundingBox(geometry.viewportBoundsPx!)!;
+  listViewportBoundsPx.w = listWidthPx;
+  const listChildAreaBoundsPx = cloneBoundingBox(listViewportBoundsPx)!;
+  listChildAreaBoundsPx.h = listChildAreaHeightPx;
+
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
@@ -101,6 +110,8 @@ export function arrange_list_page(
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
+    listViewportBoundsPx,
+    listChildAreaBoundsPx,
     hitboxes,
     parentPath,
   };

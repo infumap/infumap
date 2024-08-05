@@ -20,7 +20,7 @@ import { GRID_SIZE } from "../constants";
 import { isContainer } from "../items/base/container-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { isComposite } from "../items/composite-item";
-import { PageFns, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { HitboxMeta, HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { VesCache } from "../layout/ves-cache";
@@ -287,24 +287,16 @@ function getHitInfo(
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
   assert(umbrellaVe.childrenVes.length == 1, "expecting umbrella visual element to have exactly one child");
 
-  const currentPageVeid = store.history.currentPageVeid()!;
-  const currentPageVe = umbrellaVe.childrenVes[0].get();
-  const posRelativeToTopLevelVePx = vectorAdd(
-    posOnDesktopPx, {
-      x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
-      y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
-    });
-
   // Root is either:
   //  - The top level page, or
   //  - The popup if open and the mouse is over it, or
   //  - The selected page in a list page, or
   //  - The dock page, or
   //  - An embedded root.
-
+  //
   // progressively narrow it down:
 
-  let rootInfo = determineTopLevelRoot(store, umbrellaVe, posRelativeToTopLevelVePx, posOnDesktopPx);
+  let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx);
   if (rootInfo.hitMaybe) {
     if (rootInfo.hitMaybe!.overVes == null || !ignoreItems.find(a => a == rootInfo.hitMaybe!.overVes!.get().displayItem.id)) {
       return rootInfo.hitMaybe!; // hit a root hitbox, done already.
@@ -346,7 +338,9 @@ function getHitInfoUnderRoot(
 
   for (let i=rootVe.childrenVes.length-1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
-    if (hitMaybe) { return hitMaybe; }
+    if (hitMaybe) {
+      return hitMaybe;
+    }
   }
 
   if (rootVe.selectedVes) {
@@ -441,22 +435,23 @@ function hitChildMaybe(
 
 
 /**
- * @param posRelativeToTopLevelVePx the top level ve may be scrolled, so this is not necessarily the same as posOnDesktopPx.
  * @param posOnDesktopPx does not incorporate page scroll.
  */
 function determineTopLevelRoot(
     store: StoreContextModel,
     umbrellaVe: VisualElement,
-    posRelativeToTopLevelVePx: Vector,
     posOnDesktopPx: Vector): RootInfo {
 
   if (umbrellaVe.childrenVes.length != 1) {
     panic("expected umbrellaVisualElement to have a child");
   }
 
+  const dockRootMaybe = determineIfDockRoot(umbrellaVe, posOnDesktopPx);
+  if (dockRootMaybe != null) {
+    return dockRootMaybe;
+  }
+
   let rootVe = umbrellaVe.childrenVes[0].get();
-  let posRelativeToRootVeBoundsPx = posRelativeToTopLevelVePx;
-  let posRelativeToRootVeViewportPx = posRelativeToTopLevelVePx;
   let rootVes = umbrellaVe.childrenVes[0];
 
   if (rootVe.childrenVes.length == 0) {
@@ -464,18 +459,37 @@ function determineTopLevelRoot(
       parentRootVe: null,
       rootVes,
       rootVe,
-      posRelativeToRootVeBoundsPx,
-      posRelativeToRootVeViewportPx,
+      posRelativeToRootVeBoundsPx: posOnDesktopPx,
+      posRelativeToRootVeViewportPx: posOnDesktopPx,
       hitMaybe: null
     });
   }
 
-  const dockRootMaybe = determineIfDockRoot(umbrellaVe, posOnDesktopPx);
-  if (dockRootMaybe != null) { return dockRootMaybe; }
+  const currentPageVeid = store.history.currentPageVeid()!;
+  const currentPageVe = umbrellaVe.childrenVes[0].get();
 
-  posRelativeToRootVeBoundsPx = cloneVector(posRelativeToRootVeBoundsPx)!;
+  let posRelativeToTopLevelVePx = null;
+  if (asPageItem(currentPageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    if (posOnDesktopPx.x - store.getCurrentDockWidthPx() < currentPageVe.listViewportBoundsPx!.w) {
+      posRelativeToTopLevelVePx = vectorAdd(
+        posOnDesktopPx, {
+          x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.listChildAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+          y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.listChildAreaBoundsPx!.h - currentPageVe.boundsPx.h)
+        });
+    }
+  }
+
+  if (posRelativeToTopLevelVePx == null) {
+    posRelativeToTopLevelVePx = vectorAdd(
+      posOnDesktopPx, {
+        x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+        y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
+      });
+  }
+
+  let posRelativeToRootVeBoundsPx = cloneVector(posRelativeToTopLevelVePx)!;
   posRelativeToRootVeBoundsPx.x = posRelativeToRootVeBoundsPx.x - store.getCurrentDockWidthPx();
-  posRelativeToRootVeViewportPx = cloneVector(posRelativeToRootVeBoundsPx)!;
+  let posRelativeToRootVeViewportPx = cloneVector(posRelativeToRootVeBoundsPx)!;
 
   return ({
     parentRootVe: null,
@@ -1082,11 +1096,9 @@ function finalize(
       y: Math.round(prop.y * asPageItem(overVe.displayItem).innerSpatialWidthGr / asPageItem(overVe.displayItem).naturalAspect / GRID_SIZE) * GRID_SIZE
     };
     let overPositionableVe = overVe;
-    let overContainerVe = overVe;
     if (canHitEmbeddedInteractive) {
       if (overVe.flags & VisualElementFlags.EmbededInteractiveRoot) {
         overPositionableVe = VesCache.get(overVe.parentPath!)!.get();
-        overContainerVe = VesCache.get(overVe.parentPath!)!.get();
       }
     }
 

@@ -74,17 +74,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
 
-  const listHeightPx = () => {
-    let scale = 1.0;
-    if (pageFns().lineChildren().length > 0) {
-      scale = pageFns().lineChildren()[0].get().boundsPx.h / LINE_HEIGHT_PX;
-    }
-    console.log(scale);
-    let height1 = LINE_HEIGHT_PX * pageFns().lineChildren().length * scale + LIST_PAGE_TOP_PADDING_PX;
-    let height2 = pageFns().viewportBoundsPx().h;
-    return Math.max(height1, height2);
-  }
-
   const borderStyle = () =>
     isDockItem()
       ? `border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `
@@ -148,7 +137,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
                   `background-color: #ffffff;` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${listHeightPx()}px`}>
+             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>

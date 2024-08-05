@@ -301,7 +301,9 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
       if (newProps[i] == "resizingFromBoundsPx" ||
           newProps[i] == "boundsPx" ||
           newProps[i] == "viewportBoundsPx" ||
-          newProps[i] == "childAreaBoundsPx") {
+          newProps[i] == "listViewportBoundsPx" ||
+          newProps[i] == "childAreaBoundsPx" ||
+          newProps[i] == "listChildAreaBoundsPx") {
         if (compareBoundingBox(oldVal, newVal) != 0) {
           if (debug) { console.debug("ve property changed: ", newProps[i]); }
           dirty = true;

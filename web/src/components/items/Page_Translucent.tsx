@@ -35,7 +35,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const store = useStore();
 
   let updatingTranslucentScrollTop = false;
-
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;

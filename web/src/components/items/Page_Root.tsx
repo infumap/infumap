@@ -53,12 +53,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     rootDiv.scrollLeft = scrollXPx;
   });
 
-  const listHeightPx = () => {
-    let height1 = LINE_HEIGHT_PX * pageFns().lineChildren().length + LIST_PAGE_TOP_PADDING_PX;
-    let height2 = pageFns().viewportBoundsPx().h;
-    return Math.max(height1, height2);
-  }
-
   const renderIsPublicBorder = () =>
     <Show when={pageFns().isPublic() && store.user.getUserMaybe() != null}>
       <div class="w-full h-full" style="border-width: 3px; border-color: #ff0000;" />
@@ -66,7 +60,22 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const listRootScrollHandler = (_ev: Event) => {
     if (!rootDiv) { return; }
-    console.debug("todo");
+
+    const pageBoundsPx = props.visualElement.listChildAreaBoundsPx!.h;
+    const desktopSizePx = props.visualElement.boundsPx;
+
+    let veid = store.history.currentPageVeid()!;
+    if (props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot) {
+      veid = VeFns.actualVeidFromVe(props.visualElement);
+    } else if (props.visualElement.parentPath != UMBRELLA_PAGE_UID) {
+      const parentVeid = VeFns.actualVeidFromPath(props.visualElement.parentPath!);
+      veid = store.perItem.getSelectedListPageItem(parentVeid);
+    }
+
+    if (desktopSizePx.h < pageBoundsPx) {
+      const scrollYProp = rootDiv!.scrollTop / (pageBoundsPx - desktopSizePx.h);
+      store.perItem.setPageScrollYProp(veid, scrollYProp);
+    }
   }
 
   const renderListPage = () =>
@@ -85,7 +94,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                   `${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={listRootScrollHandler}>
         <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${listHeightPx()}px`}>
+             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>

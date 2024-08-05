@@ -148,6 +148,17 @@ export interface VisualElement {
   childAreaBoundsPx: BoundingBox | null,
 
   /**
+   * The (outer) bounds of the part of the list page visual element that contains list item visual elements.
+   */
+  listViewportBoundsPx: BoundingBox | null,
+
+  /**
+   * The (inner) bounds of the part of the list page visual element that contains list items.
+   * This may be larger than listViewportBoundsPx, if the area scrolls.
+   */
+  listChildAreaBoundsPx: BoundingBox | null,
+
+  /**
    * The bounds of the table the element is inside, if it's inside a table.
    */
   tableDimensionsPx: Dimensions | null,
@@ -216,6 +227,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   tableDimensionsPx: null,
   indentBl: null,
   viewportBoundsPx: null,
+  listChildAreaBoundsPx: null,
+  listViewportBoundsPx: null,
   blockSizePx: null,
   col: null,
   row: null,
@@ -251,6 +264,8 @@ export interface VisualElementSpec {
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   viewportBoundsPx?: BoundingBox,
+  listChildAreaBoundsPx?: BoundingBox,
+  listViewportBoundsPx?: BoundingBox,
   tableDimensionsPx?: Dimensions,
   indentBl?: number,
   blockSizePx?: Dimensions,
@@ -287,6 +302,8 @@ export const VeFns = {
       childAreaBoundsPx: null,
       viewportBoundsPx: null,
       tableDimensionsPx: null,
+      listChildAreaBoundsPx: null,
+      listViewportBoundsPx: null,
       indentBl: null,
       blockSizePx: null,
       col: null,
@@ -326,6 +343,8 @@ export const VeFns = {
     ve.boundsPx = { x: 0, y: 0, w: 0, h: 0 };
     ve.childAreaBoundsPx = null;
     ve.viewportBoundsPx = null;
+    ve.listChildAreaBoundsPx = null;
+    ve.listViewportBoundsPx = null;
     ve.tableDimensionsPx = null;
     ve.indentBl = null;
     ve.blockSizePx = null;
@@ -611,6 +630,8 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
   if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
   if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
+  if (typeof(override.listChildAreaBoundsPx) != 'undefined') { result.listChildAreaBoundsPx = override.listChildAreaBoundsPx; }
+  if (typeof(override.listViewportBoundsPx) != 'undefined') { result.listViewportBoundsPx = override.listViewportBoundsPx; }
   if (typeof(override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
   if (typeof(override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
   if (typeof(override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
