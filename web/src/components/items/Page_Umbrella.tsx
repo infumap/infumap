@@ -25,17 +25,15 @@ import { PageVisualElementProps } from "./Page";
 
 export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   return (
-    <>
-      <div class={`absolute`}
-           style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
-                  `background-color: #ffffff;`}>
-        <For each={props.visualElement.childrenVes}>{childVes =>
-          <VisualElement_Desktop visualElement={childVes.get()} />
-        }</For>
-        <Show when={props.visualElement.dockVes != null}>
-          <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
-        </Show>
-      </div>
-    </>
+    <div class={`absolute`}
+          style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
+                 `background-color: #ffffff;`}>
+      <For each={props.visualElement.childrenVes}>{childVes =>
+        <VisualElement_Desktop visualElement={childVes.get()} />
+      }</For>
+      <Show when={props.visualElement.dockVes != null}>
+        <VisualElement_Desktop visualElement={props.visualElement.dockVes!.get()} />
+      </Show>
+    </div>
   );
 }

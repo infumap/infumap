@@ -33,7 +33,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const store = useStore();
 
   let updatingPopupScrollTop = false;
-
   let popupDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;

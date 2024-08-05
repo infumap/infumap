@@ -24,7 +24,6 @@ import { PageVisualElementProps } from "./Page";
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
 export const Page_Trash: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
-
   const store = useStore();
 
   const trashFontSizePx = () => {
