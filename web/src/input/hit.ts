@@ -336,7 +336,7 @@ function getHitInfoUnderRoot(
     posRelativeToRootVeViewportPx
   } = rootInfo;
 
-  for (let i=rootVe.childrenVes.length-1; i >= 0; --i) {
+  for (let i=rootVe.childrenVes.length-1; i>=0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootVeViewportPx, rootVe.childrenVes[i], ignoreItems, ignoreAttachments, canHitEmbeddedInteractive);
     if (hitMaybe) {
       return hitMaybe;
@@ -473,7 +473,7 @@ function determineTopLevelRoot(
     if (posOnDesktopPx.x - store.getCurrentDockWidthPx() < currentPageVe.listViewportBoundsPx!.w) {
       posRelativeToTopLevelVePx = vectorAdd(
         posOnDesktopPx, {
-          x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.listChildAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+          x: 0,
           y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.listChildAreaBoundsPx!.h - currentPageVe.boundsPx.h)
         });
     }
@@ -584,10 +584,28 @@ function determinePopupOrSelectedRootMaybe(
         let veid = VeFns.actualVeidFromVe(newRootVeMaybe);
         const scrollPropX = store.perItem.getPageScrollXProp(veid);
         const scrollPropY = store.perItem.getPageScrollYProp(veid);
-        posRelativeToRootVeBoundsPx = vectorSubtract(
-          posRelativeToRootVeBoundsPx,
-          { x: rootVe.viewportBoundsPx!.x - scrollPropX * (rootVe.childAreaBoundsPx!.w - rootVe.boundsPx.w),
-            y: rootVe.viewportBoundsPx!.y - scrollPropY * (rootVe.childAreaBoundsPx!.h - rootVe.boundsPx.h)})
+
+        let done = false;
+        if (asPageItem(newRootVeMaybe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+          if (posRelativeToRootVeBoundsPx.x > newRootVeMaybe.listViewportBoundsPx!.x &&
+              posRelativeToRootVeBoundsPx.x < newRootVeMaybe.listViewportBoundsPx!.x + newRootVeMaybe!.listViewportBoundsPx!.w) {
+            posRelativeToRootVeBoundsPx = vectorSubtract(
+              posRelativeToRootVeBoundsPx, {
+                x: rootVe.viewportBoundsPx!.x,
+                y: rootVe.viewportBoundsPx!.y - scrollPropY * (newRootVeMaybe.listChildAreaBoundsPx!.h - newRootVeMaybe.boundsPx.h)
+              });
+            done = true;
+          }
+        }
+
+        if (!done) {
+          posRelativeToRootVeBoundsPx = vectorSubtract(
+            posRelativeToRootVeBoundsPx, {
+              x: rootVe.viewportBoundsPx!.x - scrollPropX * (rootVe.childAreaBoundsPx!.w - rootVe.boundsPx.w),
+              y: rootVe.viewportBoundsPx!.y - scrollPropY * (rootVe.childAreaBoundsPx!.h - rootVe.boundsPx.h)
+            });
+        }
+
         let hitboxType = HitboxFlags.None;
         for (let j=rootVe.hitboxes.length-1; j>=0; --j) {
           if (isInside(posRelativeToRootVeBoundsPx, rootVe.hitboxes[j].boundsPx)) {
