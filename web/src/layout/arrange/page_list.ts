@@ -269,6 +269,8 @@ export function arrange_dock_list_page(
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
+    listViewportBoundsPx: geometry.viewportBoundsPx!,
+    listChildAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
     hitboxes,
     parentPath,
   };
