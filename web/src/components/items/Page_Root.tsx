@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LIST_PAGE_TOP_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
+import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -94,7 +94,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                   `${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={listRootScrollHandler}>
         <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>

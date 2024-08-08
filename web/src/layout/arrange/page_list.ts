@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -67,8 +67,10 @@ export function arrange_list_page(
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
+  const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;
+
   let resizeBoundsPx = {
-    x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
+    x: listWidthBl * LINE_HEIGHT_PX - RESIZE_BOX_SIZE_PX,
     y: 0,
     w: RESIZE_BOX_SIZE_PX,
     h: store.desktopMainAreaBoundsPx().h
@@ -84,7 +86,7 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
-  const listWidthPx = LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * scale;
+  const listWidthPx = LINE_HEIGHT_PX * listWidthBl * scale;
   const listChildAreaHeightPx1 = (displayItem_pageWithChildren.computed_children.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * scale;
   const listChildAreaHeightPx2 = geometry.viewportBoundsPx!.h;
   const listChildAreaHeightPx = Math.max(listChildAreaHeightPx1, listChildAreaHeightPx2);
@@ -129,10 +131,9 @@ export function arrange_list_page(
       initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
     }
 
-    const widthBl = LIST_PAGE_LIST_WIDTH_BL;
     const blockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
-    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, widthBl, parentIsPopup, true, false);
+    const listItemGeometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, idx, 0, listWidthBl, parentIsPopup, true, false);
 
     const listItemVeSpec: VisualElementSpec = {
       displayItem,
@@ -160,9 +161,9 @@ export function arrange_list_page(
 
   if (selectedVeid != EMPTY_VEID) {
     const boundsPx = {
-      x: LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX * scale,
+      x: listWidthBl * LINE_HEIGHT_PX * scale,
       y: 0,
-      w: geometry.viewportBoundsPx!.w - (LIST_PAGE_LIST_WIDTH_BL * LINE_HEIGHT_PX) * scale,
+      w: geometry.viewportBoundsPx!.w - (listWidthBl * LINE_HEIGHT_PX) * scale,
       h: geometry.viewportBoundsPx!.h
     };
     const selectedIsRoot = arrangeFlagIsRoot(flags) && isPage(itemState.get(selectedVeid.itemId)!);

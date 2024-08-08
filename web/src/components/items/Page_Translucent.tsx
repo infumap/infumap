@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch, createEffect, createMemo, onMount 
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, Z_INDEX_SHADOW } from "../../constants";
+import { LINE_HEIGHT_PX, Z_INDEX_SHADOW } from "../../constants";
 import { FEATURE_COLOR, linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -91,13 +91,13 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     <>
       <div class={`absolute ${borderClass()}`}
            style={`overflow-y: auto; overflow-x: hidden; ` +
-                  `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * pageFns().listViewScale()}px; ` +
+                  `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
                   `height: ${pageFns().boundsPx().h}px; ` +
                   `left: ${pageFns().boundsPx().x}px; ` +
                   `top: ${pageFns().boundsPx().y}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; ` +
+             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
                     `height: ${LINE_HEIGHT_PX * pageFns().lineChildren().length}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />

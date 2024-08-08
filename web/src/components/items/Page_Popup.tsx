@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { ANCHOR_BOX_SIZE_PX, LINE_HEIGHT_PX, LIST_PAGE_LIST_WIDTH_BL, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { ANCHOR_BOX_SIZE_PX, LINE_HEIGHT_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
@@ -135,12 +135,12 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       <div ref={popupDiv}
            class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} border-r border-slate-100`}
            style={`overflow-y: auto; overflow-x: hidden; ` +
-                  `width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL * pageFns().listViewScale()}px; ` +
+                  `width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl() * pageFns().listViewScale()}px; ` +
                   `height: ${pageFns().viewportBoundsPx().h}px; ` +
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-             style={`width: ${LINE_HEIGHT_PX * LIST_PAGE_LIST_WIDTH_BL}px; height: ${LINE_HEIGHT_PX * pageFns().lineChildren().length}px`}>
+             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${LINE_HEIGHT_PX * pageFns().lineChildren().length}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>

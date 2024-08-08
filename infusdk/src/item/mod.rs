@@ -282,6 +282,10 @@ pub fn is_titled_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Image || item_type == ItemType::Expression
 }
 
+pub fn is_tabular_item_type(item_type: ItemType) -> bool {
+  item_type == ItemType::Table || item_type == ItemType::Page
+}
+
 pub fn is_image_item(item: &Item) -> bool {
   item.item_type == ItemType::Image
 }
@@ -370,6 +374,10 @@ pub struct Item {
   pub mime_type: Option<String>,
   pub file_size_bytes: Option<i64>,
 
+  // tabular
+  pub table_columns: Option<Vec<TableColumn>>,
+  pub number_of_visible_columns: Option<i64>,
+
   // flags
   pub flags: Option<i64>,
 
@@ -401,8 +409,6 @@ pub struct Item {
   pub text: Option<String>,
 
   // table
-  pub table_columns: Option<Vec<TableColumn>>,
-  pub number_of_visible_columns: Option<i64>,
 
   // image
   pub image_size_px: Option<Dimensions<i64>>,
@@ -586,6 +592,20 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
+    // tabular
+    if let Some(new_table_columns) = &new.table_columns {
+      if match &old.table_columns { Some(o) => o != new_table_columns, None => { true } } {
+        if !is_tabular_item_type(old.item_type) { cannot_modify_err("tableColumns", &old.id)?; }
+        result.insert(String::from("tableColumns"), json::table_columns_to_array(&new_table_columns));
+      }
+    }
+    if let Some(new_number_of_visible_columns) = new.number_of_visible_columns {
+      if match old.number_of_visible_columns { Some(o) => o != new_number_of_visible_columns, None => { true } } {
+        if !is_tabular_item_type(old.item_type) { cannot_modify_err("numberOfVisibleColumns", &old.id)?; }
+        result.insert(String::from("numberOfVisibleColumns"), Value::Number(new_number_of_visible_columns.into()));
+      }
+    }
+
     // flags
     if let Some(new_flags) = new.flags {
       if match old.flags { Some(o) => o != new_flags, None => { true } } {
@@ -697,18 +717,6 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // table
-    if let Some(new_table_columns) = &new.table_columns {
-      if match &old.table_columns { Some(o) => o != new_table_columns, None => { true } } {
-        if old.item_type != ItemType::Table { cannot_modify_err("tableColumns", &old.id)?; }
-        result.insert(String::from("tableColumns"), json::table_columns_to_array(&new_table_columns));
-      }
-    }
-    if let Some(new_number_of_visible_columns) = new.number_of_visible_columns {
-      if match old.number_of_visible_columns { Some(o) => o != new_number_of_visible_columns, None => { true } } {
-        if old.item_type != ItemType::Table { cannot_modify_err("numberOfVisibleColumns", &old.id)?; }
-        result.insert(String::from("numberOfVisibleColumns"), Value::Number(new_number_of_visible_columns.into()));
-      }
-    }
 
     // image
     if let Some(new_image_size_px) = &new.image_size_px {
@@ -841,6 +849,16 @@ impl JsonLogSerializable<Item> for Item {
     if json::get_string_field(map, "mimeType")?.is_some() { cannot_update_err("mimeType", &self.id)?; }
     if json::get_integer_field(map, "fileSizeBytes")?.is_some() { cannot_update_err("fileSizeBytes", &self.id)?; }
 
+    // tabular
+    if let Some(v) = json::get_table_columns_field(map, "tableColumns")? {
+      if !is_tabular_item_type(self.item_type) { not_applicable_err("tableColumns", self.item_type, &self.id)?; }
+      self.table_columns = Some(v);
+    }
+    if let Some(v) = json::get_integer_field(map, "numberOfVisibleColumns")? {
+      if !is_tabular_item_type(self.item_type) { not_applicable_err("numberOfVisibleColumns", self.item_type, &self.id)?; }
+      self.number_of_visible_columns = Some(v);
+    }
+
     // page
     if let Some(v) = json::get_integer_field(map, "innerSpatialWidthGr")? {
       if self.item_type != ItemType::Page { not_applicable_err("innerSpatialWidthGr", self.item_type, &self.id)?; }
@@ -902,14 +920,6 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // table
-    if let Some(v) = json::get_table_columns_field(map, "tableColumns")? {
-      if self.item_type != ItemType::Table { not_applicable_err("tableColumns", self.item_type, &self.id)?; }
-      self.table_columns = Some(v);
-    }
-    if let Some(v) = json::get_integer_field(map, "numberOfVisibleColumns")? {
-      if self.item_type != ItemType::Table { not_applicable_err("numberOfVisibleColumns", self.item_type, &self.id)?; }
-      self.number_of_visible_columns = Some(v);
-    }
 
     // image
     if let Some(v) = json::get_dimensions_field(map, "imageSizePx")? {
@@ -1005,6 +1015,16 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("fileSizeBytes"), Value::Number(file_size_bytes.into()));
   }
 
+  // tabular
+  if let Some(table_columns) = &item.table_columns {
+    if !is_tabular_item_type(item.item_type) { unexpected_field_err("tableColumns", &item.id, item.item_type)? }
+    result.insert(String::from("tableColumns"), json::table_columns_to_array(table_columns));
+  }
+  if let Some(number_of_visible_columns) = item.number_of_visible_columns {
+    if !is_tabular_item_type(item.item_type) { unexpected_field_err("numberOfVisibleColumns", &item.id, item.item_type)? }
+    result.insert(String::from("numberOfVisibleColumns"), Value::Number(number_of_visible_columns.into()));
+  }
+
   // flags
   if let Some(flags) = item.flags {
     if !is_flags_item_type(item.item_type) { unexpected_field_err("flags", &item.id, item.item_type)? }
@@ -1090,14 +1110,6 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   }
 
   // table
-  if let Some(table_columns) = &item.table_columns {
-    if item.item_type != ItemType::Table { unexpected_field_err("tableColumns", &item.id, item.item_type)? }
-    result.insert(String::from("tableColumns"), json::table_columns_to_array(table_columns));
-  }
-  if let Some(number_of_visible_columns) = item.number_of_visible_columns {
-    if item.item_type != ItemType::Table { unexpected_field_err("numberOfVisibleColumns", &item.id, item.item_type)? }
-    result.insert(String::from("numberOfVisibleColumns"), Value::Number(number_of_visible_columns.into()));
-  }
 
   // image
   if let Some(image_size_px) = &item.image_size_px {
@@ -1221,6 +1233,16 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       None => { if is_data_item_type(item_type) { Err(expected_for_err("fileSizeBytes", item_type, &id)) } else { Ok(None) } }
     }?,
 
+    // tabular
+    table_columns: match json::get_table_columns_field(map, "tableColumns")? {
+      Some(v) => { if is_tabular_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("tableColumns", item_type, &id)) } }
+      None => { if is_tabular_item_type(item_type) { Err(expected_for_err("tableColumns", item_type, &id)) } else { Ok(None) } }
+    }?,
+    number_of_visible_columns: match json::get_integer_field(map, "numberOfVisibleColumns")? {
+      Some(v) => { if is_tabular_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("numberOfVisibleColumns", item_type, &id)) } },
+      None => { if is_tabular_item_type(item_type) { Err(expected_for_err("numberOfVisibleColumns", item_type, &id)) } else { Ok(None) } }
+    }?,
+
     // flags
     flags: match json::get_integer_field(map, "flags")? {
       Some(v) => { if is_flags_item_type(item_type) { Ok(Some(v)) } else { Err(not_applicable_err("flags", item_type, &id)) } },
@@ -1304,14 +1326,6 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
 
     // table
-    table_columns: match json::get_table_columns_field(map, "tableColumns")? {
-      Some(v) => { if item_type == ItemType::Table { Ok(Some(v)) } else { Err(not_applicable_err("tableColumns", item_type, &id)) } }
-      None => { if item_type == ItemType::Table { Err(expected_for_err("tableColumns", item_type, &id)) } else { Ok(None) } }
-    }?,
-    number_of_visible_columns: match json::get_integer_field(map, "numberOfVisibleColumns")? {
-      Some(v) => { if item_type == ItemType::Table { Ok(Some(v)) } else { Err(not_applicable_err("numberOfVisibleColumns", item_type, &id)) } },
-      None => { if item_type == ItemType::Table { Err(expected_for_err("numberOfVisibleColumns", item_type, &id)) } else { Ok(None) } }
-    }?,
 
     // image
     image_size_px: match json::get_dimensions_field(map, "imageSizePx")? {

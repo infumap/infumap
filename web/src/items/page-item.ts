@@ -45,6 +45,7 @@ import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { newOrdering } from '../util/ordering';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
+import { TabularItem, TabularMixin } from './base/tabular-item';
 
 
 export const ArrangeAlgorithm = {
@@ -58,7 +59,7 @@ export const ArrangeAlgorithm = {
   Composite: "composite",
 };
 
-export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {
+export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, Item {
   innerSpatialWidthGr: number;
   naturalAspect: number;
   backgroundColorIndex: number;
@@ -76,7 +77,7 @@ export interface PageItem extends PageMeasurable, XSizableItem, ContainerItem, A
   pendingPopupAlignmentPoint: string | null;
 }
 
-export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin {
+export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin {
   innerSpatialWidthGr: number;
   naturalAspect: number;
   arrangeAlgorithm: string;
@@ -127,6 +128,12 @@ export const PageFns = {
       flags: PageFlags.None,
       permissionFlags: PermissionFlags.None,
 
+      tableColumns: [{
+        name: "Title",
+        widthGr: 8 * GRID_SIZE,
+      }],
+
+      numberOfVisibleColumns: 1,
       computed_children: [],
       computed_attachments: [],
       childrenLoaded: false,
@@ -171,6 +178,9 @@ export const PageFns = {
       flags: o.flags,
       permissionFlags: o.permissionFlags,
 
+      tableColumns: o.tableColumns,
+      numberOfVisibleColumns: o.numberOfVisibleColumns,
+
       computed_children: [],
       computed_attachments: [],
 
@@ -213,6 +223,9 @@ export const PageFns = {
 
       permissionFlags: p.permissionFlags,
       flags: p.flags,
+
+      tableColumns: p.tableColumns,
+      numberOfVisibleColumns: p.numberOfVisibleColumns,
     });
   },
 
@@ -628,6 +641,8 @@ export const PageFns = {
       childrenLoaded: page.childrenLoaded,
       computed_children: page.computed_children,
       flags: page.flags,
+      tableColumns: page.tableColumns,
+      numberOfVisibleColumns: page.numberOfVisibleColumns,
     });
   },
 

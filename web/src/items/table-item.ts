@@ -43,18 +43,12 @@ import { fullArrange } from "../layout/arrange";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
+import { TabularItem, TabularMixin } from "./base/tabular-item";
 
 
-export interface TableItem extends TableMeasurable, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
+export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
 
-export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin {
-  tableColumns: Array<TableColumn>;
-  numberOfVisibleColumns: number;
-}
-
-export interface TableColumn {
-  name: string,
-  widthGr: number,
+export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin, TabularMixin {
 }
 
 
