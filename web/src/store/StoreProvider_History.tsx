@@ -36,29 +36,41 @@ interface PageBreadcrumb {
 
 
 export interface HistoryStoreContextModel {
+  setHistoryToSinglePage: (currentPage: Veid) => void,
   pushPageVeid: (veid: Veid) => void,
   popPage: () => boolean,
   currentPageVeid: () => Veid | null,
   parentPageVeid: () => Veid | null,
+
   pushPopup: (popupSpec: PopupSpec) => void,
   replacePopup: (popupSpec: PopupSpec) => void,
   popPopup: () => void,
   popAllPopups: () => void,
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVeid: () => Veid | null,
-  setHistoryToSinglePage: (currentPage: Veid) => void,
-  clear: () => void,
+
   setFocus: (focusPath: VisualElementPath | null) => void,
   getFocusItem: () => Item,
   getFocusPath: () => VisualElementPath,
   getFocusIsCurrentPage: () => boolean,
   getParentPageFocusPath: () => VisualElementPath | null,
   changeParentPageFocusPath: (path: VisualElementPath) => void,
+
+  clear: () => void,
 }
 
 
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
+
+  const setHistoryToSinglePage = (pageVeid: Veid): void => {
+    setBreadcrumbs([{
+      pageVeid,
+      parentPageChanged: true,
+      popupBreadcrumbs: [],
+      focusPath: VeFns.addVeidToPath(pageVeid, "")
+    }]);
+  };
 
   const pushPageVeid = (pageVeid: Veid): void => {
     breadcrumbs().push({
@@ -104,14 +116,6 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     setBreadcrumbs(breadcrumbs());
   };
 
-  const setHistoryToSinglePage = (pageVeid: Veid): void => {
-    setBreadcrumbs([{
-      pageVeid,
-      parentPageChanged: true,
-      popupBreadcrumbs: [],
-      focusPath: VeFns.addVeidToPath(pageVeid, "")
-    }]);
-  };
 
 
   const pushPopup = (popupSpec: PopupSpec): void => {
@@ -210,11 +214,11 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
 
   return ({
+    setHistoryToSinglePage,
     pushPageVeid,
     popPage,
     currentPageVeid,
     parentPageVeid,
-    setHistoryToSinglePage,
 
     pushPopup,
     replacePopup,
