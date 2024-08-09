@@ -108,6 +108,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       break;
 
     case MouseAction.ResizingListPageColumn:
+      const newWidthGr = asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr;
+      if (MouseActionState.get().startWidthBl! * GRID_SIZE != newWidthGr) {
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
+      }
       break;
 
     case MouseAction.Selecting:

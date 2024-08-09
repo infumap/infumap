@@ -94,6 +94,10 @@ export function arrange_list_page(
   listViewportBoundsPx.w = listWidthPx;
   const listChildAreaBoundsPx = cloneBoundingBox(listViewportBoundsPx)!;
   listChildAreaBoundsPx.h = listChildAreaHeightPx;
+  const blockSizePx = {
+    w: listViewportBoundsPx.w / (displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE),
+    h: 0  // TODO (LOW): better to calculate this, but it's not needed for anything.
+  };
 
   pageWithChildrenVisualElementSpec = {
     displayItem: displayItem_pageWithChildren,
@@ -114,6 +118,7 @@ export function arrange_list_page(
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
     listViewportBoundsPx,
     listChildAreaBoundsPx,
+    blockSizePx,
     hitboxes,
     parentPath,
   };

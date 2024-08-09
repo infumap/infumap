@@ -25,9 +25,6 @@ export interface PerItemStoreContextModel {
   getSelectedListPageItem: (listPageVeid: Veid) => Veid,
   setSelectedListPageItem: (listPageVeid: Veid, selectedVeid: Veid) => void,
 
-  getListPageColWidth: (itemId: Uid) => number,
-  setListPageColWidth: (itemId: Uid, width: number) => void,
-
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
@@ -117,23 +114,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
     selectedItems.get(key)!.set(selectedVeid);
   };
 
-  const getListPageColWidth = (itemId: Uid): number => {
-    const key = itemId;
-    if (!listPageColWidths.get(key)) {
-      listPageColWidths.set(key, createNumberSignal(0));
-    }
-    return listPageColWidths.get(key)!.get();
-  };
-
-  const setListPageColWidth = (itemId: Uid, col: number): void => {
-    const key = itemId;
-    if (!listPageColWidths.get(key)) {
-      listPageColWidths.set(key, createNumberSignal(col));
-      return;
-    }
-    listPageColWidths.get(key)!.set(col);
-  };
-
   function clear() {
     tableScrollPositions.clear();
     pageScrollXPxs.clear();
@@ -142,7 +122,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
   }
 
   return ({
-    getListPageColWidth, setListPageColWidth,
     getSelectedListPageItem, setSelectedListPageItem,
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,

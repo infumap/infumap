@@ -171,7 +171,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.ResizingDock;
       MouseActionState.get().startWidthBl = store.getCurrentDockWidthPx() / NATURAL_BLOCK_SIZE_PX.w;
     } else if (isPage(activeVisualElement.displayItem)) {
-      MouseActionState.get().startWidthBl = store.perItem.getListPageColWidth(activeVisualElement.displayItem.id);
+      MouseActionState.get().startWidthBl = asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE;
       MouseActionState.get().action = MouseAction.ResizingListPageColumn;
     } else {
       const colNum = MouseActionState.get().hitMeta!.colNum!;
@@ -210,18 +210,6 @@ function changeMouseActionStateMaybe(
   } else {
     console.debug(VesCache.get(MouseActionState.get().activeElementPath)!.get().flags);
   }
-}
-
-
-function mouseAction_resizingListPageColumn(_deltaPx: Vector, _store: StoreContextModel) {
-  let requireArrange = false;
-  const startBl = MouseActionState.get().startWidthBl!;
-  // let newDockWidthPx = startPx + deltaPx.x;
-  // if (newDockWidthPx < RESIZE_BOX_SIZE_PX) { newDockWidthPx = RESIZE_BOX_SIZE_PX; }
-  // if (newDockWidthPx > 300) { newDockWidthPx = 300; }
-  // store.overlay.setDockWidthPx(newDockWidthPx);
-  // arrange(store);
-  console.debug("TODO: mouseAction_resizingListPageColumn");
 }
 
 
@@ -317,6 +305,23 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
     asPageItem(activeRoot.displayItem).pendingPopupWidthGr = newWidthGr;
     fullArrange(store);
   }
+}
+
+
+function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContextModel) {
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+
+  const deltaBl = {
+    x: deltaPx.x * MouseActionState.get().onePxSizeBl.x,
+    y: deltaPx.y * MouseActionState.get().onePxSizeBl.y
+  };
+
+  let newWidthBl = Math.round(MouseActionState.get()!.startWidthBl! + deltaBl.x);
+  if (newWidthBl < 1) { newWidthBl = 1.0; }
+  const newWidthGr = newWidthBl * GRID_SIZE;
+
+  asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr = newWidthGr;
+  fullArrange(store);
 }
 
 
