@@ -18,7 +18,7 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
@@ -28,7 +28,7 @@ import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
-import { Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
+import { BORDER_COLOR, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
@@ -64,15 +64,20 @@ export const Toolbar: Component = () => {
     return asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
   }
 
-  const title = () => {
+  const titles = createMemo(() => {
     store.touchToolbarDependency();
-    if (currentPageMaybe() == null) { return [{title: "", lPosPx: 0, rPosPx: -1}]; }
+    const pageIsFocussed = isPage(store.history.getFocusItem());
+    const defaultBg = 'background-color: #fafafa;';
+    const defaultCol = hexToRGBA(Colors[0], 1.0);
+    if (currentPageMaybe() == null) { return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol }]; }
     const titles = store.titleChain.get();
     if (titles.length < 2) {
       return [{
         title: currentPageMaybe()!.title,
         lPosPx: 0,
         rPosPx: -1,
+        bg: pageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
+        col: `${hexToRGBA(Colors[currentPageMaybe()!.backgroundColorIndex], 1.0)}; `,
       }];
     }
 
@@ -84,6 +89,8 @@ export const Toolbar: Component = () => {
       title: currentPageMaybe()!.title,
       lPosPx,
       rPosPx,
+      bg: pageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
+      col: `${hexToRGBA(Colors[currentPageMaybe()!.backgroundColorIndex], 1.0)}; `,
     });
 
     for (let i=1; i<titles.length; ++i) {
@@ -97,28 +104,14 @@ export const Toolbar: Component = () => {
       r.push({
         title: page.title,
         lPosPx,
-        rPosPx
+        rPosPx,
+        bg: pageIsFocussed ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
+        col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
       });
     }
 
     return r;
-  }
-
-  const mainTitleColor = () => {
-    // item state is not solid-js signals.
-    // as a bit of a hack, change in color is signalled by re-setting this instead.
-    store.overlay.toolbarPopupInfoMaybe.get();
-    return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
-  }
-
-  const pageColor = () => {
-    store.overlay.toolbarPopupInfoMaybe.get();
-    if (currentPageMaybe() == null) { return ''; }
-    if (store.history.getFocusIsCurrentPage()) {
-      return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
-    }
-    return 'background-color: #fafafa;';
-  }
+  });
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -232,20 +225,23 @@ export const Toolbar: Component = () => {
     </div>;
 
   const mainToolbarArea = () =>
-    <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px; ${pageColor()}`}>
+    <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px;}`}>
       <div class="flex flex-row">
 
-        <For each={title()}>{tSpec =>
+        <For each={titles()}>{tSpec =>
           <>
             <div class="border-b flex-grow-0"
-                 style={`width: 6px; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
+                 style={`width: ${tSpec.lPosPx == 0 ? '5' : '6'}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                        `${tSpec.bg}` +
+                        (tSpec.lPosPx != 0 ? `border-left-width: 1px; border-left-color: ${BORDER_COLOR}; ` : '') +
                         `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                        `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
+                        `border-top-width: ${mainPageBorderWidth(store)-1}px`} />
 
             <div id="toolbarTitleDiv"
                  class="p-[3px] inline-block cursor-text border-b flex-grow-0"
                  contentEditable={true}
-                 style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                 style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                        `${tSpec.bg}` +
                         `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                         `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +
                         `padding-top: ${2-(mainPageBorderWidth(store)-1)}px; ` +
@@ -260,6 +256,7 @@ export const Toolbar: Component = () => {
 
         <div class="inline-block flex-nowrap border-b"
              style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
+                    `${titles()[titles().length-1].bg} ` +
                     `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                     `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
 

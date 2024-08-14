@@ -102,3 +102,5 @@ export let FEATURE_COLOR_DARK = "#000000";
 export let HIGHLIGHT_ENTRY_COLOR = "#a8c7fa";
 
 export let LIGHT_BORDER_COLOR = "#e1e3e1" // matches chrome v120 color scheme.
+
+export let BORDER_COLOR = "#c9d5e2" // slate-300.
