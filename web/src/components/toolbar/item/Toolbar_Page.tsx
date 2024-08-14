@@ -438,6 +438,9 @@ export const Toolbar_Page: Component = () => {
       </Show>
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
   
+      {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
+      <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+
       <div ref={qrDiv} class="inline-block pl-[16px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
       </div>

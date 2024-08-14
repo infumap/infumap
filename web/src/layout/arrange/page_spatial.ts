@@ -29,6 +29,7 @@ import { newOrdering } from "../../util/ordering";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { RelationshipToParent } from "../relationship-to-parent";
+import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren } from "./item";
 import { arrangeCellPopup } from "./popup";
@@ -50,6 +51,11 @@ export function arrange_spatial_page(
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const parentIsPopup = !!(flags & ArrangeItemFlags.IsPopupRoot);
+
+  const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
+  if (isFull) {
+    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+  }
 
   const childAreaBoundsPx = (() => {
     const aspect = geometry.viewportBoundsPx!.w / geometry.viewportBoundsPx!.h;

@@ -67,6 +67,10 @@ export function arrange_list_page(
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
+  if (isFull) {
+    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+  }
+
   const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;
 
   let resizeBoundsPx = {

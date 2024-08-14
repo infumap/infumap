@@ -50,6 +50,11 @@ export function arrange_grid_page(
 
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
 
+  const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
+  if (isFull) {
+    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+  }
+
   let movingItem = null;
   let movingItemInThisPage = null;
   if (!MouseActionState.empty() && (MouseActionState.get().action == MouseAction.Moving)) {

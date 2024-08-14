@@ -25,6 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
+import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem } from "./item";
 import { getVePropertiesForItem } from "./util";
@@ -45,6 +46,11 @@ export function arrange_document_page(
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
+
+  const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
+  if (isFull) {
+    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+  }
 
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
   const totalWidthBl = displayItem_pageWithChildren.docWidthBl + totalMarginBl;

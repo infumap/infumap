@@ -39,6 +39,8 @@ export interface StoreContextModel {
 
   umbrellaVisualElement: InfuSignal<VisualElement>,
 
+  titleChain: InfuSignal<Array<Uid>>,
+
   currentVisiblePassword: InfuSignal<Uid | null>,
 
   clear: () => void,
@@ -92,6 +94,8 @@ export function StoreProvider(props: StoreContextProps) {
   const desktopSizePx = createInfuSignal<Dimensions>(currentDesktopSize());
 
   const umbrellaVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
+
+  const titleChain = createInfuSignal<Array<Uid>>([]);
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
@@ -164,6 +168,7 @@ export function StoreProvider(props: StoreContextProps) {
     topToolbarHeightPx,
 
     umbrellaVisualElement,
+    titleChain,
 
     clear,
 

@@ -18,7 +18,7 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, Match, Show, Switch } from "solid-js";
+import { Component, For, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
@@ -33,7 +33,7 @@ import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
 import { fullArrange } from '../../layout/arrange';
-import { NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
+import { GRID_SIZE, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, Z_INDEX_SHOW_TOOLBAR_ICON } from '../../constants';
 import { Toolbar_Expression } from './item/Toolbar_Expression';
 import { isNote } from '../../items/note-item';
 import { isExpression } from '../../items/expression-item';
@@ -66,8 +66,42 @@ export const Toolbar: Component = () => {
 
   const title = () => {
     store.touchToolbarDependency();
-    if (currentPageMaybe() == null) { return ""; }
-    return currentPageMaybe()!.title;
+    if (currentPageMaybe() == null) { return [{title: "", lPosPx: 0, rPosPx: -1}]; }
+    const titles = store.titleChain.get();
+    if (titles.length < 2) {
+      return [{
+        title: currentPageMaybe()!.title,
+        lPosPx: 0,
+        rPosPx: -1,
+      }];
+    }
+
+    let r = [];
+
+    let lPosPx = 0;
+    let rPosPx = (asPageItem(itemState.get(titles[0])!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+    r.push({
+      title: currentPageMaybe()!.title,
+      lPosPx,
+      rPosPx,
+    });
+
+    for (let i=1; i<titles.length; ++i) {
+      let pUid = titles[i];
+      let page = asPageItem(itemState.get(pUid)!);
+      lPosPx = rPosPx;
+      rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+      if (i == titles.length-1) {
+        rPosPx = -1;
+      }
+      r.push({
+        title: page.title,
+        lPosPx,
+        rPosPx
+      });
+    }
+
+    return r;
   }
 
   const mainTitleColor = () => {
@@ -75,7 +109,7 @@ export const Toolbar: Component = () => {
     // as a bit of a hack, change in color is signalled by re-setting this instead.
     store.overlay.toolbarPopupInfoMaybe.get();
     return `${hexToRGBA(Colors[currentPageMaybe() == null ? 0 : currentPageMaybe()!.backgroundColorIndex], 1.0)}; `
-  };
+  }
 
   const pageColor = () => {
     store.overlay.toolbarPopupInfoMaybe.get();
@@ -84,12 +118,6 @@ export const Toolbar: Component = () => {
       return `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};`
     }
     return 'background-color: #fafafa;';
-  }
-
-  const showSecondSpacer = () => {
-    const focusItem = store.history.getFocusItem();
-    if (isFile(focusItem)) { return false; }
-    return true;
   }
 
   const hideToolbar = () => {
@@ -113,136 +141,153 @@ export const Toolbar: Component = () => {
     window.location.reload();
   }
 
+  const dockToolbarAreaMaybe = () =>
+    <Show when={store.dockVisible.get()}>
+      <>
+        <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
+             style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
+                    `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
+                    `border-right-width: ${mainPageBorderWidth(store)}px`}>
+          <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
+            <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
+              <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
+                <a href="/" onClick={handleLogoClick}><img src={imgUrl} class="w-[28px] inline-block" /></a>
+              </div>
+            </Show>
+            <div class="inline-block" style="flex-grow: 1;" />
+            <div class="inline-block"
+                 style={"flex-grow: 0; margin-right: 8px;" +
+                        `padding-right: ${2-(mainPageBorderWidth(store)-1)}px; `}>
+              <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w * 2}>
+                <Toolbar_Navigation />
+              </Show>
+            </div>
+          </div>
+        </div>
+        {/* this a hack to cover over a barely visible visual issue at the intersection of the toolbar and dock borders. */}
+        <div class="absolute"
+             style={`width: ${mainPageBorderWidth(store)}px; ` +
+                    `height: 10px; ` +
+                    `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; ` +
+                    `top: ${store.topToolbarHeightPx() - 5}px; ` +
+                    `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
+      </>
+    </Show>;
+
+  const rightToolbarSection = () =>
+    <div class="border-l border-b pl-[4px] flex flex-row"
+         style={`border-color: ${mainPageBorderColor(store, itemState.get)}; background-color: #fafafa; ` +
+                `border-left-width: ${mainPageBorderWidth(store)}px; border-bottom-width: ${mainPageBorderWidth(store)}px; ` +
+                `align-items: baseline;`}>
+
+      <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
+        <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
+          <Match when={isPage(store.history.getFocusItem())}>
+            <Toolbar_Page />
+          </Match>
+          <Match when={isNote(store.history.getFocusItem())}>
+            <Toolbar_Note />
+          </Match>
+          <Match when={isExpression(store.history.getFocusItem())}>
+            <Toolbar_Expression />
+          </Match>
+          <Match when={isTable(store.history.getFocusItem())}>
+            <Toolbar_Table />
+          </Match>
+          <Match when={isRating(store.history.getFocusItem())}>
+            <Toolbar_Rating />
+          </Match>
+          <Match when={isPassword(store.history.getFocusItem())}>
+            <Toolbar_Password />
+          </Match>
+          <Match when={isImage(store.history.getFocusItem())}>
+            <Toolbar_Image />
+          </Match>
+          <Match when={isFile(store.history.getFocusItem())}>
+            <Toolbar_File />
+          </Match>
+          <Match when={isLink(store.history.getFocusItem())}>
+            <Toolbar_Link />
+          </Match>
+        </Switch>
+      </Show>
+
+      <div class="flex-grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
+        {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 62px; top: 7px;"></div>
+      </div>
+
+      <div class="flex-grow-0 pr-[8px]" style="flex-order: 2;">
+        <Show when={!store.user.getUserMaybe()}>
+          <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
+        </Show>
+        <Show when={store.user.getUserMaybe()}>
+          <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
+        </Show>
+        <div class="inline-block">
+          <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
+        </div>
+      </div>
+
+    </div>;
+
+  const mainToolbarArea = () =>
+    <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px; ${pageColor()}`}>
+      <div class="flex flex-row">
+
+        <For each={title()}>{tSpec =>
+          <>
+            <div class="border-b flex-grow-0"
+                 style={`width: 6px; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
+                        `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
+                        `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
+
+            <div id="toolbarTitleDiv"
+                 class="p-[3px] inline-block cursor-text border-b flex-grow-0"
+                 contentEditable={true}
+                 style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                        `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
+                        `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +
+                        `padding-top: ${2-(mainPageBorderWidth(store)-1)}px; ` +
+                        `height: ${store.topToolbarHeightPx()}px; ` +
+                        (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6}px;` : '') +
+                        "outline: 0px solid transparent;"}
+                onClick={handleTitleClick}>
+              {tSpec.title}
+            </div>
+          </>
+        }</For>
+
+        <div class="inline-block flex-nowrap border-b"
+             style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
+                    `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
+                    `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
+
+        {rightToolbarSection()}
+
+      </div>
+    </div>;
+
+  const toolbar = () => 
+    <>
+      {dockToolbarAreaMaybe()}
+      {mainToolbarArea()}
+    </>;
+
+  const showToolbarButton = () =>
+    <div class="absolute"
+         style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
+                `right: 6px; top: -3px;`} onmousedown={showToolbar}>
+      <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
+    </div>;
+
   return (
     <>
       <Show when={store.topToolbarVisible.get()}>
-        <div class="fixed right-0 top-0"
-             style={`left: 0px; `}>
-
-          <Show when={store.dockVisible.get()}>
-            <>
-              <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-                   style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
-                         `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                         `border-right-width: ${mainPageBorderWidth(store)}px`}>
-                <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
-                  <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
-                    <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
-                      <a href="/" onClick={handleLogoClick}><img src={imgUrl} class="w-[28px] inline-block" /></a>
-                    </div>
-                  </Show>
-                  <div class="inline-block" style="flex-grow: 1;" />
-                  <div class="inline-block"
-                      style={"flex-grow: 0; margin-right: 8px;" +
-                             `padding-right: ${2-(mainPageBorderWidth(store)-1)}px; `}>
-                    <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w * 2}>
-                      <Toolbar_Navigation />
-                    </Show>
-                  </div>
-                </div>
-              </div>
-              <div class="absolute"
-                  style={`width: ${mainPageBorderWidth(store)}px; height: 10px; ` +
-                         `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; top: ${store.topToolbarHeightPx() - 5}px; ` +
-                         `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
-            </>
-          </Show>
-
-          <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px; ${pageColor()}`}>
-            <div class="flex flex-row">
-              <div class="border-b"
-                   style={`width: 6px; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
-                          `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                          `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
-              <div id="toolbarTitleDiv"
-                   class="p-[3px] inline-block cursor-text border-b"
-                   contentEditable={true}
-                   style={`font-size: 22px; color: ${mainTitleColor()}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
-                          `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                          `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +
-                          `padding-top: ${2-(mainPageBorderWidth(store)-1)}px; ` +
-                          `height: ${store.topToolbarHeightPx()}px; ` +
-                          "outline: 0px solid transparent;"}
-                   onClick={handleTitleClick}>
-                {title()}
-              </div>
-              <div class="inline-block flex-nowrap border-b"
-                   style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
-                          `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                          `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
-
-              <div class="border-l border-b pl-[4px] flex flex-row"
-                   style={`border-color: ${mainPageBorderColor(store, itemState.get)}; background-color: #fafafa; ` +
-                          `border-left-width: ${mainPageBorderWidth(store)}px; border-bottom-width: ${mainPageBorderWidth(store)}px; ` +
-                          `align-items: baseline;`}>
-
-                <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-                  <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
-                    <Match when={isPage(store.history.getFocusItem())}>
-                      <Toolbar_Page />
-                    </Match>
-                    <Match when={isNote(store.history.getFocusItem())}>
-                      <Toolbar_Note />
-                    </Match>
-                    <Match when={isExpression(store.history.getFocusItem())}>
-                      <Toolbar_Expression />
-                    </Match>
-                    <Match when={isTable(store.history.getFocusItem())}>
-                      <Toolbar_Table />
-                    </Match>
-                    <Match when={isRating(store.history.getFocusItem())}>
-                      <Toolbar_Rating />
-                    </Match>
-                    <Match when={isPassword(store.history.getFocusItem())}>
-                      <Toolbar_Password />
-                    </Match>
-                    <Match when={isImage(store.history.getFocusItem())}>
-                      <Toolbar_Image />
-                    </Match>
-                    <Match when={isFile(store.history.getFocusItem())}>
-                      <Toolbar_File />
-                    </Match>
-                    <Match when={isLink(store.history.getFocusItem())}>
-                      <Toolbar_Link />
-                    </Match>
-                  </Switch>
-                </Show>
-
-                <div class="flex-grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
-                  {/* TODO (LOW): line is currently drawn below as a fixed element 'cause i can't get the alignment right if done here. */}
-                </div>
-
-                <div class="flex-grow-0 pr-[8px]" style="flex-order: 2;">
-                  <Show when={!store.user.getUserMaybe()}>
-                    <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
-                  </Show>
-                  <Show when={store.user.getUserMaybe()}>
-                    <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
-                  </Show>
-                  <div class="inline-block">
-                    <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-
-          <div class="fixed border-r border-slate-300" style="height: 25px; right: 62px; top: 7px;"></div>
-          <Show when={showSecondSpacer()}>
-            <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
-          </Show>
-
-        </div>
+        {toolbar()}
       </Show>
-
       <Show when={!store.topToolbarVisible.get()}>
-        <div class="absolute"
-             style={`z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON}; ` +
-                    `right: 6px; top: -3px;`} onmousedown={showToolbar}>
-          <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
-        </div>
+        {showToolbarButton()}
       </Show>
     </>
   );

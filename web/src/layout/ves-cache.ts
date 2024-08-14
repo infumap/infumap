@@ -45,9 +45,11 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
+let currentTitleChain = new Array<Uid>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
+let underConstructionTitleChain = new Array<Uid>();
 
 let evaluationRequired = new Set<VisualElementPath>();
 
@@ -59,9 +61,12 @@ export let VesCache = {
   clear: (): void => {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
     currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
+    currentTitleChain = [];
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
+    underConstructionTitleChain = [];
+
     evaluationRequired = new Set<VisualElementPath>();
   },
 
@@ -115,10 +120,13 @@ export let VesCache = {
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
       currentVesCache = underConstructionCache;
       currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
+      currentTitleChain = underConstructionTitleChain;
+      store.titleChain.set(currentTitleChain);
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
+    underConstructionTitleChain = [];
   },
 
   /**
@@ -248,7 +256,11 @@ export let VesCache = {
     console.debug("--- start ves cache entry list");
     for (let v of currentVesCache) { console.debug(v[0]); }
     console.debug("--- end ves cache entry list");
-  }
+  },
+
+  pushTitleElement: (uid: Uid) => {
+    underConstructionTitleChain.push(uid);
+  },
 }
 
 
