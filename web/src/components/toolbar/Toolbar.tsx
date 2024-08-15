@@ -20,7 +20,7 @@ import imgUrl from '../../assets/circle.png'
 
 import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { NONE_VISUAL_ELEMENT } from "../../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VeFns } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
@@ -66,47 +66,53 @@ export const Toolbar: Component = () => {
 
   const titles = createMemo(() => {
     store.touchToolbarDependency();
-    const pageIsFocussed = isPage(store.history.getFocusItem());
+    const aPageIsFocussed = isPage(store.history.getFocusItem());
     const defaultBg = 'background-color: #fafafa;';
     const defaultCol = hexToRGBA(Colors[0], 1.0);
-    if (currentPageMaybe() == null) { return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol }]; }
-    const titles = store.topTitledPages.get();
-    if (titles.length < 2) {
+    if (currentPageMaybe() == null) { return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, focussed: false }]; }
+    const topPageVeids = store.topTitledPages.get();
+    if (topPageVeids.length < 2) {
       return [{
         title: currentPageMaybe()!.title,
         lPosPx: 0,
         rPosPx: -1,
-        bg: pageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
+        bg: aPageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[currentPageMaybe()!.backgroundColorIndex], 1.0)}; `,
+        focussed: store.history.getFocusIsCurrentPage()
       }];
     }
 
     let r = [];
 
     let lPosPx = 0;
-    let rPosPx = (asPageItem(itemState.get(titles[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+    let rPosPx = (asPageItem(itemState.get(topPageVeids[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
     r.push({
       title: currentPageMaybe()!.title,
       lPosPx,
       rPosPx,
-      bg: pageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
+      bg: aPageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
       col: `${hexToRGBA(Colors[currentPageMaybe()!.backgroundColorIndex], 1.0)}; `,
+      focussed: store.history.getFocusIsCurrentPage(),
     });
 
-    for (let i=1; i<titles.length; ++i) {
-      let pUid = titles[i].itemId;
+    const currentFocusVeid = VeFns.veidFromPath(store.history.getFocusPath());
+    for (let i=1; i<topPageVeids.length; ++i) {
+
+      let pUid = topPageVeids[i].itemId;
       let page = asPageItem(itemState.get(pUid)!);
       lPosPx = rPosPx;
       rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
-      if (i == titles.length-1) {
+      if (i == topPageVeids.length-1) {
         rPosPx = -1;
       }
+
       r.push({
         title: page.title,
         lPosPx,
         rPosPx,
-        bg: pageIsFocussed ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
+        bg: aPageIsFocussed ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
+        focussed: !VeFns.compareVeids(topPageVeids[i], currentFocusVeid),
       });
     }
 
@@ -233,7 +239,7 @@ export const Toolbar: Component = () => {
             <div class="border-b flex-grow-0"
                  style={`width: ${tSpec.lPosPx == 0 ? '5' : '6'}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                         `${tSpec.bg}` +
-                        (tSpec.lPosPx != 0 ? `border-left-width: 1px; border-left-color: ${BORDER_COLOR}; ` : '') +
+                        (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.focussed ? '2' : '1'}px; border-left-color: ${BORDER_COLOR}; ` : '') +
                         `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
                         `border-top-width: ${mainPageBorderWidth(store)-1}px`} />
 
