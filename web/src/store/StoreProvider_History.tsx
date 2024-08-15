@@ -21,6 +21,7 @@ import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
 import { EMPTY_ITEM, Item, ItemType } from "../items/base/item";
 import { itemState } from "./ItemState";
+import { UMBRELLA_PAGE_UID } from "../util/uid";
 
 
 export interface PopupSpec {
@@ -68,7 +69,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       pageVeid,
       parentPageChanged: true,
       popupBreadcrumbs: [],
-      focusPath: VeFns.addVeidToPath(pageVeid, "")
+      focusPath: VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID)
     }]);
   };
 
@@ -76,7 +77,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     breadcrumbs().push({
       pageVeid,
       popupBreadcrumbs: [],
-      focusPath: VeFns.addVeidToPath(pageVeid, "")
+      focusPath: VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID)
     });
     setBreadcrumbs(breadcrumbs());
   };
@@ -140,7 +141,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
     breadcrumb.popupBreadcrumbs.pop();
     if (breadcrumb.popupBreadcrumbs.length == 0) {
-      breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, "");
+      breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
     } else {
       breadcrumb.focusPath = breadcrumb.popupBreadcrumbs[breadcrumb.popupBreadcrumbs.length-1].vePath;
     }
@@ -151,7 +152,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     breadcrumb.popupBreadcrumbs = [];
-    breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, "");
+    breadcrumb.focusPath = VeFns.addVeidToPath(breadcrumb.pageVeid, UMBRELLA_PAGE_UID);
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -202,7 +203,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const getFocusIsCurrentPage = (): boolean => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
     if (breadcrumb.focusPath != null) {
-      const currentPagePath = VeFns.addVeidToPath(currentPageVeid()!, "");
+      const currentPagePath = VeFns.addVeidToPath(currentPageVeid()!, UMBRELLA_PAGE_UID);
       return currentPagePath == getFocusPath();
     }
     return true;

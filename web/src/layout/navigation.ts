@@ -21,7 +21,7 @@ import { asPageItem, isPage } from "../items/page-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
-import { EMPTY_UID } from "../util/uid";
+import { EMPTY_UID, UMBRELLA_PAGE_UID } from "../util/uid";
 import { fArrange } from "./arrange";
 import { initiateLoadItemMaybe } from "./load";
 import { VeFns, Veid } from "./visual-element";
@@ -79,7 +79,7 @@ export function navigateBack(store: StoreContextModel): boolean {
   if (changePages) {
     updateHref(store);
     if (!store.history.currentPopupSpec()) {
-      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, ""));
+      store.history.setFocus(VeFns.addVeidToPath(store.history.currentPageVeid()!, UMBRELLA_PAGE_UID));
     }
     fArrange(store);
     return true;
