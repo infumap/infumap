@@ -18,7 +18,6 @@
 
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { InfuSignal, NumberSignal, createInfuSignal, createNumberSignal } from "../util/signals";
-import { Uid } from "../util/uid";
 
 
 export interface PerItemStoreContextModel {

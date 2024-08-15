@@ -49,7 +49,7 @@ export function arrange_document_page(
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
-    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+    VesCache.pushTopTitledPage(pageWithChildrenVeid);
   }
 
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;

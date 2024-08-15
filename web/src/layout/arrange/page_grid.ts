@@ -52,7 +52,7 @@ export function arrange_grid_page(
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
-    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+    VesCache.pushTopTitledPage(pageWithChildrenVeid);
   }
 
   let movingItem = null;

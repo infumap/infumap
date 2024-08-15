@@ -22,7 +22,7 @@ import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions } from "../util/geometry";
 import { NATURAL_BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, VisualElement } from "../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, Veid, VisualElement } from "../layout/visual-element";
 import { createInfuSignal, InfuSignal } from "../util/signals";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
 import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
@@ -39,7 +39,7 @@ export interface StoreContextModel {
 
   umbrellaVisualElement: InfuSignal<VisualElement>,
 
-  titleChain: InfuSignal<Array<Uid>>,
+  topTitledPages: InfuSignal<Array<Veid>>,
 
   currentVisiblePassword: InfuSignal<Uid | null>,
 
@@ -95,7 +95,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const umbrellaVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
 
-  const titleChain = createInfuSignal<Array<Uid>>([]);
+  const topLevelPages = createInfuSignal<Array<Veid>>([]);
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
@@ -168,7 +168,7 @@ export function StoreProvider(props: StoreContextProps) {
     topToolbarHeightPx,
 
     umbrellaVisualElement,
-    titleChain,
+    topTitledPages: topLevelPages,
 
     clear,
 

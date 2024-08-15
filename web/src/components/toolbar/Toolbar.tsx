@@ -70,7 +70,7 @@ export const Toolbar: Component = () => {
     const defaultBg = 'background-color: #fafafa;';
     const defaultCol = hexToRGBA(Colors[0], 1.0);
     if (currentPageMaybe() == null) { return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol }]; }
-    const titles = store.titleChain.get();
+    const titles = store.topTitledPages.get();
     if (titles.length < 2) {
       return [{
         title: currentPageMaybe()!.title,
@@ -84,7 +84,7 @@ export const Toolbar: Component = () => {
     let r = [];
 
     let lPosPx = 0;
-    let rPosPx = (asPageItem(itemState.get(titles[0])!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+    let rPosPx = (asPageItem(itemState.get(titles[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
     r.push({
       title: currentPageMaybe()!.title,
       lPosPx,
@@ -94,7 +94,7 @@ export const Toolbar: Component = () => {
     });
 
     for (let i=1; i<titles.length; ++i) {
-      let pUid = titles[i];
+      let pUid = titles[i].itemId;
       let page = asPageItem(itemState.get(pUid)!);
       lPosPx = rPosPx;
       rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;

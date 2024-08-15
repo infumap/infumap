@@ -45,11 +45,11 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
-let currentTitleChain = new Array<Uid>();
+let currentTopTitledPages = new Array<Veid>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-let underConstructionTitleChain = new Array<Uid>();
+let underConstructionTopTitledPages = new Array<Veid>();
 
 let evaluationRequired = new Set<VisualElementPath>();
 
@@ -61,11 +61,11 @@ export let VesCache = {
   clear: (): void => {
     currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
     currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
-    currentTitleChain = [];
+    currentTopTitledPages = [];
     virtualCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-    underConstructionTitleChain = [];
+    underConstructionTopTitledPages = [];
 
     evaluationRequired = new Set<VisualElementPath>();
   },
@@ -120,13 +120,13 @@ export let VesCache = {
       store.umbrellaVisualElement.set(VeFns.create(umbrellaVeSpec));
       currentVesCache = underConstructionCache;
       currentVessVsDisplayId = underConstructionVesVsDisplayItemId;
-      currentTitleChain = underConstructionTitleChain;
-      store.titleChain.set(currentTitleChain);
+      currentTopTitledPages = underConstructionTopTitledPages;
+      store.topTitledPages.set(currentTopTitledPages);
     }
 
     underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
     underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-    underConstructionTitleChain = [];
+    underConstructionTopTitledPages = [];
   },
 
   /**
@@ -187,7 +187,10 @@ export let VesCache = {
 
   /**
    * Find all current cached visual element signals with the specified veid.
-   * This includes any ves created in the current arrange pass (if one is underway) in addition to
+   * 
+   * There may be more than one, because elements can be visible inside linked to containers.
+   * 
+   * The result includes any ves created in the current arrange pass (if one is underway) in addition to
    * any from the last completed one.
    */
   find: (veid: Veid): Array<VisualElementSignal> => {
@@ -211,6 +214,7 @@ export let VesCache = {
   /**
    * Find the single cached visual element with the specified veid. If other than one (none, or more than one)
    * corresponding ves exists, throw an exception.
+   * 
    * The search includes any ves created in the current arrange pass (if one is underway) in addition to
    * any from the last completed one.
    */
@@ -258,8 +262,8 @@ export let VesCache = {
     console.debug("--- end ves cache entry list");
   },
 
-  pushTitleElement: (uid: Uid) => {
-    underConstructionTitleChain.push(uid);
+  pushTopTitledPage: (veid: Veid) => {
+    underConstructionTopTitledPages.push(veid);
   },
 }
 

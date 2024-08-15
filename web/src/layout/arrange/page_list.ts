@@ -68,7 +68,7 @@ export function arrange_list_page(
   const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
   if (isFull) {
-    VesCache.pushTitleElement(displayItem_pageWithChildren.id);
+    VesCache.pushTopTitledPage(pageWithChildrenVeid);
   }
 
   const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;
