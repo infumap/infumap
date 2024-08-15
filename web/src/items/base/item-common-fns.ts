@@ -30,10 +30,13 @@ import { Measurable } from "./item";
 
 export function handleListPageLineItemClickMaybe(visualElement: VisualElement, store: StoreContextModel): boolean {
   const parentVe = VesCache.get(visualElement.parentPath!)!.get();
-  if (parentVe.flags & VisualElementFlags.DockItem) { return false; }
+  if (parentVe.flags & VisualElementFlags.DockItem) {
+    return false;
+  }
   const parentItem = parentVe.displayItem;
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
+    store.history.setFocus(VeFns.veToPath(parentVe));
     store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
     fullArrange(store);
     return true;
