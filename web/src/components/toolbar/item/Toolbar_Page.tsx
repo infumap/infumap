@@ -48,21 +48,6 @@ export const Toolbar_Page: Component = () => {
 
   const pageItem = () => asPageItem(store.history.getFocusItem());
 
-  const handleRotateArrangeAlgo = () => {
-    let newAA;
-    if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) { newAA = ArrangeAlgorithm.Grid; }
-    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) { newAA = ArrangeAlgorithm.Justified; }
-    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) { newAA = ArrangeAlgorithm.List; }
-    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) { newAA = ArrangeAlgorithm.Document; }
-    else if (pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) { newAA = ArrangeAlgorithm.SpatialStretch; }
-    else { panic("unexpected arrange algorithm " + pageItem().arrangeAlgorithm); }
-    pageItem().arrangeAlgorithm = newAA;
-    itemState.sortChildren(pageItem().id);
-    fullArrange(store);
-    store.touchToolbar();
-    serverOrRemote.updateItem(pageItem());
-  };
-
   // Arrange Algorithm
   const handleArrangeAlgoClick = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageArrangeAlgorithm) {
@@ -417,16 +402,12 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <div ref={arrangeAlgoDiv}
-           class="inline-block w-[95px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+           class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
            style={`font-size: 13px;`}>
-        <div class="inline-block w-[70px] pl-[6px] hover:bg-slate-300"
+        <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
              onClick={handleArrangeAlgoClick}
              onMouseDown={handleArrangeAlgoDown}>
           {arrangeAlgoText()}
-        </div>
-        <div class="inline-block hover:bg-slate-300 w-[23px] pl-[4px] pr-[4px]">
-          <i class="fa fa-refresh"
-             onClick={handleRotateArrangeAlgo} />
         </div>
       </div>
       <div ref={divBeforeColorSelect} class="inline-block ml-[0px]" />
