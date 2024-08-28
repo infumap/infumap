@@ -85,51 +85,12 @@ export const Toolbar: Component = () => {
       return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
     }
 
+    const aPageHasFocus = isPage(store.history.getFocusItem());
+
     const topPageVeids = store.topTitledPages.get();
-
-    if (!isPage(store.history.getFocusItem())) {
-      let r = [];
-
-      let lPosPx = 0;
-      let rPosPx = (asPageItem(itemState.get(topPageVeids[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
-      r.push({
-        title: asPageItem(itemState.get(topPageVeids[0].itemId)!).title,
-        lPosPx,
-        rPosPx,
-        bg: defaultBg,
-        col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
-        hasFocus: false,
-        borderColor: ' ',
-        borderWidthPx: 1,
-      });
-
-      for (let i=1; i<topPageVeids.length; ++i) {
-        let pUid = topPageVeids[i].itemId;
-        let page = asPageItem(itemState.get(pUid)!);
-        lPosPx = rPosPx;
-        rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
-        if (i == topPageVeids.length-1) {
-          rPosPx = -1;
-        }
-
-        r.push({
-          title: page.title,
-          lPosPx,
-          rPosPx,
-          bg: defaultBg,
-          col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
-          hasFocus: false,
-          borderColor: ' ',
-          borderWidthPx: 1
-        });
-      }
-
-      return r;
-    }
-
     let focusPageIdx = -1;
     let focusPageItem = null;
-    if (isPage(store.history.getFocusItem())) {
+    if (aPageHasFocus) {
       focusPageIdx = calcFocusPageIdx();
       if (focusPageIdx == -1) {
         return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
