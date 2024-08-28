@@ -82,13 +82,12 @@ export const Toolbar: Component = () => {
     const defaultCol = hexToRGBA(Colors[0], 1.0);
 
     if (store.history.currentPageVeid() == null) {
-      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, topBorderStyle: '', borderWidthPx: 1 }];
+      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
     }
 
     const topPageVeids = store.topTitledPages.get();
 
-    const aPageIsFocussed = isPage(store.history.getFocusItem());
-    if (!aPageIsFocussed) {
+    if (!isPage(store.history.getFocusItem())) {
       let r = [];
 
       let lPosPx = 0;
@@ -100,7 +99,7 @@ export const Toolbar: Component = () => {
         bg: defaultBg,
         col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
         hasFocus: false,
-        topBorderStyle: ' ',
+        borderColor: ' ',
         borderWidthPx: 1,
       });
 
@@ -120,7 +119,7 @@ export const Toolbar: Component = () => {
           bg: defaultBg,
           col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
           hasFocus: false,
-          topBorderStyle: ' ',
+          borderColor: ' ',
           borderWidthPx: 1
         });
       }
@@ -128,11 +127,15 @@ export const Toolbar: Component = () => {
       return r;
     }
 
-    const focusPageIdx = calcFocusPageIdx();
-    if (focusPageIdx == -1) {
-      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, topBorderStyle: '', borderWidthPx: 1 }];
+    let focusPageIdx = -1;
+    let focusPageItem = null;
+    if (isPage(store.history.getFocusItem())) {
+      focusPageIdx = calcFocusPageIdx();
+      if (focusPageIdx == -1) {
+        return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+      }
+      focusPageItem = asPageItem(itemState.get(topPageVeids[focusPageIdx].itemId)!);
     }
-    const focusPageItem = asPageItem(itemState.get(topPageVeids[focusPageIdx].itemId)!);
 
     let r = [];
 
@@ -142,11 +145,11 @@ export const Toolbar: Component = () => {
       title: asPageItem(itemState.get(topPageVeids[0].itemId)!).title,
       lPosPx,
       rPosPx,
-      bg: aPageIsFocussed ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
+      bg: focusPageIdx == 0 ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
       col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
       hasFocus: focusPageIdx == 0,
-      topBorderStyle: focusPageIdx == 0
-        ? `border-top-color: ${borderColorForColorIdx(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, BorderType.MainPage)}; border-top-width: 1px; `
+      borderColor: focusPageIdx == 0
+        ? borderColorForColorIdx(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, BorderType.MainPage)
         : ' ',
       borderWidthPx: focusPageIdx == 0 ? 2 : 1,
     });
@@ -164,11 +167,11 @@ export const Toolbar: Component = () => {
         title: page.title,
         lPosPx,
         rPosPx,
-        bg: aPageIsFocussed ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
+        bg: focusPageIdx == i ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
         hasFocus: focusPageIdx == i,
-        topBorderStyle: focusPageIdx <= i
-          ? `border-top-color: ${borderColorForColorIdx(focusPageItem.backgroundColorIndex, BorderType.MainPage)}; border-top-width: 1px; `
+        borderColor: focusPageIdx <= i
+          ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
         borderWidthPx: focusPageIdx <= i ? 2 : 1
       });
@@ -176,6 +179,8 @@ export const Toolbar: Component = () => {
 
     return r;
   });
+
+  const rightMostTitle = () => titles()[titles().length-1];
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -233,8 +238,8 @@ export const Toolbar: Component = () => {
 
   const rightToolbarSection = () =>
     <div class="border-l border-b pl-[4px] flex flex-row"
-         style={`border-color: ${mainPageBorderColor(store, itemState.get)}; background-color: #fafafa; ` +
-                `border-left-width: ${mainPageBorderWidth(store)}px; border-bottom-width: ${mainPageBorderWidth(store)}px; ` +
+         style={`border-color: ${rightMostTitle().borderColor}; background-color: #fafafa; ` +
+                `border-left-width: ${rightMostTitle().borderWidthPx}px; border-bottom-width: ${rightMostTitle().borderWidthPx}px; ` +
                 `align-items: baseline;`}>
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
@@ -298,15 +303,17 @@ export const Toolbar: Component = () => {
             <div class="border-b flex-grow-0"
                  style={`width: ${tSpec.lPosPx == 0 ? '5' : '6'}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                         `${tSpec.bg}` +
-                        (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${BORDER_COLOR}; ` : '') +
-                        `${tSpec.topBorderStyle}`} />
+                        (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${tSpec.hasFocus ? tSpec.borderColor : BORDER_COLOR}; ` : '') +
+                        `border-top-color: ${tSpec.borderColor};` +
+                        `border-top-width: ${tSpec.borderWidthPx - 1}px; `} />
 
             <div id="toolbarTitleDiv"
                  class="p-[3px] inline-block cursor-text border-b flex-grow-0"
                  contentEditable={true}
                  style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                         `${tSpec.bg} ` +
-                        `${tSpec.topBorderStyle} ` +
+                        `border-top-color: ${tSpec.borderColor};` +
+                        `border-top-width: ${tSpec.borderWidthPx - 1}px; ` +
                         `padding-top: ${2-(tSpec.borderWidthPx-1)}px; ` +
                         `height: ${store.topToolbarHeightPx()}px; ` +
                         (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6}px;` : '') +
@@ -319,9 +326,9 @@ export const Toolbar: Component = () => {
 
         <div class="inline-block flex-nowrap border-b"
              style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
-                    `${titles()[titles().length-1].bg} ` +
-                    `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                    `border-top-width: ${mainPageBorderWidth(store)-1}px`}></div>
+                    `${rightMostTitle().bg} ` +
+                    `border-top-color: ${rightMostTitle().borderColor};` +
+                    `border-top-width: ${rightMostTitle().borderWidthPx - 1}px; `}></div>
 
         {rightToolbarSection()}
 
