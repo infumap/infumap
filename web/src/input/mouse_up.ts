@@ -165,14 +165,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
                  (CursorEventState.getLatestDesktopPx(store).y > 0)) {
         DoubleClickState.preventDoubleClick();
         store.history.setFocus(MouseActionState.get().activeElementPath);
-        console.log("setting focus to", MouseActionState.get().activeElementPath);
+        // console.log("setting focus to", MouseActionState.get().activeElementPath);
       } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         store.history.setFocus(MouseActionState.get().activeElementPath);
-        console.log("setting focus to", MouseActionState.get().activeElementPath);
+        // console.log("setting focus to", MouseActionState.get().activeElementPath);
       }
       break;
 

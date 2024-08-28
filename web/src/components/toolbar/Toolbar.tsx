@@ -28,7 +28,7 @@ import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
 import { asPageItem, isPage } from "../../items/page-item";
 import { hexToRGBA } from "../../util/color";
-import { BORDER_COLOR, Colors, LIGHT_BORDER_COLOR, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
+import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
@@ -59,45 +59,52 @@ export const Toolbar: Component = () => {
 
   const showUserSettings = () => { store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
 
-  const currentPageMaybe = () => {
-    if (store.history.currentPageVeid() == null) { return null; }
-    return asPageItem(itemState.get(store.history.currentPageVeid()!.itemId)!);
-  }
 
   const titles = createMemo(() => {
     store.touchToolbarDependency();
-    const aPageIsFocussed = isPage(store.history.getFocusItem());
+
     const defaultBg = 'background-color: #fafafa;';
     const defaultCol = hexToRGBA(Colors[0], 1.0);
-    if (currentPageMaybe() == null) { return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, focussed: false }]; }
-    const topPageVeids = store.topTitledPages.get();
-    if (topPageVeids.length < 2) {
-      return [{
-        title: currentPageMaybe()!.title,
-        lPosPx: 0,
-        rPosPx: -1,
-        bg: aPageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
-        col: `${hexToRGBA(Colors[currentPageMaybe()!.backgroundColorIndex], 1.0)}; `,
-        focussed: store.history.getFocusIsCurrentPage()
-      }];
+
+    if (store.history.currentPageVeid() == null) {
+      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, topBorderStyle: '', borderWidthPx: 1 }];
     }
+
+    const topPageVeids = store.topTitledPages.get();
+
+    const currentFocusVeid = VeFns.veidFromPath(store.history.getFocusPath());
+    let focusPageIdx = -1;
+    let focusPageItem = null;
+    for (let i=0; i<topPageVeids.length; ++i) {
+      if (!VeFns.compareVeids(topPageVeids[i], currentFocusVeid)) {
+        focusPageIdx = i;
+        focusPageItem = asPageItem(itemState.get(topPageVeids[i].itemId)!);
+      }
+    }
+    if (focusPageIdx == -1 || focusPageItem == null) {
+      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, topBorderStyle: '', borderWidthPx: 1 }];
+    }
+
+    const aPageIsFocussed = isPage(store.history.getFocusItem());
 
     let r = [];
 
     let lPosPx = 0;
     let rPosPx = (asPageItem(itemState.get(topPageVeids[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
     r.push({
-      title: currentPageMaybe()!.title,
+      title: asPageItem(itemState.get(topPageVeids[0].itemId)!).title,
       lPosPx,
       rPosPx,
-      bg: aPageIsFocussed ? `background-image: ${linearGradient(currentPageMaybe()!.backgroundColorIndex, 0.92)};` : defaultBg,
-      col: `${hexToRGBA(Colors[currentPageMaybe()!.backgroundColorIndex], 1.0)}; `,
-      focussed: store.history.getFocusIsCurrentPage(),
+      bg: aPageIsFocussed ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
+      col: `${hexToRGBA(Colors[focusPageItem.backgroundColorIndex], 1.0)}; `,
+      hasFocus: focusPageIdx == 0,
+      topBorderStyle: focusPageIdx == 0
+        ? `border-top-color: ${borderColorForColorIdx(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, BorderType.MainPage)}; border-top-width: 1px; `
+        : ' ',
+      borderWidthPx: focusPageIdx == 0 ? 2 : 1,
     });
 
-    const currentFocusVeid = VeFns.veidFromPath(store.history.getFocusPath());
     for (let i=1; i<topPageVeids.length; ++i) {
-
       let pUid = topPageVeids[i].itemId;
       let page = asPageItem(itemState.get(pUid)!);
       lPosPx = rPosPx;
@@ -112,7 +119,11 @@ export const Toolbar: Component = () => {
         rPosPx,
         bg: aPageIsFocussed ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
-        focussed: !VeFns.compareVeids(topPageVeids[i], currentFocusVeid),
+        hasFocus: focusPageIdx == i,
+        topBorderStyle: focusPageIdx <= i
+          ? `border-top-color: ${borderColorForColorIdx(focusPageItem.backgroundColorIndex, BorderType.MainPage)}; border-top-width: 1px; `
+          : ' ',
+        borderWidthPx: focusPageIdx <= i ? 2 : 1
       });
     }
 
@@ -236,21 +247,20 @@ export const Toolbar: Component = () => {
 
         <For each={titles()}>{tSpec =>
           <>
+            {/* spacer before title text */}
             <div class="border-b flex-grow-0"
                  style={`width: ${tSpec.lPosPx == 0 ? '5' : '6'}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                         `${tSpec.bg}` +
-                        (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.focussed ? '2' : '1'}px; border-left-color: ${BORDER_COLOR}; ` : '') +
-                        `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                        `border-top-width: ${mainPageBorderWidth(store)-1}px`} />
+                        (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${BORDER_COLOR}; ` : '') +
+                        `${tSpec.topBorderStyle}`} />
 
             <div id="toolbarTitleDiv"
                  class="p-[3px] inline-block cursor-text border-b flex-grow-0"
                  contentEditable={true}
                  style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
-                        `${tSpec.bg}` +
-                        `border-top-color: ${mainPageBorderColor(store, itemState.get)}; ` +
-                        `border-top-width: ${mainPageBorderWidth(store)-1}px; ` +
-                        `padding-top: ${2-(mainPageBorderWidth(store)-1)}px; ` +
+                        `${tSpec.bg} ` +
+                        `${tSpec.topBorderStyle} ` +
+                        `padding-top: ${2-(tSpec.borderWidthPx-1)}px; ` +
                         `height: ${store.topToolbarHeightPx()}px; ` +
                         (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6}px;` : '') +
                         "outline: 0px solid transparent;"}

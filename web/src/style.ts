@@ -69,7 +69,7 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
   let c2 = rgbHexToArray(c1);
   let c3 = rgb2hsv(c2[0], c2[1], c2[2]);
   if (borderType == BorderType.MainPage) {
-    c3[1] = 0.07;
+    c3[1] = 0.5; // 0.07;
     c3[2] = 220;
   } else {
     c3[1] = 0.25;
