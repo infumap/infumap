@@ -50,9 +50,10 @@ export interface HistoryStoreContextModel {
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVeid: () => Veid | null,
 
-  setFocus: (focusPath: VisualElementPath | null) => void,
+  setFocus: (focusPath: VisualElementPath) => void,
   getFocusItem: () => Item,
   getFocusPath: () => VisualElementPath,
+  getFocusPathMaybe: () => VisualElementPath | null,
   getFocusIsCurrentPage: () => boolean,
   getParentPageFocusPath: () => VisualElementPath | null,
   changeParentPageFocusPath: (path: VisualElementPath) => void,
@@ -172,7 +173,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
 
-  const setFocus = (focusPath: VisualElementPath | null): void => {
+  const setFocus = (focusPath: VisualElementPath): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
     breadcrumbs()[breadcrumbs().length-1].focusPath = focusPath;
     setBreadcrumbs(breadcrumbs());
@@ -198,6 +199,11 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       return breadcrumb.focusPath;
     }
     panic("TODO (HIGH): focusPath fallback should never be hit");
+  };
+
+  const getFocusPathMaybe = (): VisualElementPath | null => {
+    const breadcrumb = breadcrumbs()[breadcrumbs().length-1];
+    return breadcrumb.focusPath;
   };
 
   const getFocusIsCurrentPage = (): boolean => {
@@ -231,6 +237,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     setFocus,
     getFocusItem,
     getFocusPath,
+    getFocusPathMaybe,
     getFocusIsCurrentPage,
     getParentPageFocusPath,
     changeParentPageFocusPath,

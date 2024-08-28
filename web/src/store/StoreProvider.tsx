@@ -95,7 +95,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const umbrellaVisualElement = createInfuSignal<VisualElement>(NONE_VISUAL_ELEMENT);
 
-  const topLevelPages = createInfuSignal<Array<Veid>>([]);
+  const topTitledPages = createInfuSignal<Array<Veid>>([]);
 
   const currentVisiblePassword = createInfuSignal<Uid | null>(null);
 
@@ -168,7 +168,7 @@ export function StoreProvider(props: StoreContextProps) {
     topToolbarHeightPx,
 
     umbrellaVisualElement,
-    topTitledPages: topLevelPages,
+    topTitledPages,
 
     clear,
 

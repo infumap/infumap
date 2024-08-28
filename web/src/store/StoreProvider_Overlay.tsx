@@ -17,9 +17,10 @@
 */
 
 import { HitInfo } from "../input/hit";
-import { VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElementPath } from "../layout/visual-element";
 import { BoundingBox, Vector } from "../util/geometry";
 import { InfuSignal, createInfuSignal } from "../util/signals";
+import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { HistoryStoreContextModel } from "./StoreProvider_History";
 
 
@@ -122,7 +123,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const textEditInfo = (): TextEditInfo | null => textEditInfo_.get();
 
   const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null) => {
-    if (info == null) { historyStore.setFocus(null) }
+    if (info == null) {
+      // TODO (MEDIUM): inner most list page instead, if there is one.
+      historyStore.setFocus(VeFns.addVeidToPath(historyStore.currentPageVeid()!, UMBRELLA_PAGE_UID));
+    }
     else { historyStore.setFocus(info.itemPath); }
     textEditInfo_.set(info);
   }

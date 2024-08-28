@@ -59,6 +59,21 @@ export const Toolbar: Component = () => {
 
   const showUserSettings = () => { store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
 
+  const calcFocusPageIdx = () => {
+    const topPageVeids = store.topTitledPages.get();
+    const focusPath = store.history.getFocusPathMaybe();
+    if (focusPath == null) {
+      return -1;
+    }
+    const currentFocusVeid = VeFns.veidFromPath(focusPath);
+    let focusPageIdx = -1;
+    for (let i=0; i<topPageVeids.length; ++i) {
+      if (!VeFns.compareVeids(topPageVeids[i], currentFocusVeid)) {
+        focusPageIdx = i;
+      }
+    }
+    return focusPageIdx;
+  };
 
   const titles = createMemo(() => {
     store.touchToolbarDependency();
@@ -72,20 +87,52 @@ export const Toolbar: Component = () => {
 
     const topPageVeids = store.topTitledPages.get();
 
-    const currentFocusVeid = VeFns.veidFromPath(store.history.getFocusPath());
-    let focusPageIdx = -1;
-    let focusPageItem = null;
-    for (let i=0; i<topPageVeids.length; ++i) {
-      if (!VeFns.compareVeids(topPageVeids[i], currentFocusVeid)) {
-        focusPageIdx = i;
-        focusPageItem = asPageItem(itemState.get(topPageVeids[i].itemId)!);
+    const aPageIsFocussed = isPage(store.history.getFocusItem());
+    if (!aPageIsFocussed) {
+      let r = [];
+
+      let lPosPx = 0;
+      let rPosPx = (asPageItem(itemState.get(topPageVeids[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+      r.push({
+        title: asPageItem(itemState.get(topPageVeids[0].itemId)!).title,
+        lPosPx,
+        rPosPx,
+        bg: defaultBg,
+        col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
+        hasFocus: false,
+        topBorderStyle: ' ',
+        borderWidthPx: 1,
+      });
+
+      for (let i=1; i<topPageVeids.length; ++i) {
+        let pUid = topPageVeids[i].itemId;
+        let page = asPageItem(itemState.get(pUid)!);
+        lPosPx = rPosPx;
+        rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+        if (i == topPageVeids.length-1) {
+          rPosPx = -1;
+        }
+
+        r.push({
+          title: page.title,
+          lPosPx,
+          rPosPx,
+          bg: defaultBg,
+          col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
+          hasFocus: false,
+          topBorderStyle: ' ',
+          borderWidthPx: 1
+        });
       }
-    }
-    if (focusPageIdx == -1 || focusPageItem == null) {
-      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, topBorderStyle: '', borderWidthPx: 1 }];
+
+      return r;
     }
 
-    const aPageIsFocussed = isPage(store.history.getFocusItem());
+    const focusPageIdx = calcFocusPageIdx();
+    if (focusPageIdx == -1) {
+      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, topBorderStyle: '', borderWidthPx: 1 }];
+    }
+    const focusPageItem = asPageItem(itemState.get(topPageVeids[focusPageIdx].itemId)!);
 
     let r = [];
 
@@ -96,7 +143,7 @@ export const Toolbar: Component = () => {
       lPosPx,
       rPosPx,
       bg: aPageIsFocussed ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
-      col: `${hexToRGBA(Colors[focusPageItem.backgroundColorIndex], 1.0)}; `,
+      col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
       hasFocus: focusPageIdx == 0,
       topBorderStyle: focusPageIdx == 0
         ? `border-top-color: ${borderColorForColorIdx(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, BorderType.MainPage)}; border-top-width: 1px; `

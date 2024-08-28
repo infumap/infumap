@@ -356,7 +356,6 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
-
   if (store.overlay.toolbarTransientMessage.get() != null) {
     store.overlay.toolbarTransientMessage.set(null);
     return;
