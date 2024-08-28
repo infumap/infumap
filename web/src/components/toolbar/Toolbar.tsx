@@ -128,10 +128,10 @@ export const Toolbar: Component = () => {
         title: page.title,
         lPosPx,
         rPosPx,
-        bg: focusPageIdx == i ? `background-image: ${linearGradient(page.backgroundColorIndex, 0.92)};` : defaultBg,
+        bg: aPageHasFocus && focusPageIdx <= i ? `background-image: ${linearGradient(focusPageItem!.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
         hasFocus: focusPageIdx == i,
-        borderColor: focusPageIdx <= i
+        borderColor: aPageHasFocus && focusPageIdx <= i
           ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
         borderWidthPx: focusPageIdx <= i ? 2 : 1
