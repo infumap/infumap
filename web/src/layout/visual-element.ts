@@ -83,6 +83,7 @@ export enum VisualElementFlags {
   ListPageRoot            = 0x10000, // Is the root item in a list page.
   EmbededInteractiveRoot  = 0x20000, // Is an embedded interactive page.
   DockItem                = 0x40000, // Is an item inside the dock.
+  FocusPageSelected       = 0x80000, // Line item is in focussed page and selected.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {

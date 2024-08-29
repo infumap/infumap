@@ -55,10 +55,22 @@ export function arrange_list_page(
     return arrange_dock_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags);
   }
 
+
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
+
+  const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
+  const pages = store.topTitledPages.get();
+  let isFocusPage = false;
+  for (let i=0; i<pages.length; ++i) {
+    if (pages[i].itemId == pageWithChildrenVeid.itemId && pages[i].linkIdMaybe == pageWithChildrenVeid.linkIdMaybe) {
+      if (pages[i].itemId == focusVeid.itemId && pages[i].linkIdMaybe == focusVeid.linkIdMaybe) {
+        isFocusPage = true;
+      }
+    }
+  }
 
   const hitboxes = geometry.hitboxes;
 
@@ -149,7 +161,9 @@ export function arrange_list_page(
       linkItemMaybe,
       actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem |
-            (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0 ? VisualElementFlags.Selected : VisualElementFlags.None),
+             (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
+                ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
+                : VisualElementFlags.None),
       arrangeFlags: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,

@@ -25,7 +25,7 @@ import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./help
 import { LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { hexToRGBA } from "../../util/color";
-import { Colors } from "../../style";
+import { Colors, SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { HitboxFlags } from "../../layout/hitbox";
 import { cloneBoundingBox } from "../../util/geometry";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -107,7 +107,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         <Match when={(props.visualElement.flags & VisualElementFlags.Selected) || isPoppedUp()}>
           <div class="absolute"
                style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                      `background-color: #dddddd88;`} />
+                      `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
         </Match>
       </Switch>);
   };

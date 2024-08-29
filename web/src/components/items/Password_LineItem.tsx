@@ -25,6 +25,7 @@ import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./help
 import { LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 
 
 export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -74,7 +75,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
+                    `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
     </Switch>;
 

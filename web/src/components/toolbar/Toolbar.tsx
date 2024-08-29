@@ -75,7 +75,7 @@ export const Toolbar: Component = () => {
     return focusPageIdx;
   };
 
-  const titles = createMemo(() => {
+  const titleSpecs = createMemo(() => {
     store.touchToolbarDependency();
 
     const defaultBg = 'background-color: #fafafa;';
@@ -141,7 +141,8 @@ export const Toolbar: Component = () => {
     return r;
   });
 
-  const rightMostTitle = () => titles()[titles().length-1];
+  const rightMostTitleSpec = () =>
+    titleSpecs()[titleSpecs().length-1];
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -199,8 +200,8 @@ export const Toolbar: Component = () => {
 
   const rightToolbarSection = () =>
     <div class="border-l border-b pl-[4px] flex flex-row"
-         style={`border-color: ${rightMostTitle().borderColor}; background-color: #fafafa; ` +
-                `border-left-width: ${rightMostTitle().borderWidthPx}px; border-bottom-width: ${rightMostTitle().borderWidthPx}px; ` +
+         style={`border-color: ${rightMostTitleSpec().borderColor}; background-color: #fafafa; ` +
+                `border-left-width: ${rightMostTitleSpec().borderWidthPx}px; border-bottom-width: ${rightMostTitleSpec().borderWidthPx}px; ` +
                 `align-items: baseline;`}>
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
@@ -258,7 +259,7 @@ export const Toolbar: Component = () => {
     <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px;}`}>
       <div class="flex flex-row">
 
-        <For each={titles()}>{tSpec =>
+        <For each={titleSpecs()}>{tSpec =>
           <>
             {/* spacer before title text */}
             <div class="border-b flex-grow-0"
@@ -287,9 +288,9 @@ export const Toolbar: Component = () => {
 
         <div class="inline-block flex-nowrap border-b"
              style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
-                    `${rightMostTitle().bg} ` +
-                    `border-top-color: ${rightMostTitle().borderColor};` +
-                    `border-top-width: ${rightMostTitle().borderWidthPx - 1}px; `}></div>
+                    `${rightMostTitleSpec().bg} ` +
+                    `border-top-color: ${rightMostTitleSpec().borderColor};` +
+                    `border-top-width: ${rightMostTitleSpec().borderWidthPx - 1}px; `}></div>
 
         {rightToolbarSection()}
 

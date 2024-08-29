@@ -114,6 +114,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
           return;
         }
         store.history.setFocus(newFocusPagePath);
+        fullArrange(store);
       } else if (ev.code == "ArrowRight") {
         const focusPagePath = store.history.getFocusPath();
         const focusPageVe = VesCache.get(focusPagePath)!.get();
@@ -137,6 +138,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
               const nextFocusVeid = ttpVeids[nextIdx];
               const nextFocusPath = VeFns.addVeidToPath(nextFocusVeid, focusPagePath);
               store.history.setFocus(nextFocusPath);
+              fullArrange(store);
             }
           }
         }

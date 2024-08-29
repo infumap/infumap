@@ -22,6 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { cloneBoundingBox } from "../../util/geometry";
 import { createLineHighlightBoundsPxFn } from "./helper";
+import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 
 
 export const LinkDefault_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -52,7 +53,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
+                    `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
     </Switch>;
 

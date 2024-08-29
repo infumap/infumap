@@ -77,7 +77,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
              style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
-                    `background-color: #dddddd88;`} />
+                    `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? '#cccccc88' : '#eeeeeecc'};`} />
       </Match>
     </Switch>;
 
