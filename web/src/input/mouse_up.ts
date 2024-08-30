@@ -32,7 +32,7 @@ import { fullArrange } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, EMPTY_VEID } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -165,16 +165,42 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
                  (CursorEventState.getLatestDesktopPx(store).y > 0)) {
         DoubleClickState.preventDoubleClick();
         store.history.setFocus(MouseActionState.get().activeElementPath);
+
+        {
+          const focusPagePath = store.history.getFocusPath();
+          const focusPageVe = VesCache.get(focusPagePath)!.get();
+          const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+          const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+          console.log(selectedVeid);
+          if (selectedVeid == EMPTY_VEID) {
+            PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+          }
+        }
+
         fullArrange(store);
-        // console.log("setting focus to", MouseActionState.get().activeElementPath);
+        // console.log("(1) setting focus to", MouseActionState.get().activeElementPath);
+
       } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
       } else {
         // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         store.history.setFocus(MouseActionState.get().activeElementPath);
+
+        {
+          const focusPagePath = store.history.getFocusPath();
+          const focusPageVe = VesCache.get(focusPagePath)!.get();
+          const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+          const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+          console.log(selectedVeid);
+          if (selectedVeid == EMPTY_VEID) {
+            PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+          }
+        }
+
         fullArrange(store);
-        // console.log("setting focus to", MouseActionState.get().activeElementPath);
+        // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
+
       }
       break;
 

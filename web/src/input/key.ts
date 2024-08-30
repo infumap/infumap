@@ -138,6 +138,18 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
               const nextFocusVeid = ttpVeids[nextIdx];
               const nextFocusPath = VeFns.addVeidToPath(nextFocusVeid, focusPagePath);
               store.history.setFocus(nextFocusPath);
+
+              {
+                const focusPagePath = store.history.getFocusPath();
+                const focusPageVe = VesCache.get(focusPagePath)!.get();
+                const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
+                const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
+                console.log(selectedVeid);
+                if (selectedVeid == EMPTY_VEID) {
+                  PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
+                }
+              }
+
               fullArrange(store);
             }
           }
