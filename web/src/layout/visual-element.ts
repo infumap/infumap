@@ -116,6 +116,11 @@ export interface VisualElement {
   actualLinkItemMaybe: LinkItem | null,
 
   /**
+   * For list pages, the focused child display item.
+   */
+  focusedChildItemMaybe: Item | null,
+
+  /**
    * Various flags that indicate how the visual element should be rendered.
    */
   flags: VisualElementFlags,
@@ -220,6 +225,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   displayItem: EMPTY_ITEM(),
   linkItemMaybe: null,
   actualLinkItemMaybe: null,
+  focusedChildItemMaybe: null,
   flags: VisualElementFlags.None,
   arrangeFlags: ArrangeItemFlags.None,
   resizingFromBoundsPx: null,
@@ -260,6 +266,7 @@ export interface VisualElementSpec {
   displayItemFingerprint?: string,
   linkItemMaybe?: LinkItem | null,
   actualLinkItemMaybe?: LinkItem | null,
+  focusedChildItemMaybe?: Item | null,
   flags?: VisualElementFlags,
   arrangeFlags?: ArrangeItemFlags,
   boundsPx: BoundingBox,
@@ -296,6 +303,7 @@ export const VeFns = {
       displayItem: EMPTY_ITEM(),
       linkItemMaybe: null,
       actualLinkItemMaybe: null,
+      focusedChildItemMaybe: null,
       flags: VisualElementFlags.None,
       arrangeFlags: ArrangeItemFlags.None,
       resizingFromBoundsPx: null,
@@ -338,6 +346,7 @@ export const VeFns = {
     ve.displayItem = EMPTY_ITEM();
     ve.linkItemMaybe = null;
     ve.actualLinkItemMaybe = null;
+    ve.focusedChildItemMaybe = null;
     ve.flags = VisualElementFlags.None;
     ve.arrangeFlags = ArrangeItemFlags.None;
     ve.resizingFromBoundsPx = null;
@@ -626,6 +635,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
 
   if (typeof(override.linkItemMaybe) != 'undefined') { result.linkItemMaybe = override.linkItemMaybe; }
   if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
+  if (typeof(override.focusedChildItemMaybe) != 'undefined') { result.focusedChildItemMaybe = override.focusedChildItemMaybe; }
   if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
   if (typeof(override.arrangeFlags) != 'undefined') { result.arrangeFlags = override.arrangeFlags; }
   if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }

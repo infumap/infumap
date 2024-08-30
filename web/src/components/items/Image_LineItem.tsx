@@ -66,7 +66,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
         <div class="absolute"
-             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-1}px; height: ${boundsPx().h}px; ` +
+             style={`left: ${boundsPx().x+1}px; top: ${boundsPx().y}px; width: ${boundsPx().w-3}px; height: ${boundsPx().h}px; ` +
                     `background-color: ${props.visualElement.flags & VisualElementFlags.FocusPageSelected ? SELECTED_DARK : SELECTED_LIGHT};`} />
       </Match>
     </Switch>;

@@ -358,6 +358,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
         // TODO (MEDIUM): rethink this through.
       } else if (newProps[i] == "displayItem" ||
                  newProps[i] == "actualLinkItemMaybe" ||
+                 newProps[i] == "focusedChildItemMaybe" ||
                  newProps[i] == "flags" ||
                  newProps[i] == "arrangeFlags" ||
                  newProps[i] == "row" ||

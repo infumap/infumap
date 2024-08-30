@@ -82,7 +82,7 @@ export const Toolbar: Component = () => {
     const defaultCol = hexToRGBA(Colors[0], 1.0);
 
     if (store.history.currentPageVeid() == null) {
-      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
     }
 
     const aPageHasFocus = isPage(store.history.getFocusItem());
@@ -93,7 +93,7 @@ export const Toolbar: Component = () => {
     if (aPageHasFocus) {
       focusPageIdx = calcFocusPageIdx();
       if (focusPageIdx == -1) {
-        return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+        return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
       }
       focusPageItem = asPageItem(itemState.get(topPageVeids[focusPageIdx].itemId)!);
     }
@@ -109,6 +109,7 @@ export const Toolbar: Component = () => {
       bg: focusPageIdx == 0 ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
       col: `${hexToRGBA(Colors[asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex], 1.0)}; `,
       hasFocus: focusPageIdx == 0,
+      nextHasFocus: focusPageIdx == 1,
       borderColor: focusPageIdx == 0
         ? borderColorForColorIdx(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, BorderType.MainPage)
         : ' ',
@@ -131,6 +132,7 @@ export const Toolbar: Component = () => {
         bg: aPageHasFocus && focusPageIdx <= i ? `background-image: ${linearGradient(focusPageItem!.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
         hasFocus: focusPageIdx == i,
+        nextHasFocus: focusPageIdx == i+1,
         borderColor: aPageHasFocus && focusPageIdx <= i
           ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
@@ -263,7 +265,7 @@ export const Toolbar: Component = () => {
           <>
             {/* spacer before title text */}
             <div class="border-b flex-grow-0"
-                 style={`width: ${tSpec.lPosPx == 0 ? '5' : '6'}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                 style={`width: ${tSpec.lPosPx == 0 ? '5' : (tSpec.hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                         `${tSpec.bg}` +
                         (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${tSpec.hasFocus ? tSpec.borderColor : BORDER_COLOR}; ` : '') +
                         `border-top-color: ${tSpec.borderColor};` +
@@ -278,7 +280,7 @@ export const Toolbar: Component = () => {
                         `border-top-width: ${tSpec.borderWidthPx - 1}px; ` +
                         `padding-top: ${2-(tSpec.borderWidthPx-1)}px; ` +
                         `height: ${store.topToolbarHeightPx()}px; ` +
-                        (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6}px;` : '') +
+                        (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6 - (tSpec.nextHasFocus ? 1 : 0)}px;` : '') +
                         "outline: 0px solid transparent;"}
                 onClick={handleTitleClick}>
               {tSpec.title}

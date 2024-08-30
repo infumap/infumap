@@ -64,10 +64,23 @@ export function arrange_list_page(
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
   const pages = store.topTitledPages.get();
   let isFocusPage = false;
+  let pageIdx = -1;
   for (let i=0; i<pages.length; ++i) {
     if (pages[i].itemId == pageWithChildrenVeid.itemId && pages[i].linkIdMaybe == pageWithChildrenVeid.linkIdMaybe) {
+      pageIdx = i;
       if (pages[i].itemId == focusVeid.itemId && pages[i].linkIdMaybe == focusVeid.linkIdMaybe) {
         isFocusPage = true;
+      }
+    }
+  }
+
+  let focusedChildItemMaybe = null;
+  if (pageIdx >= 0) {
+    for (let i=0; i<pages.length; ++i) {
+      if (pages[i].itemId == focusVeid.itemId && pages[i].linkIdMaybe == focusVeid.linkIdMaybe) {
+        if (i == pageIdx + 1) {
+          focusedChildItemMaybe = itemState.get(focusVeid.itemId);
+        }
       }
     }
   }
@@ -119,6 +132,7 @@ export function arrange_list_page(
     displayItem: displayItem_pageWithChildren,
     linkItemMaybe: linkItemMaybe_pageWithChildren,
     actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
+    focusedChildItemMaybe,
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |

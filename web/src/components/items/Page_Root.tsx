@@ -25,6 +25,7 @@ import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { PageVisualElementProps } from "./Page";
+import { BorderType, borderColorForColorIdx } from "../../style";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -93,8 +94,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                   `background-color: #ffffff;` +
                   `${VeFns.zIndexStyle(props.visualElement)}`}
            onscroll={listRootScrollHandler}>
-        <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+        <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
+                    `border-right-width: ${props.visualElement.focusedChildItemMaybe == null ? 1 : 2}px;` +
+                    `${props.visualElement.focusedChildItemMaybe == null ? '' : 'border-right-color: ' + borderColorForColorIdx(asPageItem(props.visualElement.focusedChildItemMaybe).backgroundColorIndex, BorderType.MainPage) + ';' }`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
