@@ -171,7 +171,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           const focusPageVe = VesCache.get(focusPagePath)!.get();
           const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
           const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-          console.log(selectedVeid);
           if (selectedVeid == EMPTY_VEID) {
             PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
           }
@@ -192,7 +191,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           const focusPageVe = VesCache.get(focusPagePath)!.get();
           const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
           const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-          console.log(selectedVeid);
           if (selectedVeid == EMPTY_VEID) {
             PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
           }

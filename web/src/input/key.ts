@@ -87,8 +87,21 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   else if (ev.code == "ArrowLeft" || ev.code == "ArrowRight" || ev.code == "ArrowUp" || ev.code == "ArrowDown") {
     ev.preventDefault(); // TODO (MEDIUM): allow default in some circumstances where it is appropriate for a table to scroll.
+
     const focusItem = store.history.getFocusItem();
-    if (isPage(focusItem) && asPageItem(focusItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    let handleListPageChange = isPage(focusItem) && asPageItem(focusItem).arrangeAlgorithm == ArrangeAlgorithm.List;
+    const focusPath = store.history.getFocusPath();
+    const focusVe = VesCache.get(focusPath)!.get();
+    const focusVeid = VeFns.veidFromVe(focusVe);
+    for (let i=1; i<store.topTitledPages.get().length; ++i) {
+      const ttp = store.topTitledPages.get()[i];
+      if (ttp.itemId == focusVeid.itemId && ttp.linkIdMaybe == focusVeid.linkIdMaybe) {
+        handleListPageChange = true;
+        break;
+      }
+    }
+
+    if (handleListPageChange) {
       if (ev.code == "ArrowUp" || ev.code == "ArrowDown") {
         const focusPagePath = store.history.getFocusPath();
         const focusPageVe = VesCache.get(focusPagePath)!.get();
@@ -126,7 +139,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         }
         const selectedPage = asPageItem(itemState.get(selectedVeid.itemId)!);
         if (selectedPage.arrangeAlgorithm != ArrangeAlgorithm.List) {
-          return;
+          // return;
         }
         const ttpVeids = store.topTitledPages.get();
         for (let i=0; i<ttpVeids.length; ++i) {
@@ -144,7 +157,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
                 const focusPageVe = VesCache.get(focusPagePath)!.get();
                 const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
                 const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-                console.log(selectedVeid);
                 if (selectedVeid == EMPTY_VEID) {
                   PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
                 }
@@ -155,7 +167,9 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
           }
         }
       }
+
     } else {
+
       if (!store.history.currentPopupSpec()) {
         const parentVeid = store.history.parentPageVeid()!;
         if (parentVeid) {
@@ -179,7 +193,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       const closest = findClosest(path, direction, false, false)!;
       if (closest != null) {
         const closestVeid = VeFns.veidFromPath(closest);
-        const closestItem = itemState.get(closestVeid.itemId);
         store.history.replacePopup({
           vePath: closest,
           actualVeid: closestVeid,
