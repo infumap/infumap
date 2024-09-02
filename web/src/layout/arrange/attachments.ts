@@ -69,7 +69,7 @@ export function arrangeItemAttachments(
       flags: VisualElementFlags.Attachment |
              (isSelected ? VisualElementFlags.Detailed : VisualElementFlags.None) |
              (isSelected ? VisualElementFlags.ZAbove : VisualElementFlags.None),
-      arrangeFlags: ArrangeItemFlags.None,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     };
     const attachmentVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(veSpec, attachmentVePath);
     attachments.push(attachmentVisualElementSignal);

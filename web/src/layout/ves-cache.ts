@@ -360,7 +360,7 @@ function createOrRecycleVisualElementSignalImpl(visualElementOverride: VisualEle
                  newProps[i] == "actualLinkItemMaybe" ||
                  newProps[i] == "focusedChildItemMaybe" ||
                  newProps[i] == "flags" ||
-                 newProps[i] == "arrangeFlags" ||
+                 newProps[i] == "_arrangeFlags_useForPartialRearrangeOnly" ||
                  newProps[i] == "row" ||
                  newProps[i] == "col" ||
                  newProps[i] == "numRows" ||

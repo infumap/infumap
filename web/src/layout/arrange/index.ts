@@ -223,7 +223,7 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
   let arrangedVes = arrangeItem(
     store, parentPath, parentItem.arrangeAlgorithm,
     ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
-    ve.actualLinkItemMaybe, itemGeometry, ve.arrangeFlags);
+    ve.actualLinkItemMaybe, itemGeometry, ve._arrangeFlags_useForPartialRearrangeOnly);
   ves.set(arrangedVes.get());
 }
 

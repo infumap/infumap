@@ -132,7 +132,7 @@ export const renderDockMaybe = (
     displayItem: dockPage,
     linkItemMaybe: null,
     flags: VisualElementFlags.IsDock | VisualElementFlags.ShowChildren,
-    arrangeFlags: ArrangeItemFlags.None,
+    _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: dockBoundsPx,
     viewportBoundsPx: dockBoundsPx,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(dockBoundsPx),

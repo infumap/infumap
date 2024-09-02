@@ -126,13 +126,6 @@ export interface VisualElement {
   flags: VisualElementFlags,
 
   /**
-   * The flags used during arrangement when creating the visual element. This gives context to allow for
-   * easy rearrangement. TODO: it's a bit messy to have this here. Maybe the visual element flags and
-   * arrangement flags would be better combined.
-   */
-  arrangeFlags: ArrangeItemFlags,
-
-  /**
    * If set, the element is currently being resized, and these were the original bounds.
    */
   resizingFromBoundsPx: BoundingBox | null,
@@ -214,6 +207,14 @@ export interface VisualElement {
    * The table row number corresponding to the childrenVes with the same index.
    */
   tableVesRows: Array<number> | null,
+
+
+  /**
+   * The flags that were used during arrangement when creating the visual element. This gives
+   * the required context for partial rearrangements. TODO (LOW): track this in a separate hash
+   * map to keep them out of this interface.
+   */
+  _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags,
 }
 
 
@@ -227,7 +228,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   actualLinkItemMaybe: null,
   focusedChildItemMaybe: null,
   flags: VisualElementFlags.None,
-  arrangeFlags: ArrangeItemFlags.None,
+  _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
@@ -268,7 +269,7 @@ export interface VisualElementSpec {
   actualLinkItemMaybe?: LinkItem | null,
   focusedChildItemMaybe?: Item | null,
   flags?: VisualElementFlags,
-  arrangeFlags?: ArrangeItemFlags,
+  _arrangeFlags_useForPartialRearrangeOnly?: ArrangeItemFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
   viewportBoundsPx?: BoundingBox,
@@ -305,7 +306,7 @@ export const VeFns = {
       actualLinkItemMaybe: null,
       focusedChildItemMaybe: null,
       flags: VisualElementFlags.None,
-      arrangeFlags: ArrangeItemFlags.None,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       resizingFromBoundsPx: null,
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
@@ -348,7 +349,7 @@ export const VeFns = {
     ve.actualLinkItemMaybe = null;
     ve.focusedChildItemMaybe = null;
     ve.flags = VisualElementFlags.None;
-    ve.arrangeFlags = ArrangeItemFlags.None;
+    ve._arrangeFlags_useForPartialRearrangeOnly = ArrangeItemFlags.None;
     ve.resizingFromBoundsPx = null;
     ve.boundsPx = { x: 0, y: 0, w: 0, h: 0 };
     ve.childAreaBoundsPx = null;
@@ -637,7 +638,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof(override.actualLinkItemMaybe) != 'undefined') { result.actualLinkItemMaybe = override.actualLinkItemMaybe; }
   if (typeof(override.focusedChildItemMaybe) != 'undefined') { result.focusedChildItemMaybe = override.focusedChildItemMaybe; }
   if (typeof(override.flags) != 'undefined') { result.flags = override.flags; }
-  if (typeof(override.arrangeFlags) != 'undefined') { result.arrangeFlags = override.arrangeFlags; }
+  if (typeof(override._arrangeFlags_useForPartialRearrangeOnly) != 'undefined') { result._arrangeFlags_useForPartialRearrangeOnly = override._arrangeFlags_useForPartialRearrangeOnly; }
   if (typeof(override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
   if (typeof(override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
   if (typeof(override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }

@@ -69,7 +69,7 @@ export const arrangeTable = (
           (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
           (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None),
-    arrangeFlags: flags,
+    _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: tableGeometry.boundsPx,
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
     hitboxes: tableGeometry.hitboxes,
@@ -252,7 +252,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
         const vesToOverwrite = childrenVes[outIdx];
         try {
           tableVeChildren[outIdx] = createRow(
-            store, item, displayItem_table, tableVePath, tableVe.arrangeFlags, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
+            store, item, displayItem_table, tableVePath, tableVe._arrangeFlags_useForPartialRearrangeOnly, rowIdx, sizeBl, blockSizePx, indentBl, getBoundingBoxSize(tableVe.boundsPx), vesToOverwrite);
         } catch (e: any) {
           // TODO (LOW): should really implement logic such that this never happens. This clumsy catch-all is lazy.
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
@@ -330,7 +330,7 @@ function createRow(
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
     flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
-    arrangeFlags: ArrangeItemFlags.None,
+    _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: geometry.boundsPx,
     tableDimensionsPx,
     indentBl,
@@ -371,7 +371,7 @@ function createRow(
         linkItemMaybe: linkItemMaybe_attachment,
         actualLinkItemMaybe: linkItemMaybe_attachment,
         flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment,
-        arrangeFlags: ArrangeItemFlags.None,
+        _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: geometry.boundsPx,
         tableDimensionsPx,
         indentBl,

@@ -144,7 +144,7 @@ export function arrange_list_page(
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None),
-    arrangeFlags: flags,
+    _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
@@ -180,7 +180,7 @@ export function arrange_list_page(
              (VeFns.compareVeids(selectedVeid, VeFns.veidFromItems(displayItem, linkItemMaybe)) == 0
                 ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
                 : VisualElementFlags.None),
-      arrangeFlags: ArrangeItemFlags.None,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
       parentPath: pageWithChildrenVePath,
@@ -305,7 +305,7 @@ export function arrange_dock_list_page(
             VisualElementFlags.EmbededInteractiveRoot |
             (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
             (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
-    arrangeFlags: flags,
+    _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: geometry.viewportBoundsPx!,
     childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
@@ -334,7 +334,7 @@ export function arrange_dock_list_page(
       linkItemMaybe,
       actualLinkItemMaybe: linkItemMaybe,
       flags: VisualElementFlags.LineItem,
-      arrangeFlags: ArrangeItemFlags.None,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
       boundsPx: listItemGeometry.boundsPx,
       hitboxes: listItemGeometry.hitboxes,
       parentPath: pageWithChildrenVePath,
