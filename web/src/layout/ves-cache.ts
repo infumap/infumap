@@ -45,11 +45,11 @@ import { VeFns, Veid, VisualElementPath, VisualElementSpec } from "./visual-elem
 
 let currentVesCache = new Map<VisualElementPath, VisualElementSignal>();
 let currentVessVsDisplayId = new Map<Uid, Array<VisualElementPath>>();
-let currentTopTitledPages = new Array<Veid>();
+let currentTopTitledPages = new Array<VisualElementPath>();
 let virtualCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionCache = new Map<VisualElementPath, VisualElementSignal>();
 let underConstructionVesVsDisplayItemId = new Map<Uid, Array<VisualElementPath>>();
-let underConstructionTopTitledPages = new Array<Veid>();
+let underConstructionTopTitledPages = new Array<VisualElementPath>();
 
 let evaluationRequired = new Set<VisualElementPath>();
 
@@ -262,8 +262,8 @@ export let VesCache = {
     console.debug("--- end ves cache entry list");
   },
 
-  pushTopTitledPage: (veid: Veid) => {
-    underConstructionTopTitledPages.push(veid);
+  pushTopTitledPage: (vePath: VisualElementPath) => {
+    underConstructionTopTitledPages.push(vePath);
   },
 }
 

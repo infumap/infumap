@@ -20,7 +20,7 @@ import imgUrl from '../../assets/circle.png'
 
 import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { NONE_VISUAL_ELEMENT, VeFns } from "../../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
@@ -48,6 +48,8 @@ import { isFile } from '../../items/file-item';
 import { Toolbar_File } from './item/Toolbar_File';
 import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
+import { VesCache } from '../../layout/ves-cache';
+import { ArrangeItemFlags } from '../../layout/arrange/item';
 
 
 export const Toolbar: Component = () => {
@@ -57,18 +59,20 @@ export const Toolbar: Component = () => {
 
   const handleLogin = () => navigate("/login");
 
-  const showUserSettings = () => { store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) }); }
+  const showUserSettings = () => {
+    store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) });
+  }
 
   const calcFocusPageIdx = () => {
-    const topPageVeids = store.topTitledPages.get();
+    const topPageVePaths = store.topTitledPages.get();
     const focusPath = store.history.getFocusPathMaybe();
     if (focusPath == null) {
       return -1;
     }
     const currentFocusVeid = VeFns.veidFromPath(focusPath);
     let focusPageIdx = -1;
-    for (let i=0; i<topPageVeids.length; ++i) {
-      if (!VeFns.compareVeids(topPageVeids[i], currentFocusVeid)) {
+    for (let i=0; i<topPageVePaths.length; ++i) {
+      if (!VeFns.compareVeids(VeFns.veidFromPath(topPageVePaths[i]), currentFocusVeid)) {
         focusPageIdx = i;
       }
     }
@@ -82,18 +86,23 @@ export const Toolbar: Component = () => {
     const defaultCol = hexToRGBA(Colors[0], 1.0);
 
     if (store.history.currentPageVeid() == null) {
-      return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
     }
 
-    const aPageHasFocus = isPage(store.history.getFocusItem());
+    let aPageHasFocus = isPage(store.history.getFocusItem());
+    // TODO (HIGH): Check if there is a popup page, if so, aPageHasFocus -> false.
 
-    const topPageVeids = store.topTitledPages.get();
+    const topPageVePaths = store.topTitledPages.get();
+    const topPageVeids = [];
+    for (let i=0; i<topPageVePaths.length; ++i) {
+      topPageVeids.push(VeFns.veidFromPath(topPageVePaths[i]));
+    }
     let focusPageIdx = -1;
     let focusPageItem = null;
     if (aPageHasFocus) {
       focusPageIdx = calcFocusPageIdx();
       if (focusPageIdx == -1) {
-        return [{ title: "", lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
+        return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
       }
       focusPageItem = asPageItem(itemState.get(topPageVeids[focusPageIdx].itemId)!);
     }
@@ -102,8 +111,10 @@ export const Toolbar: Component = () => {
 
     let lPosPx = 0;
     let rPosPx = (asPageItem(itemState.get(topPageVeids[0].itemId)!).tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+    if (topPageVeids.length == 1) { rPosPx = -1; }
     r.push({
       title: asPageItem(itemState.get(topPageVeids[0].itemId)!).title,
+      idx: 0,
       lPosPx,
       rPosPx,
       bg: focusPageIdx == 0 ? `background-image: ${linearGradient(asPageItem(itemState.get(topPageVeids[0].itemId)!).backgroundColorIndex, 0.92)};` : defaultBg,
@@ -127,6 +138,7 @@ export const Toolbar: Component = () => {
 
       r.push({
         title: page.title,
+        idx: i,
         lPosPx,
         rPosPx,
         bg: aPageHasFocus && focusPageIdx <= i ? `background-image: ${linearGradient(focusPageItem!.backgroundColorIndex, 0.92)};` : defaultBg,
@@ -271,8 +283,8 @@ export const Toolbar: Component = () => {
                         `border-top-color: ${tSpec.borderColor};` +
                         `border-top-width: ${tSpec.borderWidthPx - 1}px; `} />
 
-            <div id="toolbarTitleDiv"
-                 class="p-[3px] inline-block cursor-text border-b flex-grow-0"
+            <div id={`toolbarTitleDiv-${tSpec.idx}`}
+                 class="p-[3px] inline-block cursor-text border-b flex-grow-0 overflow-hidden whitespace-nowrap"
                  contentEditable={true}
                  style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                         `${tSpec.bg} ` +

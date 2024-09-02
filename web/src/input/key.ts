@@ -41,13 +41,13 @@ const recognizedKeys = [
 ];
 
 export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {
-  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
+  if (document.activeElement!.id.includes('toolbarTitleDiv')) {
+    const titleText = (document.activeElement! as HTMLElement).innerText;
     if (ev.code == "Enter") {
       (document.activeElement! as HTMLElement).blur();
       let selection = window.getSelection();
       if (selection != null) { selection.removeAllRanges(); }
-      const newTitleText = document.getElementById("toolbarTitleDiv")!.innerText;
-      asPageItem(store.history.getFocusItem()).title = newTitleText;
+      asPageItem(store.history.getFocusItem()).title = titleText;
       fullArrange(store);
       serverOrRemote.updateItem(store.history.getFocusItem());
       ev.preventDefault();
@@ -94,7 +94,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     const focusVe = VesCache.get(focusPath)!.get();
     const focusVeid = VeFns.veidFromVe(focusVe);
     for (let i=1; i<store.topTitledPages.get().length; ++i) {
-      const ttp = store.topTitledPages.get()[i];
+      const ttp = VeFns.veidFromPath(store.topTitledPages.get()[i]);
       if (ttp.itemId == focusVeid.itemId && ttp.linkIdMaybe == focusVeid.linkIdMaybe) {
         handleListPageChange = true;
         break;
@@ -141,7 +141,9 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
         if (selectedPage.arrangeAlgorithm != ArrangeAlgorithm.List) {
           // return;
         }
-        const ttpVeids = store.topTitledPages.get();
+        const ttpVePaths = store.topTitledPages.get();
+        const ttpVeids = [];
+        for (let i=0; i<ttpVePaths.length; ++i) { ttpVeids.push(VeFns.veidFromPath(ttpVePaths[i])); }
         for (let i=0; i<ttpVeids.length; ++i) {
           const veid = ttpVeids[i];
           if (veid.itemId == focusPageVeid.itemId &&

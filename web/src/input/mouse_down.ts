@@ -44,6 +44,7 @@ import { MouseEventActionFlags } from "./enums";
 import { asNoteItem } from "../items/note-item";
 import { asFileItem } from "../items/file-item";
 import { UMBRELLA_PAGE_UID } from "../util/uid";
+import { getCaretPosition, setCaretPosition } from "../util/caret";
 
 
 export const MOUSE_LEFT = 0;
@@ -75,24 +76,54 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
-  // Editing the page title on the toolbar.
-  const toolbarTitleDiv = document.getElementById("toolbarTitleDiv")!;
-  if (toolbarTitleDiv) {
+
+  // Page Title Edit
+  const toolbarTitleDivs = (() => {
+    let result = [];
+    const TOO_MANY_TITLE_DIVS = 100;
+    for (let i=0; i<TOO_MANY_TITLE_DIVS; ++i) {
+      const toolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${i}`)!;
+      if (!toolbarTitleDiv) { break; }
+      result.push(toolbarTitleDiv);
+    }
+    return result;
+  })();
+  const saveActiveTitleDivState = () => {
+    const titleText = (document.activeElement! as HTMLElement).innerText;
+    let selection = window.getSelection();
+    if (selection != null) { selection.removeAllRanges(); }
+    asPageItem(store.history.getFocusItem()).title = titleText;
+    serverOrRemote.updateItem(store.history.getFocusItem());
+  }
+  for (let i=0; i<toolbarTitleDivs.length; ++i) {
+    const toolbarTitleDiv = toolbarTitleDivs[i];
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
     if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
+      if (document.activeElement!.id.includes("toolbarTitleDiv")) {
+        if (document.activeElement!.id == `toolbarTitleDiv-${i}`) {
+          return MouseEventActionFlags.None;
+        }
+        saveActiveTitleDivState();
+      }
+      let ttpPath = store.topTitledPages.get()[i];
+      setTimeout(() => {
+        const caretPosition = getCaretPosition(toolbarTitleDiv);
+        store.history.setFocus(ttpPath);
+        fullArrange(store);
+        const newToolbarTitleDiv = document.getElementById(`toolbarTitleDiv-${i}`)!;
+        setCaretPosition(newToolbarTitleDiv, caretPosition);
+      }, 0);
       return MouseEventActionFlags.None;
     }
   }
-  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
-    let selection = window.getSelection();
-    if (selection != null) { selection.removeAllRanges(); }
-    const newTitleText = document.getElementById("toolbarTitleDiv")!.innerText;
-    asPageItem(store.history.getFocusItem()).title = newTitleText;
+  // If here, click was NOT inside a toolbar title div. If one is active, update the page item.
+  if (document.activeElement!.id.includes("toolbarTitleDiv")) {
+    saveActiveTitleDivState();
     fullArrange(store);
-    serverOrRemote.updateItem(store.history.getFocusItem());
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
+
 
   // Editing text using a content editable div (variety of item types).
   if (store.overlay.textEditInfo()) {

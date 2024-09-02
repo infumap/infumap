@@ -66,9 +66,10 @@ export function arrange_list_page(
   let isFocusPage = false;
   let pageIdx = -1;
   for (let i=0; i<pages.length; ++i) {
-    if (pages[i].itemId == pageWithChildrenVeid.itemId && pages[i].linkIdMaybe == pageWithChildrenVeid.linkIdMaybe) {
+    const veid = VeFns.veidFromPath(pages[i]);
+    if (veid.itemId == pageWithChildrenVeid.itemId && veid.linkIdMaybe == pageWithChildrenVeid.linkIdMaybe) {
       pageIdx = i;
-      if (pages[i].itemId == focusVeid.itemId && pages[i].linkIdMaybe == focusVeid.linkIdMaybe) {
+      if (veid.itemId == focusVeid.itemId && veid.linkIdMaybe == focusVeid.linkIdMaybe) {
         isFocusPage = true;
       }
     }
@@ -77,7 +78,8 @@ export function arrange_list_page(
   let focusedChildItemMaybe = null;
   if (pageIdx >= 0) {
     for (let i=0; i<pages.length; ++i) {
-      if (pages[i].itemId == focusVeid.itemId && pages[i].linkIdMaybe == focusVeid.linkIdMaybe) {
+      const veid = VeFns.veidFromPath(pages[i]);
+      if (veid.itemId == focusVeid.itemId && veid.linkIdMaybe == focusVeid.linkIdMaybe) {
         if (i == pageIdx + 1) {
           focusedChildItemMaybe = itemState.get(focusVeid.itemId);
         }
@@ -93,7 +95,7 @@ export function arrange_list_page(
   const scale = isFull ? 1.0 : geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
 
   if (isFull) {
-    VesCache.pushTopTitledPage(pageWithChildrenVeid);
+    VesCache.pushTopTitledPage(pageWithChildrenVePath);
   }
 
   const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;

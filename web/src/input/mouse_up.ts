@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem } from "../items/page-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { fullArrange } from "../layout/arrange";
@@ -44,8 +44,8 @@ import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
 
-  if (document.activeElement == document.getElementById("toolbarTitleDiv")!) {
-    let titleBounds = boundingBoxFromDOMRect(document.getElementById("toolbarTitleDiv")!.getBoundingClientRect())!;
+  if (document.activeElement!.id.includes("toolbarTitleDiv")) {
+    let titleBounds = boundingBoxFromDOMRect(document.activeElement!.getBoundingClientRect())!;
     if (isInside(CursorEventState.getLatestClientPx(), titleBounds)) {
       return MouseEventActionFlags.None;
     }
