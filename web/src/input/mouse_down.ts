@@ -433,6 +433,17 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
+  const topPagePaths = store.topTitledPages.get();
+  const focusPath = store.history.getFocusPath();
+  for (let i=topPagePaths.length-1; i>0; --i) {
+    if (topPagePaths[i] == focusPath) {
+      const newFocusPath = topPagePaths[i-1];
+      store.history.setFocus(newFocusPath);
+      fullArrange(store);
+      return;
+    }
+  }
+
   const changedPages = navigateBack(store);
   if (!changedPages) {
     await navigateUp(store);
