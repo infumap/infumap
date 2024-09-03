@@ -426,9 +426,11 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
   let hi = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
   if (hi.hitboxType & HitboxFlags.Expand) {
     const itemPath = VeFns.veToPath(HitInfoFns.getHitVe(hi));
-    store.perVe.setIsExpanded(itemPath, !store.perVe.getIsExpanded(itemPath));
-    fullArrange(store);
-    return;
+    if (store.perVe.getIsExpanded(itemPath)) {
+      store.perVe.setIsExpanded(itemPath, !store.perVe.getIsExpanded(itemPath));
+      fullArrange(store);
+      return;
+    }
   }
 
   const changedPages = navigateBack(store);
