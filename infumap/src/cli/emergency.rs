@@ -99,6 +99,13 @@ pub fn make_clap_subcommand() -> Command {
       .num_args(0)
       .action(ArgAction::SetTrue)
       .required(false))
+
+    .arg(Arg::new("dev_feature_flag")
+      .long("dev")
+      .help("Enable experimental in-development features.")
+      .num_args(0)
+      .action(ArgAction::SetTrue)
+      .required(false))
 }
 
 
@@ -119,6 +126,8 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let encryption_key = sub_matches.get_one::<String>("encryption_key").unwrap();
   let keep_files = sub_matches.get_flag("keep");
   
+  let dev_feature_flag = sub_matches.get_flag("dev_feature_flag");
+
   info!("fetching list of backup files.");
   let bs = crate::storage::backup::new(s3_backup_region, s3_backup_endpoint, s3_backup_bucket, s3_backup_key, s3_backup_secret)?;
   let mut files = crate::storage::backup::list(bs.clone()).await?;
@@ -211,7 +220,7 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
 
   info!("starting webserver on localhost:8000");
-  start_server(config).await?;
+  start_server(config, dev_feature_flag).await?;
 
   if !keep_files {
     info!("removing the infumap emergency directory.");

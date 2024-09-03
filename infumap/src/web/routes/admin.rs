@@ -35,21 +35,25 @@ const REASON_SERVER: &str = "server";
 #[derive(Serialize)]
 pub struct InstallationStateResponse {
   #[serde(rename="hasRootUser")]
-  pub has_root_user: bool
+  pub has_root_user: bool,
+
+  #[serde(rename="devFeatureFlag")]
+  pub dev_feature_flag: bool,
 }
 
-pub async fn serve_admin_route(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn serve_admin_route(db: &Arc<Mutex<Db>>, dev_feature_flag: bool, req: Request<hyper::body::Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
   match (req.method(), req.uri().path()) {
-    (&Method::POST, "/admin/installation-state") => installation_state(db).await,
+    (&Method::POST, "/admin/installation-state") => installation_state(db, dev_feature_flag).await,
     (&Method::POST, "/admin/list-pending") => list_pending(db, req).await,
     (&Method::POST, "/admin/approve-pending") => approve_pending(db, req).await,
     _ => not_found_response(),
   }
 }
 
-pub async fn installation_state(db: &Arc<Mutex<Db>>) -> Response<BoxBody<Bytes, hyper::Error>> {
+pub async fn installation_state(db: &Arc<Mutex<Db>>, dev_feature_flag: bool) -> Response<BoxBody<Bytes, hyper::Error>> {
   json_response(&InstallationStateResponse {
-    has_root_user: db.lock().await.user.get_by_username_case_insensitive(ROOT_USER_NAME).is_some()
+    has_root_user: db.lock().await.user.get_by_username_case_insensitive(ROOT_USER_NAME).is_some(),
+    dev_feature_flag,
   })
 }
 

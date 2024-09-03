@@ -43,13 +43,14 @@ pub async fn http_serve(
     object_store: Arc<ObjectStore>,
     image_cache: Arc<std::sync::Mutex<ImageCache>>,
     config: Arc<Config>,
+    dev_feature_flag: bool,
     req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
   debug!("Serving: {} ({})", req.uri().path(), req.method());
   Ok(
     if req.uri().path() == "/command" { serve_command_route(&db, &object_store, image_cache.clone(), req).await }
     else if req.uri().path().starts_with("/account/") { serve_account_route(&db, req).await }
     else if req.uri().path().starts_with("/files/") { serve_files_route(config, &db, object_store, image_cache.clone(), &req).await }
-    else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, req).await }
+    else if req.uri().path().starts_with("/admin/") { serve_admin_route(&db, dev_feature_flag, req).await }
     else if let Some(response) = serve_dist_routes(&req) { response }
     else if req.method() == Method::GET { // &&
       // TODO (MEDIUM): explicit support omly for /{item_id}, /{username} and /{username}/{label}

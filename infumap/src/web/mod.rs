@@ -22,7 +22,7 @@ pub mod cookie;
 pub mod routes;
 pub mod session;
 
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -53,23 +53,30 @@ pub fn make_clap_subcommand() -> Command {
   Command::new("web")
     .about("Starts the Infumap web server.")
     .arg(Arg::new("settings_path")
-    .short('s')
-    .long("settings")
-    .help(concat!("Path to a toml settings configuration file. If not specified and the env_only config is not defined ",
-                  "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with default ",
-                  "values. On-disk data directories will also be created in ~/.infumap."))
-    .num_args(1)
-    .required(false))
+      .short('s')
+      .long("settings")
+      .help(concat!("Path to a toml settings configuration file. If not specified and the env_only config is not defined ",
+                    "via env vars, ~/.infumap/settings.toml will be used. If it does not exist, it will created with default ",
+                    "values. On-disk data directories will also be created in ~/.infumap."))
+      .num_args(1)
+      .required(false))
+    .arg(Arg::new("dev_feature_flag")
+      .long("dev")
+      .help("Enable experimental in-development features.")
+      .num_args(0)
+      .action(ArgAction::SetTrue)
+      .required(false))
 }
 
 
 pub async fn execute(arg_matches: &ArgMatches) -> InfuResult<()> {
   let config = init_fs_maybe_and_get_config(arg_matches.get_one::<String>("settings_path")).await?;
-  start_server(config).await
+  let dev_feature_flag = arg_matches.get_flag("dev_feature_flag");
+  start_server(config, dev_feature_flag).await
 }
 
 
-pub async fn start_server(config: Config) -> InfuResult<()> {
+pub async fn start_server(config: Config, dev_feature_flag: bool) -> InfuResult<()> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(tokio::sync::Mutex::new(
     match Db::new(&data_dir).await {
@@ -166,7 +173,7 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
     info!("Done loading all items for all users.");
   }
 
-  listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone()).await
+  listen(addr, db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag).await
 }
 
 
@@ -293,7 +300,7 @@ fn init_db_backup(backup_period_minutes: u32, backup_retention_period_days: u32,
 }
 
 
-async fn listen(addr: SocketAddr, db: Arc<Mutex<Db>>, object_store: Arc<ObjectStore>, image_cache: Arc<std::sync::Mutex<ImageCache>>, config: Arc<config::Config>) -> InfuResult<()> {
+async fn listen(addr: SocketAddr, db: Arc<Mutex<Db>>, object_store: Arc<ObjectStore>, image_cache: Arc<std::sync::Mutex<ImageCache>>, config: Arc<config::Config>, dev_feature_flag: bool) -> InfuResult<()> {
   let listener = TcpListener::bind(addr).await?;
   loop {
     let (stream, _) = listener.accept().await?;
@@ -305,7 +312,7 @@ async fn listen(addr: SocketAddr, db: Arc<Mutex<Db>>, object_store: Arc<ObjectSt
     let io = TokioIo::new(stream);
     tokio::task::spawn(async move {
       if let Err(err) = http1::Builder::new()
-          .serve_connection(io, service_fn(move |req| http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), req)))
+          .serve_connection(io, service_fn(move |req| http_serve(db.clone(), object_store.clone(), image_cache.clone(), config.clone(), dev_feature_flag, req)))
           .await {
         info!("Error serving connection: {:?}", err);
       }

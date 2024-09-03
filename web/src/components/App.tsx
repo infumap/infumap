@@ -29,11 +29,7 @@ const App: Component = () => {
 
   onMount(async () => {
     const user = store.user.getUserMaybe();
-    if (user == null) {
-      await store.general.retrieveInstallationState();
-    } else {
-      store.general.assumeHaveRootUser();
-    }
+    await store.general.retrieveInstallationState();
   });
 
   const fallback = () => <div>waiting ...</div>;

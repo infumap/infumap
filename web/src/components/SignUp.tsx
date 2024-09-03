@@ -60,7 +60,7 @@ export const SignUp: Component = () => {
       if (areSettingUp()) {
         let r = await store.user.login(username, password, store.general.prefer2fa() ? totpToken : null);
         if (r.success) {
-          store.general.assumeHaveRootUser();
+          await store.general.retrieveInstallationState();
           navigate('/');
         } else {
           setError(r.err);

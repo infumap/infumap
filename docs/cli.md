@@ -20,7 +20,7 @@ For more information on configuring the Infumap web server, refer to [configurat
 
 Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment varable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
-
+- **--dev (optional):** Enable experimental in-development features.
 
 ### keygen
 
@@ -114,7 +114,7 @@ that you can act quickly if/when the time comes.
 - **--user-id:** The user id to retrieve the backup file for.
 - **--encryption-key:** As per your Infumap settings.
 - **--keep:** If specified, the data files are not deleted on exit.
-
+- **--dev (optional):** Enable experimental in-development features.
 
 
 ## API Commands

@@ -23,7 +23,8 @@ import { post } from "../server";
 const LOCALSTORAGE_KEY_NAME = "infudata";
 
 interface InstallationState {
-  hasRootUser: boolean
+  hasRootUser: boolean,
+  devFeatureFlag: boolean,
 }
 
 interface LocalStorageData {
@@ -34,7 +35,6 @@ export interface GeneralStoreContextModel {
   installationState: Accessor<InstallationState | null>,
   retrieveInstallationState: () => Promise<void>,
   clearInstallationState: () => void,
-  assumeHaveRootUser: () => void,
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
@@ -55,7 +55,6 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     }
   }
   const clearInstallationState = () => { setInstallationState(null); }
-  const assumeInstallationStateHaveRootUser = () => { setInstallationState({ hasRootUser: true }); }
 
   const prefer2fa = () => {
     const lcds = localStorageDataString();
@@ -76,7 +75,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   }
 
   return {
-    installationState, retrieveInstallationState, clearInstallationState, assumeHaveRootUser: assumeInstallationStateHaveRootUser,
+    installationState, retrieveInstallationState, clearInstallationState,
     prefer2fa, setPrefer2fa,
   };
 }
