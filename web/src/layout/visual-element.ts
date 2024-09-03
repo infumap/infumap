@@ -212,7 +212,7 @@ export interface VisualElement {
   /**
    * The flags that were used during arrangement when creating the visual element. This gives
    * the required context for partial rearrangements. TODO (LOW): track this in a separate hash
-   * map to keep them out of this interface.
+   * map to keep out of this interface.
    */
   _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags,
 }

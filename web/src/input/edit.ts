@@ -31,7 +31,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asExpressionItem, isExpression } from "../items/expression-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
-import { isTable } from "../items/table-item";
+import { asTableItem, isTable } from "../items/table-item";
 import { currentCaretElement, getCurrentCaretVePath_title, getCaretPosition, setCaretPosition } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
@@ -216,10 +216,13 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
 
 export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) => {
   setTimeout(() => {
-    const focusItemPath = store.history.getFocusPath();
-    const focusItemDomId = focusItemPath + ":title";
-    const el = document.getElementById(focusItemDomId);
     if (store.overlay.textEditInfo()) {
+      const colNum = store.overlay.textEditInfo()?.colNum;
+      const focusItemPath = store.history.getFocusPath();
+      const focusItemDomId = colNum == null
+        ? focusItemPath + ":title"
+        : focusItemPath + ":col" + colNum;
+      const el = document.getElementById(focusItemDomId);
       const newText = el!.innerText;
       if (!store.overlay.toolbarPopupInfoMaybe.get()) {
         if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
@@ -234,12 +237,20 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           item.text = trimNewline(newText);
+        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
+          let item = asTableItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          if (colNum == null) {
+            item.title = trimNewline(newText);
+          } else {
+            item.tableColumns[colNum].name = trimNewline(newText);
+          }
         } else {
           console.warn("input handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
         }
         const caretPosition = getCaretPosition(el!);
         fullArrange(store);
-        setCaretPosition(el!, caretPosition);
+        const el_ = document.getElementById(focusItemDomId);
+        setCaretPosition(el_!, caretPosition);
       }
     }
   }, 0);
