@@ -93,7 +93,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     return {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
-      w: 96, h: 140
+      w: 96,
+      h: store.general.installationState()?.devFeatureFlag ? 138 : 112
     }
   } else {
     panic("unexpected popup type: " + popupType);
@@ -329,9 +330,11 @@ export const Toolbar_Popup: Component = () => {
             <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaListClick}>
               List
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
-              Document
-            </div>
+            <Show when={store.general.installationState()?.devFeatureFlag}>
+              <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
+                Document
+              </div>
+            </Show>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.QrLink}>
