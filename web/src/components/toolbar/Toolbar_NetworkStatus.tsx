@@ -26,16 +26,14 @@ export const Toolbar_NetworkStatus: Component = () => {
 
   const col = () => {
     const status = store.general.networkStatus.get();
-    if (status == NETWORK_STATUS_ERROR) { return "bg-red-400"; }
-    if (status == NETWORK_STATUS_IN_PROGRESS) { return "bg-yellow-400"; }
-    return "bg-green-400";
+    if (status == NETWORK_STATUS_ERROR) { return "#9b3333"; }
+    if (status == NETWORK_STATUS_IN_PROGRESS) { return "#9a9b33"; }
+    return "#3b9b33";
   }
 
   return (
-    <div class="w-[21px] h-[21px] inline-block ml-[7px]">
-      <div class={`w-[16px] h-[16px] ${col()} mt-[7px]`}>
-
-      </div>
+    <div class="w-[21px] h-[21px] inline-block ml-[7px] mr-[-2px]">
+      <div class={`w-[16px] h-[16px] mt-[7px] rounded`} style={`background-color: ${col()};`} />
     </div>
   );
 }

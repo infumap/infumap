@@ -251,7 +251,7 @@ export const Toolbar: Component = () => {
 
       <div class="flex-grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 89px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 87px; top: 7px;"></div>
       </div>
 
       <div class="flex-grow-0 pr-[8px]" style="flex-order: 2;">
