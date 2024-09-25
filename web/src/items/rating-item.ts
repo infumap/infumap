@@ -208,7 +208,7 @@ export const RatingFns = {
     rearrangeWithDisplayId(store, item.id);
   
     function clickTimerHandler() {
-      serverOrRemote.updateItem(item);
+      serverOrRemote.updateItem(item, store.general.networkStatus);
       clickTimer = null;
     }
     if (clickTimer != null) { clearTimeout(clickTimer); }

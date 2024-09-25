@@ -43,7 +43,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
-  const listPageColWidths = new Map<string, NumberSignal>();
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");

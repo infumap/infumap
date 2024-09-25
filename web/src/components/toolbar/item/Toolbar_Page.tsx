@@ -175,7 +175,7 @@ export const Toolbar_Page: Component = () => {
     }
     itemState.sortChildren(pageItem().id);
     fullArrange(store);
-    serverOrRemote.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
 
@@ -186,7 +186,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
     fullArrange(store);
-    serverOrRemote.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
 
@@ -197,12 +197,12 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     fullArrange(store);
-    serverOrRemote.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
 
   const emptyTrashHandler = () => {
-    server.emptyTrash().then(r => {
+    server.emptyTrash(store.general.networkStatus).then(r => {
       console.debug(r);
     })
   };
@@ -420,7 +420,7 @@ export const Toolbar_Page: Component = () => {
       <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
   
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+      <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
       <div ref={qrDiv} class="inline-block pl-[16px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />

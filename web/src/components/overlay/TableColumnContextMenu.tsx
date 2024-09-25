@@ -44,18 +44,18 @@ export const TableColumnContextMenu: Component = () => {
   const colNum = () => store.overlay.tableColumnContextMenuInfo.get()!.colNum;
 
   const newColToRight = () => {
-    TableFns.insertEmptyColAt(tableId(), colNum());
+    TableFns.insertEmptyColAt(tableId(), colNum(), store);
     tableItem().numberOfVisibleColumns += 1;
     fullArrange(store);
-    serverOrRemote.updateItem(tableItem());
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
   };
 
   const deleteColumn = () => {
-    TableFns.removeColItemsAt(tableId(), colNum()-1);
+    TableFns.removeColItemsAt(tableId(), colNum()-1, store);
     tableItem().numberOfVisibleColumns -= 1;
     fullArrange(store);
-    serverOrRemote.updateItem(tableItem());
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
   }
 

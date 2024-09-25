@@ -136,7 +136,7 @@ export const Toolbar_Popup: Component = () => {
       store.touchToolbar();
       fullArrange(store);
       if (isNote(store.history.getFocusItem())) {
-        serverOrRemote.updateItem(store.history.getFocusItem());
+        serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
         setTimeout(() => {
           store.overlay.toolbarPopupInfoMaybe.set(null);
           document.getElementById("noteEditOverlayTextArea")!.focus();
@@ -204,7 +204,7 @@ export const Toolbar_Popup: Component = () => {
     pageItem().backgroundColorIndex = col;
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
     store.touchToolbar();
-    serverOrRemote.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
   }
 
@@ -275,7 +275,7 @@ export const Toolbar_Popup: Component = () => {
     itemState.sortChildren(pageItem().id);
     fullArrange(store);
     store.touchToolbar();
-    serverOrRemote.updateItem(pageItem());
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
   }
 

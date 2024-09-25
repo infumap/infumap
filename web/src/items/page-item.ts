@@ -615,7 +615,7 @@ export const PageFns = {
     if (popupParentPage.pendingPopupAlignmentPoint != null) {
       popupParentPage.popupAlignmentPoint = popupParentPage.pendingPopupAlignmentPoint;
     }
-    serverOrRemote.updateItem(popupParentPage);
+    serverOrRemote.updateItem(popupParentPage, store.general.networkStatus);
     fullArrange(store);
   },
 

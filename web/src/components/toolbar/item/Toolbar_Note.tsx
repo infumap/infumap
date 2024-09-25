@@ -180,7 +180,7 @@ export const Toolbar_Note: Component = () => {
       </Show>
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+      <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
       <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />
@@ -223,7 +223,7 @@ export const Toolbar_Note: Component = () => {
       </Show>
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+      <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
       <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />

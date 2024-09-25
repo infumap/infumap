@@ -22,7 +22,7 @@ import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions } from "../util/geometry";
 import { NATURAL_BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
-import { NONE_VISUAL_ELEMENT, Veid, VisualElement, VisualElementPath } from "../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VisualElement, VisualElementPath } from "../layout/visual-element";
 import { createInfuSignal, InfuSignal } from "../util/signals";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
 import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";

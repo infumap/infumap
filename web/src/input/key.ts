@@ -49,7 +49,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       if (selection != null) { selection.removeAllRanges(); }
       asPageItem(store.history.getFocusItem()).title = titleText;
       fullArrange(store);
-      serverOrRemote.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
       ev.preventDefault();
     }
     return;

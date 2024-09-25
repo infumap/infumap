@@ -72,7 +72,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     fullArrange(store);
-    serverOrRemote.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
@@ -93,7 +93,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     let selection = window.getSelection();
     if (selection != null) { selection.removeAllRanges(); }
     asPageItem(store.history.getFocusItem()).title = titleText;
-    serverOrRemote.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
   }
   for (let i=0; i<toolbarTitleDivs.length; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
@@ -172,7 +172,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         asFileItem(item).title = trimNewline(newText);
       }
 
-      serverOrRemote.updateItem(store.history.getFocusItem());
+      serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
       store.overlay.toolbarPopupInfoMaybe.set(null);
       store.overlay.setTextEditInfo(store.history, null);

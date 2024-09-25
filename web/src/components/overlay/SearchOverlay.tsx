@@ -71,7 +71,7 @@ export const SearchOverlay: Component = () => {
 
   const handleSearchClick = async () => {
     const pageIdMaybe = isGlobalSearchSignal.get() ? null : store.history.currentPageVeid()!.itemId;
-    const result = await server.search(pageIdMaybe, textElement!.value);
+    const result = await server.search(pageIdMaybe, textElement!.value, store.general.networkStatus);
     searchedFor = textElement!.value;
     resultsSignal.set(result);
   };

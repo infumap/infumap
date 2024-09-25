@@ -20,9 +20,10 @@ import imgUrl from '../../assets/circle.png'
 
 import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VeFns } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
+import { Toolbar_NetworkStatus } from "./Toolbar_NetworkStatus";
 import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
 import { useNavigate } from "@solidjs/router";
 import { itemState } from "../../store/ItemState";
@@ -48,8 +49,6 @@ import { isFile } from '../../items/file-item';
 import { Toolbar_File } from './item/Toolbar_File';
 import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
-import { VesCache } from '../../layout/ves-cache';
-import { ArrangeItemFlags } from '../../layout/arrange/item';
 
 
 export const Toolbar: Component = () => {
@@ -252,7 +251,7 @@ export const Toolbar: Component = () => {
 
       <div class="flex-grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 62px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 89px; top: 7px;"></div>
       </div>
 
       <div class="flex-grow-0 pr-[8px]" style="flex-order: 2;">
@@ -262,9 +261,8 @@ export const Toolbar: Component = () => {
         <Show when={store.user.getUserMaybe()}>
           <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
         </Show>
-        <div class="inline-block">
-          <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
-        </div>
+        <Toolbar_NetworkStatus />
+        <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
       </div>
 
     </div>;

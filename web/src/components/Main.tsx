@@ -65,7 +65,7 @@ export const Main: Component = () => {
     try {
       let result: ItemsAndTheirAttachments
       try {
-        result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS);
+        result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THIER_ATTACHMENTS, store.general.networkStatus);
       } catch (e: any) {
         console.error(`Main.onMount fetchItems failed ${id}`, e);
         // TODO (HIGH): something better.

@@ -18,9 +18,14 @@
 
 import { Accessor, createSignal } from "solid-js";
 import { post } from "../server";
+import { NumberSignal, createNumberSignal } from "../util/signals";
 
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
+
+export const NETWORK_STATUS_OK = 0;
+export const NETWORK_STATUS_IN_PROGRESS = 1;
+export const NETWORK_STATUS_ERROR = 2;
 
 interface InstallationState {
   hasRootUser: boolean,
@@ -38,6 +43,8 @@ export interface GeneralStoreContextModel {
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
+
+  networkStatus: NumberSignal,
 }
 
 
@@ -45,6 +52,8 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const [localStorageDataString, setLacalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, {equals: false });
+
+  const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
 
   const retrieveInstallationState = async () => {
     try {
@@ -77,5 +86,6 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   return {
     installationState, retrieveInstallationState, clearInstallationState,
     prefer2fa, setPrefer2fa,
+    networkStatus,
   };
 }

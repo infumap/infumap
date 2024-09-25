@@ -379,7 +379,7 @@ export const TableFns = {
     return { insertRow, attachmentPos };
   },
 
-  insertEmptyColAt(tableId: Uid, colPos: number) {
+  insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel) {
     const tableItem = asTableItem(itemState.get(tableId)!);
     for (let i=0; i<tableItem.computed_children.length; ++i) {
       const child = itemState.get(tableItem.computed_children[i])!;
@@ -389,11 +389,11 @@ export const TableFns = {
       const ordering = itemState.newOrderingAtAttachmentsPosition(child.id, colPos);
       const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
       itemState.add(placeholderItem);
-      server.addItem(placeholderItem, null);
+      server.addItem(placeholderItem, null, store.general.networkStatus);
     }
   },
 
-  removeColItemsAt(tableId: Uid, colPos: number) {
+  removeColItemsAt(tableId: Uid, colPos: number, store: StoreContextModel) {
     const tableItem = asTableItem(itemState.get(tableId)!);
     for (let i=0; i<tableItem.computed_children.length; ++i) {
       const child = itemState.get(tableItem.computed_children[i])!;
@@ -402,7 +402,7 @@ export const TableFns = {
       if (colPos >= attachments.length) { continue; }
       const attachmentId = attachments[colPos];
       itemState.delete(attachmentId);
-      server.deleteItem(attachmentId);
+      server.deleteItem(attachmentId, store.general.networkStatus);
     }
   },
 

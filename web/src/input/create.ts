@@ -79,9 +79,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       overElementVe.displayItem.relationshipToParent);
 
     itemState.delete(overElementVe.displayItem.id);
-    server.deleteItem(overElementVe.displayItem.id);
+    server.deleteItem(overElementVe.displayItem.id, store.general.networkStatus);
     itemState.add(newItem);
-    server.addItem(newItem, null);
+    server.addItem(newItem, null, store.general.networkStatus);
 
     store.overlay.contextMenuInfo.set(null);
     fullArrange(store);
@@ -118,7 +118,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       asPageItem(newItem).popupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
     }
 
-    server.addItem(newItem, null);
+    server.addItem(newItem, null, store.general.networkStatus);
     itemState.add(newItem);
 
     store.overlay.contextMenuInfo.set(null);
@@ -139,7 +139,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           overElementVe.displayItem.id,
           itemState.newOrderingAtEndOfChildren(overElementVe.displayItem.parentId), // must be the case that it is at the end.
           RelationshipToParent.Child);
-        server.addItem(newItem, null);
+        server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);
         fullArrange(store);
@@ -156,7 +156,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         for (let i=0; i<numPlaceholdersToCreate; ++i) {
           const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
           itemState.add(placeholderItem);
-          server.addItem(placeholderItem, null);
+          server.addItem(placeholderItem, null, store.general.networkStatus);
         }
 
         newItem = createNewItem(
@@ -166,7 +166,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           itemState.newOrderingAtEndOfAttachments(childId),
           RelationshipToParent.Attachment);
 
-        server.addItem(newItem, null);
+        server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);
         fullArrange(store);
@@ -193,7 +193,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         y: Math.floor(page.innerSpatialWidthGr / GRID_SIZE / page.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
       };
 
-      server.addItem(newItem, null);
+      server.addItem(newItem, null, store.general.networkStatus);
       itemState.add(newItem);
 
       store.overlay.contextMenuInfo.set(null);

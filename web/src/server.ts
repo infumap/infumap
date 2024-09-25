@@ -19,6 +19,8 @@
 import { logout } from "./components/Main";
 import { Item } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
+import { NETWORK_STATUS_ERROR, NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK } from "./store/StoreProvider_General";
+import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, Uid } from "./util/uid";
 
 
@@ -62,8 +64,14 @@ interface ServerCommand {
 const commandQueue: Array<ServerCommand> = [];
 let inProgress: ServerCommand | null = null;
 
-function serveWaiting() {
-  if (commandQueue.length == 0 || inProgress != null) { return; }
+function serveWaiting(networkStatus: NumberSignal) {
+  if (commandQueue.length == 0 || inProgress != null) {
+    networkStatus.set(NETWORK_STATUS_OK);
+    return;
+  }
+  if (networkStatus.get() != NETWORK_STATUS_ERROR) {
+    networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+  }
   const command = commandQueue.shift() as ServerCommand;
   inProgress = command;
   const DEBUG = false;
@@ -76,9 +84,10 @@ function serveWaiting() {
     .catch((error) => {
       inProgress = null;
       command.reject(error);
+      networkStatus.set(NETWORK_STATUS_ERROR);
     })
     .finally(() => {
-      serveWaiting();
+      serveWaiting(networkStatus);
     });
 }
 
@@ -87,14 +96,18 @@ function constructCommandPromise(
     command: string,
     payload: object,
     base64data: string | null,
-    panicLogoutOnError: boolean): Promise<any> {
+    panicLogoutOnError: boolean,
+    networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       host, command, payload, base64data, panicLogoutOnError,
       resolve, reject
     };
     commandQueue.push(commandObj);
-    serveWaiting();
+    if (networkStatus.get() != NETWORK_STATUS_ERROR) {
+      networkStatus.set(NETWORK_STATUS_IN_PROGRESS);
+    }
+    serveWaiting(networkStatus);
   })
 }
 
@@ -102,8 +115,8 @@ export const server = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise(null, "get-items", { id, mode }, null, false)
+  fetchItems: async (id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
+    return constructCommandPromise(null, "get-items", { id, mode }, null, false, networkStatus)
       .then((r: any) => {
         // Server side, itemId is an optional and the root page does not have this set (== null in the response).
         // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
@@ -116,28 +129,28 @@ export const server = {
       });
   },
 
-  addItemFromPartialObject: async (item: object, base64Data: string | null): Promise<object> => {
-    return constructCommandPromise(null, "add-item", item, base64Data, true);
+  addItemFromPartialObject: async (item: object, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
+    return constructCommandPromise(null, "add-item", item, base64Data, true, networkStatus);
   },
 
-  addItem: async (item: Item, base64Data: string | null): Promise<object> => {
-    return constructCommandPromise(null, "add-item", ItemFns.toObject(item), base64Data, true);
+  addItem: async (item: Item, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
+    return constructCommandPromise(null, "add-item", ItemFns.toObject(item), base64Data, true, networkStatus);
   },
 
-  updateItem: async (item: Item): Promise<void> => {
-    return constructCommandPromise(null, "update-item", ItemFns.toObject(item), null, true);
+  updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
+    return constructCommandPromise(null, "update-item", ItemFns.toObject(item), null, true, networkStatus);
   },
 
-  deleteItem: async (id: Uid): Promise<void> => {
-    return constructCommandPromise(null, "delete-item", { id }, null, true);
+  deleteItem: async (id: Uid, networkStatus: NumberSignal): Promise<void> => {
+    return constructCommandPromise(null, "delete-item", { id }, null, true, networkStatus);
   },
 
-  search: async (pageIdMaybe: Uid | null, text: String): Promise<Array<SearchResult>> => {
-    return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true);
+  search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal): Promise<Array<SearchResult>> => {
+    return constructCommandPromise(null, "search", { pageId: pageIdMaybe, text, numResults: 15 }, null, true, networkStatus);
   },
 
-  emptyTrash: async (): Promise<EmptyTrashResult> => {
-    return constructCommandPromise(null, "empty-trash", { }, null, true);
+  emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
+    return constructCommandPromise(null, "empty-trash", { }, null, true, networkStatus);
   }
 }
 
@@ -146,8 +159,8 @@ export const remote = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (host: string, id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise(host, "get-items", { id, mode }, null, false)
+  fetchItems: async (host: string, id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
+    return constructCommandPromise(host, "get-items", { id, mode }, null, false, networkStatus)
       .then((r: any) => {
         // Server side, itemId is an optional and the root page does not have this set (== null in the response).
         // Client side, parentId is used as a key in the item geometry maps, so it's more convenient to use EMPTY_UID.
@@ -163,18 +176,18 @@ export const remote = {
   /**
    * update an item
    */
-  updateItem: async (host: string, item: Item): Promise<void> => {
-    return constructCommandPromise(host, "update-item", ItemFns.toObject(item), null, false);
+  updateItem: async (host: string, item: Item, networkStatus: NumberSignal): Promise<void> => {
+    return constructCommandPromise(host, "update-item", ItemFns.toObject(item), null, false, networkStatus);
   },
 }
 
 
 export const serverOrRemote = {
-  updateItem: async (item: Item) => {
+  updateItem: async (item: Item, networkStatus: NumberSignal) => {
     if (item.origin == null) {
-      await server.updateItem(item);
+      await server.updateItem(item, networkStatus);
     } else {
-      await remote.updateItem(item.origin, item);
+      await remote.updateItem(item.origin, item, networkStatus);
     }
   }
 }

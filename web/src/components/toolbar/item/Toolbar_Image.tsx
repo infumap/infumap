@@ -61,7 +61,7 @@ export const Toolbar_Image: Component = () => {
       imageItem().flags |= ImageFlags.HideBorder;
     }
     rearrangeWithDisplayId(store, imageItem().id);
-    serverOrRemote.updateItem(imageItem());
+    serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 
   const borderVisible = () => {
@@ -75,7 +75,7 @@ export const Toolbar_Image: Component = () => {
       imageItem().flags |= ImageFlags.NoCrop;
     }
     rearrangeWithDisplayId(store, imageItem().id);
-    serverOrRemote.updateItem(imageItem());
+    serverOrRemote.updateItem(imageItem(), store.general.networkStatus);
   }
 
   const shouldCropImage = () => {
@@ -94,7 +94,7 @@ export const Toolbar_Image: Component = () => {
         </div>
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
         <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />

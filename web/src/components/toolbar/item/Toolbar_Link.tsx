@@ -61,7 +61,7 @@ export const Toolbar_Link: Component = () => {
   onCleanup(() => {
     linkItemOnMount.linkTo = linkResourceInput!.value;
     fullArrange(store);
-    serverOrRemote.updateItem(linkItemOnMount);
+    serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
   });
 
   const keyEventHandler = (_ev: KeyboardEvent) => { }
@@ -82,7 +82,7 @@ export const Toolbar_Link: Component = () => {
         </div>
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 124px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
         <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-qr-code" highlighted={false} clickHandler={handleQr} />

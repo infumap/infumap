@@ -59,8 +59,8 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
   const origin = container.origin;
 
   const fetchPromise = origin == null
-    ? server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
-    : remote.fetchItems(origin, `${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY);
+    ? server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus)
+    : remote.fetchItems(origin, `${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus);
 
   fetchPromise
     .then(result => {
@@ -97,7 +97,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string): Pro
   if (itemState.get(id) != null) { return Promise.resolve(); }
   itemLoadInitiatedOrComplete[id] = true;
 
-  return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
+  return server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
       if (result != null) {
         itemState.setItemFromServerObject(result.item, null);
@@ -125,7 +125,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
   if (itemLoadFromRemoteInitiatedOrComplete[itemId]) { return; }
   itemLoadFromRemoteInitiatedOrComplete[itemId] = true;
 
-  remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
+  remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
     .then(result => {
       if (result != null) {
         itemState.setItemFromServerObject(result.item, baseUrl);

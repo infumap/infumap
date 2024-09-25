@@ -206,16 +206,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);
-      server.addItem(composite, null);
+      server.addItem(composite, null, store.general.networkStatus);
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
       asNoteItem(ve.displayItem).title = beforeText;
-      serverOrRemote.updateItem(ve.displayItem);
+      serverOrRemote.updateItem(ve.displayItem, store.general.networkStatus);
 
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       note.title = afterText;
       itemState.add(note);
-      server.addItem(note, null);
+      server.addItem(note, null, store.general.networkStatus);
 
       fullArrange(store);
       const veid = { itemId: note.id, linkIdMaybe: null };

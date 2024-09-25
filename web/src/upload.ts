@@ -79,7 +79,7 @@ export async function handleUpload(
         fileSizeBytes: file.size,
       };
 
-      const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data);
+      const returnedItem = await server.addItemFromPartialObject(imageItem, base64Data, store.general.networkStatus);
       // TODO (MEDIUM): immediately put an item in the UI, have image update later.
       itemState.add(ItemFns.fromObject(returnedItem, null));
       fullArrange(store);
@@ -99,7 +99,7 @@ export async function handleUpload(
         fileSizeBytes: file.size,
       };
 
-      const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data);
+      const returnedItem = await server.addItemFromPartialObject(fileItem, base64Data, store.general.networkStatus);
       // TODO (MEDIUM): immediately put an item in the UI.
       itemState.add(ItemFns.fromObject(returnedItem, null));
       fullArrange(store);

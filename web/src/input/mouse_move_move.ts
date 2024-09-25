@@ -78,7 +78,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         link.spatialHeightGr = asYSizableItem(activeVisualElement.displayItem).spatialHeightGr;
       }
       itemState.add(link);
-      server.addItem(link, null);
+      server.addItem(link, null, store.general.networkStatus);
 
       store.anItemIsMoving.set(true);
       const activeParentPath = VeFns.parentPath(MouseActionState.get().activeElementPath);
@@ -258,7 +258,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     link.parentId = moveToPage.id;
     link.spatialPositionGr = newItemPosGr;
     itemState.add(link);
-    server.addItem(link, null);
+    server.addItem(link, null, store.general.networkStatus);
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.findSingle({ itemId: activeElement.displayItem.id, linkIdMaybe: link.id });
     MouseActionState.get().activeElementPath = VeFns.veToPath(ve.get());
@@ -335,7 +335,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     link.parentId = moveToPage.id;
     link.spatialPositionGr = itemPosInPageQuantizedGr;
     itemState.add(link);
-    server.addItem(link, null);
+    server.addItem(link, null, store.general.networkStatus);
     fullArrange(store); // TODO (LOW): avoid this arrange i think by determining the new activeElement path without the fine.
     let ve = VesCache.findSingle({ itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id });
     MouseActionState.get().clickOffsetProp = { x: 0.0, y: 0.0 };

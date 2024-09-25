@@ -72,7 +72,7 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   }
   const currentEditingPath = store.history.getFocusPath();
   if (currentEditingPath != currentCaretItemPath) {
-    serverOrRemote.updateItem(store.history.getFocusItem());
+    serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
     const newEditingDomId = currentCaretItemPath + ":title";
     let newEditingTextElement = document.getElementById(newEditingDomId);
@@ -147,9 +147,9 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
   upFocusItem.title = upFocusItem.title + asTitledItem(editingVe.displayItem).title;
   fullArrange(store);
 
-  server.updateItem(upFocusItem);
+  server.updateItem(upFocusItem, store.general.networkStatus);
   itemState.delete(initialEditingItem.id);
-  server.deleteItem(initialEditingItem.id);
+  server.deleteItem(initialEditingItem.id, store.general.networkStatus);
 
   assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
   if (compositeItem.computed_children.length == 1) {
@@ -158,9 +158,9 @@ const joinItemsMaybeHandler = (store: StoreContextModel, visualElement: VisualEl
     itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
     asPositionalItem(upFocusItem).spatialPositionGr = posGr;
     asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
-    server.updateItem(upFocusItem);
+    server.updateItem(upFocusItem, store.general.networkStatus);
     itemState.delete(compositeItem.id);
-    server.deleteItem(compositeItem.id);
+    server.deleteItem(compositeItem.id, store.general.networkStatus);
     fullArrange(store);
     const itemPath = VeFns.addVeidToPath(upVeid, compositeParentPath);
     store.overlay.setTextEditInfo(store.history, { itemPath: itemPath, itemType: ItemType.Note });
@@ -195,13 +195,13 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
 
   noteItem.title = beforeText;
 
-  serverOrRemote.updateItem(noteItem);
+  serverOrRemote.updateItem(noteItem, store.general.networkStatus);
 
   const ordering = itemState.newOrderingDirectlyAfterChild(visualElement.displayItem.id, VeFns.canonicalItemFromVeid(noteVeid)!.id);
   const note = NoteFns.create(noteItem.ownerId, visualElement.displayItem.id, RelationshipToParent.Child, "", ordering);
   note.title = afterText;
   itemState.add(note);
-  server.addItem(note, null);
+  server.addItem(note, null, store.general.networkStatus);
   fullArrange(store);
 
   const veid = { itemId: note.id, linkIdMaybe: null };
