@@ -20,7 +20,7 @@ import imgUrl from '../../assets/circle.png'
 
 import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { NONE_VISUAL_ELEMENT, VeFns } from "../../layout/visual-element";
+import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { Toolbar_NetworkStatus } from "./Toolbar_NetworkStatus";
@@ -49,6 +49,7 @@ import { isFile } from '../../items/file-item';
 import { Toolbar_File } from './item/Toolbar_File';
 import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
+import { VesCache } from '../../layout/ves-cache';
 
 
 export const Toolbar: Component = () => {
@@ -91,6 +92,13 @@ export const Toolbar: Component = () => {
     let aTopPageHasFocus = isPage(store.history.getFocusItem());
     if (store.history.currentPopupSpecVeid() != null && isPage(itemState.get(store.history.currentPopupSpecVeid()!.itemId)!)) {
       aTopPageHasFocus = false;
+    }
+    const fves = VesCache.get(store.history.getFocusPath()!);
+    if (fves) {
+      const fve = fves.get();
+      if (fve.flags & VisualElementFlags.EmbededInteractiveRoot) {
+        aTopPageHasFocus = false;
+      }
     }
 
     const topPageVePaths = store.topTitledPages.get();
