@@ -122,43 +122,52 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       if (ClickState.getLinkWasClicked()) {
         ItemFns.handleLinkClick(activeVisualElement);
+
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TriangleLinkSettings) {
         const focusPath = VeFns.addVeidToPath(
           { itemId: VeFns.veidFromPath(MouseActionState.get().activeElementPath).linkIdMaybe!, linkIdMaybe: null },
           VeFns.parentPath(MouseActionState.get().activeElementPath)
         );
         store.history.setFocus(focusPath);
+
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.TableColumnContextMenu) {
         store.overlay.tableColumnContextMenuInfo.set({
           posPx: CursorEventState.getLatestDesktopPx(store),
           tablePath: MouseActionState.get().activeElementPath,
           colNum: MouseActionState.get().hitMeta?.colNum ? MouseActionState.get().hitMeta?.colNum! : 0,
         });
+
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Expand) {
         store.perVe.setIsExpanded(
           MouseActionState.get().activeElementPath,
           !store.perVe.getIsExpanded(MouseActionState.get().activeElementPath)
         );
         fullArrange(store);
+
       } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenPopup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
-      }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.OpenAttachment) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store);
-      }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Click) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
-      }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.Anchor) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleAnchorClick(activeVisualElement, store);
-      }
-      else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
+
+      } else if (MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.ShiftLeft) {
         DoubleClickState.preventDoubleClick();
         PageFns.handleShiftLeftClick(activeVisualElement, store);
+
+      } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags & VisualElementFlags.EmbededInteractiveRoot)) {
+        DoubleClickState.preventDoubleClick();
+        ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
+
       } else if (veFlagIsRoot(VesCache.get(MouseActionState.get().activeRoot)!.get().flags) &&
                  ((VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).itemId != store.history.currentPageVeid()!.itemId) ||
                   (VeFns.veidFromVe(VesCache.get(MouseActionState.get().activeRoot)!.get()).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
@@ -182,8 +191,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.Popup) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
+
       } else {
-        // TODO (MEDIUM): remove this logging. unsure if this case gets hit.
         store.history.setFocus(MouseActionState.get().activeElementPath);
 
         {
@@ -200,6 +209,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         // console.log("(2) setting focus to", MouseActionState.get().activeElementPath);
 
       }
+
       break;
 
     default:
