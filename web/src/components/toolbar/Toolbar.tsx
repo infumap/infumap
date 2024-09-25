@@ -88,8 +88,10 @@ export const Toolbar: Component = () => {
       return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
     }
 
-    let aPageHasFocus = isPage(store.history.getFocusItem());
-    // TODO (HIGH): Check if there is a popup page, if so, aPageHasFocus -> false.
+    let aTopPageHasFocus = isPage(store.history.getFocusItem());
+    if (store.history.currentPopupSpecVeid() != null && isPage(itemState.get(store.history.currentPopupSpecVeid()!.itemId)!)) {
+      aTopPageHasFocus = false;
+    }
 
     const topPageVePaths = store.topTitledPages.get();
     const topPageVeids = [];
@@ -98,7 +100,7 @@ export const Toolbar: Component = () => {
     }
     let focusPageIdx = -1;
     let focusPageItem = null;
-    if (aPageHasFocus) {
+    if (aTopPageHasFocus) {
       focusPageIdx = calcFocusPageIdx();
       if (focusPageIdx == -1) {
         return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1 }];
@@ -140,11 +142,11 @@ export const Toolbar: Component = () => {
         idx: i,
         lPosPx,
         rPosPx,
-        bg: aPageHasFocus && focusPageIdx <= i ? `background-image: ${linearGradient(focusPageItem!.backgroundColorIndex, 0.92)};` : defaultBg,
+        bg: aTopPageHasFocus && focusPageIdx <= i ? `background-image: ${linearGradient(focusPageItem!.backgroundColorIndex, 0.92)};` : defaultBg,
         col: `${hexToRGBA(Colors[page.backgroundColorIndex], 1.0)}; `,
         hasFocus: focusPageIdx == i,
         nextHasFocus: focusPageIdx == i+1,
-        borderColor: aPageHasFocus && focusPageIdx <= i
+        borderColor: aTopPageHasFocus && focusPageIdx <= i
           ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
         borderWidthPx: focusPageIdx <= i ? 2 : 1
