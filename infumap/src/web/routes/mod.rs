@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::time::SystemTime;
-use infusdk::{item::{AlignmentPoint, ArrangeAlgorithm, Item, ItemType, RelationshipToParent}, util::{geometry::{Vector, GRID_SIZE}, uid::Uid}};
+use infusdk::{item::{AlignmentPoint, ArrangeAlgorithm, Item, ItemType, RelationshipToParent, TableColumn}, util::{geometry::{Vector, GRID_SIZE}, uid::Uid}};
 
 pub mod account;
 pub mod admin;
@@ -58,7 +58,7 @@ pub fn default_home_page(owner_id: &str, title: &str, home_page_id: Uid, inner_s
     justified_row_aspect: Some(6.0),
     url: None,
     format: None,
-    table_columns: None,
+    table_columns: Some(vec![TableColumn { width_gr: 480, name: "Title".to_owned() }]),
     number_of_visible_columns: None,
     image_size_px: None,
     thumbnail: None,
@@ -104,7 +104,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     justified_row_aspect: Some(6.0),
     url: None,
     format: None,
-    table_columns: None,
+    table_columns: Some(vec![TableColumn { width_gr: 480, name: "Title".to_owned() }]),
     number_of_visible_columns: None,
     image_size_px: None,
     thumbnail: None,
@@ -150,7 +150,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     justified_row_aspect: Some(6.0),
     url: None,
     format: None,
-    table_columns: None,
+    table_columns: Some(vec![TableColumn { width_gr: 480, name: "Title".to_owned() }]),
     number_of_visible_columns: None,
     image_size_px: None,
     thumbnail: None,
