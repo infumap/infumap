@@ -69,12 +69,14 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
   let c2 = rgbHexToArray(c1);
   let c3 = rgb2hsv(c2[0], c2[1], c2[2]);
   if (borderType == BorderType.MainPage) {
-    c3[1] = 0.07;
+    c3[1] = 0.1;
     c3[2] = 220;
   } else {
     c3[1] = 0.25;
     c3[2] = 150;
   }
+  // the transform does not work as desired for gray. hack to fix this.
+  if (c2[0] == c2[1] && c2[1] == c2[2]) { c3[1] = 0.0; }
   let c4 = hsv2rgb(c3[0], c3[1], c3[2]);
   let c5 = rgbArrayToRgbaFunc(c4);
   return c5;
