@@ -176,19 +176,22 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>,
 
     renderMoveOverIndexMaybe: () => {
-      const isVisible =
-        pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid &&
-        store.perVe.getMovingItemIsOver(pageFns.vePath()) &&
-        pageFns.pageItem().orderChildrenBy == "";
-      if (!isVisible) {
+      if (!store.perVe.getMovingItemIsOver(pageFns.vePath()) || pageFns.pageItem().orderChildrenBy != "") {
         return <></>;
       }
-      const topPx = props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
-      const leftPx = props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns);
-      const heightPx = props.visualElement.cellSizePx!.h;
-      return (
-        <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
-      );
+
+      if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+        const topPx = props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
+        const leftPx = props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns);
+        const heightPx = props.visualElement.cellSizePx!.h;
+        return (
+          <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
+        );
+      } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+        return <></>;
+      } else {
+        return <></>;
+      }
     },
   };
 
