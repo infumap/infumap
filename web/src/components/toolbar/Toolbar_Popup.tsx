@@ -203,9 +203,9 @@ export const Toolbar_Popup: Component = () => {
   const handleColorClick = (col: number) => {
     pageItem().backgroundColorIndex = col;
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
-    store.touchToolbar();
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
     store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.touchToolbar();
   }
 
   const textEntryValue = (): string | null => {

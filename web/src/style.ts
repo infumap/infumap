@@ -83,6 +83,7 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
 }
 
 export const mainPageBorderColor = (store: StoreContextModel, getItem: (id: Uid) => Item | null) => {
+  store.touchToolbarDependency();
   if (store.history.currentPageVeid() == null) { return LIGHT_BORDER_COLOR; }
   if (store.history.getFocusIsCurrentPage()) {
     return borderColorForColorIdx(asPageItem(getItem(store.history.currentPageVeid()!.itemId)!).backgroundColorIndex, BorderType.MainPage);
@@ -91,6 +92,7 @@ export const mainPageBorderColor = (store: StoreContextModel, getItem: (id: Uid)
 }
 
 export const mainPageBorderWidth = (store: StoreContextModel) => {
+  store.touchToolbarDependency();
   if (store.history.currentPageVeid() == null) { return 1; }
   return store.history.getFocusIsCurrentPage()
     ? 2

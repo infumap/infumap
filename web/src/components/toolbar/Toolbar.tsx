@@ -64,6 +64,7 @@ export const Toolbar: Component = () => {
   }
 
   const calcFocusPageIdx = () => {
+    store.touchToolbarDependency();
     const topPageVePaths = store.topTitledPages.get();
     const focusPath = store.history.getFocusPathMaybe();
     if (focusPath == null) {
