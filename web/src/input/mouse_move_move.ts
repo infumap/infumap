@@ -40,6 +40,7 @@ import { assert, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDesktopY } from "../layout/arrange/dock";
+import { asContainerItem } from "../items/base/container-item";
 
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
@@ -190,7 +191,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       * (inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
     const cellX = Math.floor((xOffsetPx + scrollXPx) / inElementVe.cellSizePx!.w);
     const cellY = Math.floor((yOffsetPx + scrollYPx) / inElementVe.cellSizePx!.h);
-    const index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
+    let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
+    const numChildren = asContainerItem(inElement).computed_children.length;
+    if (index >= numChildren) { index = numChildren-1; } // numChildren is inclusive of the moving item.
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 
