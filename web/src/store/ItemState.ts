@@ -210,9 +210,9 @@ export const itemState = {
     return newOrderingDirectlyAfter(childrenOrderings, child.ordering);
   },
 
-  newOrderingAtChildrenPosition: (parentId: Uid, position: number): Uint8Array => {
+  newOrderingAtChildrenPosition: (parentId: Uid, position: number, ignoreUid: Uid | null): Uint8Array => {
     let parent = asContainerItem(items.get(parentId)!);
-    let childrenOrderings = parent.computed_children.map(c => items.get(c)!.ordering);
+    let childrenOrderings = parent.computed_children.filter(i => i != ignoreUid).map(c => items.get(c)!.ordering);
     if (position <= 0) {
       return newOrderingAtBeginning(childrenOrderings);
     } else if (position >= childrenOrderings.length) {

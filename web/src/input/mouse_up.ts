@@ -258,13 +258,15 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   const pageItem = asPageItem(overContainerVe.displayItem);
   if (overContainerVe.flags & VisualElementFlags.IsDock) {
     const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
-    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index);
+    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
     itemState.sortChildren(pageItem.id);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
   }
   else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-    const insertIndex = pageItem.orderChildrenBy == "" ? 0 : store.perVe.getMoveOverIndex(VeFns.veToPath(overContainerVe));
-    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex);
+    const path = VeFns.veToPath(overContainerVe);
+    const idx = store.perVe.getMoveOverIndex(path);
+    const insertIndex = pageItem.orderChildrenBy != "" ? 0 : idx;
+    activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
     itemState.sortChildren(pageItem.id);
     serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
   }
@@ -417,7 +419,7 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
     return;
   }
 
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe)));
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveOverContainerId, store.perVe.getMoveOverRowNumber(VeFns.veToPath(overContainerVe)), activeItem.id);
   itemState.moveToNewParent(activeItem, moveOverContainerId, RelationshipToParent.Child, moveToOrdering);
   serverOrRemote.updateItem(itemState.get(activeItem.id)!, store.general.networkStatus);
 
