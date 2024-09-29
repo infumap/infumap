@@ -444,11 +444,14 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
-  const ve = VesCache.get(focusPath)!.get();
-  if (ve.flags & VisualElementFlags.EmbededInteractiveRoot) {
-    store.history.setFocus(ve.parentPath!);
-    fullArrange(store);
-    return;
+  const ves = VesCache.get(focusPath)!;
+  if (ves) {
+    const ve = ves.get();
+    if (ve.flags & VisualElementFlags.EmbededInteractiveRoot) {
+      store.history.setFocus(ve.parentPath!);
+      fullArrange(store);
+      return;
+    }
   }
 
   const changedPages = navigateBack(store);
