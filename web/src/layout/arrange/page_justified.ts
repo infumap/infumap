@@ -16,15 +16,17 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { MouseAction, MouseActionState } from "../../input/state";
+import { LINE_HEIGHT_PX } from "../../constants";
+import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
+import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { panic } from "../../util/lang";
+import { assert, panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
@@ -46,6 +48,8 @@ export function arrange_justified_page(
 
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
+
+  const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
 
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
 
@@ -145,6 +149,50 @@ export function arrange_justified_page(
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       (childItemIsEmbeededInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
+    childrenVes.push(ves);
+  }
+
+  if (movingItemInThisPage) {
+    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
+
+    let scrollPropY;
+    let scrollPropX;
+    if (flags & ArrangeItemFlags.IsPopupRoot) {
+      const popupSpec = store.history.currentPopupSpec();
+      assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
+      scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
+      scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
+    } else {
+      scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+      scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
+    }
+
+    const umbrellaVisualElement = store.umbrellaVisualElement.get();
+    const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
+    const desktopSizePx = store.desktopBoundsPx();
+    const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
+    const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
+
+    const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
+    const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
+    const mouseDestkopPosPx = CursorEventState.getLatestDesktopPx(store);
+    const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
+    // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
+    const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
+    const cellBoundsPx = {
+      x: mouseDestkopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
+      y: mouseDestkopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
+      w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
+      h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
+    };
+
+    cellBoundsPx.x -= MouseActionState.get().clickOffsetProp!.x * cellBoundsPx.w;
+    cellBoundsPx.y -= MouseActionState.get().clickOffsetProp!.y * cellBoundsPx.h;
+    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, false, false);
+    const ves = arrangeItem(
+      store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     childrenVes.push(ves);
   }
 

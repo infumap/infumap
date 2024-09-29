@@ -182,7 +182,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
   if (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-    const xAdj = inElementVe.flags & VisualElementFlags.EmbededInteractiveRoot ? store.getCurrentDockWidthPx() : 0.0;
+    const xAdj = (inElementVe.flags & VisualElementFlags.EmbededInteractiveRoot) ||
+                 (inElementVe.flags & VisualElementFlags.Popup)
+      ? store.getCurrentDockWidthPx()
+      : 0.0;
     const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + xAdj);
     const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y;
     const veid = VeFns.veidFromVe(inElementVe);

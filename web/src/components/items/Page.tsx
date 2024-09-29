@@ -182,7 +182,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) {
         const topPx = props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
-        const leftPx = props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns);
+        const leftPx = props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns) + 1;
         const heightPx = props.visualElement.cellSizePx!.h;
         return (
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
