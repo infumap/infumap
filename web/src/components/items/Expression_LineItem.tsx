@@ -92,36 +92,41 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     </Show>;
 
   const renderText = () =>
-    <div class={`absolute overflow-hidden whitespace-nowrap ` +
-                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
-                `${infuTextStyle().alignClass} `}
-         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left; ` +
-                'background-color: #fff1e4;'}>
-      <Switch>
-        <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-            {expressionFormatMaybe(props.visualElement.evaluatedTitle != null
-              ? props.visualElement.evaluatedTitle
-              : expressionItem().title, expressionItem().format)}<span></span>
-          </span>
-        </Match>
-        <Match when={store.overlay.textEditInfo() != null}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                       `outline: 0px solid transparent;`}
-                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
-                spellcheck={store.overlay.textEditInfo() != null}
-                onKeyDown={keyDownHandler}>
-            {expressionFormatMaybe(expressionItem().title, expressionItem().format)}<span></span>
-          </span>
-        </Match>
-      </Switch>
-    </div>;
+    <>
+      <div class={'absolute'}
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+                  `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                  'background-color: #fff1e4;'} />
+      <div class={`absolute overflow-hidden whitespace-nowrap ` +
+                  ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
+                  `${infuTextStyle().alignClass} `}
+          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+                 `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                 `transform: scale(${scale()}); transform-origin: top left; `}>
+        <Switch>
+          <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                  class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                  style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+              {expressionFormatMaybe(props.visualElement.evaluatedTitle != null
+                ? props.visualElement.evaluatedTitle
+                : expressionItem().title, expressionItem().format)}<span></span>
+            </span>
+          </Match>
+          <Match when={store.overlay.textEditInfo() != null}>
+            <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                  class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                  style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                         `outline: 0px solid transparent;`}
+                  contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+                  spellcheck={store.overlay.textEditInfo() != null}
+                  onKeyDown={keyDownHandler}>
+              {expressionFormatMaybe(expressionItem().title, expressionItem().format)}<span></span>
+            </span>
+          </Match>
+        </Switch>
+      </div>
+    </>;
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
