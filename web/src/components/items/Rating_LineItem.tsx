@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asRatingItem } from "../../items/rating-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createLineHighlightBoundsPxFn } from "./helper";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
@@ -47,11 +47,15 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px;`} />
+        <div class="absolute border border-slate-300 rounded-sm"
+             style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; ` +
+                    `width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px; ` +
+                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
+                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>

@@ -57,6 +57,7 @@ export const ANCHOR_BOX_SIZE_PX = 20;
 
 export const Z_INDEX_SHADOW = 0;
 export const Z_INDEX_ITEMS = 2;
+export const Z_INDEX_ITEMS_OVERLAY = 3;
 export const Z_INDEX_POPUP = 10;
 export const Z_INDEX_MOVING = 20;
 export const Z_INDEX_TEXT_OVERLAY = 30;

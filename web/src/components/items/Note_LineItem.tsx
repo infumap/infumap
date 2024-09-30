@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
+import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
 import { NoteFlags } from "../../items/base/flags-item";
 import { cloneBoundingBox } from "../../util/geometry";
 import { getTextStyleForNote } from "../../layout/text";
@@ -84,19 +84,27 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;`} />
+        <div class="absolute border border-slate-300 rounded-sm"
+             style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +
+                    `width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px;` +
+                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
+                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+        <div class="absolute border border-slate-300 rounded-sm"
+             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
+                    `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;` +
+                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
+                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>

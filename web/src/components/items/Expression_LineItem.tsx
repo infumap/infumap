@@ -92,9 +92,9 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
                 ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
                 `${infuTextStyle().alignClass} `}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-               `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
-               `transform: scale(${scale()}); transform-origin: top left; ` +
-               'background-color: #fff1e4;'}>
+                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left; ` +
+                'background-color: #fff1e4;'}>
       <Switch>
         <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -124,8 +124,8 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
                 showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
+                 `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
+                 `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>
     </Show>

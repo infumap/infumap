@@ -161,6 +161,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const renderDetailed = () =>
     <>
+      <TableChildArea visualElement={props.visualElement} />
       <div class='absolute'
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -176,7 +177,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
-        <div class={`absolute border border-slate-700 rounded-sm bg-white`}
+        <div class={`absolute border border-slate-700 rounded-sm`}
              style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
         <Show when={showColHeader()}>
           <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
@@ -201,9 +202,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
         <Show when={showTriangleDetail()}>
           <InfuResizeTriangle />
-      </Show>
+        </Show>
       </div>
-      <TableChildArea visualElement={props.visualElement} />
       <Show when={showColHeader()}>
         <div class='absolute'
              style={`left: ${viewportBoundsPx()!.x}px; top: ${viewportBoundsPx()!.y - blockSizePx().h}px; ` +
