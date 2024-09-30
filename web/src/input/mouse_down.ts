@@ -37,7 +37,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-ite
 import { GRID_SIZE, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, PAGE_POPUP_TITLE_HEIGHT_BL } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { serverOrRemote } from "../server";
-import { trimNewline } from "../util/string";
+import { isUrl, trimNewline } from "../util/string";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
@@ -165,7 +165,13 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       }
       else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
         editingDomEl!.parentElement!.scrollLeft = 0;
-        asNoteItem(item).title = trimNewline(newText);
+        const noteItem = asNoteItem(item);
+        noteItem.title = trimNewline(newText);
+        if (isUrl(noteItem.title)) {
+          if (noteItem.url == "") {
+            noteItem.url = noteItem.title;
+          }
+        }
       }
       else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
         editingDomEl!.parentElement!.scrollLeft = 0;

@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+
 /**
  * If text ends with a newline, trim it.
  */
@@ -37,4 +38,24 @@ export function trimNewline(text: string): string {
 export function appendNewlineIfEmpty(text: string): string {
   if (text == "") { return "\n"; }
   return text;
+}
+
+
+/**
+ * Test whether or not text contains any whitespace characters.
+ */
+export function hasWhiteSpace(text: string): boolean {
+  return /\s/g.test(text);
+}
+
+
+/**
+ * Test whether or not text is a valid web url.
+ */
+export function isUrl(text: string): boolean {
+    let url;
+    if (hasWhiteSpace(text)) { return false; }
+    try { url = new URL(text); }
+    catch (_e) { return false; }
+    return url.protocol === "http:" || url.protocol === "https:";
 }
