@@ -88,7 +88,8 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
     </Show>;
 
   const renderText = () =>
-    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis ` + 
+    <div class={`absolute overflow-hidden whitespace-nowrap ` +
+                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `) +
                 `${infuTextStyle().alignClass} `}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
@@ -107,7 +108,8 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
                 class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                       `outline: 0px solid transparent;`}
                 contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
                 spellcheck={store.overlay.textEditInfo() != null}
                 onKeyDown={keyDownHandler}>
