@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asExpressionItem } from "../../items/expression-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
-import { LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
+import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_ITEMS_OVERLAY } from "../../constants";
 import { getTextStyleForNote } from "../../layout/text";
 import { expressionFormatMaybe } from "./Expression";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -62,11 +62,15 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm bg-slate-200"
-             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;`} />
+        <div class="absolute border border-slate-300 rounded-sm"
+             style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
+                    `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px; ` +
+                    `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
+                    `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-sm"
-               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
+               style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
+                      `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Selected}>
