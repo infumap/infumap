@@ -50,6 +50,15 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
 
   const infuTextStyle = () => getTextStyleForNote(expressionItem().flags);
 
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
@@ -85,10 +94,27 @@ export const Expression_LineItem: Component<VisualElementProps> = (props: Visual
                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                `transform: scale(${scale()}); transform-origin: top left; ` +
                'background-color: #fff1e4;'}>
-      <span class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-        {expressionFormatMaybe(props.visualElement.evaluatedTitle != null ? props.visualElement.evaluatedTitle : expressionItem().title, expressionItem().format)}<span></span>
-      </span>
+      <Switch>
+        <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+            {expressionFormatMaybe(props.visualElement.evaluatedTitle != null
+              ? props.visualElement.evaluatedTitle
+              : expressionItem().title, expressionItem().format)}<span></span>
+          </span>
+        </Match>
+        <Match when={store.overlay.textEditInfo() != null}>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
+                contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+                spellcheck={store.overlay.textEditInfo() != null}
+                onKeyDown={keyDownHandler}>
+            {expressionFormatMaybe(expressionItem().title, expressionItem().format)}<span></span>
+          </span>
+        </Match>
+      </Switch>
     </div>;
 
   const renderLinkMarkingMaybe = () =>
