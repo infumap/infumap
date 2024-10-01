@@ -162,7 +162,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderDetailed = () =>
     <>
       <TableChildArea visualElement={props.visualElement} />
-      <div class='absolute'
+      <div class='absolute pointer-events-none'
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -177,7 +177,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={store.overlay.textEditInfo() != null}>
           {tableItem().title}
         </div>
-        <div class={`absolute border border-slate-700 rounded-sm`}
+        <div class={`absolute border border-slate-700 rounded-sm pointer-events-none`}
              style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
         <Show when={showColHeader()}>
           <div class={`absolute border border-slate-700 bg-slate-300 rounded-sm`}
