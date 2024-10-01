@@ -44,7 +44,7 @@ export const LinkDefault_LineItem: Component<VisualElementProps> = (props: Visua
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm"
+        <div class="absolute border border-slate-300 rounded-sm pointer-events-none"
              style={`left: ${boundsPx().x+2}px; top: ${boundsPx().y+2}px; ` +
                     `width: ${boundsPx().w-4}px; height: ${boundsPx().h-4}px; ` +
                     `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +

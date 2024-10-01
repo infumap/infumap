@@ -63,14 +63,14 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm"
+        <div class="absolute border border-slate-300 rounded-sm pointer-events-none"
              style={`left: ${openPopupBoundsPx().x+2}px; top: ${openPopupBoundsPx().y+2}px; ` +
                     `width: ${openPopupBoundsPx().w-4}px; height: ${openPopupBoundsPx().h-4}px; ` +
                     `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-sm"
+        <div class="absolute border border-slate-300 rounded-sm pointer-events-none"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
                     `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px;` +
                     `z-index: ${Z_INDEX_ITEMS_OVERLAY}; ` +
