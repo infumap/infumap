@@ -36,6 +36,7 @@ export enum HitboxFlags {
   ContentEditable =         0x01000,
   Expand =                  0x02000,
   TableColumnContextMenu =  0x04000,
+  VerticalResize =          0x08000,
 }
 
 function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -46,6 +47,7 @@ function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.OpenPopup) { result += "OpenPopup "; }
   if (flags & HitboxFlags.Attach) { result += "Attach "; }
   if (flags & HitboxFlags.HorizontalResize) { result += "HorizontalResize "; }
+  if (flags & HitboxFlags.VerticalResize) { result += "VerticalResize "; }
   if (flags & HitboxFlags.OpenAttachment) { result += "OpenAttachment "; }
   if (flags & HitboxFlags.AttachComposite) { result += "AttachComposite "; }
   if (flags & HitboxFlags.Anchor) { result += "Anchor "; }

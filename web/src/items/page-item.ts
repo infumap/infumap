@@ -414,12 +414,16 @@ export const PageFns = {
       HitboxFns.create(HitboxFlags.Move | HitboxFlags.ContentEditable | HitboxFlags.Click, { x: 0, y: 0, h: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: NATURAL_BLOCK_SIZE_PX.h * headerHeightBl, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
     ];
 
     if (!parentIsDock) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
       hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
+    }
+
+    if (parentIsDock) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.VerticalResize, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }));
     }
 
     if (hasPendingChanges) {

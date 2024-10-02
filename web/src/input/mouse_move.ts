@@ -183,6 +183,9 @@ function changeMouseActionStateMaybe(
       MouseActionState.get().action = MouseAction.ResizingColumn;
     }
 
+  } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.VerticalResize) > 0) {
+    console.log("TODO: vertical resize");
+
   } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
              ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
     if (!(MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) &&
@@ -435,6 +438,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "nwse-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {
       document.body.style.cursor = "ew-resize";
+    } else if (hitInfo.hitboxType & HitboxFlags.VerticalResize) {
+      document.body.style.cursor = "ns-resize";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
                ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) || ((asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable)))) {
       document.body.style.cursor = "move";
