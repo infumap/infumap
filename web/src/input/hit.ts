@@ -129,6 +129,11 @@ export const HitInfoFns = {
   getOverContainerVe: (hitInfo: HitInfo): VisualElement => {
     if (hitInfo.overVes) {
       if (isContainer(hitInfo.overVes.get().displayItem)) {
+        if (hitInfo.subRootVe && isTable(hitInfo.subRootVe!.displayItem)) {
+          if (hitInfo.hitboxType & HitboxFlags.Click) {
+            return hitInfo.subRootVe;
+          }
+        }
         return hitInfo.overVes.get();
       }
     }
