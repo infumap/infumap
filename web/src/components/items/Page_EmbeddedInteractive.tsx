@@ -73,11 +73,14 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const isEmbeddedInteractive = () => !!(props.visualElement.flags & VisualElementFlags.EmbededInteractiveRoot);
 
   const isDockItem = () => !!(props.visualElement.flags & VisualElementFlags.DockItem);
+  const isListPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
 
-  const borderStyle = () =>
-    isDockItem()
-      ? `border-width: 1px; border-color: ${borderColorForColorIdx(pageFns().pageItem().backgroundColorIndex, BorderType.Dock)}; `
-      : `border-width: 1px; border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
+  const borderStyle = () => {
+    if (isDockItem()) {
+      return `${isListPage() ? 'border-bottom-width' : 'border-width'}: 1px; border-color: ${borderColorForColorIdx(pageFns().pageItem().backgroundColorIndex, BorderType.Dock)}; `;
+    }
+    return `border-width: 1px; border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
+  }
 
   const renderEmbededInteractiveBackground = () =>
     <div class="absolute w-full"
