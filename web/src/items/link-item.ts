@@ -258,7 +258,7 @@ export const LinkFns = {
     return result;
   },
 
-  calcGeometry_InCell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean): ItemGeometry => {
+  calcGeometry_InCell: (link: LinkItem, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean): ItemGeometry => {
     const sizeBl = LinkFns.calcSpatialDimensionsBl(link);
     const boundsPx = cloneBoundingBox(cellBoundsPx)!;
     const blockSizePx = {
@@ -279,7 +279,7 @@ export const LinkFns = {
     if (LinkFns.getLinkToId(link) == EMPTY_UID) { return noLinkTo(); }
     const measurableMaybe = constructLinkToMeasurable(link);
     if (measurableMaybe == null) { return noLinkTo(); }
-    return ItemFns.calcGeometry_InCell(measurableMaybe!, cellBoundsPx, expandable, parentIsPopup, isPopup, hasPendingChanges, maximize, ignoreCellHeight);
+    return ItemFns.calcGeometry_InCell(measurableMaybe!, cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, maximize, ignoreCellHeight);
   },
 
   asLinkMeasurable: (item: ItemTypeMixin): LinkMeasurable => {

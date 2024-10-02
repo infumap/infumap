@@ -79,7 +79,7 @@ export const renderDockMaybe = (
     let wPx = dockWidthPx - DOCK_GAP_PX * 2;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
-    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false, true);
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true);
 
     let viewportOffsetPx = 0;
     if (geometry.viewportBoundsPx) {
@@ -191,7 +191,7 @@ export function dockInsertIndexAndPositionFromDesktopY(dockItem: PageItem, movin
     let wPx = dockWidthPx - DOCK_GAP_PX * 2;
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: DOCK_GAP_PX, y: 0, w: wPx, h: dockWidthPx*10 };
-    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, false, false, false, true);
+    const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, true);
 
     let viewportOffsetPx = 0;
     if (geometry.viewportBoundsPx) {

@@ -48,8 +48,12 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
     <>
       <Show when={store.dockVisible.get()}>
         <div class={`absolute border-r`}
-             style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
-                    `background-color: #ffffff; border-right-width: ${mainPageBorderWidth(store)}px; ` +
+             style={`left: ${props.pageFns.boundsPx().x}px; ` +
+                    `top: ${props.pageFns.boundsPx().y}px; ` +
+                    `width: ${props.pageFns.boundsPx().w}px; ` +
+                    `height: ${props.pageFns.boundsPx().h}px; ` +
+                    `background-color: #ffffff; ` +
+                    `border-right-width: ${mainPageBorderWidth(store)}px; ` +
                     `border-color: ${mainPageBorderColor(store, itemState.get)}; `}>
           <For each={props.visualElement.childrenVes}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} />
@@ -59,7 +63,9 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
       </Show>
       <Show when={!store.dockVisible.get()}>
         <div class={`absolute`}
-             style={`left: ${5}px; top: ${props.pageFns.boundsPx().h - 30}px; z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
+             style={`left: ${5}px; ` +
+                    `top: ${props.pageFns.boundsPx().h - 30}px; ` +
+                    `z-index: ${Z_INDEX_SHOW_TOOLBAR_ICON};`}
              onmousedown={showDock}>
           <i class={`fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-slate-400'}`} />
         </div>

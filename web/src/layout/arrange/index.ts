@@ -199,7 +199,7 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
 
   let itemGeometry = null;
   if (parentItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-    const parentIsPopup = (parentVe.flags & VisualElementFlags.Popup) ? true : false;
+    const parentIsPopup = !!(parentVe.flags & VisualElementFlags.Popup);
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(parentItem);
     if (ve.flags & VisualElementFlags.Popup && !isPage(ve.displayItem)) {
       let arrangedVes = arrangeCellPopup(store);
@@ -227,12 +227,12 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
   ves.set(arrangedVes.get());
 }
 
-function rearrangeInsideComposite(store: StoreContextModel, ves: VisualElementSignal): void {
+function rearrangeInsideComposite(store: StoreContextModel, _ves: VisualElementSignal): void {
   console.debug("fell back to full arrange (inside composite)");
   fullArrange(store);
 }
 
-function rearrangeInsideTable(store: StoreContextModel, ves: VisualElementSignal): void {
+function rearrangeInsideTable(store: StoreContextModel, _ves: VisualElementSignal): void {
   console.debug("fell back to full arrange (inside table)");
   fullArrange(store);
 }

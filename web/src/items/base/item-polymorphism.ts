@@ -107,8 +107,8 @@ export const ItemFns = {
     panic(`Unknown item type: ${measurable.itemType}`);
   },
 
-  calcGeometry_InCell: (measurable: Measurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean): ItemGeometry => {
-    if (isPage(measurable)) { return PageFns.calcGeometry_InCell(PageFns.asPageMeasurable(measurable), cellBoundsPx, expandable, parentIsPopup, isPopup, hasPendingChanges, ignoreCellHeight); }
+  calcGeometry_InCell: (measurable: Measurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasPendingChanges: boolean, maximize: boolean, ignoreCellHeight: boolean): ItemGeometry => {
+    if (isPage(measurable)) { return PageFns.calcGeometry_InCell(PageFns.asPageMeasurable(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, ignoreCellHeight); }
     if (isTable(measurable)) { return TableFns.calcGeometry_InCell(TableFns.asTableMeasurable(measurable), cellBoundsPx, maximize); }
     if (isComposite(measurable)) { return CompositeFns.calcGeometry_InCell(CompositeFns.asCompositeMeasurable(measurable), cellBoundsPx, maximize); }
     if (isNote(measurable)) { return NoteFns.calcGeometry_InCell(NoteFns.asNoteMeasurable(measurable), cellBoundsPx, maximize); }
@@ -117,7 +117,7 @@ export const ItemFns = {
     if (isFile(measurable)) { return FileFns.calcGeometry_InCell(FileFns.asFileMeasurable(measurable), cellBoundsPx, maximize); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InCell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx, maximize); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
-    if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, isPopup, hasPendingChanges, maximize, ignoreCellHeight); }
+    if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasPendingChanges, maximize, ignoreCellHeight); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },

@@ -61,7 +61,8 @@ function rgb2hsv(r: number, g: number, b: number) {
 
 export enum BorderType {
   MainPage,
-  Popup
+  Popup,
+  Dock
 }
 
 export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
@@ -71,6 +72,9 @@ export const borderColorForColorIdx = (idx: number, borderType: BorderType) => {
   if (borderType == BorderType.MainPage) {
     c3[1] = 0.1;
     c3[2] = 220;
+  } else if (borderType == BorderType.Dock) {
+    c3[1] = 0.04;
+    c3[2] = 230;
   } else {
     c3[1] = 0.25;
     c3[2] = 150;

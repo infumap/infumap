@@ -112,8 +112,10 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <>
       {renderShadowMaybe()}
       <div class={`absolute border border-slate-700 rounded-sm`}
-           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; ` +
-                  `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+           style={`left: ${pageFns().boundsPx().x}px; ` +
+                  `top: ${pageFns().boundsPx().y}px; ` +
+                  `width: ${pageFns().boundsPx().w}px; ` +
+                  `height: ${pageFns().boundsPx().h}px; ` +
                   `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.0)}; ` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
@@ -129,7 +131,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
             <div class={`absolute rounded-sm`}
                   style={`left: ${pageFns().moveOutOfCompositeBox().x}px; top: ${pageFns().moveOutOfCompositeBox().y}px; width: ${pageFns().moveOutOfCompositeBox().w}px; height: ${pageFns().moveOutOfCompositeBox().h}px; ` +
-                        `background-color: ${FEATURE_COLOR_DARK};`} />
+                         `background-color: ${FEATURE_COLOR_DARK};`} />
           </Show>
           {renderIsLinkMaybe()}
           <Show when={pageFns().showTriangleDetail()}>

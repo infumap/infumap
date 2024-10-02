@@ -182,7 +182,7 @@ export const CompositeFns = {
     };
   },
 
-  calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
+  calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
     const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
     const blockSizePx = {
       w: containerBoundsPx.w / containerInnerSizeBl.w,

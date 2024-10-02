@@ -19,7 +19,7 @@
 import { Component, For, Match, Show, Switch, onMount } from "solid-js";
 import { LINE_HEIGHT_PX } from "../../constants";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { Colors, linearGradient } from "../../style";
+import { BorderType, Colors, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -76,7 +76,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const borderStyle = () =>
     isDockItem()
-      ? `border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `
+      ? `border-width: 1px; border-color: ${borderColorForColorIdx(pageFns().pageItem().backgroundColorIndex, BorderType.Dock)}; `
       : `border-width: 1px; border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
 
   const renderEmbededInteractiveBackground = () =>
@@ -99,7 +99,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
-    <Show when={pageFns().showTriangleDetail()}>
+    <Show when={pageFns().showTriangleDetail() && !isDockItem()}>
       <InfuResizeTriangle />
     </Show>;
 
@@ -124,7 +124,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed": "absolute"} rounded-sm`}
          style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-                `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; left: 0px; ` +
+                `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+                `left: 0px; ` +
                 `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
                 `background-color: #ffffff;` +
                 `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
@@ -137,7 +138,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
                   `background-color: #ffffff;` +
                   `${VeFns.opacityStyle(props.visualElement)} ${VeFns.zIndexStyle(props.visualElement)}`}>
         <div class="absolute"
-             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+             style={`width: ${LINE_HEIGHT_PX * pageFns().listColumnWidthBl()}px; ` +
+                    `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
@@ -166,7 +168,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class="absolute"
            style={`left: 0px; top: 0px; ` +
                   `width: ${pageFns().childAreaBoundsPx().w}px; ` +
-                  `height: ${pageFns().childAreaBoundsPx().h}px;` +
+                  `height: ${pageFns().childAreaBoundsPx().h}px; ` +
                   `outline: 0px solid transparent; `}
            contentEditable={store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
            onKeyUp={keyUpHandler}

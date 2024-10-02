@@ -264,7 +264,8 @@ export const PageFns = {
 
   calcGeometry_Spatial: (
       page: PageMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions,
-      parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean, hasPendingChanges: boolean): ItemGeometry => {
+      parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean,
+      hasPendingChanges: boolean): ItemGeometry => {
 
     const sizeBl = PageFns.calcSpatialDimensionsBl(page);
     const blockSizePx = {
@@ -312,7 +313,7 @@ export const PageFns = {
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
+      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ];
 
     if (hasPendingChanges && isPopup) {
@@ -329,7 +330,7 @@ export const PageFns = {
     return result;
   },
 
-  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, isPopup: boolean, hasPendingChanges: boolean, ignoreCellHeight: boolean): ItemGeometry => {
+  calcGeometry_InCell: (page: PageMeasurable, cellBoundsPx: BoundingBox, expandable: boolean, parentIsPopup: boolean, parentIsDock: boolean, isPopup: boolean, hasPendingChanges: boolean, ignoreCellHeight: boolean): ItemGeometry => {
     if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
       const sizeBl = PageFns.calcSpatialDimensionsBl(page);
       let boundsPx;
@@ -415,8 +416,11 @@ export const PageFns = {
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
       HitboxFns.create(HitboxFlags.Move, { x: 0, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX, w: innerBoundsPx.w }),
       HitboxFns.create(HitboxFlags.Move, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: 0, h: innerBoundsPx.h, w: RESIZE_BOX_SIZE_PX }),
-      HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
     ];
+
+    if (!parentIsDock) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX + 2, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX + 2, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }));
+    }
 
     if (hasPendingChanges) {
       hitboxes.push(HitboxFns.create(HitboxFlags.Anchor, { x: innerBoundsPx.w - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - ANCHOR_BOX_SIZE_PX - RESIZE_BOX_SIZE_PX, w: ANCHOR_BOX_SIZE_PX, h: ANCHOR_BOX_SIZE_PX }));
