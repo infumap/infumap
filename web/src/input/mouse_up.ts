@@ -200,6 +200,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         DoubleClickState.preventDoubleClick();
         ItemFns.handleClick(activeVisualElementSignal, MouseActionState.get().hitMeta, MouseActionState.get().hitboxTypeOnMouseDown, store);
 
+      } else if (VesCache.get(MouseActionState.get().activeElementPath)!.get().flags & VisualElementFlags.IsDock) {
+        DoubleClickState.preventDoubleClick();
+
       } else {
         store.history.setFocus(MouseActionState.get().activeElementPath);
 
