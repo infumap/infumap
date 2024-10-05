@@ -93,6 +93,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
     case MouseAction.ResizingColumn:
       mouseAction_resizingColumn(deltaPx, store);
       return;
+    case MouseAction.ResizingDockItem:
+      mouseAction_resizingDockItem(deltaPx, store);
+      return;
     case MouseAction.MovingPopup:
       mouseAction_movingPopup(deltaPx, store);
       return;
@@ -184,7 +187,7 @@ function changeMouseActionStateMaybe(
     }
 
   } else if ((MouseActionState.get().hitboxTypeOnMouseDown! & HitboxFlags.VerticalResize) > 0) {
-    console.log("TODO: vertical resize");
+    MouseActionState.get().action = MouseAction.ResizingDockItem;
 
   } else if (((MouseActionState.get().hitboxTypeOnMouseDown & HitboxFlags.Move) > 0) ||
              ((MouseActionState.get().compositeHitboxTypeMaybeOnMouseDown & HitboxFlags.Move))) {
@@ -327,6 +330,18 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
   fullArrange(store);
 }
 
+
+function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel) {
+  const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();
+  const activePage = asPageItem(activeVisualElement.displayItem);
+  let newHeightPx = MouseActionState.get().startChildAreaBoundsPx!.h + deltaPx.y;
+  if (newHeightPx < 5) { newHeightPx = 5; }
+  let newAspect = activeVisualElement.childAreaBoundsPx!.w / newHeightPx;
+  if (newAspect < 0.125) { newAspect = 0.125; }
+  if (newAspect > 8.0) { newAspect = 8.0; }
+  activePage.naturalAspect = newAspect;
+  fullArrange(store);
+}
 
 function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   const activeVisualElement = VesCache.get(MouseActionState.get().activeElementPath)!.get();

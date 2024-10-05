@@ -267,6 +267,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const hitVe = HitInfoFns.getHitVe(hitInfo);
   const activeItem = VeFns.canonicalItem(hitVe);
   let boundsOnTopLevelPagePx = VeFns.veBoundsRelativeToDestkopPx(store, hitVe);
+
   let onePxSizeBl;
 
   if (hitVe.flags & VisualElementFlags.Popup) {
@@ -350,6 +351,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     startWidthBl,
     startHeightBl,
     startDockWidthPx: store.getCurrentDockWidthPx(),
+    startChildAreaBoundsPx: hitVe.childAreaBoundsPx,
     startAttachmentsItem,
     startCompositeItem,
     clickOffsetProp,

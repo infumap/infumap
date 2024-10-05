@@ -107,6 +107,13 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       }
       break;
 
+    case MouseAction.ResizingDockItem:
+      DoubleClickState.preventDoubleClick();
+      if (MouseActionState.get().startChildAreaBoundsPx!.h != activeVisualElement.childAreaBoundsPx!.h) {
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
+      }
+      break;
+
     case MouseAction.ResizingListPageColumn:
       const newWidthGr = asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr;
       if (MouseActionState.get().startWidthBl! * GRID_SIZE != newWidthGr) {
@@ -242,7 +249,6 @@ function mouseUpHandler_moving(store: StoreContextModel, activeItem: PositionalI
   }
 
   const overContainerVe = VesCache.get(MouseActionState.get().moveOver_containerElement!)!.get();
-
   if (isTable(overContainerVe.displayItem)) {
     mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;
