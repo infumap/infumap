@@ -141,7 +141,8 @@ export const arrangeItemNoChildren = (
     flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
            (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
            (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
-           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None),
+           (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
+           (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: itemGeometry.boundsPx,
     hitboxes: itemGeometry.hitboxes,

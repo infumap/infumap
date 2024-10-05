@@ -184,6 +184,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderShadowMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
                 !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
+                !(props.visualElement.flags & VisualElementFlags.DockItem) &&
                 (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
       <div class={`absolute border border-transparent rounded-sm shadow-lg bg-white`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +

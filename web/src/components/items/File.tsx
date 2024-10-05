@@ -167,7 +167,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
   };
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
+                !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />

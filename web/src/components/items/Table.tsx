@@ -145,7 +145,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     isInComposite();
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
+                !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`absolute border border-transparent rounded-sm shadow-lg`}
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y + blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; ` +
                   `z-index: ${Z_INDEX_SHADOW}; ${VeFns.opacityStyle(props.visualElement)};`} />
