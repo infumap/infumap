@@ -565,8 +565,10 @@ export const PageFns = {
     if ((asPageItem(visualElement.displayItem).flags & PageFlags.EmbeddedInteractive) && (hitboxFlags & HitboxFlags.ContentEditable)) {
       PageFns.handleEditTitleClick(visualElement, store);
     } else {
-      store.history.setFocus(VeFns.veToPath(visualElement));
-      switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false, false);
+      const focusPath = VeFns.veToPath(visualElement);
+      store.history.setFocus(focusPath);
+      const actualVeid = VeFns.actualVeidFromVe(visualElement);
+      switchToPage(store, actualVeid, true, false, false);
     }
   },
 
