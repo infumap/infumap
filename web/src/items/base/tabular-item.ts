@@ -16,7 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { itemState } from "../../store/ItemState";
 import { panic } from "../../util/lang";
+import { Uid } from "../../util/uid";
 import { Item, ItemTypeMixin, ItemType} from "./item";
 
 
@@ -43,4 +45,17 @@ export function isTabularItem(item: ItemTypeMixin | null): boolean {
 export function asTabularItem(item: ItemTypeMixin): TabularItem {
   if (isTabularItem(item)) { return item as TabularItem; }
   panic("not tabular item.");
+}
+
+export const TabularFns = {
+  validateNumberOfVisibleColumnsMaybe(id: Uid) {
+    const item = itemState.get(id)!;
+    if (isTabularItem(item)) {
+      const tabularItem = asTabularItem(item);
+      if (tabularItem.numberOfVisibleColumns > tabularItem.tableColumns.length) {
+        tabularItem.numberOfVisibleColumns = tabularItem.tableColumns.length;
+        console.warn(`${item.id} numberOfVisibleColumns > number of table columns. setting equal.`);
+      }
+    }
+  }
 }

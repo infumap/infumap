@@ -20,6 +20,7 @@ import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
+import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -128,6 +129,7 @@ export const itemState = {
       if (!items.has(childItem.id)) {
         // item may have already been loaded (including children, and will be flagged as such).
         items.set(childItem.id, childItem);
+        TabularFns.validateNumberOfVisibleColumnsMaybe(childItem.id);
       }
     });
     if (!isContainer(itemState.get(parentId)!)) {
