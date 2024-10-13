@@ -26,6 +26,7 @@ import { itemState } from "../store/ItemState";
 import { fullArrange } from "./arrange";
 import { PageFns } from "../items/page-item";
 import { Veid } from "./visual-element";
+import { asTabularItem, isTabularItem } from "../items/base/tabular-item";
 
 
 export function clearLoadState() {
@@ -74,7 +75,15 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
         Object.keys(result.attachments).forEach(id => {
           itemState.setAttachmentItemsFromServerObjects(id, result.attachments[id], origin);
         });
-        asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
+        const containerItem = asContainerItem(itemState.get(containerVeid.itemId)!);
+        containerItem.childrenLoaded = true;
+        if (isTabularItem(containerItem)) {
+          const tabularItem = asTabularItem(containerItem);
+          if (tabularItem.numberOfVisibleColumns > tabularItem.tableColumns.length) {
+            tabularItem.numberOfVisibleColumns = tabularItem.tableColumns.length;
+            console.warn(`${containerItem.id} numberOfVisibleColumns > number of table columns. setting equal.`);
+          }
+        }
         try {
           fullArrange(store);
         } catch (e: any) {
