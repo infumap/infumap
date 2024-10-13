@@ -44,6 +44,7 @@ import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret"
 import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
+import { newOrdering } from "../util/ordering";
 
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -386,6 +387,13 @@ export const TableFns = {
       if (!isAttachmentsItem(child)) { continue; }
       const attachments = asAttachmentsItem(child).computed_attachments;
       if (colPos >= attachments.length) { continue; }
+      if (colPos == -1) {
+        const ordering = newOrdering();
+        const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
+        itemState.add(placeholderItem);
+        server.addItem(placeholderItem, null, store.general.networkStatus);
+        continue;
+      }
       const ordering = itemState.newOrderingAtAttachmentsPosition(child.id, colPos);
       const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
       itemState.add(placeholderItem);
