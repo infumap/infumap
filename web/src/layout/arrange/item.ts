@@ -60,18 +60,19 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
             flags & ArrangeItemFlags.IsDockRoot);
 }
 
+
 export const arrangeItem = (
     store: StoreContextModel,
     parentPath: VisualElementPath,
     parentArrangeAlgorithm: string,
-    item: Item,
+    itemWhichMightBeLink: Item,
     actualLinkItemMaybe: LinkItem | null,
     itemGeometry: ItemGeometry,
     flags: ArrangeItemFlags): VisualElementSignal => {
 
-  if (flags & ArrangeItemFlags.IsPopupRoot && !isLink(item)) { panic("arrangeItem: popup isn't a link."); }
+  if (flags & ArrangeItemFlags.IsPopupRoot && !isLink(itemWhichMightBeLink)) { panic("arrangeItem: popup isn't a link."); }
 
-  const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(store, item);
+  const { displayItem, linkItemMaybe, spatialWidthGr } = getVePropertiesForItem(store, itemWhichMightBeLink);
   const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
 
   let isMoving = false;
@@ -105,7 +106,7 @@ export const arrangeItem = (
       store, parentPath, asPageItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
   }
 
-  if (isTable(displayItem) && (item.parentId == store.history.currentPageVeid()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
+  if (isTable(displayItem) && (itemWhichMightBeLink.parentId == store.history.currentPageVeid()!.itemId || flags & ArrangeItemFlags.RenderChildrenAsFull)) {
     initiateLoadChildItemsMaybe(store, itemVeid);
     return arrangeTable(
       store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);

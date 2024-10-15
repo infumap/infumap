@@ -20,7 +20,7 @@ import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { getPanickedMessage, panic } from "../../util/lang";
+import { getPanickedMessage } from "../../util/lang";
 import { evaluateExpressions } from "../../expression/evaluate";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementSpec } from "../visual-element";
@@ -112,7 +112,7 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   const parentArrangeAlgorithm = ArrangeAlgorithm.None;
   const flags = ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot;
-  const pageVes = arrangeItem(store, umbrellaPath, parentArrangeAlgorithm, currentPage, actualLinkItemMaybe, itemGeometry, flags);
+  const pageVes = arrangeItem(store, umbrellaPath, parentArrangeAlgorithm, actualLinkItemMaybe ? actualLinkItemMaybe : currentPage, actualLinkItemMaybe, itemGeometry, flags);
   childrenVes.push(pageVes);
   umbrellaVeSpec.childrenVes = childrenVes;
 
