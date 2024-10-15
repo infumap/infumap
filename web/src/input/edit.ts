@@ -32,7 +32,7 @@ import { asExpressionItem, isExpression } from "../items/expression-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, getCurrentCaretVePath_title, getCaretPosition, setCaretPosition } from "../util/caret";
+import { currentCaretElement, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretPosition, setCaretPosition, editPathInfoToDomId } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -46,7 +46,7 @@ let arrowKeyDown_element: HTMLElement | null = null;
 export function composite_selectionChangeListener() {
   if (arrowKeyDown_element != null) {
     try {
-      getCurrentCaretVePath_title();
+      getCurrentCaretVeInfo();
     } catch (e) {
       setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
     }
@@ -63,33 +63,33 @@ const keyUp_Arrow = (store: StoreContextModel) => {
   arrowKeyDown_caretPosition = null;
   arrowKeyDown_element = null;
 
-  let currentCaretItemPath;
+  let currentCaretItemInfo;
   try {
-    currentCaretItemPath = getCurrentCaretVePath_title();
+    currentCaretItemInfo = getCurrentCaretVeInfo();
   } catch (e) {
     console.log("bad current caret ve path: ", e);
     return;
   }
   const currentEditingPath = store.history.getFocusPath();
-  if (currentEditingPath != currentCaretItemPath) {
+  if (currentEditingPath != currentCaretItemInfo.path) {
     serverOrRemote.updateItem(store.history.getFocusItem(), store.general.networkStatus);
 
-    const newEditingDomId = currentCaretItemPath + ":title";
+    const newEditingDomId = editPathInfoToDomId(currentCaretItemInfo);
     let newEditingTextElement = document.getElementById(newEditingDomId);
     let caretPosition = getCaretPosition(newEditingTextElement!);
 
-    let newVes = VesCache.get(currentCaretItemPath)!;
+    let newVes = VesCache.get(currentCaretItemInfo.path)!;
     let newVe = newVes.get();
     if (isNote(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Note });
+      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Note });
     } else if (isFile(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.File });
+      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.File });
     } else if (isExpression(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Expression });
+      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Expression });
     } else if (isPassword(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Password });
+      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Password });
     } else if (isTable(newVe.displayItem)) {
-      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemPath, itemType: ItemType.Table });
+      store.overlay.setTextEditInfo(store.history, { itemPath: currentCaretItemInfo.path, itemType: ItemType.Table });
     } else {
       console.warn("arrow key handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
     }
@@ -217,7 +217,7 @@ const enterKeyHandler = (store: StoreContextModel, visualElement: VisualElement)
 export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) => {
   setTimeout(() => {
     if (store.overlay.textEditInfo()) {
-      const colNum = store.overlay.textEditInfo()?.colNum;
+      const colNum = store.overlay.textEditInfo()!.colNum;
       const focusItemPath = store.history.getFocusPath();
       const focusItemDomId = colNum == null
         ? focusItemPath + ":title"

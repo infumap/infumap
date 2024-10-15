@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { VisualElementPath } from "../layout/visual-element";
 import { Vector } from "./geometry";
 import { panic } from "./lang";
 
@@ -128,19 +129,52 @@ export const currentCaretElement = (): HTMLElement | null => {
 }
 
 
+export enum EditElementType {
+  Title = 0x001,
+  Column = 0x002,
+}
+
+export interface EditPathInfo {
+  path: VisualElementPath,
+  type: EditElementType,
+  colNumMaybe: number | null,
+}
+
+export function editPathInfoToDomId(epi: EditPathInfo): string {
+  if (epi.type == EditElementType.Title) {
+    return epi.path + ":title";
+  }
+  return epi.path + ":col" + epi.colNumMaybe;
+}
+
 /**
- * Determine the VisualElementPath of the item whose title is currently being edited.
+ * Determine details pertaining to the item whose title or column name is currently being edited.
  *
  * Panics if there is no such item.
  */
-export const getCurrentCaretVePath_title = () => {
+export const getCurrentCaretVePath_title = (): EditPathInfo => {
   const el = currentCaretElement();
-  if (!el) {
-    throw("No HTML element selection.");
-  }
+  if (!el) { throw("No HTML element selection."); }
+
   const currentCaretElementId = currentCaretElement()!.id;
-  if (!currentCaretElementId.endsWith(":title")) {
-    throw("HTML element with caret has id that does not end with :title");
+
+  if (currentCaretElementId.endsWith(":title")) {
+    return ({
+      path: currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length),
+      type: EditElementType.Title,
+      colNumMaybe: null,
+    });
   }
-  return currentCaretElementId.substring(0, currentCaretElementId.length - ":title".length);
+
+  if (currentCaretElementId.includes(":col")) {
+    const idx = currentCaretElementId.lastIndexOf(":");
+    const numStr = currentCaretElementId.substring(idx + ":col".length);
+    return ({
+      path: currentCaretElementId.substring(0, currentCaretElementId.length - (":col".length + numStr.length)),
+      type: EditElementType.Column,
+      colNumMaybe: parseInt(numStr),
+    });
+  }
+
+  throw("HTML element with caret has id that does not end with :title or :col[number]");
 }
