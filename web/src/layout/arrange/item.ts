@@ -134,9 +134,10 @@ export const arrangeItemNoChildren = (
     flags: ArrangeItemFlags): VisualElementSignal => {
   const currentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), parentVePath);
 
-  const item = displayItem != null ? displayItem : linkItemMaybe!;
+  if (displayItem == null) { panic("displayItem == null is unexpected"); }
+
   const itemVisualElement: VisualElementSpec = {
-    displayItem: item,
+    displayItem,
     linkItemMaybe,
     actualLinkItemMaybe,
     flags: (flags & ArrangeItemFlags.RenderAsOutline ? VisualElementFlags.None : VisualElementFlags.Detailed) |
@@ -156,7 +157,7 @@ export const arrangeItemNoChildren = (
 
   const itemVisualElementSignal = VesCache.full_createOrRecycleVisualElementSignal(itemVisualElement, currentVePath);
 
-  if (isExpression(item)) {
+  if (isExpression(displayItem)) {
     VesCache.markEvaluationRequired(VeFns.veToPath(itemVisualElementSignal.get()));
   }
 

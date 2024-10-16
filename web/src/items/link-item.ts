@@ -312,8 +312,8 @@ export const LinkFns = {
       return "";
     }
     const linkedToItemMaybe = itemState.get(linkToId);
-    if (linkedToItemMaybe == null) { return ""; }
-    return ItemFns.getFingerprint(linkedToItemMaybe!);
+    if (linkedToItemMaybe == null) { return "_" + linkToId + "_"; }
+    return linkToId + "_" + ItemFns.getFingerprint(linkedToItemMaybe!);
   }  
 };
 

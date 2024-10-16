@@ -91,6 +91,7 @@ export const itemState = {
   setItemFromServerObject: (itemObject: object, origin: string | null): void => {
     let item = ItemFns.fromObject(itemObject, origin);
     items.set(item.id, item);
+    TabularFns.validateNumberOfVisibleColumnsMaybe(item.id);
   },
 
   sortChildren: (parentId: Uid): void => {
