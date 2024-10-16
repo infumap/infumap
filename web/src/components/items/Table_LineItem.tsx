@@ -27,6 +27,7 @@ import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { appendNewlineIfEmpty } from "../../util/string";
 
 
 export const Table_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -46,6 +47,19 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
     return r;
   };
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    switch (ev.key) {
+      case "Enter":
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+    }
+  }
+
+  const inputListener = (_ev: InputEvent) => {
+    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  }
 
   const renderHighlightsMaybe = () =>
     <Switch>
@@ -94,18 +108,27 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
     </Show>;
 
   const renderText = () =>
-    <div class="absolute overflow-hidden"
+    <div class={`absolute overflow-hidden whitespace-nowrap text-left ` +
+                ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `)}
          style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${(boundsPx().w - oneBlockWidthPx())/scale()}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
-      <span>{tableItem().title}<span></span></span>
+      <span id={VeFns.veToPath(props.visualElement) + ":title"}
+            style={`outline: 0px solid transparent;`}
+            class=""
+            contentEditable={store.overlay.textEditInfo() != null ? true : undefined}
+            spellcheck={store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}
+            onInput={inputListener}>
+        {appendNewlineIfEmpty(tableItem().title)}<span></span>
+      </span>
     </div>;
 
   const renderLinkMarkingMaybe = () =>
     <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
                 showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
-          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
