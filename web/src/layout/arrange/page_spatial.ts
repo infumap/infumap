@@ -146,7 +146,7 @@ export function arrange_spatial_page(
         const popupVeid = currentPopupSpec.actualVeid;
         const popupLinkToPageId = popupVeid.itemId;
         const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
-        const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, newOrdering(), popupLinkToPageId!);
+        const li = LinkFns.create(displayItem_pageWithChildren.ownerId, displayItem_pageWithChildren.id, RelationshipToParent.Child, popupLinkToPageId!, newOrdering());
         li.id = POPUP_LINK_UID;
         const widthGr = PageFns.getPopupWidthGr(displayItem_pageWithChildren);
         const heightGr = Math.round((widthGr / displayItem_pageWithChildren.naturalAspect / GRID_SIZE)/ 2.0) * 2.0 * GRID_SIZE;

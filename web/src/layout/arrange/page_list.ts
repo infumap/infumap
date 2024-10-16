@@ -247,7 +247,7 @@ export function arrangeSelectedListItem(
     return null;
   }
 
-  let li = LinkFns.create(item.ownerId, canonicalItem.parentId, RelationshipToParent.Child, newOrdering(), veid.itemId);
+  let li = LinkFns.create(item.ownerId, canonicalItem.parentId, RelationshipToParent.Child, veid.itemId, newOrdering());
   li.id = LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
   if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }

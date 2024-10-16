@@ -28,7 +28,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { serverOrRemote } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
 import { rearrangeWithDisplayId } from '../layout/arrange';
 
 
@@ -40,7 +40,7 @@ export interface RatingMeasurable extends ItemTypeMixin, PositionalMixin { }
 
 
 export const RatingFns = {
-  create: (ownerId: Uid, parentId: Uid, rating: number, relationshipToParent: string, ordering: Uint8Array): RatingItem => {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, rating: number, ordering: Uint8Array): RatingItem => {
     if (parentId == EMPTY_UID) { panic("RatingFns.create: parent is empty."); }
     return {
       origin: null,

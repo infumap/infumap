@@ -44,7 +44,7 @@ import { HitInfo, HitInfoFns } from "./hit";
 function createNewItem(store: StoreContextModel, type: string, parentId: Uid, ordering: Uint8Array, relationship: string): PositionalItem {
   let newItem = null;
   if (type == "rating") {
-    newItem = RatingFns.create(store.user.getUser().userId, parentId, 3, relationship, ordering)
+    newItem = RatingFns.create(store.user.getUser().userId, parentId, relationship, 3, ordering)
   } else if (type == "table") {
     newItem = TableFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "note") {
@@ -52,7 +52,7 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "link")  {
-    newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, ordering, "");
+    newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "password")  {
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "expression") {

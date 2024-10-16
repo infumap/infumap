@@ -41,7 +41,7 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
   const popupVeid = currentPopupSpec.actualVeid;
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
   const popupLinkToImageId = popupVeid.itemId;
-  const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, newOrdering(), popupLinkToImageId!);
+  const li = LinkFns.create(currentPage.ownerId, currentPage.id, RelationshipToParent.Child, popupLinkToImageId!, newOrdering());
   li.id = POPUP_LINK_UID;
   li.spatialWidthGr = 1000;
   li.spatialPositionGr = { x: 0, y: 0, };
