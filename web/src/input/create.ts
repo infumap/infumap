@@ -52,7 +52,7 @@ function createNewItem(store: StoreContextModel, type: string, parentId: Uid, or
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "link")  {
-    newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, ordering, EMPTY_UID);
+    newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, ordering, "");
   } else if (type == "password")  {
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "expression") {
@@ -207,12 +207,18 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     panic("cannot create item in context here.");
   }
 
-  if (type == ItemType.Page || type == ItemType.Note || type == ItemType.Expression || type == ItemType.Password || type == ItemType.Table) {
+  if (type == ItemType.Page ||
+      type == ItemType.Note ||
+      type == ItemType.Expression ||
+      type == ItemType.Password ||
+      type == ItemType.Table) {
     store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);
     el!.innerText = "\n";
     el!.focus();
+  } else if (type == ItemType.Link) {
+    store.history.setFocus(newItemPath);
   } else if (type == ItemType.Rating) {
     // noop.
   } else {
