@@ -246,7 +246,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
           if exif_orientation > 1 {
             debug!("Note: image has exif orientation type of: {}", exif_orientation);
           }
-          print!("Adding image '{}' {}/{}... ", filename, i, local_filenames.len());
+          print!("Adding image '{}' {}/{}... ", filename, i+1, local_filenames.len());
           std::io::stdout().flush()?;
         },
         Err(_e) => {
@@ -257,7 +257,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
     } else {
       item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
-      print!("Adding file '{}' {}/{}... ", filename, i, local_filenames.len());
+      print!("Adding file '{}' {}/{}... ", filename, i+1, local_filenames.len());
       std::io::stdout().flush()?;
     }
 
