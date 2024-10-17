@@ -4,6 +4,7 @@
   "description": "Infumap",
   "scripts": {
     "start": "vite",
+    "host": "vite --host",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview"
