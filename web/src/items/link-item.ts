@@ -19,7 +19,7 @@
 import { GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from "../constants";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
-import { EMPTY_UID, newUid, Uid } from "../util/uid";
+import { EMPTY_UID, isUid, newUid, Uid } from "../util/uid";
 import { ItemGeometry } from "../layout/item-geometry";
 import { AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { Measurable, ItemTypeMixin, Item, ItemType } from "./base/item";
@@ -58,8 +58,9 @@ export const LinkFns = {
     return result;
   },
 
-  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, linkTo: Uid, ordering: Uint8Array): LinkItem => {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, linkToMaybe: Uid | "", ordering: Uint8Array): LinkItem => {
     if (parentId == EMPTY_UID) { panic("LinkFns.create: parent is empty."); }
+    if (linkToMaybe != "" && !isUid(linkToMaybe)) { panic(`invalid linkTo '${linkToMaybe}'.`); }
     return {
       origin: null,
       itemType: ItemType.Link,
@@ -76,8 +77,8 @@ export const LinkFns = {
       spatialWidthGr: 4.0 * GRID_SIZE,
       spatialHeightGr: 4.0 * GRID_SIZE,
 
-      linkTo,
-      linkToResolvedId: linkTo,
+      linkTo: linkToMaybe,
+      linkToResolvedId: linkToMaybe == "" ? null : linkToMaybe,
 
       computed_attachments: [],
     };

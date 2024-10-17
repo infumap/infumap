@@ -20,10 +20,22 @@ import { uuid } from "./uuid";
 
 export type Uid = string;
 
+export const EMPTY_UID: string =           "00000000000000000000000000000000";
+export const UMBRELLA_PAGE_UID: string =   "00000000000000000000000000000001";
+export const POPUP_LINK_UID: string =      "00000000000000000000000000000002";
+
 export function newUid(): Uid {
   return uuid.createV4().split('-').join('');
 }
 
-export const EMPTY_UID: string =           "00000000000000000000000000000000";
-export const UMBRELLA_PAGE_UID: string =   "00000000000000000000000000000001";
-export const POPUP_LINK_UID: string =      "00000000000000000000000000000002";
+export function isUid(uidMaybe: string): boolean {
+  if (uidMaybe.length != EMPTY_UID.length) { return false; }
+  for (let i=0; i<uidMaybe.length; ++i) {
+    const c = uidMaybe[i];
+    if (c != "a" && c != "b" && c != "c" && c != "d" && c != "e" && c != "f" &&
+        c != "0" && c != "1" && c != "2" && c != "3" && c != "4" && c != "5" && c != "6" && c != "7" && c != "8" && c != "9") {
+      return false;
+    }
+  }
+  return true;
+}
