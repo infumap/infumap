@@ -600,6 +600,7 @@ export const VeFns = {
       result += "[N/A] (" + ve.displayItem.id + ")  ";
     }
     result += `[x: ${ve.boundsPx.x}, y: ${ve.boundsPx.y}, w: ${ve.boundsPx.w}, h: ${ve.boundsPx.h}]`;
+    result += ` parent: ${ve.parentPath}`;
     return result;
   },
 }

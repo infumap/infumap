@@ -58,7 +58,7 @@ export function arrange_list_page(
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
-  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());

@@ -1182,7 +1182,12 @@ function finalize(
     };
   }
 
-  const overVeParent = VesCache.get(overVe.parentPath!)!.get();
+  const overVeParentVes = VesCache.get(overVe.parentPath!)!;
+  if (!overVeParentVes) {
+    console.log(VeFns.toDebugString(overVe));
+    VesCache.debugLog();
+  }
+  const overVeParent = overVeParentVes.get();
   assert(isPage(VesCache.get(overVe.parentPath!)!.get().displayItem), "the parent of a non-container item not in page is not a page.");
   assert((VesCache.get(overVe.parentPath!)!.get().flags & VisualElementFlags.ShowChildren) > 0, `the parent '${VesCache.get(overVe.parentPath!)!.get().displayItem.id}' of a non-container does not allow drag in positioning.`);
   if (isPage(overVe.displayItem)) {

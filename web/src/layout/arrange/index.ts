@@ -112,7 +112,8 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
 
   const parentArrangeAlgorithm = ArrangeAlgorithm.None;
   const flags = ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsTopRoot;
-  const pageVes = arrangeItem(store, umbrellaPath, parentArrangeAlgorithm, actualLinkItemMaybe ? actualLinkItemMaybe : currentPage, actualLinkItemMaybe, itemGeometry, flags);
+  const pageVes = arrangeItem(
+    store, umbrellaPath, parentArrangeAlgorithm, actualLinkItemMaybe ? actualLinkItemMaybe : currentPage, actualLinkItemMaybe, itemGeometry, flags);
   childrenVes.push(pageVes);
   umbrellaVeSpec.childrenVes = childrenVes;
 
@@ -222,7 +223,7 @@ function rearrangeInsidePage(store: StoreContextModel, ves: VisualElementSignal)
   }
   let arrangedVes = arrangeItem(
     store, parentPath, parentItem.arrangeAlgorithm,
-    ve.linkItemMaybe ? ve.linkItemMaybe : ve.displayItem,
+    ve.linkItemMaybe ? ve.linkItemMaybe : (ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe : ve.displayItem),
     ve.actualLinkItemMaybe, itemGeometry, ve._arrangeFlags_useForPartialRearrangeOnly);
   ves.set(arrangedVes.get());
 }

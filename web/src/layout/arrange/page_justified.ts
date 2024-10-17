@@ -46,7 +46,7 @@ export function arrange_justified_page(
 
   let pageWithChildrenVisualElementSpec: VisualElementSpec;
 
-  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+  const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
