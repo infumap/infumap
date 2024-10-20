@@ -1,7 +1,7 @@
 
 ## A Security Conscious Deployment on Vultr.com
 
-_TODO: these notes are incomplete / very rough / probably flawed._
+_TODO: assume these notes are incomplete / very rough / probably flawed._
 
 Always choose a reputable cloud vendor when hosting sensitive information because you have no option but to trust them. It is possible to take a snapshot of a running VPS instance, including any data currently in memory, so you need to assume this is a possibility.
 

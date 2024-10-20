@@ -1,7 +1,7 @@
 
 ## Simple Deployment on Debian 11
 
-_TODO: these notes are incomplete / very rough / probably flawed._
+_TODO: assume these notes are incomplete / very rough / probably flawed._
 
 ### Firewall Setup
 

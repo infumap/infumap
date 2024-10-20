@@ -1,17 +1,18 @@
 
 ## Raspberry Pi / VPN
 
-_TODO: these notes are incomplete / very rough / probably flawed._
+_TODO: assume these notes are incomplete / very rough / probably flawed._
 
-If you run Infumap on hardware managed by someone else (Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them. In particular, it is possible for your hosting provider to take a snapshot of any running VPS instance, including any data currently in memory. There is no way to secure Infumap against this.
+If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them. Notably, it is possible for your hosting provider to take a snapshot of any running VPS instance, including any data currently in memory. There is no way to secure Infumap against this.
 
-If trusting your VPS vendo is unacceptable to you, your only option is to host Infumap on hardware that you control. I personally host Infumap on a Raspberry Pi 5 sitting in my living room. I'm very happy with this setup.
+If trusting your VPS vendor is unacceptable to you, your only option is to host Infumap on hardware that you control. I personally host Infumap on a Raspberry Pi 5 sitting in my living room. I'm very happy with this setup.
 
-Unfortunately, most Internet service providers (ISPs) dynamically issue WAN IPs from a private subnet. In order to access Infumap from the internet, you will need to securely route traffic via a public IP address that you control.
+Most Internet service providers (ISPs) dynamically issue WAN IPs from a private subnet. Consequently, in order to access Infumap from the internet, you will need to securely route traffic via a public IP address that you control.
 
 This document walks through one method of setting all of this up.
 
-### Raspberry Pi Setup
+
+### Initial Raspberry Pi Setup
 
 Use the Raspberry Pi Imager to install a new image.
 
@@ -32,11 +33,13 @@ Setup firewall:
 
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
-    sudo ufw allow 22
-    sudo ufw allow 443
+    sudo ufw allow from YOUR_SUBNET to any port 22 proto tcp
+    sudo ufw allow from 10.0.0.0/24 to any port 8000 proto tcp
+    sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
     sudo ufw enable
 
-TODO: disable SSH access via VPN subnet.
+Where YOUR_SUBNET is your local subnet in CIDR notation, as determined by your router configuration - e.g. 192.168.0.0/16
+
 
 Build infumap from source.
 
@@ -64,7 +67,7 @@ Finally build Infumap:
     ./infumap web
 
 
-### Setup Wireguard on VPS
+### Initial VPS Setup
 
 Install prerequisites:
 
@@ -74,10 +77,6 @@ Install prerequisites:
 Generate the VPS wireguard keys:
 
     sudo mkdir -p /etc/wireguard/keys; wg genkey | sudo tee /etc/wireguard/keys/server.key | wg pubkey > /etc/wireguard/keys/server.key.pub
-
-Determine the default network interface for internet traffic:
-
-    ip -o -4 route show to default | awk '{print $5}'
 
 Create the wireguard config file:
 
@@ -161,6 +160,66 @@ Verify it's up:
 
     wg show wg0
 
+### Install caddy on Raspberry Pi
+
+    sudo apt install caddy
+
+Contents of `/etc/caddy/Caddyfile`:
+
+    {
+        log {
+            output file /var/log/caddy/access.log
+            format json
+        }
+    }
+
+    YOUR_DOMAINNAME {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+Start:
+
+    systemctl enable caddy
+    systemctl start caddy
+
+### Expose Infumap on VPS
+
+Enable IP forwarding on your server to allow it to route packets between interfaces
+
+edit `/etc/sysctl.conf` and uncomment the line:
+
+    net.ipv4.ip_forward=1
+
+then
+
+    sysctl -p
+
+nftables config :
+
+    #!/usr/sbin/nft -f
+
+    flush ruleset
+
+    table ip nat {
+        chain prerouting {
+            type nat hook prerouting priority -100; policy accept;
+            tcp dport 443 dnat to 10.0.0.2
+            tcp dport 80 dnat to 10.0.0.2
+        }
+
+        chain postrouting {
+            type nat hook postrouting priority 100; policy accept;
+            ip daddr 10.0.0.2 masquerade
+        }
+    }
+
+
+
+Enable:
+
+    systemctl enable nftables
+    systemctl start nftables
+
 
 
 ### Useful References:
@@ -175,3 +234,13 @@ https://dnsleaktest.com
 ### TODO:
 
 https / DNS on private network.
+
+how does wireguard behave when the ISP changes your public IP or WAN address?
+
+note current public ip using:
+    curl -4 ifconfig.me
+and wan address using 
+
+Determine the default network interface for internet traffic:
+
+    ip -o -4 route show to default | awk '{print $5}'
