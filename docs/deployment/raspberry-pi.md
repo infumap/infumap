@@ -1,7 +1,7 @@
 
 ## Raspberry Pi / VPN
 
-_TODO: assume these notes are incomplete / very rough / probably flawed._
+_TODO: these notes are incomplete / very rough / probably flawed._
 
 If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them. Notably, it is possible for your hosting provider to take a snapshot of any running VPS instance, including any data currently in memory. There is no way to secure Infumap against this.
 
@@ -213,13 +213,50 @@ nftables config :
         }
     }
 
-
-
 Enable:
 
     systemctl enable nftables
     systemctl start nftables
 
+
+### Encrypted drive
+
+On Rasperry Pi:
+
+    sudo apt-get install cryptsetup
+
+Available bytes:
+
+    df -k
+
+In `/root`, create a 16Gb file with random data:
+
+    dd if=/dev/urandom of=enc_volume.img bs=1M count=16384 status=progress
+
+Format as a LUKS container:
+
+    sudo cryptsetup luksFormat enc_volume.img
+
+Open the container:
+
+    sudo cryptsetup luksOpen enc_volume.img infuvol
+
+Create filesystem:
+
+    sudo mkfs.ext4 /dev/mapper/infuvol
+
+Create a mount point:
+
+    sudo mkdir /mnt/infudata
+
+mount:
+
+    sudo mount /dev/mapper/infuvol /mnt/infudata
+
+Can unmount and close the LUKS container with:
+
+    sudo umount /mnt/infudata
+    sudo cryptsetup luksClose infuvol
 
 
 ### Useful References:
