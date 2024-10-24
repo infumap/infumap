@@ -91,10 +91,22 @@ And copy to somewhere on the current `PATH`:
 
 ### Initial VPS Setup
 
+Create a VPS running Debian 12 using your vendor of choice.
+
+The smallest instance size will suffice, since we will not use the VPS instance for anything other than forwarding
+through https web requests to the Raspberry Pi device.
+
+Note: I actually use this VPS instance to host a number of custom made data services (that I don't make public) which
+expose information via the infumap protocol. I link out to these from my main Infumap 
+
+Use public-key authentication, with a different key to your Raspberry Pi.
+
 Install prerequisites:
 
     apt update && sudo apt upgrade
     apt install wireguard
+
+We will use wireguard to create a secure, persistent, reliable network between our VPS instance and Raspberry Pi.
 
 Generate the VPS wireguard keys:
 
@@ -102,7 +114,7 @@ Generate the VPS wireguard keys:
 
 Create the wireguard config file:
 
-    emacs /etc/wireguard/wg0.conf
+    nano /etc/wireguard/wg0.conf
 
     [Interface]
     Address = 10.0.0.1/24
@@ -128,7 +140,7 @@ Generate wireguard keys for your Raspberry PI instance:
 
 Create the wg0 interface config:
 
-    sudo emacs /etc/wireguard/wg0.conf
+    sudo nano /etc/wireguard/wg0.conf
 
     [Interface]
     PrivateKey = {YOUR_CLIENT_PRIVATE_KEY}
@@ -158,7 +170,7 @@ Start wg0 up now:
 
 Now, on the VPS, add your Raspberry Pi as a peer:
 
-    emacs /etc/wireguard/wg0.conf
+    nano /etc/wireguard/wg0.conf
 
     [Interface]
     Address = 10.0.0.1/24
