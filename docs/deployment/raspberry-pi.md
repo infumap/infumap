@@ -27,21 +27,39 @@ To figure out the IP address of your Raspberry Pi you can typically log into you
 Install prerequisites:
 
     sudo apt update
-    sudo apt install emacs tmux ufw wireguard
+    sudo apt upgrade
+    sudo apt install tmux ufw wireguard
 
 Setup firewall:
 
+    sudo ufw reset
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
-    sudo ufw allow from YOUR_SUBNET to any port 22 proto tcp
-    sudo ufw allow from 10.0.0.0/24 to any port 8000 proto tcp
+    sudo ufw allow 22
     sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
+    sudo ufw start
     sudo ufw enable
 
-Where YOUR_SUBNET is your local subnet in CIDR notation, as determined by your router configuration - e.g. 192.168.0.0/16
+Note: This assumes you will be setting up your wiregard network interface on 10.0.0.0/24. If this clashes with your router,
+or some other local network configuration, you will need to change accordingly.
 
+For additional security, you might consider restricting ssh port access to devices on your local router subnet, making
+`sshd` inaccessible from the internet. To do this, use the following rule for port 22 instead:
 
-Build infumap from source.
+    sudo ufw allow from YOUR_LOCAL_SUBNET to any port 22 proto tcp
+
+Where YOUR_LOCAL_SUBNET is your local subnet in CIDR notation, as determined by your router configuration - e.g. 192.168.0.0/16
+
+The tradeoff of course is that there is now no way for you to access your own Infumap installation without being physically
+present in your home. The main implication of this comes if you decide to use an encrypted volume to store your infumap data
+(which is highly recommended). In the event of a power outage, you will need to manually enter your password to re-mount the
+encrypted volume. If you have locked down ssh access, you won't be able to do this remotely.
+
+Your predicament is not as bad as it first seems though - if you have backups enabled (which you should), you can use the
+`infumap emergency` command to quickly pull backup information locally and start up a temporary instance - you won't be
+locked out of access to your information.
+
+After setting up the firewall, build infumap from source.
 
 First install rust:
 
@@ -54,6 +72,9 @@ Now clone the infumap repo:
     cd git
     git clone https://github.com/infumap/infumap.git
 
+TODO: At the time of writing, there are no releases. When there are, check out the latest release before building. Do not use a
+master branch build in production as it will be much less well tested.
+
 Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the time of writing 0.39.7) and install similar to:
 
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -62,9 +83,10 @@ Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the
 Finally build Infumap:
 
     ./build.sh
-    mv ./infumap/target/release/infumap ~
-    tmux
-    ./infumap web
+
+And copy to somewhere on the current `PATH`:
+
+    sudo cp ~/git/infumap/infumap/target/release/infumap /usr/local/bin/
 
 
 ### Initial VPS Setup
@@ -258,6 +280,60 @@ Can unmount and close the LUKS container with:
     sudo umount /mnt/infudata
     sudo cryptsetup luksClose infuvol
 
+### Configure and run Infumap:
+
+The easiest way to create a default settings file is to simply run infumap:
+
+    infumap web
+    Ctrl-C
+
+Move the created files into the encrypted drive:
+
+    sudo mv ~/.infumap/* /mnt/infudata
+
+Update [settings.toml](../configuration.md) as desired. At a minimum, update the data and cache dirs:
+
+    data_dir = "/mnt/infudata/data"
+    cache_dir = "/mnt/infudata/cache"
+
+Start a tmux session to run infumap in:
+
+    tmux
+
+Run infumap:
+
+    infumap web --settings /mnt/infudata/settings.toml
+
+Key tmux commands to know:
+
+    Ctrl-b-s (list sessions)
+    Ctrl-b-d (detatch)
+    Ctrl-b-a (attach)
+
+### Test Network interruption
+
+From raspberry pi instance:
+
+    curl -4 ifconfig.me
+
+To get public IP of home network. Get WLAN IP from router.
+
+Remove power from Raspberry Pi and Router for some time.
+
+Turn back on, and see if everything recovers.
+
+Will need to manually re-mount secure drive on Raspberry Pi.
+
+
+### Additional Security
+
+Configure the firewall to disallow ssh access from the wireguard network. 
+
+Run caddy on a different Raspberry Pi instance. 
+
+### Infumap data sources
+
+Use unused resources on VPS for running infumap data sources.
 
 ### Useful References:
 
@@ -281,3 +357,9 @@ and wan address using
 Determine the default network interface for internet traffic:
 
     ip -o -4 route show to default | awk '{print $5}'
+
+sdf
+
+    mv ./infumap/target/release/infumap ~
+    tmux
+    ./infumap web
