@@ -5,18 +5,17 @@ _TODO: these notes are incomplete / very rough / probably flawed._
 
 If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them. Notably, it is possible for your hosting provider to take a snapshot of any running VPS instance, including any data currently in memory. There is no way to secure Infumap against this.
 
-If trusting your VPS vendor is unacceptable to you, your only option is to host Infumap on hardware that you control. I personally host Infumap on a Raspberry Pi 5 sitting in my living room. I'm very happy with this setup.
+If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your home router is a good low-cost option for this purpose. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via a public IP address that you control.
 
-Most Internet service providers (ISPs) dynamically issue WAN IPs from a private subnet. Consequently, in order to access Infumap from the internet, you will need to securely route traffic via a public IP address that you control.
+There are any number of ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the potential security implications of running their daemon `cloudflared`. This document walks through how to use a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel https traffic through the public IP of the VPS.
 
-This document walks through one method of setting all of this up.
-
+One downside of this approach is the VPS is hardly doing anything - so it's a waste of resources. But you can use the VPS for any other purposes as well. I personally use this VPS instance to host a number of proprietary data services which expose information via the infumap protocol.
 
 ### Initial Raspberry Pi Setup
 
-Use the Raspberry Pi Imager to install a new image.
+Use the Raspberry Pi Imager to install a clean OS image.
 
-- Choose the Raspberry Pi OS (64 bit) image.
+- Select Raspberry Pi OS (64 bit).
 - Enable the SSH service and use public-key authentication as this is more secure than password authentication.
 - Turn off telemetry.
 
@@ -95,9 +94,6 @@ Create a VPS running Debian 12 using your vendor of choice.
 
 The smallest instance size will suffice, since we will not use the VPS instance for anything other than forwarding
 through https web requests to the Raspberry Pi device.
-
-Note: I actually use this VPS instance to host a number of custom made data services (that I don't make public) which
-expose information via the infumap protocol. I link out to these from my main Infumap 
 
 Use public-key authentication, with a different key to your Raspberry Pi.
 
