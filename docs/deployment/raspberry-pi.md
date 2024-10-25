@@ -7,9 +7,9 @@ If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital
 
 If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your home router is a good low-cost option for this purpose. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via a public IP address that you control.
 
-There are any number of ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the potential security implications of running their daemon `cloudflared`. This document walks through how to use a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel https traffic through the public IP of the VPS.
+There are any number of ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel https traffic through the public IP of the VPS. This document walks through this approach.
 
-One downside of this approach is the VPS is hardly doing anything - so it's a waste of resources. But you can use the VPS for any other purposes as well. I personally use this VPS instance to host a number of proprietary data services which expose information via the infumap protocol.
+A downside is the VPS is hardly doing anything - so it's a waste of resources if this is the only thing you are using the VPS for. But you can use it for any other purposes as well. I personally use this VPS instance to host a number of proprietary data services (for unsensitive data) which expose information via the infumap protocol. I link to is data from my primary Infumap account.
 
 ### Initial Raspberry Pi Setup
 
