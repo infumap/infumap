@@ -5,11 +5,12 @@ _TODO: these notes are incomplete / very rough / probably flawed._
 
 If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them. Notably, it is possible for your hosting provider to take a snapshot of any running VPS instance, including any data currently in memory. There is no way to secure Infumap against this.
 
-If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your home router is a good low-cost option for this purpose. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via a public IP address that you control.
+If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your home router is a good low-cost option for doing this. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via a public IP address.
 
-There are any number of ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel https traffic through the public IP of the VPS. This document walks through this approach.
+There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS traffic through the public IP of the VPS. This is the approach outlined in this document.
 
-A downside is the VPS is hardly doing anything - so it's a waste of resources if this is the only thing you are using the VPS for. But you can use it for any other purposes as well. I personally use this VPS instance to host a number of proprietary data services (for unsensitive data) which expose information via the infumap protocol. I link to is data from my primary Infumap account.
+A downside of doing this is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I personally use this VPS instance to host a number of proprietary data services (for unsensitive data) that expose information via the infumap protocol which I link to from my primary Infumap account.
+
 
 ### Initial Raspberry Pi Setup
 
