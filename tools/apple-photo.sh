@@ -43,17 +43,17 @@ if [ ! -d $1/processed ]; then
 fi
 
 if [ -d $1/_photos ]; then
-    echo 'photos subdir already exist'
+    echo 'photos subdir already exists'
     exit 0
 fi
 
 if [ -d $1/_photos_original ]; then
-    echo 'photos_original subdir already exist'
+    echo 'photos_original subdir already exists'
     exit 0
 fi
 
 if [ -d $1/_other ]; then
-    echo 'other subdir already exist'
+    echo 'other subdir already exists'
     exit 0
 fi
 
