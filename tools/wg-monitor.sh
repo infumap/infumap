@@ -28,22 +28,22 @@ restart_wireguard_service() {
 }
 
 if [ "$#" -ne 2 ]; then
-    echo "A tool for monitoring a WireGuard network, and restarting the WireGuard service is a problem is detected."
+    echo "A tool for monitoring a WireGuard network, and restarting the WireGuard service if a problem is detected."
     echo ""
-    echo "Usage: $0 <server>"
+    echo "Usage: $0 <server> <log-file>"
     exit 1
 fi
 
 server="$1"
+log_file="$2"
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Command executed: $0 $*" >> "$log_file"
 
 while true; do
+    sleep 60
     if ! ping_server "$server"; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server failed. Restarting WireGuard service."
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server failed. Restarting WireGuard service." >> "$log_file"
         restart_wireguard_service
         sleep 240
-    else
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server succeeded."
     fi
-
-    sleep 60
 done

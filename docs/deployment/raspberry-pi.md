@@ -3,13 +3,22 @@
 
 _TODO: these notes are incomplete / very rough / probably flawed._
 
-If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them. Notably, it is possible for your hosting provider to take a snapshot of any running VPS instance, including any data currently in memory. There is no way to secure Infumap against this.
+If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them.
+Notably, it is theoretically possible for your hosting provider to take a snapshot of your running VPS instance, including any data currently
+in memory. There is no way to secure Infumap against this possibility.
 
-If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your home router is a good low-cost option for doing this. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via a public IP address.
+If this risk is unacceptable to you, your only option is to host Infumap on hardware that you control. A Raspberry Pi 5 connected to your
+home router is a good low-cost option for doing this. Unfortunately, most Internet service providers (ISPs) dynamically issue WLAN IPs from
+a private subnet. Consequently, in order to access your Raspberry Pi device from the internet, you will need to securely route traffic via
+a public IP address.
 
-There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS traffic through the public IP of the VPS. This is the approach outlined in this document.
+There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications
+of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS
+traffic through the public IP of the VPS. This is the approach outlined in this document.
 
-A downside of doing this is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I personally use this VPS instance to host a number of proprietary data services (for unsensitive data) that expose information via the infumap protocol which I link to from my primary Infumap account.
+A downside of this setup is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I
+personally use it to host a number of proprietary data services that expose information via the Infumap protocol built using
+[infusdk](https://github.com/infumap/infumap/tree/master/infusdk).
 
 
 ### Initial Raspberry Pi Setup
@@ -41,7 +50,7 @@ Setup firewall:
     sudo ufw enable
 
 Note: This assumes you will be setting up your wiregard network interface on 10.0.0.0/24. If this clashes with your router,
-or some other local network configuration, you will need to change accordingly.
+or some other local network configuration, you will need to change it to something that doesn't.
 
 For additional security, you might consider restricting ssh port access to devices on your local router subnet, making
 `sshd` inaccessible from the internet. To do this, use the following rule for port 22 instead:
@@ -50,7 +59,7 @@ For additional security, you might consider restricting ssh port access to devic
 
 Where YOUR_LOCAL_SUBNET is your local subnet in CIDR notation, as determined by your router configuration - e.g. 192.168.0.0/16
 
-The tradeoff of course is that there is now no way for you to access your own Infumap installation without being physically
+The tradeoff of course is that there is now no way for you to access your Infumap installation without being physically
 present in your home. The main implication of this comes if you decide to use an encrypted volume to store your infumap data
 (which is highly recommended). In the event of a power outage, you will need to manually enter your password to re-mount the
 encrypted volume. If you have locked down ssh access, you won't be able to do this remotely.
@@ -92,6 +101,8 @@ And copy to somewhere on the current `PATH`:
 ### Initial VPS Setup
 
 Create a VPS running Debian 12 using your vendor of choice.
+
+Choose a region as close as possible to your Raspberry Pi device.
 
 The smallest instance size will suffice, since we will not use the VPS instance for anything other than forwarding
 through https web requests to the Raspberry Pi device.
@@ -163,7 +174,7 @@ Start wg0 up now:
     sudo systemctl start wg-quick@wg0
 
 
-### Add Wireguard Peer on VPS
+### Add WireGuard Peer on VPS
 
 Now, on the VPS, add your Raspberry Pi as a peer:
 
@@ -190,6 +201,40 @@ Start wg0 up now:
 Verify it's up:
 
     wg show wg0
+
+
+### Setup WireGuard monitor service
+
+With the above setup, I observe a periodic issue whereby the Raspberry Pi device becomes unreachable over
+the WireGuard network. I'm unsure of the exact cause, though I suspect it is likely due to my ISP changing
+the WLAN or public IP address. In order to work around this issue, I use a simple script to monitor whether
+the VPS server is reachable from the Raspberry Pi, and restart the WireGuard service on the Raspberry Pi
+device if not.
+
+Copy the `infumap/tools/wg-monitor.sh` script to `/usr/local/bin/`.
+
+Create a file `/etc/systemd/system/wg-monitor.service` with the following text:
+
+    [Unit]
+    Description=Monitor WireGuard Service
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=pi
+    ExecStart=/usr/local/bin/wg-monitor.sh 10.0.0.1 /var/log/wg-monitor.log
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+
+Reload systemd, start, and enable. 
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable wg-monitor.service
+    sudo systemctl start wg-monitor.service
+
 
 ### Install caddy on Raspberry Pi
 
@@ -372,3 +417,7 @@ sdf
     mv ./infumap/target/release/infumap ~
     tmux
     ./infumap web
+
+
+I personally use this VPS instance to host a number of proprietary services (for unsensitive information) that expose data via the infumap protocol which I link out to from my primary Infumap account.
+
