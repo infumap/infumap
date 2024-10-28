@@ -37,12 +37,12 @@ fi
 server="$1"
 log_file="$2"
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Command executed: $0 $*" >> "$log_file"
+sudo echo "$(date '+%Y-%m-%d %H:%M:%S') - Command executed: $0 $*" >> "$log_file"
 
 while true; do
     sleep 60
     if ! ping_server "$server"; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server failed. Restarting WireGuard service." >> "$log_file"
+        sudo echo "$(date '+%Y-%m-%d %H:%M:%S') - Ping to $server failed. Restarting WireGuard service." >> "$log_file"
         restart_wireguard_service
         sleep 240
     fi
