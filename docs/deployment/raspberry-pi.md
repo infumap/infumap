@@ -1,8 +1,6 @@
 
 ## Raspberry Pi / VPN
 
-_TODO: these notes are incomplete / very rough / probably flawed._
-
 If you run Infumap on hardware managed by someone else (e.g. Amazon EC2, Digital Ocean Droplet etc.), you have no option but to trust them.
 Notably, it is theoretically possible for your hosting provider to take a snapshot of your running VPS instance, including any data currently
 in memory. There is no way to secure Infumap against this possibility.
@@ -134,7 +132,7 @@ Lock down the permissions of the server private key and config:
     sudo chmod 600 /etc/wireguard/wg0.conf /etc/wireguard/keys/server.key
 
 
-### Setup Wireguard on Raspberry Pi
+### Raspberry Pi Wireguard Setup
 
 Install wireguard:
 
@@ -173,7 +171,7 @@ Start wg0 up now:
     sudo systemctl start wg-quick@wg0
 
 
-### Add WireGuard Peer on VPS
+### Finalize VPS WireGuard Setup
 
 Now, on the VPS, add your Raspberry Pi as a peer:
 
@@ -189,11 +187,11 @@ Now, on the VPS, add your Raspberry Pi as a peer:
     PublicKey = {YOUR_CLIENT_PUBLIC_KEY}
     AllowedIPs = 10.0.0.2/24
 
-Automatically bring up the wg0 VPN interface on boot:
+Automatically bring up the `wg0` VPN interface on boot:
 
     systemctl enable wg-quick@wg0
 
-Start wg0 up now:
+And start `wg0` now:
 
     systemctl start wg-quick@wg0
 
@@ -208,7 +206,7 @@ With the above setup, I observe a periodic issue whereby the Raspberry Pi device
 the WireGuard network. I have not identified the exact cause, though I suspect it is likely due to my ISP
 changing the WLAN or public IP address. In order to work around this issue, I use a simple script to monitor
 whether the VPS server is reachable from the Raspberry Pi, and restart the WireGuard service on the Raspberry
-Pi device if not.
+Pi device if it is not.
 
 Copy the `infumap/tools/wg-monitor.sh` script to `/usr/local/bin/`.
 
@@ -283,9 +281,9 @@ You need to manually open the LUKS container and mount the volume on every syste
     sudo cryptsetup luksOpen enc_volume.img infuvol
     sudo mount /dev/mapper/infuvol /mnt/infudata
 
-You will be prompted for a password each time you open the LUKS volume. It is possible to automate this, but doing so
-would defeat the purpose of using the encrypted drive as it would provide a means for someone with access to the physical
-device to mount the volume.
+You will be prompted for a password each time you open the LUKS volume. It is possible to automate this on startup, but doing so
+would defeat the purpose of using the encrypted drive as as someone with access to the physical device would be able to mount the
+volume.
 
 
 ### Configure and run Infumap:
@@ -401,63 +399,17 @@ Enable and start the nftables service:
     systemctl start nftables
 
 
-### Test Network interruption
+### Network Interruption Test
 
 From raspberry pi instance:
 
     curl -4 ifconfig.me
 
-To get public IP of home network. Get WLAN IP from router.
+To get public IP of home network.
+Get WLAN IP from router.
 
 Remove power from Raspberry Pi and Router for some time.
 
 Turn back on, and see if everything recovers.
 
 Will need to manually re-mount secure drive on Raspberry Pi.
-
-
-### Additional Security
-
-Configure the firewall to disallow ssh access from the wireguard network. 
-
-Run caddy on a different Raspberry Pi instance. 
-
-### Infumap data sources
-
-Use unused resources on VPS for running infumap data sources.
-
-### Useful References:
-
-https://www.wireguard.com/papers/wireguard.pdf#page7
-https://gist.github.com/chrisswanda/88ade75fc463dcf964c6411d1e9b20f4
-https://serversideup.net/how-to-configure-a-wireguard-macos-client/
-https://serversideup.net/how-to-set-up-wireguard-vpn-server-on-ubuntu-20-04/
-https://dnsleaktest.com
-
-
-### TODO:
-
-https / DNS on private network.
-
-how does wireguard behave when the ISP changes your public IP or WAN address?
-
-note current public ip using:
-    curl -4 ifconfig.me
-and wan address using 
-
-Determine the default network interface for internet traffic:
-
-    ip -o -4 route show to default | awk '{print $5}'
-
-sdf
-
-    mv ./infumap/target/release/infumap ~
-    tmux
-    ./infumap web
-
-
-I personally use this VPS instance to host a number of proprietary services (for unsensitive information) that expose data via the infumap protocol which I link out to from my primary Infumap account.
-
-A downside of this setup is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I
-personally use it to host a number of proprietary Infumap data services for non-sensitive information built using
-[infusdk](https://github.com/infumap/infumap/tree/master/infusdk) that I reference from within my main instance.
