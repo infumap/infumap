@@ -16,13 +16,9 @@ There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one ea
 of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS
 traffic through the public IP of the VPS. This is the approach outlined in this document.
 
-A downside of this setup is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I
-personally use it to host a number of proprietary Infumap data services for non-sensitive information built using
-[infusdk](https://github.com/infumap/infumap/tree/master/infusdk) that I reference from within my main instance.
-
-A note on performance: Before I switched to using a Raspberry Pi 5 / VPS IP forwarding setup, I was hosting my personal Infumap instance on
-a Vultr 2 vCPU, 4 GB [high performance VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo. The performance/latency of the
-Raspberry setup is notably better, despite the additional network hops.
+Note on performance: Before I switched to using a Raspberry Pi 5 / VPS IP forwarding setup, I was hosting my personal Infumap instance on
+a Vultr 2 vCPU, 4 GB [high performance VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo. I observe the performance /
+latency of the Raspberry Pi setup outlined here to be notably better, despite the additional network hops.
 
 
 ### Initial Raspberry Pi Setup
@@ -87,9 +83,9 @@ Now clone the infumap repo:
 TODO: At the time of writing, there are no releases. When there are, check out the latest release before building. Do not use a
 master branch build in production as it will be much less well tested.
 
-Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the time of writing 0.39.7) and install similar to:
+Determine the latest version of `nvm` here https://github.com/nvm-sh/nvm (at the time of writing 0.40.1) and install similar to:
 
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
     nvm install node
 
 Finally build Infumap:
@@ -103,11 +99,12 @@ And copy to somewhere on the current `PATH`:
 
 ### Initial VPS Setup
 
-Create a VPS running Debian 12 x64 using your vendor of choice in a region as physically close as possible to your Raspberry
-Pi device.
+Create a VPS running Debian 12 x64 using your vendor of choice in a region as physically close to your Raspberry
+Pi device as possible.
 
-The smallest instance size will suffice, since we will not use the VPS instance for anything other than forwarding
-through HTTPS web requests to the Raspberry Pi device.
+The smallest instance size will suffice since we will not use the VPS instance for anything other than forwarding
+through HTTPS web requests to the Raspberry Pi device. I use a $5/mo instance from Vultr, however if you are physically
+located in a less obscure location than me, there 
 
 Use public-key authentication, with a different key to your Raspberry Pi.
 
@@ -371,17 +368,15 @@ via `docker` / `gvisor` for better isolation.
 
 ### Expose Infumap on VPS
 
-Enable IP forwarding on your server to allow it to route packets between interfaces
-
-edit `/etc/sysctl.conf` and uncomment the line:
+First enable IP forwarding on your server to allow it to route packets between interfaces. Edit `/etc/sysctl.conf` and uncomment the line:
 
     net.ipv4.ip_forward=1
 
-then
+Then
 
     sysctl -p
 
-nftables config :
+Now edit `/etc/nftables.conf` and set the contents to:
 
     #!/usr/sbin/nft -f
 
@@ -400,7 +395,7 @@ nftables config :
         }
     }
 
-Enable:
+Enable and start the nftables service:
 
     systemctl enable nftables
     systemctl start nftables
@@ -463,3 +458,6 @@ sdf
 
 I personally use this VPS instance to host a number of proprietary services (for unsensitive information) that expose data via the infumap protocol which I link out to from my primary Infumap account.
 
+A downside of this setup is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I
+personally use it to host a number of proprietary Infumap data services for non-sensitive information built using
+[infusdk](https://github.com/infumap/infumap/tree/master/infusdk) that I reference from within my main instance.
