@@ -17,8 +17,12 @@ of running their daemon `cloudflared`. Another option is to set up a wireguard V
 traffic through the public IP of the VPS. This is the approach outlined in this document.
 
 A downside of this setup is the VPS is hardly doing any work, so it's a waste of resources if you don't have something else for it to do. I
-personally use it to host a number of proprietary data services that expose information via the Infumap protocol built using
-[infusdk](https://github.com/infumap/infumap/tree/master/infusdk).
+personally use it to host a number of proprietary Infumap data services for non-sensitive information built using
+[infusdk](https://github.com/infumap/infumap/tree/master/infusdk) that I reference from within my main instance.
+
+A note on performance: Before I switched to using a Raspberry Pi 5 / VPS IP forwarding setup, I was hosting my personal Infumap instance on
+a Vultr 2 vCPU, 4 GB [high performance VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo. The performance/latency of the
+Raspberry setup is notably better, despite the additional network hops.
 
 
 ### Initial Raspberry Pi Setup
@@ -46,7 +50,6 @@ Setup firewall:
     sudo ufw default allow outgoing
     sudo ufw allow 22
     sudo ufw allow from 10.0.0.0/24 to any port 443 proto tcp
-    sudo ufw start
     sudo ufw enable
 
 Note: This assumes you will be setting up your wiregard network interface on 10.0.0.0/24. If this clashes with your router,
@@ -64,7 +67,7 @@ present in your home. The main implication of this comes if you decide to use an
 (which is highly recommended). In the event of a power outage, you will need to manually enter your password to re-mount the
 encrypted volume. If you have locked down ssh access, you won't be able to do this remotely.
 
-Your predicament is not as bad as it first seems though - if you have backups enabled (which you should), you can use the
+Your predicament is not as bad as it first seems though - if you have Infumap backups configured (which you should), you can use the
 `infumap emergency` command to quickly pull backup information locally and start up a temporary instance - you won't be
 locked out of access to your information.
 
@@ -100,12 +103,11 @@ And copy to somewhere on the current `PATH`:
 
 ### Initial VPS Setup
 
-Create a VPS running Debian 12 using your vendor of choice.
-
-Choose a region as close as possible to your Raspberry Pi device.
+Create a VPS running Debian 12 x64 using your vendor of choice in a region as physically close as possible to your Raspberry
+Pi device.
 
 The smallest instance size will suffice, since we will not use the VPS instance for anything other than forwarding
-through https web requests to the Raspberry Pi device.
+through HTTPS web requests to the Raspberry Pi device.
 
 Use public-key authentication, with a different key to your Raspberry Pi.
 
@@ -206,10 +208,10 @@ Verify it's up:
 ### Setup WireGuard monitor service
 
 With the above setup, I observe a periodic issue whereby the Raspberry Pi device becomes unreachable over
-the WireGuard network. I'm unsure of the exact cause, though I suspect it is likely due to my ISP changing
-the WLAN or public IP address. In order to work around this issue, I use a simple script to monitor whether
-the VPS server is reachable from the Raspberry Pi, and restart the WireGuard service on the Raspberry Pi
-device if not.
+the WireGuard network. I have not identified the exact cause, though I suspect it is likely due to my ISP
+changing the WLAN or public IP address. In order to work around this issue, I use a simple script to monitor
+whether the VPS server is reachable from the Raspberry Pi, and restart the WireGuard service on the Raspberry
+Pi device if not.
 
 Copy the `infumap/tools/wg-monitor.sh` script to `/usr/local/bin/`.
 
@@ -236,7 +238,110 @@ Reload systemd, start, and enable.
     sudo systemctl start wg-monitor.service
 
 
-### Install caddy on Raspberry Pi
+### Setup Encrypted drive
+
+You can create an encrypted volume on your Raspberry Pi to ensure that even if an attacker gains physical access to it,
+they cannot read your Infumap instance data without the encryption key.
+
+On your Rasperry Pi:
+
+    sudo apt-get install cryptsetup
+
+Check available bytes:
+
+    df -k
+
+The Raspberry Pi 5 kit comes with a 32 Gb flash drive. If you are using this, a 16Gb encrypted volume is appropriate.
+In `/root`, create this file with random data:
+
+    dd if=/dev/urandom of=enc_volume.img bs=1M count=16384 status=progress
+
+Format this file as a LUKS container:
+
+    sudo cryptsetup luksFormat enc_volume.img
+
+Open the container:
+
+    sudo cryptsetup luksOpen enc_volume.img infuvol
+
+Create a filesystem:
+
+    sudo mkfs.ext4 /dev/mapper/infuvol
+
+Create a mount point:
+
+    sudo mkdir /mnt/infudata
+
+And finally mount:
+
+    sudo mount /dev/mapper/infuvol /mnt/infudata
+
+You can unmount and close the LUKS container with:
+
+    sudo umount /mnt/infudata
+    sudo cryptsetup luksClose infuvol
+
+You need to manually open the LUKS container and mount the volume on every system reboot:
+
+    sudo cryptsetup luksOpen enc_volume.img infuvol
+    sudo mount /dev/mapper/infuvol /mnt/infudata
+
+You will be prompted for a password each time you open the LUKS volume. It is possible to automate this, but doing so
+would defeat the purpose of using the encrypted drive as it would provide a means for someone with access to the physical
+device to mount the volume.
+
+
+### Configure and run Infumap:
+
+The easiest way to create a default settings file is to simply run infumap:
+
+    infumap web
+    Ctrl-C
+
+The settings file will be created in ~/.infumap. Move this into the encrypted drive:
+
+    sudo mv ~/.infumap/* /mnt/infudata
+
+Update [settings.toml](../configuration.md) as desired. At a minimum, update the data and cache dirs and max cache size:
+
+    data_dir = "/mnt/infudata/data"
+    cache_dir = "/mnt/infudata/cache"
+    cache_max_mb = 12000
+
+A cache size of about 12Gb is appropriate if you use an object store, rather than local disk for data storage. For more
+information, refer to the [configuration](../configuration.md) guide.
+
+Since the encrypted drive used by Infumap needs to be manually mounted on reboot, there is little benefit to creating a
+service to manage it. I just use `tmux`.
+
+Start a new `tmux` session:
+
+    tmux
+
+Run Infumap:
+
+    infumap web --settings /mnt/infudata/settings.toml
+
+Key tmux commands to be aware of:
+
+    Ctrl-b-s (list sessions)
+    Ctrl-b-d (detatch)
+    Ctrl-b-a (attach)
+
+
+### Install Caddy on Your Raspberry Pi
+
+In order to serve infumap over HTTPS, you'll need to use a reverse proxy. You can run this on either your VPS instance
+or Raspberry Pi. An advantage of running it on the VPS is isolation from the `infumap` processes, particularly if you've
+disabled `ssh` access to your Raspberry Pi over the WireGuard network. It is also easier to set up. However, a significant
+downside is that unencrypted data from your Infumap instance will be exposed to the VPS as requests are served. This data
+is partial and transient, so the security implications are not as big as if the entire data set were available on the
+VPS at rest. Still, it is perferable to avoid this.
+
+We will use [Caddy](https://caddyserver.com/) for the reverse proxy because it is very easy to use - automatically provisions
+the TLS certificate and keeps it renewed.
+
+On your Raspberry Pi device:
 
     sudo apt install caddy
 
@@ -249,14 +354,20 @@ Contents of `/etc/caddy/Caddyfile`:
         }
     }
 
-    YOUR_DOMAINNAME {
+    YOUR_DOMAIN_NAME {
         reverse_proxy 127.0.0.1:8000
     }
 
-Start:
+Where YOUR_DOMAIN_NAME is your domain name, e.g. `example.com` or `infumap.example.com`.
+
+Enable and start:
 
     systemctl enable caddy
     systemctl start caddy
+
+If you are extra paranoid, you might consider running `caddy` on a separate physical device (a second Raspberry Pi) or
+via `docker` / `gvisor` for better isolation.
+
 
 ### Expose Infumap on VPS
 
@@ -294,75 +405,6 @@ Enable:
     systemctl enable nftables
     systemctl start nftables
 
-
-### Encrypted drive
-
-On Rasperry Pi:
-
-    sudo apt-get install cryptsetup
-
-Available bytes:
-
-    df -k
-
-In `/root`, create a 16Gb file with random data:
-
-    dd if=/dev/urandom of=enc_volume.img bs=1M count=16384 status=progress
-
-Format as a LUKS container:
-
-    sudo cryptsetup luksFormat enc_volume.img
-
-Open the container:
-
-    sudo cryptsetup luksOpen enc_volume.img infuvol
-
-Create filesystem:
-
-    sudo mkfs.ext4 /dev/mapper/infuvol
-
-Create a mount point:
-
-    sudo mkdir /mnt/infudata
-
-mount:
-
-    sudo mount /dev/mapper/infuvol /mnt/infudata
-
-Can unmount and close the LUKS container with:
-
-    sudo umount /mnt/infudata
-    sudo cryptsetup luksClose infuvol
-
-### Configure and run Infumap:
-
-The easiest way to create a default settings file is to simply run infumap:
-
-    infumap web
-    Ctrl-C
-
-Move the created files into the encrypted drive:
-
-    sudo mv ~/.infumap/* /mnt/infudata
-
-Update [settings.toml](../configuration.md) as desired. At a minimum, update the data and cache dirs:
-
-    data_dir = "/mnt/infudata/data"
-    cache_dir = "/mnt/infudata/cache"
-
-Start a tmux session to run infumap in:
-
-    tmux
-
-Run infumap:
-
-    infumap web --settings /mnt/infudata/settings.toml
-
-Key tmux commands to know:
-
-    Ctrl-b-s (list sessions)
-    Ctrl-b-d (detatch)
-    Ctrl-b-a (attach)
 
 ### Test Network interruption
 
