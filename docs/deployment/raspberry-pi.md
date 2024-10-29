@@ -12,11 +12,11 @@ a public IP address.
 
 There are many ways of setting this up. A Cloudflare Zero Trust Tunnel is one easy option, though you need to consider the security implications
 of running their daemon `cloudflared`. Another option is to set up a wireguard VPN between a low cost VPS and your Raspberry Pi and tunnel HTTPS
-traffic through the public IP of the VPS. This is the approach outlined in this document.
+traffic through the public IP of the VPS. This is the approach outlined in this document, and how I run my personal Infumap instance.
 
-Note on performance: Before I switched to using a Raspberry Pi 5 / VPS IP forwarding setup, I was hosting my personal Infumap instance on
-a Vultr 2 vCPU, 4 GB [high performance VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo. I observe the performance /
-latency of the Raspberry Pi setup outlined here to be notably better, despite the additional network hops.
+In terms of performance / latency, I find it notably better than hosting on a 2 vCPU, 4 GB
+[high performance Vultr VPS instance](https://www.vultr.com/pricing/#cloud-compute) @ $24 / mo, despite the additional network hops.
+This is what I was previously doing.
 
 
 ### Initial Raspberry Pi Setup
@@ -97,12 +97,11 @@ And copy to somewhere on the current `PATH`:
 
 ### Initial VPS Setup
 
-Create a VPS running Debian 12 x64 using your vendor of choice in a region as physically close to your Raspberry
+Create a VPS running Debian 12 x64 using your vendor of choice. Select a region as physically close to your Raspberry
 Pi device as possible.
 
-The smallest instance size will suffice since we will not use the VPS instance for anything other than forwarding
-through HTTPS web requests to the Raspberry Pi device. I use a $5/mo instance from Vultr, however if you are physically
-located in a less obscure location than me, there 
+A cheap/small instance size will suffice since we will not use the VPS instance for anything other than forwarding
+through HTTPS web requests to the Raspberry Pi device.
 
 Use public-key authentication, with a different key to your Raspberry Pi.
 
@@ -200,7 +199,7 @@ Verify it's up:
     wg show wg0
 
 
-### Setup WireGuard monitor service
+### Setup A WireGuard Monitoring Service
 
 With the above setup, I observe a periodic issue whereby the Raspberry Pi device becomes unreachable over
 the WireGuard network. I have not identified the exact cause, though I suspect it is likely due to my ISP
@@ -235,8 +234,8 @@ Reload systemd, start, and enable.
 
 ### Setup Encrypted drive
 
-You can create an encrypted volume on your Raspberry Pi to ensure that even if an attacker gains physical access to it,
-they cannot read your Infumap instance data without the encryption key.
+Create an encrypted volume on your Raspberry Pi to ensure that even if an attacker gains physical access to it,
+they cannot read your Infumap instance data.
 
 On your Rasperry Pi:
 
@@ -286,14 +285,14 @@ would defeat the purpose of using the encrypted drive as as someone with access 
 volume.
 
 
-### Configure and run Infumap:
+### Configure and Run Infumap:
 
 The easiest way to create a default settings file is to simply run infumap:
 
     infumap web
     Ctrl-C
 
-The settings file will be created in ~/.infumap. Move this into the encrypted drive:
+The settings file will be created in `~/.infumap`. Move this into the encrypted drive:
 
     sudo mv ~/.infumap/* /mnt/infudata
 
@@ -307,7 +306,7 @@ A cache size of about 12Gb is appropriate if you use an object store, rather tha
 information, refer to the [configuration](../configuration.md) guide.
 
 Since the encrypted drive used by Infumap needs to be manually mounted on reboot, there is little benefit to creating a
-service to manage it. I just use `tmux`.
+service to manage Infumap. I just run it in a `tmux` session.
 
 Start a new `tmux` session:
 
